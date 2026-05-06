@@ -825,7 +825,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                     </div>
 
                     <div className="relative mt-12 mb-8 rounded-full">
-                        <svg className="w-64 h-64 transform -rotate-90 relative z-10">
+                        <svg className="w-[min(74vw,16rem)] h-[min(74vw,16rem)] sm:w-64 sm:h-64 transform -rotate-90 relative z-10">
                             <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="14" strokeLinecap="round" />
                             <defs>
                                 <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -845,8 +845,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                         </svg>
 
                         <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-                            <span ref={clockRef} className="text-7xl font-black tracking-tight text-white drop-shadow-2xl">{formatTime(timeLeft)}</span>
-                            <span className="text-[11px] font-black uppercase tracking-[0.4em] text-white mt-2">
+                            <span ref={clockRef} className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white drop-shadow-2xl leading-none tabular-nums">{formatTime(timeLeft)}</span>
+                            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.25em] sm:tracking-[0.4em] text-white mt-2 text-center px-2">
                                 {isRunning ? (mode === 'work' ? 'PROTOCOL Foco' : (mode === 'long_break' ? 'Pausa Longa' : 'Recuperação')) : 'SESSÃO PAUSADA'}
                             </span>
                         </div>

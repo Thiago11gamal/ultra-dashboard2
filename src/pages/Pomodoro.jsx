@@ -805,8 +805,8 @@ export default function Pomodoro() {
     }
 
     return (<PageErrorBoundary pageName="Pomodoro">
-        <div className="min-h-0 flex items-start justify-center pt-14 pb-6 px-0">
-            <div className="flex flex-col xl:flex-row gap-10 items-start justify-center w-full max-w-[1440px] mx-auto px-4">
+        <div className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-4 sm:pt-6 lg:pt-8 pb-8 px-2 sm:px-3">
+            <div className="flex flex-col xl:flex-row gap-6 xl:gap-10 items-start justify-center w-full max-w-[1440px] mx-auto px-2 sm:px-4">
                 <div className="flex-1 flex flex-col items-center min-w-0">
                     <PomodoroTopBar
                         activeSubject={activeSubject}
