@@ -98,10 +98,18 @@ function PersonalRanking({ categories = [] }) {
         return categories.map(cat => {
             const stats = cat.simuladoStats || { history: [] };
             const history = stats.history || [];
-            const total = history.reduce((acc, h) => acc + Number(h.total || 0), 0);
+            const total = history.reduce((acc, h) => {
+                const parsedTotal = Number(h.total);
+                if (Number.isFinite(parsedTotal) && parsedTotal > 0) return acc + parsedTotal;
+                const fallback = (Number(h.correct) || 0) + (Number(h.wrong) || 0);
+                return acc + Math.max(0, fallback);
+            }, 0);
             const ms = cat.maxScore ?? 100;
             const correct = history.reduce((acc, h) => {
-                const t = Number(h.total) || 0;
+                const parsedTotal = Number(h.total);
+                const t = (Number.isFinite(parsedTotal) && parsedTotal > 0)
+                    ? parsedTotal
+                    : Math.max(0, (Number(h.correct) || 0) + (Number(h.wrong) || 0));
                 const c = t > 0 ? (getSafeScore(h, ms) / ms) * t : 0;
                 return acc + c;
             }, 0);

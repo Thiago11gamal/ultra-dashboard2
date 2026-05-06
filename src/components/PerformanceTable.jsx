@@ -59,8 +59,19 @@ const PerformanceTable = ({ categories = [] }) => {
                             const history = stats.history || [];
                             const ms = category.maxScore ?? 100;
 
-                            const totalQuestions = history.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
-                            const totalCorrectRaw = history.reduce((acc, h) => acc + (getSafeScore(h, ms) / ms * (Number(h.total) || 0)), 0);
+                            const totalQuestions = history.reduce((acc, h) => {
+                                const parsedTotal = parseInt(h.total, 10);
+                                if (Number.isFinite(parsedTotal) && parsedTotal > 0) return acc + parsedTotal;
+                                const fallback = (Number(h.correct) || 0) + (Number(h.wrong) || 0);
+                                return acc + Math.max(0, fallback);
+                            }, 0);
+                            const totalCorrectRaw = history.reduce((acc, h) => {
+                                const parsedTotal = parseInt(h.total, 10);
+                                const baseTotal = (Number.isFinite(parsedTotal) && parsedTotal > 0)
+                                    ? parsedTotal
+                                    : Math.max(0, (Number(h.correct) || 0) + (Number(h.wrong) || 0));
+                                return acc + (baseTotal > 0 ? (getSafeScore(h, ms) / ms * baseTotal) : 0);
+                            }, 0);
                             const totalCorrect = Math.max(0, Math.round(totalCorrectRaw));
                             const totalWrong = Math.max(0, totalQuestions - totalCorrect);
                             const netBalance = totalCorrect - totalWrong;
