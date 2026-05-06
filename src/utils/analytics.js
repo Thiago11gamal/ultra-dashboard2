@@ -578,7 +578,11 @@ export const getCompleteReport = (data) => {
         goals: {
             ...goals,
             current: data.pomodorosCompleted || 0,
-            progress: Math.round(((data.pomodorosCompleted || 0) / goals.daily) * 100)
+            // BUGFIX: quando a meta diária é 0 (ex.: sem tarefas pendentes), evitar divisão por zero.
+            // Mantemos o progresso em 100 se não há exigência no dia, caso contrário clamp [0,100].
+            progress: goals.daily <= 0
+                ? 100
+                : Math.max(0, Math.min(100, Math.round(((data.pomodorosCompleted || 0) / goals.daily) * 100)))
         },
         // BUG 3 FIX: balance.status === 'sem_dados' recebia 40 (mesmo que 'alerta'),
         // penalizando usuários novos sem histórico de estudo.
