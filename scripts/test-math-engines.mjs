@@ -1,6 +1,7 @@
 import { simulateNormalDistribution } from '../src/engine/monteCarlo.js';
 import { monteCarloSimulation, calculateVolatility, projectScore, calculateSlope } from '../src/engine/projection.js';
 import { normalCDF_complement } from '../src/engine/math/gaussian.js';
+import { estimateInterSubjectCorrelation } from '../src/engine/variance.js';
 
 const checks = [];
 
@@ -54,6 +55,16 @@ addCheck('projection.projectScore bounded [0,100]', projection.projected >= 0 &&
 const mc = monteCarloSimulation(history, 70, 60, 800, { maxScore: 100, minScore: 0, seed: 42 });
 addCheck('projection.monteCarloSimulation probability [0,100]', mc.probability >= 0 && mc.probability <= 100, mc.probability);
 addCheck('projection.monteCarloSimulation ci ordered', mc.ci95Low <= mc.ci95High, `${mc.ci95Low}..${mc.ci95High}`);
+
+const negativelyCorrelatedRows = [
+  { Direito: 95, Penal: 50 },
+  { Direito: 90, Penal: 60 },
+  { Direito: 85, Penal: 70 },
+  { Direito: 80, Penal: 80 }
+];
+
+const negativeCorr = estimateInterSubjectCorrelation(negativelyCorrelatedRows, ['Direito', 'Penal'], -0.05);
+addCheck('variance.estimateInterSubjectCorrelation preserves negative correlations', negativeCorr < 0, negativeCorr);
 
 const failures = checks.filter(c => !c.pass);
 console.table(checks);
