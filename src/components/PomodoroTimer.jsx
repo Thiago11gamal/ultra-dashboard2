@@ -763,7 +763,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     return (
         <div className="w-full relative min-h-[80vh] flex flex-col items-center">
             <div
-                className={`w-full max-w-[min(95vw,600px)] space-y-12 relative flex flex-col items-center mx-auto ${!isLayoutLocked ? 'z-[90]' : 'z-50'}`}
+                className={`w-full max-w-none lg:max-w-[min(95vw,600px)] space-y-12 relative flex flex-col items-center mx-auto ${!isLayoutLocked ? 'z-[90]' : 'z-50'}`}
             >
                 <div className="relative flex items-center justify-center py-2 w-full px-4">
                     <div className="flex-1 flex justify-center bg-transparent">
@@ -802,7 +802,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
                 <div
                     style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)' }}
-                    className="w-full border-[6px] border-[#3f2e26] pt-32 pb-16 px-6 sm:px-10 rounded-2xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
+                    className="w-full border-y-[6px] border-x-0 sm:border-[6px] border-[#3f2e26] pt-32 pb-16 px-4 sm:px-10 rounded-none sm:rounded-2xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
                 >
                     <div className="absolute top-4 right-6 z-[60]">
                         <div className="flex bg-[#1a1411] p-1.5 rounded-xl border border-[#3f2e26] shadow-2xl backdrop-blur-md">
