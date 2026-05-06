@@ -183,7 +183,7 @@ export default function Sidebar({
                                             className={`sidebar-item group !py-2 relative w-full text-left ${isActive ? 'active' : ''}`}
                                             title={name}
                                             onClick={() => {
-                                                onSwitchContest(id);
+                                                if (id !== activeContestId) onSwitchContest(id);
                                                 closeMobileSidebar();
                                             }}
                                             onKeyDown={(e) => {
@@ -250,6 +250,7 @@ export default function Sidebar({
                                             key={item.path}
                                             to={item.path}
                                             className={`sidebar-item ${isActive ? 'active' : ''}`}
+                                            aria-current={isActive ? "page" : undefined}
                                             style={{
                                                 '--item-color': item.color,
                                                 '--item-color-alpha': `${item.color}15`
