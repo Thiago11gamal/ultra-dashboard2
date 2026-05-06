@@ -89,6 +89,7 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   const maxSamples = Number(cfg.maxSamples) || 20;
   const recent = safeHistory
     .filter(h => Number.isFinite(Number(h?.timestamp)) && Number(h.timestamp) >= cutoff)
+    .sort((a, b) => Number(a.timestamp) - Number(b.timestamp))
     .slice(-maxSamples);
   
   const minSamples = Number(cfg.minSamples) || 4;

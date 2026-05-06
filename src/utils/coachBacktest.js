@@ -25,7 +25,8 @@ export function computeUplift(control = [], treatment = []) {
 
 export function computeCalibratedError(probability, actual) {
   const p = Math.max(0, Math.min(1, Number(probability) || 0));
-  const y = actual ? 1 : 0;
+  const yRaw = Number(actual);
+  const y = Number.isFinite(yRaw) ? (yRaw >= 0.5 ? 1 : 0) : (actual === true ? 1 : 0);
   return Math.abs(p - y);
 }
 
