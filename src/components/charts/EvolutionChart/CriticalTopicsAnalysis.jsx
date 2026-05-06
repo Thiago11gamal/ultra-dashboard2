@@ -70,7 +70,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
-                        ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
+                        ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
                         : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t, maxScore) / maxScore) * total));
 
                     topicMap[key].total += total;
@@ -123,7 +123,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 const t = parseInt(h.total, 10) || 0;
                 if (t === 0) continue;
                 const correctCount = (h.isPercentage && h.score != null && t > 0)
-                    ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * t)
+                    ? Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * t)
                     : (h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h, maxScore) / maxScore) * t));
                 
                 total += t;

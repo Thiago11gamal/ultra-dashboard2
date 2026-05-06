@@ -497,7 +497,7 @@ export const calculatePomodoroStats = (stats) => {
         todayMinutes += minutesToCount;
         // FIX: Adiciona apenas a fração do pomodoro que pertence a "hoje"
         // Calcula o equivalente em blocos de pomodoro de 25 minutos
-        fractionalPomodoros += (minutesToCount / 25);
+        fractionalPomodoros += (minutesToCount / pomodoroDuration);
 
         const cat = categories.find(c => c.id === session.categoryId);
         if (cat) {

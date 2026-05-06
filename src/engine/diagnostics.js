@@ -152,9 +152,7 @@ export function estimateMemoryStability(history, maxScore = 100) {
     const h = sorted[i];
     const score = Number(h.score) || 0;
     const total = Number(h.total) || 0;
-    const pct = total > 0
-      ? Math.min(1, Math.max(0, score / total))
-      : Math.min(1, Math.max(0, score / maxScore));
+    const pct = Math.min(1, Math.max(0, score / maxScore));
 
     if (pct >= SUCCESS_THRESHOLD) {
       stability *= GROWTH_FACTOR;

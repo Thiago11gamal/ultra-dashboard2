@@ -322,7 +322,8 @@ export default function VerifiedStats({ categories = [], user }) {
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Flatten history for global regression
                 cat.simuladoStats.history.forEach(h => {
-                    const safeScore = getSafeScore(h, maxScore);
+                    const catMaxScore = Number(cat.maxScore) || maxScore;
+                    const safeScore = getSafeScore(h, catMaxScore);
                     const parsedDate = normalizeDate(h.date);
                     if (parsedDate && safeScore >= 0) {
                         allHistory.push({
@@ -359,9 +360,9 @@ export default function VerifiedStats({ categories = [], user }) {
             window_size: Math.min(5, dailyHistory.length),
             stagnation_threshold: 4.0,
             low_level_limit: 60,
-            high_level_limit: statsTarget,
-            mastery_limit: statsTarget,
-            maxScore
+            high_level_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
+            mastery_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
+            maxScore: 100
         });
 
         // Map to UI-compatible format
@@ -546,9 +547,9 @@ export default function VerifiedStats({ categories = [], user }) {
                     window_size: Math.min(5, analysisHistory.length),
                     stagnation_threshold: 4.0,
                     low_level_limit: 60,
-                    high_level_limit: statsTarget,
-                    mastery_limit: statsTarget,
-                    maxScore
+                    high_level_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
+                    mastery_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
+                    maxScore: 100
                 });
 
                 categoryAnalyses.push(analysis);

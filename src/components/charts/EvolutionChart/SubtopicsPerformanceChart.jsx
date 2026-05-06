@@ -265,7 +265,7 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
                             <Bar dataKey="accuracy" radius={[0, 4, 4, 0]} barSize={26}>
                                 {chartData.map((entry, index) => {
                                     let barColor = "#ef4444";
-                                    if (entry.accuracy >= targetScore) barColor = "#10b981";
+                                    if (entry.accuracy >= targetScorePct) barColor = "#10b981";
                                     else if (entry.accuracy >= 60) barColor = "#f59e0b";
                                     return <Cell key={`cell-${index}`} fill={barColor} />;
                                 })}

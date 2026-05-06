@@ -27,7 +27,7 @@ export const createGamificationSlice = (set, get) => ({
                 totalQuestions: activeData.categories?.reduce((sum, cat) => {
                     const hist = cat.simuladoStats?.history;
                     const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
-                    const syntheticTotal = getSyntheticTotal(cat.maxScore ?? 100);
+                    const syntheticTotal = getSyntheticTotal(Number(cat.maxScore) || 100);
                     return sum + (histArr?.reduce((h, e) => {
                         const t = Number(e.total) || 0;
                         if (t === 0 && e.score != null) return h + syntheticTotal;
@@ -37,7 +37,7 @@ export const createGamificationSlice = (set, get) => ({
                 hasPerfectScore: activeData.categories?.some(cat => {
                     const hist = cat.simuladoStats?.history;
                     const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
-                    const maxS = cat.maxScore ?? 100;
+                    const maxS = Number(cat.maxScore) || 100;
                     return histArr?.some(h => getSafeScore(h, maxS) >= maxS || (h.correct === h.total && h.total > 0));
                 }) || false,
                 pomodorosCompleted: activeData.studySessions?.length || 0,

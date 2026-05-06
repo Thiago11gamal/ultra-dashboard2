@@ -130,8 +130,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         let weightedBayesianBeta = 0;
 
         const scoresByDate = {};
-        const weightsByName = {};
-        const maxScoreByName = {};
+        const weightsByKey = {};
+        const maxScoreByKey = {};
         const bayesianStats = [];
 
         const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
@@ -164,14 +164,14 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     totalWeight += weight;
                     weightedBayesianAlpha += baye.alpha * weight;
                     weightedBayesianBeta += baye.beta * weight;
-                    weightsByName[weightKey] = weight;
-                    maxScoreByName[weightKey] = catMaxScore;
+                    weightsByKey[weightKey] = weight;
+                    maxScoreByKey[weightKey] = catMaxScore;
 
                     history.forEach(h => {
                         const dk = getDateKey(h.date);
                         if (dk) {
                             if (!scoresByDate[dk]) scoresByDate[dk] = {};
-                            const existing = scoresByDate[dk][cat.name];
+                            const existing = scoresByDate[dk][weightKey];
                             const currentScore = getSafeScore(h, catMaxScore);
                             const currentTotal = Number(h.total) || 0;
                             const currentCorrect = Number(h.correct) || 0;
@@ -180,9 +180,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                                 const newTotal = existing.total + currentTotal;
                                 let newCorrect = existing.correct + currentCorrect;
                                 let newScore = newTotal > 0 ? (newCorrect / newTotal) * catMaxScore : (existing.score + currentScore) / 2;
-                                scoresByDate[dk][cat.name] = { score: newScore, correct: newCorrect, total: newTotal };
+                                scoresByDate[dk][weightKey] = { score: newScore, correct: newCorrect, total: newTotal };
                             } else {
-                                scoresByDate[dk][cat.name] = { score: currentScore, correct: currentCorrect, total: currentTotal };
+                                scoresByDate[dk][weightKey] = { score: currentScore, correct: currentCorrect, total: currentTotal };
                             }
                         }
                     });
@@ -213,8 +213,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             let pooledCorrect = 0;
             let pooledTotal = 0;
             Object.keys(scoresByDate[date]).forEach(name => {
-                const w = weightsByName[name];
-                const catMaxScore = maxScoreByName[name] || maxScore;
+                const w = weightsByKey[name];
+                const catMaxScore = maxScoreByKey[name] || maxScore;
                 const metrics = scoresByDate[date][name];
                 if (w > 0 && metrics !== undefined) {
                     const total = metrics.total || getSyntheticTotal(catMaxScore);
@@ -365,6 +365,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         return statsData.categoryStats
             .filter(cat => cat.weight > 0)
             .map(cat => {
+                const catMaxScore = Number(cat.maxScore) || maxScore;
                 const currentBaseline = cat.bayesianMean ?? cat.mean;
                 const rawTrend = cat.trendValue || 0;
                 
@@ -376,18 +377,18 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 const totalTrendProjection = dailyTrend * projectedDaysAmortized;
 
                 const baseline = (!effectiveSimulateToday && projectDays > 0)
-                    ? Math.max(minScore, Math.min(maxScore, currentBaseline + totalTrendProjection))
+                    ? Math.max(0, Math.min(catMaxScore, currentBaseline + totalTrendProjection))
                     : currentBaseline;
 
                 // 🎯 predictive variance: bayesianSd includes both epistemic and aleatoric variance.
                 const result = simulateNormalDistribution({
                     mean: baseline,
                     sd: cat.bayesianSd ?? cat.sd,
-                    targetScore: debouncedTarget,
+                    targetScore: (maxScore > 0 ? (debouncedTarget / maxScore) * catMaxScore : debouncedTarget),
                     simulations: 500,
                     categoryName: cat.name,
-                    minScore,
-                    maxScore,
+                    minScore: 0,
+                    maxScore: catMaxScore,
                 });
 
                 return { name: cat.name, prob: result.probability, mean: baseline, trend: cat.trend };

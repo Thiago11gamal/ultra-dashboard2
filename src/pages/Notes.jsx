@@ -82,7 +82,7 @@ export default function Notes() {
                         date: dateKey,
                         correct: totalC,
                         total: totalQ,
-                        score: totalQ > 0 ? (totalC / totalQ) * 100 : 0,
+                        score: totalQ > 0 ? (totalC / totalQ) * (Number(cat.maxScore) || 100) : 0,
                         topics: topics
                     };
                 }

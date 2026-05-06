@@ -29,7 +29,7 @@ export const mapRetentionData = (categories = []) => {
             // Assuntos consolidados (muitas questões ou alta precisão) esquecem mais devagar.
             let halfLife = 7; // Base 7 dias
             const totalQ = cat.simuladoStats?.totalQuestions || 0;
-            const accuracy = cat.bayesianStats?.mean ? (cat.bayesianStats.mean / 100) : 0;
+            const accuracy = cat.bayesianStats?.mean ? (cat.bayesianStats.mean / (Number(cat.maxScore) || 100)) : 0;
 
             if (totalQ > 100 || accuracy > 0.85) halfLife = 30;
             else if (totalQ > 50 || accuracy > 0.70) halfLife = 14;
