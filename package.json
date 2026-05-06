@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node scripts/test-math-engines.mjs",
-    "test:math": "node scripts/test-math-engines.mjs"
+    "test:math": "node scripts/test-math-engines.mjs",
+    "test:unit": "vitest run",
+    "test:all": "npm run test:math && npm run test:unit"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -49,6 +51,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "tailwindcss": "^4.1.17",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^2.1.8"
   }
 }
