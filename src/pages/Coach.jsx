@@ -245,7 +245,7 @@ export default function Coach() {
     const projectedScore = mcStats?.projectedMean ?? 0;
     const volatility = mcStats?.sd ?? 0;
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore), [combinedHistory, currentMaxScore]);
-    const totalSimulados = useMemo(() => (Array.isArray(simulados) ? simulados.length : 0), [simulados]);
+    const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
 
     const analysisHash = useMemo(() => {
         // HASH-GUARD: Evita loop infinito se a análise persistir métricas que alteram o 'data'.
@@ -415,7 +415,12 @@ export default function Coach() {
                     <div className="flex items-center gap-6 bg-slate-900/40 border border-white/5 p-4 rounded-3xl backdrop-blur-md">
                         <QuickStat label="Volatilidade" value={`${volatility.toFixed(1)}%`} color="text-rose-400" icon={<Zap size={14} />} />
                         <div className="w-px h-10 bg-white/5" />
-                        <QuickStat label="Tendência" value={`${(drift * 30).toFixed(1)}pp`} color="text-emerald-400" icon={<ArrowUpRight size={14} />} />
+                        <QuickStat
+                            label="Tendência"
+                            value={`${((drift * 30) / currentMaxScore * 100).toFixed(1)}pp`}
+                            color="text-emerald-400"
+                            icon={<ArrowUpRight size={14} />}
+                        />
                         <div className="w-px h-10 bg-white/5" />
                         <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
                     </div>
