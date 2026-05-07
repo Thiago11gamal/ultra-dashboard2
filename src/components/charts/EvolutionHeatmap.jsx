@@ -112,6 +112,8 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                             type="button"
                             key={opt.value}
                             onClick={() => setWindowSize(opt.value)}
+                            aria-label={`Filtrar janela ${opt.label}`}
+                            aria-pressed={windowSize === opt.value}
                             className={`px-2 py-1 rounded text-[9px] font-bold ${windowSize === opt.value ? 'bg-indigo-600/25 text-indigo-300' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             {opt.label}
@@ -124,6 +126,8 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                             type="button"
                             key={opt.value}
                             onClick={() => setGranularity(opt.value)}
+                            aria-label={`Selecionar granularidade ${opt.label}`}
+                            aria-pressed={granularity === opt.value}
                             className={`px-2 py-1 rounded text-[9px] font-bold ${granularity === opt.value ? 'bg-cyan-600/25 text-cyan-300' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             {opt.label}
