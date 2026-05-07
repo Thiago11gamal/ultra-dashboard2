@@ -21,7 +21,8 @@
     "test:weekly-insights": "node scripts/test-weekly-insights.mjs",
     "test:evolution-suite": "node scripts/test-evolution-suite.mjs",
     "test:projection-scenario": "node scripts/test-projection-scenario.mjs",
-    "test:evolution-all": "npm run test && npm run test:evolution-suite"
+    "test:evolution-all": "npm run test && npm run test:evolution-suite",
+    "test:evolution-ui": "node scripts/test-evolution-ui-contracts.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

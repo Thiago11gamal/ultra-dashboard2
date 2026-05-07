@@ -5,6 +5,7 @@ const checks = [
   'scripts/test-heatmap-aggregation.mjs',
   'scripts/test-weekly-insights.mjs',
   'scripts/test-projection-scenario.mjs',
+  'scripts/test-evolution-ui-contracts.mjs',
 ];
 
 for (const script of checks) {
