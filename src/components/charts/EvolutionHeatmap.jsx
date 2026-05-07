@@ -152,6 +152,9 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                 {d.dayName}
                             </span>
                             <span className="text-[10px] font-mono font-bold text-slate-300">{d.label}</span>
+                            {Number.isFinite(Number(d.count)) && Number(d.count) > 1 && (
+                                <span className="text-[8px] text-slate-500">{d.count}d</span>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -197,6 +200,11 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 pb-1.5 border-b border-white/5 w-full">
                                                     {filteredDates[ci].dayName} • {filteredDates[ci].label}
                                                 </span>
+                                                {Number.isFinite(Number(filteredDates[ci]?.count)) && Number(filteredDates[ci].count) > 1 && (
+                                                    <span className="text-[8px] text-slate-500 mb-2">
+                                                        Janela agregada: {filteredDates[ci].count} dias
+                                                    </span>
+                                                )}
                                                 <div className="flex flex-col items-center justify-center py-2 px-3 rounded-xl bg-white/5 w-full mb-2">
                                                     <span className="text-[16px] font-black leading-none mb-1" style={{ color: col.text }}>
                                                         {Number.isFinite(cell.pct) ? `${cell.pct.toFixed(2)}${unit}` : '—'}
