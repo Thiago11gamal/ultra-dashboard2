@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) => {
     const { dates = [], rows = [] } = heatmapData || {};
     const [windowSize, setWindowSize] = useState('all');
+    const [granularity, setGranularity] = useState('daily');
 
     const filtered = useMemo(() => {
         if (!Array.isArray(dates) || !Array.isArray(rows)) return { dates: [], rows: [] };
@@ -27,8 +28,46 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
         return { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
     };
 
-    const filteredDates = filtered.dates;
-    const filteredRows = filtered.rows;
+    const aggregated = useMemo(() => {
+        if (granularity !== 'weekly') return filtered;
+
+        const weekBuckets = new Map();
+        filtered.dates.forEach((d, index) => {
+            const key = `${d.key?.slice(0, 7) || 'sem'}-W${Math.ceil((Number((d.key || '').slice(8, 10)) || 1) / 7)}`;
+            if (!weekBuckets.has(key)) {
+                weekBuckets.set(key, {
+                    key,
+                    label: d.label,
+                    dayName: `S${weekBuckets.size + 1}`,
+                    isWeekend: false,
+                    indices: [],
+                });
+            }
+            weekBuckets.get(key).indices.push(index);
+        });
+
+        const aggDates = [...weekBuckets.values()].map(({ indices, ...meta }) => ({
+            ...meta,
+            count: indices.length,
+        }));
+
+        const aggRows = filtered.rows.map((row) => ({
+            ...row,
+            cells: [...weekBuckets.values()].map(({ indices }) => {
+                const samples = indices.map(i => row.cells?.[i]).filter(Boolean);
+                if (!samples.length) return null;
+                const total = samples.reduce((acc, c) => acc + (Number(c.total) || 0), 0);
+                const correct = samples.reduce((acc, c) => acc + (Number(c.correct) || 0), 0);
+                const pct = total > 0 ? (correct / total) * 100 : null;
+                return { total, correct, pct };
+            })
+        }));
+
+        return { dates: aggDates, rows: aggRows };
+    }, [filtered, granularity]);
+
+    const filteredDates = aggregated.dates;
+    const filteredRows = aggregated.rows;
 
     const maxCellTotal = useMemo(() => {
         const totals = filteredRows
@@ -53,6 +92,18 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                             key={opt.value}
                             onClick={() => setWindowSize(opt.value)}
                             className={`px-2 py-1 rounded text-[9px] font-bold ${windowSize === opt.value ? 'bg-indigo-600/25 text-indigo-300' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+                <div className="flex items-center gap-1 bg-slate-950/60 border border-slate-800 rounded-lg p-1 mr-2">
+                    {[{ label: 'Diário', value: 'daily' }, { label: 'Semanal', value: 'weekly' }].map(opt => (
+                        <button
+                            type="button"
+                            key={opt.value}
+                            onClick={() => setGranularity(opt.value)}
+                            className={`px-2 py-1 rounded text-[9px] font-bold ${granularity === opt.value ? 'bg-cyan-600/25 text-cyan-300' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             {opt.label}
                         </button>
