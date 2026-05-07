@@ -7,6 +7,7 @@ import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDuration } from '../../../utils/dateHelper';
 import { formatValue, formatPercent } from '../../../utils/scoreHelper';
+import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario';
 
 const SCENARIO_OPTIONS = [
     { id: 'conservative', label: 'Conserv.', fullLabel: 'Conservador' },
@@ -52,36 +53,9 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             });
     }, [data, maxScore]);
 
-    const scenarioAdjustedData = useMemo(() => {
-        const cfg = {
-            conservative: { meanBias: -2.5, ciMult: 1.2 },
-            base: { meanBias: 0, ciMult: 1 },
-            optimistic: { meanBias: 2.5, ciMult: 0.85 },
-        }[scenario] || { meanBias: 0, ciMult: 1 };
+    const scenarioAdjustedData = useMemo(() => applyScenarioAdjustments(formattedData, scenario, maxScore), [formattedData, scenario, maxScore]);
 
-        return formattedData.map((d) => {
-            const mean = Math.max(0, Math.min(maxScore, (Number(d.mean) || 0) + cfg.meanBias));
-            const low = Math.max(0, Math.min(maxScore, mean - ((mean - d.ciRange[0]) * cfg.ciMult)));
-            const high = Math.max(0, Math.min(maxScore, mean + ((d.ciRange[1] - mean) * cfg.ciMult)));
-            const probBase = Number.isFinite(Number(d.probability)) ? Number(d.probability) : 0;
-            const probAdj = Math.max(0, Math.min(100, probBase + (cfg.meanBias * 1.8)));
-            return { ...d, mean, probability: probAdj, ciRange: [Math.min(low, high), Math.max(low, high)] };
-        });
-    }, [formattedData, scenario, maxScore]);
-
-    const qualitySignal = useMemo(() => {
-        if (!scenarioAdjustedData.length) return null;
-        const latest = scenarioAdjustedData[scenarioAdjustedData.length - 1];
-        const width = Math.max(0, Number(latest?.ciRange?.[1] ?? 0) - Number(latest?.ciRange?.[0] ?? 0));
-
-        if (scenarioAdjustedData.length < 4 || width >= Math.max(12, maxScore * 0.18)) {
-            return { label: 'Sinal Fraco', color: 'text-amber-300 border-amber-500/40 bg-amber-500/10' };
-        }
-        if (width <= Math.max(6, maxScore * 0.1) && scenarioAdjustedData.length >= 8) {
-            return { label: 'Sinal Forte', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' };
-        }
-        return { label: 'Sinal Médio', color: 'text-sky-300 border-sky-500/40 bg-sky-500/10' };
-    }, [scenarioAdjustedData, maxScore]);
+    const qualitySignal = useMemo(() => classifyScenarioSignal(scenarioAdjustedData, maxScore), [scenarioAdjustedData, maxScore]);
 
     const mcAssumptions = useMemo(() => {
         if (!scenarioAdjustedData.length) return null;

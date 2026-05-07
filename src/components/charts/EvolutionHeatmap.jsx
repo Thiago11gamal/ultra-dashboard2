@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { aggregateHeatmap } from '../../utils/heatmapAggregation';
 
 export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) => {
     const { dates = [], rows = [] } = heatmapData || {};
@@ -28,64 +29,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
         return { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
     };
 
-    const aggregated = useMemo(() => {
-        if (granularity === 'daily') return filtered;
-
-        const getWeekKey = (rawKey = '') => {
-            const dt = /^\d{4}-\d{2}-\d{2}$/.test(rawKey) ? new Date(`${rawKey}T12:00:00`) : new Date(rawKey);
-            if (Number.isNaN(dt.getTime())) return `sem-${rawKey || 'na'}`;
-            const day = dt.getDay();
-            const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
-            dt.setDate(diff);
-            const y = dt.getFullYear();
-            const m = String(dt.getMonth() + 1).padStart(2, '0');
-            const d = String(dt.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        };
-
-        const buckets = new Map();
-        filtered.dates.forEach((d, index) => {
-            const key = granularity === 'monthly'
-                ? String(d.key || '').slice(0, 7)
-                : getWeekKey(d.key);
-            const monthLabel = (() => {
-                if (granularity !== 'monthly' || !/^\d{4}-\d{2}$/.test(key)) return d.label;
-                const [yy, mm] = key.split('-');
-                const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-                const monthIdx = Math.max(0, Math.min(11, Number(mm) - 1));
-                return `${monthNames[monthIdx]}/${yy.slice(2)}`;
-            })();
-            if (!buckets.has(key)) {
-                buckets.set(key, {
-                    key,
-                    label: monthLabel,
-                    dayName: granularity === 'monthly' ? 'MÊS' : `Sem ${buckets.size + 1}`,
-                    isWeekend: false,
-                    indices: [],
-                });
-            }
-            buckets.get(key).indices.push(index);
-        });
-
-        const aggDates = [...buckets.values()].map(({ indices, ...meta }) => ({
-            ...meta,
-            count: indices.length,
-        }));
-
-        const aggRows = filtered.rows.map((row) => ({
-            ...row,
-            cells: [...buckets.values()].map(({ indices }) => {
-                const samples = indices.map(i => row.cells?.[i]).filter(Boolean);
-                if (!samples.length) return null;
-                const total = samples.reduce((acc, c) => acc + (Number(c.total) || 0), 0);
-                const correct = samples.reduce((acc, c) => acc + (Number(c.correct) || 0), 0);
-                const pct = total > 0 ? (correct / total) * 100 : null;
-                return { total, correct, pct };
-            })
-        }));
-
-        return { dates: aggDates, rows: aggRows };
-    }, [filtered, granularity]);
+    const aggregated = useMemo(() => aggregateHeatmap(filtered, granularity), [filtered, granularity]);
 
     const filteredDates = aggregated.dates;
     const filteredRows = aggregated.rows;
