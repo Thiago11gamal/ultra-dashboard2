@@ -48,11 +48,18 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
             const key = granularity === 'monthly'
                 ? String(d.key || '').slice(0, 7)
                 : getWeekKey(d.key);
+            const monthLabel = (() => {
+                if (granularity !== 'monthly' || !/^\d{4}-\d{2}$/.test(key)) return d.label;
+                const [yy, mm] = key.split('-');
+                const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+                const monthIdx = Math.max(0, Math.min(11, Number(mm) - 1));
+                return `${monthNames[monthIdx]}/${yy.slice(2)}`;
+            })();
             if (!buckets.has(key)) {
                 buckets.set(key, {
                     key,
-                    label: granularity === 'monthly' ? key : d.label,
-                    dayName: granularity === 'monthly' ? `M${buckets.size + 1}` : `Sem ${buckets.size + 1}`,
+                    label: monthLabel,
+                    dayName: granularity === 'monthly' ? 'MÊS' : `Sem ${buckets.size + 1}`,
                     isWeekend: false,
                     indices: [],
                 });
