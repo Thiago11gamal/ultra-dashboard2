@@ -163,6 +163,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                         <Target size={12} className="text-slate-500" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
                             Target: <strong className="text-white">{unit === 'horas' ? formatDuration(targetScore) : unit === '%' ? formatValue(targetScore) : targetScore} {unit}</strong>
+                            <small className="text-slate-500 ml-1">({scenarioLabels[scenario]})</small>
                         </span>
                     </div>
                     {qualitySignal && (

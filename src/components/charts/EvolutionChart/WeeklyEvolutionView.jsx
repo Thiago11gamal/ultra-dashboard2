@@ -239,17 +239,7 @@ export const WeeklyEvolutionView = ({
 
     const trendKpi = useMemo(() => computeTrendKpi({ chartData, keys, hiddenKeys }), [chartData, keys, hiddenKeys]);
 
-    if (chartData.length < 2) {
-        return (
-            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
-                <HelpCircle size={40} className="text-slate-600 mb-3" />
-                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
-                <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
-                    Registre pelo menos 2 semanas de simulados para visualizar a curva de evolução e a variação de deltas.
-                </p>
-            </div>
-        );
-    }
+
 
     const handleLegendClick = useCallback((e) => {
         const dataKey = e?.dataKey;
