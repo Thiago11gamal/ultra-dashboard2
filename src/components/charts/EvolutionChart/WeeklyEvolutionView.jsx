@@ -259,6 +259,41 @@ export const WeeklyEvolutionView = ({
             .slice(0, 3);
     }, [viewMode, chartData, keys, activeKeys, hiddenKeys]);
 
+    const trendKpi = useMemo(() => {
+        if (!Array.isArray(chartData) || chartData.length < 2) return null;
+
+        const visibleKeys = keys.filter((key) => !hiddenKeys[key]);
+        if (visibleKeys.length === 0) return null;
+
+        const weeklyAverages = chartData.map((week) => {
+            const values = visibleKeys
+                .map((key) => week?.[key])
+                .filter((v) => Number.isFinite(Number(v)))
+                .map(Number);
+            if (values.length === 0) return null;
+            return values.reduce((acc, v) => acc + v, 0) / values.length;
+        }).filter((v) => Number.isFinite(Number(v)));
+
+        if (weeklyAverages.length < 2) return null;
+
+        const recentWindow = weeklyAverages.slice(-4);
+        const previousWindow = weeklyAverages.slice(-8, -4);
+        if (previousWindow.length === 0) return null;
+
+        const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+        const recentAvg = avg(recentWindow);
+        const previousAvg = avg(previousWindow);
+        const delta = recentAvg - previousAvg;
+
+        return {
+            recentAvg,
+            previousAvg,
+            delta,
+            recentN: recentWindow.length,
+            previousN: previousWindow.length,
+        };
+    }, [chartData, keys, hiddenKeys]);
+
     if (chartData.length < 2) {
         return (
             <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
@@ -401,6 +436,12 @@ export const WeeklyEvolutionView = ({
                     <h3 className="text-lg font-black text-white uppercase tracking-tight">
                         {showOnlyFocus ? 'Semanas por Assunto' : 'Semanas por Matéria'}
                     </h3>
+                    {trendKpi && (
+                        <p className="text-[10px] mt-1 text-slate-400 font-mono">
+                            Tendência: <span className={trendKpi.delta >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{trendKpi.delta >= 0 ? '+' : ''}{formatValue(trendKpi.delta)}{unit}</span> 
+                            {' '}({trendKpi.previousN} sem. → {trendKpi.recentN} sem.)
+                        </p>
+                    )}
                 </div>
 
                 <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-1">
