@@ -198,6 +198,7 @@ function MainLayout() {
         }>
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/pomodoro" element={<Pomodoro />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/simulados" element={<Simulados />} />

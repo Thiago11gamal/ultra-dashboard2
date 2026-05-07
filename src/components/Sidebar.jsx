@@ -256,8 +256,9 @@ export default function Sidebar({
                                     const Icon = item.icon;
                                     const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
                                     const normalizedItemPath = item.path.replace(/\/+$/, '') || '/';
+                                    const isDashboardAlias = normalizedPath === '/dashboard';
                                     const isActive = normalizedItemPath === '/'
-                                        ? normalizedPath === '/'
+                                        ? normalizedPath === '/' || isDashboardAlias
                                         : normalizedPath === normalizedItemPath || normalizedPath.startsWith(`${normalizedItemPath}/`);
 
                                     return (
