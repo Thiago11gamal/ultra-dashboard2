@@ -45,6 +45,20 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             });
     }, [data, maxScore]);
 
+    const qualitySignal = useMemo(() => {
+        if (!formattedData.length) return null;
+        const latest = formattedData[formattedData.length - 1];
+        const width = Math.max(0, Number(latest?.ciRange?.[1] ?? 0) - Number(latest?.ciRange?.[0] ?? 0));
+
+        if (formattedData.length < 4 || width >= Math.max(12, maxScore * 0.18)) {
+            return { label: 'Sinal Fraco', color: 'text-amber-300 border-amber-500/40 bg-amber-500/10' };
+        }
+        if (width <= Math.max(6, maxScore * 0.1) && formattedData.length >= 8) {
+            return { label: 'Sinal Forte', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' };
+        }
+        return { label: 'Sinal Médio', color: 'text-sky-300 border-sky-500/40 bg-sky-500/10' };
+    }, [formattedData, maxScore]);
+
     if (formattedData.length === 0) {
         return (
             <div className="w-full min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-2xl border border-white/5 p-6 overflow-hidden relative">
@@ -127,9 +141,16 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Trajetória de Notas e Incerteza</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
-                    <Target size={12} className="text-slate-500" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Target: <strong className="text-white">{unit === 'horas' ? formatDuration(targetScore) : unit === '%' ? formatValue(targetScore) : targetScore} {unit}</strong></span>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
+                        <Target size={12} className="text-slate-500" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Target: <strong className="text-white">{unit === 'horas' ? formatDuration(targetScore) : unit === '%' ? formatValue(targetScore) : targetScore} {unit}</strong></span>
+                    </div>
+                    {qualitySignal && (
+                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md border ${qualitySignal.color}`}>
+                            {qualitySignal.label}
+                        </span>
+                    )}
                 </div>
             </div>
 
