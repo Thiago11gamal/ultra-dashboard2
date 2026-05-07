@@ -19,16 +19,23 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
         };
     }, [dates, rows, windowSize]);
 
-    const cellColor = (pct) => {
-        if (pct == null) return { bg: 'rgba(255,255,255,0.02)', text: '#64748b', border: '#1e293b' };
-        if (pct >= targetScore) return { bg: 'rgba(34,197,94,0.2)', text: '#4ade80', border: 'rgba(34,197,94,0.4)' };
-        if (pct >= targetScore * 0.8) return { bg: 'rgba(251,191,36,0.15)', text: '#fcd34d', border: 'rgba(251,191,36,0.4)' };
-        if (pct >= targetScore * 0.6) return { bg: 'rgba(251,146,60,0.15)', text: '#fb923c', border: 'rgba(251,146,60,0.4)' };
-        return { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.4)' };
+    const cellColor = (pct, total = 0) => {
+        if (pct == null) return { bg: 'rgba(255,255,255,0.02)', text: '#64748b', border: '#1e293b', density: 0 };
+        if (pct >= targetScore) return { bg: 'rgba(34,197,94,0.2)', text: '#4ade80', border: 'rgba(34,197,94,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
+        if (pct >= targetScore * 0.8) return { bg: 'rgba(251,191,36,0.15)', text: '#fcd34d', border: 'rgba(251,191,36,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
+        if (pct >= targetScore * 0.6) return { bg: 'rgba(251,146,60,0.15)', text: '#fb923c', border: 'rgba(251,146,60,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
+        return { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
     };
 
     const filteredDates = filtered.dates;
     const filteredRows = filtered.rows;
+
+    const maxCellTotal = useMemo(() => {
+        const totals = filteredRows
+            .flatMap((row) => (Array.isArray(row?.cells) ? row.cells : []))
+            .map((cell) => Number(cell?.total) || 0);
+        return Math.max(1, ...totals);
+    }, [filteredRows]);
 
     if (!filteredDates.length) return (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
@@ -88,13 +95,14 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                             </div>
 
                             {cells.map((cell, ci) => {
-                                const col = cellColor(cell?.pct);
+                                const col = cellColor(cell?.pct, cell?.total);
                                 return (
                                     <div
                                         key={ci}
                                         className="relative group rounded-lg flex flex-col items-center justify-center py-2 transition-all hover:scale-105 hover:z-20 cursor-default"
                                         style={{
                                             background: col.bg,
+                                            opacity: cell ? (0.45 + (col.density * 0.55)) : 1,
                                             border: `1px solid ${col.border}`,
                                             minHeight: '48px',
                                         }}
@@ -127,6 +135,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                                     <span className="font-bold" style={{ color: col.text }}>{cell.correct}</span>
                                                     <span className="text-slate-600">/</span>
                                                     <span>{cell.total} <small className="text-[8px] opacity-70">Q</small></span>
+                                                    <span className="text-[8px] text-slate-500">densidade {Math.round((col.density || 0) * 100)}%</span>
                                                 </div>
                                             </div>
                                         )}
