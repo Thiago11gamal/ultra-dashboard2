@@ -365,6 +365,21 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
         const recentStudyDays = new Set(recentLogs.map(log => normalizeDate(log.date).getTime())).size;
 
+        // E2. Balance Bridge (equilíbrio entre matérias do Meu Painel -> Coach)
+        const activeCategories = (options.allCategories || []).filter(c => (c?.tasks || []).length > 0);
+        const activeCount = activeCategories.length > 0 ? activeCategories.length : 1;
+        const MS_PER_DAY = 24 * 60 * 60 * 1000;
+        const windowStart = normalizeDate(new Date()).getTime() - (14 * MS_PER_DAY);
+        const recentAllLogs = (studyLogs || []).filter(log => normalizeDate(log?.date).getTime() >= windowStart);
+        const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+        const totalRecentMinutesCat = recentAllLogs
+            .filter(log => log?.categoryId === categoryId)
+            .reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+        const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
+        const idealShare = 1 / activeCount;
+        const underAllocation = Math.max(0, idealShare - observedShare);
+        const balanceBridgeBoost = Math.min(cfg.EFFICIENCY_MAX, underAllocation * cfg.EFFICIENCY_MAX * 2.0);
+
         // F. SRS Boost
         let srsBoost = 0;
         let srsLabel = null;
@@ -400,7 +415,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // FIX: Scale boosts by crunchMultiplier to prevent dilution when the exam is near
         const currentPriorityBoost = priorityBoost * crunchMultiplier;
         const currentSrsBoost = srsBoost * crunchMultiplier;
-        const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost) - rotationPenalty;
+        const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty;
 
         const weightedRaw = rawScore;
         const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / RAW_MAX_ACTUAL) * 100)));
@@ -454,6 +469,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 hasHighPriorityTasks,
                 completionRate: Number((completionRate * 100).toFixed(1)),
                 efficiencyBridgeBoost: Number(efficiencyBridgeBoost.toFixed(2)),
+                balanceBridgeBoost: Number(balanceBridgeBoost.toFixed(2)),
                 weight,
                 srsLabel,
                 isBurnoutRisk,
@@ -515,6 +531,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     rotationPenalty: Number(rotationPenalty.toFixed(2)),
                     mcUrgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
                     efficiencyBridgeBoost: Number(efficiencyBridgeBoost.toFixed(2)),
+                    balanceBridgeBoost: Number(balanceBridgeBoost.toFixed(2)),
                 }
             }
         };
@@ -540,7 +557,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 
     const ranked = categories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, simulados, studyLogs, options)
+        urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
     })).sort((a, b) => b.urgency.normalizedScore - a.urgency.normalizedScore);
 
     const top = ranked[0];
@@ -728,7 +745,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     const ranked = categories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, simulados, studyLogs, options)
+        urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
     })).sort((a, b) => b.urgency.normalizedScore - a.urgency.normalizedScore);
 
     // Expandido para preencher o calendário: tentamos pegar as 10 categorias mais urgentes
