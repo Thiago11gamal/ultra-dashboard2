@@ -243,7 +243,8 @@ export const WeeklyEvolutionView = ({
         return keys
             .map((key) => {
                 const delta = latestWeekWithDelta[`delta_${key}`];
-                if (!Number.isFinite(Number(delta)) || Number(delta) >= 0) return null;
+                // 🎯 FIX: Respeita o filtro de ocultação (Noodle Bowl / Cliques)
+                if (!Number.isFinite(Number(delta)) || Number(delta) >= 0 || hiddenKeys[key]) return null;
                 return {
                     key,
                     name: activeKeys[key]?.name || key,
@@ -256,7 +257,7 @@ export const WeeklyEvolutionView = ({
             .filter(Boolean)
             .sort((a, b) => a.delta - b.delta)
             .slice(0, 3);
-    }, [viewMode, chartData, keys, activeKeys]);
+    }, [viewMode, chartData, keys, activeKeys, hiddenKeys]);
 
     if (chartData.length < 2) {
         return (
@@ -529,17 +530,23 @@ export const WeeklyEvolutionView = ({
                 )}
             </div>
 
-            {viewMode === 'variation' && topRegressions.length > 0 && (
+            {viewMode === 'variation' && (
                 <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">Top Regressões · Semana {topRegressions[0].week}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {topRegressions.map(item => (
-                            <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between">
-                                <span className="truncate" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
-                                <span className="font-mono font-black text-rose-300">{formatValue(item.delta)}{unit}</span>
-                            </div>
-                        ))}
-                    </div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">
+                        Top Regressões {topRegressions[0]?.week ? `· Semana ${topRegressions[0].week}` : ''}
+                    </p>
+                    {topRegressions.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {topRegressions.map(item => (
+                                <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between">
+                                    <span className="truncate" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
+                                    <span className="font-mono font-black text-rose-300">{formatValue(item.delta)}{unit}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-[10px] text-slate-400">Sem regressões visíveis no filtro atual. ✅</p>
+                    )}
                 </div>
             )}
 
