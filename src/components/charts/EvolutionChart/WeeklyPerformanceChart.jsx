@@ -69,7 +69,9 @@ const WeeklyPerformanceChart = ({
                         if (q < 1) return; // Skip invalid entries
 
                         const score = getSafeScore(h, safeMaxScore);
-                        correctTotal += (score / safeMaxScore) * q;
+                        const weightedCorrect = (score / safeMaxScore) * q;
+                        if (!Number.isFinite(weightedCorrect)) return;
+                        correctTotal += weightedCorrect;
                         questionsTotal += q;
                     }
                 });

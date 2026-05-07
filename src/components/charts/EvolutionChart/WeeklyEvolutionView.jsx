@@ -226,6 +226,16 @@ export const WeeklyEvolutionView = ({
 
     if (chartData.length < 2) {
         return (
+            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
+                <HelpCircle size={40} className="text-slate-600 mb-3" />
+                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
+                <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
+                    Registre pelo menos 2 semanas de simulados para visualizar a curva de evolução e a variação de deltas.
+                </p>
+            </div>
+        );
+    }
+
     const handleLegendClick = useCallback((e) => {
         const dataKey = e?.dataKey;
         if (!dataKey) return;
@@ -273,10 +283,10 @@ export const WeeklyEvolutionView = ({
                                                 {prefix}{formatValue(val)}{unit}
                                             </span>
                                         </div>
-                                        {meta && meta.prevAvg != null && (
+                                        {meta && meta.prevPct != null && (
                                             <div className="flex justify-between text-[8px] text-slate-500 pl-3">
-                                                <span>De {formatValue(meta.prevAvg)}{unit}</span>
-                                                <span>Para {formatValue(meta.currAvg)}{unit}</span>
+                                                <span>De {formatValue(meta.prevPct)}{unit}</span>
+                                                <span>Para {formatValue(val)}{unit}</span>
                                             </div>
                                         )}
                                     </div>
