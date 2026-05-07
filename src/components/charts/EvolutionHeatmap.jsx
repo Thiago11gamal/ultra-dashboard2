@@ -142,6 +142,11 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                     </span>
                 ))}
             </div>
+            {granularity !== 'daily' && (
+                <p className="text-[9px] text-cyan-300/80 font-bold uppercase tracking-wider mb-3">
+                    Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): células representam múltiplos dias.
+                </p>
+            )}
 
             <div style={{ minWidth: `${filteredDates.length * 72 + 168}px` }}>
                 <div style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-2">
