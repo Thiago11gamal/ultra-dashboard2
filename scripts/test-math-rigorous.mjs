@@ -48,6 +48,32 @@ const add = (name, pass, details='') => checks.push({ name, pass, details });
   add('invalid inputs do not explode', Number.isFinite(r.mean) && Number.isFinite(r.sd), JSON.stringify(r));
 }
 
+
+// 6) n=0/1/2 edge cases
+{
+  const e0 = computeBayesianLevel([], 1, 1, 100);
+  const e1 = computeBayesianLevel([{ score: 50, total: 100, correct: 50, date: '2026-05-01' }], 1, 1, 100);
+  const e2 = computeBayesianLevel([
+    { score: 50, total: 100, correct: 50, date: '2026-05-01' },
+    { score: 60, total: 100, correct: 60, date: '2026-05-02' }
+  ], 1, 1, 100);
+  add('bayes edges n=0 finite', Number.isFinite(e0.mean) && Number.isFinite(e0.sd), JSON.stringify(e0));
+  add('bayes edges n=1 finite', Number.isFinite(e1.mean) && Number.isFinite(e1.sd), JSON.stringify(e1));
+  add('bayes edges n=2 finite', Number.isFinite(e2.mean) && Number.isFinite(e2.sd), JSON.stringify(e2));
+}
+
+// 7) CI never inverted under noisy data
+{
+  const noisy = Array.from({ length: 12 }).map((_, i) => ({
+    score: (i % 2 === 0 ? 30 : 80),
+    total: 100,
+    correct: (i % 2 === 0 ? 30 : 80),
+    date: `2026-04-${String(i + 1).padStart(2, '0')}`
+  }));
+  const r = computeBayesianLevel(noisy, 1, 1, 100);
+  add('bayes ci ordered under noisy data', r.ciLow <= r.ciHigh, `${r.ciLow}..${r.ciHigh}`);
+}
+
 console.table(checks);
 if (checks.some(c => !c.pass)) {
   process.exit(1);
