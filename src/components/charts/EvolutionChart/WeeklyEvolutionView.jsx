@@ -31,6 +31,12 @@ const formatWeek = (isoString) => {
     return `${day}/${month}`;
 };
 
+const shortenLabel = (value, max = 18) => {
+    const text = String(value || '').trim();
+    if (!text) return '—';
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+};
+
 export const WeeklyEvolutionView = ({
     categories,
     studyLogs = [],
@@ -54,9 +60,10 @@ export const WeeklyEvolutionView = ({
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
                 if (!cat?.id) return;
-                const safeName = String(cat.name || 'Matéria').replace(/Direito /gi, 'D. ').substring(0, 12);
+                const fullName = String(cat.name || 'Matéria').replace(/Direito /gi, 'D. ');
+                const safeName = shortenLabel(fullName, 18);
                 const safeColor = typeof cat.color === 'string' ? cat.color : '#64748b';
-                itemsMap[cat.id] = { name: safeName, color: safeColor };
+                itemsMap[cat.id] = { name: safeName, fullName: fullName, color: safeColor };
             });
         } else {
             const cat = categories.find(c => c.id === focusSubjectId);
@@ -66,11 +73,11 @@ export const WeeklyEvolutionView = ({
                         h.topics.forEach(t => {
                             const tName = String(t.name || '').trim();
                             if (!tName) return;
-                            itemsMap[tName.toLowerCase()] = { name: tName.substring(0, 12), color: cat.color };
+                            itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color, fullName: tName };
                         });
                     } else if (h.taskId) {
                         const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
-                        itemsMap[tName.toLowerCase()] = { name: tName.substring(0, 12), color: cat.color };
+                        itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color, fullName: tName };
                     }
                 });
             }
@@ -240,6 +247,7 @@ export const WeeklyEvolutionView = ({
                 return {
                     key,
                     name: activeKeys[key]?.name || key,
+                    fullName: activeKeys[key]?.fullName || activeKeys[key]?.name || key,
                     delta: Number(delta),
                     color: activeKeys[key]?.color || '#ef4444',
                     week: latestWeekWithDelta.displayDate,
@@ -527,7 +535,7 @@ export const WeeklyEvolutionView = ({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {topRegressions.map(item => (
                             <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between">
-                                <span className="truncate" style={{ color: item.color }}>{item.name}</span>
+                                <span className="truncate" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
                                 <span className="font-mono font-black text-rose-300">{formatValue(item.delta)}{unit}</span>
                             </div>
                         ))}
