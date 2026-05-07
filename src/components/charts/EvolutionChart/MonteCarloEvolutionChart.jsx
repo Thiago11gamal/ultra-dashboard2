@@ -1,4 +1,4 @@
-import React, { useMemo, useId, useCallback } from 'react';
+import React, { useMemo, useId, useCallback, useState } from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -11,6 +11,7 @@ import { formatValue, formatPercent } from '../../../utils/scoreHelper';
 export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = 'pts', maxScore = 100 }) => {
     const rawId = useId();
     const gradientId = `colorMonteCarlo-${rawId.replace(/:/g, '')}`;
+    const [scenario, setScenario] = useState('base');
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
@@ -26,7 +27,6 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 displayDate = format(d.parsedDate, 'dd/MM', { locale: ptBR });
                 fullDate = format(d.parsedDate, 'dd MMM yyyy', { locale: ptBR });
 
-                // Sanitização: manter intervalo de confiança dentro do domínio e com ordem válida
                 const mean = Number.isFinite(d.mean) ? d.mean : 0;
                 const rawLow = Number.isFinite(d.ci95Low) ? d.ci95Low : mean;
                 const rawHigh = Number.isFinite(d.ci95High) ? d.ci95High : mean;
@@ -45,19 +45,44 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             });
     }, [data, maxScore]);
 
+    const scenarioAdjustedData = useMemo(() => {
+        const cfg = {
+            conservative: { meanBias: -2.5, ciMult: 1.2 },
+            base: { meanBias: 0, ciMult: 1 },
+            optimistic: { meanBias: 2.5, ciMult: 0.85 },
+        }[scenario] || { meanBias: 0, ciMult: 1 };
+
+        return formattedData.map((d) => {
+            const mean = Math.max(0, Math.min(maxScore, (Number(d.mean) || 0) + cfg.meanBias));
+            const low = Math.max(0, Math.min(maxScore, mean - ((mean - d.ciRange[0]) * cfg.ciMult)));
+            const high = Math.max(0, Math.min(maxScore, mean + ((d.ciRange[1] - mean) * cfg.ciMult)));
+            return { ...d, mean, ciRange: [Math.min(low, high), Math.max(low, high)] };
+        });
+    }, [formattedData, scenario, maxScore]);
+
     const qualitySignal = useMemo(() => {
-        if (!formattedData.length) return null;
-        const latest = formattedData[formattedData.length - 1];
+        if (!scenarioAdjustedData.length) return null;
+        const latest = scenarioAdjustedData[scenarioAdjustedData.length - 1];
         const width = Math.max(0, Number(latest?.ciRange?.[1] ?? 0) - Number(latest?.ciRange?.[0] ?? 0));
 
-        if (formattedData.length < 4 || width >= Math.max(12, maxScore * 0.18)) {
+        if (scenarioAdjustedData.length < 4 || width >= Math.max(12, maxScore * 0.18)) {
             return { label: 'Sinal Fraco', color: 'text-amber-300 border-amber-500/40 bg-amber-500/10' };
         }
-        if (width <= Math.max(6, maxScore * 0.1) && formattedData.length >= 8) {
+        if (width <= Math.max(6, maxScore * 0.1) && scenarioAdjustedData.length >= 8) {
             return { label: 'Sinal Forte', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' };
         }
         return { label: 'Sinal Médio', color: 'text-sky-300 border-sky-500/40 bg-sky-500/10' };
-    }, [formattedData, maxScore]);
+    }, [scenarioAdjustedData, maxScore]);
+
+    const mcAssumptions = useMemo(() => {
+        if (!scenarioAdjustedData.length) return null;
+        const latest = scenarioAdjustedData[scenarioAdjustedData.length - 1];
+        const width = Math.max(0, Number(latest?.ciRange?.[1] ?? 0) - Number(latest?.ciRange?.[0] ?? 0));
+        return {
+            points: scenarioAdjustedData.length,
+            ciWidth: width,
+        };
+    }, [scenarioAdjustedData]);
 
     if (formattedData.length === 0) {
         return (
@@ -86,20 +111,16 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
         if (active && payload && payload.length) {
             const dataPoint = payload[0].payload;
             const fullDate = dataPoint.fullDate;
-
-            // Operador de coalescência nula garante falhas seguras
             const pointTarget = dataPoint.target ?? targetScore;
             const pointMean = dataPoint.mean ?? 0;
             const pointProb = dataPoint.probability ?? 0;
             const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
             const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
-
             const isGood = pointMean >= pointTarget;
 
             return (
                 <div className="bg-slate-900 border border-white/10 p-4 rounded-xl shadow-2xl backdrop-blur-xl min-w-[200px]">
                     <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-3 border-b border-white/10 pb-2">{fullDate}</p>
-
                     <div className="flex flex-col gap-2">
                         <div className="flex flex-col">
                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Nota Projetada</span>
@@ -107,7 +128,6 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 {unit === 'horas' ? formatDuration(pointMean) : unit === '%' ? formatValue(pointMean) : pointMean} <span className="text-sm text-slate-500 ml-1">{unit}</span>
                             </span>
                         </div>
-
                         <div className="mt-2 bg-black/40 rounded border border-white/5 p-2">
                             <div className="flex justify-between items-center mb-1">
                                 <span className="text-[10px] font-bold text-slate-400">Cone (95% CI):</span>
@@ -141,6 +161,18 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Trajetória de Notas e Incerteza</p>
                     </div>
                 </div>
+                <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-800 rounded-lg p-1">
+                    {[{ id: 'conservative', label: 'Conserv.' }, { id: 'base', label: 'Base' }, { id: 'optimistic', label: 'Otim.' }].map(opt => (
+                        <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setScenario(opt.id)}
+                            className={`px-2 py-1 rounded text-[9px] font-bold ${scenario === opt.id ? 'bg-indigo-600/25 text-indigo-300' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
                         <Target size={12} className="text-slate-500" />
@@ -171,7 +203,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                         <p className="text-xs font-black text-slate-200 uppercase tracking-[0.2em]">Ponto Único Registrado</p>
                         <p className="text-[10px] text-slate-500 mt-2 max-w-[200px] leading-relaxed">
                             Aguardando o próximo registro para traçar a evolução.
-                            <br /><strong className="text-blue-400"> Nota Atual: {unit === 'horas' ? formatDuration(formattedData[0].mean) : unit === '%' ? formatValue(formattedData[0].mean) : formattedData[0].mean} {unit}</strong>
+                            <br /><strong className="text-blue-400"> Nota Atual: {unit === 'horas' ? formatDuration(scenarioAdjustedData[0].mean) : unit === '%' ? formatValue(scenarioAdjustedData[0].mean) : scenarioAdjustedData[0].mean} {unit}</strong>
                         </p>
                     </div>
                 )}
@@ -179,7 +211,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 {formattedData.length > 1 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart
-                            data={formattedData}
+                            data={scenarioAdjustedData}
                             margin={{ top: 20, right: 10, left: -15, bottom: 5 }}
                         >
                             <defs>
@@ -205,7 +237,6 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 axisLine={false}
                                 dx={-5}
                                 width={45}
-                                // TRAVA MATEMÁTICA: Clamp do domínio para evitar resíduos negativos ou acima do teto
                                 domain={[
                                     dataMin => Math.max(0, dataMin - 5),
                                     dataMax => (unit === 'horas' ? 'auto' : Math.min(maxScore || 100, dataMax + 5))
@@ -216,18 +247,14 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 content={renderCustomTooltip}
                                 cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
                             />
-
-                            {/* Área do Cone de Incerteza (Intervalo de Confiança) */}
                             <Area
-                                type="linear" // MUDANÇA: 'linear' para evitar distorção de Bezier no array ciRange
+                                type="linear"
                                 dataKey="ciRange"
                                 stroke="none"
                                 fillOpacity={1}
                                 fill={`url(#${gradientId})`}
                                 isAnimationActive={true}
                             />
-
-                            {/* Linha Principal da Média Projetada */}
                             <Area
                                 type="monotone"
                                 dataKey="mean"
@@ -235,14 +262,14 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 strokeWidth={3}
                                 fill="none"
                                 activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa', className: "animate-pulse shadow-lg" }}
-                                dot={formattedData.length < 15 ? { r: 4, strokeWidth: 2, fill: '#0f172a', stroke: '#60a5fa' } : false}
+                                dot={scenarioAdjustedData.length < 15 ? { r: 4, strokeWidth: 2, fill: '#0f172a', stroke: '#60a5fa' } : false}
                             />
                         </AreaChart>
                     </ResponsiveContainer>
-                ) : formattedData.length === 0 ? null : (
+                ) : scenarioAdjustedData.length === 0 ? null : (
                     <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={[{ mean: 0 }, { mean: formattedData[0].mean }, { mean: 0 }]}>
+                            <AreaChart data={[{ mean: 0 }, { mean: scenarioAdjustedData[0].mean }, { mean: 0 }]}>
                                 <Area type="monotone" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -254,7 +281,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
                     A área sombreada representa o IC 95% da projeção ao longo do tempo (P2.5 ~ P97.5).
                 </p>
-                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-full border border-white/5">N = {formattedData.length} dias</span>
+                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-full border border-white/5">N = {scenarioAdjustedData.length} dias</span>
             </div>
         </div>
     );
