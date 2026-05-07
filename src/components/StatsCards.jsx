@@ -225,7 +225,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             </div>
                             <div className={`text-xs font-bold mt-1 text-center uppercase tracking-widest leading-relaxed ${daysRemaining < 0 ? 'text-slate-600' : daysRemaining <= 15 ? 'text-red-500/80' : 'text-slate-400'}`}>
                                 {daysRemaining < 0
-                                    ? 'Faltam'
+                                    ? 'Atrasado'
                                     : daysRemaining === 0
                                         ? 'É hoje!'
                                         : 'Para a prova'}
