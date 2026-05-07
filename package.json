@@ -17,7 +17,8 @@
     "test:integration-math": "node scripts/test-math-integration.mjs",
     "audit:math": "node scripts/run-math-audit.mjs",
     "test:mc-scenarios": "node scripts/test-mc-scenarios.mjs",
-    "test:heatmap-aggregation": "node scripts/test-heatmap-aggregation.mjs"
+    "test:heatmap-aggregation": "node scripts/test-heatmap-aggregation.mjs",
+    "test:weekly-insights": "node scripts/test-weekly-insights.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

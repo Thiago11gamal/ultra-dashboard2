@@ -6,6 +6,7 @@ import {
 import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
+import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights';
 
 // FIX CRÍTICO: Forçar T12:00:00 para evitar que new Date("YYYY-MM-DD") recue 1 dia em UTC-4.
 // Extracção de data local em vez de toISOString() (que retorna UTC).
@@ -30,6 +31,7 @@ const formatWeek = (isoString) => {
     if (!year || !month || !day) return '--/--';
     return `${day}/${month}`;
 };
+
 
 const shortenLabel = (value, max = 18) => {
     const text = String(value || '').trim();
@@ -232,67 +234,10 @@ export const WeeklyEvolutionView = ({
         return result;
     }, [rankedKeys, userToggles]);
 
-    const topRegressions = useMemo(() => {
-        if (viewMode !== 'variation' || !Array.isArray(chartData) || chartData.length === 0) return [];
+    const topRegressions = useMemo(() => computeTopRegressions({ viewMode, chartData, keys, activeKeys, hiddenKeys }), [viewMode, chartData, keys, activeKeys, hiddenKeys]);
 
-        const latestWeekWithDelta = [...chartData].reverse().find(point =>
-            keys.some(key => Number.isFinite(Number(point?.[`delta_${key}`])))
-        );
-        if (!latestWeekWithDelta) return [];
 
-        return keys
-            .map((key) => {
-                const delta = latestWeekWithDelta[`delta_${key}`];
-                // 🎯 FIX: Respeita o filtro de ocultação (Noodle Bowl / Cliques)
-                if (!Number.isFinite(Number(delta)) || Number(delta) >= 0 || hiddenKeys[key]) return null;
-                return {
-                    key,
-                    name: activeKeys[key]?.name || key,
-                    fullName: activeKeys[key]?.fullName || activeKeys[key]?.name || key,
-                    delta: Number(delta),
-                    color: activeKeys[key]?.color || '#ef4444',
-                    week: latestWeekWithDelta.displayDate,
-                };
-            })
-            .filter(Boolean)
-            .sort((a, b) => a.delta - b.delta)
-            .slice(0, 3);
-    }, [viewMode, chartData, keys, activeKeys, hiddenKeys]);
-
-    const trendKpi = useMemo(() => {
-        if (!Array.isArray(chartData) || chartData.length < 2) return null;
-
-        const visibleKeys = keys.filter((key) => !hiddenKeys[key]);
-        if (visibleKeys.length === 0) return null;
-
-        const weeklyAverages = chartData.map((week) => {
-            const values = visibleKeys
-                .map((key) => week?.[key])
-                .filter((v) => Number.isFinite(Number(v)))
-                .map(Number);
-            if (values.length === 0) return null;
-            return values.reduce((acc, v) => acc + v, 0) / values.length;
-        }).filter((v) => Number.isFinite(Number(v)));
-
-        if (weeklyAverages.length < 2) return null;
-
-        const recentWindow = weeklyAverages.slice(-4);
-        const previousWindow = weeklyAverages.slice(-8, -4);
-        if (previousWindow.length === 0) return null;
-
-        const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-        const recentAvg = avg(recentWindow);
-        const previousAvg = avg(previousWindow);
-        const delta = recentAvg - previousAvg;
-
-        return {
-            recentAvg,
-            previousAvg,
-            delta,
-            recentN: recentWindow.length,
-            previousN: previousWindow.length,
-        };
-    }, [chartData, keys, hiddenKeys]);
+    const trendKpi = useMemo(() => computeTrendKpi({ chartData, keys, hiddenKeys }), [chartData, keys, hiddenKeys]);
 
     if (chartData.length < 2) {
         return (
@@ -447,18 +392,24 @@ export const WeeklyEvolutionView = ({
                 <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-1">
                     <button
                         onClick={() => setViewMode('performance')}
+                        aria-label="Alternar para visão de desempenho semanal"
+                        aria-pressed={viewMode === 'performance'}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <Zap size={14} /> Desempenho (7 dias)
                     </button>
                     <button
                         onClick={() => setViewMode('evolution')}
+                        aria-label="Alternar para visão de evolução semanal"
+                        aria-pressed={viewMode === 'evolution'}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <TrendingUp size={14} /> Evolução
                     </button>
                     <button
                         onClick={() => setViewMode('variation')}
+                        aria-label="Alternar para visão de variação semanal"
+                        aria-pressed={viewMode === 'variation'}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <BarChart3 size={14} /> Delta
