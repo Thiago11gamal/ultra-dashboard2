@@ -82,6 +82,7 @@ export const WeeklyEvolutionView = ({
         const weeksTemp = {};
 
         const processHistory = (historyArray, itemId) => {
+            if (!Array.isArray(historyArray) || !itemId) return;
             historyArray.forEach(h => {
                 const weekStr = getMondayStr(h.date);
                 if (!weekStr) return;
@@ -199,7 +200,7 @@ export const WeeklyEvolutionView = ({
         validIds.forEach(id => volumeTracker[id] = 0);
         filledWeeks.forEach(week => {
             validIds.forEach(id => {
-                if (week[id]) volumeTracker[id] += week[id].total;
+                if (week[id] && Number.isFinite(week[id].total)) volumeTracker[id] += week[id].total;
             });
         });
         const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
@@ -226,7 +227,8 @@ export const WeeklyEvolutionView = ({
     if (chartData.length < 2) {
         return (
     const handleLegendClick = useCallback((e) => {
-        const { dataKey } = e;
+        const dataKey = e?.dataKey;
+        if (!dataKey) return;
         const keyID = String(dataKey).replace('delta_', '');
         setUserToggles(prev => ({
             ...prev,

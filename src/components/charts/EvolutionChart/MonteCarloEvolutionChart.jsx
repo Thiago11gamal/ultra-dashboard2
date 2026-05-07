@@ -15,33 +15,35 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
         return data
-            .filter(d => d.date && Number.isFinite(d.probability))
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .filter(d => d?.date && Number.isFinite(d?.probability))
+            .map(d => ({ ...d, parsedDate: parseISO(d.date) }))
+            .filter(d => isValid(d.parsedDate))
+            .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
             .map(d => {
                 let displayDate = d.date;
                 let fullDate = d.date;
 
-                const parsed = parseISO(d.date);
-                if (isValid(parsed)) {
-                    displayDate = format(parsed, 'dd/MM', { locale: ptBR });
-                    fullDate = format(parsed, 'dd MMM yyyy', { locale: ptBR });
-                } else {
-                    console.warn('[MonteCarloEvolutionChart] Ignorando data malformada:', d.date);
-                }
+                displayDate = format(d.parsedDate, 'dd/MM', { locale: ptBR });
+                fullDate = format(d.parsedDate, 'dd MMM yyyy', { locale: ptBR });
 
-                // Cria o array com o limite inferior e superior para o cone de incerteza (Intervalo de Confiança)
-                const mean = d.mean || 0;
-                const low = d.ci95Low !== undefined ? d.ci95Low : mean;
-                const high = d.ci95High !== undefined ? d.ci95High : mean;
+                // Sanitização: manter intervalo de confiança dentro do domínio e com ordem válida
+                const mean = Number.isFinite(d.mean) ? d.mean : 0;
+                const rawLow = Number.isFinite(d.ci95Low) ? d.ci95Low : mean;
+                const rawHigh = Number.isFinite(d.ci95High) ? d.ci95High : mean;
+                const boundedLow = Math.max(0, Math.min(maxScore, rawLow));
+                const boundedHigh = Math.max(0, Math.min(maxScore, rawHigh));
+                const low = Math.min(boundedLow, boundedHigh);
+                const high = Math.max(boundedLow, boundedHigh);
 
                 return {
                     ...d,
                     displayDate,
                     fullDate,
+                    mean,
                     ciRange: [low, high]
                 };
             });
-    }, [data]);
+    }, [data, maxScore]);
 
     if (formattedData.length === 0) {
         return (

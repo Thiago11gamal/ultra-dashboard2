@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useId, useCallback } from 'react';
 import {
     ComposedChart,
     Bar,
@@ -75,9 +75,12 @@ const WeeklyPerformanceChart = ({
                 });
             });
 
-            const acertos = questionsTotal > 0
-                ? Number(((correctTotal / questionsTotal) * safeMaxScore).toFixed(2))
+            const acertosRaw = questionsTotal > 0
+                ? (correctTotal / questionsTotal) * safeMaxScore
                 : null;
+            const acertos = acertosRaw == null
+                ? null
+                : Number(Math.max(0, Math.min(safeMaxScore, acertosRaw)).toFixed(2));
 
             days.push({
                 data: i === 0 ? "HOJE" : dow,
@@ -88,6 +91,33 @@ const WeeklyPerformanceChart = ({
         }
         return days;
     }, [categories, studyLogs, showOnlyFocus, focusSubjectId, safeMaxScore]);
+
+
+    const renderTooltip = useCallback(({ active, payload, label }) => {
+        if (!(active && payload && payload.length)) return null;
+        return (
+            <div className="glass border border-white/10 p-3 rounded-2xl shadow-2xl backdrop-blur-xl bg-slate-900/90">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-1">
+                    {label}
+                </p>
+                {payload.map((entry, index) => (
+                    <div key={index} className="flex items-center justify-between gap-4 py-1">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                            <span className="text-xs font-bold text-slate-300 capitalize">
+                                {entry.name}:
+                            </span>
+                        </div>
+                        <span className="text-xs font-black text-white">
+                            {entry.value != null && Number.isFinite(Number(entry.value))
+                                ? (entry.name === 'acertos' ? `${entry.value}${safeUnit}` : formatDuration(entry.value))
+                                : 'N/A'}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    }, [safeUnit]);
 
     return (
         <div className="w-full h-[320px] sm:h-[400px] flex flex-col">
@@ -171,36 +201,7 @@ const WeeklyPerformanceChart = ({
 
                         <Tooltip
                             cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                            content={({ active, payload, label }) => {
-                                if (active && payload && payload.length) {
-                                    return (
-                                        <div className="glass border border-white/10 p-3 rounded-2xl shadow-2xl backdrop-blur-xl bg-slate-900/90">
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-1">
-                                                {label}
-                                            </p>
-                                            {payload.map((entry, index) => (
-                                                <div key={index} className="flex items-center justify-between gap-4 py-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-2 h-2 rounded-full"
-                                                            style={{ backgroundColor: entry.color }}
-                                                        />
-                                                        <span className="text-xs font-bold text-slate-300 capitalize">
-                                                            {entry.name}:
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-xs font-black text-white">
-                                                        {entry.value != null && Number.isFinite(Number(entry.value))
-                                                            ? (entry.name === 'acertos' ? `${entry.value}${safeUnit}` : formatDuration(entry.value))
-                                                            : 'N/A'}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            }}
+                            content={renderTooltip}
                         />
 
                         <Bar
