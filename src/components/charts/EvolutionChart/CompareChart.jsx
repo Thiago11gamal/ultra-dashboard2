@@ -53,7 +53,10 @@ export function CompareChart({
         return yPos;
     };
 
-    const todayIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] != null ? i : acc, -1);
+    const todayIdx = filteredChartData.reduce((acc, curr, i) => {
+        const hasObserved = curr["Nota Bruta"] != null || curr["Nível Bayesiano"] != null || curr["Média Histórica"] != null;
+        return hasObserved ? i : acc;
+    }, -1);
     const todayPoints = [];
     if (todayIdx >= 0) {
         const d = filteredChartData[todayIdx];
@@ -79,7 +82,8 @@ export function CompareChart({
         if (!pts || !pts.length) return 0;
         const pt = pts.find(p => p.name === name);
         if (!pt) return 0;
-        const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / maxScore : 4.6;
+        const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+        const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / safeMaxScore : 4.6;
         return (value - pt.yPos) * pxPerPct;
     };
 
@@ -108,7 +112,8 @@ export function CompareChart({
     let gainBase = 'dataMin';
     if (todayIdx >= 0) {
         const todayPt = filteredChartData[todayIdx];
-        gainBase = todayPt["Nível Bayesiano"] != null ? todayPt["Nível Bayesiano"] : todayPt["Nota Bruta"];
+        const baseCandidate = todayPt["Nível Bayesiano"] != null ? todayPt["Nível Bayesiano"] : todayPt["Nota Bruta"];
+        if (Number.isFinite(Number(baseCandidate))) gainBase = Number(baseCandidate);
     }
 
     return (
