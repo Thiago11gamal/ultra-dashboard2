@@ -12,3 +12,5 @@ export * from './math/gaussian.js';
 
 // BUG-M4: Centralized export
 export { getSafeScore } from '../utils/scoreHelper.js';
+
+export * from './math/bootstrap.js';

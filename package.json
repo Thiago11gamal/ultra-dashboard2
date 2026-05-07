@@ -12,7 +12,8 @@
     "test:math": "node scripts/test-math-engines.mjs",
     "test:unit": "vitest run",
     "test:all": "npm run test:math && npm run test:rigorous-math && npm run test:unit",
-    "test:rigorous-math": "node scripts/test-math-rigorous.mjs"
+    "test:rigorous-math": "node scripts/test-math-rigorous.mjs",
+    "test:bootstrap": "node scripts/test-bootstrap-ci.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
