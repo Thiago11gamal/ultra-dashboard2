@@ -7,6 +7,7 @@ import { mulberry32, makeNormalRng } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
 import { logger } from '../utils/logger.js';
+import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
 // Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
 import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math/gaussian.js';
@@ -395,7 +396,8 @@ export function monteCarloSimulation(
     // (the proper weighted mean passed from MonteCarloGauge) was silently dropped,
     // causing the returned currentMean to always use the last raw score from the
     // composite global history instead of the caller-computed weighted mean.
-    const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean, minScore = 0, maxScore = 100 } = options;
+    const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean, minScore = 0, maxScore = 100, scenario = 'base' } = options;
+    const scenarioCfg = SCENARIO_CONFIG[scenario] || SCENARIO_CONFIG.base;
     const sortedHistory = getSortedHistory(history);
     const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
@@ -438,6 +440,7 @@ export function monteCarloSimulation(
         const daysToNow = Math.max(1, (Date.now() - lastDate.getTime()) / 86400000);
         baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1, daysToNow);
     }
+    baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + (scenarioCfg.meanBias || 0)));
 
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
     const { slope: rawDrift, slopeStdError } = sortedHistory.length > 1
@@ -452,7 +455,7 @@ export function monteCarloSimulation(
     const rawDriftUncertainty = Math.max(0.05 * scaleFactor, slopeStdError);
     // ESCALA INVARIANTE: O teto 1.5 foi reduzido para 0.4 para evitar colapso bimodal
     // em projeções longas com baixa confiança.
-    let driftUncertainty = Math.min(rawDriftUncertainty, 0.4 * scaleFactor);
+    let driftUncertainty = Math.min(rawDriftUncertainty, 0.4 * scaleFactor) * (scenarioCfg.ciMult || 1);
 
     // LOW-N ROBUSTNESS: Inflate epistemic uncertainty for small samples
     if (sortedHistory.length < 10) {
