@@ -339,9 +339,19 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }
 
 
+        const hasData = relevantSimulados.length > 0 || categoryStudyLogs.length > 0;
+
         // D. Priority Boost
         const hasHighPriorityTasks = safeCategory.tasks?.some(t => !t.completed && t.priority === 'high') || false;
         const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
+
+        // D2. Execution Efficiency Bridge (Meu Painel -> Coach/Monte Carlo)
+        const allTasks = Array.isArray(safeCategory.tasks) ? safeCategory.tasks : [];
+        const totalTasks = allTasks.length;
+        const completedTasks = allTasks.filter(t => t?.completed).length;
+        const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0.5;
+        const inefficiency = Math.max(0, 1 - completionRate);
+        const efficiencyBridgeBoost = cfg.EFFICIENCY_MAX * inefficiency * (hasData ? 1 : 0.4);
 
         // E. Burnout detection
         const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
@@ -356,7 +366,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const recentStudyDays = new Set(recentLogs.map(log => normalizeDate(log.date).getTime())).size;
 
         // F. SRS Boost
-        const hasData = relevantSimulados.length > 0 || categoryStudyLogs.length > 0;
         let srsBoost = 0;
         let srsLabel = null;
 
@@ -391,7 +400,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // FIX: Scale boosts by crunchMultiplier to prevent dilution when the exam is near
         const currentPriorityBoost = priorityBoost * crunchMultiplier;
         const currentSrsBoost = srsBoost * crunchMultiplier;
-        const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost) - rotationPenalty;
+        const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost) - rotationPenalty;
 
         const weightedRaw = rawScore;
         const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / RAW_MAX_ACTUAL) * 100)));
@@ -417,9 +426,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         } else if (srsBoost > 0) {
             recommendation = `${srsLabel} - Não pule essa revisão!`;
         } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && trend > 0) {
-            recommendation = `Evolução Frágil (Volatilidade MSSD: ±${formatValue(mssdVolatility)}). Consolide a base.`;
-        } else if (daysSinceLastStudy > 14) {
-            recommendation = `${daysSinceLastStudy} dias sem estudo - Risco de esquecer!`;
+            recommendation = "Desempenho Oscilante: Foque em preencher lacunas de base";
         } else if (trend < -trendThreshold) {
             recommendation = `Nota caindo (${formatValue(trend)} pts) - Atenção urgente`;
         } else if (averageScore < targetScore - (0.2 * maxScore)) {
@@ -442,9 +449,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 mssdVolatility: Number(mssdVolatility.toFixed(2)),
                 trend: Number(trend.toFixed(2)),
                 totalHours: Number(totalHours.toFixed(2)),
-                hasData: relevantSimulados.length > 0 || categoryStudyLogs.length > 0,
+                hasData,
                 hasSimulados: relevantSimulados.length > 0,
                 hasHighPriorityTasks,
+                completionRate: Number((completionRate * 100).toFixed(1)),
+                efficiencyBridgeBoost: Number(efficiencyBridgeBoost.toFixed(2)),
                 weight,
                 srsLabel,
                 isBurnoutRisk,
@@ -505,6 +514,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     srsBoost: Number(srsBoost.toFixed(2)),
                     rotationPenalty: Number(rotationPenalty.toFixed(2)),
                     mcUrgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
+                    efficiencyBridgeBoost: Number(efficiencyBridgeBoost.toFixed(2)),
                 }
             }
         };
