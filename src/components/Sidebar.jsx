@@ -184,7 +184,9 @@ export default function Sidebar({
                         <div id="sidebar-contests-panel" className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="nested-container space-y-1">
                                 {contestEntries.map(([id, contestData]) => {
-                                    const name = typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome';
+                                    const name = typeof contestData === 'string'
+                                        ? contestData
+                                        : contestData?.contestName || contestData?.user?.name || 'Sem nome';
                                     const isActive = id === activeContestId;
                                     return (
                                         <div
@@ -252,9 +254,11 @@ export default function Sidebar({
                             <nav className="space-y-1">
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
-                                    const isActive = item.path === '/'
-                                        ? location.pathname === '/'
-                                        : location.pathname.startsWith(item.path);
+                                    const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
+                                    const normalizedItemPath = item.path.replace(/\/+$/, '') || '/';
+                                    const isActive = normalizedItemPath === '/'
+                                        ? normalizedPath === '/'
+                                        : normalizedPath === normalizedItemPath || normalizedPath.startsWith(`${normalizedItemPath}/`);
 
                                     return (
                                         <Link
