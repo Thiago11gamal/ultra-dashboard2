@@ -23,6 +23,11 @@ export function CompareChart({
         glow: `cc_glow-${baseId}`
     }), [baseId]);
 
+    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore
+        ? Number(maxScore)
+        : Math.max(100, safeMinScore + 1);
+
     const lastValidIdx = React.useMemo(() => {
         const last = { bay: -1, raw: -1, stats: -1, mc: -1 };
         for (let i = filteredChartData.length - 1; i >= 0; i--) {
@@ -48,7 +53,8 @@ export function CompareChart({
         }
         // 🎯 SCALE BUG FIX: Impede que a legenda vaze do container
         yPos.forEach(p => {
-            p.yPos = Math.max(5, Math.min(maxScore - 5, p.yPos));
+            const pad = Math.min(5, Math.max(0, (safeMaxScore - safeMinScore) * 0.1));
+            p.yPos = Math.max(safeMinScore + pad, Math.min(safeMaxScore - pad, p.yPos));
         });
         return yPos;
     };
@@ -155,7 +161,7 @@ export function CompareChart({
                     </defs>
                     <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.03)" vertical={false} />
                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dy={12} axisLine={false} tickLine={false} minTickGap={35} />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[minScore, maxScore]} allowDataOverflow={true} tickFormatter={(v) => `${v}${unit}`} width={50} />
+                    <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[safeMinScore, safeMaxScore]} allowDataOverflow={true} tickFormatter={(v) => `${v}${unit}`} width={50} />
                     
                     <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
                         label={{ value: `META ${targetScore}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideBottomLeft', dy: -6, dx: 5 }} />
