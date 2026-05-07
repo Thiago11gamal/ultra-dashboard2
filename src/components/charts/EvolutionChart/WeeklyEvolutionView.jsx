@@ -172,6 +172,7 @@ export const WeeklyEvolutionView = ({
                         // Metadados para o Tooltip
                         dataPoint[`meta_${id}`] = {
                             currTot: currentData.total,
+                            currPct: currentPct,
                             prevPct: prevPct,
                             prevTot: memoryByItem[id].total
                         };
@@ -179,7 +180,7 @@ export const WeeklyEvolutionView = ({
                         // Primeira semana com dados: sem variação
                         dataPoint[`delta_${id}`] = null;
                         dataPoint[`deltaColor_${id}`] = '#94a3b8';
-                        dataPoint[`meta_${id}`] = { currTot: currentData.total, prevPct: null, prevTot: 0 };
+                        dataPoint[`meta_${id}`] = { currTot: currentData.total, currPct: currentPct, prevPct: null, prevTot: 0 };
                     }
 
                     // 3. Atualiza a memória PARA A PRÓXIMA SEMANA
@@ -271,7 +272,7 @@ export const WeeklyEvolutionView = ({
                                 // Design para Variação
                                 const color = entry.payload[`deltaColor_${baseKey}`] || (val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
                                 const prefix = val > 0 ? '+' : '';
-                                const currentPct = entry.payload?.[baseKey];
+                                const currentPct = Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey];
 
                                 return (
                                     <div key={idx} className="flex flex-col gap-0.5">
@@ -287,7 +288,9 @@ export const WeeklyEvolutionView = ({
                                         {meta && meta.prevPct != null && Number.isFinite(Number(currentPct)) && (
                                             <div className="flex justify-between text-[8px] text-slate-500 pl-3">
                                                 <span>De {formatValue(meta.prevPct)}{unit}</span>
-                                                <span>Para {formatValue(currentPct)}{unit}</span>
+                                                <span>
+                                                    Para {formatValue(currentPct)}{unit} <strong style={{ color }}>(Δ {prefix}{formatValue(val)}{unit})</strong>
+                                                </span>
                                             </div>
                                         )}
                                     </div>
