@@ -43,8 +43,11 @@ export function CompareChart({
 
     const solveCollisions = (points) => {
         if (!points.length) return [];
-        const sorted = [...points].sort((a, b) => b.value - a.value);
-        const yPos = sorted.map(p => ({ ...p, yPos: Number.isFinite(Number(p.value)) ? Number(p.value) : 0 }));
+        const sorted = [...points].sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
+        const yPos = sorted.map(p => ({
+            ...p,
+            yPos: Number.isFinite(Number(p.value)) ? Number(p.value) : safeMinScore
+        }));
         const DIST = 9;
         for (let i = 1; i < yPos.length; i++) {
             if (yPos[i - 1].yPos - yPos[i].yPos < DIST) {
@@ -53,8 +56,13 @@ export function CompareChart({
         }
         // 🎯 SCALE BUG FIX: Impede que a legenda vaze do container
         yPos.forEach(p => {
-            const pad = Math.min(5, Math.max(0, (safeMaxScore - safeMinScore) * 0.1));
-            p.yPos = Math.max(safeMinScore + pad, Math.min(safeMaxScore - pad, p.yPos));
+            const span = Math.max(1, safeMaxScore - safeMinScore);
+            const pad = Math.min(5, span * 0.1);
+            const minBound = safeMinScore + pad;
+            const maxBound = safeMaxScore - pad;
+            p.yPos = minBound <= maxBound
+                ? Math.max(minBound, Math.min(maxBound, p.yPos))
+                : Math.max(safeMinScore, Math.min(safeMaxScore, p.yPos));
         });
         return yPos;
     };
