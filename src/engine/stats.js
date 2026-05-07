@@ -63,6 +63,7 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
  * Retorna média posterior + IC 95%.
  */
 export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 100) {
+    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     let alpha = alpha0;
     let beta = beta0;
     let maxAlphaEver = alpha0;
@@ -78,11 +79,11 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             let correct = Number(h.correct) || 0;
 
             const normalizedScore = getSafeScore(h, maxScore);
-            const pct = Math.min(1, Math.max(0, normalizedScore / maxScore));
+            const pct = Math.min(1, Math.max(0, normalizedScore / safeMaxScore));
             if (total > 0 && correct === 0 && Number.isFinite(normalizedScore) && normalizedScore > 0) {
                 correct = Math.round(pct * total);
             } else if (total === 0 && Number.isFinite(normalizedScore)) {
-                total = getSyntheticTotal(maxScore);
+                total = getSyntheticTotal(safeMaxScore);
                 correct = Math.round(pct * total);
             }
 
@@ -108,8 +109,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
                 
                 // AMNÉSIA BAYESIANA: Limita o decaimento assintótico de N 
                 // para que alpha (N * P) nunca caia abaixo do piso de retenção.
-                const minAllowedN = currentP > 0 ? retentionFloor / currentP : 2;
-                const nAfterDecay = Math.max(2, minAllowedN, nBeforeDecay * entryDecay); // Mínimo de n=2 (Laplace)
+                const minN = retentionFloor / Math.max(0.01, currentP);
+                const nAfterDecay = Math.max(minN, nBeforeDecay * entryDecay);
                 
                 alpha = nAfterDecay * currentP;
                 beta = nAfterDecay * (1 - currentP);
@@ -129,8 +130,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const nBeforeDecay = alpha + beta;
             const currentP = alpha / nBeforeDecay;
             
-            const minAllowedN = currentP > 0 ? retentionFloor / currentP : 2;
-            const nAfterDecay = Math.max(2, minAllowedN, nBeforeDecay * finalDecay);
+            const minN = retentionFloor / Math.max(0.01, currentP);
+            const nAfterDecay = Math.max(minN, nBeforeDecay * finalDecay);
             
             alpha = nAfterDecay * currentP;
             beta = nAfterDecay * (1 - currentP);
@@ -156,7 +157,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
     // Média de saída estrita (p real)
     const p = alpha / n;
-    const bayesianMean = p * maxScore;
+    const bayesianMean = p * safeMaxScore;
 
     const effectiveAlpha = p * effectiveN;
 
@@ -169,7 +170,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     // Prevents Monte Carlo collapse for large N by assuming a finite test size (TAMANHO_PROVA_ESTIMADO).
     // BUG-BAYES-01 FIX: escalar pelo maxScore real da prova
     // Antes: hardcoded 100, subestimava variance para provas > 100 pts e superestimava para < 100 pts
-    const TAMANHO_PROVA_ESTIMADO = Math.max(20, Math.round(maxScore));
+    const TAMANHO_PROVA_ESTIMADO = Math.max(20, Math.round(safeMaxScore));
     const epistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;
     const aleatoricVar = (p_tilde * (1 - p_tilde)) / TAMANHO_PROVA_ESTIMADO;
 
@@ -177,11 +178,11 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const effectiveSd = Math.sqrt(Math.max(0, predictiveVariance));
 
     // Margem ancorada na proporção ajustada
-    const marginOfError = Z_95 * effectiveSd * maxScore;
+    const marginOfError = Z_95 * effectiveSd * safeMaxScore;
 
     // BUGFIX M1: Center the CI on p_tilde (the Agresti-Coull estimator) instead of raw mean.
     // This prevents CI lower bounds from becoming overly negative for low-success histories.
-    const centerForCI = p_tilde * maxScore;
+    const centerForCI = p_tilde * safeMaxScore;
     let ciLow = centerForCI - marginOfError;
     let ciHigh = centerForCI + marginOfError;
 
@@ -190,7 +191,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     ciLow = Math.min(bayesianMean, ciLow);
 
     const strictLow = Math.max(0, ciLow);
-    const strictHigh = Math.min(maxScore, ciHigh);
+    const strictHigh = Math.min(safeMaxScore, ciHigh);
 
     let alphaOut = alpha;
     let betaOut = beta;
@@ -202,7 +203,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
     return {
         mean: Number(bayesianMean.toFixed(2)),
-        sd: Number((effectiveSd * maxScore).toFixed(2)),
+        sd: Number((effectiveSd * safeMaxScore).toFixed(2)),
         ciLow: Number(strictLow.toFixed(2)),
         ciHigh: Number(strictHigh.toFixed(2)),
         // 🎯 SD SQUASH (Fix): Exportar os valores não truncados para o Monte Carlo
