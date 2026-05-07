@@ -154,6 +154,14 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 </div>
             </div>
 
+            {mcAssumptions && (
+                <div className="px-2 mb-2">
+                    <p className="text-[9px] uppercase tracking-widest text-slate-500">
+                        Hipóteses do Modelo: <span className="text-slate-300 font-bold">N={mcAssumptions.points}</span> · CI95 largura atual <span className="text-slate-300 font-bold">{unit === 'horas' ? formatDuration(mcAssumptions.ciWidth) : `${formatValue(mcAssumptions.ciWidth)}${unit}`}</span>
+                    </p>
+                </div>
+            )}
+
             <div className="w-full relative h-[360px] flex items-center justify-center">
                 {formattedData.length === 1 && (
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-md rounded-2xl text-center p-6 border border-white/5">
