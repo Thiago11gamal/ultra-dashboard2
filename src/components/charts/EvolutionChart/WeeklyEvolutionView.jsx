@@ -271,6 +271,7 @@ export const WeeklyEvolutionView = ({
                                 // Design para Variação
                                 const color = entry.payload[`deltaColor_${baseKey}`] || (val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
                                 const prefix = val > 0 ? '+' : '';
+                                const currentPct = entry.payload?.[baseKey];
 
                                 return (
                                     <div key={idx} className="flex flex-col gap-0.5">
@@ -283,10 +284,10 @@ export const WeeklyEvolutionView = ({
                                                 {prefix}{formatValue(val)}{unit}
                                             </span>
                                         </div>
-                                        {meta && meta.prevPct != null && (
+                                        {meta && meta.prevPct != null && Number.isFinite(Number(currentPct)) && (
                                             <div className="flex justify-between text-[8px] text-slate-500 pl-3">
                                                 <span>De {formatValue(meta.prevPct)}{unit}</span>
-                                                <span>Para {formatValue(val)}{unit}</span>
+                                                <span>Para {formatValue(currentPct)}{unit}</span>
                                             </div>
                                         )}
                                     </div>
