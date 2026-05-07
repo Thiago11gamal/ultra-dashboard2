@@ -8,10 +8,17 @@ import { ptBR } from 'date-fns/locale';
 import { formatDuration } from '../../../utils/dateHelper';
 import { formatValue, formatPercent } from '../../../utils/scoreHelper';
 
+const SCENARIO_OPTIONS = [
+    { id: 'conservative', label: 'Conserv.', fullLabel: 'Conservador' },
+    { id: 'base', label: 'Base', fullLabel: 'Base' },
+    { id: 'optimistic', label: 'Otim.', fullLabel: 'Otimista' },
+];
+
 export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = 'pts', maxScore = 100 }) => {
     const rawId = useId();
     const gradientId = `colorMonteCarlo-${rawId.replace(/:/g, '')}`;
     const [scenario, setScenario] = useState('base');
+    const scenarioLabels = Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel]));
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
@@ -56,7 +63,9 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             const mean = Math.max(0, Math.min(maxScore, (Number(d.mean) || 0) + cfg.meanBias));
             const low = Math.max(0, Math.min(maxScore, mean - ((mean - d.ciRange[0]) * cfg.ciMult)));
             const high = Math.max(0, Math.min(maxScore, mean + ((d.ciRange[1] - mean) * cfg.ciMult)));
-            return { ...d, mean, ciRange: [Math.min(low, high), Math.max(low, high)] };
+            const probBase = Number.isFinite(Number(d.probability)) ? Number(d.probability) : 0;
+            const probAdj = Math.max(0, Math.min(100, probBase + (cfg.meanBias * 1.8)));
+            return { ...d, mean, probability: probAdj, ciRange: [Math.min(low, high), Math.max(low, high)] };
         });
     }, [formattedData, scenario, maxScore]);
 
@@ -81,8 +90,9 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
         return {
             points: scenarioAdjustedData.length,
             ciWidth: width,
+            scenario: scenarioLabels[scenario] || scenario,
         };
-    }, [scenarioAdjustedData]);
+    }, [scenarioAdjustedData, scenario]);
 
     if (formattedData.length === 0) {
         return (
@@ -96,7 +106,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 </p>
                 <div className="w-full max-w-md h-32 opacity-20 pointer-events-none">
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={[{ date: '1', mean: 40 }, { date: '2', mean: 60 }, { date: '3', mean: 85 }]}>
+                        <AreaChart data={[{ date: '1', mean: 40 }, { date: '2', mean: 60 }, { mean: 85 }]}>
                             <XAxis dataKey="date" hide />
                             <YAxis hide domain={[0, maxScore]} />
                             <Area type="monotone" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={false} />
@@ -162,7 +172,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     </div>
                 </div>
                 <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-800 rounded-lg p-1">
-                    {[{ id: 'conservative', label: 'Conserv.' }, { id: 'base', label: 'Base' }, { id: 'optimistic', label: 'Otim.' }].map(opt => (
+                    {SCENARIO_OPTIONS.map(opt => (
                         <button
                             key={opt.id}
                             type="button"
@@ -189,7 +199,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             {mcAssumptions && (
                 <div className="px-2 mb-2">
                     <p className="text-[9px] uppercase tracking-widest text-slate-500">
-                        Hipóteses do Modelo: <span className="text-slate-300 font-bold">N={mcAssumptions.points}</span> · CI95 largura atual <span className="text-slate-300 font-bold">{unit === 'horas' ? formatDuration(mcAssumptions.ciWidth) : `${formatValue(mcAssumptions.ciWidth)}${unit}`}</span>
+                        Hipóteses do Modelo ({mcAssumptions.scenario}): <span className="text-slate-300 font-bold">N={mcAssumptions.points}</span> · CI95 largura atual <span className="text-slate-300 font-bold">{unit === 'horas' ? formatDuration(mcAssumptions.ciWidth) : `${formatValue(mcAssumptions.ciWidth)}${unit}`}</span>
                     </p>
                 </div>
             )}

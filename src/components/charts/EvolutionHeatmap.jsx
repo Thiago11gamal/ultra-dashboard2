@@ -102,7 +102,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                         className="relative group rounded-lg flex flex-col items-center justify-center py-2 transition-all hover:scale-105 hover:z-20 cursor-default"
                                         style={{
                                             background: col.bg,
-                                            opacity: cell ? (0.45 + (col.density * 0.55)) : 1,
+                                            opacity: cell ? (0.72 + (col.density * 0.28)) : 1,
                                             border: `1px solid ${col.border}`,
                                             minHeight: '48px',
                                         }}
