@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
     Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush
@@ -225,26 +225,16 @@ export const WeeklyEvolutionView = ({
 
     if (chartData.length < 2) {
         return (
-            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
-                <HelpCircle size={40} className="text-slate-600 mb-3" />
-                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
-                <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
-                    Registre pelo menos 2 semanas de simulados para visualizar a curva de evolução e a variação de deltas.
-                </p>
-            </div>
-        );
-    }
-
-    const handleLegendClick = (e) => {
+    const handleLegendClick = useCallback((e) => {
         const { dataKey } = e;
         const keyID = String(dataKey).replace('delta_', '');
         setUserToggles(prev => ({
             ...prev,
             [keyID]: !hiddenKeys[keyID] // Inverte o frame de ocultação
         }));
-    };
+    }, [hiddenKeys]);
 
-    const renderCustomTooltip = ({ active, payload, label }) => {
+    const renderCustomTooltip = useCallback(({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
                 <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-lg shadow-2xl backdrop-blur-md min-w-[220px]">
@@ -271,20 +261,20 @@ export const WeeklyEvolutionView = ({
                                 const prefix = val > 0 ? '+' : '';
 
                                 return (
-                                    <div key={idx} className="flex flex-col gap-1">
+                                    <div key={idx} className="flex flex-col gap-0.5">
                                         <div className="flex justify-between items-center text-[10px]">
-                                            <span style={{ color: activeKeys[baseKey]?.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }}></span>
+                                            <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }}></span>
                                                 {entry.name.replace(' (Var.)', '')}
                                             </span>
-                                            <span className={`font-mono font-black`} style={{ color }}>
+                                            <span style={{ color }} className="font-mono font-black text-xs">
                                                 {prefix}{formatValue(val)}{unit}
                                             </span>
                                         </div>
-                                        {meta && meta.prevPct !== null && (
-                                            <div className="flex justify-between text-[9px] text-slate-500 font-medium pl-3">
-                                                <span>De: {formatValue(meta.prevPct)}{unit} ({meta.prevTot}q)</span>
-                                                <span>Para: {formatValue(meta.prevPct + val)}{unit} ({meta.currTot}q)</span>
+                                        {meta && meta.prevAvg != null && (
+                                            <div className="flex justify-between text-[8px] text-slate-500 pl-3">
+                                                <span>De {formatValue(meta.prevAvg)}{unit}</span>
+                                                <span>Para {formatValue(meta.currAvg)}{unit}</span>
                                             </div>
                                         )}
                                     </div>
@@ -316,7 +306,42 @@ export const WeeklyEvolutionView = ({
             );
         }
         return null;
-    };
+    }, [hiddenKeys, unit]);
+
+    const evolutionLegendFormatter = useCallback((value, entry) => (
+        <span style={{
+            color: hiddenKeys[entry.dataKey] ? '#475569' : '#fff',
+            textDecoration: hiddenKeys[entry.dataKey] ? 'line-through' : 'none',
+            transition: 'all 0.3s'
+        }}>
+            {value}
+        </span>
+    ), [hiddenKeys]);
+
+    const variationLegendFormatter = useCallback((value, entry) => {
+        const baseKey = entry.dataKey.replace('delta_', '');
+        return (
+            <span style={{
+                color: hiddenKeys[baseKey] ? '#475569' : '#fff',
+                textDecoration: hiddenKeys[baseKey] ? 'line-through' : 'none',
+                transition: 'all 0.3s'
+            }}>
+                {value.replace(' (Var.)', '')}
+            </span>
+        );
+    }, [hiddenKeys]);
+
+    if (chartData.length < 2) {
+        return (
+            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
+                <HelpCircle size={40} className="text-slate-600 mb-3" />
+                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
+                <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
+                    Registre pelo menos 2 semanas de simulados para visualizar a curva de evolução e a variação de deltas.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full pt-4 animate-fade-in relative flex flex-col">
@@ -375,15 +400,7 @@ export const WeeklyEvolutionView = ({
                                     onClick={handleLegendClick}
                                     wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }}
                                     iconType="circle"
-                                    formatter={(value, entry) => (
-                                        <span style={{
-                                            color: hiddenKeys[entry.dataKey] ? '#475569' : '#fff',
-                                            textDecoration: hiddenKeys[entry.dataKey] ? 'line-through' : 'none',
-                                            transition: 'all 0.3s'
-                                        }}>
-                                            {value}
-                                        </span>
-                                    )}
+                                    formatter={evolutionLegendFormatter}
                                 />
 
                                 {chartData.length > 4 && (
@@ -427,18 +444,7 @@ export const WeeklyEvolutionView = ({
                                     onClick={handleLegendClick}
                                     wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }}
                                     iconType="circle"
-                                    formatter={(value, entry) => {
-                                        const baseKey = entry.dataKey.replace('delta_', '');
-                                        return (
-                                            <span style={{
-                                                color: hiddenKeys[baseKey] ? '#475569' : '#fff',
-                                                textDecoration: hiddenKeys[baseKey] ? 'line-through' : 'none',
-                                                transition: 'all 0.3s'
-                                            }}>
-                                                {value.replace(' (Var.)', '')}
-                                            </span>
-                                        );
-                                    }}
+                                    formatter={variationLegendFormatter}
                                 />
 
                                 {chartData.length > 4 && (

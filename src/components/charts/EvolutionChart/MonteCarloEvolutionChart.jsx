@@ -1,4 +1,4 @@
-import React, { useMemo, useId } from 'react';
+import React, { useMemo, useId, useCallback } from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -66,7 +66,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
         );
     }
 
-    const renderCustomTooltip = ({ active, payload }) => {
+    const renderCustomTooltip = useCallback(({ active, payload }) => {
         if (active && payload && payload.length) {
             const dataPoint = payload[0].payload;
             const fullDate = dataPoint.fullDate;
@@ -111,7 +111,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             );
         }
         return null;
-    };
+    }, [targetScore, unit]);
 
     return (
         <div className="w-full min-h-[400px] flex flex-col py-4 mt-2">
