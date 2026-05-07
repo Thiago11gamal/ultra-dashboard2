@@ -4,6 +4,7 @@ const checks = [
   'scripts/test-mc-scenarios.mjs',
   'scripts/test-heatmap-aggregation.mjs',
   'scripts/test-weekly-insights.mjs',
+  'scripts/test-projection-scenario.mjs',
 ];
 
 for (const script of checks) {

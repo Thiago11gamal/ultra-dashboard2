@@ -19,7 +19,8 @@
     "test:mc-scenarios": "node scripts/test-mc-scenarios.mjs",
     "test:heatmap-aggregation": "node scripts/test-heatmap-aggregation.mjs",
     "test:weekly-insights": "node scripts/test-weekly-insights.mjs",
-    "test:evolution-suite": "node scripts/test-evolution-suite.mjs"
+    "test:evolution-suite": "node scripts/test-evolution-suite.mjs",
+    "test:projection-scenario": "node scripts/test-projection-scenario.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
