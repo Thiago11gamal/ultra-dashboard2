@@ -31,14 +31,26 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
     const aggregated = useMemo(() => {
         if (granularity !== 'weekly') return filtered;
 
+        const getWeekKey = (rawKey = '') => {
+            const dt = /^\d{4}-\d{2}-\d{2}$/.test(rawKey) ? new Date(`${rawKey}T12:00:00`) : new Date(rawKey);
+            if (Number.isNaN(dt.getTime())) return `sem-${rawKey || 'na'}`;
+            const day = dt.getDay();
+            const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
+            dt.setDate(diff);
+            const y = dt.getFullYear();
+            const m = String(dt.getMonth() + 1).padStart(2, '0');
+            const d = String(dt.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+
         const weekBuckets = new Map();
         filtered.dates.forEach((d, index) => {
-            const key = `${d.key?.slice(0, 7) || 'sem'}-W${Math.ceil((Number((d.key || '').slice(8, 10)) || 1) / 7)}`;
+            const key = getWeekKey(d.key);
             if (!weekBuckets.has(key)) {
                 weekBuckets.set(key, {
                     key,
                     label: d.label,
-                    dayName: `S${weekBuckets.size + 1}`,
+                    dayName: `Sem ${weekBuckets.size + 1}`,
                     isWeekend: false,
                     indices: [],
                 });
