@@ -186,7 +186,10 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
                         <Target size={12} className="text-slate-500" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Target: <strong className="text-white">{unit === 'horas' ? formatDuration(targetScore) : unit === '%' ? formatValue(targetScore) : targetScore} {unit}</strong></span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">
+                            Target: <strong className="text-white">{unit === 'horas' ? formatDuration(targetScore) : unit === '%' ? formatValue(targetScore) : targetScore} {unit}</strong>
+                            <small className="text-slate-500 ml-1">({scenarioLabels[scenario]})</small>
+                        </span>
                     </div>
                     {qualitySignal && (
                         <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md border ${qualitySignal.color}`}>
