@@ -29,7 +29,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
     };
 
     const aggregated = useMemo(() => {
-        if (granularity !== 'weekly') return filtered;
+        if (granularity === 'daily') return filtered;
 
         const getWeekKey = (rawKey = '') => {
             const dt = /^\d{4}-\d{2}-\d{2}$/.test(rawKey) ? new Date(`${rawKey}T12:00:00`) : new Date(rawKey);
@@ -43,29 +43,31 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
             return `${y}-${m}-${d}`;
         };
 
-        const weekBuckets = new Map();
+        const buckets = new Map();
         filtered.dates.forEach((d, index) => {
-            const key = getWeekKey(d.key);
-            if (!weekBuckets.has(key)) {
-                weekBuckets.set(key, {
+            const key = granularity === 'monthly'
+                ? String(d.key || '').slice(0, 7)
+                : getWeekKey(d.key);
+            if (!buckets.has(key)) {
+                buckets.set(key, {
                     key,
-                    label: d.label,
-                    dayName: `Sem ${weekBuckets.size + 1}`,
+                    label: granularity === 'monthly' ? key : d.label,
+                    dayName: granularity === 'monthly' ? `M${buckets.size + 1}` : `Sem ${buckets.size + 1}`,
                     isWeekend: false,
                     indices: [],
                 });
             }
-            weekBuckets.get(key).indices.push(index);
+            buckets.get(key).indices.push(index);
         });
 
-        const aggDates = [...weekBuckets.values()].map(({ indices, ...meta }) => ({
+        const aggDates = [...buckets.values()].map(({ indices, ...meta }) => ({
             ...meta,
             count: indices.length,
         }));
 
         const aggRows = filtered.rows.map((row) => ({
             ...row,
-            cells: [...weekBuckets.values()].map(({ indices }) => {
+            cells: [...buckets.values()].map(({ indices }) => {
                 const samples = indices.map(i => row.cells?.[i]).filter(Boolean);
                 if (!samples.length) return null;
                 const total = samples.reduce((acc, c) => acc + (Number(c.total) || 0), 0);
@@ -110,7 +112,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                     ))}
                 </div>
                 <div className="flex items-center gap-1 bg-slate-950/60 border border-slate-800 rounded-lg p-1 mr-2">
-                    {[{ label: 'Diário', value: 'daily' }, { label: 'Semanal', value: 'weekly' }].map(opt => (
+                    {[{ label: 'Diário', value: 'daily' }, { label: 'Semanal', value: 'weekly' }, { label: 'Mensal', value: 'monthly' }].map(opt => (
                         <button
                             type="button"
                             key={opt.value}
