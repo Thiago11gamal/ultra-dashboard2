@@ -225,6 +225,31 @@ export const WeeklyEvolutionView = ({
         return result;
     }, [rankedKeys, userToggles]);
 
+    const topRegressions = useMemo(() => {
+        if (viewMode !== 'variation' || !Array.isArray(chartData) || chartData.length === 0) return [];
+
+        const latestWeekWithDelta = [...chartData].reverse().find(point =>
+            keys.some(key => Number.isFinite(Number(point?.[`delta_${key}`])))
+        );
+        if (!latestWeekWithDelta) return [];
+
+        return keys
+            .map((key) => {
+                const delta = latestWeekWithDelta[`delta_${key}`];
+                if (!Number.isFinite(Number(delta)) || Number(delta) >= 0) return null;
+                return {
+                    key,
+                    name: activeKeys[key]?.name || key,
+                    delta: Number(delta),
+                    color: activeKeys[key]?.color || '#ef4444',
+                    week: latestWeekWithDelta.displayDate,
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.delta - b.delta)
+            .slice(0, 3);
+    }, [viewMode, chartData, keys, activeKeys]);
+
     if (chartData.length < 2) {
         return (
             <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
@@ -495,6 +520,20 @@ export const WeeklyEvolutionView = ({
                     </ResponsiveContainer>
                 )}
             </div>
+
+            {viewMode === 'variation' && topRegressions.length > 0 && (
+                <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">Top Regressões · Semana {topRegressions[0].week}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {topRegressions.map(item => (
+                            <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between">
+                                <span className="truncate" style={{ color: item.color }}>{item.name}</span>
+                                <span className="font-mono font-black text-rose-300">{formatValue(item.delta)}{unit}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {viewMode !== 'performance' && (
                 <div className="flex justify-center mt-3 opacity-60">
