@@ -24,22 +24,23 @@ function renderRecommendation(text) {
 }
 
 function getUrgencyConfig(score, status = '') {
+    const numericScore = Number.isFinite(Number(score)) ? Number(score) : 0;
     const s = status.toLowerCase();
-    if (s.includes('urgente') || score > 70) return {
+    if (s.includes('urgente') || numericScore > 70) return {
         tier: 'CRÍTICO', Icon: Flame,
         border: 'border-red-500/45', glow: 'shadow-red-900/40',
         badge: 'bg-red-500/15 text-red-300 border-red-500/30',
         bar: 'from-red-600 to-rose-500', accent: 'text-red-400',
         stripe: 'from-red-600/15', pulse: 'bg-red-500', line: 'via-red-500'
     };
-    if (s.includes('médio') || score > 50) return {
+    if (s.includes('médio') || numericScore > 50) return {
         tier: 'ALTO', Icon: TrendingDown,
         border: 'border-orange-500/45', glow: 'shadow-orange-900/30',
         badge: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
         bar: 'from-orange-600 to-amber-500', accent: 'text-orange-400',
         stripe: 'from-orange-600/12', pulse: 'bg-orange-500', line: 'via-orange-500'
     };
-    if (score > 25) return {
+    if (numericScore > 25) return {
         tier: 'MÉDIO', Icon: Clock,
         border: 'border-amber-500/40', glow: 'shadow-amber-900/20',
         badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
@@ -72,7 +73,8 @@ function MetricChip({ label, value, index }) {
 }
 
 function UrgencyBar({ score, cfg }) {
-    const pct = Math.min(100, Math.max(0, score || 0));
+    const numericScore = Number.isFinite(Number(score)) ? Number(score) : 0;
+    const pct = Math.min(100, Math.max(0, numericScore));
     return (
         <div className="w-full">
             <div className="flex items-center justify-between mb-1.5">
@@ -102,7 +104,8 @@ export default function AICoachWidget({ suggestion }) {
     // VIS-06 FIX: urgency.score é o valor RAW (pode ser 0–200+), não 0–100.
     // getUrgencyConfig e UrgencyBar esperam escala 0–100.
     // Usar normalizedScore que já está normalizado pela função calculateUrgency.
-    const urgencyScore = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
+    const urgencyScoreRaw = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
+    const urgencyScore = Number.isFinite(Number(urgencyScoreRaw)) ? Number(urgencyScoreRaw) : 0;
     const statusLabel = String(urgency.humanReadable?.Status ?? '');
 
     // Check if category is degraded from calibrationOps
@@ -159,14 +162,14 @@ export default function AICoachWidget({ suggestion }) {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                        {urgency.crunchMultiplier > 1 && (
+                        {Number.isFinite(Number(urgency?.crunchMultiplier)) && Number(urgency.crunchMultiplier) > 1 && (
                             <Motion.div
                                 animate={{ opacity: [1, 0.6, 1] }}
                                 transition={{ duration: 1.5, repeat: Infinity }}
                                 className="flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest shrink-0"
                             >
                                 <AlertTriangle size={12} className="shrink-0" />
-                                <span className="whitespace-nowrap">CRÍTICO ×{urgency.crunchMultiplier}</span>
+                                <span className="whitespace-nowrap">CRÍTICO ×{Number(urgency.crunchMultiplier).toFixed(1).replace(/\.0$/, '')}</span>
                             </Motion.div>
                         )}
                         {isDegraded && (
@@ -280,7 +283,7 @@ export default function AICoachWidget({ suggestion }) {
                                                 <p className="text-[10px] text-cyan-100/70 mb-2">
                                                     Qualidade da calibração: <span className="font-black uppercase">{urgency.monteCarlo.explainability.calibrationQuality || 'n/a'}</span>
                                                     {urgency.monteCarlo.explainability.confidenceAdjusted
-                                                        ? ` • ajuste ${urgency.monteCarlo.explainability.confidenceAdjustmentPct}%`
+                                                        ? ` • ajuste ${Number.isFinite(Number(urgency.monteCarlo.explainability.confidenceAdjustmentPct)) ? Number(urgency.monteCarlo.explainability.confidenceAdjustmentPct) : 0}%`
                                                         : ''}
                                                 </p>
                                                 <p className="text-xs text-slate-300 leading-relaxed">
