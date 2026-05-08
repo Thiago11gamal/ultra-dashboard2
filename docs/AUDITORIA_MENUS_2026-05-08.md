@@ -1,9 +1,9 @@
 # Auditoria de bugs por menu (2026-05-08)
 
 ## Escopo
-- Revisão do menu lateral (Navegação, Dados & Análise, Inteligência e Configurações).
-- Verificação de contratos de UI do menu de cenários Monte Carlo.
-- Execução de lint + testes para validar lógica de ativação de menu e rótulos de concursos.
+- Revisão funcional dos menus laterais: Navegação, Dados & Análise, Inteligência e Configurações.
+- Revisão do menu de cenários Monte Carlo e telas de Evolução.
+- Verificação automatizada ampla (lint, unit, math, evolution suite, build e verificação de stack).
 
 ## Bugs encontrados e corrigidos
 
@@ -17,15 +17,23 @@
    - Correção: centralização em utilitário que só aceita `contestName`/`name` e, na ausência, retorna `Sem nome`.
    - Arquivos: `src/components/sidebarUtils.js`, `src/components/Sidebar.jsx`.
 
-3. **Lógica de item ativo do menu não tinha cobertura dedicada de regressão**
+3. **Lógica de item ativo do menu sem cobertura dedicada de regressão**
    - Risco de regressão em paths com alias (`/dashboard`) e subrotas (`/stats/...`).
-   - Correção: extração de utilitário `isMenuItemActive` + testes unitários cobrindo rota raiz, alias e subrota.
+   - Correção: extração de utilitário `isMenuItemActive` + testes unitários cobrindo raiz, alias e subrota.
    - Arquivos: `src/components/sidebarUtils.js`, `src/components/__tests__/sidebar.logic.test.js`, `src/components/Sidebar.jsx`.
 
-## Verificações executadas
+4. **Risco de erro em ambiente sem `window` ao fechar menu mobile**
+   - `closeMobileSidebar` acessava `window.innerWidth` diretamente.
+   - Correção: guard `typeof window === 'undefined'` antes do acesso.
+   - Arquivo: `src/components/Sidebar.jsx`.
+
+## Verificações executadas (análise ampla)
 1. `npm run lint`
-2. `npm run test:unit`
+2. `npm run test:all`
+3. `npm run test:evolution-suite`
+4. `npm run verify:evolution`
 
 ## Resultado
-- Lint passou sem erros.
-- Testes unitários passaram (110/110), incluindo novos testes de lógica de menu.
+- Lint, testes unitários/matemáticos e suite de evolução passaram.
+- Build de produção passou.
+- E2E (Playwright) passou com sucesso (1/1 teste).
