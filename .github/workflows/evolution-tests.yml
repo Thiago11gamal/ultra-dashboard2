@@ -12,6 +12,10 @@ on:
       - 'scripts/test-*.mjs'
       - 'package.json'
       - 'docs/EVOLUTION_TESTS.md'
+      - 'src/pages/Coach.jsx'
+      - 'src/utils/coachLogic.js'
+      - 'tests/coach-*.test.js'
+      - 'src/utils/__tests__/coach*.test.js'
   pull_request:
     paths:
       - 'src/components/charts/EvolutionChart/**'
@@ -23,6 +27,10 @@ on:
       - 'scripts/test-*.mjs'
       - 'package.json'
       - 'docs/EVOLUTION_TESTS.md'
+      - 'src/pages/Coach.jsx'
+      - 'src/utils/coachLogic.js'
+      - 'tests/coach-*.test.js'
+      - 'src/utils/__tests__/coach*.test.js'
 
 jobs:
   evolution-suite:
@@ -42,6 +50,9 @@ jobs:
 
       - name: Run evolution matrix
         run: npm run test:evolution-all
+
+      - name: Run coach suite
+        run: npm run test:coach-suite
 
       - name: Run lint
         run: npm run lint

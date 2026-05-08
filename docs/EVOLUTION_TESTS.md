@@ -49,3 +49,15 @@
     4. `npm run test:evolution-e2e`
 
 Use this command before merge to guarantee a full strict validation pass.
+
+
+## Coach AI checks
+
+- `npm run test:coach-unit`  
+  Runs coach math/regression unit tests.
+
+- `npm run test:coach-integration`  
+  Runs coach integration flow tests.
+
+- `npm run test:coach-suite`  
+  Runs coach unit + integration checks in sequence.

@@ -28,7 +28,10 @@
     "test:unit:safe": "node scripts/test-unit-safe.mjs",
     "lint:safe": "node scripts/lint-safe.mjs",
     "build:safe": "node scripts/build-safe.mjs",
-    "verify:evolution": "node scripts/verify-evolution-stack.mjs"
+    "verify:evolution": "node scripts/verify-evolution-stack.mjs",
+    "test:coach-unit": "vitest run tests/coach-math-regressions.test.js src/utils/__tests__/coachLogic.regression.test.js src/utils/__tests__/coachBacktest.test.js",
+    "test:coach-integration": "vitest run tests/coach-logic.integration.test.js",
+    "test:coach-suite": "node scripts/test-coach-suite.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
