@@ -23,7 +23,7 @@
    - Arquivos: `src/components/sidebarUtils.js`, `src/components/__tests__/sidebar.logic.test.js`, `src/components/Sidebar.jsx`.
 
 4. **Risco de erro em ambiente sem `window` ao fechar menu mobile**
-   - `closeMobileSidebar` acessava `window.innerWidth` diretamente.
+   - `closeMobileSidebar` acessava `window.innerWidth` directly.
    - Correção: guard `typeof window === 'undefined'` antes do acesso.
    - Arquivo: `src/components/Sidebar.jsx`.
 
