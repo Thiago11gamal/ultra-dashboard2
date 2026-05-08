@@ -186,13 +186,23 @@ export const analyzeSubjectBalance = (categories) => {
 };
 
 export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
-    const totalMinutes = studyLogs.length > 0
-        ? studyLogs.reduce((sum, l) => sum + (Number(l.duration) || Number(l.minutes) || 0), 0)
-        : categories.reduce((sum, c) => sum + (c.totalMinutes || 0), 0);
+    const safeCategories = Array.isArray(categories) ? categories : [];
+    const safeLogs = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+
+    const getMinutes = (entry) => {
+        const duration = Number(entry?.duration);
+        const minutes = Number(entry?.minutes);
+        const raw = Number.isFinite(duration) ? duration : (Number.isFinite(minutes) ? minutes : 0);
+        return Math.max(0, raw);
+    };
+
+    const totalMinutes = safeLogs.length > 0
+        ? safeLogs.reduce((sum, l) => sum + getMinutes(l), 0)
+        : safeCategories.reduce((sum, c) => sum + Math.max(0, Number(c?.totalMinutes) || 0), 0);
     // Bug fix: optional chaining on c.tasks throughout to avoid crash if tasks is undefined
-    const totalTasks = categories.reduce((sum, c) => sum + (c.tasks || []).length, 0);
-    const completedTasks = categories.reduce((sum, c) =>
-        sum + (c.tasks || []).filter(t => t.completed).length, 0
+    const totalTasks = safeCategories.reduce((sum, c) => sum + (Array.isArray(c?.tasks) ? c.tasks.length : 0), 0);
+    const completedTasks = safeCategories.reduce((sum, c) =>
+        sum + (Array.isArray(c?.tasks) ? c.tasks.filter(t => t?.completed).length : 0), 0
     );
 
     if (totalMinutes === 0 && completedTasks === 0) {
@@ -257,8 +267,8 @@ export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
         (completedTasks / (totalMinutes / 60)).toFixed(2) : 0;
 
     // Análise de tarefas de alta prioridade
-    const highPriorityTasks = categories.flatMap(c =>
-        (c.tasks || []).filter(t => t.priority === 'high')
+    const highPriorityTasks = safeCategories.flatMap(c =>
+        (Array.isArray(c?.tasks) ? c.tasks : []).filter(t => t?.priority === 'high')
     );
     const highPriorityCompleted = highPriorityTasks.filter(t => t.completed).length;
     const highPriorityRate = highPriorityTasks.length > 0 ?
