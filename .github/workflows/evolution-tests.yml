@@ -42,3 +42,9 @@ jobs:
 
       - name: Run evolution matrix
         run: npm run test:evolution-all
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run build
+        run: npm run build

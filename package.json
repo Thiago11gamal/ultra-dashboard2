@@ -21,8 +21,9 @@
     "test:weekly-insights": "node scripts/test-weekly-insights.mjs",
     "test:evolution-suite": "node scripts/test-evolution-suite.mjs",
     "test:projection-scenario": "node scripts/test-projection-scenario.mjs",
-    "test:evolution-all": "npm run test && npm run test:evolution-suite",
-    "test:evolution-ui": "node scripts/test-evolution-ui-contracts.mjs"
+    "test:evolution-all": "npm run test && npm run test:unit && npm run test:evolution-suite",
+    "test:evolution-ui": "node scripts/test-evolution-ui-contracts.mjs",
+    "test:evolution-components": "vitest run src/components/charts/EvolutionChart/__tests__/evolutionComponents.test.jsx"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

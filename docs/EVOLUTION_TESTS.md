@@ -17,8 +17,13 @@
 - `npm run test:evolution-suite`  
   Runs all scripts above in sequence and fails fast.
 
+- `npm run test:evolution-components`  
+  Runs Vitest render-contract checks for MonteCarloEvolutionChart and EvolutionHeatmap.
+
 ## Recommended CI order
 
 1. `npm run test`
-2. `npm run test:evolution-suite`
-3. `npm run lint` *(when dependencies are available in CI image)*
+2. `npm run test:unit`
+3. `npm run test:evolution-suite`
+4. `npm run lint`
+5. `npm run build`

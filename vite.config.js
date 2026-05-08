@@ -30,7 +30,7 @@ export default defineConfig({
   test: {
     environment: 'node',        // engine puro — sem DOM
     globals: true,              // describe/it/expect sem import
-    include: ['src/**/*.test.js', 'src/**/*.spec.js', 'tests/**/*.test.js'],
+    include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'src/**/*.spec.js', 'tests/**/*.test.js'],
     coverage: {
       provider: 'v8',
       include: ['src/engine/**', 'src/utils/coachLogic.js'],
