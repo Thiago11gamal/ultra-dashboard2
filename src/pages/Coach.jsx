@@ -285,13 +285,15 @@ export default function Coach() {
     const analysisHash = useMemo(() => {
         // HASH-GUARD: Evita loop infinito se a análise persistir métricas que alteram o 'data'.
         // Usamos as referências dos arrays e valores de perfil para detectar mudanças reais.
-        const scoreFingerprint = (data?.simuladoRows || []).slice(-15).map(s => `${s.id}-${s.score}-${s.date || s.createdAt || ''}`).join('|');
+        const rowsFingerprint = (data?.simuladoRows || []).slice(-15).map(s => `${s.id}-${s.score}-${s.date || s.createdAt || ''}`).join('|');
+        const simuladosFingerprint = (data?.simulados || []).slice(-15).map(s => `${s.id}-${s.score}-${s.date || s.createdAt || ''}`).join('|');
+        const scoreFingerprint = `${rowsFingerprint}::${simuladosFingerprint}`;
         const studyFingerprint = (data?.studyLogs || []).length;
         // IMPORTANTE: não usar calibrationHistory no hash. Essas métricas são
         // persistidas pelo próprio efeito de análise e causavam reexecução em loop,
         // congelando a navegação após abrir o Coach.
         return `coach-v4.3-${scoreFingerprint}-${studyFingerprint}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}`;
-    }, [data?.simuladoRows, data?.studyLogs, categories.length, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore]);
+    }, [data?.simuladoRows, data?.simulados, data?.studyLogs, categories.length, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore]);
 
     const lastHashRef = useRef('');
 
