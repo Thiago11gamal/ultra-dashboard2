@@ -243,7 +243,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const sumCorrect = (relevantSimulados || []).reduce((a, s) => a + getSafeScore(s, maxScore), 0);
     const sequenceChecksum = (relevantSimulados || []).reduce((acc, sim, idx) => {
         const score = getSafeScore(sim, maxScore);
-        const date = String(sim?.date || '');
+        const date = String(sim?.date || sim?.createdAt || '');
         const subject = String(sim?.subject || '');
         let charSum = 0;
         const token = `${date}|${subject}`;

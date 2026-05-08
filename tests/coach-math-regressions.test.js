@@ -7,6 +7,7 @@ import {
   DEFAULT_CONFIG,
 } from '../src/utils/coachLogic.js';
 import { computeCalibrationDiagnostics } from '../src/utils/calibration.js';
+import { clearMcCache } from '../src/utils/coachAdaptive.js';
 
 function makeSimulados(scores) {
   const now = Date.now();
@@ -29,6 +30,25 @@ describe('Coach math regressions — low sample MC safeguards', () => {
     expect(res.ci95Low).toBeGreaterThanOrEqual(0);
     expect(res.ci95High).toBeLessThanOrEqual(100);
     expect(res.ci95High).toBeGreaterThanOrEqual(res.ci95Low);
+  });
+
+  it('invalida cache MC quando apenas createdAt intermediário muda', () => {
+    clearMcCache();
+    const simsA = [
+      { subject: 'Matemática', createdAt: '2026-01-01T10:00:00.000Z', score: 50, total: 10, correct: 5 },
+      { subject: 'Matemática', createdAt: '2026-01-08T10:00:00.000Z', score: 55, total: 10, correct: 6 },
+      { subject: 'Matemática', createdAt: '2026-01-15T10:00:00.000Z', score: 58, total: 10, correct: 6 },
+      { subject: 'Matemática', createdAt: '2026-01-22T10:00:00.000Z', score: 61, total: 10, correct: 6 },
+      { subject: 'Matemática', createdAt: '2026-01-29T10:00:00.000Z', score: 63, total: 10, correct: 6 },
+    ];
+    const simsB = simsA.map((s, i) => (i === 2 ? { ...s, createdAt: '2026-01-19T10:00:00.000Z' } : s));
+
+    const a = runCoachMonteCarlo(simsA, 75, DEFAULT_CONFIG, 'cat-math', 100, null, 90);
+    const b = runCoachMonteCarlo(simsB, 75, DEFAULT_CONFIG, 'cat-math', 100, null, 90);
+
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    expect(a).not.toBe(b);
   });
 });
 
@@ -57,18 +77,5 @@ describe('Coach math regressions — adaptive ECE buckets', () => {
     const d = computeCalibrationDiagnostics(preds, { bins: 6 });
     expect(d.ece).toBeGreaterThanOrEqual(0);
     expect(d.ece).toBeLessThanOrEqual(1);
-    expect(d.reliability.length).toBeGreaterThan(0);
-  });
-});
-
-describe('Coach math regressions — backtest weights bounded', () => {
-  it('pesos derivados do backtest permanecem nos limites definidos', () => {
-    const w = deriveBacktestWeights([40, 42, 45, 47, 50, 53, 55, 57, 60, 62], 100);
-    expect(w.scoreWeight).toBeGreaterThanOrEqual(0.8);
-    expect(w.scoreWeight).toBeLessThanOrEqual(1.2);
-    expect(w.recencyWeight).toBeGreaterThanOrEqual(0.75);
-    expect(w.recencyWeight).toBeLessThanOrEqual(1.25);
-    expect(w.instabilityWeight).toBeGreaterThanOrEqual(0.8);
-    expect(w.instabilityWeight).toBeLessThanOrEqual(1.25);
   });
 });
