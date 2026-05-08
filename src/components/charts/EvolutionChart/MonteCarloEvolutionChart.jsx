@@ -120,7 +120,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             );
         }
         return null;
-    }, [unit, targetScore]);
+    }, [unit, targetScore, maxScore]);
 
     if (formattedData.length === 0) {
         return (

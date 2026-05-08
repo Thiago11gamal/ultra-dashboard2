@@ -27,6 +27,9 @@ import './Sidebar.css';
 import { del } from 'idb-keyval';
 import { useAppStore } from '../store/useAppStore';
 
+
+import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
+
 const SECTIONS = [
     {
         label: 'Navegação',
@@ -103,6 +106,7 @@ export default function Sidebar({
     }, [collapsed, isOpen, setCollapsed]);
 
     const closeMobileSidebar = () => {
+        if (typeof window === 'undefined') return;
         if (window.innerWidth >= 1024) return;
         if (isOpen) {
             onCloseMobile?.();
@@ -186,9 +190,7 @@ export default function Sidebar({
                         <div id="sidebar-contests-panel" className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="nested-container space-y-1">
                                 {contestEntries.map(([id, contestData]) => {
-                                    const name = typeof contestData === 'string'
-                                        ? contestData
-                                        : contestData?.contestName || contestData?.user?.name || 'Sem nome';
+                                    const name = getContestDisplayName(contestData);
                                     const isActive = id === activeContestId;
                                     return (
                                         <div
@@ -256,12 +258,7 @@ export default function Sidebar({
                             <nav className="space-y-1">
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
-                                    const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
-                                    const normalizedItemPath = item.path.replace(/\/+$/, '') || '/';
-                                    const isDashboardAlias = normalizedPath === '/dashboard';
-                                    const isActive = normalizedItemPath === '/'
-                                        ? normalizedPath === '/' || isDashboardAlias
-                                        : normalizedPath === normalizedItemPath || normalizedPath.startsWith(`${normalizedItemPath}/`);
+                                    const isActive = isMenuItemActive(location.pathname, item.path);
 
                                     return (
                                         <Link
