@@ -211,12 +211,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         return res;
     }, [targetPos, meanPos, currentPos, isTargetVisible, isCurrentVisible]);
 
-    // AUMENTAMOS AQUI: A distância base agora é 45px (antes era 20px). 
-    // Os níveis superiores ganham +45px de altura extra.
-    const getLabelTop = (yPercent, level) => `calc(${yPercent}% - ${45 + level * 45}px)`;
+    // AJUSTE DE ALTURA: Reduzimos levemente o salto por nível e aumentamos a margem do container.
+    // Nível 0: 32px, Nível 1: 62px, Nível 2: 92px.
+    const getLabelTop = (yPercent, level) => `calc(${yPercent}% - ${32 + level * 30}px)`;
 
     return (
-        <div className="relative w-full h-[220px] mt-12 mb-6 cursor-crosshair group/chart"
+        <div className="relative w-full h-[220px] mt-28 mb-6 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const percentage = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
@@ -315,7 +315,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                             <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                         </div>
                         {/* Linha que conecta a caixa flutuante até a bolinha da curva */}
-                        <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${12 + (resolvedLabels.mean || 0) * 45}px` }} />
+                        <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.mean || 0) * 30}px` }} />
                     </div>
                 )}
 
@@ -327,7 +327,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                             <span className="text-[7px] font-black text-rose-300 uppercase tracking-widest opacity-80">Meta</span>
                         </div>
                         {/* Linha que conecta a caixa flutuante até a bolinha da curva */}
-                        <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${12 + (resolvedLabels.target || 0) * 45}px` }} />
+                        <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.target || 0) * 30}px` }} />
                     </div>
                 )}
 
@@ -340,7 +340,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                             {!resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje</span>}
                         </div>
                         {/* Linha que conecta a caixa flutuante até a bolinha da curva */}
-                        <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${15 + (resolvedLabels.today || 0) * 45}px` }} />
+                        <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${10 + (resolvedLabels.today || 0) * 30}px` }} />
                     </div>
                 )}
 

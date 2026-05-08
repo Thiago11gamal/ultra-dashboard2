@@ -265,7 +265,7 @@ export default function MonteCarloGauge({
                 ))}
             </div>
 
-            <div className="w-full bg-black/40 rounded-2xl p-6 mb-4 border border-white/5 flex-1 flex flex-col min-h-[340px]">
+            <div className="w-full bg-black/40 rounded-2xl p-6 mb-4 border border-white/5 flex-1 flex flex-col min-h-[420px]">
                 <div className="flex justify-between items-center mb-4">
                     <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Projeção de Desempenho</span>
                     <div className="flex gap-3">
@@ -274,7 +274,7 @@ export default function MonteCarloGauge({
                         <span className="text-[9px] text-slate-400 flex items-center gap-1"><div className="w-2 h-0.5 bg-red-500"></div>Meta</span>
                     </div>
                 </div>
-                <div className="flex-1 w-full h-[260px]">
+                <div className="flex-1 w-full h-[320px]">
                     <GaussianPlot
                         mean={projectedSafe}
                         sd={safe(sd)}

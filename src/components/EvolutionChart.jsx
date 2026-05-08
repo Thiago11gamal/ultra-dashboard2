@@ -825,7 +825,7 @@ export default function EvolutionChart({
                                         Foco: {focusCategory.name}
                                     </span>
                                 </div>
-                                <div className="h-40 w-full mb-2">
+                                <div className="h-[280px] w-full mb-2">
                                     <GaussianPlot
                                         mean={mcResult?.projectedMean ?? mcResult?.mean ?? 0}
                                         sd={mcResult?.sd ?? 0}
