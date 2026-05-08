@@ -125,6 +125,20 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
 }
 
 export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, maxScore = 100) {
+    const categoriesVersion = useMemo(() => categories.map((cat) => {
+        const history = Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT);
+        const tasks = Array.isArray(cat?.tasks) ? cat.tasks : EMPTY_ARRAY;
+        const histDigest = history.map((h) => [
+            getDateKey(h?.date) || 'nodate',
+            Number(h?.score ?? 0),
+            Number(h?.correct ?? 0),
+            Number(h?.total ?? 0),
+            Array.isArray(h?.topics) ? h.topics.length : 0,
+            h?.taskId || ''
+        ].join(':')).join('|');
+        return [cat?.id || '', cat?.name || '', tasks.length, histDigest].join('::');
+    }).join('||'), [categories]);
+
     const activeCategories = useMemo(() => {
         let valid = categories.filter(c => {
             const hist = c.simuladoStats?.history;
@@ -140,7 +154,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
 
         return valid;
-    }, [categories]);
+    }, [categories, categoriesVersion]);
 
     const timeline = useMemo(() => {
         if (!activeCategories.length) return [];
@@ -241,7 +255,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
 
         return dates.map(d => dataByDate[d]);
-    }, [activeCategories, weights, maxScore]);
+    }, [activeCategories, weights, maxScore, categoriesVersion]);
 
     const heatmapData = useMemo(() => {
         if (!activeCategories.length) return { dates: [], rows: [] };

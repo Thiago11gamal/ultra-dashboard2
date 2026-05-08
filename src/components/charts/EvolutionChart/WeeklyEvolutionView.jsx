@@ -58,14 +58,20 @@ export const WeeklyEvolutionView = ({
     const categoriesSignature = useMemo(() => categories.map((cat) => {
         const history = cat?.simuladoStats?.history || [];
         const tasks = cat?.tasks || [];
+        const historyDigest = history.map((h) => [
+            getMondayStr(h?.date) || 'nodate',
+            Number(h?.score ?? 0),
+            Number(h?.correct ?? 0),
+            Number(h?.total ?? 0),
+            Array.isArray(h?.topics) ? h.topics.length : 0,
+            h?.taskId || ''
+        ].join(':')).join('|');
         return [
             cat?.id,
-            history.length,
-            history[history.length - 1]?.date || '',
-            history[history.length - 1]?.score ?? '',
+            cat?.name || '',
             tasks.length,
-            tasks[tasks.length - 1]?.id || '',
-            tasks[tasks.length - 1]?.text || ''
+            tasks.map((t) => `${t?.id || ''}:${t?.text || ''}`).join(','),
+            historyDigest
         ].join('|');
     }).join('||'), [categories]);
 
