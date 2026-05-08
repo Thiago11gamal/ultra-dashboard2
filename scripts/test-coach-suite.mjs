@@ -7,7 +7,7 @@ const checks = [
 ];
 
 for (const args of checks) {
-  const out = spawnSync(npmCmd, args, { stdio: 'inherit', shell: false });
+  const out = spawnSync(npmCmd, args, { stdio: 'inherit', shell: true });
   if ((out.status ?? 1) !== 0) {
     throw new Error(`Coach suite failed at: npm ${args.join(' ')}`);
   }
