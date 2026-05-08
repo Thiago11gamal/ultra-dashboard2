@@ -16,10 +16,10 @@ import { Z_95 } from './math/constants.js';
 export function getSortedHistory(history) {
     if (!Array.isArray(history)) return [];
     return [...history]
-        .filter(h => h && h.date && !isNaN(new Date(h.date).getTime()))
+        .filter(h => h && (h.date || h.createdAt) && !isNaN(new Date(h.date || h.createdAt).getTime()))
         .sort((a, b) => {
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
+            const dateA = new Date(a.date || a.createdAt);
+            const dateB = new Date(b.date || b.createdAt);
             // Ordenação determinística por "dia UTC" para evitar variação por timezone do runtime.
             const utcA = Date.UTC(dateA.getUTCFullYear(), dateA.getUTCMonth(), dateA.getUTCDate());
             const utcB = Date.UTC(dateB.getUTCFullYear(), dateB.getUTCMonth(), dateB.getUTCDate());
@@ -40,9 +40,10 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
 
     sorted.forEach(h => {
-        const t = (now - new Date(h.date).getTime()) / (1000 * 60 * 60 * 24);
+        const hDate = h.date || h.createdAt;
+        const t = (now - new Date(hDate).getTime()) / (1000 * 60 * 60 * 24);
         const w = Math.exp(-lambda * t);
-        const x = (new Date(h.date).getTime() - new Date(sorted[0].date).getTime()) / (1000 * 60 * 60 * 24);
+        const x = (new Date(hDate).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / (1000 * 60 * 60 * 24);
         const y = getSafeScore(h, maxScore);
 
         sumW += w;
@@ -70,9 +71,10 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore) {
     let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0;
 
     sorted.forEach(h => {
-        const x = (new Date(h.date).getTime() - t0) / (1000 * 60 * 60 * 24);
+        const hDate = h.date || h.createdAt;
+        const x = (new Date(hDate).getTime() - t0) / (1000 * 60 * 60 * 24);
         const y = getSafeScore(h, maxScore);
-        const w = Math.exp(-lambda * (now - new Date(h.date).getTime()) / 86400000);
+        const w = Math.exp(-lambda * (now - new Date(hDate).getTime()) / 86400000);
         const pred = intercept + slope * x;
         rss += w * Math.pow(y - pred, 2);
         sumW += w;
@@ -146,7 +148,7 @@ export function calculateSlope(history, maxScore = 100) {
     if (sorted.length >= 3) {
         const gaps = [];
         for (let i = 1; i < sorted.length; i++) {
-            const gap = Math.max(0.5, (new Date(sorted[i].date) - new Date(sorted[i - 1].date)) / 86400000);
+            const gap = Math.max(0.5, (new Date(sorted[i].date || sorted[i].createdAt) - new Date(sorted[i - 1].date || sorted[i - 1].createdAt)) / 86400000);
             gaps.push(gap);
         }
         gaps.sort((a, b) => a - b);
@@ -182,7 +184,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     let currentScore = lastRawScore;
 
     for (let i = 1; i < sortedHistory.length; i++) {
-        const daysSinceLast = Math.max(1, (new Date(sortedHistory[i].date) - new Date(sortedHistory[i - 1].date)) / 86400000);
+        const daysSinceLast = Math.max(1, (new Date(sortedHistory[i].date || sortedHistory[i].createdAt) - new Date(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
         ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1, daysSinceLast);
     }
     currentScore = ema;
@@ -266,7 +268,7 @@ export function monteCarloSimulation(
         // BUG-2.2 FIX: EMA initialization for baseline
         let ema = getSafeScore(sortedHistory[0], maxScore);
         for (let i = 1; i < sortedHistory.length; i++) {
-            const daysSinceLast = Math.max(1, (new Date(sortedHistory[i].date) - new Date(sortedHistory[i - 1].date)) / 86400000);
+            const daysSinceLast = Math.max(1, (new Date(sortedHistory[i].date || sortedHistory[i].createdAt) - new Date(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1, daysSinceLast);
         }
         
@@ -278,7 +280,7 @@ export function monteCarloSimulation(
     // Bayesian Pooling: Incorporate weighted mean into smoothing if available
     // BUG-05 FIX: Move out of conditional to ensure optionsCurrentMean is always factored in
     if (optionsCurrentMean !== undefined) {
-        const lastDate = new Date(sortedHistory[sortedHistory.length - 1].date);
+        const lastDate = new Date(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt);
         const daysToNow = Math.max(1, (Date.now() - lastDate.getTime()) / 86400000);
         baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1, daysToNow);
     }
@@ -319,8 +321,8 @@ export function monteCarloSimulation(
         const prev = getSafeScore(sortedHistory[i - 1], maxScore);
         const actualChange = getSafeScore(h, maxScore) - prev;
 
-        const time1 = new Date(h.date).getTime();
-        const time0 = new Date(sortedHistory[i - 1].date).getTime();
+        const time1 = new Date(h.date || h.createdAt).getTime();
+        const time0 = new Date(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt).getTime();
 
         const rawDays = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
         const detrendedChange = actualChange - (drift * rawDays);

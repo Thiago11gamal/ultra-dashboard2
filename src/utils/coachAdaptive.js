@@ -159,7 +159,8 @@ export function simuladosToHistory(simulados, maxScore = 100) {
     return (simulados || [])
         .filter(s => s && (s.total > 0 || s.score != null))
         .map((s, idx) => {
-            const parsed = Date.parse(s?.date || '');
+            const rawDate = s?.date || s?.createdAt || '';
+            const parsed = Date.parse(rawDate);
             return {
                 score: getSafeScore(s, maxScore),
                 date: Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : null,

@@ -161,7 +161,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // 1. Weighted Average Score
         const catNormalized = normalize(safeCategory?.name || "Sem Nome");
         const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject) === catNormalized);
-        relevantSimulados.sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
+        relevantSimulados.sort((a, b) => normalizeDate(b.date || b.createdAt).getTime() - normalizeDate(a.date || a.createdAt).getTime());
         const simuladosWithMaxScore = relevantSimulados;
 
         let averageScore = 0;
@@ -177,7 +177,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 let totalWeight = 0;
                 dataset.forEach(s => {
                     const sScore = getSafeScore(s, maxScore);
-                    const simDate = normalizeDate(s.date);
+                    const simDate = normalizeDate(s.date || s.createdAt);
                     const days = getDaysDiff(today, simDate);
                     let timeWeight = Math.exp(-K * days);
                     if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
@@ -193,7 +193,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             };
 
             const currentBound = normalizeDate(new Date());
-            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) < currentBound);
+            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date || s.createdAt) < currentBound);
             const notaBruta = calculateExponentialScore(relevantSimulados);
 
             if (pastSimulados.length > 0) {
@@ -217,7 +217,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let lastDate = normalizeDate(new Date(0));
 
         if (simuladosWithMaxScore.length > 0) {
-            const simDate = normalizeDate(simuladosWithMaxScore[0].date);
+            const simDate = normalizeDate(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt);
             if (simDate > lastDate) lastDate = simDate;
         }
 
@@ -236,11 +236,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // 3. Trend (Garantir 10 mais recentes para cálculo de tendência)
         const trendHistory = [...simuladosWithMaxScore]
-            .sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime())
+            .sort((a, b) => normalizeDate(b.date || b.createdAt).getTime() - normalizeDate(a.date || a.createdAt).getTime())
             .slice(0, 10)
             .map(s => ({
                 score: getSafeScore(s, maxScore),
-                date: s.date
+                date: s.date || s.createdAt
             })).reverse();
         const lastNScores = trendHistory.map(t => t.score);
         const backtestWeights = deriveBacktestWeights(lastNScores, maxScore);

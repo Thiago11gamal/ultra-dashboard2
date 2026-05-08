@@ -247,14 +247,14 @@ export default function Coach() {
         const seen = new Set();
         const all = [];
         (history || []).forEach(h => {
-            const key = `${h.id ?? ''}|${h.date}|${Number(h.score)}`;
+            const key = `${h.id ?? ''}|${h.date || h.createdAt}|${Number(h.score)}`;
             if (!seen.has(key)) {
                 seen.add(key);
                 all.push({ ...h, type: 'simulado' });
             }
         });
         (simulados || []).forEach(s => {
-            const key = `${s.id ?? ''}|${s.date}|${Number(s.score)}`;
+            const key = `${s.id ?? ''}|${s.date || s.createdAt}|${Number(s.score)}`;
             if (!seen.has(key)) {
                 seen.add(key);
                 all.push({ ...s, type: 'simulado' });
