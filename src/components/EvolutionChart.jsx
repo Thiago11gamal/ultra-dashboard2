@@ -6,7 +6,7 @@ import {
 } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
-import { getDateKey, normalizeDate } from "../utils/dateHelper";
+import { getDateKey, normalizeDate, toDateMs } from "../utils/dateHelper";
 import { getSafeScore } from "../utils/scoreHelper";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";
@@ -195,7 +195,7 @@ export default function EvolutionChart({
                 if (!dateKey || !Number.isFinite(score)) return null;
                 return { date: dateKey, score, correct: h.correct, total: h.total };
             })
-            .filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+            .filter(Boolean).sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
 
         if (hist.length < 2) return;
 

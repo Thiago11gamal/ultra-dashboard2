@@ -5,7 +5,7 @@ import TopicPerformance from '../components/TopicPerformance';
 import ParetoAnalysis from '../components/ParetoAnalysis';
 import { useAppStore } from '../store/useAppStore';
 import { normalize, aliases } from '../utils/normalization';
-import { getDateKey } from '../utils/dateHelper';
+import { getDateKey, toDateMs } from '../utils/dateHelper';
 
 export default function Notes() {
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
@@ -40,6 +40,7 @@ export default function Notes() {
             const rowsByDate = {};
             myRows.forEach(r => {
                 const dateKey = getDateKey(r.date || r.createdAt);
+                if (!dateKey) return;
                 if (!rowsByDate[dateKey]) rowsByDate[dateKey] = [];
                 rowsByDate[dateKey].push({
                     name: r.topic || 'Geral',
@@ -61,6 +62,7 @@ export default function Notes() {
             existingHistory.forEach(h => {
                 // FIX: Passar h.date diretamente (já é YYYY-MM-DD do store)
                 const dateKey = getDateKey(h.date);
+                if (!dateKey) return;
                 mergedHistoryMap[dateKey] = {
                     date: dateKey,
                     correct: h.correct,
@@ -100,7 +102,7 @@ export default function Notes() {
             });
 
             const rebuiltHistory = Object.values(mergedHistoryMap)
-                .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0); // FIX: String compare safe for YYYY-MM-DD
+                .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
 
             cat.simuladoStats.history = rebuiltHistory.slice(-50);
         });

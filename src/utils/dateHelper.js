@@ -96,7 +96,7 @@ export const normalizeDate = (raw) => {
     return d;
 };
 
-const parseDateMs = (value) => {
+export const toDateMs = (value) => {
     if (!value) return Number.NaN;
 
     if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
@@ -116,7 +116,7 @@ const parseDateMs = (value) => {
  */
 export const formatTimeAgo = (date) => {
     if (!date) return 'Nunca';
-    const timeMs = parseDateMs(date);
+    const timeMs = toDateMs(date);
 
     if (Number.isNaN(timeMs)) return 'Data inválida';
 
