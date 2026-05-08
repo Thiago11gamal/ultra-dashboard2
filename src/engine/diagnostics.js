@@ -4,6 +4,8 @@
  * Análises estatísticas avançadas para diagnóstico de performance.
  */
 
+import { getSafeScore } from '../utils/scoreHelper.js';
+
 function _median(arr) {
   if (!arr || arr.length === 0) return 0;
   const s = [...arr].sort((a, b) => a - b);
@@ -150,8 +152,7 @@ export function estimateMemoryStability(history, maxScore = 100) {
 
   for (let i = 0; i < sorted.length; i++) {
     const h = sorted[i];
-    const score = Number(h.score) || 0;
-    const pct = Math.min(1, Math.max(0, score / maxScore));
+    const pct = Math.min(1, Math.max(0, getSafeScore(h, maxScore) / maxScore));
 
     if (pct >= SUCCESS_THRESHOLD) {
       stability *= GROWTH_FACTOR;
@@ -216,7 +217,7 @@ export function computeLearningVelocity(history, maxScore = 100) {
   const t0 = new Date(sorted[0].date).getTime();
   const data = sorted.map((h) => ({
     t: (new Date(h.date).getTime() - t0) / 86400000,
-    y: Math.max(0, Math.min(maxScore, Number(h.score) || 0)),
+    y: Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore))),
   }));
 
   const lastThree = data.slice(-3).map((d) => d.y);
@@ -262,7 +263,7 @@ export function computeConsistencyIndex(history, maxScore = 100) {
 
   if (sorted.length < 4) return fallback;
 
-  const scores = sorted.map((h) => Math.max(0, Math.min(maxScore, Number(h.score) || 0)));
+  const scores = sorted.map((h) => Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore))));
   const mu = _mean(scores);
 
   const mad = _median(scores.map((s) => Math.abs(s - mu)));

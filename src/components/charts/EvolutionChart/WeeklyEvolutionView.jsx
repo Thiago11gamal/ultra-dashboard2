@@ -153,8 +153,15 @@ export const WeeklyEvolutionView = ({
                             if (!weekStr) return;
                             if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
-                            weeksTemp[weekStr][tId].total += Number(t.total) || 0;
-                            weeksTemp[weekStr][tId].correct += Number(t.correct) || 0;
+
+                            // BUG-2 FIX: Normalizar topics pelo maxScore (consistente com processHistory)
+                            let totalQ = Number(t.total) || 0;
+                            const topicScore = getSafeScore(t, maxScore);
+                            if (totalQ === 0 && t.score != null) {
+                                totalQ = getSyntheticTotal(maxScore);
+                            }
+                            weeksTemp[weekStr][tId].total += totalQ;
+                            weeksTemp[weekStr][tId].correct += (topicScore / maxScore) * totalQ;
                         });
                     } else if (h.taskId) {
                         const tId = String(cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto').toLowerCase().trim();

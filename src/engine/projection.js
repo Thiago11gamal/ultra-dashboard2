@@ -9,7 +9,7 @@ import { getPercentile } from './math/percentile.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
 // Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
-import { sampleTruncatedNormal } from './math/gaussian.js';
+import { sampleTruncatedNormal, normalCDF_complement } from './math/gaussian.js';
 import { Z_95 } from './math/constants.js';
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
@@ -244,7 +244,7 @@ export function monteCarloSimulation(
         const daysToNow = Math.max(1, (Date.now() - lastDate.getTime()) / 86400000);
         baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1, daysToNow);
     }
-    baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + (scenarioCfg.meanBias || 0)));
+    baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * maxScore)));
 
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
     const { slopeStdError } = sortedHistory.length > 1
@@ -335,21 +335,35 @@ export function monteCarloSimulation(
     const meanResult = results.reduce((a, b) => a + b, 0) / simulations;
     const successes = results.filter(r => r >= targetScore).length;
 
-    // Cálculo da Probabilidade Analítica (Truncada) para compatibilidade com testes de regressão
+    // BUG-3 FIX: Calcular a probabilidade analítica real usando a Normal Truncada
+    // em vez de copiar a empírica como fallback.
     const finalSD = calculateVolatility(results.map(r => ({ score: r })), maxScore, minScore);
-    
-    // Importar normalCDF_complement se necessário, mas já temos acesso à lógica ou podemos aproximar
-    // Como normalCDF_complement foi removido do arquivo para limpar lint, vou usar uma aproximação 
-    // ou restaurar a função se for estritamente necessário. 
-    // Na verdade, vou restaurar a função normalCDF_complement no gaussian.js ou usá-la se estiver lá.
-    // Ela está em src/engine/math/gaussian.js.
-    
-    // Por agora, para passar no teste de regressão que espera o campo:
     const empiricalProb = (successes / simulations) * 100;
+
+    let analyticalProb = empiricalProb; // fallback
+    // BUG-3 FIX: Calcular via fórmula truncada direta (normalCDF_complement importado no topo)
+    if (finalSD > 1e-6) {
+        const phiMin = normalCDF_complement((minScore - meanResult) / finalSD);
+        const phiMax = normalCDF_complement((maxScore - meanResult) / finalSD);
+        const phiTarget = normalCDF_complement((targetScore - meanResult) / finalSD);
+        const truncFactor = Math.max(1e-10, phiMin - phiMax);
+        const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
+
+        if (targetScore >= maxScore) {
+            analyticalProb = 0;
+        } else if (targetScore <= minScore) {
+            analyticalProb = 100;
+        } else {
+            analyticalProb = truncFactor > 1e-18
+                ? ((clampedPhiTarget - phiMax) / truncFactor) * 100
+                : empiricalProb;
+        }
+        analyticalProb = Math.min(100, Math.max(0, analyticalProb));
+    }
 
     return {
         probability: empiricalProb,
-        analyticalProbability: empiricalProb, // Fallback para o campo esperado pelo teste
+        analyticalProbability: Number(analyticalProb.toFixed(4)),
         mean: Number(meanResult.toFixed(2)),
         sd: Number(finalSD.toFixed(2)),
         ci95Low: Number(getPercentile(results, 2.5).toFixed(2)),
