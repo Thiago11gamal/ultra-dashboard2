@@ -47,9 +47,9 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
     );
 
     return (
-        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pb-8 sm:pb-10">
-            <div className="flex flex-wrap items-center gap-3 mb-4 text-[10px] text-slate-400">
-                <div className="flex items-center gap-1 bg-slate-950/60 border border-slate-800 rounded-lg p-1 mr-2">
+        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pb-8 sm:pb-10 px-1">
+            <div className="flex flex-wrap items-center gap-3.5 mb-5 text-[11px] text-slate-300">
+                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-700 rounded-xl p-1.5 mr-2 shadow-sm">
                     {[{ label: '4 sem', value: '28' }, { label: '8 sem', value: '56' }, { label: '12 sem', value: '84' }, { label: 'Tudo', value: 'all' }].map(opt => (
                         <button
                             type="button"
@@ -57,13 +57,13 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                             onClick={() => setWindowSize(opt.value)}
                             aria-label={`Filtrar janela ${opt.label}`}
                             aria-pressed={windowSize === opt.value}
-                            className={`px-2 py-1 rounded text-[9px] font-bold ${windowSize === opt.value ? 'bg-indigo-600/25 text-indigo-300' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`px-2.5 py-1.5 rounded-md text-[10px] font-extrabold tracking-wide transition-colors ${windowSize === opt.value ? 'bg-indigo-500/30 text-indigo-100 border border-indigo-400/40' : 'text-slate-400 hover:text-slate-200'}`}
                         >
                             {opt.label}
                         </button>
                     ))}
                 </div>
-                <div className="flex items-center gap-1 bg-slate-950/60 border border-slate-800 rounded-lg p-1 mr-2">
+                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-700 rounded-xl p-1.5 mr-2 shadow-sm">
                     {[{ label: 'Diário', value: 'daily' }, { label: 'Semanal', value: 'weekly' }, { label: 'Mensal', value: 'monthly' }].map(opt => (
                         <button
                             type="button"
@@ -71,7 +71,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                             onClick={() => setGranularity(opt.value)}
                             aria-label={`Selecionar granularidade ${opt.label}`}
                             aria-pressed={granularity === opt.value}
-                            className={`px-2 py-1 rounded text-[9px] font-bold ${granularity === opt.value ? 'bg-cyan-600/25 text-cyan-300' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`px-2.5 py-1.5 rounded-md text-[10px] font-extrabold tracking-wide transition-colors ${granularity === opt.value ? 'bg-cyan-500/30 text-cyan-100 border border-cyan-400/40' : 'text-slate-400 hover:text-slate-200'}`}
                         >
                             {opt.label}
                         </button>
@@ -90,20 +90,20 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                 ))}
             </div>
             {granularity !== 'daily' && (
-                <p className="text-[9px] text-cyan-300/80 font-bold uppercase tracking-wider mb-3">
+                <p className="text-[10px] text-cyan-200/90 font-bold uppercase tracking-wider mb-3.5">
                     Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): células representam múltiplos dias.
                 </p>
             )}
 
             <div style={{ minWidth: `${filteredDates.length * 72 + 168}px` }}>
-                <div style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-2">
+                <div style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
                     <div />
                     {filteredDates.map(d => (
-                        <div key={d.key} className="flex flex-col items-center gap-0.5">
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${d.isWeekend ? 'text-purple-400' : 'text-slate-500'}`}>
+                        <div key={d.key} className="flex flex-col items-center gap-1">
+                            <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${d.isWeekend ? 'text-purple-300' : 'text-slate-400'}`}>
                                 {d.dayName}
                             </span>
-                            <span className="text-[10px] font-mono font-bold text-slate-300">{d.label}</span>
+                            <span className="text-[11px] font-mono font-bold text-slate-100">{d.label}</span>
                             {Number.isFinite(Number(d.count)) && Number(d.count) > 1 && (
                                 <span className="text-[8px] text-slate-500">{d.count}d</span>
                             )}
@@ -111,12 +111,12 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                     ))}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                     {filteredRows.map(({ cat, cells }, ri) => (
                         <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
-                            <div className="flex items-center gap-2 pr-3 min-w-0">
+                            <div className="flex items-center gap-2.5 pr-4 min-w-0">
                                 <span className="text-lg shrink-0">{cat.icon}</span>
-                                <span className="text-xs font-bold truncate" style={{ color: cat.color }} title={cat.name}>
+                                <span className="text-[15px] font-black truncate leading-tight" style={{ color: cat.color }} title={cat.name}>
                                     {cat.name}
                                 </span>
                             </div>
@@ -126,25 +126,25 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                 return (
                                     <div
                                         key={ci}
-                                        className="relative group rounded-lg flex flex-col items-center justify-center py-2 transition-all hover:scale-105 hover:z-20 cursor-default"
+                                        className="relative group rounded-xl flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 hover:scale-[1.03] hover:z-20 cursor-default"
                                         style={{
                                             background: col.bg,
                                             opacity: cell ? (0.72 + (col.density * 0.28)) : 1,
                                             border: `1px solid ${col.border}`,
-                                            minHeight: '48px',
+                                            minHeight: '56px',
                                         }}
                                     >
                                         {cell ? (
                                             <>
-                                                <span className="text-[12px] font-black leading-none" style={{ color: col.text }}>
+                                                <span className="text-[20px] font-black leading-none drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
                                                     {Number.isFinite(cell.pct) ? `${cell.pct.toFixed(2)}${unit}` : '—'}
                                                 </span>
-                                                <span className="text-[8px] text-slate-500 font-mono mt-0.5">
+                                                <span className="text-[10px] text-slate-300/85 font-mono mt-1">
                                                     {cell.correct}/{cell.total}
                                                 </span>
                                             </>
                                         ) : (
-                                            <span className="text-slate-700 text-[11px]">—</span>
+                                            <span className="text-slate-500 text-[13px] font-bold">—</span>
                                         )}
 
                                         {cell && (
