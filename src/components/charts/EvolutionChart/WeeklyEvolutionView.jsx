@@ -200,7 +200,8 @@ export const WeeklyEvolutionView = ({
         validIds.forEach(id => volumeTracker[id] = 0);
         finalData.forEach(week => {
             validIds.forEach(id => {
-                if (week[id] && Number.isFinite(week[id].total)) volumeTracker[id] += week[id].total;
+                const meta = week[`meta_${id}`];
+                if (meta && Number.isFinite(Number(meta.currTot))) volumeTracker[id] += Number(meta.currTot);
             });
         });
         const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
@@ -396,7 +397,7 @@ export const WeeklyEvolutionView = ({
                 ) : (
                     <ResponsiveContainer width="100%" height="100%">
                         {viewMode === 'evolution' ? (
-                            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <LineChart data={chartData} margin={{ top: 10, right: 10, left: 8, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
@@ -432,7 +433,7 @@ export const WeeklyEvolutionView = ({
                                 )}
                             </LineChart>
                         ) : (
-                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 8, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
