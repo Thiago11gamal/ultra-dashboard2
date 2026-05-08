@@ -27,8 +27,9 @@ export function analyzeProgressState(scores, config = {}) {
 
     // SCALE FIX: Escalonar thresholds pela amplitude da escala (maxScore)
     const scaleFactor = maxScore / 100;
-    const stagnation_threshold = raw_stagnation * scaleFactor;
-    const trend_tolerance = raw_trend * scaleFactor;
+    const windowFactor = Math.sqrt(10 / Math.max(3, window_size));
+    const stagnation_threshold = raw_stagnation * scaleFactor * windowFactor;
+    const trend_tolerance = raw_trend * scaleFactor * windowFactor;
 
     // FIX 3: Escalonar limites de nível (Mastery/Low) para suportar escalas diferentes de 100
     const scaled_low = low_level_limit * scaleFactor;

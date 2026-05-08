@@ -443,10 +443,10 @@ export const detectProcrastination = (categories, studyLogs) => {
     return {
         hasProcrastination: warnings.length > 0,
         warnings,
-        // BUG-GLOBAL-03 FIX: Decaimento exponencial em vez de linear.
-        // Antes: 100 - 15n → saturava em 0 com 7+ warnings (não diferencia 7 de 30).
-        // Agora: 100 * e^(-0.18n) → 1w=84, 3w=58, 5w=41, 10w=17. Nunca zero.
-        score: Math.max(10, Math.round(100 * Math.exp(-warnings.length * 0.18)))
+        score: (() => {
+            const severityPenalty = warnings.reduce((acc, w) => acc + (w?.severity === 'high' ? 12 : w?.severity === 'medium' ? 8 : 6), 0);
+            return Math.max(10, 100 - severityPenalty);
+        })()
     };
 };
 
@@ -599,15 +599,15 @@ export const getCompleteReport = (data) => {
         },
         // IMP-GLOBAL-08 FIX: Pesos diferenciados para métricas com distribuições assimétricas.
         // Antes: média simples de 4 componentes com ranges/distribuições muito diferentes.
-        // Agora: 35% eficiência, 25% procrastinação, 20% streak, 20% equilíbrio.
+        // Agora: 35% eficiência, 20% procrastinação, 20% streak, 25% equilíbrio.
         overallScore: Math.round(
             (efficiency.score * 0.35) +
-            (procrastination.score * 0.25) +
+            (procrastination.score * 0.20) +
             (Math.min(100, 40 + streak.current * 2) * 0.20) +
             ((balance.status === 'excelente' ? 100
                 : balance.status === 'atencao' ? 70
                     : balance.status === 'sem_dados' ? 65
-                        : 40) * 0.20)
+                        : 40) * 0.25)
         ),
         recommendations: [
             ...efficiency.recommendations.map(r => r.message),
