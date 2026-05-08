@@ -96,6 +96,18 @@ export const normalizeDate = (raw) => {
     return d;
 };
 
+const parseDateMs = (value) => {
+    if (!value) return Number.NaN;
+
+    if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
+        const secs = value.seconds != null ? value.seconds : value._seconds;
+        return Number(secs) * 1000;
+    }
+
+    const parsed = normalizeDate(value);
+    return parsed ? parsed.getTime() : new Date(value).getTime();
+};
+
 /**
  * Centralised "time ago" formatter with correct Portuguese pluralization.
  * Uses normalizeDate to avoid UTC midnight shift on YYYY-MM-DD strings.
@@ -104,13 +116,17 @@ export const normalizeDate = (raw) => {
  */
 export const formatTimeAgo = (date) => {
     if (!date) return 'Nunca';
-    const parsed = normalizeDate(date);
-    const timeMs = parsed ? parsed.getTime() : new Date(date).getTime();
-    
+    const timeMs = parseDateMs(date);
+
     if (Number.isNaN(timeMs)) return 'Data inválida';
 
-    // Tolerância de 60s evita flicker entre relógio local e dados de servidor.
-    const diff = Math.max(0, Date.now() - timeMs - 60_000);
+    const rawDiff = Date.now() - timeMs;
+    // Aplica tolerância somente para pequenas datas futuras (clock skew).
+    if (rawDiff < 0) {
+        if (Math.abs(rawDiff) <= 60_000) return 'Agora há pouco';
+        return 'No futuro';
+    }
+    const diff = rawDiff;
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
     const weeks = Math.floor(days / 7);
