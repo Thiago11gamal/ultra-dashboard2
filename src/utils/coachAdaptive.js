@@ -82,7 +82,7 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
 
   // Usar proporção de scores acima da mediana como proxy para calibrar danger/safe
   const median = q(0.5);
-  const aboveMedianRate = cleanScores.filter(s => s > median).length / cleanScores.length;
+  const _aboveMedianRate = cleanScores.filter(s => s > median).length / cleanScores.length;
   
   let danger = Math.max(15, Math.min(45, q(0.25) * 0.55));
   let safe = Math.max(75, Math.min(95, q(0.75) * 1.08));

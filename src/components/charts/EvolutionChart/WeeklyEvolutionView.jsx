@@ -240,7 +240,8 @@ export const WeeklyEvolutionView = ({
         const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
 
         return { chartData: finalData, activeKeys: itemsMap, rankedKeys };
-    }, [categories, categoriesSignature, showOnlyFocus, focusSubjectId, maxScore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categories, showOnlyFocus, focusSubjectId, maxScore, categoriesSignature]);
 
     const keys = Object.keys(activeKeys);
 

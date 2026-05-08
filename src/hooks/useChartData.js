@@ -154,6 +154,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
 
         return valid;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categories, categoriesVersion]);
 
     const timeline = useMemo(() => {
@@ -255,6 +256,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
 
         return dates.map(d => dataByDate[d]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeCategories, weights, maxScore, categoriesVersion]);
 
     const heatmapData = useMemo(() => {

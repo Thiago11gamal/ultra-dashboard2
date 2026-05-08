@@ -1,6 +1,6 @@
 // ==================== CONSTANTES ====================
 import { standardDeviation } from '../engine/stats.js';
-import { calculateVolatility, calculateMSSD, calculateSlope } from '../engine/projection.js';
+import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { normalize } from './normalization.js';
 import { computeRollingCalibrationParams } from './calibration.js';

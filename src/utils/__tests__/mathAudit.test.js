@@ -22,11 +22,11 @@ import { calculateVolatility, calculateMSSD, calculateSlope, monteCarloSimulatio
 import { computeBayesianLevel } from '../../engine/stats.js';
 
 // Coach imports  
-import { deriveAdaptiveRiskThresholds, deriveCoachAdaptiveParams, computeContinuousMcBoost, deriveBacktestWeights } from '../coachAdaptive.js';
+import { deriveAdaptiveRiskThresholds, deriveCoachAdaptiveParams, deriveBacktestWeights } from '../coachAdaptive.js';
 import { calculateUrgency, DEFAULT_CONFIG } from '../coachLogic.js';
 
 // Adaptive imports
-import { computeAdaptiveSignal, adaptiveConfidenceShrinkage, computeAdaptiveCoachWeight } from '../adaptiveMath.js';
+import { adaptiveConfidenceShrinkage, computeAdaptiveCoachWeight } from '../adaptiveMath.js';
 import { detectRegimeTransition } from '../adaptiveEngine.js';
 
 // ─────────────────────────────────────────────────────────────────

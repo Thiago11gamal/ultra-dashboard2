@@ -10,10 +10,8 @@ export function getMondayKey(rawKey = '') {
   return `${y}-${m}-${d}`;
 }
 
-export function aggregateHeatmap(filtered, granularity = 'daily', maxScore = 100) {
+export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 100) {
   if (granularity === 'daily') return filtered;
-  // BUG-1 FIX: usar maxScore real da prova em vez de hardcoded 100
-  const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
   const buckets = new Map();
   (filtered?.dates || []).forEach((d, index) => {
     const key = granularity === 'monthly' ? String(d.key || '').slice(0, 7) : getMondayKey(d.key);
