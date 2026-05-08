@@ -11,7 +11,9 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
   const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
   // BUG-5 FIX: Bias proporcional à escala da prova
   const meanBias = (cfg.meanBiasFactor || 0) * safeMaxScore;
-  const probMult = (cfg.probMultFactor || 0) * safeMaxScore;
+  // BUG-GLOBAL-09 FIX: Ajuste de probabilidade deve ser baseado em 100 (%), não no maxScore.
+  // Antes: 0.045 * 200 = 9pp (errado). Agora: 0.045 * 100 = 4.5pp (correto).
+  const probMult = (cfg.probMultFactor || 0) * 100;
   return (data || []).map((d) => {
     const mean = Math.max(0, Math.min(maxScore, (Number(d.mean) || 0) + meanBias));
     const low = Math.max(0, Math.min(maxScore, mean - ((mean - (d?.ciRange?.[0] ?? mean)) * cfg.ciMult)));

@@ -40,15 +40,14 @@ export const mapRetentionData = (categories = []) => {
             const days = Math.max(0, (now - lastDate.getTime()) / MS_PER_DAY);
             if (!Number.isFinite(days)) return;
 
-            // CÁLCULO DE MEIA-VIDA DINÂMICA (Anti-Punição de Maestria)
-            // Assuntos consolidados (muitas questões ou alta precisão) esquecem mais devagar.
-            let halfLife = 7; // Base 7 dias
+            // BUG-GLOBAL-04 FIX: halfLife contínuo em vez de discreto.
+            // Antes: saltos abruptos (49Q→7d, 51Q→14d). Agora: curva suave 7-30 dias.
             const totalQ = toFiniteNumber(cat.simuladoStats?.totalQuestions, 0);
             const maxScore = Math.max(1, toFiniteNumber(cat.maxScore, 100));
             const accuracy = cat.bayesianStats?.mean ? (toFiniteNumber(cat.bayesianStats.mean, 0) / maxScore) : 0;
-
-            if (totalQ > 100 || accuracy > 0.85) halfLife = 30;
-            else if (totalQ > 50 || accuracy > 0.70) halfLife = 14;
+            const accuracyFactor = Math.max(0, accuracy - 0.5) * 2; // [0,1] a partir de 50%
+            const volumeFactor = Math.min(1, totalQ / 100);
+            let halfLife = 7 + 23 * (accuracyFactor * 0.6 + volumeFactor * 0.4);
 
             const retention = Math.round(100 * Math.exp(-days / halfLife));
             

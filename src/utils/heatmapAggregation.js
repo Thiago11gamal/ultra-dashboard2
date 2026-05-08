@@ -36,7 +36,10 @@ export function aggregateHeatmap(filtered, granularity = 'daily', maxScore = 100
       if (!samples.length) return null;
       const total = samples.reduce((a, c) => a + (Number(c.total) || 0), 0);
       const correct = samples.reduce((a, c) => a + (Number(c.correct) || 0), 0);
-      const pct = total > 0 ? (correct / total) * safeMaxScore : null;
+      // BUG-GLOBAL-02 FIX: pct deve ser percentual [0,100], não score em [0, maxScore].
+      // Antes: (correct/total) * maxScore → para maxScore=120, 8/10 → 96 (errado).
+      // Agora: (correct/total) * 100 → 8/10 → 80% (correto, invariante à escala).
+      const pct = total > 0 ? (correct / total) * 100 : null;
       return { total, correct, pct };
     })
   }));

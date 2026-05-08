@@ -151,9 +151,11 @@ export function analyzeProgressState(scores, config = {}) {
         }
     } else {
         // 7.2 Dynamic States (Not Stagnated) with Trend Tolerance
-        // --- PATCH: Escalonar o limiar de instabilidade. 
-        // A variância deve ser ajustada quadraticamente pela escala.
-        const isVeryUnstable = variance > (25 * Math.pow(scaleFactor, 2)); 
+        // BUG-GLOBAL-06 FIX: Usar Coeficiente de Variação (CV) em vez de variância bruta.
+        // Antes: variance > 25*scaleFactor² era calibrado para window_size=10 e falha com n diferentes.
+        // CV > 15% é invariante ao n e à escala da prova.
+        const cv = mean > 1e-6 ? Math.sqrt(variance) / mean : 0;
+        const isVeryUnstable = cv > 0.15;
 
         // FIX 3.2 (Visual e Lógica): A instabilidade não deve proteger um aluno em queda livre.
         // Se a inclinação (slope) é fortemente negativa, é regressão, independentemente da variância.

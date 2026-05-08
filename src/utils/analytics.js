@@ -443,7 +443,10 @@ export const detectProcrastination = (categories, studyLogs) => {
     return {
         hasProcrastination: warnings.length > 0,
         warnings,
-        score: Math.max(0, 100 - (warnings.length * 15))
+        // BUG-GLOBAL-03 FIX: Decaimento exponencial em vez de linear.
+        // Antes: 100 - 15n → saturava em 0 com 7+ warnings (não diferencia 7 de 30).
+        // Agora: 100 * e^(-0.18n) → 1w=84, 3w=58, 5w=41, 10w=17. Nunca zero.
+        score: Math.max(10, Math.round(100 * Math.exp(-warnings.length * 0.18)))
     };
 };
 
@@ -594,17 +597,17 @@ export const getCompleteReport = (data) => {
                 ? 100
                 : Math.max(0, Math.min(100, Math.round(((data.pomodorosCompleted || 0) / goals.daily) * 100)))
         },
-        // BUG 3 FIX: balance.status === 'sem_dados' recebia 40 (mesmo que 'alerta'),
-        // penalizando usuários novos sem histórico de estudo.
-        // Agora 'sem_dados' é neutro (65) — sem dados não é sinal de problema.
+        // IMP-GLOBAL-08 FIX: Pesos diferenciados para métricas com distribuições assimétricas.
+        // Antes: média simples de 4 componentes com ranges/distribuições muito diferentes.
+        // Agora: 35% eficiência, 25% procrastinação, 20% streak, 20% equilíbrio.
         overallScore: Math.round(
-            (efficiency.score +
-                procrastination.score +
-                (Math.min(100, 40 + streak.current * 2)) +
-                (balance.status === 'excelente' ? 100
-                    : balance.status === 'atencao' ? 70
-                        : balance.status === 'sem_dados' ? 65
-                            : 40)) / 4
+            (efficiency.score * 0.35) +
+            (procrastination.score * 0.25) +
+            (Math.min(100, 40 + streak.current * 2) * 0.20) +
+            ((balance.status === 'excelente' ? 100
+                : balance.status === 'atencao' ? 70
+                    : balance.status === 'sem_dados' ? 65
+                        : 40) * 0.20)
         ),
         recommendations: [
             ...efficiency.recommendations.map(r => r.message),

@@ -415,8 +415,10 @@ export function monteCarloSimulation(
         analyticalProbability: Number(analyticalProb.toFixed(4)),
         mean: Number(meanResult.toFixed(2)),
         sd: Number(finalSD.toFixed(2)),
-        ci95Low: Number(getPercentile(results, 2.5).toFixed(2)),
-        ci95High: Number(getPercentile(results, 97.5).toFixed(2)),
+        // BUG-GLOBAL-01 FIX: getPercentile espera p em [0,1], não [0,100].
+        // Antes: 2.5 e 97.5 → p>=1 retornava último elemento → CI = [minScore, maxScore] sempre.
+        ci95Low: Number(getPercentile(results, 0.025).toFixed(2)),
+        ci95High: Number(getPercentile(results, 0.975).toFixed(2)),
         currentMean: Number(baselineScore.toFixed(2)),
         drift: Number((drift * 30).toFixed(2)),
         volatility: Number(volatility.toFixed(2)),

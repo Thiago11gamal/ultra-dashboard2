@@ -112,8 +112,14 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   });
   const avgBrier = sumCalibWeights > 0 ? sumWeightedBrier / sumCalibWeights : 0;
   const confidenceFactor = Math.min(1, recent.length / Math.max(minSamples, 1));
-  // Dynamic baseline with confidence-gating to avoid overreacting on short windows
-  const dynamicBaseline = Math.max(0.12, Math.min(0.25, avgBrier * 0.9));
+  // BUG-GLOBAL-07 FIX: Usar mediana ponderada em vez de 0.9×média.
+  // Antes: avgBrier*0.9 criava ciclo de feedback (Brier baixo → baseline baixo → penalty sobe).
+  // Mediana é robusta a outliers e quebra o ciclo.
+  const brierValues = recent.map(h => Number(h.avgBrier) || 0).sort((a, b) => a - b);
+  const medianBrier = brierValues.length > 0
+    ? brierValues[Math.floor(brierValues.length / 2)]
+    : 0;
+  const dynamicBaseline = Math.max(0.12, Math.min(0.25, medianBrier));
   const defaultBaseline = cfg.baseline ?? 0.2;
   const baseline = (dynamicBaseline * confidenceFactor) + (defaultBaseline * (1 - confidenceFactor));
   // Penalty cap also confidence-aware
