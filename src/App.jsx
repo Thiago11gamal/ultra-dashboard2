@@ -46,6 +46,8 @@ import useIdleLogout from './hooks/useIdleLogout';
 
 import './components/Loading.css';
 
+const EMPTY_OBJECT = {};
+
 function MainLayout() {
   const { currentUser, loading, logout } = useAuth();
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
@@ -123,23 +125,28 @@ function MainLayout() {
       delete window.__ULTRA_RESCUE_SUCCESS;
     }
 
-    // DASHBOARD RESCUE: If hydrated but activeId points to nowhere, pick the first available contest
-    // Anti-loop protection: limit to 3 attempts
+    // Reseta contador ao retornar para estado saudável
+    if (isStoreHydrated && headerData.exists) {
+      rescueAttemptsRef.current = 0;
+    }
+
     if (isStoreHydrated && !headerData.exists && rescueAttemptsRef.current < 3) {
       const keys = Object.keys(contestsMetaList || {});
       if (keys.length > 0) {
-        console.warn("[Rescue] Concurso ativo inválido ou removido. Selecionando fallback:", keys[0]);
+        console.warn('[Rescue] Concurso ativo inválido. Selecionando fallback:', keys[0]);
         rescueAttemptsRef.current += 1;
         switchContest(keys[0]);
       }
     }
-
-    return () => {
-      if (typeof window !== 'undefined' && window.__ULTRA_RESCUE_SUCCESS) {
-        delete window.__ULTRA_RESCUE_SUCCESS;
-      }
-    };
   }, [showToast, isStoreHydrated, headerData.exists, contestsMetaList, switchContest]);
+
+  const cloudStatusHeader = React.useMemo(() => ({
+    status: cloudStatus,
+    error: cloudError,
+    syncing: isCloudSyncing,
+    hasConflict,
+    forcePull: forcePullCloud
+  }), [cloudStatus, cloudError, isCloudSyncing, hasConflict, forcePullCloud]);
 
   // Global Handlers
   const handleUndo = useCallback(() => {
@@ -283,14 +290,8 @@ function MainLayout() {
                   onUndo={handleUndo}
                   onCloudRestore={handleCloudRestore}
                   onUpdateName={updateUserName}
-                  currentData={{}}
-                  cloudStatus={{
-                    status: cloudStatus,
-                    error: cloudError,
-                    syncing: isCloudSyncing,
-                    hasConflict,
-                    forcePull: forcePullCloud
-                  }}
+                  currentData={EMPTY_OBJECT}
+                  cloudStatus={cloudStatusHeader}
                   onExport={handleExport}
                   onImport={handleImport}
 

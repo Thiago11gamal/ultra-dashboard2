@@ -451,18 +451,17 @@ svg *,
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
-/* Prevenção Global de Corte de Fonte (Anti-Clipping) */
-input,
-textarea,
-select,
-button,
-span,
+/* DEPOIS — restringe a regra apenas a onde o clipping de fonte realmente ocorre:
+   títulos e textos de gradiente. Botões e inputs ficam livres para o Tailwind controlar. */
 h1, h2, h3, h4, h5, h6,
 .neon-text {
-  /* O padding inferior mínimo garante que descenções (como y, g, p) não fiquem para fora da caixa de renderização */
   padding-bottom: max(0.1em, 1px);
-  /* Evita que navegadores tentem espremer a fonte ignorando a caixa limite */
-  line-height: 1.35;
+}
+
+/* line-height separado: usa valor mais seguro para não cortar descenders (g, y, p)
+   sem forçar valor fixo em elementos que o Tailwind já gerencia */
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.4;
 }
 
 /* Custom scrollbar definition moved to line 152 for consolidation */

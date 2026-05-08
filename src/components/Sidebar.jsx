@@ -27,6 +27,36 @@ import './Sidebar.css';
 import { del } from 'idb-keyval';
 import { useAppStore } from '../store/useAppStore';
 
+const SECTIONS = [
+    {
+        label: 'Navegação',
+        items: [
+            { path: '/', label: 'Meu Painel', icon: LayoutDashboard, color: '#38bdf8' },
+            { path: '/pomodoro', label: 'Cronômetro', icon: Timer, color: '#fb7185' },
+            { path: '/sessions', label: 'Sessões', icon: Clock, color: '#34d399' },
+            { path: '/tasks', label: 'Tarefas', icon: CheckSquare, color: '#fbbf24' },
+        ]
+    },
+    {
+        label: 'Dados & Análise',
+        items: [
+            { path: '/stats', label: 'Estatísticas', icon: BarChart3, color: '#818cf8' },
+            { path: '/evolution', label: 'Evolução', icon: TrendingUp, color: '#f472b6' },
+            { path: '/heatmap', label: 'Atividade', icon: CalendarDays, color: '#2dd4bf' },
+            { path: '/retention', label: 'Retenção', icon: Brain, color: '#a78bfa' },
+            { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit, color: '#60a5fa' },
+            { path: '/history', label: 'Histórico', icon: History, color: '#94a3b8' },
+        ]
+    },
+    {
+        label: 'Inteligência',
+        items: [
+            { path: '/coach', label: 'Coach IA', icon: Sparkles, color: '#c084fc' },
+            { path: '/notes', label: 'Notas', icon: FileText, color: '#fca5a5' },
+        ]
+    }
+];
+
 export default function Sidebar({
     onOpenHelp,
     isOpen,
@@ -92,35 +122,7 @@ export default function Sidebar({
         }
     };
 
-    const sections = [
-        {
-            label: 'Navegação',
-            items: [
-                { path: '/', label: 'Meu Painel', icon: LayoutDashboard, color: '#38bdf8' },
-                { path: '/pomodoro', label: 'Cronômetro', icon: Timer, color: '#fb7185' },
-                { path: '/sessions', label: 'Sessões', icon: Clock, color: '#34d399' },
-                { path: '/tasks', label: 'Tarefas', icon: CheckSquare, color: '#fbbf24' },
-            ]
-        },
-        {
-            label: 'Dados & Análise',
-            items: [
-                { path: '/stats', label: 'Estatísticas', icon: BarChart3, color: '#818cf8' },
-                { path: '/evolution', label: 'Evolução', icon: TrendingUp, color: '#f472b6' },
-                { path: '/heatmap', label: 'Atividade', icon: CalendarDays, color: '#2dd4bf' },
-                { path: '/retention', label: 'Retenção', icon: Brain, color: '#a78bfa' },
-                { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit, color: '#60a5fa' },
-                { path: '/history', label: 'Histórico', icon: History, color: '#94a3b8' },
-            ]
-        },
-        {
-            label: 'Inteligência',
-            items: [
-                { path: '/coach', label: 'Coach IA', icon: Sparkles, color: '#c084fc' },
-                { path: '/notes', label: 'Notas', icon: FileText, color: '#fca5a5' },
-            ]
-        }
-    ];
+
 
     return (
         <>
@@ -248,7 +250,7 @@ export default function Sidebar({
 
                     <div className="sidebar-divider"></div>
 
-                    {sections.map((section, sIdx) => (
+                    {SECTIONS.map((section, sIdx) => (
                         <div key={sIdx} className="mb-4">
                             <h4 className="sidebar-nav-label">{section.label}</h4>
                             <nav className="space-y-1">

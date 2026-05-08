@@ -41,7 +41,7 @@ const MobileClockDisplay = ({ clockTime }) => {
 /* ─────────────────────────────────────────────────────────
    Main Header component
  ───────────────────────────────────────────────────────── */
-export default function Header({
+const Header = React.memo(function Header({
     user = { name: 'Visitante', avatar: '👤', xp: 0, level: 1 },
     onUpdateName,
     onUndo,
@@ -189,5 +189,7 @@ export default function Header({
             </header>
         </>
     );
-}
+});
+
+export default Header;
 
