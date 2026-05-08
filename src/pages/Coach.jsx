@@ -452,7 +452,7 @@ export default function Coach() {
                         <div className="w-px h-10 bg-white/5" />
                         <QuickStat
                             label="Tendência"
-                            value={`${((drift * 30) / currentMaxScore * 100).toFixed(1)}pp`}
+                            value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
                             color="text-emerald-400"
                             icon={<ArrowUpRight size={14} />}
                         />
@@ -573,7 +573,8 @@ function RaioXDashboard({ data }) {
 
     const toPercentLabel = (value) => {
         const n = Number(value);
-        return Number.isFinite(n) ? `${Math.round(n)}%` : '-';
+        if (!Number.isFinite(n)) return '-';
+        return `${Math.max(0, Math.min(100, Math.round(n)))}%`;
     };
 
     const sortedLogs = useMemo(() => {
