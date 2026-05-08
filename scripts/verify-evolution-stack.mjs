@@ -14,15 +14,16 @@ if (missing.length) {
   process.exit(1);
 }
 
+const npmCmd = isWin ? 'npm.cmd' : 'npm';
 const commands = [
-  ['npm', ['run', 'test:evolution-all']],
-  ['npm', ['run', 'lint']],
-  ['npm', ['run', 'build']],
-  ['npm', ['run', 'test:evolution-e2e']],
+  [npmCmd, ['run', 'test:evolution-all']],
+  [npmCmd, ['run', 'lint']],
+  [npmCmd, ['run', 'build']],
+  [npmCmd, ['run', 'test:evolution-e2e']],
 ];
 
 for (const [cmd, args] of commands) {
-  const result = spawnSync(cmd, args, { stdio: 'inherit', shell: process.platform === 'win32' });
+  const result = spawnSync(cmd, args, { stdio: 'inherit', shell: true });
   if ((result.status ?? 1) !== 0) process.exit(result.status ?? 1);
 }
 
