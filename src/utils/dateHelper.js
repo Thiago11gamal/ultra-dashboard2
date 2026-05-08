@@ -81,18 +81,18 @@ export const formatDisplayDate = (dateStr) => {
 export const normalizeDate = (raw) => {
     if (!raw) return null;
     let d;
+    const isDateOnly = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw);
+
     if (typeof raw === 'string') {
-        // Handle YYYY-MM-DD
-        if (raw.length === 10 && raw.includes('-')) {
-            d = new Date(`${raw}T12:00:00`);
-        } else {
-            d = new Date(raw);
-        }
+        d = isDateOnly ? new Date(`${raw}T12:00:00`) : new Date(raw);
     } else {
         d = new Date(raw);
     }
-    if (!(d instanceof Date) || isNaN(d.getTime())) return null;
-    d.setHours(12, 0, 0, 0);
+
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
+
+    // Corrige apenas datas sem hora explícita para evitar distorcer timestamps reais.
+    if (isDateOnly) d.setHours(12, 0, 0, 0);
     return d;
 };
 
@@ -109,7 +109,8 @@ export const formatTimeAgo = (date) => {
     
     if (Number.isNaN(timeMs)) return 'Data inválida';
 
-    const diff = Math.max(0, Date.now() - timeMs); // Previne valores negativos (datas futuras)
+    // Tolerância de 60s evita flicker entre relógio local e dados de servidor.
+    const diff = Math.max(0, Date.now() - timeMs - 60_000);
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
     const weeks = Math.floor(days / 7);

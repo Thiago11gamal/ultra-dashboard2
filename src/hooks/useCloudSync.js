@@ -193,11 +193,16 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                             const historyMap = new Map();
                             localHistory.forEach(h => { if (h?.date) historyMap.set(h.date, h); });
                             cloudHistory.forEach(h => { if (h?.date) historyMap.set(h.date, h); });
+                            const toDateMs = (value) => {
+                                if (!value) return 0;
+                                const ms = new Date(value).getTime();
+                                return Number.isFinite(ms) ? ms : 0;
+                            };
                             mergedCatsMap[c.id] = {
                                 ...c,
                                 simuladoStats: {
                                     ...c.simuladoStats,
-                                    history: Array.from(historyMap.values()).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+                                    history: Array.from(historyMap.values()).sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
                                 }
                             };
                         } else {
@@ -221,7 +226,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                             [...localMC, ...cloudMC].forEach(item => {
                                 if (item?.date) mcMap.set(item.date, item);
                             });
-                            return Array.from(mcMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+                            return Array.from(mcMap.values()).sort((a, b) => {
+                                const aMs = new Date(a?.date || 0).getTime();
+                                const bMs = new Date(b?.date || 0).getTime();
+                                return (Number.isFinite(aMs) ? aMs : 0) - (Number.isFinite(bMs) ? bMs : 0);
+                            });
                         })(),
                     };
                 }
