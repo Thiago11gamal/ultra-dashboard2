@@ -10,7 +10,7 @@ const requiredChecks = [
   { ok: weekly.includes("aria-pressed={viewMode === 'variation'}"), msg: 'Weekly view-mode aria missing' },
   { ok: weekly.includes('computeTopRegressions'), msg: 'Weekly top regressions integration missing' },
   { ok: heatmap.includes("value: 'monthly'"), msg: 'Heatmap monthly granularity control missing' },
-  { ok: heatmap.includes('aggregateHeatmap(filtered, granularity'), msg: 'Heatmap aggregation pipeline missing' },
+  { ok: heatmap.includes('aggregateHeatmap(filtered, granularity)'), msg: 'Heatmap aggregation pipeline missing' },
 ];
 
 for (const check of requiredChecks) {

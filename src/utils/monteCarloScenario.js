@@ -1,7 +1,7 @@
 export const SCENARIO_CONFIG = {
   // BUG-5 FIX: meanBiasFactor é percentual da escala (0.025 = 2.5% do maxScore)
   // Antes era absoluto (±2.5 pts), distorcendo provas fora da escala 0-100.
-  conservative: { meanBiasFactor: -0.025, ciMult: 1.3, probMultFactor: 0.045 },
+  conservative: { meanBiasFactor: -0.015, ciMult: 1.5, probMultFactor: 0.045 },
   base: { meanBiasFactor: 0, ciMult: 1, probMultFactor: 0 },
   optimistic: { meanBiasFactor: 0.025, ciMult: 0.85, probMultFactor: 0.045 },
 };

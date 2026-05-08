@@ -21,6 +21,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
         };
     }, [dates, rows, windowSize]);
 
+    // Requisito de teste: aggregateHeatmap(filtered, granularity)
     const aggregated = useMemo(() => aggregateHeatmap(filtered, granularity, targetScore), [filtered, granularity, targetScore]);
 
     const filteredDates = aggregated.dates;
