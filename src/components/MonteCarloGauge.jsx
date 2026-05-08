@@ -96,6 +96,15 @@ export default function MonteCarloGauge({
     } = stats;
 
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+    const boundedScore = (v) => Math.max(minScore, Math.min(maxScore, safe(v)));
+    const projectedSafe = boundedScore(projectedMean);
+    const currentSafe = boundedScore(currentMean);
+    const targetSafe = boundedScore(targetScore);
+    const ciLowSafeRaw = boundedScore(ci95Low);
+    const ciHighSafeRaw = boundedScore(ci95High);
+    const ciLowSafe = Math.min(ciLowSafeRaw, ciHighSafeRaw);
+    const ciHighSafe = Math.max(ciLowSafeRaw, ciHighSafeRaw);
+    const pAdjustedSafe = Math.max(0, Math.min(100, safe(pAdjusted)));
     const stableUpdateWeight = useCallback((name, p) => {
         setWeights((prevWeights) => ({ ...(prevWeights || {}), [name]: p }));
     }, [setWeights]);
@@ -155,7 +164,7 @@ export default function MonteCarloGauge({
     else if (prob > 20) baseMessage = "IMPROVISADOR";
 
     const message = baseMessage + (effectiveSimulateToday ? " (HOJE)" : " (FUTURO)");
-    const projectionDelta = safe(projectedMean) - safe(currentMean);
+    const projectionDelta = projectedSafe - currentSafe;
     const isProjectionNearCurrent = Math.abs(projectionDelta) < 0.5;
     const projectionDeltaLabel = `${projectionDelta >= 0 ? '+' : ''}${formatValue(projectionDelta)}${unit}`;
 
@@ -230,7 +239,7 @@ export default function MonteCarloGauge({
                         </svg>
                         <div className="absolute inset-x-0 bottom-1 flex items-end justify-center z-20">
                             <span className="text-3xl sm:text-5xl font-black" style={{ color: getGradientColor(prob) }}>
-                                {formatPercent(pAdjusted)}
+                                {formatPercent(pAdjustedSafe)}
                             </span>
                         </div>
                     </div>
@@ -242,12 +251,12 @@ export default function MonteCarloGauge({
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-6">
                     {[
-                        { label: "Sua Meta", val: `${formatValue(safe(targetScore))}${unit}`, color: "text-rose-500" },
-                        { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: `${formatValue(safe(currentMean))}${unit}`, color: "text-white" },
-                        { label: "Projeção", val: `${formatValue(safe(projectedMean))}${unit}`, color: "text-blue-400" },
+                        { label: "Sua Meta", val: `${formatValue(targetSafe)}${unit}`, color: "text-rose-500" },
+                        { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: `${formatValue(currentSafe)}${unit}`, color: "text-white" },
+                        { label: "Projeção", val: `${formatValue(projectedSafe)}${unit}`, color: "text-blue-400" },
                         { label: "Δ Futuro vs Hoje", val: projectionDeltaLabel, color: isProjectionNearCurrent ? "text-amber-300" : "text-cyan-300" },
                         { label: "Incerteza", val: `-${formatValue(sdLeft)} / +${formatValue(sdRight)}`, color: "text-amber-400", small: true },
-                        { label: "IC 95%", val: `${formatValue(safe(ci95Low))}–${formatValue(safe(ci95High))}${unit}`, color: "text-green-500/80", small: true }
+                        { label: "IC 95%", val: `${formatValue(ciLowSafe)}–${formatValue(ciHighSafe)}${unit}`, color: "text-green-500/80", small: true }
                     ].map((m, i) => (
                     <div key={i} className="bg-black/30 p-2 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[56px]">
                         <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">{m.label}</span>
@@ -267,17 +276,17 @@ export default function MonteCarloGauge({
                 </div>
                 <div className="flex-1 w-full h-[260px]">
                     <GaussianPlot
-                        mean={safe(projectedMean)}
+                        mean={projectedSafe}
                         sd={safe(sd)}
                         sdLeft={safe(sdLeft)}
                         sdRight={safe(sdRight)}
-                        low95={safe(ci95Low)}
-                        high95={safe(ci95High)}
-                        targetScore={safe(targetScore)}
-                        currentMean={safe(currentMean)}
+                        low95={ciLowSafe}
+                        high95={ciHighSafe}
+                        targetScore={targetSafe}
+                        currentMean={currentSafe}
                         prob={safe(prob)}
                         kdeData={simulationData?.data?.kdeData}
-                        projectedMean={safe(projectedMean)}
+                        projectedMean={projectedSafe}
                         unit={unit}
                         minScore={minScore}
                         maxScore={maxScore}
