@@ -24,7 +24,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
         return data
-            .filter(d => d?.date && Number.isFinite(d?.probability))
+            .filter(d => d?.date)
             .map(d => ({ ...d, parsedDate: parseISO(d.date) }))
             .filter(d => isValid(d.parsedDate))
             .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
@@ -36,9 +36,10 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 fullDate = format(d.parsedDate, 'dd MMM yyyy', { locale: ptBR });
 
                 // Sanitização: manter intervalo de confiança dentro do domínio e com ordem válida
-                const mean = Number.isFinite(d.mean) ? d.mean : 0;
-                const rawLow = Number.isFinite(d.ci95Low) ? d.ci95Low : mean;
-                const rawHigh = Number.isFinite(d.ci95High) ? d.ci95High : mean;
+                const meanRaw = Number.isFinite(Number(d.mean)) ? Number(d.mean) : 0;
+                const mean = Math.max(0, Math.min(maxScore, meanRaw));
+                const rawLow = Number.isFinite(Number(d.ci95Low)) ? Number(d.ci95Low) : mean;
+                const rawHigh = Number.isFinite(Number(d.ci95High)) ? Number(d.ci95High) : mean;
                 const boundedLow = Math.max(0, Math.min(maxScore, rawLow));
                 const boundedHigh = Math.max(0, Math.min(maxScore, rawHigh));
                 const low = Math.min(boundedLow, boundedHigh);
@@ -49,6 +50,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     displayDate,
                     fullDate,
                     mean,
+                    probability: Math.max(0, Math.min(100, Number.isFinite(Number(d.probability)) ? Number(d.probability) : 0)),
                     ciRange: [low, high]
                 };
             });
@@ -79,9 +81,9 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             const fullDate = dataPoint.fullDate;
 
             // Operador de coalescência nula garante falhas seguras
-            const pointTarget = dataPoint.target ?? targetScore;
-            const pointMean = dataPoint.mean ?? 0;
-            const pointProb = dataPoint.probability ?? 0;
+            const pointTarget = Math.max(0, Math.min(maxScore, Number.isFinite(Number(dataPoint.target)) ? Number(dataPoint.target) : targetScore));
+            const pointMean = Math.max(0, Math.min(maxScore, Number.isFinite(Number(dataPoint.mean)) ? Number(dataPoint.mean) : 0));
+            const pointProb = Math.max(0, Math.min(100, Number.isFinite(Number(dataPoint.probability)) ? Number(dataPoint.probability) : 0));
             const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
             const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
 
