@@ -87,6 +87,7 @@ function MainLayout() {
   const updateUserName = useAppStore(state => state.updateUserName);
   const undo = useAppStore(state => state.undo);
 
+  const importTimeoutRef = useRef(null);
 
   // Custom Hooks para lógica global
   const { toasts, removeToast } = useGlobalToasts();
@@ -148,6 +149,15 @@ function MainLayout() {
     forcePull: forcePullCloud
   }), [cloudStatus, cloudError, isCloudSyncing, hasConflict, forcePullCloud]);
 
+  useEffect(() => {
+    return () => {
+      if (importTimeoutRef.current) {
+        clearTimeout(importTimeoutRef.current);
+        importTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   // Global Handlers
   const handleUndo = useCallback(() => {
     undo();
@@ -165,7 +175,7 @@ function MainLayout() {
 
       // Joga o processamento pesado para o final da fila de eventos, 
       // deixando a animação do Toast ocorrer fluida.
-      setTimeout(() => {
+      importTimeoutRef.current = setTimeout(() => {
         try {
           const currentAppState = useAppStore.getState().appState;
           const result = parseImportedData(e.target.result, currentAppState);
@@ -174,6 +184,8 @@ function MainLayout() {
         } catch (err) {
           console.error("Import Error:", err);
           showToast(`Erro no Backup: ${err.message}`, 'error');
+        } finally {
+          importTimeoutRef.current = null;
         }
       }, 50); // Delay mínimo de 50ms resolve o congelamento da UI
     };
