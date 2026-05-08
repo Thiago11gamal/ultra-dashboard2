@@ -148,26 +148,28 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                         )}
 
                                         {cell && (
-                                            <div className={`absolute ${ri === 0 ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 hidden group-hover:flex flex-col items-center bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl p-3 min-w-[120px] shadow-2xl whitespace-nowrap pointer-events-none text-center border-l-4 ${ci < 3 ? 'left-0' : ci > filteredDates.length - 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`} style={{ borderLeftColor: col.text }}>
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 pb-1.5 border-b border-white/5 w-full">
+                                            <div className={`absolute ${ri === 0 ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 hidden group-hover:flex flex-col items-center bg-[#020617] border border-slate-500 rounded-2xl p-4 min-w-[145px] shadow-[0_25px_60px_rgba(0,0,0,0.9)] whitespace-nowrap pointer-events-none text-center border-l-4 ${ci < 3 ? 'left-0' : ci > filteredDates.length - 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`} style={{ borderLeftColor: col.text }}>
+                                                <span className="text-[10px] text-slate-300 font-black uppercase tracking-[0.15em] mb-2.5 pb-2 border-b border-slate-800 w-full">
                                                     {filteredDates[ci].dayName} • {filteredDates[ci].label}
                                                 </span>
                                                 {Number.isFinite(Number(filteredDates[ci]?.count)) && Number(filteredDates[ci].count) > 1 && (
-                                                    <span className="text-[8px] text-slate-500 mb-2">
-                                                        Janela agregada: {filteredDates[ci].count} dias
+                                                    <span className="text-[9px] text-cyan-400 font-bold mb-2">
+                                                        Janela: {filteredDates[ci].count} dias
                                                     </span>
                                                 )}
-                                                <div className="flex flex-col items-center justify-center py-2 px-3 rounded-xl bg-white/5 w-full mb-2">
-                                                    <span className="text-[16px] font-black leading-none mb-1" style={{ color: col.text }}>
+                                                <div className="flex flex-col items-center justify-center py-2.5 px-4 rounded-xl bg-slate-900 border border-slate-800 w-full mb-2.5">
+                                                    <span className="text-[19px] font-black leading-none mb-1.5 drop-shadow-[0_0_8px_rgba(0,0,0,1)]" style={{ color: col.text }}>
                                                         {Number.isFinite(cell.pct) ? `${cell.pct.toFixed(2)}${unit}` : '—'}
                                                     </span>
-                                                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">Desempenho</span>
+                                                    <span className="text-[9px] text-slate-100 font-black uppercase tracking-widest">Desempenho</span>
                                                 </div>
-                                                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-                                                    <span className="font-bold" style={{ color: col.text }}>{cell.correct}</span>
-                                                    <span className="text-slate-600">/</span>
-                                                    <span>{cell.total} <small className="text-[8px] opacity-70">Q</small></span>
-                                                    <span className="text-[8px] text-slate-500">densidade {Math.round((col.density || 0) * 100)}%</span>
+                                                <div className="flex items-center gap-2 text-[11px] text-white font-mono">
+                                                    <span className="font-black px-2 py-0.5 rounded bg-black" style={{ color: col.text }}>{cell.correct}</span>
+                                                    <span className="text-slate-500 font-bold">/</span>
+                                                    <span className="font-bold">{cell.total} <small className="text-[9px] text-slate-400">Q</small></span>
+                                                </div>
+                                                <div className="mt-2 text-[8px] text-slate-500 font-black uppercase tracking-tighter">
+                                                    Densidade: {Math.round((col.density || 0) * 100)}%
                                                 </div>
                                             </div>
                                         )}
