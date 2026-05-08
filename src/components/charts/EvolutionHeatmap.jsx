@@ -116,7 +116,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                         <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
                             <div className="flex items-center gap-2.5 pr-4 min-w-0">
                                 <span className="text-lg shrink-0">{cat.icon}</span>
-                                <span className="text-[15px] font-black truncate leading-tight" style={{ color: cat.color }} title={cat.name}>
+                                <span className="text-sm sm:text-[13px] font-extrabold truncate leading-tight" style={{ color: cat.color }} title={cat.name}>
                                     {cat.name}
                                 </span>
                             </div>
@@ -131,15 +131,15 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                             background: col.bg,
                                             opacity: cell ? (0.72 + (col.density * 0.28)) : 1,
                                             border: `1px solid ${col.border}`,
-                                            minHeight: '56px',
+                                            minHeight: '52px',
                                         }}
                                     >
                                         {cell ? (
                                             <>
-                                                <span className="text-[20px] font-black leading-none drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
+                                                <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_4px_rgba(15,23,42,0.55)]" style={{ color: col.text }}>
                                                     {Number.isFinite(cell.pct) ? `${cell.pct.toFixed(2)}${unit}` : '—'}
                                                 </span>
-                                                <span className="text-[10px] text-slate-300/85 font-mono mt-1">
+                                                <span className="text-[9px] text-slate-300/80 font-mono mt-1">
                                                     {cell.correct}/{cell.total}
                                                 </span>
                                             </>
@@ -148,7 +148,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                         )}
 
                                         {cell && (
-                                            <div className={`absolute ${ri === 0 ? 'top-[80%] mt-2' : 'bottom-full mb-2'} z-50 hidden group-hover:flex flex-col items-center bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl p-3 min-w-[120px] shadow-2xl whitespace-nowrap pointer-events-none text-center border-l-4 ${ci < 3 ? 'left-0' : ci > filteredDates.length - 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`} style={{ borderLeftColor: col.text }}>
+                                            <div className={`absolute ${ri === 0 ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 hidden group-hover:flex flex-col items-center bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl p-3 min-w-[120px] shadow-2xl whitespace-nowrap pointer-events-none text-center border-l-4 ${ci < 3 ? 'left-0' : ci > filteredDates.length - 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`} style={{ borderLeftColor: col.text }}>
                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 pb-1.5 border-b border-white/5 w-full">
                                                     {filteredDates[ci].dayName} • {filteredDates[ci].label}
                                                 </span>
