@@ -137,10 +137,33 @@ export default function Coach() {
             const current = prev.calibrationHistoryByCategory || {};
             const categoryHistory = current[normalizedCategoryId] || [];
             
-            // Verificação de Redundância: Só salva se o Brier mudou significativamente (>1%)
+            // Verificação de redundância (Brier + ECE + penalty + probabilidade)
+            // Evita descartar eventos onde o Brier ficou estável, mas ECE/penalty mudaram.
             const lastEntry = categoryHistory[categoryHistory.length - 1];
-            if (lastEntry && Math.abs(Number(lastEntry.avgBrier) - avgBrier) < 0.01 && !isDegraded) {
-                return prev; // No change needed
+            const hasComparableLast = lastEntry && Number.isFinite(Number(lastEntry?.timestamp));
+            if (hasComparableLast && !isDegraded) {
+                const brierDelta = Number.isFinite(avgBrier) && Number.isFinite(Number(lastEntry.avgBrier))
+                    ? Math.abs(Number(lastEntry.avgBrier) - avgBrier)
+                    : Infinity;
+                const eceDelta = Number.isFinite(ece) && Number.isFinite(Number(lastEntry.ece))
+                    ? Math.abs(Number(lastEntry.ece) - ece)
+                    : Infinity;
+                const penaltyDelta = Math.abs(Number(lastEntry.calibrationPenalty || 0) - calibrationPenalty);
+                const probabilityDelta = Number.isFinite(probability) && Number.isFinite(Number(lastEntry.probability))
+                    ? Math.abs(Number(lastEntry.probability) - probability)
+                    : Infinity;
+                const reliabilityCountChanged = Array.isArray(lastEntry?.reliability)
+                    ? lastEntry.reliability.length !== reliability.length
+                    : reliability.length > 0;
+
+                const shouldSkipPersist =
+                    brierDelta < 0.01 &&
+                    eceDelta < 0.01 &&
+                    penaltyDelta < 0.01 &&
+                    probabilityDelta < 0.5 &&
+                    !reliabilityCountChanged;
+
+                if (shouldSkipPersist) return prev;
             }
 
             const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
