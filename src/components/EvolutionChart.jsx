@@ -846,15 +846,16 @@ export default function EvolutionChart({
                             <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-center">
                                 {(() => {
                                     const toFinite = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
-                                    const projectedLevel = toFinite(mcResult?.projectedMean, toFinite(mcResult?.mean, 0));
-                                    const ciLow = toFinite(mcResult?.ci95Low, projectedLevel);
-                                    const ciHigh = toFinite(mcResult?.ci95High, projectedLevel);
+                                    const bounded = (v) => Math.max(minScore, Math.min(maxScore, toFinite(v, minScore)));
+                                    const projectedLevel = bounded(toFinite(mcResult?.projectedMean, toFinite(mcResult?.mean, minScore)));
+                                    const ciLow = bounded(toFinite(mcResult?.ci95Low, projectedLevel));
+                                    const ciHigh = bounded(toFinite(mcResult?.ci95High, projectedLevel));
                                     const ciMin = Math.min(ciLow, ciHigh);
                                     const ciMax = Math.max(ciLow, ciHigh);
                                     const marginOfError = Math.max(0, (ciMax - ciMin) / 2);
 
                                     return [
-                                        { label: 'Caminho Sucesso', val: `${toFinite(mcResult?.probability).toFixed(2)}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                                        { label: 'Caminho Sucesso', val: `${Math.max(0, Math.min(100, toFinite(mcResult?.probability))).toFixed(2)}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                                         { label: 'Nível Projetado', val: unit === '%' ? `${projectedLevel.toFixed(2)}${unit}` : `${Math.round(projectedLevel)}${unit}`, icon: <TrendingUp size={14} />, color: 'text-blue-400', bg: 'bg-blue-500/10' },
                                         { label: 'Margem de Erro', val: unit === '%' ? `±${marginOfError.toFixed(2)}${unit}` : `±${Math.round(marginOfError)}${unit}`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
                                         { label: 'Confiança 95%', val: unit === '%' ? `${ciMin.toFixed(2)}-${ciMax.toFixed(2)}${unit}` : `${Math.round(ciMin)}-${Math.round(ciMax)}${unit}`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }

@@ -170,13 +170,17 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const currentPos = currentMean != null ? xp(currentMean) : 0;
     const currentY = currentMean != null ? curveY(currentMean) : 100;
 
-    const ciHighPx = xp(Math.max(domainMin, Math.min(domainMax, high95)));
-    const ciLowPx = xp(Math.max(domainMin, Math.min(domainMax, low95)));
+    const safeLow95 = Number.isFinite(Number(low95)) ? Number(low95) : (mean ?? 0);
+    const safeHigh95 = Number.isFinite(Number(high95)) ? Number(high95) : (mean ?? 0);
+    const ciLowBound = Math.max(domainMin, Math.min(domainMax, Math.min(safeLow95, safeHigh95)));
+    const ciHighBound = Math.max(domainMin, Math.min(domainMax, Math.max(safeLow95, safeHigh95)));
+    const ciHighPx = xp(ciHighBound);
+    const ciLowPx = xp(ciLowBound);
 
     const isTargetVisible = targetPos >= 2 && targetPos <= 98;
     const isCurrentVisible = currentMean != null && currentPos >= 2 && currentPos <= 98;
 
-    const saturation = range > 0 ? (high95 - low95) / range : 1;
+    const saturation = range > 0 ? Math.max(0, Math.min(1, (ciHighBound - ciLowBound) / range)) : 1;
     const ciLabel = saturation > 0.8 ? "ALTA INCERTEZA" : saturation > 0.4 ? "ESTIMATIVA" : "CONFIÁVEL";
 
     // SISTEMA ANTI-SOBREPOSIÇÃO INTELIGENTE PARA RÓTULOS
@@ -216,7 +220,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const percentage = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-                const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * range));
+                const safeRange = Math.max(1e-6, range);
+                const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * safeRange));
                 setHover({ x: xp(val), val });
             }}
             onMouseLeave={() => setHover(null)}
