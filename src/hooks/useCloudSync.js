@@ -502,10 +502,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
         return () => {
             unsubscribe();
-            setCloudStatus('idle');
             clearTimeout(safetyBootTimeout);
         };
     }, [currentUser?.uid, setAppState, confirmParity, mergeAppState]);
+
+
+    useEffect(() => {
+        if (!currentUser?.uid) {
+            setCloudStatus('idle');
+            setCloudError(null);
+        }
+    }, [currentUser?.uid]);
 
     useEffect(() => {
         isParityValidatedRef.current = false;
