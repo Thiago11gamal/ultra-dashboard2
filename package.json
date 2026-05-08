@@ -27,7 +27,8 @@
     "test:evolution-e2e": "node scripts/test-evolution-e2e.mjs",
     "test:unit:safe": "node scripts/test-unit-safe.mjs",
     "lint:safe": "node scripts/lint-safe.mjs",
-    "build:safe": "node scripts/build-safe.mjs"
+    "build:safe": "node scripts/build-safe.mjs",
+    "verify:evolution": "node scripts/verify-evolution-stack.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -7,5 +7,5 @@ if (!existsSync(eslintBin) || !existsSync(eslintJsPkg)) {
   console.log('[lint:safe] eslint/@eslint/js não encontrados. Pulando lint.');
   process.exit(0);
 }
-const r = spawnSync('npx', ['eslint', '.'], { stdio: 'inherit', shell: true });
+const r = spawnSync(eslintBin, ['.'], { stdio: 'inherit', shell: process.platform === 'win32' });
 process.exit(r.status ?? 1);

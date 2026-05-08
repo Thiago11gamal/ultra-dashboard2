@@ -27,13 +27,25 @@
 3. `npm run test:evolution-suite`
 4. `npm run lint`
 5. `npm run build`
- 
- 
- ## CI policy
- 
- - In CI after `npm ci`, run **strict checks** (no safe-skip):
-   1. `npm run test:evolution-all`
-   2. `npm run lint`
-   3. `npm run build`
- - `*:safe` scripts are for local/dev fallback only when toolchain is unavailable.
 
+
+## CI policy
+
+- In CI after `npm ci`, run **strict checks** (no safe-skip):
+  1. `npm run test:evolution-all`
+  2. `npm run lint`
+  3. `npm run build`
+- `*:safe` scripts are for local/dev fallback only when toolchain is unavailable.
+
+
+## Strict verification helper
+
+- `npm run verify:evolution`
+  - Fails fast if required toolchain is missing (`vitest`, `eslint`, `vite`).
+  - If toolchain exists, runs strict sequence:
+    1. `npm run test:evolution-all`
+    2. `npm run lint`
+    3. `npm run build`
+    4. `npm run test:evolution-e2e`
+
+Use this command before merge to guarantee a full strict validation pass.

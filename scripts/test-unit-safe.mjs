@@ -6,5 +6,5 @@ if (!existsSync(vitestBin)) {
   console.log('[test:unit:safe] vitest não encontrado. Pulando testes unitários.');
   process.exit(0);
 }
-const r = spawnSync('npx', ['vitest', 'run'], { stdio: 'inherit', shell: true });
+const r = spawnSync(vitestBin, ['run'], { stdio: 'inherit', shell: process.platform === 'win32' });
 process.exit(r.status ?? 1);
