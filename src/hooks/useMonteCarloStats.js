@@ -394,7 +394,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 return { name: cat.name, prob: result.probability, mean: baseline, trend: cat.trend };
             })
             .sort((a, b) => a.prob - b.prob);
-    }, [statsData, debouncedTarget, simulationData?.status, minScore, maxScore, effectiveSimulateToday, projectDays]);
+    }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays]);
 
     // BUG-05 FIX: isFlashing declaration moved above (before first useEffect that uses it)
     useEffect(() => {

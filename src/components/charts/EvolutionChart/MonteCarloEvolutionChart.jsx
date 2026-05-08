@@ -7,7 +7,7 @@ import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDuration } from '../../../utils/dateHelper';
 import { formatValue, formatPercent } from '../../../utils/scoreHelper';
-import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario';
+import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario.js';
 
 const SCENARIO_OPTIONS = [
     { id: 'conservative', label: 'Conserv.', fullLabel: 'Conservador' },
@@ -19,7 +19,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
     const rawId = useId();
     const gradientId = `colorMonteCarlo-${rawId.replace(/:/g, '')}`;
     const [scenario, setScenario] = useState('base');
-    const scenarioLabels = Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel]));
+    const scenarioLabels = useMemo(() => Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel])), []);
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
@@ -70,8 +70,55 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             ciWidth: width,
             scenario: scenarioLabels[scenario] || scenario,
         };
-    }, [scenarioAdjustedData, scenario]);
+    }, [scenarioAdjustedData, scenario, scenarioLabels]);
 
+
+    const renderCustomTooltip = useCallback(({ active, payload }) => {
+        if (active && payload && payload.length) {
+            const dataPoint = payload[0].payload;
+            const fullDate = dataPoint.fullDate;
+
+            // Operador de coalescência nula garante falhas seguras
+            const pointTarget = dataPoint.target ?? targetScore;
+            const pointMean = dataPoint.mean ?? 0;
+            const pointProb = dataPoint.probability ?? 0;
+            const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
+            const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
+
+            const isGood = pointMean >= pointTarget;
+
+            return (
+                <div className="bg-slate-900 border border-white/10 p-4 rounded-xl shadow-2xl backdrop-blur-xl min-w-[200px]">
+                    <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-3 border-b border-white/10 pb-2">{fullDate}</p>
+
+                    <div className="flex flex-col gap-2">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Nota Projetada</span>
+                            <span className={`text-3xl font-black leading-none ${isGood ? 'text-green-400' : 'text-blue-400'}`}>
+                                {unit === 'horas' ? formatDuration(pointMean) : unit === '%' ? formatValue(pointMean) : pointMean} <span className="text-sm text-slate-500 ml-1">{unit}</span>
+                            </span>
+                        </div>
+
+                        <div className="mt-2 bg-black/40 rounded border border-white/5 p-2">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-bold text-slate-400">Cone (95% CI):</span>
+                                <span className="text-[10px] font-mono text-white">
+                                    {unit === 'horas' ? `${formatDuration(pointLow)} ~ ${formatDuration(pointHigh)}` : `${formatValue(pointLow)}${unit} ~ ${formatValue(pointHigh)}${unit}`}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-slate-400">Chance de Sucesso:</span>
+                                <span className={`text-[10px] font-black ${pointProb >= 70 ? 'text-green-400' : 'text-blue-400'}`}>
+                                    {formatPercent(pointProb)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    }, [unit, targetScore]);
 
     if (formattedData.length === 0) {
         return (
@@ -95,48 +142,6 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             </div>
         );
     }
-
-    const renderCustomTooltip = useCallback(({ active, payload }) => {
-        if (active && payload && payload.length) {
-            const dataPoint = payload[0].payload;
-            const pointProb = dataPoint.probability;
-            const pointMean = dataPoint.mean;
-            const [pointLow, pointHigh] = dataPoint.ciRange;
-
-            return (
-                <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-lg shadow-2xl backdrop-blur-md min-w-[200px]">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-1">
-                        Projeção em {dataPoint.fullDate}
-                    </p>
-
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-bold text-slate-400">Média (P50):</span>
-                            <span className="text-xs font-black text-white">
-                                {unit === 'horas' ? formatDuration(pointMean) : `${formatValue(pointMean)}${unit}`}
-                            </span>
-                        </div>
-
-                        <div className="mt-2 bg-black/40 rounded border border-white/5 p-2">
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="text-[10px] font-bold text-slate-400">Cone (95% CI):</span>
-                                <span className="text-[10px] font-mono text-white">
-                                    {unit === 'horas' ? `${formatDuration(pointLow)} ~ ${formatDuration(pointHigh)}` : `${formatValue(pointLow)}${unit} ~ ${formatValue(pointHigh)}${unit}`}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-[10px] font-bold text-slate-400">Chance de Sucesso:</span>
-                                <span className={`text-[10px] font-black ${pointProb >= 70 ? 'text-green-400' : 'text-blue-400'}`}>
-                                    {formatPercent(pointProb)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-        return null;
-    }, [targetScore, unit]);
 
     return (
         <div className="w-full min-h-[400px] flex flex-col py-4 mt-2">

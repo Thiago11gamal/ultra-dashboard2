@@ -14,7 +14,7 @@ import {
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
-import { calculateAdaptiveSlope, getSortedHistory } from '../engine/projection';
+import { calculateAdaptiveSlope, getSortedHistory } from '../engine/projection.js';
 import PageHeader from '../components/header/PageHeader';
 import AICoachView from '../components/AICoachView';
 import CoachMenuNav from '../components/coach/CoachMenuNav';
@@ -189,15 +189,15 @@ export default function Coach() {
         }
 
         if (isDegraded) {
-            const now = Date.now();
+            const currentTime = Date.now();
             // LEAK-CALIBRATION-CACHE FIX: antes, entradas eram removidas apenas por tamanho.
             // Entradas com >12h de idade deveriam ser prunadas para liberar memória e permitir
             // re-disparo legítimo do alerta. Agora fazemos uma varredura de cleanup antes de inserir.
             for (const [key, ts] of calibrationAlertCache.entries()) {
-                if (now - ts > ALERT_COOLDOWN_MS) calibrationAlertCache.delete(key);
+                if (currentTime - ts > ALERT_COOLDOWN_MS) calibrationAlertCache.delete(key);
             }
             const lastAlertAt = Number(calibrationAlertCache.get(normalizedCategoryId) || 0);
-            if (now - lastAlertAt > ALERT_COOLDOWN_MS) {
+            if (currentTime - lastAlertAt > ALERT_COOLDOWN_MS) {
                 showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || 'categoria')} (Brier ${Number(avgBrier).toFixed(2)}).`, 'warning');
                 calibrationAlertCache.set(normalizedCategoryId, now);
                 if (calibrationAlertCache.size > CALIBRATION_ALERT_CACHE_MAX) {

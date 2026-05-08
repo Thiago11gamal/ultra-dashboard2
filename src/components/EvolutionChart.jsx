@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
     computeCategoryStats,
-    calculateCurrentWeightedMean,
     computeBayesianLevel,
     calculateVolatility
 } from "../engine";
@@ -163,7 +162,7 @@ export default function EvolutionChart({
             if (!history.length) { map[cat.id] = 0; return; }
             const stats = computeCategoryStats(history, 100, 60, maxScore);
             if (!stats) { map[cat.id] = 0; return; }
-            map[cat.id] = calculateCurrentWeightedMean([{ ...stats, weight: 100 }], 100);
+            map[cat.id] = stats.mean;
         });
         return map;
     }, [categories, timeline, maxScore]);

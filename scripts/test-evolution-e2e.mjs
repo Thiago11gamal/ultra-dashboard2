@@ -1,14 +1,7 @@
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const cliPath = './node_modules/.bin/playwright';
-
-if (!existsSync(cliPath)) {
-  console.log('[evolution-e2e] Playwright não encontrado em node_modules. Pulando smoke test.');
-  process.exit(0);
-}
-
-const result = spawnSync(cliPath, ['test', 'e2e/evolution-smoke.spec.js', '--project=chromium'], {
+const result = spawnSync('npx', ['playwright', 'test', 'e2e/evolution-smoke.spec.js', '--project=chromium'], {
   stdio: 'inherit',
   shell: process.platform === 'win32',
 });

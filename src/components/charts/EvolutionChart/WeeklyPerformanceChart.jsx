@@ -9,8 +9,8 @@ import {
     Tooltip,
     ResponsiveContainer
 } from 'recharts';
-import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper';
-import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
+import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper.js';
+import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper.js';
 
 const WeeklyPerformanceChart = ({
     categories = [],

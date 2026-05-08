@@ -1,11 +1,10 @@
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const requiredBins = [
-  './node_modules/.bin/vitest',
-  './node_modules/.bin/eslint',
-  './node_modules/.bin/vite',
-];
+const isWin = process.platform === 'win32';
+const bin = (name) => isWin ? `./node_modules/.bin/${name}.cmd` : `./node_modules/.bin/${name}`;
+
+const requiredBins = [bin('vitest'), bin('eslint'), bin('vite')];
 
 const missing = requiredBins.filter((p) => !existsSync(p));
 if (missing.length) {

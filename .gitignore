@@ -43,3 +43,7 @@ test_new_projection.js
 test_fairness_engine*.mjs
 package-lock.html
 .env
+playwright-report/
+test-results/
+blob-report/
+

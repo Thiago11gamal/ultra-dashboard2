@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { aggregateHeatmap } from '../../utils/heatmapAggregation';
+import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
 export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) => {
     const { dates = [], rows = [] } = heatmapData || {};
@@ -21,25 +21,24 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
         };
     }, [dates, rows, windowSize]);
 
-    const cellColor = (pct, total = 0) => {
-        if (pct == null) return { bg: 'rgba(255,255,255,0.02)', text: '#64748b', border: '#1e293b', density: 0 };
-        if (pct >= targetScore) return { bg: 'rgba(34,197,94,0.2)', text: '#4ade80', border: 'rgba(34,197,94,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
-        if (pct >= targetScore * 0.8) return { bg: 'rgba(251,191,36,0.15)', text: '#fcd34d', border: 'rgba(251,191,36,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
-        if (pct >= targetScore * 0.6) return { bg: 'rgba(251,146,60,0.15)', text: '#fb923c', border: 'rgba(251,146,60,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
-        return { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.4)', density: Math.min(1, (Number(total) || 0) / maxCellTotal) };
-    };
-
     const aggregated = useMemo(() => aggregateHeatmap(filtered, granularity), [filtered, granularity]);
 
     const filteredDates = aggregated.dates;
     const filteredRows = aggregated.rows;
 
-    const maxCellTotal = useMemo(() => {
-        const totals = filteredRows
-            .flatMap((row) => (Array.isArray(row?.cells) ? row.cells : []))
-            .map((cell) => Number(cell?.total) || 0);
-        return Math.max(1, ...totals);
-    }, [filteredRows]);
+    const totals = filteredRows
+        .flatMap((row) => (Array.isArray(row?.cells) ? row.cells : []))
+        .map((cell) => Number(cell?.total) || 0);
+    const maxCellTotal = Math.max(1, ...totals);
+
+    const cellColor = (pct, total = 0) => {
+        if (pct == null) return { bg: 'rgba(255,255,255,0.02)', text: '#64748b', border: '#1e293b', density: 0 };
+        const density = Math.min(1, (Number(total) || 0) / maxCellTotal);
+        if (pct >= targetScore) return { bg: 'rgba(34,197,94,0.2)', text: '#4ade80', border: 'rgba(34,197,94,0.4)', density };
+        if (pct >= targetScore * 0.8) return { bg: 'rgba(251,191,36,0.15)', text: '#fcd34d', border: 'rgba(251,191,36,0.4)', density };
+        if (pct >= targetScore * 0.6) return { bg: 'rgba(251,146,60,0.15)', text: '#fb923c', border: 'rgba(251,146,60,0.4)', density };
+        return { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.4)', density };
+    };
 
     if (!filteredDates.length) return (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
