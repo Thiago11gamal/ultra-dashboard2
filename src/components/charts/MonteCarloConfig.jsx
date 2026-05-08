@@ -52,7 +52,10 @@ export const MonteCarloConfig = ({
     // FIX: Permitir que o peso manual possa ser 0 sem assumir Math.max(1)
     const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore ? Number(maxScore) : Math.max(safeMinScore + 1, 100);
-    const sliderRange = Math.max(1, safeMaxScore - safeMinScore);
+    const sliderMin = Math.max(safeMinScore, Math.round(safeMaxScore * 0.1));
+    const sliderRange = Math.max(1, safeMaxScore - sliderMin);
+    const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number(targetScore) || sliderMin));
+    const sliderPercent = ((clampedTarget - sliderMin) / sliderRange) * 100;
 
     const manualTotal = categories.reduce((acc, cat) => {
         const val = weights?.[cat.id || cat.name];
@@ -101,7 +104,7 @@ export const MonteCarloConfig = ({
                             <div>
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-1">Target Achievement</span>
                                 <span className="text-3xl font-black text-white tracking-tighter italic">
-                                    <span>{targetScore}</span>
+                                    <span>{clampedTarget}</span>
                                     <span className="text-blue-500">%</span>
                                 </span>
                             </div>
@@ -113,10 +116,10 @@ export const MonteCarloConfig = ({
                         <div className="relative h-6 flex items-center mb-4">
                             <input
                                 type="range"
-                                min={Math.max(safeMinScore, Math.round(safeMaxScore * 0.1))}
+                                min={sliderMin}
                                 max={safeMaxScore}
                                 step="1"
-                                value={targetScore}
+                                value={clampedTarget}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
                                     if (setTargetScore) setTargetScore(val);
@@ -126,7 +129,7 @@ export const MonteCarloConfig = ({
                                 }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
                                 style={{
-                                    background: `linear-gradient(to right, #3b82f6 ${((targetScore - safeMinScore) / sliderRange) * 100}%, rgba(255,255,255,0.1) ${((targetScore - safeMinScore) / sliderRange) * 100}%)`,
+                                    background: `linear-gradient(to right, #3b82f6 ${sliderPercent}%, rgba(255,255,255,0.1) ${sliderPercent}%)`,
                                     touchAction: 'none'
                                 }}
                             />
