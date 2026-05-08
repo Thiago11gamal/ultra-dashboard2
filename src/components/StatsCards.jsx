@@ -28,8 +28,17 @@ const getEfficiencyTheme = (score) => {
     };
 };
 
+const getTodayDateKey = () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+};
+
 const StatsCards = ({ data, onUpdateGoalDate }) => {
     const dateInputRef = useRef(null);
+    const minGoalDate = getTodayDateKey();
 
     const streak = useMemo(() => calculateStudyStreak(data.studyLogs || []), [data.studyLogs]);
     const balance = useMemo(() => analyzeSubjectBalance(data.categories || []), [data.categories]);
@@ -269,6 +278,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     <input
                         ref={dateInputRef}
                         type="date"
+                        onFocus={(e) => { e.target.min = getTodayDateKey(); }}
                         value={(() => {
                             try {
                                 if (!user.goalDate) return '';
@@ -282,7 +292,12 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     return '';
                                 }
                         })()}
-                        onChange={(e) => onUpdateGoalDate(e.target.value)}
+                        min={minGoalDate}
+                        onChange={(e) => {
+                            const selected = e.target.value;
+                            if (!selected) return onUpdateGoalDate('');
+                            onUpdateGoalDate(selected < minGoalDate ? minGoalDate : selected);
+                        }}
                         className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 pointer-events-auto [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                         title="Escolher data da prova"
                     />
