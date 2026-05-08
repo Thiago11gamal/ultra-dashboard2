@@ -255,7 +255,7 @@ export default function MonteCarloGauge({
                         { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: `${formatValue(currentSafe)}${unit}`, color: "text-white" },
                         { label: "Projeção", val: `${formatValue(projectedSafe)}${unit}`, color: "text-blue-400" },
                         { label: "Δ Futuro vs Hoje", val: projectionDeltaLabel, color: isProjectionNearCurrent ? "text-amber-300" : "text-cyan-300" },
-                        { label: "Incerteza", val: `-${formatValue(sdLeft)} / +${formatValue(sdRight)}`, color: "text-amber-400", small: true },
+                        { label: "Incerteza", val: `-${formatValue(safe(sdLeft))} / +${formatValue(safe(sdRight))}`, color: "text-amber-400", small: true },
                         { label: "IC 95%", val: `${formatValue(ciLowSafe)}–${formatValue(ciHighSafe)}${unit}`, color: "text-green-500/80", small: true }
                     ].map((m, i) => (
                     <div key={i} className="bg-black/30 p-2 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[56px]">

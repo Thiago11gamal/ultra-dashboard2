@@ -231,10 +231,11 @@ export default function EvolutionChart({
                 const nextDate = new Date(lastDate);
                 nextDate.setDate(nextDate.getDate() + projectDays);
 
-                const clampScore = (v) => Math.min(maxScore, Math.max(minScore, v));
-                const p50 = clampScore(parseFloat(result.projectedMean || result.mean));
-                const lo = clampScore(parseFloat(result.ci95Low));
-                const hi = clampScore(parseFloat(result.ci95High));
+                const clampScore = (v) => Math.min(maxScore, Math.max(minScore, Number(v)));
+                const projectedRaw = result.projectedMean ?? result.mean;
+                const p50 = clampScore(projectedRaw);
+                const lo = clampScore(result.ci95Low);
+                const hi = clampScore(result.ci95High);
 
                 if (!Number.isFinite(p50) || !Number.isFinite(lo) || !Number.isFinite(hi)) return;
 
@@ -274,7 +275,7 @@ export default function EvolutionChart({
             const lastIdx = pts.length - 1;
             // HARDENING: Garantir que currentLevel seja finito
             const rawLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? mcProjectionSeries?.mc_p50 ?? 0;
-            const currentLevel = Number.isFinite(rawLevel) ? rawLevel : 0;
+            const currentLevel = Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 0;
             const futurePoints = [];
             const steps = 6;
             for (let i = 1; i <= steps; i++) {
