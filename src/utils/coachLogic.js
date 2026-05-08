@@ -1,6 +1,6 @@
 // ==================== CONSTANTES ====================
 import { standardDeviation } from '../engine/stats.js';
-import { calculateVolatility, calculateSlope } from '../engine/projection.js';
+import { calculateVolatility, calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { normalize } from './normalization.js';
 import { computeRollingCalibrationParams } from './calibration.js';
@@ -252,12 +252,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const trend = Math.max(limiteInferior, Math.min(limiteSuperior, rawTrend));
 
         // ─────────────────────────────────────────────────────────
-        // MC-03: MSSD Volatility — substitui standardDeviation cega
+        // MC-03: MSSD Volatility — BUG-MATH-01 FIX: usa calculateMSSD real
         // Não castiga crescimento legítimo (50→60→70).
         // ─────────────────────────────────────────────────────────
         const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
         const mssdVolatility = mcHistory.length >= 3
-            ? calculateVolatility(mcHistory, maxScore)
+            ? calculateMSSD(mcHistory, maxScore)
             : (lastNScores.length >= 2
                 ? standardDeviation(lastNScores, maxScore)
                 : (lastNScores.length === 1 ? maxScore * 0.05 : maxScore * 0.1)); // scale-aware fallback uncertainty
@@ -366,6 +366,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const recentStudyDays = new Set(recentLogs.map(log => normalizeDate(log.date).getTime())).size;
 
         // E2. Balance Bridge (equilíbrio entre matérias do Meu Painel -> Coach)
+        // IMP-MATH-09 FIX: ideal share proporcional ao peso da matéria, não uniforme.
+        // Uma matéria com peso 10 merece mais tempo que uma com peso 1.
         const activeCategories = (options.allCategories || []).filter(c => (c?.tasks || []).length > 0);
         const activeCount = activeCategories.length > 0 ? activeCategories.length : 1;
         const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -376,7 +378,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             .filter(log => log?.categoryId === categoryId)
             .reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
-        const idealShare = 1 / activeCount;
+        // Calcular share ideal proporcional ao peso de cada matéria
+        const totalActiveWeight = activeCategories.reduce((acc, c) => {
+            const w = (c.weight !== undefined && c.weight > 0) ? c.weight : 5;
+            return acc + w;
+        }, 0);
+        const idealShare = totalActiveWeight > 0 ? rawWeight / totalActiveWeight : (1 / activeCount);
         const underAllocation = Math.max(0, idealShare - observedShare);
         const balanceBridgeBoost = Math.min(cfg.EFFICIENCY_MAX, underAllocation * cfg.EFFICIENCY_MAX * 2.0);
 
@@ -705,7 +712,16 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             daysSince = getDaysDiff(today, data.lastSeen);
         }
         const priorityBoost = data.manualPriority || 0;
-        let urgencyScore = ((100 - percentage) * 2) + daysSince + priorityBoost;
+        // IMP-MATH-08 FIX: Normalizar cada componente para [0,1] antes de combinar com pesos.
+        // Antes: (100 - percentage) * 2 gerava 0-200, daysSince gerava 0-60+, priorityBoost 0-40.
+        // Os componentes não estavam na mesma escala.
+        const perfComponent = Math.max(0, Math.min(1, (100 - percentage) / 100));
+        const recencyComponent_topic = Math.max(0, Math.min(1, daysSince / 60));
+        const priorityComponent = Math.max(0, Math.min(1, priorityBoost / 40));
+        const TOPIC_W_PERF = 0.50;    // peso: desempenho
+        const TOPIC_W_RECENCY = 0.30; // peso: recência
+        const TOPIC_W_PRIORITY = 0.20; // peso: prioridade manual
+        let urgencyScore = (perfComponent * TOPIC_W_PERF + recencyComponent_topic * TOPIC_W_RECENCY + priorityComponent * TOPIC_W_PRIORITY) * 200;
         if (percentage === 0 && data.scores.length === 0 && categorySimuladoCount > 3) {
             urgencyScore *= 0.7;
         }

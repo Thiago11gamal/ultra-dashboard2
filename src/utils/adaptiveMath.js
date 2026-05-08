@@ -185,3 +185,82 @@ export function computeAdaptiveSignal(scores = []) {
 // NOTE: deriveCoachAdaptiveParams lives in coachAdaptive.js (canonical version).
 // This file previously had a duplicate with a slightly different signature.
 // Removed to avoid confusion and dead code.
+
+// ─────────────────────────────────────────────────────────────────
+// ADAPT-03: Unified Adaptive Confidence Shrinkage
+// Substitui os 3 padrões diferentes de shrinkage espalhados pelo codebase:
+//   1. shrinkProbabilityToNeutral (calibration.js) — penalidade de calibração
+//   2. extraLowSampleShrink (coachAdaptive.js:278) — amostra pequena
+//   3. POPULATION_SD prior (stats.js:44) — prior Bayesiano
+//
+// Esta função unifica o conceito: dado um estimador (probabilidade, média, etc.),
+// qual é o fator de shrinkage adequado considerando TODOS os sinais de incerteza?
+// ─────────────────────────────────────────────────────────────────
+export function adaptiveConfidenceShrinkage(options = {}) {
+    const {
+        sampleSize = 1,
+        calibrationPenalty = 0,
+        trendStrength = 0,
+        neutralValue = 50,
+        maxShrink = 0.6
+    } = options;
+
+    const n = Math.max(1, Number(sampleSize) || 1);
+    const calPen = Math.max(0, Math.min(1, Number(calibrationPenalty) || 0));
+    const trend = Math.max(0, Math.min(5, Number(trendStrength) || 0));
+
+    // Componente 1: Sample size shrinkage (1/√n decay)
+    // n<5: forte shrinkage (~0.45), n=15: moderado (~0.26), n>30: mínimo (~0.18)
+    const sampleShrink = Math.max(0, 1 / Math.sqrt(n));
+
+    // Componente 2: Calibração (quanto pior a calibração, mais puxamos para o neutro)
+    const calibShrink = calPen * 0.8; // escalar para não dominar
+
+    // Componente 3: Trend uncertainty (tendência forte = mais incerteza no nível atual)
+    const trendShrink = Math.min(0.15, trend * 0.04);
+
+    // Combinação: média ponderada com cap
+    const rawShrink = (sampleShrink * 0.50) + (calibShrink * 0.35) + (trendShrink * 0.15);
+    const finalShrink = Math.max(0, Math.min(maxShrink, rawShrink));
+
+    return {
+        shrinkFactor: Number(finalShrink.toFixed(4)),
+        components: {
+            sampleShrink: Number(sampleShrink.toFixed(4)),
+            calibShrink: Number(calibShrink.toFixed(4)),
+            trendShrink: Number(trendShrink.toFixed(4))
+        },
+        // Helper: aplica o shrinkage a um valor
+        apply: (value) => {
+            const v = Number(value) || 0;
+            return v * (1 - finalShrink) + neutralValue * finalShrink;
+        }
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// IMP-MATH-07: Ponte entre computeAdaptiveSignal e o pipeline do Coach
+// Exporta um peso consolidado que indica quanta confiança o motor deve
+// depositar nas previsões atuais vs. recuar para priors conservadores.
+// ─────────────────────────────────────────────────────────────────
+export function computeAdaptiveCoachWeight(scores = []) {
+    const signal = computeAdaptiveSignal(scores);
+    
+    // effectiveN alto + trendStrength baixo = alta confiança
+    // effectiveN baixo OU trendStrength alto = baixa confiança (mais conservador)
+    const nConfidence = Math.min(1, signal.effectiveN / 15); // Satura em ~15 amostras efetivas
+    const trendUncertainty = Math.min(1, signal.trendStrength / 2.5); // Normaliza para [0,1]
+    
+    // Peso de confiança: 0 = totalmente conservador, 1 = totalmente empírico
+    const confidenceWeight = Math.max(0, Math.min(1, 
+        nConfidence * 0.7 + (1 - trendUncertainty) * 0.3
+    ));
+
+    return {
+        confidenceWeight: Number(confidenceWeight.toFixed(4)),
+        effectiveN: Number(signal.effectiveN.toFixed(2)),
+        trendStrength: Number(signal.trendStrength.toFixed(4)),
+        ciInflation: Number(signal.ciInflation.toFixed(4)),
+        adaptiveWinsor: signal.adaptiveWinsor
+    };
+}

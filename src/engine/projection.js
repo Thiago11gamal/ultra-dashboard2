@@ -104,6 +104,27 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
 }
 
 // -----------------------------
+// MSSD — Mean Successive Squared Differences (BUG-MATH-01)
+// Mede instabilidade SEM penalizar crescimento monotônico.
+// Ex: [50,60,70] → SD=10 (penaliza), MSSD_root=10 (mesmo)
+// Ex: [50,70,50,70] → SD=11.5, MSSD_root=20 (detecta oscilação)
+// Ex: [50,55,60,65] → SD=6.5 (penaliza crescimento), MSSD_root=5 (correto: baixa instabilidade)
+// -----------------------------
+export function calculateMSSD(history, maxScore = 100, minScore = 0) {
+    if (!Array.isArray(history) || history.length < 2) {
+        const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+        return 0.05 * range;
+    }
+    const scores = history.map(h => getSafeScore(h, maxScore));
+    let sumSqDiff = 0;
+    for (let i = 1; i < scores.length; i++) {
+        sumSqDiff += Math.pow(scores[i] - scores[i - 1], 2);
+    }
+    const mssd = sumSqDiff / (scores.length - 1);
+    return Math.sqrt(mssd);
+}
+
+// -----------------------------
 // EMA Dinâmico
 // -----------------------------
 export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast = 1) {
@@ -116,9 +137,26 @@ export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast 
 
 // -----------------------------
 // Drift Clampeado (Prevenção de outliers)
+// IMP-MATH-06: λ adaptativo baseado no gap mediano entre sessões
 // -----------------------------
 export function calculateSlope(history, maxScore = 100) {
-    const { slope } = weightedRegression(history, 0.08, maxScore);
+    // Calcular λ adaptativo: alunos com sessões frequentes usam λ maior (memória curta)
+    const sorted = getSortedHistory(history);
+    let lambda = 0.08; // default
+    if (sorted.length >= 3) {
+        const gaps = [];
+        for (let i = 1; i < sorted.length; i++) {
+            const gap = Math.max(0.5, (new Date(sorted[i].date) - new Date(sorted[i - 1].date)) / 86400000);
+            gaps.push(gap);
+        }
+        gaps.sort((a, b) => a - b);
+        const medianGap = gaps.length % 2 === 0
+            ? (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2
+            : gaps[Math.floor(gaps.length / 2)];
+        // λ ∈ [0.03, 0.12]: sessões frequentes → λ alto (esquece rápido), sessões espaçadas → λ baixo
+        lambda = Math.max(0.03, Math.min(0.12, 0.03 + 0.08 * Math.exp(-medianGap / 10)));
+    }
+    const { slope } = weightedRegression(history, lambda, maxScore);
     // Limita drift diário a no máximo 0.5% da escala total (ex: 0.5 pts por dia no Enem)
     const limit = 0.005 * maxScore;
     return Math.max(-limit, Math.min(limit, slope));
@@ -309,6 +347,16 @@ export function monteCarloSimulation(
     // BUG-06 FIX: Damping factor adaptativo baseado na qualidade do histórico
 
 
+    // BUG-MATH-02 FIX: O-U deve reverter para a média histórica ponderada, não para o baseline (último EMA).
+    // Reverter para o baseline causa ancoragem: os ICs ficam artificialmente estreitos porque toda simulação
+    // "puxa" de volta para a nota mais recente, impedindo cenários realistas de melhora ou piora.
+    const historicalScores = sortedHistory.map(h => getSafeScore(h, maxScore));
+    const historicalWeightedMean = historicalScores.length > 0
+        ? historicalScores.reduce((a, b) => a + b, 0) / historicalScores.length
+        : baselineScore;
+    // Blend: 70% média histórica + 30% baseline recente (para não ignorar completamente a tendência recente)
+    const ouTarget = 0.7 * historicalWeightedMean + 0.3 * baselineScore;
+
     for (let i = 0; i < simulations; i++) {
         // Sample epistemic uncertainty (Drift)
         // BUG 1 FIX: Use truncated normal for drift to avoid "black swan" slopes in long projections
@@ -317,7 +365,8 @@ export function monteCarloSimulation(
         let currentSimScore = baselineScore;
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
-            const meanReversion = thetaOU * (baselineScore - currentSimScore) * 1;
+            // BUG-MATH-02: Reversão para a média histórica ponderada (ouTarget) em vez de baselineScore
+            const meanReversion = thetaOU * (ouTarget - currentSimScore) * 1;
             let shock;
             if (safeResiduals.length > 5 && rng() > 0.3) {
                 shock = safeResiduals[Math.floor(rng() * safeResiduals.length)];

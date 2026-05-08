@@ -2,15 +2,68 @@ import { monteCarloSimulation } from '../engine/monteCarlo.js';
 import { getSafeScore } from './scoreHelper.js';
 import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeCalibrationDiagnostics, fitIsotonicCalibration, predictIsotonicProbability, calibrateWithBBQ, conformalizedCalibrationInterval, computeStackingWeights } from './calibration.js';
 
-// MATH-ADAPTIVE-SCALE FIX: adicionado parâmetro maxScore (default=100).
-// Antes, os scores em escala [0, maxScore] eram usados diretamente na fórmula q(0.25)*0.55,
-// que produzia limiares de probabilidade dependentes da escala da prova.
-// Ex: maxScore=50 → danger ≈ 16 (muito baixo); maxScore=100 → danger ≈ 30 (correto).
-// Agora os scores são normalizados para [0,100] antes de calcular os quantis.
-export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = {}, maxScore = 100) {
+// BUG-MATH-03 FIX: Antes, quantis de scores brutos eram usados diretamente como limiares de probabilidade.
+// q(0.25)*0.55 não tem fundamentação estatística — o quantil de scores não se traduz em probabilidade de meta.
+// Agora: se houver dados de backtest (predObsPairs), derivamos os limiares empiricamente.
+// Fallback: heurística melhorada com ancoragem na proporção de sucessos históricos.
+export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = {}, maxScore = 100, backtestPairs = []) {
   const fallbackDanger = Number(cfg.MC_PROB_DANGER) || 30;
   const fallbackSafe = Number(cfg.MC_PROB_SAFE) || 90;
   const rawScores = (scores || []).map(Number).filter(Number.isFinite);
+
+  // ADAPT-01: Bayesian Online threshold derivation from backtest pairs
+  const cleanPairs = (backtestPairs || []).filter(p =>
+    Number.isFinite(Number(p?.probability)) && Number.isFinite(Number(p?.observed))
+  );
+  if (cleanPairs.length >= 6) {
+    // Derivar thresholds empiricamente: ordenar pares por probabilidade prevista
+    const sorted = [...cleanPairs].sort((a, b) => Number(a.probability) - Number(b.probability));
+    
+    // Danger: probabilidade abaixo da qual historicamente <30% dos outcomes foram sucesso
+    // Safe: probabilidade acima da qual >90% foram sucesso
+    // Usar Beta posterior (Jeffreys prior α=0.5, β=0.5) para shrinkage
+    let dangerCandidates = [];
+    let safeCandidates = [];
+    
+    for (let cutoff = 0.10; cutoff <= 0.90; cutoff += 0.05) {
+      const below = sorted.filter(p => Number(p.probability) <= cutoff);
+      const above = sorted.filter(p => Number(p.probability) > cutoff);
+      
+      if (below.length >= 2) {
+        const successBelow = below.filter(p => Number(p.observed) >= 0.5).length;
+        const posteriorMeanBelow = (successBelow + 0.5) / (below.length + 1); // Jeffreys
+        if (posteriorMeanBelow < 0.35) {
+          dangerCandidates.push(cutoff * 100);
+        }
+      }
+      if (above.length >= 2) {
+        const successAbove = above.filter(p => Number(p.observed) >= 0.5).length;
+        const posteriorMeanAbove = (successAbove + 0.5) / (above.length + 1);
+        if (posteriorMeanAbove > 0.85) {
+          safeCandidates.push(cutoff * 100);
+        }
+      }
+    }
+    
+    let danger = dangerCandidates.length > 0 
+      ? Math.max(15, Math.min(50, dangerCandidates[dangerCandidates.length - 1]))
+      : fallbackDanger;
+    let safe = safeCandidates.length > 0
+      ? Math.max(65, Math.min(97, safeCandidates[0]))
+      : fallbackSafe;
+    
+    // Garantir gap mínimo
+    if (safe - danger < 25) safe = Math.min(97, danger + 25);
+    
+    // Shrinkage Bayesiano: quanto menos pares, mais puxamos para o default
+    const shrinkFactor = Math.min(1, cleanPairs.length / 20);
+    danger = danger * shrinkFactor + fallbackDanger * (1 - shrinkFactor);
+    safe = safe * shrinkFactor + fallbackSafe * (1 - shrinkFactor);
+    
+    return { danger: Math.round(danger * 10) / 10, safe: Math.round(safe * 10) / 10 };
+  }
+
+  // Fallback: heurística baseada em scores (melhorada)
   if (rawScores.length < 4) return { danger: fallbackDanger, safe: fallbackSafe };
 
   // Normalizar para [0,100] para garantir invariância de escala na comparação com mcProbability
@@ -27,6 +80,10 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
     return sorted[lo] * (1 - t) + sorted[hi] * t;
   };
 
+  // Usar proporção de scores acima da mediana como proxy para calibrar danger/safe
+  const median = q(0.5);
+  const aboveMedianRate = cleanScores.filter(s => s > median).length / cleanScores.length;
+  
   let danger = Math.max(15, Math.min(45, q(0.25) * 0.55));
   let safe = Math.max(75, Math.min(95, q(0.75) * 1.08));
 
@@ -126,6 +183,8 @@ export function clearMcCache() {
     mcCache.clear(); 
 }
 
+// IMP-MATH-05 FIX: decayK agora adapta ao ritmo temporal do aluno.
+// Antes: só usava contagem n e volatilidade cv. Agora incorpora o gap mediano entre sessões.
 export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}) {
     const n = history.length;
     if (n === 0) {
@@ -138,13 +197,36 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}
     const sd = Math.sqrt(Math.max(0, variance));
     const cv = mean > 0 ? Math.min(2, sd / mean) : 1;
 
+    // IMP-MATH-05: Calcular gap temporal mediano entre sessões
+    let medianGapDays = 7; // default
+    if (n >= 2) {
+        const sortedDates = history
+            .map(h => h.date ? new Date(h.date).getTime() : 0)
+            .filter(t => t > 0)
+            .sort((a, b) => a - b);
+        if (sortedDates.length >= 2) {
+            const gaps = [];
+            for (let i = 1; i < sortedDates.length; i++) {
+                gaps.push(Math.max(0.5, (sortedDates[i] - sortedDates[i - 1]) / 86400000));
+            }
+            gaps.sort((a, b) => a - b);
+            medianGapDays = gaps.length % 2 === 0
+                ? (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2
+                : gaps[Math.floor(gaps.length / 2)];
+        }
+    }
+
+    // Fator de cobertura baseado em n E ritmo temporal
     const coverageFactor = Math.max(0.8, Math.min(1.3, Math.sqrt(10 / Math.max(2, n))));
-    const decayK = Math.max(0.03, Math.min(0.12, 0.07 * coverageFactor));
+    // Sessões frequentes (gap pequeno) → decayK maior (memória curta, foco no recente)
+    // Sessões espaçadas (gap grande) → decayK menor (memória longa, cada dado importa mais)
+    const gapFactor = Math.max(0.7, Math.min(1.4, 1 + 0.3 * Math.exp(-medianGapDays / 14)));
+    const decayK = Math.max(0.03, Math.min(0.12, 0.07 * coverageFactor * gapFactor));
     const minWeight = Math.max(0.01, Math.min(0.08, 0.015 + (cv * 0.02)));
     const scoreClampDelta = Math.max(maxScore * 0.12, Math.min(maxScore * 0.45, (0.2 + cv * 0.15) * maxScore));
     const mcSimulations = Math.round(Math.max(400, Math.min(2500, (cfg.MC_SIMULATIONS || 800) * (0.8 + cv * 0.7) * coverageFactor)));
 
-    return { decayK, minWeight, scoreClampDelta, mcSimulations };
+    return { decayK, minWeight, scoreClampDelta, mcSimulations, medianGapDays };
 }
 
 /**

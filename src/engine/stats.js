@@ -66,7 +66,11 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     let alpha = alpha0;
     let beta = beta0;
+    // BUG-MATH-04 FIX: maxAlphaEver agora é limitado a MAX_EFFECTIVE_N * p.
+    // Antes, crescia monotonicamente sem limite, impedindo o modelo de esquecer dados obsoletos.
+    // Ex: alpha histórico=500 → floor=150 → 2 anos sem estudar, sistema ainda mantinha alpha≥150.
     let maxAlphaEver = alpha0;
+    const MAX_ALPHA_CAP = 250; // Alinhado com MAX_EFFECTIVE_N
 
     const now = Date.now();
     // NOTE: DECAY_FACTOR = 0.985 ≈ exp(-0.015) – consistente com λ=0.015 (meia-vida ~46 dias)
@@ -102,7 +106,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             // 🎯 DRIFT BAYESIANO (Fix): Preservar o ratio atual durante o decaimento.
             // Em vez de decair alpha e beta independentemente para alpha0/beta0,
             // reduzimos o "peso" (n) da evidência mantendo a proporção de acertos.
-            const retentionFloor = maxAlphaEver * 0.3;
+            // BUG-MATH-04: Limitar maxAlphaEver para evitar floor de retenção infinito.
+            const cappedMaxAlpha = Math.min(maxAlphaEver, MAX_ALPHA_CAP);
+            const retentionFloor = cappedMaxAlpha * 0.3;
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
                 const currentP = alpha / nBeforeDecay;
@@ -119,13 +125,15 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             alpha += acertosHoje;
             beta += errosHoje;
             
-            if (alpha > maxAlphaEver) maxAlphaEver = alpha;
+            // BUG-MATH-04: Cap maxAlphaEver para não acumular infinitamente
+            if (alpha > maxAlphaEver) maxAlphaEver = Math.min(alpha, MAX_ALPHA_CAP);
         }
         
         const lastDate = new Date(sortedHistory[sortedHistory.length - 1].date);
         const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
-            const retentionFloor = maxAlphaEver * 0.3;
+            const cappedMaxAlpha = Math.min(maxAlphaEver, MAX_ALPHA_CAP);
+            const retentionFloor = cappedMaxAlpha * 0.3;
             const finalDecay = Math.pow(BAYESIAN_DECAY_FACTOR, gapToToday);
             const nBeforeDecay = alpha + beta;
             const currentP = alpha / nBeforeDecay;
