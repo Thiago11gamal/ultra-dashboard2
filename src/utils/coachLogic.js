@@ -589,7 +589,7 @@ function _getTopicsHash(simulados, maxScore) {
     // HASH-DATA FIX: incorpora score+subject+ordem para evitar cache stale com datas iguais.
     let checksum = 0;
     simulados.forEach((s, idx) => {
-        const date = String(s?.date || '');
+        const date = String(s?.date || s?.createdAt || '');
         const subject = String(s?.subject || '');
         const score = Number.isFinite(Number(s?.score)) ? Number(s.score) : Number(getSafeScore(s, maxScore));
         const token = `${date}|${subject}|${score.toFixed(3)}`;
@@ -779,7 +779,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         // Filtra logs e simulados recentes
         const recentLogs = studyLogs.filter(l => l.categoryId === category.id && new Date(l.date || 0).getTime() >= cutoffTime);
         const catNormalized = normalize(category.name);
-        const recentSims = simulados.filter(s => normalize(s.subject) === catNormalized && new Date(s.date || 0).getTime() >= cutoffTime);
+        const recentSims = simulados.filter(s => normalize(s.subject) === catNormalized && new Date(s.date || s.createdAt || 0).getTime() >= cutoffTime);
 
         const totalHours = recentLogs.reduce((acc, l) => acc + (Number(l.minutes) || 0), 0) / 60;
         const totalQuestions = recentSims.reduce((acc, s) => {
