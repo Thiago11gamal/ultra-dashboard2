@@ -155,7 +155,8 @@ body::before {
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
-  height: 0px; /* Hide horizontal scrollbar */
+  height: 0px;
+  /* Hide horizontal scrollbar */
   display: block;
 }
 
@@ -453,14 +454,24 @@ svg *,
 
 /* DEPOIS — restringe a regra apenas a onde o clipping de fonte realmente ocorre:
    títulos e textos de gradiente. Botões e inputs ficam livres para o Tailwind controlar. */
-h1, h2, h3, h4, h5, h6,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
 .neon-text {
   padding-bottom: max(0.1em, 1px);
 }
 
 /* line-height separado: usa valor mais seguro para não cortar descenders (g, y, p)
    sem forçar valor fixo em elementos que o Tailwind já gerencia */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   line-height: 1.4;
 }
 
@@ -549,7 +560,8 @@ input[type=range].custom-slider::-webkit-slider-thumb {
   height: 20px;
   width: 20px;
   border-radius: 50%;
-  background: #3b82f6; /* Tailwind blue-500 */
+  background: #3b82f6;
+  /* Tailwind blue-500 */
   border: 2px solid #ffffff;
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
   transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
@@ -557,7 +569,8 @@ input[type=range].custom-slider::-webkit-slider-thumb {
 
 input[type=range].custom-slider::-webkit-slider-thumb:hover {
   transform: scale(1.15);
-  background: #60a5fa; /* Tailwind blue-400 */
+  background: #60a5fa;
+  /* Tailwind blue-400 */
 }
 
 input[type=range].custom-slider::-webkit-slider-thumb:active {
