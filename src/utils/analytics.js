@@ -1,9 +1,6 @@
 import { getXPProgress } from './gamification.js';
 import { normalizeDate, getLocalMidnight, getDateKey } from './dateHelper.js';
 
-
-
-
 /**
  * Distributes a rounding remainder across items based on their decimal parts.
  * Uses the "Largest Remainder Method" to ensure percentages sum to exactly 100%.
@@ -115,7 +112,8 @@ const calculateLongest = (uniqueDays) => {
 };
 
 export const analyzeSubjectBalance = (categories) => {
-    const totalMinutes = categories.reduce((sum, c) => sum + (c.totalMinutes || 0), 0);
+    const safeCategories = Array.isArray(categories) ? categories : [];
+    const totalMinutes = safeCategories.reduce((sum, c) => sum + Math.max(0, Number(c?.totalMinutes) || 0), 0);
 
     if (totalMinutes === 0) {
         return {
@@ -127,15 +125,16 @@ export const analyzeSubjectBalance = (categories) => {
     }
 
     // Distribution with Rounding Protection (B-05 FIX)
-    let distribution = categories.map(c => {
-        const rawPercentage = totalMinutes > 0 ? ((c.totalMinutes || 0) / totalMinutes) * 100 : 0;
+    let distribution = safeCategories.map(c => {
+        const minutes = Math.max(0, Number(c?.totalMinutes) || 0);
+        const tasks = Array.isArray(c?.tasks) ? c.tasks : [];
+        const rawPercentage = totalMinutes > 0 ? (minutes / totalMinutes) * 100 : 0;
         return {
-            subject: c.name,
-            minutes: c.totalMinutes || 0,
+            subject: c?.name || 'Sem nome',
+            minutes,
             rawPercentage,
-            // Bug fix: optional chaining — categories without tasks array crash here
-            tasks: (c.tasks || []).length,
-            completed: (c.tasks || []).filter(t => t.completed).length
+            tasks: tasks.length,
+            completed: tasks.filter(t => t?.completed).length
         };
     });
 
@@ -179,7 +178,7 @@ export const analyzeSubjectBalance = (categories) => {
         metrics: {
             mostStudied: distribution[0]?.subject,
             leastStudied: distribution[distribution.length - 1]?.subject,
-            totalSubjects: categories.length,
+            totalSubjects: safeCategories.length,
             activeSubjects: distribution.filter(d => d.minutes > 0).length
         }
     };
@@ -208,6 +207,7 @@ export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
     if (totalMinutes === 0 && completedTasks === 0) {
         return {
             status: 'sem_dados',
+            efficiency: 'sem_dados',
             message: 'Complete algumas tarefas para análise',
             score: 0,
             metrics: {},
