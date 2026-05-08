@@ -40,6 +40,12 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
         return { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.4)', density };
     };
 
+    const formatPct = (value) => {
+        if (!Number.isFinite(value)) return '—';
+        const rounded = Number(value.toFixed(2));
+        return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}${unit}`;
+    };
+
     if (!filteredDates.length) return (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
             Nenhum dado encontrado.
@@ -137,7 +143,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                         {cell ? (
                                             <>
                                                 <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
-                                                    {Number.isFinite(cell.pct) ? `${cell.pct.toFixed(2)}${unit}` : '—'}
+                                                    {formatPct(cell.pct)}
                                                 </span>
                                                 <span className="text-[9px] text-slate-300/80 font-mono mt-1">
                                                     {cell.correct}/{cell.total}
@@ -159,7 +165,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                                 )}
                                                 <div className="flex flex-col items-center justify-center py-2.5 px-4 rounded-xl bg-slate-900 border border-slate-800 w-full mb-2.5">
                                                     <span className="text-[19px] font-black leading-none mb-1.5 drop-shadow-[0_0_8px_rgba(0,0,0,1)]" style={{ color: col.text }}>
-                                                        {Number.isFinite(cell.pct) ? `${cell.pct.toFixed(2)}${unit}` : '—'}
+                                                        {formatPct(cell.pct)}
                                                     </span>
                                                     <span className="text-[9px] text-slate-100 font-black uppercase tracking-widest">Desempenho</span>
                                                 </div>
