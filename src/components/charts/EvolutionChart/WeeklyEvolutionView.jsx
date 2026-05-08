@@ -55,6 +55,20 @@ export const WeeklyEvolutionView = ({
         setUserToggles({});
     }, [showOnlyFocus, focusSubjectId]);
 
+    const categoriesSignature = useMemo(() => categories.map((cat) => {
+        const history = cat?.simuladoStats?.history || [];
+        const tasks = cat?.tasks || [];
+        return [
+            cat?.id,
+            history.length,
+            history[history.length - 1]?.date || '',
+            history[history.length - 1]?.score ?? '',
+            tasks.length,
+            tasks[tasks.length - 1]?.id || '',
+            tasks[tasks.length - 1]?.text || ''
+        ].join('|');
+    }).join('||'), [categories]);
+
     // 2. PROCESSAMENTO DOMINADO
     const { chartData, activeKeys, rankedKeys } = useMemo(() => {
         let itemsMap = {};
@@ -70,6 +84,12 @@ export const WeeklyEvolutionView = ({
         } else {
             const cat = categories.find(c => c.id === focusSubjectId);
             if (cat) {
+                (cat.tasks || []).forEach(task => {
+                    const tName = String(task?.text || '').trim();
+                    if (!tName) return;
+                    itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color, fullName: tName };
+                });
+
                 (cat.simuladoStats?.history || []).forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
                         h.topics.forEach(t => {
@@ -207,7 +227,7 @@ export const WeeklyEvolutionView = ({
         const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
 
         return { chartData: finalData, activeKeys: itemsMap, rankedKeys };
-    }, [categories, showOnlyFocus, focusSubjectId, maxScore]);
+    }, [categories, categoriesSignature, showOnlyFocus, focusSubjectId, maxScore]);
 
     const keys = Object.keys(activeKeys);
 
@@ -215,7 +235,7 @@ export const WeeklyEvolutionView = ({
     const hiddenKeys = useMemo(() => {
         const result = {};
         rankedKeys?.forEach((key, idx) => {
-            const defaultHide = idx >= 6; // Mantém no top 6 mais volumosos
+            const defaultHide = showOnlyFocus ? false : idx >= 6; // Em assuntos, mostra todos por padrão
             if (userToggles[key] !== undefined) {
                 result[key] = userToggles[key]; // Escolha manual do aluno domina
             } else {
@@ -223,7 +243,7 @@ export const WeeklyEvolutionView = ({
             }
         });
         return result;
-    }, [rankedKeys, userToggles]);
+    }, [rankedKeys, userToggles, showOnlyFocus]);
 
 
     const topRegressions = useMemo(() => computeTopRegressions({ viewMode, chartData, keys, activeKeys, hiddenKeys }), [viewMode, chartData, keys, activeKeys, hiddenKeys]);
