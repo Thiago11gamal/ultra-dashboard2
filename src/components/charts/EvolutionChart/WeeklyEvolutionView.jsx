@@ -113,49 +113,51 @@ export const WeeklyEvolutionView = ({
         };
 
         if (!showOnlyFocus || !focusSubjectId) {
-            categories.forEach(cat => processHistory(cat.simuladoStats?.history || [], cat.id));
+            categories.forEach(cat => processHistory(cat.simuladoStats?.history, cat.id));
         } else {
             const cat = categories.find(c => c.id === focusSubjectId);
             if (cat) {
                 (cat.simuladoStats?.history || []).forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
                         h.topics.forEach(t => {
-                            const tName = String(t.name || '').trim();
-                            if (!tName) return;
-                            processHistory([{ ...t, date: h.date }], tName.toLowerCase());
+                            const tID = String(t.name || '').trim().toLowerCase();
+                            if (!tID) return;
+                            const weekStr = getMondayStr(h.date);
+                            if (!weekStr) return;
+                            if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
+                            if (!weeksTemp[weekStr][tID]) weeksTemp[weekStr][tID] = { correct: 0, total: 0 };
+                            const tScore = Number(t.score) || 0;
+                            const tTotal = Number(t.total) || getSyntheticTotal(maxScore);
+                            weeksTemp[weekStr][tID].total += tTotal;
+                            weeksTemp[weekStr][tID].correct += (tScore / maxScore) * tTotal;
                         });
                     } else if (h.taskId) {
                         const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
-                        processHistory([{ ...h }], tName.toLowerCase());
+                        const tID = tName.toLowerCase();
+                        const weekStr = getMondayStr(h.date);
+                        if (!weekStr) return;
+                        if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
+                        if (!weeksTemp[weekStr][tID]) weeksTemp[weekStr][tID] = { correct: 0, total: 0 };
+                        const tScore = Number(h.score) || 0;
+                        const tTotal = Number(h.total) || getSyntheticTotal(maxScore);
+                        weeksTemp[weekStr][tID].total += tTotal;
+                        weeksTemp[weekStr][tID].correct += (tScore / maxScore) * tTotal;
                     }
                 });
             }
         }
 
         const sortedWeeks = Object.values(weeksTemp).sort((a, b) => a.week.localeCompare(b.week));
-        // 🌟 SOLUÇÃO: BURACO DO EIXO X (Preenchimento blindado contra Timezones)
-        // FIX: Usar T12:00:00 local e extracção local consistente com getMondayStr
-        const filledWeeks = [];
-        if (sortedWeeks.length > 0) {
-            const firstWeek = new Date(`${sortedWeeks[0].week}T12:00:00`);
-            const lastWeek = new Date(`${sortedWeeks[sortedWeeks.length - 1].week}T12:00:00`);
 
-            const curr = new Date(firstWeek);
+        // 3. PREENCHIMENTO DE GAPS (BACKFILL)
+        // Para que o gráfico de linha não quebre em semanas sem registro, carregamos a última nota.
+        // Já para o gráfico de barras (Variação), só mostramos se houver delta real.
+        const filledWeeks = sortedWeeks; // Por enquanto, não faremos interpolação forçada para manter fidelidade aos simulados reais.
 
-            while (curr <= lastWeek) {
-                const y = curr.getFullYear();
-                const m = String(curr.getMonth() + 1).padStart(2, '0');
-                const d = String(curr.getDate()).padStart(2, '0');
-                const weekStr = `${y}-${m}-${d}`;
-                filledWeeks.push(weeksTemp[weekStr] || { week: weekStr });
-                curr.setDate(curr.getDate() + 7);
-            }
-        }
+        // Memória para cálculo de Deltas
+        const memoryByItem = {};
 
-        // 🌟 SOLUÇÃO 1: BURACO TEMPORAL VENCIDO
-        const memoryByItem = {}; // Mantém o último percentual válido por ID
-
-        const finalData = filledWeeks.map((weekObj) => {
+        const finalData = filledWeeks.map(weekObj => {
             const dataPoint = {
                 week: weekObj.week,
                 displayDate: formatWeek(weekObj.week)
@@ -234,12 +236,23 @@ export const WeeklyEvolutionView = ({
         return result;
     }, [rankedKeys, userToggles]);
 
+
     const topRegressions = useMemo(() => computeTopRegressions({ viewMode, chartData, keys, activeKeys, hiddenKeys }), [viewMode, chartData, keys, activeKeys, hiddenKeys]);
 
 
     const trendKpi = useMemo(() => computeTrendKpi({ chartData, keys, hiddenKeys }), [chartData, keys, hiddenKeys]);
 
-
+    if (chartData.length < 2) {
+        return (
+            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
+                <HelpCircle size={40} className="text-slate-600 mb-3" />
+                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
+                <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
+                    Registre pelo menos 2 semanas de simulados para visualizar a curva de evolução e a variação de deltas.
+                </p>
+            </div>
+        );
+    }
 
     const handleLegendClick = useCallback((e) => {
         const dataKey = e?.dataKey;
@@ -351,17 +364,6 @@ export const WeeklyEvolutionView = ({
         );
     }, [hiddenKeys]);
 
-    if (chartData.length < 2) {
-        return (
-            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
-                <HelpCircle size={40} className="text-slate-600 mb-3" />
-                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
-                <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
-                    Registre pelo menos 2 semanas de simulados para visualizar a curva de evolução e a variação de deltas.
-                </p>
-            </div>
-        );
-    }
 
     return (
         <div className="w-full pt-4 animate-fade-in relative flex flex-col">
@@ -425,24 +427,21 @@ export const WeeklyEvolutionView = ({
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
                                 <YAxis domain={[0, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
-
-                                <Tooltip content={renderCustomTooltip} cursor={{ stroke: '#ffffff15', strokeWidth: 2 }} />
-
+                                <Tooltip content={renderCustomTooltip} />
                                 <Legend
-                                    onClick={handleLegendClick}
-                                    wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }}
+                                    verticalAlign="top"
+                                    height={36}
                                     iconType="circle"
+                                    onClick={handleLegendClick}
                                     formatter={evolutionLegendFormatter}
                                 />
-
-                                {chartData.length > 4 && (
+                                {chartData.length > 8 && (
                                     <Brush
-                                        dataKey="displayDate"
+                                        dataKey="week"
                                         height={20}
-                                        stroke="#4f46e5"
+                                        stroke="#ffffff15"
                                         fill="#0f172a"
-                                        tickFormatter={() => ''}
-                                        className="opacity-80"
+                                        tickFormatter={formatWeek}
                                         travellerWidth={8}
                                     />
                                 )}
@@ -455,10 +454,10 @@ export const WeeklyEvolutionView = ({
                                         name={activeKeys[key].name}
                                         stroke={activeKeys[key].color}
                                         strokeWidth={3}
-                                        hide={hiddenKeys[key]}
                                         dot={{ r: 4, strokeWidth: 2, fill: '#0f172a' }}
                                         activeDot={{ r: 6, strokeWidth: 0 }}
-                                        connectNulls={true}
+                                        connectNulls
+                                        hide={hiddenKeys[key]}
                                     />
                                 ))}
                             </LineChart>
@@ -467,26 +466,23 @@ export const WeeklyEvolutionView = ({
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v > 0 ? '+' : ''}${formatValue(v)}${unit}`} />
-
-                                <Tooltip content={renderCustomTooltip} cursor={{ fill: '#ffffff05' }} />
-                                <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
-
+                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
+                                <Tooltip content={renderCustomTooltip} />
                                 <Legend
+                                    verticalAlign="top"
+                                    height={36}
+                                    iconType="rect"
                                     onClick={handleLegendClick}
-                                    wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }}
-                                    iconType="circle"
                                     formatter={variationLegendFormatter}
                                 />
-
-                                {chartData.length > 4 && (
+                                <ReferenceLine y={0} stroke="#ffffff20" />
+                                {chartData.length > 8 && (
                                     <Brush
-                                        dataKey="displayDate"
+                                        dataKey="week"
                                         height={20}
-                                        stroke="#4f46e5"
+                                        stroke="#ffffff15"
                                         fill="#0f172a"
-                                        tickFormatter={() => ''}
-                                        className="opacity-80"
+                                        tickFormatter={formatWeek}
                                         travellerWidth={8}
                                     />
                                 )}

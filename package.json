@@ -23,7 +23,11 @@
     "test:projection-scenario": "node scripts/test-projection-scenario.mjs",
     "test:evolution-all": "npm run test && npm run test:unit && npm run test:evolution-suite",
     "test:evolution-ui": "node scripts/test-evolution-ui-contracts.mjs",
-    "test:evolution-components": "vitest run src/components/charts/EvolutionChart/__tests__/evolutionComponents.test.jsx"
+    "test:evolution-components": "vitest run src/components/charts/EvolutionChart/__tests__/evolutionComponents.test.jsx",
+    "test:evolution-e2e": "node scripts/test-evolution-e2e.mjs",
+    "test:unit:safe": "node scripts/test-unit-safe.mjs",
+    "lint:safe": "node scripts/lint-safe.mjs",
+    "build:safe": "node scripts/build-safe.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

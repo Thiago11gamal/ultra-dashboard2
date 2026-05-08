@@ -44,6 +44,32 @@ describe('evolution utils', () => {
     expect(Number.isFinite(trend.delta)).toBe(true);
   });
 
+
+
+  it('handles invalid heatmap date keys without breaking aggregation', () => {
+    const filtered = {
+      dates: [{ key: 'invalid-date', label: '??' }, { key: '2026-05-06', label: '06/05' }],
+      rows: [{ cells: [{ total: 0, correct: 0 }, { total: 10, correct: 8 }] }]
+    };
+
+    const weekly = aggregateHeatmap(filtered, 'weekly');
+    expect(weekly.dates.length).toBe(2);
+    expect(weekly.rows[0].cells[0]).toEqual({ total: 0, correct: 0, pct: null });
+    expect(weekly.rows[0].cells[1]).toEqual({ total: 10, correct: 8, pct: 80 });
+  });
+
+  it('returns null trend KPI when there are not enough prior windows', () => {
+    const chartData = [
+      { displayDate: '01/01', a: 60 },
+      { displayDate: '08/01', a: 62 },
+      { displayDate: '15/01', a: 63 },
+      { displayDate: '22/01', a: 64 },
+    ];
+
+    const trend = computeTrendKpi({ chartData, keys: ['a'], hiddenKeys: { a: false } });
+    expect(trend).toBeNull();
+  });
+
   it('classifies signal', () => {
     const signal = classifyScenarioSignal([{ ciRange: [70, 73] }, { ciRange: [70, 74] }, { ciRange: [70, 72] }, { ciRange: [70, 72] }], 100);
     expect(signal).not.toBeNull();
