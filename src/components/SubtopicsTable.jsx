@@ -132,12 +132,20 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                                         <div className="flex flex-col justify-center gap-2 px-2">
                                             {totalQuestions > 0 ? (
                                                 <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
-                                                    {percentCorrect > 0 && (
-                                                        <div className="h-full bg-gradient-to-r from-green-600 to-green-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${(percentCorrect / maxScore) * 100}%` }} />
-                                                    )}
-                                                    {percentCorrect < maxScore && (
-                                                        <div className="h-full bg-gradient-to-r from-red-600 to-red-400 opacity-80" style={{ width: `${100 - (percentCorrect / maxScore) * 100}%` }} />
-                                                    )}
+                                                    {(() => {
+                                                        const safeMax = Math.max(1, Number(maxScore) || 1);
+                                                        const scorePct = Math.max(0, Math.min(100, (Number(percentCorrect) / safeMax) * 100));
+                                                        return (
+                                                            <>
+                                                                {scorePct > 0 && (
+                                                                    <div className="h-full bg-gradient-to-r from-green-600 to-green-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${scorePct}%` }} />
+                                                                )}
+                                                                {scorePct < 100 && (
+                                                                    <div className="h-full bg-gradient-to-r from-red-600 to-red-400 opacity-80" style={{ width: `${100 - scorePct}%` }} />
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                             ) : (
                                                 <div className="h-1.5 w-full bg-slate-900/50 rounded-full overflow-hidden opacity-50"></div>
