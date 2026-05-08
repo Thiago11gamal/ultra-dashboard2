@@ -134,12 +134,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
-    const rawWeight = (safeCategory.weight !== undefined && safeCategory.weight > 0) ? safeCategory.weight : 5;
+    const parsedWeight = Number(safeCategory.weight);
+    const rawWeight = Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 5;
+    const boundedWeight = Math.min(10, Math.max(1, rawWeight));
     // MATH-WEIGHT-ASYMMETRY FIX: era rawWeight * 10, cujo teto (rawWeight=10 → weight=100 → deviation=0)
     // nunca produzia multiplier > 1.0 — nem a matéria mais importante recebia bônus de recência.
     // Com * 20: rawWeight=5 (médio) = ponto neutro (mult=1.0), rawWeight=10 = mult=1.5, rawWeight=1 = mult=0.6.
-    const weight = rawWeight * 20;
-    const weightLabel = rawWeight <= 3 ? '1 — Baixa' : rawWeight <= 7 ? '2 — Média' : '3 — Alta';
+    const weight = boundedWeight * 20;
+    const weightLabel = boundedWeight <= 3 ? '1 — Baixa' : boundedWeight <= 7 ? '2 — Média' : '3 — Alta';
 
     let daysToExam = null;
     if (options && options.user && options.user.goalDate) {
