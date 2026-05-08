@@ -60,8 +60,9 @@ export const mapRetentionData = (categories = []) => {
         }
         
         // Add specific tasks if they have high impact
-        if (cat.tasks) {
+        if (Array.isArray(cat.tasks)) {
             cat.tasks.forEach(task => {
+                if (!task || typeof task !== 'object') return;
                 if (task.lastStudiedAt || task.completedAt) {
                     const lastTaskDate = toSafeDate(task.lastStudiedAt || task.completedAt);
                     if (!lastTaskDate) return;
@@ -132,6 +133,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     const logsArray = Object.values(studyLogs || {});
     
     logsArray.forEach(log => {
+        if (!log || typeof log !== 'object') return;
         const logDate = toSafeDate(log.date);
         if (!logDate) return;
         const logFullKey = getFullKey(logDate);
@@ -160,9 +162,11 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
 export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     const hoursMap = {};
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    const safeCategories = Array.isArray(categories) ? categories : [];
     
     logsArray.forEach(log => {
-        const cat = categories.find(c => c.id === log.categoryId);
+        if (!log || typeof log !== 'object') return;
+        const cat = safeCategories.find(c => c.id === log.categoryId);
         const name = cat ? cat.name : 'Outros';
         const actualMinutes = Math.max(0, toFiniteNumber(log.minutes, toFiniteNumber(log.duration, 0)));
         hoursMap[name] = (hoursMap[name] || 0) + actualMinutes;
