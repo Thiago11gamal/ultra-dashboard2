@@ -36,4 +36,4 @@
 ## Resultado
 - Lint, testes unitários/matemáticos e suite de evolução passaram.
 - Build de produção passou.
-- E2E (Playwright) passou com sucesso (1/1 teste).
+- E2E falhou por limitação de ambiente (browser do Playwright ausente), não por regressão de código da aplicação.
