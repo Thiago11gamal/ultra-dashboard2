@@ -8,6 +8,8 @@ export function useGlobalToasts() {
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
     const handleToastEvent = (e) => {
       const newToast = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9),

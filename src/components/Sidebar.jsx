@@ -144,7 +144,6 @@ export default function Sidebar({
                         <span>Método Arraia</span>
                     </div>
 
-                    {/* Desktop Collapse Toggle - Hidden for now as it's in the Header */}
 
                     {/* Mobile Close Button */}
                     <button

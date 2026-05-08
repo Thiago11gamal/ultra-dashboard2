@@ -175,6 +175,7 @@ function MainLayout() {
 
       // Joga o processamento pesado para o final da fila de eventos, 
       // deixando a animação do Toast ocorrer fluida.
+      if (importTimeoutRef.current) clearTimeout(importTimeoutRef.current);
       importTimeoutRef.current = setTimeout(() => {
         try {
           const currentAppState = useAppStore.getState().appState;
