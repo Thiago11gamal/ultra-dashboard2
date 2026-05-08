@@ -844,22 +844,32 @@ export default function EvolutionChart({
 
                             {/* Right: Detailed Metrics */}
                             <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-center">
-                                {[
-                                    { label: 'Caminho Sucesso', val: `${Number(mcResult?.probability || 0).toFixed(2)}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                                    { label: 'Nível Projetado', val: unit === '%' ? `${Number(mcResult?.projectedMean || 0).toFixed(2)}${unit}` : `${Math.round(mcResult?.projectedMean || 0)}${unit}`, icon: <TrendingUp size={14} />, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                                    { label: 'Margem de Erro', val: unit === '%' ? `±${Number(mcResult?.sd || 0).toFixed(2)}${unit}` : `±${Math.round(mcResult?.sd || 0)}${unit}`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-                                    { label: 'Confiança 95%', val: unit === '%' ? `${Number(mcResult?.ci95Low || 0).toFixed(2)}-${Number(mcResult?.ci95High || 0).toFixed(2)}${unit}` : `${Math.round(mcResult?.ci95Low || 0)}-${Math.round(mcResult?.ci95High || 0)}${unit}`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
-                                ].map((stat, i) => (
-                                    <div key={i} className="flex flex-col p-3 rounded-xl bg-black/40 border border-white/5 hover:border-white/10 transition-colors min-w-0">
-                                        <div className="flex items-center gap-1.5 mb-1 opacity-60">
-                                            <span className={stat.color}>{stat.icon}</span>
-                                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</span>
-                                        </div>
-                                        <span className={`text-base sm:text-lg font-black ${stat.color} tracking-tight truncate w-full block`} title={stat.val}>
-                                            {stat.val}
-                                        </span>
-                                    </div>
-                                ))}
+                                {(() => {
+                                    const toFinite = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+                                    const projectedLevel = toFinite(mcResult?.projectedMean, toFinite(mcResult?.mean, 0));
+                                    const ciLow = toFinite(mcResult?.ci95Low, projectedLevel);
+                                    const ciHigh = toFinite(mcResult?.ci95High, projectedLevel);
+                                    const ciMin = Math.min(ciLow, ciHigh);
+                                    const ciMax = Math.max(ciLow, ciHigh);
+                                    const marginOfError = Math.max(0, (ciMax - ciMin) / 2);
+
+                                    return [
+                                        { label: 'Caminho Sucesso', val: `${toFinite(mcResult?.probability).toFixed(2)}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                                        { label: 'Nível Projetado', val: unit === '%' ? `${projectedLevel.toFixed(2)}${unit}` : `${Math.round(projectedLevel)}${unit}`, icon: <TrendingUp size={14} />, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                                        { label: 'Margem de Erro', val: unit === '%' ? `±${marginOfError.toFixed(2)}${unit}` : `±${Math.round(marginOfError)}${unit}`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+                                        { label: 'Confiança 95%', val: unit === '%' ? `${ciMin.toFixed(2)}-${ciMax.toFixed(2)}${unit}` : `${Math.round(ciMin)}-${Math.round(ciMax)}${unit}`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
+                                    ].map((stat, i) => (
+                                     <div key={i} className="flex flex-col p-3 rounded-xl bg-black/40 border border-white/5 hover:border-white/10 transition-colors min-w-0">
+                                         <div className="flex items-center gap-1.5 mb-1 opacity-60">
+                                             <span className={stat.color}>{stat.icon}</span>
+                                             <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</span>
+                                         </div>
+                                         <span className={`text-base sm:text-lg font-black ${stat.color} tracking-tight truncate w-full block`} title={stat.val}>
+                                             {stat.val}
+                                         </span>
+                                     </div>
+                                ));
+                                })()}
                             </div>
                         </div>
 
