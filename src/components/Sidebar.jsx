@@ -257,6 +257,8 @@ export default function Sidebar({
                                     const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
                                     const normalizedItemPath = item.path.replace(/\/+$/, '') || '/';
                                     const isDashboardAlias = normalizedPath === '/dashboard';
+                                    const isEvolutionItem = normalizedItemPath === '/evolution';
+                                    const isHeatmapItem = normalizedItemPath === '/heatmap';
                                     const isActive = normalizedItemPath === '/'
                                         ? normalizedPath === '/' || isDashboardAlias
                                         : normalizedPath === normalizedItemPath || normalizedPath.startsWith(`${normalizedItemPath}/`);
@@ -278,6 +280,11 @@ export default function Sidebar({
                                         >
                                             <Icon style={{ color: isActive ? item.color : 'inherit' }} />
                                             <span>{item.label}</span>
+                                            {(isEvolutionItem || isHeatmapItem) && !collapsed && (
+                                                <span className={`sidebar-chip ${isEvolutionItem ? 'sidebar-chip--evolution' : 'sidebar-chip--heatmap'}`}>
+                                                    {isEvolutionItem ? 'Insights' : 'Heat'}
+                                                </span>
+                                            )}
                                         </Link>
                                     );
                                 })}

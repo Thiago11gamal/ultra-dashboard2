@@ -47,9 +47,9 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
     );
 
     return (
-        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pb-8 sm:pb-10 px-1">
+        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pb-8 sm:pb-10 px-1 rounded-2xl border border-slate-800/80 bg-gradient-to-b from-slate-950/90 to-slate-900/45 shadow-[0_18px_45px_rgba(2,6,23,0.5)]">
             <div className="flex flex-wrap items-center gap-3.5 mb-5 text-[11px] text-slate-300">
-                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-700 rounded-xl p-1.5 mr-2 shadow-sm">
+                <div className="flex items-center gap-1 bg-slate-950/75 border border-slate-700/80 rounded-xl p-1.5 mr-2 shadow-sm">
                     {[{ label: '4 sem', value: '28' }, { label: '8 sem', value: '56' }, { label: '12 sem', value: '84' }, { label: 'Tudo', value: 'all' }].map(opt => (
                         <button
                             type="button"
@@ -63,7 +63,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                         </button>
                     ))}
                 </div>
-                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-700 rounded-xl p-1.5 mr-2 shadow-sm">
+                <div className="flex items-center gap-1 bg-slate-950/75 border border-slate-700/80 rounded-xl p-1.5 mr-2 shadow-sm">
                     {[{ label: 'Diário', value: 'daily' }, { label: 'Semanal', value: 'weekly' }, { label: 'Mensal', value: 'monthly' }].map(opt => (
                         <button
                             type="button"
@@ -126,7 +126,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                 return (
                                     <div
                                         key={ci}
-                                        className="relative group rounded-xl flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 hover:scale-[1.03] hover:z-20 cursor-default"
+                                        className="relative group rounded-xl flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 hover:scale-[1.03] hover:z-20 cursor-default shadow-[0_6px_16px_rgba(2,6,23,0.22)] hover:shadow-[0_10px_24px_rgba(2,6,23,0.4)]"
                                         style={{
                                             background: col.bg,
                                             opacity: cell ? (0.72 + (col.density * 0.28)) : 1,
@@ -136,7 +136,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
                                     >
                                         {cell ? (
                                             <>
-                                                <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_4px_rgba(15,23,42,0.55)]" style={{ color: col.text }}>
+                                                <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
                                                     {Number.isFinite(cell.pct) ? `${cell.pct.toFixed(2)}${unit}` : '—'}
                                                 </span>
                                                 <span className="text-[9px] text-slate-300/80 font-mono mt-1">
