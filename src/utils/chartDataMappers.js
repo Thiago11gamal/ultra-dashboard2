@@ -3,6 +3,20 @@
  */
 import { normalizeDate } from './dateHelper.js';
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const toFiniteNumber = (value, fallback = 0) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+};
+
+const toSafeDate = (value) => {
+    if (!value) return null;
+    const parsed = normalizeDate(value);
+    const date = parsed || new Date(value);
+    return Number.isFinite(date?.getTime()) ? date : null;
+};
+
 /**
  * Maps categories and their tasks to retention analysis data
  * @param {Array} categories 
@@ -11,25 +25,27 @@ import { normalizeDate } from './dateHelper.js';
 export const mapRetentionData = (categories = []) => {
     const data = [];
     const now = Date.now();
+    const safeCategories = Array.isArray(categories) ? categories : [];
     
     // Process top 10 most critical categories or items
-    categories.forEach(cat => {
+    safeCategories.forEach(cat => {
         // Add categories with study history
         if (cat.lastStudiedAt) {
             // FIX BUG N: normalizeDate evita que YYYY-MM-DD seja interpretado como UTC midnight
-            const parsed = normalizeDate(cat.lastStudiedAt);
-            const last = parsed ? parsed.getTime() : new Date(cat.lastStudiedAt).getTime();
-            
+            const lastDate = toSafeDate(cat.lastStudiedAt);
+            if (!lastDate) return;
+
             // CORREÇÃO: Math.max(0, ...) impede que relógios adiantados
             // gerem um tempo negativo, o que invertia a curva de decaimento Exponencial.
-            const days = Math.max(0, (now - last) / (1000 * 60 * 60 * 24));
+            const days = Math.max(0, (now - lastDate.getTime()) / MS_PER_DAY);
             if (!Number.isFinite(days)) return;
 
             // CÁLCULO DE MEIA-VIDA DINÂMICA (Anti-Punição de Maestria)
             // Assuntos consolidados (muitas questões ou alta precisão) esquecem mais devagar.
             let halfLife = 7; // Base 7 dias
-            const totalQ = cat.simuladoStats?.totalQuestions || 0;
-            const accuracy = cat.bayesianStats?.mean ? (cat.bayesianStats.mean / (Number(cat.maxScore) || 100)) : 0;
+            const totalQ = toFiniteNumber(cat.simuladoStats?.totalQuestions, 0);
+            const maxScore = Math.max(1, toFiniteNumber(cat.maxScore, 100));
+            const accuracy = cat.bayesianStats?.mean ? (toFiniteNumber(cat.bayesianStats.mean, 0) / maxScore) : 0;
 
             if (totalQ > 100 || accuracy > 0.85) halfLife = 30;
             else if (totalQ > 50 || accuracy > 0.70) halfLife = 14;
@@ -47,14 +63,14 @@ export const mapRetentionData = (categories = []) => {
         if (cat.tasks) {
             cat.tasks.forEach(task => {
                 if (task.lastStudiedAt || task.completedAt) {
-                    const parsedTask = normalizeDate(task.lastStudiedAt || task.completedAt);
-                    const last = parsedTask ? parsedTask.getTime() : new Date(task.lastStudiedAt || task.completedAt).getTime();
-                    const days = Math.max(0, (now - last) / (1000 * 60 * 60 * 24));
+                    const lastTaskDate = toSafeDate(task.lastStudiedAt || task.completedAt);
+                    if (!lastTaskDate) return;
+                    const days = Math.max(0, (now - lastTaskDate.getTime()) / MS_PER_DAY);
                     if (!Number.isFinite(days)) return;
                     
                     // Tasks individuais usam half-life padrão 7 a menos que a categoria seja mestre
                     let halfLife = 7;
-                    const totalQ = cat.simuladoStats?.totalQuestions || 0;
+                    const totalQ = toFiniteNumber(cat.simuladoStats?.totalQuestions, 0);
                     if (totalQ > 100) halfLife = 14;
 
                     const retention = Math.round(100 * Math.exp(-days / halfLife));
@@ -116,14 +132,15 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     const logsArray = Object.values(studyLogs || {});
     
     logsArray.forEach(log => {
-        const parsed = normalizeDate(log.date);
-        const logDate = parsed || new Date(log.date);
+        const logDate = toSafeDate(log.date);
+        if (!logDate) return;
         const logFullKey = getFullKey(logDate);
         
         const dayMatch = last14Days.find(d => d.fullKey === logFullKey);
         if (dayMatch) {
             // BUGFIX: Suporte a minutes ou duration (Sincronia com motor de eficiência)
-            dayMatch.horasEstudadas += (Number(log.minutes) || Number(log.duration) || 0) / 60;
+            const minutes = toFiniteNumber(log.minutes, toFiniteNumber(log.duration, 0));
+            dayMatch.horasEstudadas += Math.max(0, minutes) / 60;
         }
     });
 
@@ -147,7 +164,7 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     logsArray.forEach(log => {
         const cat = categories.find(c => c.id === log.categoryId);
         const name = cat ? cat.name : 'Outros';
-        const actualMinutes = Number(log.minutes) || Number(log.duration) || 0;
+        const actualMinutes = Math.max(0, toFiniteNumber(log.minutes, toFiniteNumber(log.duration, 0)));
         hoursMap[name] = (hoursMap[name] || 0) + actualMinutes;
     });
 
