@@ -142,32 +142,43 @@ export default function Coach() {
             const lastEntry = categoryHistory[categoryHistory.length - 1];
             const hasComparableLast = lastEntry && Number.isFinite(Number(lastEntry?.timestamp));
             if (hasComparableLast && !isDegraded) {
-                const brierDelta = Number.isFinite(avgBrier) && Number.isFinite(Number(lastEntry.avgBrier))
-                    ? Math.abs(Number(lastEntry.avgBrier) - avgBrier)
-                    : Infinity;
-                const eceDelta = Number.isFinite(ece) && Number.isFinite(Number(lastEntry.ece))
-                    ? Math.abs(Number(lastEntry.ece) - ece)
-                    : Infinity;
+                const metricDelta = (currentValue, previousValue) => {
+                    const currentFinite = Number.isFinite(Number(currentValue));
+                    const previousFinite = Number.isFinite(Number(previousValue));
+                    if (currentFinite && previousFinite) return Math.abs(Number(previousValue) - Number(currentValue));
+                    if (!currentFinite && !previousFinite) return 0;
+                    return Infinity;
+                };
+
+                const toReliabilitySignature = (bucketList = []) => (Array.isArray(bucketList) ? bucketList : [])
+                    .map((bucket) => {
+                        const meanPred = Number(bucket?.meanPred);
+                        const observedRate = Number(bucket?.observedRate);
+                        const gap = Number(bucket?.gap);
+                        const count = Number(bucket?.count) || 0;
+                        return `${count}|${Number.isFinite(meanPred) ? meanPred.toFixed(3) : 'na'}|${Number.isFinite(observedRate) ? observedRate.toFixed(3) : 'na'}|${Number.isFinite(gap) ? gap.toFixed(3) : 'na'}`;
+                    })
+                    .join('::');
+
+                const brierDelta = metricDelta(avgBrier, lastEntry.avgBrier);
+                const eceDelta = metricDelta(ece, lastEntry.ece);
                 const penaltyDelta = Math.abs(Number(lastEntry.calibrationPenalty || 0) - calibrationPenalty);
-                const probabilityDelta = Number.isFinite(probability) && Number.isFinite(Number(lastEntry.probability))
-                    ? Math.abs(Number(lastEntry.probability) - probability)
-                    : Infinity;
-                const reliabilityCountChanged = Array.isArray(lastEntry?.reliability)
-                    ? lastEntry.reliability.length !== reliability.length
-                    : reliability.length > 0;
+                const probabilityDelta = metricDelta(probability, lastEntry.probability);
+                const reliabilitySignatureChanged =
+                    toReliabilitySignature(lastEntry?.reliability) !== toReliabilitySignature(reliability);
 
                 const shouldSkipPersist =
                     brierDelta < 0.01 &&
                     eceDelta < 0.01 &&
                     penaltyDelta < 0.01 &&
                     probabilityDelta < 0.5 &&
-                    !reliabilityCountChanged;
+                    !reliabilitySignatureChanged;
 
                 if (shouldSkipPersist) return prev;
             }
 
             const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
-            const cleaned = categoryHistory.filter(item => Number(item?.timestamp || 0) >= cutoff);
+            const cleaned = categoryHistory.filter(item => Number.isFinite(Number(item?.timestamp)) && Number(item.timestamp) >= cutoff);
             const nextHistory = [...cleaned, normalizedMetric].slice(-60);
 
             const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (now - 1000 * 60 * 60 * 24 * 7));
