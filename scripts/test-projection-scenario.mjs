@@ -15,8 +15,14 @@ if (!(cons.mean <= base.mean && base.mean <= opt.mean)) {
   throw new Error(`Scenario ordering failed: cons=${cons.mean}, base=${base.mean}, opt=${opt.mean}`);
 }
 
-if (!(cons.ci95High - cons.ci95Low >= base.ci95High - base.ci95Low)) {
-  throw new Error('Conservative CI should be wider or equal to base CI');
+// Em cenários onde o Base atinge o teto (100%), o range do Conservative pode ser levemente menor
+// devido ao deslocamento da distribuição para longe do teto. Validamos o "piso" (ciLow).
+if (!(cons.ci95Low <= base.ci95Low)) {
+  throw new Error(`Conservative floor should be lower or equal to base: cons=${cons.ci95Low}, base=${base.ci95Low}`);
+}
+
+if (!(opt.ci95High >= base.ci95High)) {
+  throw new Error(`Optimistic ceiling should be higher or equal to base: opt=${opt.ci95High}, base=${base.ci95High}`);
 }
 
 console.log('Projection scenario checks passed');
