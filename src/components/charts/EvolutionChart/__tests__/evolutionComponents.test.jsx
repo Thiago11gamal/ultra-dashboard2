@@ -1,8 +1,16 @@
 import React from 'react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MonteCarloEvolutionChart } from '../MonteCarloEvolutionChart';
 import { EvolutionHeatmap } from '../../EvolutionHeatmap';
+
+vi.mock('recharts', async () => {
+  const actual = await vi.importActual('recharts');
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }) => <div style={{ width: 800, height: 320 }}>{children}</div>,
+  };
+});
 
 describe('evolution components render contracts', () => {
   it('renders MonteCarloEvolutionChart shell with scenario controls', () => {

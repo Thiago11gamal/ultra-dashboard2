@@ -133,7 +133,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     A evolução do Monte Carlo é registrada gradativamente a cada vez que o motor calcula as projeções diárias. Aguarde o primeiro registro de hoje!
                 </p>
                 <div className="w-full max-w-md h-32 opacity-20 pointer-events-none">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={120} minHeight={80}>
                         <AreaChart data={[{ date: '1', mean: 40 }, { date: '2', mean: 60 }, { date: '3', mean: 85 }]}>
                             <XAxis dataKey="date" hide />
                             <YAxis hide domain={[0, maxScore]} />
@@ -214,7 +214,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 )}
 
                 {formattedData.length > 1 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={220}>
                         <AreaChart
                             data={scenarioAdjustedData}
                             margin={{ top: 20, right: 10, left: -15, bottom: 5 }}
