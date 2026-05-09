@@ -9,10 +9,10 @@ export default function PromptModal({ isOpen, onClose, onConfirm, title, placeho
 
     useEffect(() => {
         if (isOpen) {
+            setInputValue(initialValue);
             const timer = setTimeout(() => inputRef.current?.focus(), 200);
             return () => clearTimeout(timer);
         }
-        return undefined;
     }, [isOpen, initialValue]);
 
     const handleSubmit = (e) => {
