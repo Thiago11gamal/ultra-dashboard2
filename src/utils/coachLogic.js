@@ -221,7 +221,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             if (simDate > lastDate) lastDate = simDate;
         }
 
-        const categoryStudyLogs = (studyLogs || []).filter(log => log?.categoryId === categoryId && !!normalizeDate(log.date));
+        const categoryStudyLogs = (studyLogs || []).filter(log =>
+            log?.categoryId === categoryId &&
+            normalizeDate(log.date)?.getTime() > 0
+        );
         if (categoryStudyLogs.length > 0) {
             const sortedLogs = [...categoryStudyLogs].sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
             const logDate = normalizeDate(sortedLogs[0].date);
@@ -640,7 +643,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
 
     history.forEach(entry => {
         if (!entry) return;
-        const entryDate = new Date(entry.date || 0);
+        const entryDate = new Date(entry.date || entry.createdAt || 0);
         const topics = entry.topics || [];
         topics.forEach(t => {
             if (!t) return;

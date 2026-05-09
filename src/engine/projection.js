@@ -67,7 +67,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100) {
 
 function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore) {
     const now = Date.now();
-    const t0 = new Date(sorted[0].date).getTime();
+    const t0 = new Date(sorted[0].date || sorted[0].createdAt).getTime();
     let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0;
 
     sorted.forEach(h => {

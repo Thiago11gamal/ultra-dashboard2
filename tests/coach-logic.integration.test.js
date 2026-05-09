@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateUrgency } from '../src/utils/coachLogic.js';
+import { calculateUrgency, getSuggestedFocus } from '../src/utils/coachLogic.js';
 
 const baseCategory = { id: 'mat', name: 'Matemática', weight: 7 };
 const mkSim = (date, score) => ({ subject: 'Matemática', date, score, total: 100, correct: score });
@@ -105,5 +105,45 @@ describe('Coach Logic Integration', () => {
         expect(Number.isFinite(Number(res.details?.trend))).toBe(true);
         expect(Number.isFinite(Number(res.details?.mssdVolatility))).toBe(true);
         expect(Number.isFinite(Number(res.details?.monteCarlo?.probability))).toBe(true);
+    });
+
+    it('getSuggestedFocus tolerates topic history with createdAt-only entries', () => {
+        const categories = [{
+            id: 'mat',
+            name: 'Matemática',
+            weight: 7,
+            tasks: [{ id: 't1', name: 'Álgebra' }],
+            simuladoStats: {
+                history: [{
+                    createdAt: '2026-01-12T08:00:00.000Z',
+                    topics: [{ name: 'Álgebra', total: 10, correct: 6 }]
+                }]
+            }
+        }];
+        const simulados = [
+            mkSimCreated('2026-01-01T09:10:00.000Z', 41),
+            mkSimCreated('2026-01-08T09:10:00.000Z', 45),
+            mkSimCreated('2026-01-15T09:10:00.000Z', 47),
+        ];
+
+        const focus = getSuggestedFocus(categories, simulados, [], { maxScore: 100, targetScore: 65 });
+        expect(focus).toBeDefined();
+        expect(typeof focus?.weakestTopic?.name).toBe('string');
+    });
+
+    it('calculateUrgency ignores invalid study-log dates when computing recency', () => {
+        const simulados = [
+            mkSim('2026-02-01', 50),
+            mkSim('2026-02-08', 52),
+            mkSim('2026-02-15', 55),
+        ];
+        const studyLogs = [
+            { categoryId: 'mat', date: 'invalid-date', minutes: 240 },
+            { categoryId: 'mat', date: '2026-02-20', minutes: 60 }
+        ];
+
+        const res = calculateUrgency(baseCategory, simulados, studyLogs, { maxScore: 100, targetScore: 65 });
+        expect(Number.isFinite(res.details?.daysSinceLastStudy)).toBe(true);
+        expect(res.details?.daysSinceLastStudy).toBeLessThan(120);
     });
 });

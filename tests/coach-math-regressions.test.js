@@ -8,6 +8,7 @@ import {
 } from '../src/utils/coachLogic.js';
 import { computeCalibrationDiagnostics } from '../src/utils/calibration.js';
 import { clearMcCache } from '../src/utils/coachAdaptive.js';
+import { monteCarloSimulation } from '../src/engine/projection.js';
 
 function makeSimulados(scores) {
   const now = Date.now();
@@ -77,5 +78,35 @@ describe('Coach math regressions — adaptive ECE buckets', () => {
     const d = computeCalibrationDiagnostics(preds, { bins: 6 });
     expect(d.ece).toBeGreaterThanOrEqual(0);
     expect(d.ece).toBeLessThanOrEqual(1);
+    expect(d.reliability.length).toBeGreaterThan(0);
+  });
+});
+
+describe('Coach math regressions — backtest weights bounded', () => {
+  it('pesos derivados do backtest permanecem nos limites definidos', () => {
+    const w = deriveBacktestWeights([40, 42, 45, 47, 50, 53, 55, 57, 60, 62], 100);
+    expect(w.scoreWeight).toBeGreaterThanOrEqual(0.8);
+    expect(w.scoreWeight).toBeLessThanOrEqual(1.2);
+    expect(w.recencyWeight).toBeGreaterThanOrEqual(0.75);
+    expect(w.recencyWeight).toBeLessThanOrEqual(1.25);
+    expect(w.instabilityWeight).toBeGreaterThanOrEqual(0.8);
+    expect(w.instabilityWeight).toBeLessThanOrEqual(1.25);
+  });
+});
+
+describe('Coach math regressions — projection createdAt fallback', () => {
+  it('monteCarloSimulation remains finite with createdAt-only history', () => {
+    const history = [
+      { createdAt: '2026-01-01T10:00:00.000Z', score: 44 },
+      { createdAt: '2026-01-08T10:00:00.000Z', score: 48 },
+      { createdAt: '2026-01-15T10:00:00.000Z', score: 52 },
+      { createdAt: '2026-01-22T10:00:00.000Z', score: 55 },
+      { createdAt: '2026-01-29T10:00:00.000Z', score: 57 },
+    ];
+    const res = monteCarloSimulation(history, 70, 60, 600, { maxScore: 100, minScore: 0 });
+    expect(Number.isFinite(res.probability)).toBe(true);
+    expect(Number.isFinite(res.sd)).toBe(true);
+    expect(Number.isFinite(res.ci95Low)).toBe(true);
+    expect(Number.isFinite(res.ci95High)).toBe(true);
   });
 });
