@@ -249,10 +249,6 @@ function generateAnalyticsStats({
 }
 
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode: _forcedMode, effectiveSimulateToday }) {
-    // Refs for Smooth Confidence Tier
-    const previousTierRef = useRef(null);
-    const stabilityCounterRef = useRef(0);
-
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
@@ -574,29 +570,11 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const nHistory = Array.isArray(statsData?.history) ? statsData.history.length : (timelineDates?.length || 0);
 
         // Tier Dinâmico
-        const rawConfidenceObj = getConfidenceTier({
+        const confidenceObj = getConfidenceTier({
             calibrationPenalty,
             volatility: sd,
             sampleSize: nHistory
         });
-
-        const smoothedTier = smoothConfidenceTier({
-            previousTier: previousTierRef.current,
-            currentTier: rawConfidenceObj.tier,
-            stabilityCounter: stabilityCounterRef.current
-        });
-
-        if (smoothedTier === previousTierRef.current) {
-            stabilityCounterRef.current += 1;
-        } else {
-            stabilityCounterRef.current = 0;
-            previousTierRef.current = smoothedTier;
-        }
-
-        const confidenceObj = {
-            ...rawConfidenceObj,
-            tier: smoothedTier
-        };
 
         const explanations = buildHumanExplanation({
             calibrationPenalty,
@@ -633,7 +611,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             humanVol,
             driftAlerts
         };
-    }, [simulationData?.data, maxScore, minScore, debouncedTarget, projectedMean, calibrationPenalty, currentMean, statsData, timelineDates]);
+    }, [simulationData?.data, maxScore, minScore, debouncedTarget, projectedMean, calibrationPenalty, currentMean, statsData, timelineDates, probability]);
 
     return {
         statsData, // Contains calibrated variances
