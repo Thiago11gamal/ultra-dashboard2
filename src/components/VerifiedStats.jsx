@@ -362,7 +362,7 @@ export default function VerifiedStats({ categories = [], user }) {
             low_level_limit: 60,
             high_level_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
             mastery_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
-            maxScore: 100
+            maxScore: maxScore
         });
 
         // Map to UI-compatible format
@@ -549,7 +549,7 @@ export default function VerifiedStats({ categories = [], user }) {
                     low_level_limit: 60,
                     high_level_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
                     mastery_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
-                    maxScore: 100
+                    maxScore: maxScore
                 });
 
                 categoryAnalyses.push(analysis);
