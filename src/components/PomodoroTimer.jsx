@@ -306,12 +306,16 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     React.useLayoutEffect(() => {
         if (!isMountedRef.current) return;
 
-        const currentMode = stateRefs.current.mode;
-        const currentSessions = stateRefs.current.sessions;
-        const currentTime = stateRefs.current.timeLeft;
-        const currentTotal = currentMode === 'work' ? safeSettings.pomodoroWork * 60 : (currentMode === 'long_break' ? safeSettings.pomodoroLongBreak * 60 : safeSettings.pomodoroBreak * 60);
+        // 🛡️ [FIX-STALE-SYNC] Usar variáveis de estado (mode, sessions, timeLeft) diretamente 
+        // em vez de stateRefs.current, pois o useLayoutEffect ocorre ANTES do useEffect 
+        // que atualiza as refs. Isso evita que as barras fiquem desfasadas em transições rápidas.
+        const currentMode = mode;
+        const currentSessions = sessions;
+        const currentTime = timeLeft;
+        const currentTotal = currentMode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (currentMode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60);
         const fraction = currentTime / (currentTotal || 1);
 
+        // Sincroniza as barras de trabalho (bottom)
         workFillsRef.current.forEach((el, i) => {
             if (!el) return;
             if (i < currentSessions - 1 || (i === currentSessions - 1 && currentMode !== 'work')) {
@@ -323,6 +327,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             }
         });
 
+        // Sincroniza as bolas de pausa (bottom)
         breakBallsRef.current.forEach((el, i) => {
             if (!el) return;
             if (i < currentSessions - 1) {
@@ -333,7 +338,12 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 el.style.height = '0%';
             }
         });
-    }, [mode, sessions, targetCycles, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak]);
+
+        // 🛡️ [FIX-CIRCLE-SYNC] Sincroniza também a barra circular do relógio
+        if (svgCircleRef.current) {
+            svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110) * fraction;
+        }
+    }, [mode, sessions, timeLeft, isRunning, targetCycles, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak]);
 
     const [uiPosition] = useState(() => {
         try {
@@ -840,7 +850,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                 strokeWidth="14"
                                 strokeLinecap="round"
                                 strokeDasharray={2 * Math.PI * 110}
-                                style={{ strokeDashoffset: isRunning ? undefined : (2 * Math.PI * 110) * (timeLeft / (totalTime || 1)) }}
+                                style={{ strokeDashoffset: isRunning ? undefined : (2 * Math.PI * 110) * (timeLeft / ((mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (mode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60)) || 1)) }}
                             />
                         </svg>
 
