@@ -3,7 +3,7 @@ import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown, AlertTriangle 
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
-import { formatValue, formatPercent } from '../utils/scoreHelper';
+import { formatValue } from '../utils/scoreHelper';
 import { getDateKey } from '../utils/dateHelper';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 

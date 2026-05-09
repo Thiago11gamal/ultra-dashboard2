@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { 
@@ -249,6 +249,10 @@ function generateAnalyticsStats({
 }
 
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode: _forcedMode, effectiveSimulateToday }) {
+    // Refs for Smooth Confidence Tier
+    const previousTierRef = useRef(null);
+    const stabilityCounterRef = useRef(0);
+
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
@@ -350,7 +354,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
     const calibrationPenalty = useMemo(() => {
         return computeCalibrationPenalty(mcHistory, pureStatsData?.globalHistory, maxScore);
-    }, [mcHistory, pureStatsData?.statsHash, maxScore]);
+    }, [mcHistory, pureStatsData?.globalHistory, pureStatsData?.statsHash, maxScore]);
 
     const statsData = useMemo(() => {
         if (!pureStatsData) return null;
@@ -563,17 +567,36 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const saturation = Math.min(1, domainWidth > 0 ? icWidth / domainWidth : 1);
         const projectionConfidence = Math.max(0, 1 - Math.pow(saturation, 1.5));
         const pBaseline = (domainWidth > 0) ? Math.max(0, (maxScore - debouncedTarget) / domainWidth) * 100 : 0;
+        const pAdjusted = probability * projectionConfidence + pBaseline * (1 - projectionConfidence);
         const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / Math.max(1, sd)) * 100;
 
         // Historico para tamanho da amostra
         const nHistory = Array.isArray(statsData?.history) ? statsData.history.length : (timelineDates?.length || 0);
 
         // Tier Dinâmico
-        const confidenceObj = getConfidenceTier({
+        const rawConfidenceObj = getConfidenceTier({
             calibrationPenalty,
             volatility: sd,
             sampleSize: nHistory
         });
+
+        const smoothedTier = smoothConfidenceTier({
+            previousTier: previousTierRef.current,
+            currentTier: rawConfidenceObj.tier,
+            stabilityCounter: stabilityCounterRef.current
+        });
+
+        if (smoothedTier === previousTierRef.current) {
+            stabilityCounterRef.current += 1;
+        } else {
+            stabilityCounterRef.current = 0;
+            previousTierRef.current = smoothedTier;
+        }
+
+        const confidenceObj = {
+            ...rawConfidenceObj,
+            tier: smoothedTier
+        };
 
         const explanations = buildHumanExplanation({
             calibrationPenalty,
@@ -607,9 +630,10 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             confidenceColor: confidenceObj.tier === 'HIGH' ? 'text-emerald-400' : confidenceObj.tier === 'MEDIUM' ? 'text-amber-400' : 'text-rose-400',
             confidenceObj,
             explanations,
+            humanVol,
             driftAlerts
         };
-    }, [simulationData?.data, maxScore, minScore, debouncedTarget, probability, projectedMean, calibrationPenalty, currentMean, statsData, timelineDates]);
+    }, [simulationData?.data, maxScore, minScore, debouncedTarget, projectedMean, calibrationPenalty, currentMean, statsData, timelineDates]);
 
     return {
         statsData, // Contains calibrated variances
