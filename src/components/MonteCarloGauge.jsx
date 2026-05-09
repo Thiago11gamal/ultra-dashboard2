@@ -118,27 +118,10 @@ export default function MonteCarloGauge({
     }, [categories]);
 
     if (!simulationData || simulationData.status === 'waiting') {
+        const hasHistory = categories.some(cat => cat.simuladoStats?.history?.length > 0);
         return (
-            <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-slate-900">
-                <div className="absolute top-0 right-0 p-4 opacity-5"><Gauge size={80} /></div>
-                <div className="w-full flex justify-between items-center mb-2 pt-2">
-                    <div className="flex items-center gap-2">
-                        <Gauge size={16} className="text-slate-600" />
-                        <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Monte Carlo</span>
-                    </div>
-                </div>
-                <div className="relative flex flex-col items-center justify-center py-2 h-full">
-                    <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible">
-                        <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
-                    </svg>
-                    <div className="absolute inset-0 flex items-end justify-center pb-2">
-                        <span className="text-5xl font-black text-slate-600 tracking-tighter opacity-40">--%</span>
-                    </div>
-                </div>
-                <div className="text-center w-full mt-2">
-                    <p className="text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Aguardando Dados</p>
-                    <p className="text-[9px] text-slate-600 leading-tight px-4">Lance seu primeiro simulado para ativar a projeção Monte Carlo!</p>
-                </div>
+            <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-slate-900 w-full min-h-[400px]">
+                {hasHistory ? <MonteCarloLoading /> : <EmptyPredictionState />}
             </div>
         );
     }
@@ -239,7 +222,7 @@ export default function MonteCarloGauge({
                         </svg>
                         <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center z-20 translate-y-2">
                             <span className="text-3xl sm:text-5xl font-black leading-none" style={{ color: getGradientColor(prob) }}>
-                                {formatPercent(pAdjustedSafe)}
+                                <AnimatedProbability value={pAdjustedSafe} />
                             </span>
                         </div>
                     </div>
@@ -415,4 +398,77 @@ export default function MonteCarloGauge({
             )}
         </div>
     );
+}
+
+// ==========================================
+// UX HELPERS & ATOMS
+// ==========================================
+
+function MonteCarloLoading() {
+    const messages = [
+        'Analisando estabilidade probabilística...',
+        'Calculando intervalo conformal...',
+        'Verificando confiabilidade histórica...',
+        'Executando simulações Monte Carlo...'
+    ];
+    const [index, setIndex] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setIndex((prev) => (prev + 1) % messages.length);
+        }, 2400);
+        return () => clearInterval(interval);
+    }, [messages.length]);
+
+    return (
+        <div className="flex flex-col items-center justify-center p-6 h-full flex-1">
+            <Gauge size={48} className="text-slate-600 animate-pulse mb-6 opacity-30" />
+            <div className="animate-pulse text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center max-w-[200px]">
+                {messages[index]}
+            </div>
+        </div>
+    );
+}
+
+function EmptyPredictionState() {
+    return (
+        <div className="rounded-3xl p-6 border border-white/5 bg-black/20 flex flex-col items-center justify-center text-center h-full flex-1 w-full my-auto">
+            <h2 className="text-[12px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                Dados insuficientes
+            </h2>
+            <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
+                Ainda não há histórico suficiente para gerar uma projeção confiável.
+            </p>
+            <div className="mt-4 px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[9px] text-blue-400 font-bold uppercase tracking-wider">
+                Lance seu 1º simulado
+            </div>
+        </div>
+    );
+}
+
+function AnimatedProbability({ value }) {
+    const [display, setDisplay] = useState(value);
+
+    useEffect(() => {
+        const start = display;
+        const end = value;
+        const duration = 700;
+        const startTime = performance.now();
+
+        function animate(now) {
+            const progress = Math.min((now - startTime) / duration, 1);
+            // Easing function outQuint
+            const easeOut = 1 - Math.pow(1 - progress, 5);
+            const current = start + (end - start) * easeOut;
+
+            setDisplay(current);
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        }
+        requestAnimationFrame(animate);
+    }, [value, display]);
+
+    return <span>{display.toFixed(0)}%</span>;
 }

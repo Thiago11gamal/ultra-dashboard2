@@ -18,7 +18,14 @@ import {
     computeAdaptiveSignal 
 } from '../utils/adaptiveMath.js';
 import { shrinkProbabilityToNeutral } from '../utils/calibration.js';
-import { getConfidenceTier, buildHumanExplanation, detectPerformanceDrift } from '../utils/explanationEngine.js';
+import { 
+    getConfidenceTier, 
+    buildHumanExplanation, 
+    detectPerformanceDrift,
+    smoothConfidenceTier,
+    humanizeVolatility,
+    validatePrediction
+} from '../utils/explanationEngine.js';
 
 // --- CONFIGURATION CONSTANTS ---
 const VOLATILITY_REGULARIZATION_FACTOR = 0.35;
@@ -581,6 +588,18 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             baselineMean: (statsData?.bayesianMean || currentMean),
             recentVolatility: sdLeft
         });
+
+        const humanVol = humanizeVolatility(sdLeft);
+
+        try {
+            validatePrediction({
+                probability: pAdjusted,
+                interval: { low: ci95Low, high: ci95High },
+                confidenceTier: confidenceObj.tier
+            });
+        } catch (e) {
+            console.error("Monte Carlo Validation Error:", e);
+        }
 
         return { 
             sd, sdLeft, sdRight, ci95Low, ci95High, saturation, projectionConfidence, pAdjusted, pTrend, 

@@ -121,3 +121,45 @@ export function buildPredictionMood({
     }
     return 'risk';
 }
+
+export function normalizeAlertSeverity(severity, confidenceTier) {
+    if (severity === 'high' && confidenceTier === 'LOW') {
+        return {
+            color: '#f59e0b',
+            label: 'Atenção moderada',
+            glow: 'shadow-orange-500/20'
+        };
+    }
+    return {
+        color: '#ef4444',
+        label: 'Alerta importante',
+        glow: 'shadow-red-500/20'
+    };
+}
+
+export function smoothConfidenceTier({ previousTier, currentTier, stabilityCounter }) {
+    if (previousTier && previousTier !== currentTier && stabilityCounter < 3) {
+        return previousTier;
+    }
+    return currentTier;
+}
+
+export function humanizeVolatility(sd) {
+    if (sd < 8) return 'Muito estável';
+    if (sd < 18) return 'Relativamente estável';
+    if (sd < 30) return 'Oscilação moderada';
+    return 'Alta instabilidade';
+}
+
+export function validatePrediction({ probability, interval, confidenceTier }) {
+    if (Number.isNaN(probability)) {
+        throw new Error('Invalid probability');
+    }
+    if (interval.low > interval.high) {
+        throw new Error('Invalid conformal interval');
+    }
+    if (!confidenceTier) {
+        throw new Error('Missing confidence tier');
+    }
+    return true;
+}
