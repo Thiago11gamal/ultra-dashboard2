@@ -117,7 +117,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                 {/* Task Content */}
                 <div className="flex-1 min-w-0 pr-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <p className={`text-sm font-bold truncate ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
+                        <p className={`text-sm font-bold ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
                             {task.title || task.text || "Tarefa sem nome"}
                         </p>
                         {task.status === 'studying' && (
