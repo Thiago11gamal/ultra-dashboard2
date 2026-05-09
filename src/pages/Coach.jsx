@@ -18,6 +18,7 @@ import { calculateAdaptiveSlope, getSortedHistory } from '../engine/projection.j
 import PageHeader from '../components/header/PageHeader';
 import AICoachView from '../components/AICoachView';
 import CoachMenuNav from '../components/coach/CoachMenuNav';
+import MonteCarloDebugger from '../components/MonteCarloDebugger';
 import { useSubscription } from '../hooks/useSubscription';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { getSuggestedFocus, generateDailyGoals, clearMcCache } from '../utils/coachLogic';
@@ -507,6 +508,7 @@ export default function Coach() {
                     </div>
                 </div>
             </div>
+            <MonteCarloDebugger stats={mcStats} />
         </PageErrorBoundary>
     );
 }
