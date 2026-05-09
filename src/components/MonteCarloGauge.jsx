@@ -118,7 +118,10 @@ export default function MonteCarloGauge({
     }, [categories]);
 
     if (!simulationData || simulationData.status === 'waiting') {
-        const hasHistory = categories.some(cat => cat.simuladoStats?.history?.length > 0);
+        const hasHistory = categories.some(cat => {
+            const h = cat.simuladoStats?.history;
+            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+        });
         return (
             <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-slate-900 w-full min-h-[400px]">
                 {hasHistory ? <MonteCarloLoading /> : <EmptyPredictionState />}
