@@ -555,10 +555,19 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const saturation = Math.min(1, domainWidth > 0 ? icWidth / domainWidth : 1);
         const projectionConfidence = Math.max(0, 1 - Math.pow(saturation, 1.5));
         const pBaseline = (domainWidth > 0) ? Math.max(0, (maxScore - debouncedTarget) / domainWidth) * 100 : 0;
-        const pAdjusted = probability * projectionConfidence + pBaseline * (1 - projectionConfidence);
         const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / Math.max(1, sd)) * 100;
 
-        return { sd, sdLeft, sdRight, ci95Low, ci95High, saturation, projectionConfidence, pAdjusted, pTrend };
+        let confidenceTier = 'Alta Confiabilidade';
+        let confidenceColor = 'text-emerald-400';
+        if (calibrationPenalty >= 0.10) {
+            confidenceTier = 'Baixa Confiabilidade';
+            confidenceColor = 'text-rose-400';
+        } else if (calibrationPenalty >= 0.04 || projectionConfidence < 0.6) {
+            confidenceTier = 'Média Confiabilidade';
+            confidenceColor = 'text-amber-400';
+        }
+
+        return { sd, sdLeft, sdRight, ci95Low, ci95High, saturation, projectionConfidence, pAdjusted, pTrend, confidenceTier, confidenceColor };
     }, [simulationData?.data, maxScore, minScore, debouncedTarget, probability, projectedMean, calibrationPenalty]);
 
     return {
@@ -573,7 +582,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         probability, // Calibrated
         projectedMean,
         currentMean,
-        ...derivedMetrics, // Calibrated CIs
+        ...derivedMetrics, // Calibrated CIs & confidenceTier
         equalWeightsMode,
         setEqualWeightsMode,
         calibrationPenalty // Expose penalty for potential UI badges

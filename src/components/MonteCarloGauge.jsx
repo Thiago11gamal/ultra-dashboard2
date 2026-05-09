@@ -237,15 +237,37 @@ export default function MonteCarloGauge({
                                 <circle cx="4" cy="65" r="2.5" fill="#fff" opacity="0.9" />
                             </g>
                         </svg>
-                        <div className="absolute inset-x-0 bottom-1 flex items-end justify-center z-20">
-                            <span className="text-3xl sm:text-5xl font-black" style={{ color: getGradientColor(prob) }}>
+                        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center z-20 translate-y-2">
+                            <span className="text-3xl sm:text-5xl font-black leading-none" style={{ color: getGradientColor(prob) }}>
                                 {formatPercent(pAdjustedSafe)}
                             </span>
                         </div>
                     </div>
-                    <span className={`mt-3 text-[11px] font-black uppercase tracking-widest px-5 py-2 rounded-full bg-black/40 border border-white/10 transition-all duration-500`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
+                    <span className={`mt-4 text-[11px] font-black uppercase tracking-widest px-5 py-1.5 rounded-full bg-black/40 border border-white/10 transition-all duration-500`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
                         {isFlashing ? "Simulando..." : message}
                     </span>
+                    
+                    {/* CONFORMAL PREDICTION PANEL */}
+                    <div className="mt-5 w-full flex flex-col items-center">
+                        <div className="w-full sm:w-4/5 md:w-3/4 flex flex-col items-center justify-center p-3 rounded-2xl border border-white/5 bg-black/50 shadow-inner">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">
+                                Faixa Provável (95%)
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-2xl font-black text-white">{formatValue(ciLowSafe)}</span>
+                                <span className="text-slate-600 font-black">—</span>
+                                <span className="text-2xl font-black text-white">{formatValue(ciHighSafe)}</span>
+                            </div>
+                            <div className="mt-2 flex items-center justify-center px-3 py-1 rounded-md bg-white/5 border border-white/10">
+                                <span className={`text-[9px] font-black uppercase tracking-widest ${stats.confidenceColor || 'text-slate-400'}`}>
+                                    {stats.confidenceTier || 'Analisando Confiabilidade...'}
+                                </span>
+                            </div>
+                        </div>
+                        <p className="mt-3 text-[9px] text-slate-500 font-bold uppercase tracking-wider text-center max-w-[260px] leading-relaxed">
+                            Em previsões semelhantes, 95% dos resultados reais ficaram dentro desta faixa.
+                        </p>
+                    </div>
                 </div>
             </div>
 
