@@ -18,6 +18,7 @@ import {
     computeAdaptiveSignal 
 } from '../utils/adaptiveMath.js';
 import { shrinkProbabilityToNeutral } from '../utils/calibration.js';
+import { getConfidenceTier, buildHumanExplanation, detectPerformanceDrift } from '../utils/explanationEngine.js';
 
 // --- CONFIGURATION CONSTANTS ---
 const VOLATILITY_REGULARIZATION_FACTOR = 0.35;
@@ -557,18 +558,39 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const pBaseline = (domainWidth > 0) ? Math.max(0, (maxScore - debouncedTarget) / domainWidth) * 100 : 0;
         const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / Math.max(1, sd)) * 100;
 
-        let confidenceTier = 'Alta Confiabilidade';
-        let confidenceColor = 'text-emerald-400';
-        if (calibrationPenalty >= 0.10) {
-            confidenceTier = 'Baixa Confiabilidade';
-            confidenceColor = 'text-rose-400';
-        } else if (calibrationPenalty >= 0.04 || projectionConfidence < 0.6) {
-            confidenceTier = 'Média Confiabilidade';
-            confidenceColor = 'text-amber-400';
-        }
+        // Historico para tamanho da amostra
+        const nHistory = Array.isArray(statsData?.history) ? statsData.history.length : (timelineDates?.length || 0);
 
-        return { sd, sdLeft, sdRight, ci95Low, ci95High, saturation, projectionConfidence, pAdjusted, pTrend, confidenceTier, confidenceColor };
-    }, [simulationData?.data, maxScore, minScore, debouncedTarget, probability, projectedMean, calibrationPenalty]);
+        // Tier Dinâmico
+        const confidenceObj = getConfidenceTier({
+            calibrationPenalty,
+            volatility: sd,
+            sampleSize: nHistory
+        });
+
+        const explanations = buildHumanExplanation({
+            calibrationPenalty,
+            volatility: sd,
+            trend: (projectedMean - currentMean),
+            confidenceTier: confidenceObj.tier,
+            intervalWidth: ci95High - ci95Low
+        });
+
+        const driftAlerts = detectPerformanceDrift({
+            recentMean: currentMean,
+            baselineMean: (statsData?.bayesianMean || currentMean),
+            recentVolatility: sdLeft
+        });
+
+        return { 
+            sd, sdLeft, sdRight, ci95Low, ci95High, saturation, projectionConfidence, pAdjusted, pTrend, 
+            confidenceTier: confidenceObj.label, 
+            confidenceColor: confidenceObj.tier === 'HIGH' ? 'text-emerald-400' : confidenceObj.tier === 'MEDIUM' ? 'text-amber-400' : 'text-rose-400',
+            confidenceObj,
+            explanations,
+            driftAlerts
+        };
+    }, [simulationData?.data, maxScore, minScore, debouncedTarget, probability, projectedMean, calibrationPenalty, currentMean, statsData, timelineDates]);
 
     return {
         statsData, // Contains calibrated variances

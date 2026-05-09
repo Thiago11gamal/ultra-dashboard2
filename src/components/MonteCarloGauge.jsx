@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown } from 'lucide-react';
+import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
@@ -258,13 +258,37 @@ export default function MonteCarloGauge({
                                 <span className="text-slate-600 font-black">—</span>
                                 <span className="text-2xl font-black text-white">{formatValue(ciHighSafe)}</span>
                             </div>
-                            <div className="mt-2 flex items-center justify-center px-3 py-1 rounded-md bg-white/5 border border-white/10">
-                                <span className={`text-[9px] font-black uppercase tracking-widest ${stats.confidenceColor || 'text-slate-400'}`}>
-                                    {stats.confidenceTier || 'Analisando Confiabilidade...'}
-                                </span>
-                            </div>
+                            {stats.confidenceObj && (
+                                <div className={`mt-3 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white shadow-lg ${stats.confidenceObj.glow}`} style={{ background: stats.confidenceObj.color }}>
+                                    {stats.confidenceObj.label}
+                                </div>
+                            )}
                         </div>
-                        <p className="mt-3 text-[9px] text-slate-500 font-bold uppercase tracking-wider text-center max-w-[260px] leading-relaxed">
+                        
+                        {/* Human Explanations */}
+                        {stats.explanations && stats.explanations.length > 0 && (
+                            <div className="w-full sm:w-4/5 md:w-3/4 mt-3 space-y-1.5 px-2">
+                                {stats.explanations.map((msg, i) => (
+                                    <div key={i} className="text-[10px] text-slate-300 font-medium leading-tight opacity-90">
+                                        • {msg}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Drift Alerts */}
+                        {stats.driftAlerts && stats.driftAlerts.length > 0 && (
+                            <div className="w-full sm:w-4/5 md:w-3/4 mt-3 space-y-2">
+                                {stats.driftAlerts.map((alert, i) => (
+                                    <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${alert.severity === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-400'}`}>
+                                        <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                                        <span className="text-[10px] font-bold leading-tight">{alert.message}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <p className="mt-4 text-[9px] text-slate-500 font-bold uppercase tracking-wider text-center max-w-[260px] leading-relaxed opacity-80 pt-2 border-t border-white/5">
                             Em previsões semelhantes, 95% dos resultados reais ficaram dentro desta faixa.
                         </p>
                     </div>
