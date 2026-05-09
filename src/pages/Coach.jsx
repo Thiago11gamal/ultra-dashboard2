@@ -19,6 +19,7 @@ import PageHeader from '../components/header/PageHeader';
 import AICoachView from '../components/AICoachView';
 import CoachMenuNav from '../components/coach/CoachMenuNav';
 import MonteCarloDebugger from '../components/MonteCarloDebugger';
+import ReliabilityCurveChart from '../components/charts/ReliabilityCurveChart';
 import { useSubscription } from '../hooks/useSubscription';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { getSuggestedFocus, generateDailyGoals, clearMcCache } from '../utils/coachLogic';
@@ -726,24 +727,7 @@ function RaioXDashboard({ data }) {
                     </span>
                 </div>
                 {latestWithReliability ? (
-                    <div className="space-y-3">
-                        {latestWithReliability.reliability.map((bin, idx) => {
-                            const predPct = Math.round((Number(bin?.meanPred) || 0) * 100);
-                            const obsPct = Math.round((Number(bin?.observedRate) || 0) * 100);
-                            const gapPct = Math.round((Number(bin?.gap) || 0) * 100);
-                            return (
-                                <div key={idx} className="rounded-xl border border-white/5 bg-black/20 px-4 py-3 transition-all hover:bg-white/[0.03]">
-                                    <div className="flex items-center justify-between text-[10px]">
-                                        <span className="text-slate-400 font-bold">Bin {Number.isFinite(Number(bin?.bin)) ? Number(bin.bin) : '-'}</span>
-                                        <span className="text-slate-500">n={Number.isFinite(Number(bin?.count)) ? Number(bin.count) : 0}</span>
-                                    </div>
-                                    <div className="mt-1 text-[10px] text-slate-300">
-                                        Pred {predPct}% · Real {obsPct}% · Gap {gapPct}%
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                    <ReliabilityCurveChart buckets={latestWithReliability.reliability} />
                 ) : (
                     <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Sem buckets de confiabilidade ainda</p>
                 )}
