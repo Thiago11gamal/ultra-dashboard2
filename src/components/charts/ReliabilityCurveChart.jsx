@@ -22,7 +22,7 @@ export default function ReliabilityCurveChart({ buckets }) {
 
     if (data.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-white/5 bg-black/20 text-center px-4">
+            <div className="flex flex-col items-center justify-center h-48 rounded-none border border-white/5 bg-black/20 text-center px-4">
                 <Target size={20} className="text-slate-600 mb-2" />
                 <p className="text-[11px] text-slate-500 font-black uppercase tracking-widest">Sem Curva de Confiabilidade</p>
                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight mt-1 max-w-[200px]">
@@ -38,7 +38,7 @@ export default function ReliabilityCurveChart({ buckets }) {
             const isOverconfident = dataPoint.pred > dataPoint.obs;
             
             return (
-                <div className="bg-slate-900 border border-white/10 p-3 rounded-xl shadow-xl shadow-black/50 backdrop-blur-md">
+                <div className="bg-slate-900 border border-white/10 p-3 rounded-none shadow-xl shadow-black/50 backdrop-blur-md">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">
                         Intervalo: {dataPoint.binStart}% - {dataPoint.binEnd}%
                     </p>
@@ -69,7 +69,7 @@ export default function ReliabilityCurveChart({ buckets }) {
     };
 
     return (
-        <div className="w-full h-56 rounded-xl border border-white/5 bg-black/20 p-4 relative">
+        <div className="w-full h-56 rounded-none border border-white/5 bg-black/20 p-4 relative">
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
