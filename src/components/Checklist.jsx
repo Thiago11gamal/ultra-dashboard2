@@ -359,6 +359,13 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
 
 function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onTogglePriority, onAddCategory, onDeleteCategory, onPlayContext, filter = 'all', setFilter, showSimuladoStats = false }) {
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+    const bottomRef = React.useRef(null);
+
+    const scrollToBottom = () => {
+        setTimeout(() => {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 100);
+    };
 
     if (typeof onPlayContext !== 'function') {
         console.error('Checklist: onPlayContext prop is MISSING or not a function');
@@ -438,6 +445,7 @@ function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onT
                                 if (filter === 'completed') {
                                     setFilter('all');
                                 }
+                                scrollToBottom();
                             }
                         }}
                         onTogglePriority={onTogglePriority}
@@ -471,10 +479,12 @@ function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onT
                 onConfirm={(name) => {
                     onAddCategory(name);
                     setIsCatModalOpen(false);
+                    scrollToBottom();
                 }}
                 title="Nova Disciplina"
                 placeholder="Nome da nova disciplina..."
             />
+            <div ref={bottomRef} className="h-px w-full" />
         </div>
     );
 }
