@@ -748,7 +748,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         
         const isHighPriority = localStorage.getItem('ultra-sync-dirty') === 'true';
-        const delay = isHighPriority ? 500 : 5000;
+        const hasSyncedBefore = typeof lastSyncedRef.current === 'string' && lastSyncedRef.current.length > 0;
+        // UX-SYNC: reduzir latência percebida ao abrir o app.
+        // Primeira sincronização da sessão ganha prioridade (250ms), updates normais ficam em 1500ms.
+        const delay = isHighPriority ? 500 : (hasSyncedBefore ? 1500 : 250);
         
         debounceRef.current = setTimeout(syncToCloud, delay);
 
