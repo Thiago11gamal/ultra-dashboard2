@@ -277,7 +277,9 @@ export default function Coach() {
     });
 
     const projectedScore = mcStats?.projectedMean ?? 0;
-    const volatility = mcStats?.sd ?? 0;
+    // UX-STABILITY: Para o card de volatilidade, preferimos pooledSD (determinístico)
+    // ao sd da simulação MC (estocástico), reduzindo "pisca/pula" visual.
+    const volatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
     const normalizedVolatility = useMemo(() => ((volatility / currentMaxScore) * 100), [volatility, currentMaxScore]);
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore), [combinedHistory, currentMaxScore]);
     const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
