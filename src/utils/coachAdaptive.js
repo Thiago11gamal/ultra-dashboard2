@@ -230,6 +230,24 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}
     return { decayK, minWeight, scoreClampDelta, mcSimulations, medianGapDays };
 }
 
+function getCpuAwareSimulationCap(defaultCap = 2500, cfg = {}) {
+    try {
+        const manualCap = Number(cfg?.MC_SIMULATION_CAP);
+        if (Number.isFinite(manualCap) && manualCap >= 300) {
+            return Math.min(defaultCap, Math.round(manualCap));
+        }
+        if (cfg?.MC_FORCE_MAX_SIMULATIONS === true) return defaultCap;
+        const threads = Number(globalThis?.navigator?.hardwareConcurrency);
+        if (!Number.isFinite(threads) || threads <= 0) return defaultCap;
+        if (threads <= 2) return Math.min(defaultCap, 900);
+        if (threads <= 4) return Math.min(defaultCap, 1400);
+        if (threads <= 6) return Math.min(defaultCap, 1900);
+        return defaultCap;
+    } catch {
+        return defaultCap;
+    }
+}
+
 /**
  * MC-02: Monte Carlo leve para uso no Coach.
  */
@@ -257,11 +275,15 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {
+        const requestedSims = adaptive?.mcSimulations || cfg.MC_SIMULATIONS || 800;
+        const simulationCap = getCpuAwareSimulationCap(2500, cfg);
+        const safeSimulations = Math.max(300, Math.min(simulationCap, Number(requestedSims) || 800));
+
         const result = monteCarloSimulation(
             history,
             safeTargetScore,
             days,
-            adaptive?.mcSimulations || cfg.MC_SIMULATIONS || 800,
+            safeSimulations,
             { maxScore }
         );
 
@@ -289,7 +311,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                         train,
                         safeTargetScore,
                         days,
-                        Math.min(500, Math.max(200, Math.floor((adaptive?.mcSimulations || cfg.MC_SIMULATIONS || 800) * 0.35))),
+                        Math.min(500, Math.max(200, Math.floor(safeSimulations * 0.35))),
                         { maxScore }
                     );
                     const p = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
