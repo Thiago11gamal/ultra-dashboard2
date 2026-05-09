@@ -223,7 +223,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         const categoryStudyLogs = (studyLogs || []).filter(log =>
             log?.categoryId === categoryId &&
-            normalizeDate(log.date)?.getTime() > 0
+            normalizeDate(log.date).getTime() > 0
         );
         if (categoryStudyLogs.length > 0) {
             const sortedLogs = [...categoryStudyLogs].sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
