@@ -18,6 +18,13 @@ import {
     computeAdaptiveSignal 
 } from '../utils/adaptiveMath.js';
 
+// --- CONFIGURATION CONSTANTS ---
+const VOLATILITY_REGULARIZATION_FACTOR = 0.35;
+const INFORMATIVE_PRIOR_MAX_STRENGTH = 5.0;
+const LOG_DAMPING_FACTOR = 45;
+const SYNCHRONOUS_FALLBACK_SIMULATIONS = 500;
+// -------------------------------
+
 const sanitizeWeightUnit = (value) => {
     const numeric = parseInt(value, 10);
     if (isNaN(numeric)) return 0;
@@ -28,11 +35,163 @@ const sanitizeWeightUnit = (value) => {
  * Regularização Bayesiana da Volatilidade (Shrinkage de Tikhonov)
  */
 function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
-    const informativeSD = 0.35 * domain / Math.sqrt(Math.max(1, projectionDays));
-    const priorStrength = Math.max(1.0, 5.0 - Math.log2(historyLength + 1));
+    const informativeSD = VOLATILITY_REGULARIZATION_FACTOR * domain / Math.sqrt(Math.max(1, projectionDays));
+    const priorStrength = Math.max(1.0, INFORMATIVE_PRIOR_MAX_STRENGTH - Math.log2(historyLength + 1));
     const n = Math.max(1, historyLength);
     const regularizedVariance = (dailySD * dailySD * n + informativeSD * informativeSD * priorStrength) / (n + priorStrength);
     return Math.sqrt(regularizedVariance);
+}
+
+/**
+ * Pure function to generate analytical stats, decoupled from React hook lifecycle.
+ */
+function generateAnalyticsStats({
+    categories,
+    debouncedWeights,
+    timeIndex,
+    timelineDates,
+    minScore,
+    maxScore
+}) {
+    let categoryStats = [];
+    let totalWeight = 0;
+    let weightedBayesianAlpha = 0;
+    let weightedBayesianBeta = 0;
+
+    const scoresByDate = {};
+    const weightsByKey = {};
+    const maxScoreByKey = {};
+    const bayesianStats = [];
+
+    const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
+        ? timelineDates[timeIndex]
+        : null;
+
+    categories.forEach(cat => {
+        if (cat.simuladoStats?.history?.length > 0) {
+            const catMaxScore = Number(cat.maxScore) || maxScore;
+
+            const history = [...cat.simuladoStats.history]
+                .filter(h => {
+                    if (!cutoffDate) return true;
+                    // BUGFIX: Standardize date comparison using string split to avoid timezone shifts
+                    const dateString = h.date?.includes('T') ? h.date.split('T')[0] : h.date;
+                    return dateString <= cutoffDate;
+                })
+                .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
+
+            if (history.length === 0) return;
+
+            const weightKey = cat.id || cat.name;
+            const weight = sanitizeWeightUnit(debouncedWeights[weightKey] ?? 0);
+
+            const baye = computeBayesianLevel(history, 1, 1, catMaxScore);
+            const stats = computeCategoryStats(history, weight, 60, catMaxScore);
+            const vol = calculateVolatility(history, catMaxScore);
+
+            if (stats && weight > 0) {
+                totalWeight += weight;
+                weightedBayesianAlpha += baye.alpha * weight;
+                weightedBayesianBeta += baye.beta * weight;
+                weightsByKey[weightKey] = weight;
+                maxScoreByKey[weightKey] = catMaxScore;
+
+                history.forEach(h => {
+                    const dk = getDateKey(h.date);
+                    if (dk) {
+                        if (!scoresByDate[dk]) scoresByDate[dk] = {};
+                        const existing = scoresByDate[dk][weightKey];
+                        const currentScore = getSafeScore(h, catMaxScore);
+                        const currentTotal = Number(h.total) || 0;
+                        const currentCorrect = Number(h.correct) || 0;
+
+                        if (existing) {
+                            const newTotal = existing.total + currentTotal;
+                            let newCorrect = existing.correct + currentCorrect;
+                            let newScore = newTotal > 0 ? (newCorrect / newTotal) * catMaxScore : (existing.score + currentScore) / 2;
+                            scoresByDate[dk][weightKey] = { score: newScore, correct: newCorrect, total: newTotal };
+                        } else {
+                            scoresByDate[dk][weightKey] = { score: currentScore, correct: currentCorrect, total: currentTotal };
+                        }
+                    }
+                });
+
+                categoryStats.push({ name: cat.name, ...stats, bayesianMean: baye.mean, bayesianSd: baye.sd, volatility: vol, weight });
+                bayesianStats.push({ sd: baye.sd, weight, n: history.length });
+            }
+        }
+    });
+
+    if (categoryStats.length === 0 || totalWeight === 0) return null;
+
+    const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
+    const scoreRows = sortedDates.map(date => scoresByDate[date] || {});
+    const subjectNames = categoryStats.map(cat => cat.name);
+    const estimatedRho = estimateInterSubjectCorrelation(scoreRows, subjectNames);
+
+    // 🎯 INTENTIONAL: pooledSD (for global MC projection) uses MSSD volatility,
+    // while pooledBayesianVar (for Bayesian CI) uses the posterior SD.
+    const pooledVariance = computeWeightedVariance(categoryStats.map(cat => ({ sd: cat.volatility, weight: cat.weight })), totalWeight, estimatedRho);
+    const pooledSD = totalWeight > 0 ? Math.sqrt(pooledVariance) : 0;
+
+    const bayesianMean = (weightedBayesianAlpha + weightedBayesianBeta) > 0 ? (weightedBayesianAlpha / (weightedBayesianAlpha + weightedBayesianBeta)) * maxScore : 0;
+    const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight, estimatedRho);
+    const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
+
+    const rawGlobalHistory = sortedDates.map(date => {
+        let pooledCorrect = 0;
+        let pooledTotal = 0;
+        Object.keys(scoresByDate[date]).forEach(name => {
+            const w = weightsByKey[name];
+            const catMaxScore = maxScoreByKey[name] || maxScore;
+            const metrics = scoresByDate[date][name];
+            if (w > 0 && metrics !== undefined) {
+                const total = metrics.total || getSyntheticTotal(catMaxScore);
+                const correct = (metrics.correct !== undefined && metrics.total > 0) ? metrics.correct : (metrics.score / catMaxScore) * total;
+                pooledCorrect += correct * w;
+                pooledTotal += total * w;
+            }
+        });
+        return { date, score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * maxScore : -1 };
+    }).filter(item => item.score >= 0 && !isNaN(item.score));
+
+    const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory.map(item => item.score));
+    const confidenceMultiplier = getConfidenceMultiplier(adaptiveSignal.effectiveN) * adaptiveSignal.ciInflation;
+    const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
+    const weightedHigh = Math.max(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
+
+    const globalHistory = rawGlobalHistory;
+
+    const winsorizedScores = winsorizeSeries(
+        globalHistory.map(h => h.score),
+        adaptiveSignal.adaptiveWinsor.low,
+        adaptiveSignal.adaptiveWinsor.high
+    );
+    const robustGlobalHistory = globalHistory.map((h, idx) => ({ ...h, score: winsorizedScores[idx] }));
+    const temporalVolatility = calculateVolatility(robustGlobalHistory, maxScore);
+    const dailySD = temporalVolatility > 0 ? temporalVolatility : pooledSD;
+
+    const avgCV = totalWeight > 0 ? categoryStats.reduce((acc, cat) => acc + ((cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0) * (cat.weight / totalWeight)), 0) : 0;
+
+    // Otimização do fingerprint/hash em O(1) usando extremos e tamanho do histórico
+    const hLen = globalHistory.length;
+    const firstScore = hLen > 0 ? globalHistory[0].score.toFixed(4) : '0';
+    const lastScore = hLen > 0 ? globalHistory[hLen - 1].score.toFixed(4) : '0';
+    const scoreFingerprint = `${hLen}-${firstScore}-${lastScore}`;
+    const statsHash = `${bayesianMean.toFixed(4)}-${pooledSD.toFixed(4)}-${minScore}-${maxScore}-${scoreFingerprint}`;
+
+    return {
+        categoryStats,
+        bayesianMean,
+        pooledSD,
+        totalWeight,
+        bayesianCI: { ciLow: weightedLow, ciHigh: weightedHigh },
+        globalHistory,
+        dailySD,
+        estimatedRho,
+        consistencyScore: Math.max(0, 100 - avgCV),
+        statsHash
+    };
 }
 
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode: _forcedMode, effectiveSimulateToday }) {
@@ -124,143 +283,15 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     }, [goalDate, effectiveSimulateToday, timeIndex, timelineDates]);
 
     const statsData = useMemo(() => {
-        let categoryStats = [];
-        let totalWeight = 0;
-        let weightedBayesianAlpha = 0;
-        let weightedBayesianBeta = 0;
-
-        const scoresByDate = {};
-        const weightsByKey = {};
-        const maxScoreByKey = {};
-        const bayesianStats = [];
-
-        const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
-            ? timelineDates[timeIndex]
-            : null;
-
-        categories.forEach(cat => {
-            if (cat.simuladoStats?.history?.length > 0) {
-                const catMaxScore = Number(cat.maxScore) || maxScore;
-
-                const history = [...cat.simuladoStats.history]
-                    .filter(h => {
-                        if (!cutoffDate) return true;
-                        // BUGFIX: Standardize date comparison using string split to avoid timezone shifts
-                        const dateString = h.date?.includes('T') ? h.date.split('T')[0] : h.date;
-                        return dateString <= cutoffDate;
-                    })
-                    .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
-
-                if (history.length === 0) return;
-
-                const weightKey = cat.id || cat.name;
-                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[weightKey] ?? 0);
-
-                const baye = computeBayesianLevel(history, 1, 1, catMaxScore);
-                const stats = computeCategoryStats(history, weight, 60, catMaxScore);
-                const vol = calculateVolatility(history, catMaxScore);
-
-                if (stats && weight > 0) {
-                    totalWeight += weight;
-                    weightedBayesianAlpha += baye.alpha * weight;
-                    weightedBayesianBeta += baye.beta * weight;
-                    weightsByKey[weightKey] = weight;
-                    maxScoreByKey[weightKey] = catMaxScore;
-
-                    history.forEach(h => {
-                        const dk = getDateKey(h.date);
-                        if (dk) {
-                            if (!scoresByDate[dk]) scoresByDate[dk] = {};
-                            const existing = scoresByDate[dk][weightKey];
-                            const currentScore = getSafeScore(h, catMaxScore);
-                            const currentTotal = Number(h.total) || 0;
-                            const currentCorrect = Number(h.correct) || 0;
-
-                            if (existing) {
-                                const newTotal = existing.total + currentTotal;
-                                let newCorrect = existing.correct + currentCorrect;
-                                let newScore = newTotal > 0 ? (newCorrect / newTotal) * catMaxScore : (existing.score + currentScore) / 2;
-                                scoresByDate[dk][weightKey] = { score: newScore, correct: newCorrect, total: newTotal };
-                            } else {
-                                scoresByDate[dk][weightKey] = { score: currentScore, correct: currentCorrect, total: currentTotal };
-                            }
-                        }
-                    });
-
-                    categoryStats.push({ name: cat.name, ...stats, bayesianMean: baye.mean, bayesianSd: baye.sd, volatility: vol, weight });
-                    bayesianStats.push({ sd: baye.sd, weight, n: history.length });
-                }
-            }
+        return generateAnalyticsStats({
+            categories,
+            debouncedWeights,
+            timeIndex,
+            timelineDates,
+            minScore,
+            maxScore
         });
-
-        if (categoryStats.length === 0 || totalWeight === 0) return null;
-
-        const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
-        const scoreRows = sortedDates.map(date => scoresByDate[date] || {});
-        const subjectNames = categoryStats.map(cat => cat.name);
-        const estimatedRho = estimateInterSubjectCorrelation(scoreRows, subjectNames);
-
-        // 🎯 INTENTIONAL: pooledSD (for global MC projection) uses MSSD volatility,
-        // while pooledBayesianVar (for Bayesian CI) uses the posterior SD.
-        const pooledVariance = computeWeightedVariance(categoryStats.map(cat => ({ sd: cat.volatility, weight: cat.weight })), totalWeight, estimatedRho);
-        const pooledSD = totalWeight > 0 ? Math.sqrt(pooledVariance) : 0;
-
-        const bayesianMean = (weightedBayesianAlpha + weightedBayesianBeta) > 0 ? (weightedBayesianAlpha / (weightedBayesianAlpha + weightedBayesianBeta)) * maxScore : 0;
-        const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight, estimatedRho);
-        const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
-
-        const rawGlobalHistory = sortedDates.map(date => {
-            let pooledCorrect = 0;
-            let pooledTotal = 0;
-            Object.keys(scoresByDate[date]).forEach(name => {
-                const w = weightsByKey[name];
-                const catMaxScore = maxScoreByKey[name] || maxScore;
-                const metrics = scoresByDate[date][name];
-                if (w > 0 && metrics !== undefined) {
-                    const total = metrics.total || getSyntheticTotal(catMaxScore);
-                    const correct = (metrics.correct !== undefined && metrics.total > 0) ? metrics.correct : (metrics.score / catMaxScore) * total;
-                    pooledCorrect += correct * w;
-                    pooledTotal += total * w;
-                }
-            });
-            return { date, score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * maxScore : -1 };
-        }).filter(item => item.score >= 0 && !isNaN(item.score));
-
-        const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory.map(item => item.score));
-        const confidenceMultiplier = getConfidenceMultiplier(adaptiveSignal.effectiveN) * adaptiveSignal.ciInflation;
-        const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
-        const weightedHigh = Math.min(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
-
-        const globalHistory = rawGlobalHistory;
-
-        const winsorizedScores = winsorizeSeries(
-            globalHistory.map(h => h.score),
-            adaptiveSignal.adaptiveWinsor.low,
-            adaptiveSignal.adaptiveWinsor.high
-        );
-        const robustGlobalHistory = globalHistory.map((h, idx) => ({ ...h, score: winsorizedScores[idx] }));
-        const temporalVolatility = calculateVolatility(robustGlobalHistory, maxScore);
-        const dailySD = temporalVolatility > 0 ? temporalVolatility : pooledSD;
-
-        const avgCV = totalWeight > 0 ? categoryStats.reduce((acc, cat) => acc + ((cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0) * (cat.weight / totalWeight)), 0) : 0;
-
-        // BUG-05 FIX: Include score values in hash to prevent collisions when mean/SD coincide
-        const scoreFingerprint = globalHistory.map(h => h.score.toFixed(4)).join(',');
-        const statsHash = `${bayesianMean}-${pooledSD}-${globalHistory.length}-${minScore}-${maxScore}-${scoreFingerprint}`;
-
-        return {
-            categoryStats,
-            bayesianMean,
-            pooledSD,
-            totalWeight,
-            bayesianCI: { ciLow: weightedLow, ciHigh: weightedHigh },
-            globalHistory,
-            dailySD,
-            estimatedRho,
-            consistencyScore: Math.max(0, 100 - avgCV),
-            statsHash
-        };
-    }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, minScore, maxScore]);
+    }, [categories, debouncedWeights, timeIndex, timelineDates, minScore, maxScore]);
 
     const statsHash = statsData?.statsHash || 'null';
 
@@ -268,7 +299,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
 
     // BUG-05 FIX: Moved declaration before the useEffect that references setIsFlashing.
-    // Previously at line 365 — worked by hoisting but was a maintenance hazard.
     const [isFlashing, setIsFlashing] = useState(false);
 
     useEffect(() => {
@@ -325,7 +355,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             values: statsData.globalHistory.map(h => h.score),
                             dates: statsData.globalHistory.map(h => h.date),
                             meta: debouncedTarget,
-                            simulations: 5000,
+                            simulations: SYNCHRONOUS_FALLBACK_SIMULATIONS,
                             projectionDays: projectDays,
                             forcedVolatility: regularizedSD,
                             forcedBaseline: statsData.bayesianMean,
@@ -335,7 +365,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         });
                     } else {
                         result = runMonteCarloAnalysis(statsData.bayesianMean, statsData.pooledSD, debouncedTarget, {
-                            simulations: 5000,
+                            simulations: SYNCHRONOUS_FALLBACK_SIMULATIONS,
                             currentMean: statsData.bayesianMean,
                             bayesianCI: statsData.bayesianCI,
                             minScore,
@@ -370,9 +400,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 const rawTrend = cat.trendValue || 0;
                 
                 // MATH-05 FIX: Apply log-damping to match global MC projection logic (amortized trend)
-                // This prevents subjects from projecting 100% too aggressively in long horizons.
-                const logDampingFactor = 45; 
-                const projectedDaysAmortized = logDampingFactor * Math.log(1 + projectDays / logDampingFactor);
+                const projectedDaysAmortized = LOG_DAMPING_FACTOR * Math.log(1 + projectDays / LOG_DAMPING_FACTOR);
                 const dailyTrend = rawTrend / 30;
                 const totalTrendProjection = dailyTrend * projectedDaysAmortized;
 
@@ -380,7 +408,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     ? Math.max(0, Math.min(catMaxScore, currentBaseline + totalTrendProjection))
                     : currentBaseline;
 
-                // 🎯 predictive variance: bayesianSd includes both epistemic and aleatoric variance.
                 const result = simulateNormalDistribution({
                     mean: baseline,
                     sd: cat.bayesianSd ?? cat.sd,
@@ -396,7 +423,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             .sort((a, b) => a.prob - b.prob);
     }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays]);
 
-    // BUG-05 FIX: isFlashing declaration moved above (before first useEffect that uses it)
     useEffect(() => {
         if (isFlashing) {
             const timer = setTimeout(() => setIsFlashing(false), 800);
@@ -408,8 +434,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
     const projectedMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));
     const rawCurrentMean = simulationData?.data?.currentMean;
-    // BUGFIX: não mascarar o "Hoje" com a projeção futura quando currentMean vem ausente/zero.
-    // Prioridade: valor retornado pelo motor -> bayesianMean do estado -> projectedMean apenas como último fallback.
     const currentMean = Number.isFinite(Number(rawCurrentMean))
         ? Number(rawCurrentMean)
         : (Number.isFinite(Number(statsData?.bayesianMean)) ? Number(statsData.bayesianMean) : projectedMean);
@@ -425,7 +449,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
             const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
             const currentTarget = Number(debouncedTarget.toFixed(2));
-            // Support both .probability (schema) and .prob (legacy/local)
             const existingProb = existing?.probability ?? existing?.prob ?? 0;
             const probChanged = !existing || Math.abs(existingProb - currentProb) > 0.05;
             const targetChanged = !existing || existing.target !== currentTarget;
