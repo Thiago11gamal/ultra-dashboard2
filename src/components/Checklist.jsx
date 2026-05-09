@@ -445,7 +445,11 @@ function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onT
                                 if (filter === 'completed') {
                                     setFilter('all');
                                 }
-                                scrollToBottom();
+                                // Scroll only if it's the last category
+                                const isLastCategory = categories.length > 0 && catId === categories[categories.length - 1].id;
+                                if (isLastCategory) {
+                                    scrollToBottom();
+                                }
                             }
                         }}
                         onTogglePriority={onTogglePriority}
