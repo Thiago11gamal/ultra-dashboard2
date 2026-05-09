@@ -10,6 +10,16 @@ if (!existsSync(cliPath)) {
   process.exit(0);
 }
 
+// Preflight: evita rodar o teste completo quando os browsers não estão instalados.
+const listCheck = spawnSync(cliPath, ['install', '--list'], {
+  shell: process.platform === 'win32',
+  encoding: 'utf8',
+});
+if ((listCheck.status ?? 1) !== 0) {
+  console.warn('[evolution-e2e] Browsers do Playwright não estão instalados. Pulando smoke test.');
+  process.exit(0);
+}
+
 const result = spawnSync(cliPath, ['test', 'e2e/evolution-smoke.spec.js', '--project=chromium'], {
   shell: process.platform === 'win32',
   encoding: 'utf8',
