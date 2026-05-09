@@ -278,7 +278,7 @@ export const WeeklyEvolutionView = ({
     const renderCustomTooltip = useCallback(({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-lg shadow-2xl backdrop-blur-md min-w-[220px]">
+                <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-none shadow-2xl backdrop-blur-md min-w-[220px]">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-1">
                         Semana de {label}
                     </p>
@@ -306,7 +306,7 @@ export const WeeklyEvolutionView = ({
                                     <div key={idx} className="flex flex-col gap-0.5">
                                         <div className="flex justify-between items-center text-[10px]">
                                             <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                                                <span className="w-1.5 h-1.5 rounded-none" style={{ backgroundColor: entry.color }}></span>
                                                 {entry.name.replace(' (Var.)', '')}
                                             </span>
                                             <span style={{ color }} className="font-mono font-black text-xs">
@@ -329,7 +329,7 @@ export const WeeklyEvolutionView = ({
                                     <div key={idx} className="flex flex-col gap-0.5">
                                         <div className="flex justify-between items-center text-[10px]">
                                             <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                                                <span className="w-2 h-2 rounded-none" style={{ backgroundColor: entry.color }}></span>
                                                 {entry.name}
                                             </span>
                                             <span className="font-mono font-bold text-white text-xs">
@@ -364,7 +364,7 @@ export const WeeklyEvolutionView = ({
 
     if (chartData.length < 2) {
         return (
-            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
+            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-none border border-slate-800 p-6">
                 <HelpCircle size={40} className="text-slate-600 mb-3" />
                 <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
                 <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
@@ -390,12 +390,12 @@ export const WeeklyEvolutionView = ({
                     )}
                 </div>
 
-                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-1">
+                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-none p-1">
                     <button
                         onClick={() => setViewMode('performance')}
                         aria-label="Alternar para visão de desempenho semanal"
                         aria-pressed={viewMode === 'performance'}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-none text-[10px] font-bold uppercase transition-all ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <Zap size={14} /> Desempenho (7 dias)
                     </button>
@@ -403,7 +403,7 @@ export const WeeklyEvolutionView = ({
                         onClick={() => setViewMode('evolution')}
                         aria-label="Alternar para visão de evolução semanal"
                         aria-pressed={viewMode === 'evolution'}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-none text-[10px] font-bold uppercase transition-all ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <TrendingUp size={14} /> Evolução
                     </button>
@@ -411,7 +411,7 @@ export const WeeklyEvolutionView = ({
                         onClick={() => setViewMode('variation')}
                         aria-label="Alternar para visão de variação semanal"
                         aria-pressed={viewMode === 'variation'}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-none text-[10px] font-bold uppercase transition-all ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <BarChart3 size={14} /> Delta
                     </button>
@@ -494,7 +494,7 @@ export const WeeklyEvolutionView = ({
                                         dataKey={`delta_${key}`}
                                         name={`${activeKeys[key].name} (Var.)`}
                                         fill={activeKeys[key].color}
-                                        radius={[4, 4, 4, 4]}
+                                        radius={[0, 0, 0, 0]}
                                         hide={hiddenKeys[key]}
                                     >
                                         {chartData.map((entry, index) => {
@@ -510,14 +510,14 @@ export const WeeklyEvolutionView = ({
             </div>
 
             {viewMode === 'variation' && (
-                <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3">
+                <div className="mt-3 rounded-none border border-rose-900/40 bg-rose-950/20 p-3">
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">
                         Top Regressões {topRegressions[0]?.week ? `· Semana ${topRegressions[0].week}` : ''}
                     </p>
                     {topRegressions.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             {topRegressions.map(item => (
-                                <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between">
+                                <div key={item.key} className="rounded-none bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between">
                                     <span className="truncate" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
                                     <span className="font-mono font-black text-rose-300">{formatValue(item.delta)}{unit}</span>
                                 </div>
@@ -531,7 +531,7 @@ export const WeeklyEvolutionView = ({
 
             {viewMode !== 'performance' && (
                 <div className="flex justify-center mt-3 opacity-60">
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 shrink-0 select-none">
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-none border border-slate-800 shrink-0 select-none">
                         💡 Dica: Clique nos itens da Legenda para ocultar/isolar o gráfico.
                     </p>
                 </div>

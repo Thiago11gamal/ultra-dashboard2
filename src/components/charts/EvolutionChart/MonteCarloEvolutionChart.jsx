@@ -90,7 +90,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             const isGood = pointMean >= pointTarget;
 
             return (
-                <div className="bg-slate-900 border border-white/10 p-4 rounded-xl shadow-2xl backdrop-blur-xl min-w-[200px]">
+                <div className="bg-slate-900 border border-white/10 p-4 rounded-none shadow-2xl backdrop-blur-xl min-w-[200px]">
                     <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-3 border-b border-white/10 pb-2">{fullDate}</p>
 
                     <div className="flex flex-col gap-2">
@@ -101,7 +101,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                             </span>
                         </div>
 
-                        <div className="mt-2 bg-black/40 rounded border border-white/5 p-2">
+                        <div className="mt-2 bg-black/40 rounded-none border border-white/5 p-2">
                             <div className="flex justify-between items-center mb-1">
                                 <span className="text-[10px] font-bold text-slate-400">Cone (95% CI):</span>
                                 <span className="text-[10px] font-mono text-white">
@@ -124,8 +124,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
 
     if (formattedData.length === 0) {
         return (
-            <div className="w-full min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-2xl border border-white/5 p-6 overflow-hidden relative">
-                <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
+            <div className="w-full min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-none border border-white/5 p-6 overflow-hidden relative">
+                <div className="w-16 h-16 rounded-none bg-blue-500/10 flex items-center justify-center mb-4">
                     <AlertCircle size={32} className="text-blue-400" />
                 </div>
                 <h3 className="text-lg font-black text-slate-200 mb-2 uppercase tracking-widest text-center">Nenhum Ponto Registrado</h3>
@@ -150,7 +150,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             <div className="flex items-center justify-between mb-4 px-2 relative z-10">
 
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                    <div className="w-8 h-8 rounded-none bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
                         <TrendingUp size={16} className="text-blue-400" />
                     </div>
                     <div>
@@ -159,7 +159,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-800 rounded-lg p-1">
+                <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-800 rounded-none p-1">
                     {SCENARIO_OPTIONS.map(opt => (
                         <button
                             key={opt.id}
@@ -167,7 +167,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                             onClick={() => setScenario(opt.id)}
                             aria-label={`Selecionar cenário ${opt.fullLabel}`}
                             aria-pressed={scenario === opt.id}
-                            className={`px-2 py-1 rounded text-[9px] font-bold ${scenario === opt.id ? 'bg-indigo-600/25 text-indigo-300' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`px-2 py-1 rounded-none text-[9px] font-bold ${scenario === opt.id ? 'bg-indigo-600/25 text-indigo-300' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             {opt.label}
                         </button>
@@ -175,7 +175,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-black/40 border border-white/5">
                         <Target size={12} className="text-slate-500" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
                             Target: <strong className="text-white">{unit === 'horas' ? formatDuration(targetScore) : unit === '%' ? formatValue(targetScore) : targetScore} {unit}</strong>
@@ -183,7 +183,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                         </span>
                     </div>
                     {qualitySignal && (
-                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md border ${qualitySignal.color}`}>
+                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-none border ${qualitySignal.color}`}>
                             {qualitySignal.label}
                         </span>
                     )}
@@ -201,8 +201,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
 
             <div className="w-full relative h-[360px] flex items-center justify-center">
                 {formattedData.length === 1 && (
-                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-md rounded-2xl text-center p-6 border border-white/5">
-                        <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-md rounded-none text-center p-6 border border-white/5">
+                        <div className="w-16 h-16 rounded-none bg-blue-500/10 flex items-center justify-center mb-4">
                             <TrendingUp size={32} className="text-blue-500/60" />
                         </div>
                         <p className="text-xs font-black text-slate-200 uppercase tracking-[0.2em]">Ponto Único Registrado</p>
@@ -289,7 +289,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
                     A área sombreada representa o IC 95% da projeção ao longo do tempo (P2.5 ~ P97.5).
                 </p>
-                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-full border border-white/5">N = {scenarioAdjustedData.length} dias</span>
+                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-none border border-white/5">N = {scenarioAdjustedData.length} dias</span>
             </div>
         </div>
     );
