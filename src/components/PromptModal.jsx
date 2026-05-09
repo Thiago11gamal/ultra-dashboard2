@@ -79,7 +79,7 @@ export default function PromptModal({ isOpen, onClose, onConfirm, title, placeho
                                         <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">
                                             Identificação
                                         </label>
-                                        <span className="text-[10px] font-mono text-purple-400/60">{inputValue.length}/50</span>
+                                        <span className="text-[10px] font-mono text-purple-400/60">{inputValue.length}/200</span>
                                     </div>
                                     
                                     <div className="relative group">
@@ -87,7 +87,7 @@ export default function PromptModal({ isOpen, onClose, onConfirm, title, placeho
                                             ref={inputRef}
                                             type="text"
                                             value={inputValue}
-                                            onChange={(e) => setInputValue(e.target.value.slice(0, 50))}
+                                            onChange={(e) => setInputValue(e.target.value.slice(0, 200))}
                                             placeholder={placeholder}
                                             className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 transition-all font-semibold text-lg"
                                             autoComplete="off"
