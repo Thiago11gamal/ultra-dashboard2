@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BeakerIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/solid';
+import { FlaskConical as BeakerIcon, ChevronUp as ChevronUpIcon, ChevronDown as ChevronDownIcon } from 'lucide-react';
 
 export default function MonteCarloDebugger({ stats }) {
     const [isOpen, setIsOpen] = useState(false);
