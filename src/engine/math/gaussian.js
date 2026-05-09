@@ -234,9 +234,12 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
         return Math.max(min, Math.min(max, mean));
     }
 
-    // 3. NOVA PROTEÇÃO: Fallback seguro para o RNG caso a função falhe
-    const sampledU = typeof rng === 'function' ? rng() : Math.random();
-    const u = Number.isFinite(sampledU) ? sampledU : Math.random();
+    // 3. NOVA PROTEÇÃO: STRICT DETERMINISM - Falha imediatamente se não houver RNG determinístico
+    if (typeof rng !== 'function') {
+        throw new Error('STRICT_DETERMINISM: Deterministic RNG required. Fallback to Math.random() is forbidden.');
+    }
+    const sampledU = rng();
+    const u = Number.isFinite(sampledU) ? sampledU : rng();
     const p = cdfMin + u * diff;
 
     const zScore = inverseNormalCDF(p);

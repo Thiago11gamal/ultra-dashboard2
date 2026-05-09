@@ -32,11 +32,11 @@ export function getSortedHistory(history) {
 // -----------------------------
 // Regressão ponderada temporal
 // -----------------------------
-export function weightedRegression(history, lambda = 0.08, maxScore = 100) {
+export function weightedRegression(history, lambda = 0.08, maxScore = 100, options = {}) {
     const sorted = getSortedHistory(history);
     if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
 
-    const now = Date.now();
+    const now = options.referenceDate || Date.now();
     let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
 
     sorted.forEach(h => {
@@ -60,13 +60,13 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     const intercept = (sumWXX * sumWY - sumWX * sumWXY) / det;
 
     // Erro padrão robusto (ajustado para small samples)
-    const slopeStdError = calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore);
+    const slopeStdError = calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options);
 
     return { slope, intercept, slopeStdError };
 }
 
-function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore) {
-    const now = Date.now();
+function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options = {}) {
+    const now = options.referenceDate || Date.now();
     const t0 = new Date(sorted[0].date || sorted[0].createdAt).getTime();
     let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0;
 
@@ -141,7 +141,7 @@ export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast 
 // Drift Clampeado (Prevenção de outliers)
 // IMP-MATH-06: λ adaptativo baseado no gap mediano entre sessões
 // -----------------------------
-export function calculateSlope(history, maxScore = 100) {
+export function calculateSlope(history, maxScore = 100, options = {}) {
     // Calcular λ adaptativo: alunos com sessões frequentes usam λ maior (memória curta)
     const sorted = getSortedHistory(history);
     let lambda = 0.08; // default
@@ -158,26 +158,26 @@ export function calculateSlope(history, maxScore = 100) {
         // λ ∈ [0.03, 0.12]: sessões frequentes → λ alto (esquece rápido), sessões espaçadas → λ baixo
         lambda = Math.max(0.03, Math.min(0.12, 0.03 + 0.08 * Math.exp(-medianGap / 10)));
     }
-    const { slope } = weightedRegression(history, lambda, maxScore);
+    const { slope } = weightedRegression(history, lambda, maxScore, options);
     // Limita drift diário a no máximo 0.5% da escala total (ex: 0.5 pts por dia no Enem)
     const limit = 0.005 * maxScore;
     return Math.max(-limit, Math.min(limit, slope));
 }
 
-export function calculateAdaptiveSlope(history, maxScore = 100) {
-    return calculateSlope(history, maxScore);
+export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
+    return calculateSlope(history, maxScore, options);
 }
 
 // 📈 projectScore (restaurado para compatibilidade)
-export function projectScore(history, projectDays = 60, minScore = 0, maxScore = 100) {
+export function projectScore(history, projectDays = 60, minScore = 0, maxScore = 100, options = {}) {
     const sortedHistory = getSortedHistory(history);
     if (!sortedHistory || sortedHistory.length === 0) return { projected: 0, marginOfError: 0 };
 
     const { slopeStdError } = sortedHistory.length >= 2
-        ? weightedRegression(sortedHistory, 0.08, maxScore)
+        ? weightedRegression(sortedHistory, 0.08, maxScore, options)
         : { slope: 0, slopeStdError: 0 };
 
-    const slope = calculateSlope(sortedHistory, maxScore);
+    const slope = calculateSlope(sortedHistory, maxScore, options);
 
     const lastRawScore = getSafeScore(sortedHistory[sortedHistory.length - 1], maxScore);
     let ema = getSafeScore(sortedHistory[0], maxScore); 
@@ -281,18 +281,19 @@ export function monteCarloSimulation(
     // BUG-05 FIX: Move out of conditional to ensure optionsCurrentMean is always factored in
     if (optionsCurrentMean !== undefined) {
         const lastDate = new Date(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt);
-        const daysToNow = Math.max(1, (Date.now() - lastDate.getTime()) / 86400000);
+        const referenceNow = options.referenceDate || Date.now();
+        const daysToNow = Math.max(1, (referenceNow - lastDate.getTime()) / 86400000);
         baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1, daysToNow);
     }
     baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * maxScore)));
 
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
     const { slopeStdError } = sortedHistory.length > 1
-        ? weightedRegression(sortedHistory, 0.08, maxScore)
+        ? weightedRegression(sortedHistory, 0.08, maxScore, options)
         // FIX: O fallback de 1.5 precisa ser escalonado pela base da prova (senão fica inútil no Enem/OAB)
         : { slope: 0, slopeStdError: 1.5 * scaleFactorFallback };
 
-    const drift = calculateSlope(sortedHistory, maxScore); // Tendência clampeada para a média determinística
+    const drift = calculateSlope(sortedHistory, maxScore, options); // Tendência clampeada para a média determinística
     const simulationDays = days; // Hoisted for C1 cap below
     // C1 FIX: Cap drift uncertainty to prevent bimodal explosion with short history.
     const scaleFactor = scaleFactorFallback;

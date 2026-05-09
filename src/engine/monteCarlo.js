@@ -120,6 +120,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let h = 0xdeadbeef;
     h = Math.imul(h ^ Math.floor(safeMean * 10000), 2654435761);
     h = Math.imul(h ^ Math.floor(safeSD * 10000), 1597334677);
+    if (categoryName) {
+        for(let i = 0; i < categoryName.length; i++) {
+            h = Math.imul(h ^ categoryName.charCodeAt(i), 339020473);
+        }
+    }
     const stableSeed = seed ?? ((h ^ (h >>> 16)) >>> 0);
 
     const rng = mulberry32(stableSeed);
