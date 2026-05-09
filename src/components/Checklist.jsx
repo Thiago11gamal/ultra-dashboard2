@@ -194,6 +194,8 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
     const [isOpen, setIsOpen] = useState(true);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+    const [isConfirmDeleteTaskOpen, setIsConfirmDeleteTaskOpen] = useState(false);
+    const [taskToDelete, setTaskToDelete] = useState(null);
 
     const tasks = category.tasks || [];
     const allTasks = category.originalTasks || tasks; // Use original/all tasks for progress bar
@@ -282,7 +284,10 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                                     key={task.id}
                                     task={task}
                                     onToggle={(id) => onToggleTask(category.id, id)}
-                                    onDelete={(id) => onDeleteTask(category.id, id)}
+                                    onDelete={(id) => {
+                                        setTaskToDelete(task);
+                                        setIsConfirmDeleteTaskOpen(true);
+                                    }}
                                     onTogglePriority={(id) => onTogglePriority(category.id, id)}
                                     onTriggerPlay={() => playHandler(category.id, task.id)}
                                     categoryColor={category.color}
@@ -325,6 +330,24 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                         <div className="flex gap-3 w-full">
                             <button onClick={() => setIsConfirmDeleteOpen(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-400 bg-slate-800 border border-slate-700 hover:text-white transition-colors">Cancelar</button>
                             <button onClick={() => { setIsConfirmDeleteOpen(false); onDeleteCategory(category.id); }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20">Excluir</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+            {isConfirmDeleteTaskOpen && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsConfirmDeleteTaskOpen(false)} />
+                    <div className="bg-slate-900 border border-red-500/50 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 p-6 flex flex-col items-center text-center">
+                        <Trash2 size={48} className="text-red-500 mb-4 p-2 bg-red-500/10 rounded-full" />
+                        <h3 className="text-xl font-bold text-white mb-2">Excluir Assunto?</h3>
+                        <p className="text-sm text-slate-400 mb-6">Tem certeza que deseja excluir <strong>{taskToDelete?.title || taskToDelete?.text}</strong>? Esta ação não pode ser desfeita.</p>
+                        <div className="flex gap-3 w-full">
+                            <button onClick={() => setIsConfirmDeleteTaskOpen(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-400 bg-slate-800 border border-slate-700 hover:text-white transition-colors">Cancelar</button>
+                            <button onClick={() => { 
+                                setIsConfirmDeleteTaskOpen(false); 
+                                if (taskToDelete) onDeleteTask(category.id, taskToDelete.id); 
+                            }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20">Excluir</button>
                         </div>
                     </div>
                 </div>,
