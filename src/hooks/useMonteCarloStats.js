@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { 
@@ -22,7 +22,6 @@ import {
     getConfidenceTier, 
     buildHumanExplanation, 
     detectPerformanceDrift,
-    smoothConfidenceTier,
     humanizeVolatility,
     validatePrediction
 } from '../utils/explanationEngine.js';
@@ -350,7 +349,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
     const calibrationPenalty = useMemo(() => {
         return computeCalibrationPenalty(mcHistory, pureStatsData?.globalHistory, maxScore);
-    }, [mcHistory, pureStatsData?.globalHistory, pureStatsData?.statsHash, maxScore]);
+    }, [mcHistory, pureStatsData?.globalHistory, maxScore]);
 
     const statsData = useMemo(() => {
         if (!pureStatsData) return null;

@@ -21,7 +21,7 @@ export function safeClone(value, fallback = null) {
       try {
         const result = findOffendingPath(obj[key], `${path}.${key}`, seen);
         if (result) return result;
-      } catch (e) {
+      } catch {
         return `${path}.${key} (Access Error)`;
       }
     }
