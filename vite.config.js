@@ -12,15 +12,18 @@ export default defineConfig({
   build: {
     target: 'es2022',
     minify: 'esbuild',
+    chunkSizeWarningLimit: 1000,
     cssMinify: true,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
-          charts: ['recharts', 'html-to-image', 'jspdf'],
+          charts: ['recharts'],
+          pdf: ['html-to-image', 'jspdf'],
           motion: ['framer-motion'],
           firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
-          graphics: ['three', 'tsparticles', 'react-tsparticles'],
+          three: ['three'],
+          particles: ['tsparticles', 'react-tsparticles'],
         },
       },
     },
