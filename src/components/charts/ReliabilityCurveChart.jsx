@@ -69,8 +69,8 @@ export default function ReliabilityCurveChart({ buckets }) {
     };
 
     return (
-        <div className="w-full h-56 rounded-none border border-white/5 bg-black/20 p-4 relative">
-            <ResponsiveContainer width="100%" height="100%">
+        <div className="w-full h-[300px] rounded-none border border-white/5 bg-black/20 p-4 relative">
+            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                 <LineChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis 

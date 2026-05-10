@@ -27,7 +27,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, unit = '%' }) {
 
             {/* Aumentei a altura mínima e dei flex-1 para preencher o card */}
             <div className="flex-1 min-h-[260px] sm:min-h-[300px] w-full relative">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minHeight={260}>
                     {/* outerRadius reduzido de 60% para 55% para não cortar o texto nas pontas */}
                     <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
                         <defs>

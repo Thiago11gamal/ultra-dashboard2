@@ -205,8 +205,8 @@ export default function MonteCarloGauge({
 
             <div className="w-full flex flex-col items-center justify-center min-h-[140px] sm:min-h-[160px] mb-4">
                 <div className={`w-full bg-black/40 rounded-2xl p-4 flex flex-col items-center transition-all duration-700 ${isFlashing ? 'blur-sm' : ''}`}>
-                    <div className="relative mb-2 w-full max-w-[260px] flex justify-center">
-                        <svg width="100%" height="auto" viewBox="0 -6 140 76" className="overflow-visible relative z-10 scale-110">
+                    <div className="relative mb-2 w-full max-w-[260px] h-[140px] flex justify-center">
+                        <svg width="100%" height="100%" viewBox="0 -6 140 76" className="overflow-visible relative z-10 scale-110">
                             <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
                             <path
                                 d="M 4 65 A 66 66 0 0 1 136 65"
