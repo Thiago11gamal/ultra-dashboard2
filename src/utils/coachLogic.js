@@ -385,7 +385,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
         // Calcular share ideal proporcional ao peso de cada matéria
         const totalActiveWeight = activeCategories.reduce((acc, c) => {
-            const w = (c.weight !== undefined && c.weight > 0) ? c.weight : 5;
+            const parsedW = Number(c.weight);
+            const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
             return acc + w;
         }, 0);
         const idealShare = totalActiveWeight > 0 ? rawWeight / totalActiveWeight : (1 / activeCount);
