@@ -13,6 +13,13 @@ const cleanUndefined = (obj, seen = new WeakSet()) => {
     if (obj === null || typeof obj !== 'object') return obj;
     if (obj instanceof Date) return obj;
     
+    // SAFETY-01: Proteger contra Window, Event e DOM que podem vazar para o estado
+    if (obj === window || 
+        (typeof Event !== 'undefined' && obj instanceof Event) || 
+        (typeof Node !== 'undefined' && obj instanceof Node)) {
+        return null;
+    }
+    
     // Proteção contra referências circulares (Cycle Detection)
     if (seen.has(obj)) {
         console.warn("[Sync] Referência circular detectada e removida para evitar Stack Overflow.");

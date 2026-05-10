@@ -16,7 +16,7 @@ export function EvolucaoFocoChart({ data }) {
 
     return (
         <div className="h-[300px] w-full mt-4">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                 {/* Adicionei margin left: -15 para o eixo Y não usar espaço inútil, e right: 10 para não cortar a última data */}
                 <AreaChart data={data} margin={{ top: 20, right: 10, left: -15, bottom: 5 }}>
                     {/* ORGANIZAÇÃO: defs sempre no topo do gráfico */}

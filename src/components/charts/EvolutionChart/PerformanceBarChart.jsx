@@ -32,7 +32,7 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
 
             <div className="h-[320px] sm:h-[380px] w-full">
                 {subjectAggData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minHeight={320}>
                         <BarChart
                             data={subjectAggData.map(d => ({ ...d, erros: Math.max(0, d.questoes - d.acertos) }))}
                             margin={{ top: 20, right: 20, left: 10, bottom: showOnlyFocus ? 20 : 60 }}

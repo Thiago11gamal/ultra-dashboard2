@@ -21,7 +21,7 @@ export function HorasDisciplinaChart({ data }) {
 
     return (
         <div style={{ height: `${dynamicHeight}px` }} className="w-full mt-4 transition-all duration-300">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                 <BarChart
                     layout="vertical"
                     data={sortedData}

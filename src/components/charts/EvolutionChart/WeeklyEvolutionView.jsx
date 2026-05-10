@@ -429,7 +429,7 @@ export const WeeklyEvolutionView = ({
                         unit={unit}
                     />
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minHeight={320}>
                         {viewMode === 'evolution' ? (
                             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 8, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />

@@ -225,7 +225,7 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
             ) : viewMode === 'bars' ? (
                 // ── BARS RENDER ──
                 <div className="w-full relative" style={{ height: Math.max(400, chartData.length * 50) }}>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minHeight={400}>
                         <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: -5, bottom: 0 }}>
                             <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
 

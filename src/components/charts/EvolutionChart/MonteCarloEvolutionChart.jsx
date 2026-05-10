@@ -276,11 +276,11 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     </ResponsiveContainer>
                 ) : scenarioAdjustedData.length === 0 ? null : (
                     <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={[{ mean: 0 }, { mean: scenarioAdjustedData[0].mean }, { mean: 0 }]}>
-                                <Area type="monotone" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+                        <AreaChart data={[{ mean: 0 }, { mean: scenarioAdjustedData[0].mean }, { mean: 0 }]}>
+                            <Area type="monotone" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
+                        </AreaChart>
+                    </ResponsiveContainer>
                     </div>
                 )}
             </div>
