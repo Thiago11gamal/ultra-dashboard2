@@ -2,6 +2,43 @@ import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Target } from 'lucide-react';
 
+// Moved outside the main component to prevent recreation on each render
+const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+        const dataPoint = payload[0].payload;
+        const isOverconfident = dataPoint.pred > dataPoint.obs;
+        
+        return (
+            <div className="bg-slate-900 border border-white/10 p-3 rounded-none shadow-xl shadow-black/50 backdrop-blur-md">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">
+                    Intervalo: {dataPoint.binStart}% - {dataPoint.binEnd}%
+                </p>
+                <div className="space-y-1.5">
+                    <div className="flex justify-between items-center gap-6">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Previsão (Motor)</span>
+                        <span className="text-[11px] font-black text-indigo-400">{dataPoint.pred}%</span>
+                    </div>
+                    <div className="flex justify-between items-center gap-6">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Acerto (Real)</span>
+                        <span className="text-[11px] font-black text-cyan-400">{dataPoint.obs}%</span>
+                    </div>
+                    <div className="pt-1 mt-1 border-t border-white/5 flex justify-between items-center gap-6">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Gap / Viés</span>
+                        <span className={`text-[11px] font-black ${isOverconfident ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            {isOverconfident ? 'Overconfident' : 'Underconfident'} ({Math.abs(dataPoint.gap)}%)
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center gap-6 pt-1">
+                        <span className="text-[9px] font-bold text-slate-600 uppercase">Amostras (n)</span>
+                        <span className="text-[9px] font-black text-slate-400">{dataPoint.count}</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
+
 export default function ReliabilityCurveChart({ buckets }) {
     const data = useMemo(() => {
         if (!Array.isArray(buckets) || buckets.length === 0) return [];
@@ -31,42 +68,6 @@ export default function ReliabilityCurveChart({ buckets }) {
             </div>
         );
     }
-
-    const CustomTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            const dataPoint = payload[0].payload;
-            const isOverconfident = dataPoint.pred > dataPoint.obs;
-            
-            return (
-                <div className="bg-slate-900 border border-white/10 p-3 rounded-none shadow-xl shadow-black/50 backdrop-blur-md">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">
-                        Intervalo: {dataPoint.binStart}% - {dataPoint.binEnd}%
-                    </p>
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between items-center gap-6">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase">Previsão (Motor)</span>
-                            <span className="text-[11px] font-black text-indigo-400">{dataPoint.pred}%</span>
-                        </div>
-                        <div className="flex justify-between items-center gap-6">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase">Acerto (Real)</span>
-                            <span className="text-[11px] font-black text-cyan-400">{dataPoint.obs}%</span>
-                        </div>
-                        <div className="pt-1 mt-1 border-t border-white/5 flex justify-between items-center gap-6">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase">Gap / Viés</span>
-                            <span className={`text-[11px] font-black ${isOverconfident ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                {isOverconfident ? 'Overconfident' : 'Underconfident'} ({Math.abs(dataPoint.gap)}%)
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center gap-6 pt-1">
-                            <span className="text-[9px] font-bold text-slate-600 uppercase">Amostras (n)</span>
-                            <span className="text-[9px] font-black text-slate-400">{dataPoint.count}</span>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-        return null;
-    };
 
     return (
         <div className="w-full h-[300px] rounded-none border border-white/5 bg-black/20 p-4 relative">

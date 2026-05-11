@@ -284,7 +284,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                                     key={task.id}
                                     task={task}
                                     onToggle={(id) => onToggleTask(category.id, id)}
-                                    onDelete={(id) => {
+                                    onDelete={() => {
                                         setTaskToDelete(task);
                                         setIsConfirmDeleteTaskOpen(true);
                                     }}

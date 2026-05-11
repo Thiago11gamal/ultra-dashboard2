@@ -5,15 +5,23 @@ import { Sparkles, X, Layout } from 'lucide-react';
 
 export default function PromptModal({ isOpen, onClose, onConfirm, title, placeholder, initialValue = "" }) {
     const [inputValue, setInputValue] = useState(initialValue);
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
     const inputRef = useRef(null);
+
+    // React recommended way to derive state from props without causing cascading effect renders
+    if (isOpen !== prevIsOpen) {
+        setPrevIsOpen(isOpen);
+        if (isOpen) {
+            setInputValue(initialValue);
+        }
+    }
 
     useEffect(() => {
         if (isOpen) {
-            setInputValue(initialValue);
             const timer = setTimeout(() => inputRef.current?.focus(), 200);
             return () => clearTimeout(timer);
         }
-    }, [isOpen, initialValue]);
+    }, [isOpen]);
 
     const handleSubmit = (e) => {
         e.preventDefault();

@@ -89,7 +89,6 @@ export default function MonteCarloGauge({
         ci95Low,
         ci95High,
         pAdjusted,
-        probability,
         equalWeightsMode,
         setEqualWeightsMode,
         setWeights
