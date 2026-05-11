@@ -146,7 +146,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const allScores = new Float64Array(safeSimulations);
 
     for (let i = 0; i < safeSimulations; i++) {
-        let score = sampleTruncatedNormal(safeMean, safeSD, minScore, maxScore, rng);
+        // CORREÇÃO MATH: Compensação heurística de momento.
+        // A média amostral de uma Normal Truncada não é igual ao seu parâmetro mu.
+        // Aplicamos um "shift" no mu para cima ou para baixo consoante o achatamento 
+        // causado pelos limites, garantindo convergência não enviesada para alunos de elite.
+        let muParam = safeMean;
+        if (safeSD > 0) {
+            const zMax = (maxScore - safeMean) / safeSD;
+            const zMin = (minScore - safeMean) / safeSD;
+            if (zMax < 1.5) muParam += safeSD * 0.25 * (1.5 - Math.max(0, zMax));
+            if (zMin > -1.5) muParam -= safeSD * 0.25 * (1.5 - Math.max(0, Math.abs(zMin)));
+        }
+
+        let score = sampleTruncatedNormal(muParam, safeSD, minScore, maxScore, rng);
         
         if (score >= effectiveTarget) success++;
         allScores[i] = score;

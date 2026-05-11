@@ -224,8 +224,19 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 return totalWeight > 0 ? weightedSum / totalWeight : (maxScore / 2);
             };
 
-            const currentBound = normalizeDate(new Date());
-            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date || s.createdAt) < currentBound);
+            // CORREÇÃO LÓGICA: Removido 'normalizeDate(new Date())' para prevenir o 
+            // "Bug da Meia-Noite" e ignorar lotes importados subitamente.
+            // Consideramos "sessão anterior" qualquer nota gerada pelo menos 1 hora antes do teste mais recente.
+            const mostRecentSimDate = relevantSimulados.length > 0 
+                ? new Date(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime() 
+                : Date.now();
+            const SESSION_GAP_MS = 60 * 60 * 1000; // 1 Hora
+
+            const pastSimulados = relevantSimulados.filter(s => {
+                const sTime = new Date(s.date || s.createdAt).getTime();
+                return sTime < (mostRecentSimDate - SESSION_GAP_MS);
+            });
+            
             const notaBruta = calculateExponentialScore(relevantSimulados);
 
             if (pastSimulados.length > 0) {
@@ -859,7 +870,10 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         if (percentage === 0 && data.scores.length === 0 && categorySimuladoCount > 3) {
             urgencyScore *= 0.7;
         }
-        const topicDropThreshold = -(0.02 * maxScore); 
+        // CORREÇÃO MATH: A 'trend' de tópicos é calculada numa escala fixa percentual (0 a 100).
+        // Usar maxScore aqui causava distorção se a prova valesse, por exemplo, 10 ou 1000 pontos.
+        // Limiar de queda agora é 2.0 pontos percentuais (fixo na base 100).
+        const topicDropThreshold = -2.0; 
         if (trend < topicDropThreshold) {
             // Escala o pânico (urgencyScore) proporcionalmente ao tamanho da queda
             const dropSeverity = Math.min(2.0, 1 + Math.abs(trend / topicDropThreshold) * 0.1);

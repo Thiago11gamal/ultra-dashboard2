@@ -178,13 +178,17 @@ export function computeAdaptiveSignal(scores = []) {
     const recentDeltas = [];
     for (let i = finiteScores.length - k; i < finiteScores.length; i++) {
         if (i <= 0) continue;
-        recentDeltas.push(finiteScores[i] - finiteScores[i - 1]);
+        // CORREÇÃO MATH: O uso de valor absoluto previne a "Soma Telescópica".
+        // Antes, flutuações violentas [50 -> 100 -> 50] anulavam-se, resultando em média = 0.
+        // Agora, capturamos a verdadeira turbulência passo-a-passo.
+        recentDeltas.push(Math.abs(finiteScores[i] - finiteScores[i - 1]));
     }
-    const avgRecentDelta = recentDeltas.length > 0
+    const avgRecentAbsDelta = recentDeltas.length > 0
         ? recentDeltas.reduce((a, b) => a + b, 0) / recentDeltas.length
         : 0;
+        
     // BUGFIX: quando sd≈0, qualquer delta pequeno explodia numericamente.
-    const trendStrength = sd > 1e-9 ? Math.min(2.5, Math.abs(avgRecentDelta) / sd) : 0;
+    const trendStrength = sd > 1e-9 ? Math.min(2.5, avgRecentAbsDelta / sd) : 0;
 
     const ciInflationRaw = 1 + (trendStrength * cfg.trendSensitivity);
     const ciInflation = Math.max(1, Math.min(cfg.maxCIInflation, ciInflationRaw));

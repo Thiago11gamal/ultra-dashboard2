@@ -155,9 +155,11 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const gapDays = Math.max(0, Math.floor((entryDate - prevDate) / (1000 * 60 * 60 * 24)));
             
             // 💡 2. Decaimento Bayesiano Dinâmico (Curva de Ebbinghaus)
-            // A taxa de esquecimento (lambda) cai conforme o aluno revisa mais vezes
+            // CORREÇÃO MATH: Adicionado piso de Math.max(0.005) para prevenir Underflow a zero absoluto
+            // que causava o "Bug da Memória Imortal" após dezenas de sessões.
             const adaptiveLambdaBase = computeAdaptiveLambda(sortedHistory);
-            const lambda = adaptiveLambdaBase * Math.exp(-0.15 * i); 
+            const rawLambda = adaptiveLambdaBase * Math.exp(-0.15 * i);
+            const lambda = Math.max(0.005, rawLambda); 
             const entryDecay = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
             
             // Retenção do Ratio Bayesiano
@@ -187,7 +189,11 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const cappedMaxAlpha = Math.min(maxAlphaEver, dynamicAlphaCap);
             const retentionFloor = cappedMaxAlpha * 0.3;
             const finalLambdaBase = computeAdaptiveLambda(sortedHistory);
-            const finalLambda = finalLambdaBase * Math.exp(-0.15 * sortedHistory.length);
+            
+            // CORREÇÃO MATH: O mesmo piso é aplicado aqui para consistência assintótica.
+            const rawFinalLambda = finalLambdaBase * Math.exp(-0.15 * sortedHistory.length);
+            const finalLambda = Math.max(0.005, rawFinalLambda);
+            
             const finalDecay = Math.exp(-finalLambda * gapToToday);
             const nBeforeDecay = alpha + beta;
             const currentP = alpha / nBeforeDecay;
