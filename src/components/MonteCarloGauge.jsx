@@ -129,7 +129,7 @@ export default function MonteCarloGauge({
         );
     }
 
-    const prob = Math.min(100, Math.max(0, safe(probability)));
+    const prob = Math.min(100, Math.max(0, safe(pAdjusted)));
     const roundedProb = Math.min(100, Math.max(0, Math.round(prob * 100) / 100));
     const inverseProb = parseFloat((100 - roundedProb).toFixed(2));
 

@@ -584,6 +584,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
         return { 
             sd, sdLeft, sdRight, ci95Low, ci95High, saturation, projectionConfidence, pAdjusted, pTrend, 
+            probability: pAdjusted,
             confidenceTier: confidenceObj.label, 
             confidenceColor: confidenceObj.tier === 'HIGH' ? 'text-emerald-400' : confidenceObj.tier === 'MEDIUM' ? 'text-amber-400' : 'text-rose-400',
             confidenceObj,
@@ -632,7 +633,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 // 🎯 EFFECT: Persistência de Histórico de Projeção (Snapshots)
 function useMonteCarloHistoryRecorder({ 
     activeId, simulationData, timeIndex, timelineDates, effectiveSimulateToday, 
-    debouncedTarget, currentMean, projectedMean, pAdjusted, ci95Low, ci95High,
+    debouncedTarget, currentMean, projectedMean, probability, pAdjusted, ci95Low, ci95High,
     recordMonteCarloSnapshot 
 }) {
     useEffect(() => {
@@ -666,6 +667,6 @@ function useMonteCarloHistoryRecorder({
     }, [
         simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, 
         recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, projectedMean, 
-        debouncedTarget, activeId, ci95Low, ci95High, probability
+        debouncedTarget, activeId, ci95Low, ci95High, probability, pAdjusted
     ]);
 }
