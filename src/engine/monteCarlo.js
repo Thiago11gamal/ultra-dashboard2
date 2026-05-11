@@ -118,7 +118,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     }
 
     let h = 0xdeadbeef;
-    h = Math.imul(h ^ Math.floor(safeMean * 10000), 2654435761);
+    h = Math.imul(h ^ (Math.floor(safeMean * 10000) >>> 0), 2654435761);
     h = Math.imul(h ^ Math.floor(safeSD * 10000), 1597334677);
     const catStr = String(categoryName || '');
     if (catStr) {
@@ -190,7 +190,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const phiMax    = normalCDF_complement((maxScore - safeMean) / safeSD); 
     const phiTarget = normalCDF_complement((effectiveTarget - safeMean) / safeSD); 
     
-    const truncNormFactor = Math.max(1e-10, phiMin - phiMax);
+    const truncNormFactor = phiMin - phiMax;
     const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
 
     let analyticalProbability;
@@ -199,7 +199,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     } else if (effectiveTarget <= minScore) {
         analyticalProbability = 100;
     } else {
-        analyticalProbability = truncNormFactor > 1e-18 
+        analyticalProbability = truncNormFactor > 1e-10 
             ? ((clampedPhiTarget - phiMax) / truncNormFactor) * 100 
             : empiricalProbability; 
     }

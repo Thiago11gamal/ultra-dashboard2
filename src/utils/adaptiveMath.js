@@ -7,7 +7,7 @@ export function getConfidenceMultiplier(sampleSize, options = {}) {
     const allowFractional = options?.allowFractional === true;
     const nBase = Number.isFinite(nRaw) ? nRaw : 1;
     const n = Math.max(1, allowFractional ? nBase : Math.round(nBase));
-    const df = Math.max(1, n - 1);
+    const df = Math.max(allowFractional ? 0.1 : 1, n - 1);
 
     // t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
     // Evita subestimar IC quando n é baixo.

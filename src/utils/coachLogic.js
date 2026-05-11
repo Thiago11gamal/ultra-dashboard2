@@ -192,7 +192,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     try {
         // 1. Weighted Average Score
         const catNormalized = normalize(safeCategory?.name || "Sem Nome");
-        const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject) === catNormalized);
+        const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject || "") === catNormalized);
         relevantSimulados.sort((a, b) => normalizeDate(b.date || b.createdAt).getTime() - normalizeDate(a.date || a.createdAt).getTime());
         const simuladosWithMaxScore = relevantSimulados;
 
@@ -784,9 +784,12 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             let topicTotal = parseInt(t.total, 10) || 0;
             let topicCorrect = Math.min(topicTotal, parseInt(t.correct, 10) || 0);
 
-            if (t.score != null && topicTotal === 0) {
+            const isTotalMissing = t.total === undefined || t.total === null || String(t.total).trim() === "";
+            if (t.score != null && isTotalMissing) {
                 topicTotal = getSyntheticTotal(maxScore);
                 topicCorrect = Math.round((getSafeScore(t, maxScore) / maxScore) * topicTotal);
+            } else if (topicTotal === 0) {
+                return; // 🎯 BUG 3 FIX: Ignorar tópicos com volume zero explícito para não poluir estatísticas
             }
 
             topicMap[name].total += topicTotal;
@@ -1167,8 +1170,9 @@ export function getBestTask(categories, excludeTaskId = null) {
 
             // Fator 2: Curva de Esquecimento (Dias sem estudar)
             const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
-            if (studiedAt) {
-                const days = Math.max(0, (Date.now() - new Date(studiedAt).getTime()) / (1000 * 60 * 60 * 24));
+            const parsedTime = new Date(studiedAt).getTime();
+            if (studiedAt && !isNaN(parsedTime)) {
+                const days = Math.max(0, (Date.now() - parsedTime) / (1000 * 60 * 60 * 24));
                 // Se a categoria tiver dados de retenção, use-os. 
                 // Caso contrário, use uma curva de decaimento contínua e não um teto fixo (30).
                 const urgenciaPorEsquecimento = 40 * (1 - Math.exp(-0.05 * days));

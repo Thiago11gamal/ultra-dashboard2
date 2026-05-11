@@ -119,7 +119,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
             const normalizedScore = getSafeScore(h, maxScore);
             const pct = Math.min(1, Math.max(0, normalizedScore / safeMaxScore));
-            if (total > 0 && correct === 0 && Number.isFinite(normalizedScore) && normalizedScore > 0) {
+            if (total > 0 && correct === 0 && Number.isFinite(normalizedScore) && (normalizedScore / safeMaxScore) > 0.05) {
                 correct = Math.round(pct * total);
             } else if (total === 0 && Number.isFinite(normalizedScore)) {
                 total = getSyntheticTotal(safeMaxScore);
@@ -282,10 +282,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         });
 
         // Estimador imparcial de variância ponderada (Kish / Reliability weights)
-        // FIX-KISH4: quando um exame domina em volume (ex: 1000 vs 10 questões),
-        // sumW - sumW2/sumW → 0, causando sampleVar = Infinity.
-        // Aplicar floor defensivo no denominador preserva a estimativa correta na maioria dos casos.
-        const kishDenom = sumW - (sumW2 / sumW);
+        const kishDenom = Math.max(1e-4, sumW - (sumW2 / sumW));
         const sampleVar = sumW > 0 && kishDenom > 1e-6
             ? wVarSum / kishDenom
             : wVarSum / Math.max(1e-6, sumW * 0.01);
