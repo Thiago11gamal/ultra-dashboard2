@@ -456,6 +456,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                         console.error('Failed to sync state from localStorage:', error);
                     }
                     break;
+
+                case 'TOGGLE_MUTE':
+                    setIsMuted(event.data.isMuted);
+                    break;
             }
         };
 

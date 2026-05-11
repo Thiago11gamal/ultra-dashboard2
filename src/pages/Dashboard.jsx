@@ -66,15 +66,18 @@ export default function Dashboard() {
             // Set studying status garantindo que opera apenas no concurso ativo
             setData(draft => {
                 if (draft.categories) {
-                    draft.categories.forEach(c => {
-                        (c.tasks || []).forEach(t => {
-                            if (t.id === tsk.id && c.id === cat.id) {
-                                t.status = 'studying';
-                            } else if (t.status === 'studying') {
-                                t.status = undefined;
-                            }
-                        });
-                    });
+                    const category = draft.categories.find(c => c.id === cat.id);
+                    if (category) {
+                        const task = category.tasks?.find(t => t.id === tsk.id);
+                        if (task) {
+                            draft.categories.forEach(c => {
+                                (c.tasks || []).forEach(t => {
+                                    if (t.status === 'studying') t.status = undefined;
+                                });
+                            });
+                            task.status = 'studying';
+                        }
+                    }
                 }
             });
             const taskLabel = tsk.title || tsk.text || 'Estudo';

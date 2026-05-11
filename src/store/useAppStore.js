@@ -67,9 +67,12 @@ const idbStorage = {
     setItem: (name, value) => {
         // --- PATCH: Backup síncrono imediato ---
         try {
-            localStorage.setItem(name, value);
-        } catch {
-            console.warn("[Storage] Backup síncrono falhou.");
+            // Verificar tamanho aproximado antes de tentar gravar (5MB limite padrão)
+            if (value.length < 4500000) { 
+                localStorage.setItem(name, value);
+            }
+        } catch (e) {
+            console.warn("[Storage] LocalStorage cheio. Mantendo apenas no IndexedDB.");
         }
 
         if (saveTimeout) clearTimeout(saveTimeout);

@@ -713,49 +713,26 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 // Cache keyed by `category` object identity.
 // Entries: Map<simulados_hash_string, topics_array>
 // Usando WeakMap: o GC coleta automaticamente quando `category` é removida do estado.
-const _topicsCache = new WeakMap();
+const _topicsCache = new Map(); // Usar Map com chave composta: `${catId}-${hashSimulados}`
 
-function _getTopicsHash(simulados, maxScore) {
-    if (!simulados?.length) return `empty-${maxScore}`;
-    // HASH-DATA FIX: incorpora score+subject+ordem para evitar cache stale com datas iguais.
-    let checksum = 0;
-    simulados.forEach((s, idx) => {
-        const date = String(s?.date || s?.createdAt || '');
-        const subject = String(s?.subject || '');
-        const score = Number.isFinite(Number(s?.score)) ? Number(s.score) : Number(getSafeScore(s, maxScore));
-        const token = `${date}|${subject}|${score.toFixed(3)}`;
-        let tokenSum = 0;
-        for (let i = 0; i < token.length; i++) tokenSum += token.charCodeAt(i);
-        checksum += tokenSum * (idx + 1);
-    });
-    return `hash-${checksum}-${simulados.length}-${maxScore}`;
-}
-
-// Wrapper público — mantém a assinatura original
-const _buildSortedTopics = (category, simulados = [], maxScore = 100) => {
-    // Verificar cache por identidade de `category` + hash dos simulados
-    let catCache = _topicsCache.get(category);
+function _buildSortedTopics(category, simulados = [], maxScore = 100) {
+    const catId = category.id || category.name;
     const hash = _getTopicsHash(simulados, maxScore);
+    const cacheKey = `${catId}-${hash}`;
 
-    if (catCache) {
-        const cached = catCache.get(hash);
-        if (cached) return cached;
-    } else {
-        catCache = new Map();
-        _topicsCache.set(category, catCache);
-    }
+    if (_topicsCache.has(cacheKey)) return _topicsCache.get(cacheKey);
 
     const result = _buildSortedTopicsImpl(category, simulados, maxScore);
-
-    // Evitar acúmulo: cada categoria guarda no máximo 3 hashes diferentes
-    // (ex: maxScore mudou ou simulados cresceram)
-    if (catCache.size >= 3) {
-        const firstKey = catCache.keys().next().value;
-        catCache.delete(firstKey);
+    
+    // Evitar acúmulo: Limpeza periódica se o cache crescer demais (> 200 entradas)
+    if (_topicsCache.size > 200) {
+        const firstKey = _topicsCache.keys().next().value;
+        _topicsCache.delete(firstKey);
     }
-    catCache.set(hash, result);
+    
+    _topicsCache.set(cacheKey, result);
     return result;
-};
+}
 
 // Renomear a implementação atual de _buildSortedTopics para _buildSortedTopicsImpl
 // (o corpo da função permanece 100% idêntico — apenas o nome muda)
@@ -777,7 +754,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         
         // FIX BUG 7: Aplicar meia-vida de ~45 dias aos dados dos tópicos (K ≈ 0.015)
         const daysOld = Math.max(0, (todayForTopics.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
-        const timeWeight = Math.max(0.05, Math.exp(-0.015 * daysOld));
+        const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));
 
         const topics = entry.topics || [];
         topics.forEach(t => {
