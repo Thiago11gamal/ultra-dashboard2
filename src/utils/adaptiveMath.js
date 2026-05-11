@@ -158,11 +158,11 @@ export function computeAdaptiveSignal(scores = []) {
         ? (absDev[absDev.length / 2 - 1] + absDev[absDev.length / 2]) / 2
         : absDev[Math.floor(absDev.length / 2)];
     const robustSigma = Math.max(1e-6, 1.4826 * mad);
-    const robustSigmaK = 2.5 * robustSigma;
+    const huberK = 2.5 * robustSigma;
 
     const weightedVariance = finiteScores.reduce((acc, s, i) => {
         const d = s - weightedMean;
-        const clipped = Math.max(-robustSigmaK, Math.min(robustSigmaK, d));
+        const clipped = Math.max(-huberK, Math.min(huberK, d));
         return acc + (weighted[i] * clipped * clipped);
     }, 0) / kishDenom; // Aplicar a divisão de Kish aqui!
     const sd = Math.sqrt(Math.max(0, weightedVariance));

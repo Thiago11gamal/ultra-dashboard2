@@ -60,7 +60,7 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
     // Garantia absoluta de tipo e limite para correlação
     const validRho = Number.isFinite(rho) && rho !== null ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
 
-    const rawWeights = stats.map(cat => toFiniteNonNegative(cat?.weight) / effectiveTotalWeight);
+    const rawWeights = stats.map(cat => toFiniteNonNegative(cat?.weight));
     const adjustedSDs = stats.map(cat => toFiniteSd(cat?.sd));
 
     // SAFETY: If caller passes inconsistent totalWeight, force normalized simplex weights (Σwi=1).
@@ -68,7 +68,7 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
     const sumRawWeights = rawWeights.reduce((acc, w) => acc + w, 0);
     if (!Number.isFinite(sumRawWeights) || sumRawWeights <= 0) return 0;
     
-    // FIX BUG 1: Permitir manter a escala real do edital (ex: peso 3 = variância 9x maior)
+    // FIX BUG-VAR-01: Adicionar opção para preservar a escala real (edital)
     const weights = preserveScale 
         ? rawWeights 
         : rawWeights.map(w => w / sumRawWeights); // Fallback para simplex

@@ -459,9 +459,7 @@ export function monteCarloSimulation(
     // 3. Simulação de Monte Carlo
     const results = [];
     // Seed fixa baseada na data e histórico para determinismo intra-dia
-    // FIX-DETERMINISM: Removido baselineScore da semente para que cenários (base, cons, opt)
-    // usem a mesma sequência de ruído, permitindo comparação direta estável.
-    // FIX: Semente baseada no conteúdo do último registro para evitar saltos temporais
+    // FIX BUG-LOGIC: Semente baseada no conteúdo do último registro para determinismo real
     const lastEntry = sortedHistory[sortedHistory.length - 1];
     const seedStr = `${lastEntry.date || lastEntry.createdAt}-${getSafeScore(lastEntry, maxScore)}-${sortedHistory.length}`;
     let seedValue = 0;
@@ -508,16 +506,13 @@ export function monteCarloSimulation(
         let currentSimScore = baselineScore;
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
-
-            // FIX BUG-MATH-02: O alvo de reversão deve ser ESTACIONÁRIO na média ponderada
-            // ouTarget já contém o blend entre o baseline e a história.
-            // Remover o drift do alvo para que a reversão atue como um "freio" na queda.
+            // FIX: Alvo de reversão não segue mais o drift diário (evita double-dipping)
             const meanReversion = thetaOU * (ouTarget - currentSimScore) * 1;
-
+            
             let shock = (safeResiduals.length > 5 && rng() > 0.3)
                 ? safeResiduals[Math.floor(rng() * safeResiduals.length)]
                 : normalRng() * dailyVolatility;
-
+            
             currentSimScore += driftEffect + meanReversion + shock;
         }
 
