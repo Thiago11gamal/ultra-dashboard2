@@ -50,6 +50,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     displayDate,
                     fullDate,
                     mean,
+                    projectedMean: Number.isFinite(Number(d.projectedMean)) ? Math.max(0, Math.min(maxScore, Number(d.projectedMean))) : mean,
                     probability: Math.max(0, Math.min(100, Number.isFinite(Number(d.probability)) ? Number(d.probability) : 0)),
                     ciRange: [low, high]
                 };
@@ -100,9 +101,20 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 {unit === 'horas' ? formatDuration(pointMean) : unit === '%' ? formatValue(pointMean) : pointMean} <span className="text-sm text-slate-500 ml-1">{unit}</span>
                             </span>
                         </div>
-
                         <div className="mt-2 bg-black/40 rounded-none border border-white/5 p-2">
                             <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-bold text-slate-400">Hoje:</span>
+                                <span className="text-[10px] font-mono text-white">
+                                    {unit === 'horas' ? formatDuration(pointMean) : `${formatValue(pointMean)}${unit}`}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-bold text-indigo-400">Projeção:</span>
+                                <span className="text-[10px] font-mono text-indigo-300">
+                                    {unit === 'horas' ? formatDuration(dataPoint.projectedMean) : `${formatValue(dataPoint.projectedMean)}${unit}`}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center mb-1 border-t border-white/5 pt-1 mt-1">
                                 <span className="text-[10px] font-bold text-slate-400">Cone (95% CI):</span>
                                 <span className="text-[10px] font-mono text-white">
                                     {unit === 'horas' ? `${formatDuration(pointLow)} ~ ${formatDuration(pointHigh)}` : `${formatValue(pointLow)}${unit} ~ ${formatValue(pointHigh)}${unit}`}
@@ -262,7 +274,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 isAnimationActive={true}
                             />
 
-                            {/* Linha Principal da Média Projetada */}
+                            {/* Linha da Média Atual (HOJE) */}
                             <Area
                                 type="monotone"
                                 dataKey="mean"
@@ -271,6 +283,18 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 fill="none"
                                 activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa', className: "animate-pulse shadow-lg" }}
                                 dot={scenarioAdjustedData.length < 15 ? { r: 4, strokeWidth: 2, fill: '#0f172a', stroke: '#60a5fa' } : false}
+                            />
+
+                            {/* Linha da Projeção (FUTURO) - Tracejada */}
+                            <Area
+                                type="monotone"
+                                dataKey="projectedMean"
+                                stroke="#818cf8"
+                                strokeWidth={2}
+                                strokeDasharray="5 5"
+                                fill="none"
+                                isAnimationActive={true}
+                                dot={false}
                             />
                         </AreaChart>
                     </ResponsiveContainer>

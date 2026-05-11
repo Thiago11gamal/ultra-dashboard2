@@ -512,32 +512,13 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     
     const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
     const projectedMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));
-    const rawCurrentMean = simulationData?.data?.currentMean;
-    const currentMean = Number.isFinite(Number(rawCurrentMean))
-        ? Number(rawCurrentMean)
-        : (Number.isFinite(Number(pureStatsData?.bayesianMean)) ? Number(pureStatsData.bayesianMean) : projectedMean);
+    
+    // 🎯 RIGOR FIX: 'Hoje' vem do Nível Bayesiano estável. 'Projeção' vem da simulação de futuro.
+    const currentMean = Number.isFinite(Number(pureStatsData?.bayesianMean)) 
+        ? Number(pureStatsData.bayesianMean) 
+        : (simulationData?.data?.currentMean ?? projectedMean);
 
-    useEffect(() => {
-        const rawProb = Number(simulationData?.data?.probability);
-        const prob = Number.isFinite(rawProb) ? rawProb : 0;
-        const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
 
-        if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling && activeId) {
-            const today = getDateKey(new Date());
-            const currentProb = Number(prob.toFixed(2));
-            const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
-            const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
-            const currentTarget = Number(debouncedTarget.toFixed(2));
-            const existingProb = existing?.probability ?? existing?.prob ?? 0;
-            const probChanged = !existing || Math.abs(existingProb - currentProb) > 0.05;
-            const targetChanged = !existing || existing.target !== currentTarget;
-
-            if (probChanged || targetChanged) {
-                // SALVANDO RAW PROB PARA EVITAR FEEDBACK LOOP E DRIFT BAYESIANO
-                recordMonteCarloSnapshot(today, currentProb, { mean: Number(rawCurrentMean.toFixed(2)), target: currentTarget });
-            }
-        }
-    }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot, timeIndex, timelineDates, rawCurrentMean, debouncedTarget, activeId]);
 
     const derivedMetrics = useMemo(() => {
         let sd = simulationData?.data?.sd ?? 0;
@@ -612,6 +593,22 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         };
     }, [simulationData?.data, maxScore, minScore, debouncedTarget, projectedMean, calibrationPenalty, currentMean, statsData, timelineDates, probability]);
 
+    // 🎯 RIGOR FIX: Gravação delegada para garantir que todos os dados derivados (CIs) estejam prontos
+    useMonteCarloHistoryRecorder({
+        activeId,
+        simulationData,
+        timeIndex,
+        timelineDates,
+        effectiveSimulateToday,
+        debouncedTarget,
+        currentMean,
+        projectedMean,
+        probability,
+        ci95Low: derivedMetrics.ci95Low,
+        ci95High: derivedMetrics.ci95High,
+        recordMonteCarloSnapshot
+    });
+
     return {
         statsData, // Contains calibrated variances
         simulationData: effectiveSimulationData,
@@ -629,4 +626,46 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         setEqualWeightsMode,
         calibrationPenalty // Expose penalty for potential UI badges
     };
+}
+
+// 🎯 EFFECT: Persistência de Histórico de Projeção (Snapshots)
+function useMonteCarloHistoryRecorder({ 
+    activeId, simulationData, timeIndex, timelineDates, effectiveSimulateToday, 
+    debouncedTarget, currentMean, projectedMean, probability, ci95Low, ci95High,
+    recordMonteCarloSnapshot 
+}) {
+    useEffect(() => {
+        const rawProb = Number(simulationData?.data?.probability);
+        const prob = Number.isFinite(rawProb) ? rawProb : 0;
+        const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
+
+        if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling && activeId) {
+            const today = getDateKey(new Date());
+            const currentProb = Number(prob.toFixed(2));
+            const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
+            const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
+            const currentTarget = Number(debouncedTarget.toFixed(2));
+            const existingProb = existing?.probability ?? existing?.prob ?? 0;
+            const targetChanged = !existing || existing.target !== currentTarget;
+            
+            // 🎯 VERIFICAÇÃO CUIDADOSA: Só atualizar se o dado for NOVO ou se as notas no banco de dados estiverem colapsadas (iguais)
+            const needsUpdate = !existing || existing.ci95Low === undefined || Math.abs(existing.mean - (existing.ci95Low || 0)) < 0.01;
+            const probChanged = existing && Math.abs(existingProb - currentProb) > 0.05;
+
+            if (probChanged || targetChanged || needsUpdate) {
+                // SALVANDO SNAPSHOT COMPLETO: HOJE, FUTURO E INCERTEZA
+                recordMonteCarloSnapshot(today, currentProb, { 
+                    mean: Number(currentMean.toFixed(2)), 
+                    projectedMean: Number(projectedMean.toFixed(2)),
+                    ci95Low: Number(ci95Low.toFixed(2)),
+                    ci95High: Number(ci95High.toFixed(2)),
+                    target: currentTarget 
+                });
+            }
+        }
+    }, [
+        simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, 
+        recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, projectedMean, 
+        debouncedTarget, activeId, ci95Low, ci95High, probability
+    ]);
 }
