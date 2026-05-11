@@ -403,7 +403,13 @@ export function computeAR1Coefficient(residuals) {
   const rho = denominator > 1e-10 ? numerator / denominator : 0;
   const clampedRho = Math.max(-1, Math.min(1, rho));
 
-  return { rho: Number(clampedRho.toFixed(3)), significant: Math.abs(clampedRho) > 0.25 };
+  const n = centered.length;
+  const bartlettThreshold = 1.96 / Math.sqrt(Math.max(1, n));
+
+  return { 
+      rho: Number(clampedRho.toFixed(3)), 
+      significant: Math.abs(clampedRho) > bartlettThreshold 
+  };
 }
 
 export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {

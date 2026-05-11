@@ -14,6 +14,7 @@ import {
     clearMcCache,
     simuladosToHistory
 } from './coachAdaptive.js';
+import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
 export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights, clearMcCache, runCoachMonteCarlo };
 
 
@@ -431,7 +432,16 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const completedTasks = allTasks.filter(t => t?.completed).length;
         const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0.5;
         const inefficiency = Math.max(0, 1 - completionRate);
-        const efficiencyBridgeBoost = cfg.EFFICIENCY_MAX * inefficiency * (hasData ? 1 : 0.4);
+        
+        let empiricalTrust = 1.0;
+        if (!hasData) {
+            // Avalia o histórico global de disciplina do utilizador
+            const globalSignal = computeAdaptiveCoachWeight(lastNScores); 
+            // Garante um piso de 20% e um teto de 100% consoante a estabilidade real do aluno
+            empiricalTrust = Math.max(0.2, globalSignal.confidenceWeight);
+        }
+
+        const efficiencyBridgeBoost = cfg.EFFICIENCY_MAX * inefficiency * empiricalTrust;
 
         // E. Burnout detection
         const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
@@ -463,7 +473,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const activeCategories = (options.allCategories || []).filter(c => (c?.tasks || []).length > 0);
         const activeCount = activeCategories.length > 0 ? activeCategories.length : 1;
         const MS_PER_DAY = 24 * 60 * 60 * 1000;
-        const windowStart = normalizeDate(new Date()).getTime() - (14 * MS_PER_DAY);
+        
+        const currentLambda = mcAdaptive?.decayK || 0.03; 
+        // Meia vida = ln(2) / lambda. Multiplicamos por 2 para obter um ciclo completo de análise.
+        const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
+
+        const windowStart = normalizeDate(new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY);
         const recentAllLogs = (studyLogs || []).filter(log => normalizeDate(log?.date).getTime() >= windowStart);
         const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const totalRecentMinutesCat = recentAllLogs
