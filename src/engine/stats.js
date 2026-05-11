@@ -26,7 +26,9 @@ function getDynamicPriorSD(history, maxScore) {
     if (!history || history.length < 5) return maxScore * 0.15; // Fallback inicial seguro
     const scores = history.map(h => getSafeScore(h, maxScore));
     const globalMean = mean(scores);
-    const globalVar = scores.reduce((acc, s) => acc + Math.pow(s - globalMean, 2), 0) / scores.length;
+    const globalVar = scores.length > 1
+        ? scores.reduce((acc, s) => acc + Math.pow(s - globalMean, 2), 0) / (scores.length - 1)
+        : 0;
     
     const empiricalSD = Math.sqrt(globalVar);
     return Math.max(maxScore * 0.05, Math.min(maxScore * 0.20, empiricalSD));

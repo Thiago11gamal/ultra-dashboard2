@@ -420,6 +420,23 @@ export function monteCarloSimulation(
     // Blend: 70% média histórica + 30% baseline recente (para não ignorar completamente a tendência recente)
     const ouTarget = 0.7 * historicalWeightedMean + 0.3 * baselineScore;
 
+    // BUG-MATH-01 FIX: Normalização da Volatilidade Diária
+    // A volatilidade clássica (SD) é total. Para o laço diário do Monte Carlo, 
+    // precisamos da taxa diária (SD_daily = SD_total / sqrt(gap_médio)).
+    let medianGap = 7;
+    if (sortedHistory.length >= 2) {
+        const gaps = [];
+        for (let j = 1; j < sortedHistory.length; j++) {
+            const g = (new Date(sortedHistory[j].date || sortedHistory[j].createdAt) - new Date(sortedHistory[j - 1].date || sortedHistory[j - 1].createdAt)) / 86400000;
+            gaps.push(Math.max(0.5, g));
+        }
+        gaps.sort((a, b) => a - b);
+        medianGap = gaps.length % 2 === 0
+            ? (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2
+            : gaps[Math.floor(gaps.length / 2)];
+    }
+    const dailyVolatility = volatility / Math.sqrt(Math.max(1, medianGap));
+
     for (let i = 0; i < simulations; i++) {
         // Sample epistemic uncertainty (Drift)
         // BUG 1 FIX: Use truncated normal for drift to avoid "black swan" slopes in long projections
@@ -428,13 +445,16 @@ export function monteCarloSimulation(
         let currentSimScore = baselineScore;
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
-            // BUG-MATH-02: Reversão para a média histórica ponderada (ouTarget) em vez de baselineScore
-            const meanReversion = thetaOU * (ouTarget - currentSimScore) * 1;
+            // BUG-MATH-02 FIX: O alvo de reversão deve se mover junto com a tendência (Trend-Stationary O-U)
+            // para evitar o achatamento artificial da curva de projeção (Flatlining).
+            const dynamicOuTarget = ouTarget + (sampledDrift * d);
+            const meanReversion = thetaOU * (dynamicOuTarget - currentSimScore) * 1;
             let shock;
             if (safeResiduals.length > 5 && rng() > 0.3) {
                 shock = safeResiduals[Math.floor(rng() * safeResiduals.length)];
             } else {
-                shock = normalRng() * volatility;
+                // BUG-MATH-01: Usar dailyVolatility em vez da volatilidade total
+                shock = normalRng() * dailyVolatility;
             }
             currentSimScore += driftEffect + meanReversion + shock;
         }

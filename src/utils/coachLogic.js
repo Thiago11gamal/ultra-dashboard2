@@ -507,7 +507,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let srsBoost = 0;
         let srsLabel = null;
 
-        if (hasData && !recencyUnknown && (daysToExam === null || daysToExam >= 0)) {
+        if (hasData && !recencyUnknown) {
             const srsResult = getSRSBoost(simuladosWithMaxScore, daysSinceLastStudy, maxScore, cfg);
             srsBoost = srsResult.boost;
             srsLabel = srsResult.label;
@@ -542,7 +542,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             + effectiveRecencyMax
             + cfg.INSTABILITY_MAX
             + (cfg.PRIORITY_BOOST + maxSrsBoost) * crunchMultiplier
-            + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE); // headroom MC
+            + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE) // headroom MC
+            + cfg.EFFICIENCY_MAX // headroom Efficiency Bridge
+            + (cfg.EFFICIENCY_MAX * 2.0); // headroom Balance Bridge (underAllocation * 2.0)
 
         // FIX: Scale boosts by crunchMultiplier to prevent dilution when the exam is near
         const currentPriorityBoost = priorityBoost * crunchMultiplier;
@@ -957,10 +959,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const weakTopics = getWeakestTopicsList(cat, simulados, maxScore, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
 
-        // --- PATCH: Limita as iterações aos tópicos reais encontrados, 
-        // mas garante 1 iterada mínima para aplicar o Fallback Geral.
-        const maxIterations = Math.max(1, weakTopics.length);
-        const iterations = Math.min(tasksPerCategory, maxIterations);
+        // BUG ARQUITETURAL FIX: O número de iterações deve obedecer estritamente à cota solicitada,
+        // não ao tamanho dos tópicos fracos, para permitir o acionamento do Fallback Geral.
+        const iterations = tasksPerCategory;
 
         for (let i = 0; i < iterations; i++) {
             const weakTopic = weakTopics[i] || null;
@@ -970,14 +971,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             // Unique ID per topic string to avoid react-beautiful-dnd collisions
             const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '') + weakTopic.total) : `geral-${i}`;
 
-            // ─────────────────────────────────────────────────────────
-            // MC-07: ALERTAS DE MONTE CARLO (checados primeiro)
-            // ─────────────────────────────────────────────────────────
-
-            // 🚨 Zona de Perigo: Prob < Danger Adaptativo
+            // 🚨 BUG LÓGICO/UX FIX: Implementar hierarquia de prioridades com else if
+            // para evitar inundação de múltiplos alertas para a mesma categoria.
+            
+            // 1. Zona de Perigo: Prob < Danger Adaptativo
             const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
+            const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
+
             if (mc && mc.probabilityRaw < adaptiveDanger && i === 0) {
-                // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-danger-${uniqueIdSuffix}`,
@@ -988,15 +989,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Monte Carlo — Zona de Perigo",
                         details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
                         metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
+                        monteCarlo: mc,
                         verdict: `Probabilidade crítica detectada (${cfg.MC_SIMULATIONS} simulações). Abandone estudos passivos e mude de método imediatamente.`
                     }
                 });
-            }
-
-            // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
-            if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw >= cfg.MC_PROB_DANGER && mc.probabilityRaw < cfg.MC_PROB_SAFE && i === 0) {
-                // BUG-19 FIX: probabilityRaw já está em 0-100
+            } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE && i === 0) {
+                // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-chaos-${uniqueIdSuffix}`,
@@ -1007,16 +1005,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Monte Carlo — Caos Estatístico",
                         details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)} (limiar: ${(cfg.MC_VOLATILITY_HIGH * (maxScore / 100)).toFixed(2)}). Probabilidade atual: ${probPct}%.`,
                         metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
+                        monteCarlo: mc,
                         verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível. Reduza as oscilações."
                     }
                 });
-            }
-
-            // 🏆 Cruzeiro Seguro: Prob > Safe Adaptativo
-            const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
-            if (mc && mc.probabilityRaw >= adaptiveSafe && i === 0) {
-                // BUG-19 FIX: probabilityRaw já está em 0-100
+            } else if (mc && mc.probabilityRaw >= adaptiveSafe && i === 0) {
+                // 🏆 Cruzeiro Seguro: Prob > Safe Adaptativo
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-safe-${uniqueIdSuffix}`,
@@ -1027,13 +1021,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Monte Carlo — Cruzeiro Seguro",
                         details: `${probPct}% de probabilidade de atingir ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
                         metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
+                        monteCarlo: mc,
                         verdict: "Mantenha o ritmo atual. Manutenção leve é suficiente para proteger essa posição."
                     }
                 });
-            }
-
-            if (cat.urgency?.details?.srsLabel && i === 0) {
+            } else if (cat.urgency?.details?.srsLabel && i === 0) {
+                // 🧠 SRS Alert
                 allGeneratedTasks.push({
                     id: `${cat.id}-srs-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
@@ -1043,14 +1036,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Revisão Espaçada (SRS) Ativada",
                         label: cat.urgency.details.srsLabel,
                         metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
+                        monteCarlo: mc,
                         verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
                     }
                 });
-            }
-
-            const trapCheck = performDeepCheck(cat);
-            if (trapCheck.isTrap && i === 0) {
+            } else if (performDeepCheck(cat).isTrap && i === 0) {
+                // ⚠️ Method Trap
                 allGeneratedTasks.push({
                     id: `${cat.id}-trap-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}⚠️ ANOMALIA DE MÉTODO: Teoria excedente. Foco TOTAL em processamento de questões.`,
@@ -1060,13 +1051,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Detector de Pseudo-Estudo",
                         details: "Alta carga horária com baixíssimo volume de exercícios.",
                         metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
+                        monteCarlo: mc,
                         verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
                     }
                 });
-            }
-
-            if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
+            } else if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
+                // 🚨 Weak Topic
                 let taskTitle = "";
                 let reasonStr = "";
                 if (weakTopic.isUntested) {
@@ -1088,7 +1078,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: `Tópico Selecionado: ${weakTopic.name}`,
                         details: reasonStr,
                         metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
+                        monteCarlo: mc,
                         categoryDetails: {
                             "Urgência Total": Math.round(cat.urgency.score),
                             ...cat.urgency.details.components
@@ -1102,18 +1092,18 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         }
                     }
                 });
-            } else if (i === 0) {
-                // BUG FIX: O Fallback Geral só deve entrar na 1ª iteração, 
-                // e APENAS se não houver um tópico fraco explícito cobrindo a quota.
+            } else {
+                // ⚠️ BUG-LÓGICO FIX: Fallback Geral "Fantasma".
+                // Se nenhum tópico fraco foi selecionado, garantimos o preenchimento da quota.
                 allGeneratedTasks.push({
-                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${safeUUID}`,
-                    text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões gerais`,
+                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${safeUUID}-it${i}`,
+                    text: `${cat.name}: ${topicLabel}Revisão Geral Complementar (Volume ${i + 1})`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
                         reason: "Revisão Geral Complementar",
                         metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
+                        monteCarlo: mc,
                         categoryDetails: {
                             "Total Urgency": Math.round(cat.urgency.score),
                             ...cat.urgency.details.components
