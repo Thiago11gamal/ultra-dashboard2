@@ -397,8 +397,10 @@ export function monteCarloSimulation(
 
     // 3. Simulação de Monte Carlo
     const results = [];
-    // Seed fixa baseada na data para determinismo intra-dia
-    const seedStr = `${new Date().toISOString().split('T')[0]}-${sortedHistory.length}-${baselineScore}`;
+    // Seed fixa baseada na data e histórico para determinismo intra-dia
+    // FIX-DETERMINISM: Removido baselineScore da semente para que cenários (base, cons, opt)
+    // usem a mesma sequência de ruído, permitindo comparação direta estável.
+    const seedStr = `${new Date().toISOString().split('T')[0]}-${sortedHistory.length}`;
     let seedValue = 0;
     for (let i = 0; i < seedStr.length; i++) seedValue = (seedValue << 5) - seedValue + seedStr.charCodeAt(i);
     const rng = mulberry32(Math.abs(seedValue));
