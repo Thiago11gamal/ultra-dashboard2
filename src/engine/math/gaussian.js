@@ -248,3 +248,43 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
     // FIX NUMÉRICO: Clamp garantindo que o retorno jamais quebre os bounds por erro do IEEE 754
     return Math.max(min, Math.min(max, rawScore));
 }
+
+/**
+ * 💡 Decomposição de Cholesky (A = L * L^T)
+ * Converte um array de ruídos normais independentes em ruídos correlacionados.
+ */
+export function choleskyDecomposition(matrix) {
+    const n = matrix.length;
+    const lower = Array(n).fill(0).map(() => Array(n).fill(0));
+
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j <= i; j++) {
+            let sum = 0;
+            if (j === i) {
+                for (let k = 0; k < j; k++) sum += Math.pow(lower[j][k], 2);
+                lower[j][j] = Math.sqrt(Math.max(0, matrix[j][j] - sum));
+            } else {
+                for (let k = 0; k < j; k++) sum += (lower[i][k] * lower[j][k]);
+                // Se a diagonal for 0, previne divisão por zero
+                lower[i][j] = lower[j][j] > 0 ? (matrix[i][j] - sum) / lower[j][j] : 0;
+            }
+        }
+    }
+    return lower;
+}
+
+/**
+ * 💡 Aplica a matriz inferior L por um vetor de ruídos Z do Monte Carlo
+ * Ex: Pega um choque neutro da sorte diária e espalha ele respeitando 
+ * a correlação entre as disciplinas.
+ */
+export function applyCovariance(choleskyLower, zVector) {
+    const n = zVector.length;
+    const result = Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j <= i; j++) {
+            result[i] += choleskyLower[i][j] * zVector[j];
+        }
+    }
+    return result;
+}

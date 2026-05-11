@@ -66,17 +66,13 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     let alpha = alpha0;
     let beta = beta0;
-    // BUG-MATH-04 FIX: maxAlphaEver agora é limitado a MAX_EFFECTIVE_N * p.
-    // Antes, crescia monotonicamente sem limite, impedindo o modelo de esquecer dados obsoletos.
-    // Ex: alpha histórico=500 → floor=150 → 2 anos sem estudar, sistema ainda mantinha alpha≥150.
     let maxAlphaEver = alpha0;
-    const MAX_ALPHA_CAP = 250; // Alinhado com MAX_EFFECTIVE_N
-
+    const MAX_ALPHA_CAP = 250; 
     const now = Date.now();
-    // NOTE: DECAY_FACTOR = 0.985 ≈ exp(-0.015) – consistente com λ=0.015 (meia-vida ~46 dias)
 
     if (history && history.length > 0) {
         const sortedHistory = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+        
         for (let i = 0; i < sortedHistory.length; i++) {
             const h = sortedHistory[i];
             let total = Number(h.total) || 0;
@@ -94,27 +90,30 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             if (total < 1) continue;
 
             const safeCorrect = Math.max(0, Math.min(total, correct));
-            const acertosHoje = safeCorrect;
-            const errosHoje = total - safeCorrect;
+            
+            // 💡 1. TRI Pseudo-Adaptativa: Multiplicador de Dificuldade
+            // Lê do histórico ou assume peso neutro (1.0)
+            const difficultyWeight = Number.isFinite(Number(h.difficulty)) ? Number(h.difficulty) : 1.0;
+            const acertosHoje = safeCorrect * difficultyWeight;
+            const errosHoje = (total - safeCorrect) * difficultyWeight;
 
-            const DECAY_FACTOR = BAYESIAN_DECAY_FACTOR; 
             const entryDate = new Date(h.date);
             const prevDate = i > 0 ? new Date(sortedHistory[i - 1].date) : entryDate;
             const gapDays = Math.max(0, Math.floor((entryDate - prevDate) / (1000 * 60 * 60 * 24)));
-            const entryDecay = i > 0 ? Math.pow(DECAY_FACTOR, gapDays) : 1.0;
             
-            // 🎯 DRIFT BAYESIANO (Fix): Preservar o ratio atual durante o decaimento.
-            // Em vez de decair alpha e beta independentemente para alpha0/beta0,
-            // reduzimos o "peso" (n) da evidência mantendo a proporção de acertos.
-            // BUG-MATH-04: Limitar maxAlphaEver para evitar floor de retenção infinito.
+            // 💡 2. Decaimento Bayesiano Dinâmico (Curva de Ebbinghaus)
+            // A taxa de esquecimento (lambda) cai conforme o aluno revisa mais vezes
+            const baseLambda = 0.03;
+            const lambda = baseLambda * Math.exp(-0.15 * i); 
+            const entryDecay = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
+            
+            // Retenção do Ratio Bayesiano
             const cappedMaxAlpha = Math.min(maxAlphaEver, MAX_ALPHA_CAP);
             const retentionFloor = cappedMaxAlpha * 0.3;
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
                 const currentP = alpha / nBeforeDecay;
                 
-                // AMNÉSIA BAYESIANA: Limita o decaimento assintótico de N 
-                // para que alpha (N * P) nunca caia abaixo do piso de retenção.
                 const minN = retentionFloor / Math.max(0.01, currentP);
                 const nAfterDecay = Math.max(minN, nBeforeDecay * entryDecay);
                 
@@ -125,16 +124,17 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             alpha += acertosHoje;
             beta += errosHoje;
             
-            // BUG-MATH-04: Cap maxAlphaEver para não acumular infinitamente
             if (alpha > maxAlphaEver) maxAlphaEver = Math.min(alpha, MAX_ALPHA_CAP);
         }
         
+        // Decaimento final até o dia de hoje
         const lastDate = new Date(sortedHistory[sortedHistory.length - 1].date);
         const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
             const cappedMaxAlpha = Math.min(maxAlphaEver, MAX_ALPHA_CAP);
             const retentionFloor = cappedMaxAlpha * 0.3;
-            const finalDecay = Math.pow(BAYESIAN_DECAY_FACTOR, gapToToday);
+            const finalLambda = 0.03 * Math.exp(-0.15 * sortedHistory.length);
+            const finalDecay = Math.exp(-finalLambda * gapToToday);
             const nBeforeDecay = alpha + beta;
             const currentP = alpha / nBeforeDecay;
             
@@ -148,36 +148,20 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
     const n = alpha + beta;
     if (!Number.isFinite(n) || n <= 0) {
-        return {
-            mean: 0,
-            sd: 0,
-            ciLow: 0,
-            ciHigh: 0,
-            alpha: alpha0,
-            beta: beta0,
-            n: 0,
-        };
+        return { mean: 0, sd: 0, ciLow: 0, ciHigh: 0, alpha: alpha0, beta: beta0, n: 0 };
     }
-    // FIX: Aumentar o teto de confiabilidade para permitir que usuários de alta volumetria
-    // cheguem mais perto dos 100% reais, sem o bloqueio assintótico precoce.
+    
     const MAX_EFFECTIVE_N = 250; 
     const effectiveN = Math.min(n, MAX_EFFECTIVE_N);
 
-    // Média de saída estrita (p real)
     const p = alpha / n;
     const bayesianMean = p * safeMaxScore;
-
     const effectiveAlpha = p * effectiveN;
 
-    // CORREÇÃO B: Intervalo de Confiança Agresti-Coull.
     const z2 = Z_95 * Z_95;
     const n_tilde = effectiveN + z2;
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
-    // BUGFIX: Predictive Variance (Epistemic + Aleatoric)
-    // Prevents Monte Carlo collapse for large N by assuming a finite test size (TAMANHO_PROVA_ESTIMADO).
-    // BUG-BAYES-01 FIX: escalar pelo maxScore real da prova
-    // Antes: hardcoded 100, subestimava variance para provas > 100 pts e superestimava para < 100 pts
     const TAMANHO_PROVA_ESTIMADO = Math.max(20, Math.round(safeMaxScore));
     const epistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;
     const aleatoricVar = (p_tilde * (1 - p_tilde)) / TAMANHO_PROVA_ESTIMADO;
@@ -185,16 +169,12 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const predictiveVariance = epistemicVar + aleatoricVar;
     const effectiveSd = Math.sqrt(Math.max(0, predictiveVariance));
 
-    // Margem ancorada na proporção ajustada
     const marginOfError = Z_95 * effectiveSd * safeMaxScore;
 
-    // BUGFIX M1: Center the CI on p_tilde (the Agresti-Coull estimator) instead of raw mean.
-    // This prevents CI lower bounds from becoming overly negative for low-success histories.
     const centerForCI = p_tilde * safeMaxScore;
     let ciLow = centerForCI - marginOfError;
     let ciHigh = centerForCI + marginOfError;
 
-    // Proteções de Segurança Padrão
     ciHigh = Math.max(bayesianMean, ciHigh);
     ciLow = Math.min(bayesianMean, ciLow);
 
@@ -214,8 +194,6 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         sd: Number((effectiveSd * safeMaxScore).toFixed(2)),
         ciLow: Number(strictLow.toFixed(2)),
         ciHigh: Number(strictHigh.toFixed(2)),
-        // 🎯 SD SQUASH (Fix): Exportar os valores não truncados para o Monte Carlo
-        // evitar subestimação de desvio padrão em alunos de alta performance.
         unclampedLow: ciLow,
         unclampedHigh: ciHigh,
         alpha: alphaOut,

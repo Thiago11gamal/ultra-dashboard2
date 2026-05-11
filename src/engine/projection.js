@@ -168,40 +168,98 @@ export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
     return calculateSlope(history, maxScore, options);
 }
 
-// 📈 projectScore (restaurado para compatibilidade)
+// -----------------------------
+// 💡 Crescimento Logístico (Curva-S)
+// Mapeia pontuações via transformação Logit para prever platôs reais
+// -----------------------------
+export function logisticRegression(history, maxScore = 100, options = {}) {
+    const sorted = getSortedHistory(history);
+    // Se histórico for muito curto, não há como formar uma curva em S
+    if (sorted.length < 4) return { isLogistic: false };
+
+    const now = options.referenceDate || Date.now();
+    let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
+    
+    // Limite assintótico (105% do teto para evitar estourar a matemática de limites)
+    const L = maxScore + (maxScore * 0.05); 
+
+    sorted.forEach(h => {
+        const hDate = h.date || h.createdAt;
+        const t = (now - new Date(hDate).getTime()) / 86400000;
+        const w = Math.exp(-0.08 * t);
+        const x = (new Date(hDate).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000;
+        
+        let y = getSafeScore(h, maxScore);
+        // Protege contra log(0)
+        y = Math.max(maxScore * 0.01, Math.min(maxScore * 0.99, y));
+
+        // Transformação Logit
+        const logitY = Math.log(y / (L - y));
+
+        sumW += w;
+        sumWX += w * x;
+        sumWY += w * logitY;
+        sumWXX += w * x * x;
+        sumWXY += w * x * logitY;
+    });
+
+    const det = sumW * sumWXX - sumWX * sumWX;
+    if (Math.abs(det) < 1e-6) return { isLogistic: false };
+
+    const k = (sumW * sumWXY - sumWX * sumWY) / det; // Taxa de crescimento
+    const logitIntercept = (sumWXX * sumWY - sumWX * sumWXY) / det;
+
+    return { 
+        k, 
+        intercept: logitIntercept, 
+        isLogistic: true, 
+        L, 
+        t0: new Date(sorted[0].date || sorted[0].createdAt).getTime() 
+    };
+}
+
+// -----------------------------
+// Função projectScore Atualizada com Curva-S
+// -----------------------------
 export function projectScore(history, projectDays = 60, minScore = 0, maxScore = 100, options = {}) {
     const sortedHistory = getSortedHistory(history);
     if (!sortedHistory || sortedHistory.length === 0) return { projected: 0, marginOfError: 0 };
 
-    const { slopeStdError } = sortedHistory.length >= 2
-        ? weightedRegression(sortedHistory, 0.08, maxScore, options)
-        : { slope: 0, slopeStdError: 0 };
-
-    const slope = calculateSlope(sortedHistory, maxScore, options);
-
-    const lastRawScore = getSafeScore(sortedHistory[sortedHistory.length - 1], maxScore);
-    let ema = getSafeScore(sortedHistory[0], maxScore); 
-    let currentScore = lastRawScore;
-
-    for (let i = 1; i < sortedHistory.length; i++) {
-        const daysSinceLast = Math.max(1, (new Date(sortedHistory[i].date || sortedHistory[i].createdAt) - new Date(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
-        ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1, daysSinceLast);
-    }
-    currentScore = ema;
-
-    // Relaxed damping: 45 instead of 30, allows more linear projection for longer
-    const effectiveDays = 45 * Math.log(1 + projectDays / 45);
-
-    const projectedScore = currentScore + slope * effectiveDays;
-
     const empiricalSD = calculateVolatility(sortedHistory, maxScore, minScore);
+    
+    // Tenta aplicar o modelo de regressão logística (Curva S)
+    const logisticFit = logisticRegression(sortedHistory, maxScore, options);
 
-    const angularUncertainty = slopeStdError * effectiveDays;
-    const predictionSD = Math.sqrt(
-        Math.pow(angularUncertainty, 2) + 
-        Math.pow(empiricalSD, 2)
-    );
-    const marginOfError = 1.96 * predictionSD; // Z_95 is approx 1.96
+    let projectedScore;
+    const now = options.referenceDate || Date.now();
+
+    if (logisticFit.isLogistic && logisticFit.k > 0) {
+        // 💡 Caminho A: Aplica a Curva-S para prever platô
+        const { k, intercept, L, t0 } = logisticFit;
+        const targetTimeX = ((now - t0) / 86400000) + projectDays;
+        
+        // Reverte o logit para calcular a nota predita: Y = L / (1 + e^-(kX + intercept))
+        const exponent = -(k * targetTimeX + intercept);
+        const safeExponent = Math.max(-50, Math.min(50, exponent)); // Impede overflow
+        
+        projectedScore = L / (1 + Math.exp(safeExponent));
+    } else {
+        // Caminho B: Fallback Clássico Linear se os dados forem caóticos ou muito curtos
+        const slope = calculateSlope(sortedHistory, maxScore, options);
+        let ema = getSafeScore(sortedHistory[0], maxScore); 
+        for (let i = 1; i < sortedHistory.length; i++) {
+            const daysSinceLast = Math.max(1, (new Date(sortedHistory[i].date || sortedHistory[i].createdAt) - new Date(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
+            ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1, daysSinceLast);
+        }
+        const effectiveDays = 45 * Math.log(1 + projectDays / 45);
+        projectedScore = ema + slope * effectiveDays;
+    }
+
+    const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
+    const effectiveDaysForError = 45 * Math.log(1 + projectDays / 45);
+    const angularUncertainty = slopeStdError * effectiveDaysForError;
+    const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(empiricalSD, 2));
+    const marginOfError = 1.96 * predictionSD; 
 
     return {
         projected: Math.max(minScore, Math.min(maxScore, projectedScore)),
