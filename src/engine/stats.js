@@ -104,7 +104,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
     // Fórmula Estocástica: Quanto menor o buraco médio entre estudos (avgGap), maior a capacidade
     // do cérebro de reter N amostras ativas. Ex: Se estuda a cada 2 dias = Cap de ~1200 questões vivas.
-    const dynamicAlphaCap = Math.max(100, Math.floor(2500 / Math.max(1, avgGap)));
+    // FIX BUG-MATH-04: Ajustar constante de 2500 para 250 (escala correta de questões "vivas")
+    // Isso garante que o modelo reaja a mudanças de nível após ~250 questões.
+    const dynamicAlphaCap = Math.max(100, Math.floor(250 / Math.max(1, avgGap)));
     const dynamicEffectiveN = dynamicAlphaCap;
     
     const now = Date.now();

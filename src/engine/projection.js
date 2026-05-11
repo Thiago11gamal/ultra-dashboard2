@@ -68,7 +68,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options = {}) {
     const now = options.referenceDate || Date.now();
     const t0 = new Date(sorted[0].date || sorted[0].createdAt).getTime();
-    let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0;
+    let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0, sumW2 = 0;
 
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
@@ -78,12 +78,15 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
         const pred = intercept + slope * x;
         rss += w * Math.pow(y - pred, 2);
         sumW += w;
+        sumW2 += w * w;
         sumWX += w * x;
         sumWXX += w * x * x;
     });
 
     const n = sorted.length;
-    const variance = rss / Math.max(1, (n - 2));
+    // FIX: Usar soma de pesos para o divisor de variância em WLS (Kish effective sample size)
+    const effectiveN = (sumW * sumW) / sumW2;
+    const variance = rss / Math.max(1, (effectiveN - 2));
     const det = sumW * sumWXX - sumWX * sumWX;
 
     if (Math.abs(det) < 1e-6) return 1.5;
@@ -458,7 +461,9 @@ export function monteCarloSimulation(
     // Seed fixa baseada na data e histórico para determinismo intra-dia
     // FIX-DETERMINISM: Removido baselineScore da semente para que cenários (base, cons, opt)
     // usem a mesma sequência de ruído, permitindo comparação direta estável.
-    const seedStr = `${new Date().toISOString().split('T')[0]}-${sortedHistory.length}`;
+    // FIX: Semente baseada no conteúdo do último registro para evitar saltos temporais
+    const lastEntry = sortedHistory[sortedHistory.length - 1];
+    const seedStr = `${lastEntry.date || lastEntry.createdAt}-${getSafeScore(lastEntry, maxScore)}-${sortedHistory.length}`;
     let seedValue = 0;
     for (let i = 0; i < seedStr.length; i++) seedValue = (seedValue << 5) - seedValue + seedStr.charCodeAt(i);
     const rng = mulberry32(Math.abs(seedValue));
@@ -503,17 +508,16 @@ export function monteCarloSimulation(
         let currentSimScore = baselineScore;
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
-            // BUG-MATH-02 FIX: O alvo de reversão deve se mover junto com a tendência (Trend-Stationary O-U)
-            // para evitar o achatamento artificial da curva de projeção (Flatlining).
-            const dynamicOuTarget = ouTarget + (sampledDrift * d);
-            const meanReversion = thetaOU * (dynamicOuTarget - currentSimScore) * 1;
-            let shock;
-            if (safeResiduals.length > 5 && rng() > 0.3) {
-                shock = safeResiduals[Math.floor(rng() * safeResiduals.length)];
-            } else {
-                // BUG-MATH-01: Usar dailyVolatility em vez da volatilidade total
-                shock = normalRng() * dailyVolatility;
-            }
+
+            // FIX BUG-MATH-02: O alvo de reversão deve ser ESTACIONÁRIO na média ponderada
+            // ouTarget já contém o blend entre o baseline e a história.
+            // Remover o drift do alvo para que a reversão atue como um "freio" na queda.
+            const meanReversion = thetaOU * (ouTarget - currentSimScore) * 1;
+
+            let shock = (safeResiduals.length > 5 && rng() > 0.3)
+                ? safeResiduals[Math.floor(rng() * safeResiduals.length)]
+                : normalRng() * dailyVolatility;
+
             currentSimScore += driftEffect + meanReversion + shock;
         }
 
