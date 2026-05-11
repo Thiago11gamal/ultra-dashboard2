@@ -308,7 +308,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             calibrationMaxPenalty: rollingCalibration.maxPenalty
         };
         const adaptiveSimCount = lastNScores.length <= 5 ? Math.max(cfg.MC_SIMULATIONS, 1200) : cfg.MC_SIMULATIONS;
-        const effectiveCfg = { ...cfg, MC_SIMULATIONS: adaptiveSimCount };
 
         // Lógica de Meta Proximal Dinâmica (ZDP)
         const DISTANCE_THRESHOLD = 0.15 * maxScore; // Se a meta está a mais de 15% de distância
