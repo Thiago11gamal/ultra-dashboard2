@@ -59,6 +59,19 @@ export const DEFAULT_CONFIG = {
     MC_MODERATE_MIDPOINT: 55,     // prob (%) que separa zona moderate-alta de moderate-baixa
 };
 
+function getDynamicTrendThreshold(currentScore, maxScore) {
+    const currentPct = currentScore / maxScore;
+    
+    // Fator de amortecimento: se o aluno tirou 40%, damping = 0.6. Se tirou 95%, damping = 0.05.
+    const damping = Math.max(0, 1 - currentPct);
+    
+    // Curva de exigência: Inicia agressiva (ex: 4~5% para novatos) e cai para um mínimo de 0.2% para veteranos.
+    const baseRequirement = 0.05; 
+    const dynamicPct = (baseRequirement * Math.pow(damping, 1.5)) + 0.002; 
+    
+    return dynamicPct * maxScore;
+}
+
 // ==================== FUNÇÕES AUXILIARES ====================
 
 const normalizeDate = (dateInput) => {
@@ -83,16 +96,26 @@ const getDaysDiff = (newer, older) => {
     return Math.max(0, Math.floor((newerDate.getTime() - olderDate.getTime()) / MS_PER_DAY));
 };
 
-function getCrunchMultiplier(daysToExam) {
+function getCrunchMultiplier(daysToExam, historyStartDate) {
     if (daysToExam === undefined || daysToExam === null || daysToExam < 0) return 1.0;
-    if (daysToExam > 60) return 1.0;
+    
+    // 1. Descobre a extensão total do projeto do aluno
+    let totalJourneyDays = 90; // Default razoável
+    if (historyStartDate && historyStartDate.getTime() > 0) {
+        const elapsed = (Date.now() - historyStartDate.getTime()) / MS_PER_DAY;
+        totalJourneyDays = Math.max(30, elapsed + daysToExam);
+    }
 
-    // Curva contínua (logística) para evitar saltos bruscos nas fronteiras 7/14/30 dias.
-    // Produz aproximadamente: D0≈2.45, D7≈2.1, D14≈1.8, D30≈1.35, D60≈1.0
+    // 2. Midpoint Dinâmico: A "reta final" é definida como os últimos 15% do tempo de preparação, com limites sãos.
+    const dynamicMidpoint = Math.min(60, Math.max(5, totalJourneyDays * 0.15));
+    
+    // 3. Inclinação Dinâmica (steepness): Garante que a transição de "calmo" para "desespero" ocorra suavemente dentro desse espaço.
+    const dynamicSteepness = 1.8 / dynamicMidpoint; 
+
+    if (daysToExam > dynamicMidpoint * 3) return 1.0; // Poupando CPU
+
     const x = Number(daysToExam);
-    const steepness = 0.12;
-    const midpoint = 15;
-    const logistic = 1 / (1 + Math.exp(steepness * (x - midpoint)));
+    const logistic = 1 / (1 + Math.exp(dynamicSteepness * (x - dynamicMidpoint)));
     const scaled = 1 + (1.5 * logistic);
 
     return Math.max(1.0, Math.min(2.5, scaled));
@@ -277,7 +300,27 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         };
         const adaptiveSimCount = lastNScores.length <= 5 ? Math.max(cfg.MC_SIMULATIONS, 1200) : cfg.MC_SIMULATIONS;
         const effectiveCfg = { ...cfg, MC_SIMULATIONS: adaptiveSimCount };
-        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, effectiveCfg, categoryId, maxScore, mcAdaptive);
+
+        // Lógica de Meta Proximal Dinâmica (ZDP)
+        const DISTANCE_THRESHOLD = 0.15 * maxScore; // Se a meta está a mais de 15% de distância
+        let effectiveMCTarget = targetScore;
+
+        if (targetScore - averageScore > DISTANCE_THRESHOLD) {
+            // O alvo passa a ser a média atual + 1 salto equivalente à volatilidade da pessoa + margem empírica (2%)
+            effectiveMCTarget = averageScore + Math.max(mssdVolatility, maxScore * 0.05) + (maxScore * 0.02);
+            // Garantia para nunca ultrapassar a meta final
+            effectiveMCTarget = Math.min(effectiveMCTarget, targetScore); 
+        }
+
+        // Passamos o 'effectiveMCTarget' como alvo do motor estocástico
+        const mcResult = runCoachMonteCarlo(
+            simuladosWithMaxScore, 
+            effectiveMCTarget, // <-- Novo Alvo Dinâmico
+            effectiveCfg, 
+            categoryId, 
+            maxScore, 
+            mcAdaptive
+        );
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 
@@ -305,7 +348,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const weightDeviation = (weight / 100) - 1;
         const dampenedWeightMultiplier = 1 + (weightDeviation * 0.5);
         const effectiveRiskDays = daysSinceLastStudy * dampenedWeightMultiplier;
-        const crunchMultiplier = getCrunchMultiplier(daysToExam);
+        
+        // Encontre a data do simulado ou estudo mais antigo (a raiz da jornada)
+        const firstActivityDate = (relevantSimulados.length > 0) 
+            ? normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) 
+            : normalizeDate(new Date());
+
+        const crunchMultiplier = getCrunchMultiplier(daysToExam, firstActivityDate);
         const recencyComponent = cfg.RECENCY_MAX * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight;
 
         // ─────────────────────────────────────────────────────────
@@ -314,7 +363,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // stdDev típica era: 8–15 → output 16–30. Escala equivalente.
         // ─────────────────────────────────────────────────────────
         let instabilityComponent = mssdVolatility * (cfg.INSTABILITY_MAX / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
-        const trendThreshold = 0.02 * maxScore; // FIX: 2%/mês mínimo para reduzir penalidade de instabilidade (era 0.5%/mês, baixo demais)
+        const trendThreshold = getDynamicTrendThreshold(averageScore, maxScore);
+
         if (trend > trendThreshold) {
             instabilityComponent *= 0.5;
         } else if (trend < -trendThreshold) {
@@ -403,12 +453,21 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             srsLabel = srsResult.label;
         }
 
-        // G. Rotation Penalty
+        // G. Rotation Penalty (Dinâmico)
         let rotationPenalty = 0;
         if (daysSinceLastStudy < 1) {
-            rotationPenalty = averageScore < 0.6 * maxScore ? 0 : 15;
+            // Volatilidade normalizada (ex: 5 pts de desvio em prova de 100 = 0.05)
+            const normalizedVolatility = mssdVolatility / maxScore; 
+            
+            // Punição elástica: escala com a nota atual e a volatilidade. 
+            // Alunos avançados, porém erráticos, perdem até 25 pontos de urgência.
+            const dynamicPenalty = Math.min(25, (averageScore / maxScore) * 15 * (1 + (normalizedVolatility * 2)));
+            
+            rotationPenalty = averageScore < 0.5 * maxScore ? 0 : dynamicPenalty;
+
         } else if (daysSinceLastStudy === 1 && !srsLabel) {
-            rotationPenalty = 5;
+            // Tolerância dinâmica para o dia 1 baseada no nível de consolidação
+            rotationPenalty = mssdVolatility > (maxScore * 0.05) ? 8 : 2; 
         }
         if (srsBoost > 0) rotationPenalty *= 0.1;
 
@@ -446,7 +505,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         if (mcHasData && mcRiskLabel === 'critical') {
             const burnoutNote = isBurnoutRisk ? ' (⚠️ Sinais de estafa — mude o método, não descanse.)' : '';
-            recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${burnoutNote}`;
+            const targetInfo = effectiveMCTarget < targetScore ? ` (Meta ZDP: ${formatValue(effectiveMCTarget)})` : '';
+            recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${targetInfo}${burnoutNote}`;
         } else if (isBurnoutRisk) {
             recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;
         } else if (mcHasData && mcRiskLabel === 'safe') {
@@ -498,6 +558,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
                     volatility: Number(mcResult.volatility.toFixed(2)),
                     meanProjected: Number(mcResult.mean.toFixed(2)),
+                    effectiveMCTarget: Number(effectiveMCTarget.toFixed(2)),
                     ci95Low: Number(mcResult.ci95Low.toFixed(2)),
                     ci95High: Number(mcResult.ci95High.toFixed(2)),
                     urgencyBoost: Number(mcUrgencyBoost.toFixed(2)),

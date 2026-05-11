@@ -5,6 +5,20 @@ import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
 import { calculateSlope } from './projection.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 export const POPULATION_SD_FACTOR = 0.15; // Unificado: 15% da escala do concurso
+import { computeAdaptiveLambda } from './diagnostics.js';
+
+function getDynamicTrendThreshold(currentScore, maxScore) {
+    const currentPct = currentScore / maxScore;
+    
+    // Fator de amortecimento: se o aluno tirou 40%, damping = 0.6. Se tirou 95%, damping = 0.05.
+    const damping = Math.max(0, 1 - currentPct);
+    
+    // Curva de exigência: Inicia agressiva (ex: 4~5% para novatos) e cai para um mínimo de 0.2% para veteranos.
+    const baseRequirement = 0.05; 
+    const dynamicPct = (baseRequirement * Math.pow(damping, 1.5)) + 0.002; 
+    
+    return dynamicPct * maxScore;
+}
 
 export function mean(arr) {
     if (!arr || !arr.length) return 0;
@@ -103,8 +117,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             
             // 💡 2. Decaimento Bayesiano Dinâmico (Curva de Ebbinghaus)
             // A taxa de esquecimento (lambda) cai conforme o aluno revisa mais vezes
-            const baseLambda = 0.03;
-            const lambda = baseLambda * Math.exp(-0.15 * i); 
+            const adaptiveLambdaBase = computeAdaptiveLambda(sortedHistory);
+            const lambda = adaptiveLambdaBase * Math.exp(-0.15 * i); 
             const entryDecay = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
             
             // Retenção do Ratio Bayesiano
@@ -133,7 +147,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         if (gapToToday > 0) {
             const cappedMaxAlpha = Math.min(maxAlphaEver, MAX_ALPHA_CAP);
             const retentionFloor = cappedMaxAlpha * 0.3;
-            const finalLambda = 0.03 * Math.exp(-0.15 * sortedHistory.length);
+            const finalLambdaBase = computeAdaptiveLambda(sortedHistory);
+            const finalLambda = finalLambdaBase * Math.exp(-0.15 * sortedHistory.length);
             const finalDecay = Math.exp(-finalLambda * gapToToday);
             const nBeforeDecay = alpha + beta;
             const currentP = alpha / nBeforeDecay;
@@ -273,7 +288,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     // Converter para pp/30-dias para comparação com threshold
     // BUG-TREND-01 FIX: unificar com coachLogic.js (0.02 * maxScore = 2 pts/mês para maxScore=100)
     // Antes: 0.005 * maxScore era 4x menos sensível, causando inconsistência nos rótulos
-    const trendThreshold = 0.02 * safeMaxScore;
+    const trendThreshold = getDynamicTrendThreshold(m, safeMaxScore);
     
     // FIX-SORT3: historyToUse pode não estar ordenado por data (é um filter() do map() original).
     // calculateSlope() ordena internamente, mas o cap de tendência precisa do score mais recente.
