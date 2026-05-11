@@ -635,6 +635,7 @@ function useMonteCarloHistoryRecorder({
     debouncedTarget, currentMean, projectedMean, pAdjusted, ci95Low, ci95High,
     recordMonteCarloSnapshot 
 }) {
+    useEffect(() => {
         const prob = Number.isFinite(pAdjusted) ? pAdjusted : 0;
         const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
 
