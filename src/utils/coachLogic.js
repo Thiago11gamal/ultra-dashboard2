@@ -715,6 +715,13 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 // Usando WeakMap: o GC coleta automaticamente quando `category` é removida do estado.
 const _topicsCache = new Map(); // Usar Map com chave composta: `${catId}-${hashSimulados}`
 
+function _getTopicsHash(simulados = [], maxScore = 100) {
+    if (!simulados || simulados.length === 0) return `0-${maxScore}`;
+    // Usamos os 5 mais recentes + comprimento total para o hash
+    const sample = simulados.slice(-5).map(s => `${s.id || s.createdAt}-${s.correct}/${s.total}`).join('|');
+    return `${simulados.length}-${maxScore}-${sample}`;
+}
+
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const catId = category.id || category.name;
     const hash = _getTopicsHash(simulados, maxScore);
