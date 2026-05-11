@@ -508,7 +508,10 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     }, [isFlashing]);
 
     const rawProbability = simulationData?.data?.probability ?? 0;
-    const probability = shrinkProbabilityToNeutral(rawProbability, calibrationPenalty, 50, 0.5);
+    const neutralValuePct = (Number.isFinite(pureStatsData?.bayesianMean) && maxScore > 0)
+        ? (pureStatsData.bayesianMean / maxScore) * 100
+        : 50;
+    const probability = shrinkProbabilityToNeutral(rawProbability, calibrationPenalty, neutralValuePct, 0.5);
     
     const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
     const projectedMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));

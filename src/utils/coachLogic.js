@@ -1,6 +1,7 @@
 // ==================== CONSTANTES ====================
 import { standardDeviation } from '../engine/stats.js';
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
+import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { normalize } from './normalization.js';
 import { computeRollingCalibrationParams } from './calibration.js';
@@ -121,11 +122,18 @@ function getCrunchMultiplier(daysToExam, historyStartDate) {
     return Math.max(1.0, Math.min(2.5, scaled));
 }
 
-function getSRSBoost(daysSince, cfg) {
-    if (daysSince >= 30) return { boost: cfg.SRS_BOOST * 2.0, label: "Revisão Crítica (30+ dias)" };
-    if (daysSince >= 7) return { boost: cfg.SRS_BOOST * 1.4, label: `Revisão de 7 dias${daysSince > 10 ? ' [ATRASADA]' : ''}` };
-    if (daysSince >= 3) return { boost: cfg.SRS_BOOST * 1.0, label: `Revisão de 3 dias${daysSince > 4 ? ' [ATRASADA]' : ''}` };
-    if (daysSince >= 1) return { boost: cfg.SRS_BOOST * 0.7, label: `Revisão de 24h${daysSince > 1 ? ' [ATRASADA]' : ''}` };
+function getSRSBoost(history, daysSince, maxScore, cfg) {
+    // Calcula a estabilidade da memória do aluno baseada no histórico real de notas
+    const forgettingData = computeForgettingRisk(history, maxScore);
+    
+    // retentionPct é a curva de Ebbinghaus real do usuário (100% a 0%)
+    const retention = forgettingData.retentionPct;
+
+    if (retention < 30) return { boost: cfg.SRS_BOOST * 2.0, label: "⚠️ Memória Crítica (Risco de Branco)" };
+    if (retention < 55) return { boost: cfg.SRS_BOOST * 1.4, label: "🧠 Revisão Necessária (Curva de Esquecimento)" };
+    if (retention < 75) return { boost: cfg.SRS_BOOST * 0.8, label: "🔄 Revisão de Reforço" };
+    
+    // Se a retenção está alta (ex: 90%), o aluno não precisa revisar, mesmo que faça 20 dias.
     return { boost: 0, label: null };
 }
 
@@ -312,6 +320,23 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             effectiveMCTarget = Math.min(effectiveMCTarget, targetScore); 
         }
 
+        // 🎯 ADAPT-NEUTRAL: O "Neutro" do aluno é a média global dele em todas as matérias combinadas.
+        let globalBaselinePct = 50;
+        const allSimsForBaseline = (options.allCategories || []).flatMap(c => {
+            const catNorm = normalize(c.name || "");
+            return (simulados || []).filter(s => normalize(s.subject) === catNorm);
+        });
+        if (allSimsForBaseline.length > 0) {
+            const totalPoints = allSimsForBaseline.reduce((acc, s) => acc + getSafeScore(s, maxScore), 0);
+            globalBaselinePct = (totalPoints / (allSimsForBaseline.length * maxScore)) * 100;
+        }
+
+        const effectiveCfg = { 
+            ...cfg, 
+            MC_SIMULATIONS: adaptiveSimCount,
+            MC_CALIBRATION_NEUTRAL_PCT: globalBaselinePct 
+        };
+
         // Passamos o 'effectiveMCTarget' como alvo do motor estocástico
         const mcResult = runCoachMonteCarlo(
             simuladosWithMaxScore, 
@@ -420,6 +445,18 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
         const recentStudyDays = new Set(recentLogs.map(log => normalizeDate(log.date).getTime())).size;
 
+        // 1. Descobrir a capacidade semanal base do aluno (média móvel global)
+        const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+        const historyStart = categoryStudyLogs.length > 0 ? normalizeDate(categoryStudyLogs[categoryStudyLogs.length - 1].date).getTime() : Date.now();
+        const weeksActive = Math.max(1, (Date.now() - historyStart) / MS_PER_WEEK);
+
+        // Quantas horas o aluno costuma estudar essa matéria por semana normalmente?
+        const baselineHoursPerWeek = (totalHours / weeksActive);
+
+        // 2. Definir o limiar dinâmico: Burnout acontece se ele exceder 1.8x o que está acostumado
+        // Piso mínimo de 3 horas para evitar que alunos que nunca estudam entrem em "burnout" com 1 hora.
+        const dynamicBurnoutThreshold = Math.max(3.0, baselineHoursPerWeek * 1.8);
+
         // E2. Balance Bridge (equilíbrio entre matérias do Meu Painel -> Coach)
         // IMP-MATH-09 FIX: ideal share proporcional ao peso da matéria, não uniforme.
         // Uma matéria com peso 10 merece mais tempo que uma com peso 1.
@@ -448,7 +485,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let srsLabel = null;
 
         if (hasData && !recencyUnknown && (daysToExam === null || daysToExam >= 0)) {
-            const srsResult = getSRSBoost(daysSinceLastStudy, cfg);
+            const srsResult = getSRSBoost(simuladosWithMaxScore, daysSinceLastStudy, maxScore, cfg);
             srsBoost = srsResult.boost;
             srsLabel = srsResult.label;
         }
@@ -495,20 +532,24 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // --- RECOMMENDATION ---
         let recommendation = "";
         
-        // Calibragem Burnout: Volume alto (>8h/semana na matéria) OU Frequência alta (5+ dias)
+        // Calibragem Burnout: Volume alto (> limiar dinâmico) OU Frequência alta (5+ dias)
         // AND nota estagnada ou caindo.
-        const isHighVolume = recentHours > 8;
+        const isHighVolume = recentHours > dynamicBurnoutThreshold;
         const isHighFrequency = recentStudyDays >= 5;
         const isStagnant = trend <= trendThreshold; // = 0.02 * maxScore
+
+        const burnoutMsg = isHighVolume && isStagnant 
+            ? `Você estudou ${recentHours.toFixed(1)}h esta semana (seu normal é ~${baselineHoursPerWeek.toFixed(1)}h), mas a nota estagnou.` 
+            : '';
 
         const isBurnoutRisk = (isHighVolume || isHighFrequency) && isStagnant && recentStudyDays >= 3;
 
         if (mcHasData && mcRiskLabel === 'critical') {
-            const burnoutNote = isBurnoutRisk ? ' (⚠️ Sinais de estafa — mude o método, não descanse.)' : '';
+            const burnoutNote = isBurnoutRisk ? ` (⚠️ ${burnoutMsg || 'Sinais de estafa — mude o método.'})` : '';
             const targetInfo = effectiveMCTarget < targetScore ? ` (Meta ZDP: ${formatValue(effectiveMCTarget)})` : '';
             recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${targetInfo}${burnoutNote}`;
         } else if (isBurnoutRisk) {
-            recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;
+            recommendation = `🛑 Risco de Estafa: ${burnoutMsg || 'Você estudou muito mas a nota não reagiu.'} Considere descansar.`;
         } else if (mcHasData && mcRiskLabel === 'safe') {
             recommendation = `🏆 Cruzeiro Seguro (${formatPercent(mcProbability)} nas projeções). Modo de manutenção ativado.`;
         } else if (srsBoost > 0) {
@@ -785,9 +826,15 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         const perfComponent = Math.max(0, Math.min(1, (100 - percentage) / 100));
         const recencyComponent_topic = Math.max(0, Math.min(1, daysSince / 60));
         const priorityComponent = Math.max(0, Math.min(1, priorityBoost / 40));
-        const TOPIC_W_PERF = 0.50;    // peso: desempenho
-        const TOPIC_W_RECENCY = 0.30; // peso: recência
-        const TOPIC_W_PRIORITY = 0.20; // peso: prioridade manual
+        // 1. Descobrir o quão perto da perfeição o tópico está
+        const perfRatio = percentage / 100; // 0 a 1
+
+        // 2. Se a nota é péssima (0%), a urgência é aprender (peso Perf alto).
+        // Se a nota é 100%, a urgência é não esquecer (peso Recency domina).
+        const TOPIC_W_PERF = 0.70 - (0.40 * perfRatio);     // Varia de 0.70 a 0.30
+        const TOPIC_W_RECENCY = 0.10 + (0.40 * perfRatio);  // Varia de 0.10 a 0.50
+        const TOPIC_W_PRIORITY = 0.20;                      // Prioridade manual se mantém constante
+
         let urgencyScore = (perfComponent * TOPIC_W_PERF + recencyComponent_topic * TOPIC_W_RECENCY + priorityComponent * TOPIC_W_PRIORITY) * 200;
         if (percentage === 0 && data.scores.length === 0 && categorySimuladoCount > 3) {
             urgencyScore *= 0.7;
