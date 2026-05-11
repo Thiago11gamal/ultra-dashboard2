@@ -262,12 +262,22 @@ export function adaptiveConfidenceShrinkage(options = {}) {
 export function computeAdaptiveCoachWeight(scores = []) {
     const signal = computeAdaptiveSignal(scores);
     
-    // effectiveN alto + trendStrength baixo = alta confiança
-    // effectiveN baixo OU trendStrength alto = baixa confiança (mais conservador)
-    const nConfidence = Math.min(1, signal.effectiveN / 15); // Satura em ~15 amostras efetivas
-    const trendUncertainty = Math.min(1, signal.trendStrength / 2.5); // Normaliza para [0,1]
+    // CORREÇÃO MATH: Se o tamanho da amostra (efetiva) for irrisório, 
+    // a confiança matemática na tendência empírica DEVE colapsar para 0 estrito.
+    // O sistema não pode dar 30% de credibilidade cega ao Vazio.
+    if (signal.effectiveN < 1.5) {
+        return {
+            confidenceWeight: 0,
+            effectiveN: Number(signal.effectiveN.toFixed(2)),
+            trendStrength: 0,
+            ciInflation: 1,
+            adaptiveWinsor: signal.adaptiveWinsor
+        };
+    }
+
+    const nConfidence = Math.min(1, signal.effectiveN / 15);
+    const trendUncertainty = Math.min(1, signal.trendStrength / 2.5); 
     
-    // Peso de confiança: 0 = totalmente conservador, 1 = totalmente empírico
     const confidenceWeight = Math.max(0, Math.min(1, 
         nConfidence * 0.7 + (1 - trendUncertainty) * 0.3
     ));

@@ -466,35 +466,31 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const totalHours = totalMinutes / 60;
 
-        const oneWeekAgo = normalizeDate(new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
-        const recentLogs = categoryStudyLogs.filter(log => {
-            const d = normalizeDate(log.date);
-            return d && d.getTime() >= oneWeekAgo;
-        });
-        const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
-        const recentStudyDays = new Set(recentLogs.map(log => normalizeDate(log.date).getTime())).size;
-
-        // 1. Descobrir a capacidade semanal base do aluno (média móvel global)
+        // 1. Descobrir a capacidade semanal base do aluno (ignorar semanas fantasma)
         const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
-        const historyStart = categoryStudyLogs.length > 0 ? normalizeDate(categoryStudyLogs[categoryStudyLogs.length - 1].date).getTime() : Date.now();
-        const weeksActive = Math.max(1, (Date.now() - historyStart) / MS_PER_WEEK);
-
-        // Quantas horas o aluno costuma estudar essa matéria por semana normalmente?
-        const baselineHoursPerWeek = (totalHours / weeksActive);
+        
+        // CORREÇÃO LÓGICA: Em vez de usar um divisor estático de tempo civil (Date.now - start),
+        // contamos apenas as semanas onde efetivamente houve registo de estudo.
+        // Assim, meses de abandono não destroem o baseline do utilizador.
+        const activeWeeksSet = new Set();
+        categoryStudyLogs.forEach(log => {
+            const logTime = normalizeDate(log.date).getTime();
+            const weekNumber = Math.floor(logTime / MS_PER_WEEK);
+            activeWeeksSet.add(weekNumber);
+        });
+        
+        const trueActiveWeeks = Math.max(1, activeWeeksSet.size);
+        const baselineHoursPerWeek = (totalHours / trueActiveWeeks);
 
         // 2. Definir o limiar dinâmico: Burnout acontece se ele exceder 1.8x o que está acostumado
-        // Piso mínimo de 3 horas para evitar que alunos que nunca estudam entrem em "burnout" com 1 hora.
         const dynamicBurnoutThreshold = Math.max(3.0, baselineHoursPerWeek * 1.8);
 
         // E2. Balance Bridge (equilíbrio entre matérias do Meu Painel -> Coach)
-        // IMP-MATH-09 FIX: ideal share proporcional ao peso da matéria, não uniforme.
-        // Uma matéria com peso 10 merece mais tempo que uma com peso 1.
         const activeCategories = (options.allCategories || []).filter(c => (c?.tasks || []).length > 0);
         const activeCount = activeCategories.length > 0 ? activeCategories.length : 1;
         const MS_PER_DAY = 24 * 60 * 60 * 1000;
         
         const currentLambda = mcAdaptive?.decayK || 0.03; 
-        // Meia vida = ln(2) / lambda. Multiplicamos por 2 para obter um ciclo completo de análise.
         const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
 
         const windowStart = normalizeDate(new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY);
@@ -504,7 +500,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             .filter(log => log?.categoryId === categoryId)
             .reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
-        // Calcular share ideal proporcional ao peso de cada matéria
         const totalActiveWeight = activeCategories.reduce((acc, c) => {
             const parsedW = Number(c.weight);
             const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
@@ -527,17 +522,17 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // G. Rotation Penalty (Dinâmico)
         let rotationPenalty = 0;
         if (daysSinceLastStudy < 1) {
-            // Volatilidade normalizada (ex: 5 pts de desvio em prova de 100 = 0.05)
             const normalizedVolatility = mssdVolatility / maxScore; 
-            
-            // Punição elástica: escala com a nota atual e a volatilidade. 
-            // Alunos avançados, porém erráticos, perdem até 25 pontos de urgência.
             const dynamicPenalty = Math.min(25, (averageScore / maxScore) * 15 * (1 + (normalizedVolatility * 2)));
             
-            rotationPenalty = averageScore < 0.5 * maxScore ? 0 : dynamicPenalty;
+            // CORREÇÃO MATH: Substituir o degrau (if-else abrupto) por uma transição 
+            // linear/logística suave. Penalidade começa a escalar a partir dos 40%.
+            const rawRatio = averageScore / maxScore;
+            const smoothingFactor = Math.max(0, Math.min(1, (rawRatio - 0.4) * 2.5)); // 0 a 1
+            
+            rotationPenalty = dynamicPenalty * smoothingFactor;
 
         } else if (daysSinceLastStudy === 1 && !srsLabel) {
-            // Tolerância dinâmica para o dia 1 baseada no nível de consolidação
             rotationPenalty = mssdVolatility > (maxScore * 0.05) ? 8 : 2; 
         }
         if (srsBoost > 0) rotationPenalty *= 0.1;
@@ -546,18 +541,15 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const effectiveRecencyMax = cfg.RECENCY_MAX * crunchMultiplier;
         const RAW_MAX_BASE = cfg.SCORE_MAX + effectiveRecencyMax + cfg.INSTABILITY_MAX;
 
-        // BUGFIX B3: Denominador dinâmico para garantir ranqueamento justo em crunch mode.
-        // O teto deve escalar junto com os bônus para evitar saturação em 100%.
         const maxSrsBoost = cfg.SRS_BOOST * 2.0;
         const RAW_MAX_ACTUAL = cfg.SCORE_MAX
-            + (effectiveRecencyMax * 0.8) // Atenuação no teto
+            + (effectiveRecencyMax * 0.8) 
             + cfg.INSTABILITY_MAX
             + (cfg.PRIORITY_BOOST + maxSrsBoost) * (1 + (crunchMultiplier - 1) * 0.5)
-            + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE) // headroom MC
-            + cfg.EFFICIENCY_MAX // headroom Efficiency Bridge
-            + (cfg.EFFICIENCY_MAX * 2.0); // headroom Balance Bridge (underAllocation * 2.0)
+            + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE) 
+            + cfg.EFFICIENCY_MAX 
+            + (cfg.EFFICIENCY_MAX * 2.0);
 
-        // FIX: Scale boosts by crunchMultiplier to prevent dilution when the exam is near
         const currentPriorityBoost = priorityBoost * crunchMultiplier;
         const currentSrsBoost = srsBoost * crunchMultiplier;
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty;
@@ -567,12 +559,17 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // --- RECOMMENDATION ---
         let recommendation = "";
+        const oneWeekAgo = normalizeDate(new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
+        const recentLogs = categoryStudyLogs.filter(log => {
+            const d = normalizeDate(log.date);
+            return d && d.getTime() >= oneWeekAgo;
+        });
+        const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
+        const recentStudyDays = new Set(recentLogs.map(log => normalizeDate(log.date).getTime())).size;
         
-        // Calibragem Burnout: Volume alto (> limiar dinâmico) OU Frequência alta (5+ dias)
-        // AND nota estagnada ou caindo.
         const isHighVolume = recentHours > dynamicBurnoutThreshold;
         const isHighFrequency = recentStudyDays >= 5;
-        const isStagnant = trend <= trendThreshold; // = 0.02 * maxScore
+        const isStagnant = trend <= trendThreshold;
 
         const burnoutMsg = isHighVolume && isStagnant 
             ? `Você estudou ${recentHours.toFixed(1)}h esta semana (seu normal é ~${baselineHoursPerWeek.toFixed(1)}h), mas a nota estagnou.` 
@@ -595,7 +592,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         } else if (trend < -trendThreshold) {
             recommendation = `Nota caindo (${formatValue(trend)} pts) - Atenção urgente`;
         } else if (averageScore < targetScore - (0.2 * maxScore)) {
-            // FIX-PCT5: converter para % real antes de exibir (averageScore está em [0, maxScore])
             recommendation = `Nota Crítica: ${formatPercent((averageScore / maxScore) * 100)} (Meta ${formatPercent((targetScore / maxScore) * 100)})`;
         } else if (averageScore >= targetScore) {
             recommendation = "No caminho certo! Continue consolidando";
@@ -610,7 +606,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             details: {
                 averageScore: Number(averageScore.toFixed(2)),
                 daysSinceLastStudy,
-                standardDeviation: Number(mssdVolatility.toFixed(2)), // Legado: mantido para compatibilidade
+                standardDeviation: Number(mssdVolatility.toFixed(2)),
                 mssdVolatility: Number(mssdVolatility.toFixed(2)),
                 trend: Number(trend.toFixed(2)),
                 totalHours: Number(totalHours.toFixed(2)),
@@ -632,7 +628,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                         safe: Number(adaptiveRisk.safe.toFixed(2))
                     },
                     riskLabel: mcRiskLabel,
-
                     volatility: Number(mcResult.volatility.toFixed(2)),
                     meanProjected: Number(mcResult.mean.toFixed(2)),
                     effectiveMCTarget: Number(effectiveMCTarget.toFixed(2)),
@@ -644,7 +639,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     ece: Number((mcResult.ece || 0).toFixed(4)),
                     reliability: Array.isArray(mcResult.reliability) ? mcResult.reliability : [],
                     explainability: {
-
                         confidenceAdjusted: (mcResult.calibrationPenalty || 0) > 0,
                         confidenceAdjustmentPct: Number(((mcResult.calibrationPenalty || 0) * 100).toFixed(2)),
                         calibrationQuality: (mcResult.avgBrier || 0) <= cfg.MC_CALIBRATION_BRIER_BASELINE
@@ -663,8 +657,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     instabilityWeight: Number(backtestWeights.instabilityWeight.toFixed(3))
                 },
                 humanReadable: {
-
-                    // FIX-PCT5: normalizar averageScore para [0,100] antes do formatPercent
                     "Média": formatPercent((averageScore / maxScore) * 100),
                     "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
                     "Tendência": trend > 0.5 ? `↑ +${formatValue(trend)}` : trend < -0.5 ? `↓ ${formatValue(trend)}` : "→ Estável",
@@ -721,14 +713,10 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     };
 };
 
-// Cache keyed by `category` object identity.
-// Entries: Map<simulados_hash_string, topics_array>
-// Usando WeakMap: o GC coleta automaticamente quando `category` é removida do estado.
-const _topicsCache = new Map(); // Usar Map com chave composta: `${catId}-${hashSimulados}`
+const _topicsCache = new Map();
 
 function _getTopicsHash(simulados = [], maxScore = 100) {
     if (!simulados || simulados.length === 0) return `0-${maxScore}`;
-    // Usamos os 5 mais recentes + comprimento total para o hash
     const sample = simulados.slice(-5).map(s => `${s.id || s.createdAt}-${s.correct}/${s.total}`).join('|');
     return `${simulados.length}-${maxScore}-${sample}`;
 }
@@ -742,7 +730,6 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
 
     const result = _buildSortedTopicsImpl(category, simulados, maxScore);
     
-    // Evitar acúmulo: Limpeza periódica se o cache crescer demais (> 200 entradas)
     if (_topicsCache.size > 200) {
         const firstKey = _topicsCache.keys().next().value;
         _topicsCache.delete(firstKey);
@@ -752,8 +739,6 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     return result;
 }
 
-// Renomear a implementação atual de _buildSortedTopics para _buildSortedTopicsImpl
-// (o corpo da função permanece 100% idêntico — apenas o nome muda)
 const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
     const tasks = category.tasks || [];
     const topicMap = {};
@@ -764,13 +749,12 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
 
     const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
 
-    const todayForTopics = new Date(); // Referência temporal
+    const todayForTopics = new Date();
 
     history.forEach(entry => {
         if (!entry) return;
         const entryDate = new Date(entry.date || entry.createdAt || 0);
         
-        // FIX BUG 7: Aplicar meia-vida de ~45 dias aos dados dos tópicos (K ≈ 0.015)
         const daysOld = Math.max(0, (todayForTopics.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
         const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));
 
@@ -791,10 +775,9 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
                 topicTotal = getSyntheticTotal(maxScore);
                 topicCorrect = Math.round((getSafeScore(t, maxScore) / maxScore) * topicTotal);
             } else if (topicTotal === 0) {
-                return; // 🎯 BUG 3 FIX: Ignorar tópicos com volume zero explícito para não poluir estatísticas
+                return;
             }
 
-            // Substituir a soma simples pela soma ponderada pelo tempo:
             topicMap[name].total += (topicTotal * timeWeight);
             topicMap[name].correct += (topicCorrect * timeWeight);
 
@@ -841,8 +824,6 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
     const topics = Object.entries(topicMap).map(([name, data]) => {
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
         const topicHistory = data.scores.slice(-3);
-        // topicHistory.score está em escala percentual [0,100], então a regressão
-        // deve usar maxScore=100 para manter a inclinação corretamente calibrada.
         const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, 100) * 30 : 0;
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
@@ -851,31 +832,21 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             daysSince = getDaysDiff(today, data.lastSeen);
         }
         const priorityBoost = data.manualPriority || 0;
-        // IMP-MATH-08 FIX: Normalizar cada componente para [0,1] antes de combinar com pesos.
-        // Antes: (100 - percentage) * 2 gerava 0-200, daysSince gerava 0-60+, priorityBoost 0-40.
-        // Os componentes não estavam na mesma escala.
         const perfComponent = Math.max(0, Math.min(1, (100 - percentage) / 100));
         const recencyComponent_topic = Math.max(0, Math.min(1, daysSince / 60));
         const priorityComponent = Math.max(0, Math.min(1, priorityBoost / 40));
-        // 1. Descobrir o quão perto da perfeição o tópico está
-        const perfRatio = percentage / 100; // 0 a 1
+        const perfRatio = percentage / 100;
 
-        // 2. Se a nota é péssima (0%), a urgência é aprender (peso Perf alto).
-        // Se a nota é 100%, a urgência é não esquecer (peso Recency domina).
-        const TOPIC_W_PERF = 0.70 - (0.40 * perfRatio);     // Varia de 0.70 a 0.30
-        const TOPIC_W_RECENCY = 0.10 + (0.40 * perfRatio);  // Varia de 0.10 a 0.50
-        const TOPIC_W_PRIORITY = 0.20;                      // Prioridade manual se mantém constante
+        const TOPIC_W_PERF = 0.70 - (0.40 * perfRatio);
+        const TOPIC_W_RECENCY = 0.10 + (0.40 * perfRatio);
+        const TOPIC_W_PRIORITY = 0.20;
 
         let urgencyScore = (perfComponent * TOPIC_W_PERF + recencyComponent_topic * TOPIC_W_RECENCY + priorityComponent * TOPIC_W_PRIORITY) * 200;
         if (percentage === 0 && data.scores.length === 0 && categorySimuladoCount > 3) {
             urgencyScore *= 0.7;
         }
-        // CORREÇÃO MATH: A 'trend' de tópicos é calculada numa escala fixa percentual (0 a 100).
-        // Usar maxScore aqui causava distorção se a prova valesse, por exemplo, 10 ou 1000 pontos.
-        // Limiar de queda agora é 2.0 pontos percentuais (fixo na base 100).
         const topicDropThreshold = -2.0; 
         if (trend < topicDropThreshold) {
-            // Escala o pânico (urgencyScore) proporcionalmente ao tamanho da queda
             const dropSeverity = Math.min(2.0, 1 + Math.abs(trend / topicDropThreshold) * 0.1);
             urgencyScore *= dropSeverity;
         }
@@ -901,7 +872,6 @@ const getWeakestTopic = (category, simulados = [], maxScore = 100) => {
     return _buildSortedTopics(category, simulados, maxScore)[0] || null;
 };
 
-// Helper customizado para pegar os N tópicos mais fracos em vez de apenas 1
 const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 3) => {
     return _buildSortedTopics(category, simulados, maxScore).slice(0, limit);
 };
@@ -917,17 +887,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
     })).sort((a, b) => b.urgency.normalizedScore - a.urgency.normalizedScore);
 
-    // Expandido para preencher o calendário: tentamos pegar as 10 categorias mais urgentes
-    // Se o usuário tiver poucas categorias (ex: 3), vamos extrair múltiplos tópicos por categoria
     const topCategories = ranked.slice(0, 10);
 
     const performDeepCheck = (category) => {
-        // FIX: Limitar o cálculo de burnout aos últimos 30 dias
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const cutoffTime = thirtyDaysAgo.getTime();
 
-        // Filtra logs e simulados recentes
         const recentLogs = studyLogs.filter(l => l.categoryId === category.id && new Date(l.date || 0).getTime() >= cutoffTime);
         const catNormalized = normalize(category.name);
         const recentSims = simulados.filter(s => normalize(s.subject) === catNormalized && new Date(s.date || s.createdAt || 0).getTime() >= cutoffTime);
@@ -941,7 +907,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             return acc + sTotal;
         }, 0);
 
-        // FIX: Exigir um mínimo de 15 minutos (0.25h) para calcular a taxa de questões, evitando Infinity
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
         const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
 
@@ -957,7 +922,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     let allGeneratedTasks = [];
 
-    // Se o usuário tiver poucas matérias (< 5), geramos múltiplas tarefas por matéria
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
 
     const safeUUID = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -968,8 +932,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const weakTopics = getWeakestTopicsList(cat, simulados, maxScore, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
 
-        // BUG ARQUITETURAL FIX: O número de iterações deve obedecer estritamente à cota solicitada,
-        // não ao tamanho dos tópicos fracos, para permitir o acionamento do Fallback Geral.
         const iterations = tasksPerCategory;
 
         for (let i = 0; i < iterations; i++) {
@@ -977,13 +939,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
             const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[OTIMIZAÇÃO DE BASE] `;
 
-            // Unique ID per topic string to avoid react-beautiful-dnd collisions
             const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '') + weakTopic.total) : `geral-${i}`;
 
-            // 🚨 BUG LÓGICO/UX FIX: Implementar hierarquia de prioridades com else if
-            // para evitar inundação de múltiplos alertas para a mesma categoria.
-            
-            // 1. Zona de Perigo: Prob < Danger Adaptativo
             const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
             const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
 
@@ -1003,7 +960,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 });
             } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE && i === 0) {
-                // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-chaos-${uniqueIdSuffix}`,
@@ -1019,7 +975,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 });
             } else if (mc && mc.probabilityRaw >= adaptiveSafe && i === 0) {
-                // 🏆 Cruzeiro Seguro: Prob > Safe Adaptativo
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-safe-${uniqueIdSuffix}`,
@@ -1035,7 +990,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 });
             } else if (cat.urgency?.details?.srsLabel && i === 0) {
-                // 🧠 SRS Alert
                 allGeneratedTasks.push({
                     id: `${cat.id}-srs-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
@@ -1050,7 +1004,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 });
             } else if (performDeepCheck(cat).isTrap && i === 0) {
-                // ⚠️ Method Trap
                 allGeneratedTasks.push({
                     id: `${cat.id}-trap-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}⚠️ ANOMALIA DE MÉTODO: Teoria excedente. Foco TOTAL em processamento de questões.`,
@@ -1065,7 +1018,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 });
             } else if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
-                // 🚨 Weak Topic
                 let taskTitle = "";
                 let reasonStr = "";
                 if (weakTopic.isUntested) {
@@ -1102,8 +1054,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 });
             } else {
-                // ⚠️ BUG-LÓGICO FIX: Fallback Geral "Fantasma".
-                // Se nenhum tópico fraco foi selecionado, garantimos o preenchimento da quota.
                 allGeneratedTasks.push({
                     id: `${cat.id}-general-review-${uniqueIdSuffix}-${safeUUID}-it${i}`,
                     text: `${cat.name}: ${topicLabel}Revisão Geral Complementar (Volume ${i + 1})`,
@@ -1123,43 +1073,30 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         }
     });
 
-    // Limita estritamente a 12 tarefas para não engolir a tela inteira do Backlog
     return allGeneratedTasks.slice(0, 12);
 };
 
-/**
- * --- AI PRODUCTIVITY COACH ENGINE ---
- * Lógica específica para o Pomodoro e Produtividade em Tempo Real
- */
-
-/**
- * Curva de Fadiga Cognitiva
- * Baseada no modelo de decaimento: R(t) = 100 * e^(-0.003 * t)
- */
 export function getCognitiveState(stats) {
-    // FIX: Prevenção contra undefined na fase de hidratação do Zustand
     if (!stats || typeof stats !== 'object') return 100;
 
     let focusMinutes = stats.consecutiveMinutes || 0;
+    let hadBreaks = false;
 
-    // Fallback ou acréscimo se a pessoa acabou de fechar pomodoros na sessão ativa
-    if (focusMinutes === 0) {
-        focusMinutes = (stats.pomodorosCompleted || 0) * (stats.settings?.pomodoroWork || 25);
+    if (focusMinutes === 0 && (stats.pomodorosCompleted || 0) > 0) {
+        focusMinutes = stats.pomodorosCompleted * (stats.settings?.pomodoroWork || 25);
+        hadBreaks = true;
     }
 
-    // 🎯 MATH BUG FIX: Curva de Fadiga Elástica.
     const userLevel = stats.user?.level || 1;
     const levelMultiplier = 1 + (userLevel * 0.05);
-    const dynamicDecay = 0.003 / levelMultiplier;
+    
+    const decayModifier = hadBreaks ? 0.6 : 1.0;
+    const dynamicDecay = (0.003 / levelMultiplier) * decayModifier;
 
     const fatigueScore = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-dynamicDecay * focusMinutes))));
     return fatigueScore;
 }
 
-/**
- * Algoritmo de Prioridade (ROI)
- * Descobre exatamente o que você deve estudar agora com base em múltiplos fatores.
- */
 export function getBestTask(categories, excludeTaskId = null) {
     let bestTask = null;
     let highestScore = -Infinity;
@@ -1170,11 +1107,9 @@ export function getBestTask(categories, excludeTaskId = null) {
 
             let score = 0;
 
-            // Fator 1: Prioridade do Usuário
             if (task.priority === 'high') score += 50;
             else if (task.priority === 'medium') score += 20;
 
-            // Fator 2: Curva de Esquecimento (Dias sem estudar)
             const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
             const parsedTime = new Date(studiedAt).getTime();
             

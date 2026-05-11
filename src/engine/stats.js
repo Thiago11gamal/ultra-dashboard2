@@ -167,9 +167,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const retentionFloor = cappedMaxAlpha * 0.3;
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
-                const currentP = alpha / nBeforeDecay;
+                const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0;
                 
-                const minN = retentionFloor / Math.max(0.01, currentP);
+                const minN = retentionFloor; // REMOVIDO: / Math.max(0.01, currentP)
                 const nAfterDecay = Math.max(minN, nBeforeDecay * entryDecay);
                 
                 alpha = nAfterDecay * currentP;
@@ -196,9 +196,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             
             const finalDecay = Math.exp(-finalLambda * gapToToday);
             const nBeforeDecay = alpha + beta;
-            const currentP = alpha / nBeforeDecay;
+            const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0;
             
-            const minN = retentionFloor / Math.max(0.01, currentP);
+            const minN = retentionFloor; // Correção Bayesiana
             const nAfterDecay = Math.max(minN, nBeforeDecay * finalDecay);
             
             alpha = nAfterDecay * currentP;
