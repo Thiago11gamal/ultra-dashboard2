@@ -415,7 +415,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         } else if (trend < -trendThreshold) {
             instabilityComponent *= 1.3;
         }
-        instabilityComponent = Math.min(cfg.INSTABILITY_MAX, instabilityComponent * backtestWeights.instabilityWeight);
+        instabilityComponent = Math.min(dynamicInstabilityMax, instabilityComponent * backtestWeights.instabilityWeight);
 
 
         // ─────────────────────────────────────────────────────────
@@ -469,18 +469,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // 1. Descobrir a capacidade semanal base do aluno (ignorar semanas fantasma)
         const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
         
-        // CORREÇÃO LÓGICA: Em vez de usar um divisor estático de tempo civil (Date.now - start),
-        // contamos apenas as semanas onde efetivamente houve registo de estudo.
-        // Assim, meses de abandono não destroem o baseline do utilizador.
-        const activeWeeksSet = new Set();
-        categoryStudyLogs.forEach(log => {
-            const logTime = normalizeDate(log.date).getTime();
-            const weekNumber = Math.floor(logTime / MS_PER_WEEK);
-            activeWeeksSet.add(weekNumber);
-        });
+        // CORREÇÃO: Ordenar o array para garantir a busca correta pela data raiz
+        const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => normalizeDate(a.date).getTime() - normalizeDate(b.date).getTime());
+        const historyStart = sortedLogsForBurnout.length > 0 ? normalizeDate(sortedLogsForBurnout[0].date).getTime() : Date.now();
+        const weeksActive = Math.max(1, (Date.now() - historyStart) / MS_PER_WEEK);
         
-        const trueActiveWeeks = Math.max(1, activeWeeksSet.size);
-        const baselineHoursPerWeek = (totalHours / trueActiveWeeks);
+        const baselineHoursPerWeek = (totalHours / weeksActive);
 
         // 2. Definir o limiar dinâmico: Burnout acontece se ele exceder 1.8x o que está acostumado
         const dynamicBurnoutThreshold = Math.max(3.0, baselineHoursPerWeek * 1.8);
@@ -538,15 +532,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         if (srsBoost > 0) rotationPenalty *= 0.1;
 
         // --- RAW MAX ---
-        const effectiveRecencyMax = cfg.RECENCY_MAX * crunchMultiplier;
-        const RAW_MAX_BASE = cfg.SCORE_MAX + effectiveRecencyMax + cfg.INSTABILITY_MAX;
-
+        // CORREÇÃO: Usar as variáveis de teto dinâmico em vez de cfg
         const maxSrsBoost = cfg.SRS_BOOST * 2.0;
-        const RAW_MAX_ACTUAL = cfg.SCORE_MAX
-            + (effectiveRecencyMax * 0.8) 
-            + cfg.INSTABILITY_MAX
+        const RAW_MAX_ACTUAL = dynamicScoreMax
+            + (dynamicRecencyMax * 0.8)
+            + dynamicInstabilityMax
             + (cfg.PRIORITY_BOOST + maxSrsBoost) * (1 + (crunchMultiplier - 1) * 0.5)
-            + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE) 
+            + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE)
             + cfg.EFFICIENCY_MAX 
             + (cfg.EFFICIENCY_MAX * 2.0);
 
@@ -751,7 +743,12 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
 
     const todayForTopics = new Date();
 
-    history.forEach(entry => {
+    // CORREÇÃO: Organizar o caos temporal antes de mapear os tópicos
+    const sortedTopicsHistory = [...history].sort((a, b) => {
+        return new Date(a.date || a.createdAt || 0).getTime() - new Date(b.date || b.createdAt || 0).getTime();
+    });
+
+    sortedTopicsHistory.forEach(entry => {
         if (!entry) return;
         const entryDate = new Date(entry.date || entry.createdAt || 0);
         
@@ -934,8 +931,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         const iterations = tasksPerCategory;
 
+        // Flag para garantir que o alerta global seja emitido apenas uma vez por categoria
+        let alertEmitted = false;
+
         for (let i = 0; i < iterations; i++) {
-            const weakTopic = weakTopics[i] || null;
+            // CORREÇÃO: Variável auxiliar para não perder o weakTopic[0] se um alerta consumir a primeira task
+            const weakTopicIndex = alertEmitted ? i - 1 : i;
+            const weakTopic = (weakTopicIndex >= 0 && weakTopicIndex < weakTopics.length) ? weakTopics[weakTopicIndex] : null;
             const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
             const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[OTIMIZAÇÃO DE BASE] `;
 
@@ -944,7 +946,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
             const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
 
-            if (mc && mc.probabilityRaw < adaptiveDanger && i === 0) {
+            if (mc && mc.probabilityRaw < adaptiveDanger && !alertEmitted) {
+                alertEmitted = true;
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-danger-${uniqueIdSuffix}`,
@@ -959,7 +962,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: `Probabilidade crítica detectada (${cfg.MC_SIMULATIONS} simulações). Abandone estudos passivos e mude de método imediatamente.`
                     }
                 });
-            } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE && i === 0) {
+            } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE && !alertEmitted) {
+                alertEmitted = true;
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-chaos-${uniqueIdSuffix}`,
@@ -974,7 +978,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível. Reduza as oscilações."
                     }
                 });
-            } else if (mc && mc.probabilityRaw >= adaptiveSafe && i === 0) {
+            } else if (mc && mc.probabilityRaw >= adaptiveSafe && !alertEmitted) {
+                alertEmitted = true;
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-safe-${uniqueIdSuffix}`,
@@ -989,7 +994,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Mantenha o ritmo atual. Manutenção leve é suficiente para proteger essa posição."
                     }
                 });
-            } else if (cat.urgency?.details?.srsLabel && i === 0) {
+            } else if (cat.urgency?.details?.srsLabel && !alertEmitted) {
+                alertEmitted = true;
                 allGeneratedTasks.push({
                     id: `${cat.id}-srs-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
@@ -1003,7 +1009,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
                     }
                 });
-            } else if (performDeepCheck(cat).isTrap && i === 0) {
+            } else if (performDeepCheck(cat).isTrap && !alertEmitted) {
+                alertEmitted = true;
                 allGeneratedTasks.push({
                     id: `${cat.id}-trap-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}⚠️ ANOMALIA DE MÉTODO: Teoria excedente. Foco TOTAL em processamento de questões.`,
@@ -1127,8 +1134,10 @@ export function getBestTask(categories, excludeTaskId = null) {
             // MATH-ERRORRATE-SCALE FIX: errorRate pode estar em 0-1 ou 0-100 dependendo da fonte.
             // Normalizar para 0-1 antes de usar para evitar que um campo de 0-100 produza score+=3200.
             if (task.errorRate) {
-                const normalizedErrorRate = task.errorRate > 1 ? task.errorRate / 100 : task.errorRate;
-                score += normalizedErrorRate * 40; // 0-40 pts (equivalente a: (rate*100)*0.4)
+                // CORREÇÃO: Tratar todo input numérico de errorRate como percentual (0 a 100)
+                const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
+                const normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
+                score += normalizedErrorRate * 40; // 0-40 pts
             }
 
             if (score > highestScore) {

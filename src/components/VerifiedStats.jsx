@@ -369,8 +369,8 @@ export default function VerifiedStats({ categories = [], user }) {
         // Run on global daily average for consistent trend
         const globalAnalysis = analyzeProgressState(dailyHistory, {
             window_size: Math.min(5, dailyHistory.length),
-            stagnation_threshold: 4.0,
-            low_level_limit: 60,
+            stagnation_threshold: 0.04 * maxScore, // 4% do teto
+            low_level_limit: 0.60 * maxScore,      // 60% do teto
             high_level_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
             mastery_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
             maxScore: maxScore
@@ -556,8 +556,8 @@ export default function VerifiedStats({ categories = [], user }) {
 
                 const analysis = analyzeProgressState(analysisHistory, {
                     window_size: Math.min(5, analysisHistory.length),
-                    stagnation_threshold: 4.0,
-                    low_level_limit: 60,
+                    stagnation_threshold: 0.04 * maxScore, // 4% do teto
+                    low_level_limit: 0.60 * maxScore,      // 60% do teto
                     high_level_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
                     mastery_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
                     maxScore: maxScore
@@ -578,7 +578,8 @@ export default function VerifiedStats({ categories = [], user }) {
                             const isSynthetic = total === 0 && t.score != null;
                             if (isSynthetic) total = 100; // Synthetic total for percentage-only inputs
 
-                            const correct = (t.isPercentage && t.score != null && total > 0)
+                            // CORREÇÃO: Não bloquear a retroengenharia do acerto por falta de 'isPercentage' se score existir
+                            const correct = (t.score != null && total > 0)
                                 ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
                                 : Math.min(total, (Number(t.correct) || 0)); // BUG-03 FIX: Limitar acertos ao total
 
@@ -638,7 +639,7 @@ export default function VerifiedStats({ categories = [], user }) {
             };
             const stateValues = categoryBreakdown.map(c => stateScores[c.state] ?? 3);
             stateValues.sort((a, b) => a - b);
-            const medianValue = stateValues[Math.floor(stateValues.length / 2)];
+            const medianValue = stateValues[Math.floor((stateValues.length - 1) / 2)];
             const medianState = Object.entries(stateScores).find(([, v]) => v === medianValue)?.[0] || 'unstable';
             const uiState = stateMap[medianState] || stateMap.insufficient_data;
 
