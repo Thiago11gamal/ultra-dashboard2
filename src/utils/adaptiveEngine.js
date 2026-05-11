@@ -40,13 +40,18 @@ export function detectRegimeTransition(scores = [], options = {}) {
     };
 
     if (!Array.isArray(scores) || scores.length < minHistory) return noData;
+    
+    // BUG-ADAPT-01 FIX: Janela Dinâmica
+    // Se scores.length < windowSize * 1.5, a janela de 10 itens impede a geração 
+    // de 2 estados (necessários para a derivada). Ajustamos para scores.length/2.
+    const actualWindowSize = Math.min(windowSize, Math.floor(scores.length / 2));
 
     // 1. Calcular estados em janelas deslizantes
     const states = [];
-    const stepSize = Math.max(1, Math.floor(windowSize / 2)); // 50% overlap
-    for (let end = windowSize; end <= scores.length; end += stepSize) {
-        const window = scores.slice(end - windowSize, end);
-        const result = analyzeProgressState(window, { maxScore, window_size: windowSize });
+    const stepSize = Math.max(1, Math.floor(actualWindowSize / 2)); // 50% overlap
+    for (let end = actualWindowSize; end <= scores.length; end += stepSize) {
+        const window = scores.slice(end - actualWindowSize, end);
+        const result = analyzeProgressState(window, { maxScore, window_size: actualWindowSize });
         states.push({
             state: result.state,
             mean: result.mean_score,

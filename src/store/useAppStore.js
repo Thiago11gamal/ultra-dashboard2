@@ -54,10 +54,9 @@ const idbStorage = {
                 return localValue;
             }
             
-            // Se o IDB for mais recente, remove o backup antigo do LocalStorage para limpar espaço
-            if (idbVer > localVer || idbTime > localTime + 10000) {
-                localStorage.removeItem(name);
-            }
+            // Se o IDB for mais recente, o backup no LocalStorage será atualizado
+            // naturalmente na próxima gravação (setItem). Não apagamos agora para
+            // garantir redundância contínua caso o usuário feche a página.
 
             return idbValue;
         } catch {
@@ -88,7 +87,11 @@ const idbStorage = {
     },
     removeItem: async (name) => {
         if (saveTimeout) clearTimeout(saveTimeout);
-        localStorage.removeItem(name);
+        try {
+            localStorage.removeItem(name);
+        } catch {
+            console.warn("[Storage] LocalStorage removeItem failed.");
+        }
         try {
             await idbDel(name);
         } catch {

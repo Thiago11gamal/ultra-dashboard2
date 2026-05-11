@@ -120,9 +120,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let h = 0xdeadbeef;
     h = Math.imul(h ^ Math.floor(safeMean * 10000), 2654435761);
     h = Math.imul(h ^ Math.floor(safeSD * 10000), 1597334677);
-    if (categoryName) {
-        for(let i = 0; i < categoryName.length; i++) {
-            h = Math.imul(h ^ categoryName.charCodeAt(i), 339020473);
+    const catStr = String(categoryName || '');
+    if (catStr) {
+        for(let i = 0; i < catStr.length; i++) {
+            h = Math.imul(h ^ catStr.charCodeAt(i), 339020473);
         }
     }
     const stableSeed = seed ?? ((h ^ (h >>> 16)) >>> 0);
@@ -306,10 +307,13 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
             ...options,
         };
 
-        const history = values
+        const safeDates = dates || [];
+        const safeValues = values || [];
+
+        const history = safeValues
             .map((score, index) => ({
                 score: Number(score),
-                date: dates[index] || new Date().toISOString().slice(0, 10)
+                date: safeDates[index] || new Date().toISOString().slice(0, 10)
             }))
             .filter((row) => Number.isFinite(row.score));
 
