@@ -881,7 +881,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                                 alarmAudioRef.current.currentTime = 0;
                                                 alarmAudioRef.current.volume = 1;
                                             }
-                                        }).catch(() => { });
+                                        }).catch(err => console.debug('Audio play skipped:', err));
                                     }
 
                                     const next = !isRunning;
@@ -967,7 +967,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                         </div>
 
                         <div className="flex flex-1 items-center gap-1.5 h-16 px-4">
-                            {Array.from({ length: targetCycles || 1 }).map((_, i) => (
+                            {Array.from({ length: targetCycles || 1 }).map((_unused, i) => (
                                 <React.Fragment key={i}>
                                     <div className="flex-1 relative">
                                         <div className="bg-[#2d1a12]/10 h-3 rounded-full overflow-hidden">

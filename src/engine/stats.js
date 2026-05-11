@@ -132,9 +132,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             
             // 💡 1. TRI Pseudo-Adaptativa: Multiplicador de Dificuldade
             // Lê do histórico ou assume peso neutro (1.0)
-            const difficultyWeight = Number.isFinite(Number(h.difficulty)) ? Number(h.difficulty) : 1.0;
-            const acertosHoje = safeCorrect * difficultyWeight;
-            const errosHoje = (total - safeCorrect) * difficultyWeight;
+            const acertosHoje = safeCorrect;
+            const errosHoje = total - safeCorrect;
 
             const entryDate = new Date(h.date);
             const prevDate = i > 0 ? new Date(sortedHistory[i - 1].date) : entryDate;

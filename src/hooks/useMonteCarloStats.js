@@ -247,7 +247,7 @@ function generateAnalyticsStats({
     };
 }
 
-export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode: _forcedMode, effectiveSimulateToday }) {
+export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, effectiveSimulateToday }) {
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
@@ -507,19 +507,22 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         }
     }, [isFlashing]);
 
-    const rawProbability = simulationData?.data?.probability ?? 0;
-    const neutralValuePct = (Number.isFinite(pureStatsData?.bayesianMean) && maxScore > 0)
-        ? (pureStatsData.bayesianMean / maxScore) * 100
-        : 50;
-    const probability = shrinkProbabilityToNeutral(rawProbability, calibrationPenalty, neutralValuePct, 0.5);
-    
-    const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
-    const projectedMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));
-    
-    // 🎯 RIGOR FIX: 'Hoje' vem do Nível Bayesiano estável. 'Projeção' vem da simulação de futuro.
-    const currentMean = Number.isFinite(Number(pureStatsData?.bayesianMean)) 
-        ? Number(pureStatsData.bayesianMean) 
-        : (simulationData?.data?.currentMean ?? projectedMean);
+    const { probability, projectedMean, currentMean } = useMemo(() => {
+        const rawProbability = simulationData?.data?.probability ?? 0;
+        const neutralValuePct = (Number.isFinite(pureStatsData?.bayesianMean) && maxScore > 0)
+            ? (pureStatsData.bayesianMean / maxScore) * 100
+            : 50;
+        const prob = shrinkProbabilityToNeutral(rawProbability, calibrationPenalty, neutralValuePct, 0.5);
+        
+        const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
+        const pMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));
+        
+        const cMean = Number.isFinite(Number(pureStatsData?.bayesianMean)) 
+            ? Number(pureStatsData.bayesianMean) 
+            : (simulationData?.data?.currentMean ?? pMean);
+
+        return { probability: prob, projectedMean: pMean, currentMean: cMean };
+    }, [simulationData?.data, pureStatsData?.bayesianMean, maxScore, minScore, calibrationPenalty]);
 
 
 

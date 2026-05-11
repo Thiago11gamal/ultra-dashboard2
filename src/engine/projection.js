@@ -91,17 +91,72 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
 }
 
 // -----------------------------
-// Volatilidade (Standard Deviation of residuals)
+// Volatilidade Robusta (MSSD + MAD Blended)
 // -----------------------------
+export function calculateRobustVolatility(history, maxScore = 100, minScore = 0, options = {}) {
+    const sorted = getSortedHistory(history);
+    if (!sorted || sorted.length < 2) {
+        const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+        return 0.05 * range;
+    }
+
+    const lambda = options.lambda || 0.08;
+    const now = options.referenceDate || Date.now();
+    const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
+
+    let sumWeights = 0;
+    let sumResidualsWeighted = 0;
+    let sumSw = 0;
+
+    const residualSamples = sorted.map(h => {
+        const hDate = h.date || h.createdAt;
+        const t = (now - new Date(hDate).getTime()) / 86400000;
+        const w = Math.exp(-lambda * t);
+        const y = getSafeScore(h, maxScore);
+        return { value: y, weight: w };
+    });
+
+    residualSamples.forEach(it => {
+        sumWeights += it.weight;
+        sumResidualsWeighted += it.weight * it.value;
+        sumSw += it.weight * it.value * it.value;
+    });
+
+    const expectedResidual = sumResidualsWeighted / Math.max(1e-9, sumWeights);
+    const n_res = sorted.length - 1;
+    const bessel = n_res > 1 ? n_res / (n_res - 1) : 1;
+    const mssdVariance = ((sumSw / Math.max(1e-9, sumWeights)) - (expectedResidual * expectedResidual)) * bessel;
+
+    const weightedMedian = (arr) => {
+        if (!arr.length) return 0;
+        const sortedArr = [...arr].sort((a, b) => a.value - b.value);
+        const totalW = sortedArr.reduce((acc, it) => acc + it.weight, 0);
+        let accW = 0;
+        for (const it of sortedArr) {
+            accW += it.weight;
+            if (accW >= totalW * 0.5) return it.value;
+        }
+        return sortedArr[sortedArr.length - 1].value;
+    };
+
+    const medianResidual = weightedMedian(residualSamples);
+    const absDev = residualSamples.map(it => ({ value: Math.abs(it.value - medianResidual), weight: it.weight }));
+    const mad = weightedMedian(absDev);
+    const robustSigma = 1.4826 * mad;
+    const robustVariance = robustSigma * robustSigma;
+    const blendedVariance = (0.75 * mssdVariance) + (0.25 * robustVariance);
+
+    return Math.sqrt(Math.max(Math.pow(1.0 * scaleFactorFallback, 2), blendedVariance));
+}
+
 export function calculateVolatility(history, maxScore = 100, minScore = 0) {
     if (!Array.isArray(history) || history.length < 2) {
-        // Fallback robusto baseado na escala da prova
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
-        return 0.05 * range; // 5% da escala como volatilidade padrão
+        return 0.05 * range;
     }
     const scores = history.map(h => getSafeScore(h, maxScore));
-    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (scores.length - 1);
+    const meanVal = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const variance = scores.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / (scores.length - 1);
     return Math.sqrt(variance);
 }
 
@@ -367,8 +422,11 @@ export function monteCarloSimulation(
     }
 
 
-    // Calcula volatilidade clássica para normalização O-U
-    const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory, maxScore, minScore);
+    // 🎯 2. Calcular Volatilidade Robusta (MSSD + MAD Blended)
+    const volatility = forcedVolatility !== undefined 
+        ? forcedVolatility 
+        : calculateRobustVolatility(sortedHistory, maxScore, minScore, options);
+    
     const scoreRangeOU = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
     const normalizedVolOU = (volatility / scoreRangeOU) * 100;
     const thetaOU = Math.max(0.005, 0.1 / (1 + normalizedVolOU * 0.05));

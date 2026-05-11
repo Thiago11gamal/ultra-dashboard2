@@ -176,10 +176,7 @@ export function estimateInterSubjectCorrelation(
     const essPairs = computeEffectiveSampleSizeFromWeights(pairwise.map(p => Math.max(1, p.n - 3)));
     // Shrinkage empírico-bayesiano: usa overlap médio e ESS para evitar overfit em poucos pares.
     const shrink = Math.max(0, Math.min(1, (avgOverlap / (avgOverlap + 10)) * (essPairs / (essPairs + 6))));
-    // If empirical evidence indicates negative correlation, avoid a positive fallback prior
-    // pulling the estimate across zero (which would erase anti-correlation signal).
-    const prior = (empirical < 0 && fallback > 0) ? 0 : fallback;
-    const blended = (shrink * empirical) + ((1 - shrink) * prior);
+    const blended = (shrink * empirical) + ((1 - shrink) * fallback);
 
     return Math.max(-1, Math.min(1, blended));
 }
