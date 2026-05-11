@@ -169,7 +169,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     }, [mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes, timeLeft]);
 
 
-    const syncChannel = useMemo(() => typeof window !== 'undefined' ? new BroadcastChannel('pomodoro_sync') : null, []);
+    const [syncChannel] = useState(() => typeof window !== 'undefined' ? new BroadcastChannel('pomodoro_sync') : null);
     const speedRef = useRef(1);
     useEffect(() => {
         speedRef.current = speed;

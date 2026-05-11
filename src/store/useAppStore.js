@@ -71,7 +71,7 @@ const idbStorage = {
             if (value.length < 4500000) { 
                 localStorage.setItem(name, value);
             }
-        } catch (e) {
+        } catch {
             console.warn("[Storage] LocalStorage cheio. Mantendo apenas no IndexedDB.");
         }
 
