@@ -136,7 +136,7 @@ export function computeEbbinghausRetention(daysSince, stabilityDays) {
   return Math.exp(-t / S);
 }
 
-export function estimateMemoryStability(history, maxScore = 100) {
+export function estimateMemoryStability(history, maxScore = 100, baselineScore = null) {
   if (!Array.isArray(history) || history.length === 0) return 3;
 
   const sorted = [...history]
@@ -148,13 +148,17 @@ export function estimateMemoryStability(history, maxScore = 100) {
   let stability = 3.0;
   const GROWTH_FACTOR = 1.8;
   const DECAY_FACTOR = 0.6;
-  const SUCCESS_THRESHOLD = 0.65;
+  
+  // O sucesso dinâmico é a própria média do aluno ou no mínimo 50% da prova.
+  // Se o baseline não for passado, calcula a média do próprio history
+  const safeBaseline = baselineScore !== null ? baselineScore : _mean(sorted.map(h => getSafeScore(h, maxScore)));
+  const dynamicSuccessThreshold = Math.max(0.5, safeBaseline / maxScore);
 
   for (let i = 0; i < sorted.length; i++) {
     const h = sorted[i];
     const pct = Math.min(1, Math.max(0, getSafeScore(h, maxScore) / maxScore));
 
-    if (pct >= SUCCESS_THRESHOLD) {
+    if (pct >= dynamicSuccessThreshold) {
       stability *= GROWTH_FACTOR;
     } else {
       stability *= DECAY_FACTOR;
@@ -179,7 +183,7 @@ export function computeOptimalReviewInterval(stability, targetRetention = 0.7) {
   return Math.max(1, Math.round(-S * Math.log(R)));
 }
 
-export function computeForgettingRisk(history, maxScore = 100) {
+export function computeForgettingRisk(history, maxScore = 100, baselineScore = null) {
   const noData = { risk: 'low', retentionPct: 100, stabilityDays: 3, optimalIntervalDays: 3, daysSinceLast: 0 };
   if (!Array.isArray(history) || history.length === 0) return noData;
 
@@ -190,7 +194,7 @@ export function computeForgettingRisk(history, maxScore = 100) {
   if (sorted.length === 0) return noData;
 
   const daysSinceLast = Math.max(0, (Date.now() - new Date(sorted[0].date).getTime()) / 86400000);
-  const stability = estimateMemoryStability(sorted.reverse(), maxScore);
+  const stability = estimateMemoryStability(sorted.reverse(), maxScore, baselineScore);
   const retention = computeEbbinghausRetention(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));
   const optimalIntervalDays = computeOptimalReviewInterval(stability, 0.7);
@@ -460,7 +464,7 @@ export function computeCategoryDiagnostics({
     .filter(Number.isFinite);
 
   const hurst = computeHurstExponent(scores);
-  const forgetting = computeForgettingRisk(history, maxScore);
+  const forgetting = computeForgettingRisk(history, maxScore, targetScore);
   const consistency = computeConsistencyIndex(history, maxScore);
   const velocity = computeLearningVelocity(history, maxScore);
 

@@ -839,7 +839,12 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         if (percentage === 0 && data.scores.length === 0 && categorySimuladoCount > 3) {
             urgencyScore *= 0.7;
         }
-        if (trend < -0.5) urgencyScore *= 1.2;
+        const topicDropThreshold = -(0.02 * maxScore); 
+        if (trend < topicDropThreshold) {
+            // Escala o pânico (urgencyScore) proporcionalmente ao tamanho da queda
+            const dropSeverity = Math.min(2.0, 1 + Math.abs(trend / topicDropThreshold) * 0.1);
+            urgencyScore *= dropSeverity;
+        }
         return {
             name, total: data.total, percentage, daysSince,
             trend: Number(trend.toFixed(2)), priorityBoost, urgencyScore,
@@ -946,8 +951,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             // MC-07: ALERTAS DE MONTE CARLO (checados primeiro)
             // ─────────────────────────────────────────────────────────
 
-            // 🚨 Zona de Perigo: Prob < 30%
-            if (mc && mc.probabilityRaw < cfg.MC_PROB_DANGER && i === 0) {
+            // 🚨 Zona de Perigo: Prob < Danger Adaptativo
+            const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
+            if (mc && mc.probabilityRaw < adaptiveDanger && i === 0) {
                 // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
@@ -984,8 +990,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 });
             }
 
-            // 🏆 Cruzeiro Seguro: Prob > 90%
-            if (mc && mc.probabilityRaw >= cfg.MC_PROB_SAFE && i === 0) {
+            // 🏆 Cruzeiro Seguro: Prob > Safe Adaptativo
+            const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
+            if (mc && mc.probabilityRaw >= adaptiveSafe && i === 0) {
                 // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
@@ -1149,7 +1156,10 @@ export function getBestTask(categories, excludeTaskId = null) {
             const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
             if (studiedAt) {
                 const days = Math.max(0, (Date.now() - new Date(studiedAt).getTime()) / (1000 * 60 * 60 * 24));
-                score += Math.min(days * 5, 30);
+                // Se a categoria tiver dados de retenção, use-os. 
+                // Caso contrário, use uma curva de decaimento contínua e não um teto fixo (30).
+                const urgenciaPorEsquecimento = 40 * (1 - Math.exp(-0.05 * days));
+                score += urgenciaPorEsquecimento;
             } else {
                 score += 15;
             }
