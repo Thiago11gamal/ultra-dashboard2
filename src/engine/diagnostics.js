@@ -253,9 +253,16 @@ export function computeLearningVelocity(history, maxScore = 100) {
 
   let velocityLabel;
   const vPerMonth = velocity * 30;
-  if (vPerMonth > maxScore * 0.1) velocityLabel = `Acelerado (>${(maxScore * 0.1).toFixed(0)} pp/mês)`;
-  else if (vPerMonth > maxScore * 0.03) velocityLabel = `Constante (${vPerMonth.toFixed(1)} pp/mês)`;
-  else if (vPerMonth > maxScore * 0.005) velocityLabel = `Lento (${vPerMonth.toFixed(1)} pp/mês)`;
+
+  // 🎯 Calcula a velocidade em "Percentual do Espaço que Faltava" (Growth Potential)
+  const currentScore = data[data.length - 1].y;
+  const roomToGrow = Math.max(1, maxScore - currentScore);
+  const relativeVelocity = vPerMonth / roomToGrow; // Escala Normalizada de Esforço
+
+  // Agora a exigência é dinâmica: fechar 15% do abismo por mês é Acelerado.
+  if (relativeVelocity > 0.15) velocityLabel = `Acelerado (Alta Tração Logística)`;
+  else if (relativeVelocity > 0.05) velocityLabel = `Constante (Fechando lacunas ativamente)`;
+  else if (relativeVelocity > 0.01) velocityLabel = `Lento (Requer revisão de método)`;
   else velocityLabel = 'Platô atingido / Estagnado';
 
   return {

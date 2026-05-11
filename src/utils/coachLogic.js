@@ -364,11 +364,24 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }
 
         // --- COMPONENTS ---
+        
+        // 🎯 1. Diagnóstico do "Perfil de Dor" (Pain Profile) do aluno
+        const forgetting = computeForgettingRisk(simuladosWithMaxScore, maxScore);
+        const performanceDeficit = Math.max(0, targetScore - averageScore); // Falta de Conhecimento
+        const memoryRisk = forgetting.risk === 'critical' ? 40 : (forgetting.risk === 'high' ? 20 : 5); // Risco de Esquecimento
+        const volatilityRisk = mssdVolatility; // Instabilidade Estatística
+
+        const totalPain = performanceDeficit + memoryRisk + volatilityRisk || 1; // Evita div/0
+
+        // 🎯 2. Alocação Dinâmica de Pesos (O Total Base é sempre 110, mas a distribuição muda)
+        const dynamicScoreMax = Math.max(20, (performanceDeficit / totalPain) * 110);
+        const dynamicRecencyMax = Math.max(15, (memoryRisk / totalPain) * 110);
+        const dynamicInstabilityMax = Math.max(10, (volatilityRisk / totalPain) * 110);
 
         // A. Performance Score
         // BUG-19 FIX: Garantir invariância de escala através da normalização para base 100
         const normalizedAvg = (averageScore / maxScore) * 100;
-        const scoreComponent = Math.min(cfg.SCORE_MAX, (100 - normalizedAvg) * (cfg.SCORE_MAX / 100)) * backtestWeights.scoreWeight;
+        const scoreComponent = Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100)) * backtestWeights.scoreWeight;
 
         // B. Recency
         const weightDeviation = (weight / 100) - 1;
@@ -381,14 +394,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             : normalizeDate(new Date());
 
         const crunchMultiplier = getCrunchMultiplier(daysToExam, firstActivityDate);
-        const recencyComponent = cfg.RECENCY_MAX * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight;
+        const recencyComponent = dynamicRecencyMax * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight;
 
         // ─────────────────────────────────────────────────────────
-        // C. Instability via MSSD (divisor recalibrado: 5 vs. 15 antes)
-        // MSSD típica: 2–8 → output 12–48 antes do cap.
-        // stdDev típica era: 8–15 → output 16–30. Escala equivalente.
-        // ─────────────────────────────────────────────────────────
-        let instabilityComponent = mssdVolatility * (cfg.INSTABILITY_MAX / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
+        let instabilityComponent = mssdVolatility * (dynamicInstabilityMax / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
         const trendThreshold = getDynamicTrendThreshold(averageScore, maxScore);
 
         if (trend > trendThreshold) {

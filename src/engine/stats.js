@@ -93,7 +93,18 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     let alpha = alpha0;
     let beta = beta0;
     let maxAlphaEver = alpha0;
-    const MAX_ALPHA_CAP = 250; 
+    
+    // 🎯 O Teto é vivo. Baseia-se na constância do aluno.
+    const sessionGaps = history && history.length > 1 
+        ? history.map((h, i) => i > 0 ? (new Date(h.date) - new Date(history[i-1].date)) / 86400000 : 0) 
+        : [0];
+    const avgGap = sessionGaps.reduce((a, b) => a + b, 0) / Math.max(1, sessionGaps.length - 1);
+
+    // Fórmula Estocástica: Quanto menor o buraco médio entre estudos (avgGap), maior a capacidade
+    // do cérebro de reter N amostras ativas. Ex: Se estuda a cada 2 dias = Cap de ~1200 questões vivas.
+    const dynamicAlphaCap = Math.max(100, Math.floor(2500 / Math.max(1, avgGap)));
+    const dynamicEffectiveN = dynamicAlphaCap;
+    
     const now = Date.now();
 
     if (history && history.length > 0) {
@@ -134,7 +145,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const entryDecay = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
             
             // Retenção do Ratio Bayesiano
-            const cappedMaxAlpha = Math.min(maxAlphaEver, MAX_ALPHA_CAP);
+            const cappedMaxAlpha = Math.min(maxAlphaEver, dynamicAlphaCap);
             const retentionFloor = cappedMaxAlpha * 0.3;
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
@@ -178,8 +189,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         return { mean: 0, sd: 0, ciLow: 0, ciHigh: 0, alpha: alpha0, beta: beta0, n: 0 };
     }
     
-    const MAX_EFFECTIVE_N = 250; 
-    const effectiveN = Math.min(n, MAX_EFFECTIVE_N);
+    const effectiveN = Math.min(n, dynamicEffectiveN);
 
     const p = alpha / n;
     const bayesianMean = p * safeMaxScore;
@@ -210,8 +220,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
     let alphaOut = alpha;
     let betaOut = beta;
-    if (n > MAX_EFFECTIVE_N) {
-        const factor = MAX_EFFECTIVE_N / n;
+    if (n > dynamicEffectiveN) {
+        const factor = dynamicEffectiveN / n;
         alphaOut = alpha * factor;
         betaOut = beta * factor;
     }
@@ -225,7 +235,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         unclampedHigh: ciHigh,
         alpha: alphaOut,
         beta: betaOut,
-        n: n > MAX_EFFECTIVE_N ? MAX_EFFECTIVE_N : n,
+        n: n > dynamicEffectiveN ? dynamicEffectiveN : n,
     };
 }
 
@@ -280,7 +290,12 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             : wVarSum / Math.max(1e-6, sumW * 0.01);
 
         const POPULATION_SD = getDynamicPriorSD(historyToUse, safeMaxScore);
-        const KAPPA = 1.5;
+        
+        // 🎯 Teoria de Credibilidade de Bühlmann (Shrinkage Perfeito)
+        // K = (Variância da População) / (Variância Esperada do Indivíduo)
+        const popVar = Math.pow(POPULATION_SD, 2);
+        const studentVar = Math.max(1e-6, sampleVar); // Evita colapso se aluno só tirou a mesma nota
+        const KAPPA = Math.max(0.1, Math.min(5.0, popVar / studentVar));
 
         // 🎯 Kish Effective Sample Size (Fix): Usa o volume de questões real para o shrinkage bayesiano
         // em vez da contagem bruta de simulados.
