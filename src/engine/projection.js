@@ -25,7 +25,10 @@ export function getSortedHistory(history) {
             const utcB = Date.UTC(dateB.getUTCFullYear(), dateB.getUTCMonth(), dateB.getUTCDate());
             if (utcA !== utcB) return utcA - utcB;
             // Desempate determinístico intra-dia para evitar depender da estabilidade do sort do runtime.
-            return dateA.getTime() - dateB.getTime();
+            const diff = dateA.getTime() - dateB.getTime();
+            if (diff !== 0) return diff;
+            // Desempate determinístico final por ID (Bug 15)
+            return (a.id || "").localeCompare(b.id || "");
         });
 }
 
@@ -68,7 +71,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options = {}) {
     const now = options.referenceDate || Date.now();
     const t0 = new Date(sorted[0].date || sorted[0].createdAt).getTime();
-    let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0, sumW2 = 0;
+    let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0;
 
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
@@ -78,15 +81,12 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
         const pred = intercept + slope * x;
         rss += w * Math.pow(y - pred, 2);
         sumW += w;
-        sumW2 += w * w;
         sumWX += w * x;
         sumWXX += w * x * x;
     });
 
-    const n = sorted.length;
-    // FIX: Usar soma de pesos para o divisor de variância em WLS (Kish effective sample size)
-    const effectiveN = (sumW * sumW) / sumW2;
-    const variance = rss / Math.max(1, (effectiveN - 2));
+    // FIX: Usar soma dos pesos para o divisor em vez de n-2 puro (Bug 16)
+    const variance = rss / Math.max(1, sumW - 2);
     const det = sumW * sumWXX - sumWX * sumWX;
 
     if (Math.abs(det) < 1e-6) return 1.5;
@@ -125,10 +125,17 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         sumSw += it.weight * it.value * it.value;
     });
 
-    const expectedResidual = sumResidualsWeighted / Math.max(1e-9, sumWeights);
-    const n_res = sorted.length - 1;
-    const bessel = n_res > 1 ? n_res / (n_res - 1) : 1;
-    const mssdVariance = ((sumSw / Math.max(1e-9, sumWeights)) - (expectedResidual * expectedResidual)) * bessel;
+    // FIX: MSSD Real Ponderado (Bug 13)
+    let mssdSum = 0;
+    let weightSumMSSD = 0;
+
+    for (let i = 1; i < residualSamples.length; i++) {
+        const diff = residualSamples[i].value - residualSamples[i-1].value;
+        const w = Math.min(residualSamples[i].weight, residualSamples[i-1].weight);
+        mssdSum += w * (diff * diff);
+        weightSumMSSD += w;
+    }
+    const mssdVariance = (mssdSum / (2 * Math.max(1e-9, weightSumMSSD)));
 
     const weightedMedian = (arr) => {
         if (!arr.length) return 0;

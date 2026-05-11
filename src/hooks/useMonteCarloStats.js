@@ -147,8 +147,12 @@ function generateAnalyticsStats({
 
             if (stats && weight > 0) {
                 totalWeight += weight;
-                weightedBayesianAlpha += baye.alpha * weight;
-                weightedBayesianBeta += baye.beta * weight;
+                const strength = baye.alpha + baye.beta;
+                const normAlpha = (baye.alpha / strength) * 10; // Força constante de 10 questões
+                const normBeta = (baye.beta / strength) * 10;
+
+                weightedBayesianAlpha += normAlpha * weight;
+                weightedBayesianBeta += normBeta * weight;
                 weightsByKey[weightKey] = weight;
                 maxScoreByKey[weightKey] = catMaxScore;
 
@@ -478,7 +482,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 const rawTrend = cat.trendValue || 0;
                 
                 const projectedDaysAmortized = LOG_DAMPING_FACTOR * Math.log(1 + projectDays / LOG_DAMPING_FACTOR);
-                const dailyTrend = rawTrend / 30;
+                const dailyTrend = rawTrend;
                 const totalTrendProjection = dailyTrend * projectedDaysAmortized;
 
                 const baseline = (!effectiveSimulateToday && projectDays > 0)
