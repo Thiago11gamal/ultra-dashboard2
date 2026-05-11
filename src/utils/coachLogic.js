@@ -1206,7 +1206,13 @@ export function getCoachInsight(activeSubject, stats) {
 
     const fatigueScore = getCognitiveState(stats);
 
-    if (fatigueScore < 70) {
+    // Ajusta a tolerância à fadiga baseada no fôlego histórico (level)
+    const userResilience = stats?.user?.level || 1;
+    // Quanto maior o level, mais baixo o score de fadiga precisa cair para acionar o alarme
+    const dangerThreshold = Math.max(45, 75 - (userResilience * 2)); 
+    const flowThreshold = Math.min(90, 80 + (userResilience * 0.5));
+
+    if (fatigueScore < dangerThreshold) {
         return {
             type: 'danger',
             title: 'ALERTA: ESGOTAMENTO NEURAL',
@@ -1218,8 +1224,8 @@ export function getCoachInsight(activeSubject, stats) {
 
     // LOGIC-FATIGUE-THRESHOLD FIX: antes, pomodorosCompleted >= 3 disparava "SINCRONIA TOTAL"
     // mesmo com fatigueScore=70 (logo acima do limiar de perigo), o que é contraditório.
-    // Agora exige fatigueScore >= 85 para indicar estado de alto desempenho.
-    if (fatigueScore >= 85 && stats?.pomodorosCompleted >= 3) {
+    // Agora exige fatigueScore >= flowThreshold para indicar estado de alto desempenho.
+    if (fatigueScore >= flowThreshold && stats?.pomodorosCompleted >= 3) {
         return {
             type: 'success',
             title: 'ESTADO: SINCRONIA TOTAL',

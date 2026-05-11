@@ -4,7 +4,7 @@ import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
 // BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
 import { calculateSlope } from './projection.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
-export const POPULATION_SD_FACTOR = 0.15; // Unificado: 15% da escala do concurso
+
 import { computeAdaptiveLambda } from './diagnostics.js';
 
 function getDynamicTrendThreshold(currentScore, maxScore) {
@@ -18,6 +18,18 @@ function getDynamicTrendThreshold(currentScore, maxScore) {
     const dynamicPct = (baseRequirement * Math.pow(damping, 1.5)) + 0.002; 
     
     return dynamicPct * maxScore;
+}
+
+// O desvio padrão a priori passa a ser a própria volatilidade do usuário, 
+// com um piso de 5% e teto de 20% para evitar colapso bayesiano.
+function getDynamicPriorSD(history, maxScore) {
+    if (!history || history.length < 5) return maxScore * 0.15; // Fallback inicial seguro
+    const scores = history.map(h => getSafeScore(h, maxScore));
+    const globalMean = mean(scores);
+    const globalVar = scores.reduce((acc, s) => acc + Math.pow(s - globalMean, 2), 0) / scores.length;
+    
+    const empiricalSD = Math.sqrt(globalVar);
+    return Math.max(maxScore * 0.05, Math.min(maxScore * 0.20, empiricalSD));
 }
 
 export function mean(arr) {
@@ -55,7 +67,7 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
     const blendedSampleVar = (0.8 * sampleVar) + (0.2 * robustVar);
 
     // MATH FIX: O prior de incerteza (POPULATION_SD) deve ser ancorado na escala do concurso (maxScore)
-    const POPULATION_SD = safeMaxScore * POPULATION_SD_FACTOR;
+    const POPULATION_SD = getDynamicPriorSD(arr, safeMaxScore);
     const KAPPA = 1;
 
     const adjustedVar =
@@ -267,7 +279,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             ? wVarSum / kishDenom
             : wVarSum / Math.max(1e-6, sumW * 0.01);
 
-        const POPULATION_SD = safeMaxScore * POPULATION_SD_FACTOR;
+        const POPULATION_SD = getDynamicPriorSD(historyToUse, safeMaxScore);
         const KAPPA = 1.5;
 
         // 🎯 Kish Effective Sample Size (Fix): Usa o volume de questões real para o shrinkage bayesiano

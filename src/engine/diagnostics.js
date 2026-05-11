@@ -146,7 +146,6 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
   if (sorted.length === 0) return 3;
 
   let stability = 3.0;
-  const GROWTH_FACTOR = 1.8;
   const DECAY_FACTOR = 0.6;
   
   // O sucesso dinâmico é a própria média do aluno ou no mínimo 50% da prova.
@@ -158,8 +157,18 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
     const h = sorted[i];
     const pct = Math.min(1, Math.max(0, getSafeScore(h, maxScore) / maxScore));
 
+    // Calcula quanto tempo passou desde a última revisão para saber a retenção atual
+    let currentRetention = 1.0;
+    if (i > 0) {
+      const gap = (new Date(h.date) - new Date(sorted[i - 1].date)) / 86400000;
+      currentRetention = computeEbbinghausRetention(gap, stability);
+    }
+
     if (pct >= dynamicSuccessThreshold) {
-      stability *= GROWTH_FACTOR;
+      // Crescimento Elástico: Se a retenção estava em 30%, o fator é ~2.7x (reforço forte). 
+      // Se a retenção estava em 95%, o fator é ~1.1x (ganho marginal).
+      const elasticGrowth = 1 + (1.5 * Math.exp(-currentRetention));
+      stability *= elasticGrowth;
     } else {
       stability *= DECAY_FACTOR;
       stability = Math.max(1, stability);
@@ -322,12 +331,15 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
 
   const efficiency = questionsPerHour * accuracyRate;
 
+  // Descobre o ritmo natural médio do próprio usuário para esta matéria
+  const historicalPace = totalHours > 5 ? (totalQuestions / totalHours) : 15;
+  const efficiencyRatio = questionsPerHour / Math.max(1, historicalPace);
+
   let label;
   if (questionsPerHour === 0) label = 'Sem questões registradas';
-  else if (efficiency >= 25) label = 'Excelente';
-  else if (efficiency >= 15) label = 'Boa';
-  else if (efficiency >= 8) label = 'Regular';
-  else if (questionsPerHour < 5) label = 'Baixo volume de questões';
+  else if (efficiencyRatio >= 1.3 && accuracyRate >= 0.7) label = 'Alta Performance (Acima do seu normal)';
+  else if (efficiencyRatio >= 0.8 && accuracyRate >= 0.6) label = 'Ritmo Sólido';
+  else if (questionsPerHour < (historicalPace * 0.5)) label = 'Fricção Detectada (Muito tempo, pouco processamento)';
   else label = 'Acurácia precisa melhorar';
 
   return {
