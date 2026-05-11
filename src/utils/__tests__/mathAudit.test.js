@@ -151,7 +151,7 @@ describe('BUG-MATH-03: Adaptive risk thresholds', () => {
 // BUG-MATH-04: Bayesian amnesia floor
 // ─────────────────────────────────────────────────────────────────
 describe('BUG-MATH-04: Bayesian amnesia cap', () => {
-    test('alpha deve ser limitado a MAX_ALPHA_CAP após longo histórico', () => {
+    test('alpha deve ser limitado a dynamicAlphaCap após longo histórico', () => {
         // Criar um histórico massivo para inflar alpha
         const history = [];
         for (let i = 0; i < 100; i++) {

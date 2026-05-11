@@ -161,14 +161,14 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             alpha += acertosHoje;
             beta += errosHoje;
             
-            if (alpha > maxAlphaEver) maxAlphaEver = Math.min(alpha, MAX_ALPHA_CAP);
+            if (alpha > maxAlphaEver) maxAlphaEver = Math.min(alpha, dynamicAlphaCap);
         }
         
         // Decaimento final até o dia de hoje
         const lastDate = new Date(sortedHistory[sortedHistory.length - 1].date);
         const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
-            const cappedMaxAlpha = Math.min(maxAlphaEver, MAX_ALPHA_CAP);
+            const cappedMaxAlpha = Math.min(maxAlphaEver, dynamicAlphaCap);
             const retentionFloor = cappedMaxAlpha * 0.3;
             const finalLambdaBase = computeAdaptiveLambda(sortedHistory);
             const finalLambda = finalLambdaBase * Math.exp(-0.15 * sortedHistory.length);
