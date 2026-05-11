@@ -69,7 +69,15 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         const low = bayesianCI.unclampedLow !== undefined ? bayesianCI.unclampedLow : bayesianCI.ciLow;
         
         if (high !== undefined && low !== undefined) {
-            const inferredSD = (high - low) / 3.92;
+            let inferredSD = (high - low) / 3.92;
+            const distToBoundary = Math.min(safeMean - minScore, maxScore - safeMean);
+
+            // Se a média estiver muito próxima do limite (0 ou 100), o intervalo de 95% 
+            // fica comprimido. Inflamos o SD para refletir a incerteza real.
+            if (distToBoundary < inferredSD * 1.5) {
+                const correctionFactor = 1 + (1 - distToBoundary / (inferredSD * 1.5));
+                inferredSD *= Math.min(1.5, correctionFactor);
+            }
             if (Number.isFinite(inferredSD) && inferredSD > 0) {
                 safeSD = inferredSD;
             }

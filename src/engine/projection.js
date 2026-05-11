@@ -88,7 +88,12 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
 
     // FIX: Usar o Tamanho Efetivo da Amostra de Kish para o divisor em WLS (Bug 16 / Lint Fix)
     const effectiveN = (sumW * sumW) / sumW2;
-    const variance = rss / Math.max(1, (effectiveN - 2));
+    const scaleFactorFallback = maxScore / 100;
+
+    // Garantir que não há divisão por zero ou variância negativa com N insuficiente
+    if (effectiveN <= 2.1) return 1.5 * scaleFactorFallback; // Retorna incerteza base
+
+    const variance = rss / (effectiveN - 2);
     const det = sumW * sumWXX - sumWX * sumWX;
 
     if (Math.abs(det) < 1e-6) return 1.5;

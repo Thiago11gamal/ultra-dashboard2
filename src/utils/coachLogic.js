@@ -539,9 +539,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // O teto deve escalar junto com os bônus para evitar saturação em 100%.
         const maxSrsBoost = cfg.SRS_BOOST * 2.0;
         const RAW_MAX_ACTUAL = cfg.SCORE_MAX
-            + effectiveRecencyMax
+            + (effectiveRecencyMax * 0.8) // Atenuação no teto
             + cfg.INSTABILITY_MAX
-            + (cfg.PRIORITY_BOOST + maxSrsBoost) * crunchMultiplier
+            + (cfg.PRIORITY_BOOST + maxSrsBoost) * (1 + (crunchMultiplier - 1) * 0.5)
             + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE) // headroom MC
             + cfg.EFFICIENCY_MAX // headroom Efficiency Bridge
             + (cfg.EFFICIENCY_MAX * 2.0); // headroom Balance Bridge (underAllocation * 2.0)

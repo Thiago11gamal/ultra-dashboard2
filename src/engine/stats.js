@@ -126,8 +126,10 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             // O pior cenário teórico é 0 absoluto (onde pct vira 0.05).
             let rawPct = normalizedScore / safeMaxScore;
             if (rawPct < 0.1 && (h.total || 0) > 0) {
-                // Transforma nota líquida em taxa de acerto aproximada: T = (Net + 1)/2
-                rawPct = Math.max(0.05, (rawPct + 1) / 2);
+                // Se o aluno deixou muitas em branco, a nota líquida baixa não significa 
+                // necessariamente um acerto de 50% (chute).
+                const blankPenaltyMitigation = (correct > 0) ? 0.2 : 0.5;
+                rawPct = Math.max(0.05, (rawPct + 1) / (2 - blankPenaltyMitigation));
             }
             
             const pct = Math.min(1, Math.max(0, rawPct));
