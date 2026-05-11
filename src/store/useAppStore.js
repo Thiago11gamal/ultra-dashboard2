@@ -68,7 +68,7 @@ const idbStorage = {
         // --- PATCH: Backup síncrono imediato ---
         try {
             // Verificar tamanho aproximado antes de tentar gravar (5MB limite padrão)
-            if (value.length < 4500000) { 
+            if (value.length < 2250000) { 
                 localStorage.setItem(name, value);
             }
         } catch {

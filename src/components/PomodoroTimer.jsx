@@ -250,7 +250,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             let lostMinutes = prev.accum;
             if (prev.mode === 'work') {
                 const totalWorkSeconds = safeSettings.pomodoroWork * 60;
-                lostMinutes += Math.round(Math.max(0, totalWorkSeconds - prev.time) / 60);
+                lostMinutes += Number((Math.max(0, totalWorkSeconds - prev.time) / 60).toFixed(2));
             }
             if (lostMinutes > 0) {
                 safeOnUpdateStudyTime(prev.subject.categoryId, lostMinutes, prev.subject.taskId);
@@ -287,21 +287,6 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     }, [activeSubject?.taskId, mode, safeSettings, isTransitioning]);
 
 
-    // 🟢 CÓDIGO NOVO 2: Garbage Collector Manual para as Refs dos Ciclos (B-09 FIX)
-    useEffect(() => {
-        if (workFillsRef.current.length > targetCycles) {
-            for (let i = targetCycles; i < workFillsRef.current.length; i++) {
-                workFillsRef.current[i] = null; // Nulifica para liberar memória
-            }
-            workFillsRef.current = workFillsRef.current.slice(0, targetCycles);
-        }
-        if (breakBallsRef.current.length > targetCycles) {
-            for (let i = targetCycles; i < breakBallsRef.current.length; i++) {
-                breakBallsRef.current[i] = null;
-            }
-            breakBallsRef.current = breakBallsRef.current.slice(0, targetCycles);
-        }
-    }, [targetCycles]);
 
     // 🛡️ [SHIELD-SYNC-DOM] Sincronização Forçada do DOM (B-14 FIX)
     // Garante que as barras tenham o tamanho correto ao carregar ou trocar de fase, 
@@ -324,7 +309,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (i < currentSessions - 1 || (i === currentSessions - 1 && currentMode !== 'work')) {
                 el.style.width = '100%';
             } else if (i === currentSessions - 1 && currentMode === 'work') {
-                el.style.width = `${Math.min(100, (1 - fraction) * 100)}%`;
+                el.style.width = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
             } else {
                 el.style.width = '0%';
             }
@@ -336,7 +321,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (i < currentSessions - 1) {
                 el.style.height = '100%';
             } else if (i === currentSessions - 1 && (currentMode === 'break' || currentMode === 'long_break')) {
-                el.style.height = `${Math.min(100, (1 - fraction) * 100)}%`;
+                el.style.height = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
             } else {
                 el.style.height = '0%';
             }
@@ -411,7 +396,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
                 case 'TARGET_CYCLES_CHANGE':
                     if (Number.isFinite(incomingTarget)) {
-                        syncPomodoroState({ targetCycles: Math.max(1, Math.round(incomingTarget)) });
+                        // Pega o estado real atômico no momento em que recebe a msg
+                        const currentCompleted = useAppStore.getState().appState.pomodoro.completedCycles || 0;
+                        syncPomodoroState({ targetCycles: Math.max(Math.max(1, currentCompleted), Math.round(incomingTarget)) });
                     }
                     break;
 
@@ -664,13 +651,13 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 // BUG-13 FIX: Guard both refs — breakBallsRef[last] doesn't exist for the final cycle
                 if (stateRefs.current.mode === 'work') {
                     const workEl = workFillsRef.current[s - 1];
-                    if (workEl) workEl.style.width = `${Math.min(100, (1 - fraction) * 100)}%`;
+                    if (workEl) workEl.style.width = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
                 } else {
                     // BUG-13/15 FIX: breakBallsRef tem targetCycles-1 elementos.
                     // Para s === targetCycles (última sessão), índice s-1 não existe — guarded abaixo.
                     // Inclui long_break: a última pausa longa também não tem bola DOM.
                     const breakEl = breakBallsRef.current[s - 1];
-                    if (breakEl) breakEl.style.height = `${Math.min(100, (1 - fraction) * 100)}%`;
+                    if (breakEl) breakEl.style.height = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
                 }
 
                 if (newTime <= 0) {
@@ -990,7 +977,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                                 style={{
                                                     width: (i < sessions - 1 || (i === sessions - 1 && (mode === 'break' || mode === 'long_break'))) ? '100%' :
                                                         (i === sessions - 1 && mode === 'work') ?
-                                                            (isTransitioning ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
+                                                            (isTransitioning ? '100%' : `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%`)
                                                             : '0%',
                                                     transition: isRunning ? 'none' : 'width 0.3s ease'
                                                 }}
@@ -1005,7 +992,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                                 style={{
                                                     height: (i < sessions - 1) ? '100%' :
                                                         (sessions === i + 1 && (mode === 'break' || mode === 'long_break')) ?
-                                                            (isTransitioning ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
+                                                            (isTransitioning ? '100%' : `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%`)
                                                             : '0%',
                                                     transition: isRunning ? 'none' : 'height 0.3s ease'
                                                 }}
