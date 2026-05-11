@@ -171,10 +171,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // Garante que o cone não fique gigante num teste de 10 pontos ou invisível num de 1000.
     const MIN_SPREAD = Math.max(0.5, maxScore * 0.005);
     
+    // FIX BUG 2: Prender a média visual dentro dos limites da prova
+    const clampedDisplayMean = Math.max(minScore, Math.min(maxScore, displayMean));
+    
     const wasVisualCIClamped = (rawHigh - rawLow < MIN_SPREAD);
     if (wasVisualCIClamped) {
-        rawLow = Math.max(minScore, displayMean - MIN_SPREAD / 2);
-        rawHigh = Math.min(maxScore, displayMean + MIN_SPREAD / 2);
+        rawLow = Math.max(minScore, clampedDisplayMean - MIN_SPREAD / 2);
+        rawHigh = Math.min(maxScore, clampedDisplayMean + MIN_SPREAD / 2);
+        
+        // Proteção matemática absoluta contra limites estritos que gerem inversão
+        if (rawLow > rawHigh) {
+            rawLow = minScore;
+            rawHigh = maxScore;
+        }
     }
 
     const displayLow = rawLow;

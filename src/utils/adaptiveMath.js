@@ -142,6 +142,9 @@ export function computeAdaptiveSignal(scores = []) {
     const sumW = weighted.reduce((a, b) => a + b, 0);
     const sumW2 = weighted.reduce((a, b) => a + (b * b), 0);
     const effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
+    
+    // FIX BUG 6: Denominador de Kish previne subestimação da variância (Overconfidence)
+    const kishDenom = Math.max(1e-9, sumW - (sumW2 / sumW));
 
     const weightedMean = finiteScores.reduce((acc, s, i) => acc + (s * weighted[i]), 0) / Math.max(1e-9, sumW);
 
@@ -155,13 +158,13 @@ export function computeAdaptiveSignal(scores = []) {
         ? (absDev[absDev.length / 2 - 1] + absDev[absDev.length / 2]) / 2
         : absDev[Math.floor(absDev.length / 2)];
     const robustSigma = Math.max(1e-6, 1.4826 * mad);
-    const huberK = 2.5 * robustSigma;
+    const robustSigmaK = 2.5 * robustSigma;
 
     const weightedVariance = finiteScores.reduce((acc, s, i) => {
         const d = s - weightedMean;
-        const clipped = Math.max(-huberK, Math.min(huberK, d));
+        const clipped = Math.max(-robustSigmaK, Math.min(robustSigmaK, d));
         return acc + (weighted[i] * clipped * clipped);
-    }, 0) / Math.max(1e-9, sumW);
+    }, 0) / kishDenom; // Aplicar a divisão de Kish aqui!
     const sd = Math.sqrt(Math.max(0, weightedVariance));
     // Reduz sensibilidade a ruído usando média dos últimos deltas (até 4 passos).
     const k = Math.min(4, Math.max(1, finiteScores.length - 1));
@@ -216,15 +219,17 @@ export function adaptiveConfidenceShrinkage(options = {}) {
     // Componente 2: Calibração (quanto pior a calibração, mais puxamos para o neutro)
     const calibShrink = calPen * 0.8; // escalar para não dominar
 
-    // Componente 3: Trend uncertainty (tendência forte = mais incerteza no nível atual)
+    // Componente 3: Trend uncertainty (tendência forte = mais incerteza no futuro, não no presente)
     const trendShrink = Math.min(0.15, trend * 0.04);
 
-    // Combinação: média ponderada com cap
-    const rawShrink = (sampleShrink * 0.50) + (calibShrink * 0.35) + (trendShrink * 0.15);
+    // FIX BUG 3: A tendência foi removida da contração da média. 
+    // Pesos redistribuídos para amostra (60%) e calibração (40%)
+    const rawShrink = (sampleShrink * 0.60) + (calibShrink * 0.40); 
     const finalShrink = Math.max(0, Math.min(maxShrink, rawShrink));
 
     return {
         shrinkFactor: Number(finalShrink.toFixed(4)),
+        trendUncertaintyPenalty: Number(trendShrink.toFixed(4)), // Exporta para o Monte Carlo inflar o desvio padrão
         components: {
             sampleShrink: Number(sampleShrink.toFixed(4)),
             calibShrink: Number(calibShrink.toFixed(4)),

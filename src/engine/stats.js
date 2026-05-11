@@ -118,8 +118,19 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             let correct = Number(h.correct) || 0;
 
             const normalizedScore = getSafeScore(h, maxScore);
-            const pct = Math.min(1, Math.max(0, normalizedScore / safeMaxScore));
-            if (total > 0 && correct === 0 && Number.isFinite(normalizedScore) && (normalizedScore / safeMaxScore) > 0.05) {
+            
+            // FIX BUG 4: Heurística Anti-Colapso para provas penalizadas
+            // Se a nota líquida for próxima de zero, a pessoa acertou ~50% e errou ~50% (chute).
+            // O pior cenário teórico é 0 absoluto (onde pct vira 0.05).
+            let rawPct = normalizedScore / safeMaxScore;
+            if (rawPct < 0.1 && (h.total || 0) > 0) {
+                // Transforma nota líquida em taxa de acerto aproximada: T = (Net + 1)/2
+                rawPct = Math.max(0.05, (rawPct + 1) / 2);
+            }
+            
+            const pct = Math.min(1, Math.max(0, rawPct));
+            
+            if (total > 0 && correct === 0 && Number.isFinite(normalizedScore)) {
                 correct = Math.round(pct * total);
             } else if (total === 0 && Number.isFinite(normalizedScore)) {
                 total = getSyntheticTotal(safeMaxScore);

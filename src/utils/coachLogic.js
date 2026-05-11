@@ -769,9 +769,16 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
 
     const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
 
+    const todayForTopics = new Date(); // Referência temporal
+
     history.forEach(entry => {
         if (!entry) return;
         const entryDate = new Date(entry.date || entry.createdAt || 0);
+        
+        // FIX BUG 7: Aplicar meia-vida de ~45 dias aos dados dos tópicos (K ≈ 0.015)
+        const daysOld = Math.max(0, (todayForTopics.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
+        const timeWeight = Math.max(0.05, Math.exp(-0.015 * daysOld));
+
         const topics = entry.topics || [];
         topics.forEach(t => {
             if (!t) return;
@@ -792,8 +799,9 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
                 return; // 🎯 BUG 3 FIX: Ignorar tópicos com volume zero explícito para não poluir estatísticas
             }
 
-            topicMap[name].total += topicTotal;
-            topicMap[name].correct += topicCorrect;
+            // Substituir a soma simples pela soma ponderada pelo tempo:
+            topicMap[name].total += (topicTotal * timeWeight);
+            topicMap[name].correct += (topicCorrect * timeWeight);
 
             if (topicTotal > 0) {
                 topicMap[name].scores.push({
@@ -1171,14 +1179,15 @@ export function getBestTask(categories, excludeTaskId = null) {
             // Fator 2: Curva de Esquecimento (Dias sem estudar)
             const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
             const parsedTime = new Date(studiedAt).getTime();
+            
             if (studiedAt && !isNaN(parsedTime)) {
                 const days = Math.max(0, (Date.now() - parsedTime) / (1000 * 60 * 60 * 24));
-                // Se a categoria tiver dados de retenção, use-os. 
-                // Caso contrário, use uma curva de decaimento contínua e não um teto fixo (30).
                 const urgenciaPorEsquecimento = 40 * (1 - Math.exp(-0.05 * days));
                 score += urgenciaPorEsquecimento;
             } else {
-                score += 15;
+                // FIX BUG 5: Matéria inédita/não estudada é prioridade estrutural (falta de base).
+                // 45 pontos garante que passe na frente de matérias velhas.
+                score += 45; 
             }
 
             // Fator 3: Taxa de Erro

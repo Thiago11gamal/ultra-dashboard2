@@ -37,7 +37,7 @@ export function computeEffectiveSampleSizeFromWeights(weights = []) {
 }
 
 // FIX 2.3: Proteção estrita contra a injeção de parâmetros corrompidos (null/NaN) do DB
-export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
+export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION, preserveScale = false) {
     if (!Array.isArray(stats) || stats.length === 0) return 0;
 
     // BUG 7 FIX: Use the provided totalWeight if valid, otherwise fallback to calculated total.
@@ -67,7 +67,11 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
     // This preserves scale invariance of linear-combination variance instead of silently shrinking/blowing up SD.
     const sumRawWeights = rawWeights.reduce((acc, w) => acc + w, 0);
     if (!Number.isFinite(sumRawWeights) || sumRawWeights <= 0) return 0;
-    const weights = rawWeights.map(w => w / sumRawWeights);
+    
+    // FIX BUG 1: Permitir manter a escala real do edital (ex: peso 3 = variância 9x maior)
+    const weights = preserveScale 
+        ? rawWeights 
+        : rawWeights.map(w => w / sumRawWeights); // Fallback para simplex
 
     // 1. Independent Variance Component (Weighted Sum of Variances): Σ (wi² * σi²)
     // BUGFIX: Respeito estrito à variância de uma combinação linear para editais.
