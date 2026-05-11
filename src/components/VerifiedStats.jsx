@@ -293,6 +293,10 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // Ativa a trava: "Não aceite valores da Store até que eu termine de salvar"
         pendingLocalSave.current = true;
+        // BUG-06 FIX: Fail-safe timeout para evitar deadlock permanente se a rede falhar ou houver imprecisão
+        const safetyTimeout = setTimeout(() => {
+            pendingLocalSave.current = false;
+        }, 3000);
 
         const timer = setTimeout(() => {
             setUserData(data => {
@@ -311,7 +315,10 @@ export default function VerifiedStats({ categories = [], user }) {
             // A trava agora só abre no useEffect lá de cima, quando o dado voltar.
         }, 800);
 
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            clearTimeout(safetyTimeout);
+        };
     }, [targetScore, setUserData, storeTarget]);
 
     const stats = useMemo(() => {
@@ -351,8 +358,12 @@ export default function VerifiedStats({ categories = [], user }) {
         });
 
         const dailyHistory = Object.values(dailyMap)
-            .map(d => ({ date: getDateKey(new Date(d.date)), score: d.scoreSum / d.weightSum }))
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            .map(d => ({ 
+                // BUG-01 FIX: Converte a string YYYY-MM-DD de volta para ms local para o motor (calculateSlope)
+                date: new Date(getDateKey(new Date(d.date)) + 'T12:00:00').getTime(), 
+                score: d.scoreSum / d.weightSum 
+            }))
+            .sort((a, b) => a.date - b.date);
 
         // 1. Progress State Analysis (using ProgressStateEngine)
         // Run on global daily average for consistent trend
@@ -569,7 +580,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
                             const correct = (t.isPercentage && t.score != null && total > 0)
                                 ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
-                                : (Number(t.correct) || 0);
+                                : Math.min(total, (Number(t.correct) || 0)); // BUG-03 FIX: Limitar acertos ao total
 
                             if (total > 0) {
                                 const topicScore = (correct / total) * maxScore;

@@ -68,7 +68,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         try {
             let raw = '';
             if (typeof user.goalDate === 'object' && user.goalDate.seconds) {
-                raw = new Date(user.goalDate.seconds * 1000).toISOString().split('T')[0];
+                const d = new Date(user.goalDate.seconds * 1000);
+                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             } else {
                 raw = String(user.goalDate).trim().split('T')[0];
             }
@@ -284,7 +285,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 if (!user.goalDate) return '';
                                 let raw = user.goalDate;
                                 if (typeof raw === 'object' && raw.seconds) {
-                                    return new Date(raw.seconds * 1000).toISOString().split('T')[0];
+                                    const d = new Date(raw.seconds * 1000);
+                                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                                 }
                                 return String(raw).trim().split('T')[0];
                                 } catch (error) {
@@ -315,7 +317,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 try {
                                     let rawDate = user.goalDate;
                                     if (typeof rawDate === 'object' && rawDate.seconds) {
-                                        rawDate = new Date(rawDate.seconds * 1000).toISOString().split('T')[0];
+                                        const d = new Date(rawDate.seconds * 1000);
+                                        rawDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                                     }
                                     const raw = String(rawDate).trim().split('T')[0];
                                     const parts = raw.split('-');
