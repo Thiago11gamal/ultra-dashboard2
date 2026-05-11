@@ -729,17 +729,26 @@ export default function EvolutionChart({
                         ))}
                     </div>
 
-                    <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
-                        className={`shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-none text-[10px] sm:text-xs font-bold border transition-all w-full sm:w-auto min-w-0 ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
-                        <span>{showOnlyFocus ? '🔍' : '👁'}</span>
-                        <span className="truncate block max-w-[200px] sm:max-w-full">
-                            {showOnlyFocus ? `Apenas ${focusCategory?.name || 'Foco'}` : 'Todas as Matérias'}
-                        </span>
-                    </button>
+                    {/* 🎯 BUG FIX: Ocultar toggle em engines que não suportam múltiplas matérias simultâneas */}
+                    {activeEngine !== 'compare' && activeEngine !== 'mc_density' && (
+                        <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
+                            className={`shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-none text-[10px] sm:text-xs font-bold border transition-all w-full sm:w-auto min-w-0 ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
+                            <span>{showOnlyFocus ? '🔍' : '👁'}</span>
+                            <span className="truncate block max-w-[200px] sm:max-w-full">
+                                {showOnlyFocus ? `Apenas ${focusCategory?.name || 'Foco'}` : 'Todas as Matérias'}
+                            </span>
+                        </button>
+                    )}
                 </div>
 
                 {activeEngine === "raw_weekly" ? (
-                    <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} unit={unit} />
+                    <EvolutionHeatmap 
+                        heatmapData={heatmapData} 
+                        targetScore={targetScore} 
+                        unit={unit} 
+                        showOnlyFocus={showOnlyFocus}
+                        focusSubjectId={focusSubjectId}
+                    />
                 ) : activeEngine === "subtopics" ? (
                     <SubtopicsPerformanceChart
                         categories={categories}

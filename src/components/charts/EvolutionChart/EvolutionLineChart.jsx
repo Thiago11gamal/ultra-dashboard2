@@ -209,7 +209,7 @@ export function EvolutionLineChart({
                             <Line key={cat.id} type={engine?.style || 'monotone'} dataKey={dataKey} name={cat.name}
                                 stroke={cat.color} strokeWidth={isFocused ? 3.5 : 2}
                                 strokeLinecap="round" strokeLinejoin="round"
-                                strokeOpacity={isFocused ? 1 : 0.4}
+                                strokeOpacity={isFocused ? 1 : 0.75}
                                 dot={{ r: 3, strokeWidth: 1, fill: cat.color, stroke: '#ffffff' }}
                                 activeDot={{ r: 5, strokeWidth: 0 }}
                                 connectNulls

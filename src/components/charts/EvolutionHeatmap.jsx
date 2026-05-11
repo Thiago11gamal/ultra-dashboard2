@@ -1,25 +1,32 @@
 import React, { useMemo, useState } from 'react';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
-export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) => {
+export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', showOnlyFocus, focusSubjectId }) => {
     const { dates = [], rows = [] } = heatmapData || {};
+    
+    // 🎯 FILTRO DE FOCO: Aplica o filtro de "Todas as Matérias" vs "Apenas Foco"
+    const filteredRowsByFocus = useMemo(() => {
+        if (!showOnlyFocus) return rows;
+        return rows.filter(row => row.cat?.id === focusSubjectId);
+    }, [rows, showOnlyFocus, focusSubjectId]);
+
     const [windowSize, setWindowSize] = useState('all');
     const [granularity, setGranularity] = useState('daily');
 
     const filtered = useMemo(() => {
-        if (!Array.isArray(dates) || !Array.isArray(rows)) return { dates: [], rows: [] };
+        if (!Array.isArray(dates) || !Array.isArray(filteredRowsByFocus)) return { dates: [], rows: [] };
         const size = windowSize === 'all' ? dates.length : Number(windowSize);
         const safeSize = Number.isFinite(size) ? Math.max(1, size) : dates.length;
         const start = Math.max(0, dates.length - safeSize);
 
         return {
             dates: dates.slice(start),
-            rows: rows.map((row) => ({
+            rows: filteredRowsByFocus.map((row) => ({
                 ...row,
                 cells: Array.isArray(row.cells) ? row.cells.slice(start) : []
             }))
         };
-    }, [dates, rows, windowSize]);
+    }, [dates, filteredRowsByFocus, windowSize]);
 
     // Requisito de teste: aggregateHeatmap(filtered, granularity)
     const aggregated = useMemo(() => aggregateHeatmap(filtered, granularity, targetScore), [filtered, granularity, targetScore]);
