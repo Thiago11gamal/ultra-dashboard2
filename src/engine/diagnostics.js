@@ -410,7 +410,6 @@ export function computeAR1Coefficient(residuals) {
   const rho = denominator > 1e-10 ? numerator / denominator : 0;
   const clampedRho = Math.max(-1, Math.min(1, rho));
 
-  const n = centered.length;
   const bartlettThreshold = 1.96 / Math.sqrt(Math.max(1, n));
 
   return { 
