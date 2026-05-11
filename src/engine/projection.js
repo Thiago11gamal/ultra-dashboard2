@@ -109,22 +109,12 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const now = options.referenceDate || Date.now();
     const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
-    let sumWeights = 0;
-    let sumResidualsWeighted = 0;
-    let sumSw = 0;
-
     const residualSamples = sorted.map(h => {
         const hDate = h.date || h.createdAt;
         const t = (now - new Date(hDate).getTime()) / 86400000;
         const w = Math.exp(-lambda * t);
         const y = getSafeScore(h, maxScore);
         return { value: y, weight: w };
-    });
-
-    residualSamples.forEach(it => {
-        sumWeights += it.weight;
-        sumResidualsWeighted += it.weight * it.value;
-        sumSw += it.weight * it.value * it.value;
     });
 
     // FIX: MSSD Real Ponderado (Bug 13)
