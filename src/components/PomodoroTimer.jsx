@@ -132,7 +132,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     const toggleMute = () => {
         setIsMuted(prev => {
             const newVal = !prev;
-            try { localStorage.setItem('pomodoro_muted', String(newVal)); } catch (error) {
+            try { 
+                localStorage.setItem('pomodoro_muted', String(newVal)); 
+                syncChannel?.postMessage({ type: 'TOGGLE_MUTE', isMuted: newVal, tabId: STABLE_TAB_ID });
+            } catch (error) {
                 console.error('Failed to set pomodoro_muted:', error);
             }
             return newVal;
@@ -635,6 +638,12 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
                 const fraction = newTime / (currentTotalTime || 1);
                 const displaySecond = Math.ceil(newTime);
+ 
+                // 🛡️ [SHIELD-DESYNC-FIX] Sincroniza o estado do React apenas na mudança de segundo inteiro
+                // para manter o Virtual DOM "quente" sem sacrificar a performance do RAF loop.
+                if (Math.floor(stateRefs.current.timeLeft) !== Math.floor(newTime)) {
+                    setTimeLeft(newTime); 
+                }
 
                 if (clockRef.current) {
                     const mins = Math.floor(displaySecond / 60);
@@ -768,7 +777,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     };
 
     const totalTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : (mode === 'long_break' ? safeSettings.pomodoroLongBreak * 60 : safeSettings.pomodoroBreak * 60);
-    const isProtocolInactive = mode === 'work' && !activeSubject;
+    const isProtocolInactive = !activeSubject;
 
     return (
         <div className="w-full relative min-h-[80vh] flex flex-col items-center">
