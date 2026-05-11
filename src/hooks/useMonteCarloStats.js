@@ -526,7 +526,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             : (simulationData?.data?.currentMean ?? pMean);
 
         return { probability: prob, projectedMean: pMean, currentMean: cMean };
-    }, [simulationData?.data, pureStatsData?.bayesianMean, maxScore, minScore, calibrationPenalty]);
+    }, [simulationData?.data, pureStatsData, maxScore, minScore, calibrationPenalty]);
 
 
 

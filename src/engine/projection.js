@@ -71,7 +71,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options = {}) {
     const now = options.referenceDate || Date.now();
     const t0 = new Date(sorted[0].date || sorted[0].createdAt).getTime();
-    let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0;
+    let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0, sumW2 = 0;
 
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
@@ -81,12 +81,14 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
         const pred = intercept + slope * x;
         rss += w * Math.pow(y - pred, 2);
         sumW += w;
+        sumW2 += w * w;
         sumWX += w * x;
         sumWXX += w * x * x;
     });
 
-    // FIX: Usar soma dos pesos para o divisor em vez de n-2 puro (Bug 16)
-    const variance = rss / Math.max(1, sumW - 2);
+    // FIX: Usar o Tamanho Efetivo da Amostra de Kish para o divisor em WLS (Bug 16 / Lint Fix)
+    const effectiveN = (sumW * sumW) / sumW2;
+    const variance = rss / Math.max(1, (effectiveN - 2));
     const det = sumW * sumWXX - sumWX * sumWX;
 
     if (Math.abs(det) < 1e-6) return 1.5;
