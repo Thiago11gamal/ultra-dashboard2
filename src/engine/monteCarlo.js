@@ -146,18 +146,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const allScores = new Float64Array(safeSimulations);
 
     for (let i = 0; i < safeSimulations; i++) {
-        // CORREÇÃO MATH: Compensação heurística de momento.
-        // A média amostral de uma Normal Truncada não é igual ao seu parâmetro mu.
-        // Aplicamos um "shift" no mu para cima ou para baixo consoante o achatamento 
-        // causado pelos limites, garantindo convergência não enviesada para alunos de elite.
-        let muParam = safeMean;
-        if (safeSD > 0) {
-            const zMax = (maxScore - safeMean) / safeSD;
-            const zMin = (minScore - safeMean) / safeSD;
-            if (zMax < 1.5) muParam += safeSD * 0.25 * (1.5 - Math.max(0, zMax));
-            if (zMin > -1.5) muParam -= safeSD * 0.25 * (1.5 - Math.max(0, Math.abs(zMin)));
-        }
+    // CORREÇÃO MATH: Compensação heurística de momento.
+    // A média amostral de uma Normal Truncada não é igual ao seu parâmetro mu.
+    // Aplicamos um "shift" no mu para cima ou para baixo consoante o achatamento 
+    // causado pelos limites, garantindo convergência não enviesada para alunos de elite.
+    let muParam = safeMean;
+    if (safeSD > 0) {
+        const zMax = (maxScore - safeMean) / safeSD;
+        const zMin = (minScore - safeMean) / safeSD;
+        if (zMax < 1.5) muParam += safeSD * 0.25 * (1.5 - Math.max(0, zMax));
+        if (zMin > -1.5) muParam -= safeSD * 0.25 * (1.5 - Math.max(0, Math.abs(zMin)));
+    }
 
+    for (let i = 0; i < safeSimulations; i++) {
         let score = sampleTruncatedNormal(muParam, safeSD, minScore, maxScore, rng);
         
         if (score >= effectiveTarget) success++;
@@ -215,9 +216,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         ? (rawHigh - rawLow) / 3.92 
         : projectedSD;
 
-    const phiMin    = normalCDF_complement((minScore - safeMean) / safeSD); 
-    const phiMax    = normalCDF_complement((maxScore - safeMean) / safeSD); 
-    const phiTarget = normalCDF_complement((effectiveTarget - safeMean) / safeSD); 
+    const phiMin    = normalCDF_complement((minScore - muParam) / safeSD); 
+    const phiMax    = normalCDF_complement((maxScore - muParam) / safeSD); 
+    const phiTarget = normalCDF_complement((effectiveTarget - muParam) / safeSD); 
     
     // CORREÇÃO: Prevenir a anulação catastrófica (Underflow) em caudas severamente truncadas,
     // garantindo que a matemática analítica sobrevive a amostras estatisticamente extremas.

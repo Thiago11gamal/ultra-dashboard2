@@ -190,8 +190,8 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     for (let i = 1; i < scores.length; i++) {
         sumSqDiff += Math.pow(scores[i] - scores[i - 1], 2);
     }
-    // CORREÇÃO: Remover a divisão por 2 para que o cálculo bata certo com o teste padrão
-    const rmssd = sumSqDiff / Math.max(1, scores.length - 1); 
+    // CORREÇÃO: Divisão por 2 para corrigir a variância da diferença (Var(X-Y)=2σ²)
+    const rmssd = (sumSqDiff / 2) / Math.max(1, scores.length - 1); 
     return Math.sqrt(rmssd);
 }
 

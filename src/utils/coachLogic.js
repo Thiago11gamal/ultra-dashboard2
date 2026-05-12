@@ -405,7 +405,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             : normalizeDate(new Date());
 
         const crunchMultiplier = getCrunchMultiplier(daysToExam, firstActivityDate);
-        const recencyComponent = dynamicRecencyMax * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight;
+        const recencyComponent = (dynamicRecencyMax * 0.8) * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight;
 
         // ─────────────────────────────────────────────────────────
         let instabilityComponent = mssdVolatility * (dynamicInstabilityMax / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
@@ -730,7 +730,9 @@ const _topicsCache = new Map();
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const catId = category.id || category.name;
     // Usar apenas o ID e o comprimento como hash para evitar chaves infinitas por timestamp
-    const hash = `${simulados.length}-${maxScore}`; 
+    // Mapeia quantos tópicos estão abertos para forçar a quebra do cache quando o estado mudar
+    const openTasks = (category.tasks || []).filter(t => !t.completed).length;
+    const hash = `${simulados.length}-${openTasks}-${maxScore}`; 
     const cacheKey = `${catId}-${hash}`;
 
     if (_topicsCache.has(cacheKey)) return _topicsCache.get(cacheKey);
@@ -1176,7 +1178,7 @@ export function getBestTask(categories, excludeTaskId = null) {
                 let normalizedErrorRate;
                 // CORREÇÃO: Usar < 1 para garantir que uma taxa de "1" exata (inserida como inteiro de 1%) 
                 // não seja tratada erradamente como 100% (1.0).
-                if (validErrorRate < 1 && validErrorRate > 0) {
+                if (validErrorRate <= 1 && validErrorRate > 0) {
                     // É puramente decimal/fracional (ex: 0.05, 0.80)
                     normalizedErrorRate = validErrorRate; 
                 } else {
