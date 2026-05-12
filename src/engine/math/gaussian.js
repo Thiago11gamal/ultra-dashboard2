@@ -109,8 +109,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // Isso evita que escalas maiores (ex: 0-1000) colapsem a resolução do KDE.
     const finiteH = Number.isFinite(h) && h > 0 ? h : 0;
     const finiteProjectedSD = Number.isFinite(projectedSD) && projectedSD > 0 ? projectedSD : 0;
-    // CORREÇÃO M-5: Garantir que o bandwidth engole sempre o equivalente físico de 3 bins,
-    // garantindo visualização suave mesmo quando a variância do aluno tender a zero estatístico.
+    
+    // Garantir que a banda do kernel abranja sempre pelo menos 3 bins físicos (suavização forçada)
     const minPhysicalBandwidth = (plotMax - plotMin) / (BIN_COUNT / 3); 
     const bandwidth = Math.max(minPhysicalBandwidth, finiteH, binWidth * 2, finiteProjectedSD * 0.15);
     const bins = new Float32Array(BIN_COUNT);

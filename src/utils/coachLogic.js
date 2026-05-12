@@ -411,7 +411,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             : normalizeDate(new Date());
 
         const crunchMultiplier = getCrunchMultiplier(daysToExam, firstActivityDate);
-        const recencyComponent = (dynamicRecencyMax * 0.8) * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight;
+        let recencyComponent = (dynamicRecencyMax * 0.8) * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight;
 
         // ─────────────────────────────────────────────────────────
         let instabilityComponent = mssdVolatility * (dynamicInstabilityMax / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
