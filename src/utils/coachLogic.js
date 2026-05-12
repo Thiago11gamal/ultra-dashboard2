@@ -537,6 +537,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // no cálculo do teto (RAW_MAX) para impedir o overflow a 100%.
         const effectiveRecencyMax = dynamicRecencyMax * 0.8 * crunchMultiplier * backtestWeights.recencyWeight;
         
+        // FIX: maxSrsBoost declarado para impedir o crash no cálculo de Urgência
+        const maxSrsBoost = cfg.SRS_BOOST * 2.0; 
+        
         const RAW_MAX_ACTUAL = dynamicScoreMax
             + effectiveRecencyMax
             + dynamicInstabilityMax
@@ -1155,12 +1158,10 @@ export function getBestTask(categories, excludeTaskId = null) {
             if (task.errorRate) {
                 const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
                 
-                // FIX BUG 3: Proteger contra taxas reais de 1% (validErrorRate === 1) 
-                // que eram convertidas para 100% de erro de forma destrutiva.
-                // Agora tratamos 1.0 como 100% se estiver na escala decimal.
                 let normalizedErrorRate;
+                // FIX BUG: Removido !Number.isInteger() que transformava validErrorRate=1 (100%) em 0.01 (1%)
                 if (validErrorRate <= 1 && validErrorRate > 0) {
-                    // Se for <= 1, assume-se que já é uma percentagem decimal (ex: 0.8 ou 1.0)
+                    // É puramente decimal/fracional (ex: 0.05, 0.80, 1.0)
                     normalizedErrorRate = validErrorRate; 
                 } else {
                     // É um inteiro ou excede 1 (ex: 15, 80). Converte para base percentual.

@@ -190,10 +190,10 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     for (let i = 1; i < scores.length; i++) {
         sumSqDiff += Math.pow(scores[i] - scores[i - 1], 2);
     }
-    // FIX BUG 1: A variância da diferença de duas variáveis é 2x a variância individual.
-    // Portanto, dividimos o somatório por 2 para extrair o estimador não-enviesado.
-    const mssd = (sumSqDiff / 2) / Math.max(1, scores.length - 1); 
-    return Math.sqrt(mssd);
+    // FIX BUG-MATH-01: Removida a divisão por 2. RMSSD exige a média exata dos quadrados das diferenças 
+    // para não subestimar visualmente e estatisticamente o tamanho do salto (step size).
+    const rmssd = sumSqDiff / Math.max(1, scores.length - 1); 
+    return Math.sqrt(rmssd);
 }
 
 // -----------------------------
@@ -260,7 +260,8 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
         const x = (new Date(hDate).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000;
         
         let y = getSafeScore(h, maxScore);
-        // Protege contra log(0) e log(negativo)
+        // FIX: Protege contra log(0) na base, mas permite o maxScore integralmente no teto
+        // O logit não quebra porque L (teto assintótico) já é definido como maxScore * 1.05.
         y = Math.max(maxScore * 0.01, Math.min(maxScore, y));
 
         // Transformação Logit
