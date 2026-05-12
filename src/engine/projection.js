@@ -493,14 +493,18 @@ export function monteCarloSimulation(
     // BUG-06 FIX: Damping factor adaptativo baseado na qualidade do histórico
 
 
-    // BUG-MATH-02 FIX: O-U deve reverter para a média histórica ponderada, não para o baseline (último EMA).
-    // Reverter para o baseline causa ancoragem: os ICs ficam artificialmente estreitos porque toda simulação
-    // "puxa" de volta para a nota mais recente, impedindo cenários realistas de melhora ou piora.
-    // CORREÇÃO: A âncora do Monte Carlo deve respeitar o nível de proficiência atual (EMA Bayesiano) consolidado,
-    // não a média aritmética bruta do passado, que penaliza injustamente alunos que evoluíram.
+    // BUG-MATH-02 FIX: O-U deve reverter para a média histórica ponderada.
+    // Se não for fornecida externamente, calculamos a média aritmética histórica do histórico para 
+    // ancorar a reversão e evitar o colapso das projeções em tendências negativas agudas.
+    let historicalMean = baselineScore;
+    if (sortedHistory.length > 0) {
+        const scoresForMean = sortedHistory.map(h => getSafeScore(h, maxScore));
+        historicalMean = scoresForMean.reduce((a, b) => a + b, 0) / scoresForMean.length;
+    }
+
     const ouTarget = optionsCurrentMean !== undefined 
         ? optionsCurrentMean 
-        : baselineScore; 
+        : historicalMean; 
 
     // BUG-MATH-01 FIX: Normalização da Volatilidade Diária
     // A volatilidade clássica (SD) é total. Para o laço diário do Monte Carlo, 
@@ -527,11 +531,9 @@ export function monteCarloSimulation(
         let currentSimScore = baselineScore;
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
-            // Apenas a componente "atual" (baseline e média ponderada externa) acompanha o drift.
-            // A média aritmética (âncora histórica) permanece estática para evitar o colapso da reversão (Bug-Math-02).
-            // CORREÇÃO: O alvo dinâmico DEVE acompanhar o drift na mesma velocidade (1:1), 
-            // caso contrário a reversão à média anula a tendência real validada pela regressão.
-            const driftTrackingFactor = 1.0; 
+            // Apenas a componente "atual" (baseline e média ponderada externa) acompanha o drift (1.0).
+            // A média aritmética (âncora histórica) permanece estática (0.0) para evitar o colapso da reversão (Bug-Math-02).
+            const driftTrackingFactor = optionsCurrentMean !== undefined ? 1.0 : 0.0; 
             const movingOuTarget = ouTarget + (sampledDrift * d * driftTrackingFactor);
             const meanReversion = thetaOU * (movingOuTarget - currentSimScore) * 1;
             
