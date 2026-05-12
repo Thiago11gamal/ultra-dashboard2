@@ -19,7 +19,7 @@ import { clearMcCache } from '../utils/coachAdaptive';
 
 // --- IndexedDB Adapter with localStorage Migration ---
 // --- Otimização de Persistência: Debounced IndexedDB Adapter ---
-let saveTimeout = null;
+const saveTimeouts = {}; 
 const DEBOUNCE_TIME = 500; // ms
 
 const idbStorage = {
@@ -75,12 +75,12 @@ const idbStorage = {
             console.warn("[Storage] LocalStorage cheio. Mantendo apenas no IndexedDB.");
         }
 
-        if (saveTimeout) clearTimeout(saveTimeout);
+        if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
         
-        saveTimeout = setTimeout(async () => {
+        saveTimeouts[name] = setTimeout(async () => {
             try {
                 await idbSet(name, value);
-                saveTimeout = null;
+                saveTimeouts[name] = null;
             } catch {
                 console.error("[Storage] Critical IDB save failure.");
             }
@@ -89,7 +89,10 @@ const idbStorage = {
         return Promise.resolve();
     },
     removeItem: async (name) => {
-        if (saveTimeout) clearTimeout(saveTimeout);
+        if (saveTimeouts[name]) {
+            clearTimeout(saveTimeouts[name]);
+            delete saveTimeouts[name];
+        }
         try {
             localStorage.removeItem(name);
         } catch {

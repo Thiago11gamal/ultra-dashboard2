@@ -30,7 +30,7 @@ const Paywall = lazyWithRetry(() => import('./components/Paywall'));
 
 import { useAuth } from './context/useAuth';
 import { useSubscription } from './hooks/useSubscription';
-import { useAppStore } from './store/useAppStore';
+import { useAppStore, useTemporalStore } from './store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useToast } from './hooks/useToast';
@@ -85,7 +85,7 @@ function MainLayout() {
   const createNewContest = useAppStore(state => state.createNewContest);
   const deleteContest = useAppStore(state => state.deleteContest);
   const updateUserName = useAppStore(state => state.updateUserName);
-  const undo = useAppStore(state => state.undo);
+  const undo = useTemporalStore(state => state.undo);
 
   const importTimeoutRef = useRef(null);
 

@@ -230,10 +230,16 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 : normalizeDate(new Date()).getTime();
             const SESSION_GAP_MS = 60 * 60 * 1000; // 1 Hora
 
-            const pastSimulados = relevantSimulados.filter(s => {
+            let pastSimulados = relevantSimulados.filter(s => {
                 const sTime = normalizeDate(s.date || s.createdAt).getTime();
                 return sTime < (mostRecentSimDate - SESSION_GAP_MS);
             });
+            
+            // [FIX 6] Se o gap de 1h isolou tudo (ex: maratona importada),
+            // garantimos que há um baseline recuando para o simulado anterior.
+            if (pastSimulados.length === 0 && relevantSimulados.length > 1) {
+                pastSimulados = relevantSimulados.slice(1);
+            }
             
             const notaBruta = calculateExponentialScore(relevantSimulados);
 
@@ -478,7 +484,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const baselineHoursPerWeek = (totalHours / weeksActive);
 
         // 2. Definir o limiar dinâmico: Burnout acontece se ele exceder 1.8x o que está acostumado
-        const dynamicBurnoutThreshold = Math.max(3.0, baselineHoursPerWeek * 1.8);
+        // [FIX 5] Elevar o piso para evitar falsos positivos alarmistas em volumes baixos
+        const dynamicBurnoutThreshold = Math.max(15.0, baselineHoursPerWeek * 1.8);
 
         // E2. Balance Bridge (equilíbrio entre matérias do Meu Painel -> Coach)
         const activeCategories = (options.allCategories || []).filter(c => (c?.tasks || []).length > 0);
@@ -558,7 +565,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             + (cfg.PRIORITY_BOOST + maxSrsBoost) * (1 + (crunchMultiplier - 1) * 0.5)
             + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE)
             + cfg.EFFICIENCY_MAX 
-            + (cfg.EFFICIENCY_MAX * 2.0);
+            + cfg.EFFICIENCY_MAX; // [FIX 3] Limite real é 1x EFFICIENCY_MAX
 
         const currentPriorityBoost = priorityBoost * crunchMultiplier;
         const currentSrsBoost = srsBoost * crunchMultiplier;
@@ -1172,7 +1179,8 @@ export function getBestTask(categories, excludeTaskId = null) {
             // Fator 3: Taxa de Erro
             // MATH-ERRORRATE-SCALE FIX: errorRate pode estar em 0-1 ou 0-100 dependendo da fonte.
             // Normalizar para 0-1 antes de usar para evitar que um campo de 0-100 produza score+=3200.
-            if (task.errorRate) {
+            // [FIX 4] Evitar falha por valor "falsy" quando errorRate é 0
+            if (task.errorRate !== undefined && task.errorRate !== null) {
                 const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
                 
                 let normalizedErrorRate;
