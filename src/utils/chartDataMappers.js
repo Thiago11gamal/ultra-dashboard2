@@ -120,11 +120,10 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
 
     const last14Days = [];
     const today = new Date();
-    today.setHours(12, 0, 0, 0); 
-    
+    // FIX UX BUG 4: Robustez contra DST (Horário de Verão). 
+    // Setando as datas de forma isolada, mitigamos o bug do "setDate" iterativo
     for (let i = 13; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i, 12, 0, 0, 0);
         last14Days.push({
             fullKey: getFullKey(d),
             data: getDisplayKey(d),

@@ -124,24 +124,28 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             // FIX BUG 4: Heurística Anti-Colapso para provas penalizadas
             // Se a nota líquida for próxima de zero, a pessoa acertou ~50% e errou ~50% (chute).
             // O pior cenário teórico é 0 absoluto (onde pct vira 0.05).
+            // FIX BUG 3 (Matemática): Removida a conversão cega de notas negativas.
+            // Agora a penalização só ocorre se o formato for estritamente penalizado.
             let rawPct = normalizedScore / safeMaxScore;
             
             if (options.isPenalizedFormat) {
-                // Aplica-se a toda a escala. Um Net de -20% vira 40% de precisão. Um Net de 80% vira 90% de precisão.
+                // Aplica-se a toda a escala. Um Net de -20% vira 40% de precisão.
                 rawPct = Math.max(0.05, (rawPct + 1) / 2);
-            } else if (rawPct < 0) {
-                // Fallback de segurança para provas não declaradas mas claramente penalizadas
-                rawPct = Math.max(0.05, (rawPct + 1) / 2);
+            } else {
+                // Previne notas negativas se não for o formato correto, truncando no zero
+                rawPct = Math.max(0, rawPct);
             }
             
-            const pct = Math.min(1, Math.max(0, rawPct));
+            const pct = Math.min(1, rawPct);
             
+            // FIX BUG 1 (Matemática): Previne Inflação Artificial Bayesiana.
+            // Se o usuário reportou apenas a % (total = 0), não podemos usar um volume gigante.
+            // Injetar um volume pequeno (ex: 5) garante que o modelo reconheça o acerto,
+            // mas mantenha a alta incerteza (banda larga) até ter volume real.
             if (total === 0) {
-                total = getSyntheticTotal(safeMaxScore);
+                total = 5; 
             }
 
-            // O Bayesian prior DEVE ser alimentado pela percentagem limpa e padronizada (pct), 
-            // e não pelo `correct` original que não reflete a punição sistêmica ou o teto dinâmico.
             correct = Math.round(pct * total);
 
             if (total < 1) continue;

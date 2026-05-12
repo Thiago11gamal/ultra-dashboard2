@@ -130,6 +130,17 @@ export default function EvolutionChart({
         }
     }, [activeEngine]);
 
+    // FIX VISUAL BUG 2: Sincronização de Estado Focado
+    useEffect(() => {
+        if (activeCategories && activeCategories.length > 0) {
+            // Se a matéria focada atual não existe mais nas ativas, reseta pro primeiro item
+            const stillExists = activeCategories.some(cat => cat.id === focusSubjectId);
+            if (!stillExists) {
+                setFocusSubjectId(activeCategories[0].id);
+            }
+        }
+    }, [activeCategories, focusSubjectId]);
+
     useEffect(() => {
         if (!["30", "60", "90", "all"].includes(timeWindow)) {
             setTimeWindow("all");

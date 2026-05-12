@@ -44,7 +44,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function Charts({ data, compact = false }) {
-    const instanceId = React.useId().replace(/:/g, '');
+    // FIX UX BUG 1: IDs de SVG válidos (iniciados com letras obrigatoriamente)
+    const instanceId = 'chart-id-' + React.useId().replace(/:/g, '');
     const gradId = `barGradient_${instanceId}`;
     const shadowId = `barShadow_${instanceId}`;
  
@@ -63,11 +64,12 @@ export default function Charts({ data, compact = false }) {
         };
     }), [categories]);
  
-    // Bar chart data - completed vs total per category
+    // FIX UX BUG 3: Mantemos o "name" original completo para evitar colisões
+    // A formatação visual acontecerá apenas no renderizador do eixo X
     const barData = React.useMemo(() => categories.map(cat => {
         const tasks = cat.tasks || [];
         return {
-            name: cat.name && cat.name.length > 12 ? cat.name.substring(0, 10) + '...' : (cat.name || 'Unlabeled'),
+            name: cat.name || 'Unlabeled',
             fullName: cat.name || 'Unlabeled',
             total: tasks.length,
             completed: tasks.filter(t => t.completed).length,
@@ -161,7 +163,15 @@ export default function Charts({ data, compact = false }) {
                 <ResponsiveContainer width="100%" height={250} minHeight={250}>
                     <BarChart data={barData} barCategoryGap="20%" style={{ outline: 'none' }} tabIndex="-1">
                         <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                        <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 11, fontWeight: 600 }} tickLine={false} axisLine={false} />
+                        {/* FIX UX BUG 3: truncamento realocado para o tickFormatter */}
+                        <XAxis 
+                            dataKey="name" 
+                            stroke="#64748b" 
+                            tick={{ fontSize: 11, fontWeight: 600 }} 
+                            tickLine={false} 
+                            axisLine={false} 
+                            tickFormatter={(val) => val && val.length > 12 ? val.substring(0, 10) + '...' : val} 
+                        />
                         <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val)} />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
                         <Bar dataKey="total" fill="rgba(255,255,255,0.05)" radius={[6, 6, 0, 0]} barSize={24} />

@@ -87,11 +87,11 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
                 
                 // LOGIC-1 FIX: Fallback para entradas sem total/correct no gráfico
                 // BUG 4 FIX: Use maxScore instead of hardcoded 100.
+                // FIX BUG 1 (Matemática): Consistência Bayesiana para entradas percentuais
                 if (total === 0 && entry.score != null) {
                     const pct = Math.min(1, Math.max(0, Number(entry.score) / maxScore));
-                    const syntheticTotal = getSyntheticTotal(maxScore);
-                    total = syntheticTotal;
-                    correct = Math.round(pct * syntheticTotal);
+                    total = 5; // Peso estatístico realista mínimo em vez do getSyntheticTotal(100)
+                    correct = Math.round(pct * total);
                 }
 
                 if (total >= 1) {
@@ -331,9 +331,13 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 let corrNorm;
                 
                 // BUG 3 FIX: Incorporar simulados percentuais na Acurácia Global
+                // FIX BUG 2 (Matemática): Previne distorção na quantidade absoluta total.
+                // Se o usuário apenas inseriu nota (tot = 0), computamos isso com volume mínimo (1)
+                // para que a nota participe da Global Accuracy, sem adicionar centenas de questões 
+                // fantasmas ao "Total de Questões" resolvido.
                 if (tot === 0 && h.score != null) {
-                    tot = getSyntheticTotal(maxScore);
-                    corrNorm = Math.round((getSafeScore(h, maxScore) / maxScore) * tot);
+                    tot = 1; 
+                    corrNorm = (getSafeScore(h, maxScore) / maxScore) * tot;
                 } else {
                     const raw = Number(h.correct) || 0;
                     corrNorm = tot > 0 
