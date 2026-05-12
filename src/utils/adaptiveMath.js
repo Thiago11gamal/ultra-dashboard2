@@ -73,11 +73,12 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     const lowQ = Math.min(lowerClamped, upperClamped);
     const highQ = Math.max(lowerClamped, upperClamped);
 
-    // CORREÇÃO: Se mais de 50% dos dados forem inválidos, não forçar estabilidade
     const nullCount = values.filter(v => !Number.isFinite(v)).length;
     if (nullCount > values.length * 0.5) {
-        // Retorna a série original para que o motor detete a incerteza alta
-        return values.map(v => Number.isFinite(v) ? v : 0); 
+        // CORREÇÃO: Retorna a série preservando os NaNs originais. 
+        // Os métodos a jusante (mean, stdDev) já usam .filter(Number.isFinite) nativamente.
+        // Nunca se deve fazer zero-imputation em desempenho acadêmico, pois destrói a média real.
+        return values.map(v => Number.isFinite(v) ? v : v); 
     }
  
     const finiteValues = values.filter(v => Number.isFinite(v));

@@ -94,7 +94,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     let alpha = alpha0;
     let beta = beta0;
-    let maxAlphaEver = alpha0;
+    let maxNEver = alpha0 + beta0;
     
     // 🎯 O Teto é vivo. Baseia-se na constância do aluno.
     const sessionGaps = history && history.length > 1 
@@ -166,8 +166,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const entryDecay = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
             
             // Retenção do Ratio Bayesiano
-            const cappedMaxAlpha = Math.min(maxAlphaEver, dynamicAlphaCap);
-            const retentionFloor = cappedMaxAlpha * 0.3;
+            const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
+            const retentionFloor = cappedMaxN * 0.3;
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
                 const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
@@ -190,15 +190,16 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             alpha += acertosHoje;
             beta += errosHoje;
             
-            if (alpha > maxAlphaEver) maxAlphaEver = Math.min(alpha, dynamicAlphaCap);
+            const currentN = alpha + beta;
+            if (currentN > maxNEver) maxNEver = Math.min(currentN, dynamicAlphaCap);
         }
         
         // Decaimento final até o dia de hoje
         const lastDate = new Date(sortedHistory[sortedHistory.length - 1].date);
         const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
-            const cappedMaxAlpha = Math.min(maxAlphaEver, dynamicAlphaCap);
-            const retentionFloor = cappedMaxAlpha * 0.3;
+            const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
+            const retentionFloor = cappedMaxN * 0.3;
             const finalLambdaBase = computeAdaptiveLambda(sortedHistory);
             
             // CORREÇÃO MATH: O mesmo piso é aplicado aqui para consistência assintótica.

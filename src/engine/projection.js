@@ -498,12 +498,11 @@ export function monteCarloSimulation(
     // BUG-MATH-02 FIX: O-U deve reverter para a média histórica ponderada, não para o baseline (último EMA).
     // Reverter para o baseline causa ancoragem: os ICs ficam artificialmente estreitos porque toda simulação
     // "puxa" de volta para a nota mais recente, impedindo cenários realistas de melhora ou piora.
-    const historicalMean = sortedHistory.reduce((acc, h) => acc + getSafeScore(h, maxScore), 0) / sortedHistory.length;
-    const historicalWeightedMean = optionsCurrentMean !== undefined 
+    // CORREÇÃO: A âncora do Monte Carlo deve respeitar o nível de proficiência atual (EMA Bayesiano) consolidado,
+    // não a média aritmética bruta do passado, que penaliza injustamente alunos que evoluíram.
+    const ouTarget = optionsCurrentMean !== undefined 
         ? optionsCurrentMean 
-        : historicalMean; // Respeita a média histórica real para evitar ancoragem no baseline recente (Bug-Math-02)
-    // Blend: 70% média histórica + 30% baseline recente (para não ignorar completamente a tendência recente)
-    const ouTarget = 0.7 * historicalWeightedMean + 0.3 * baselineScore;
+        : baselineScore; 
 
     // BUG-MATH-01 FIX: Normalização da Volatilidade Diária
     // A volatilidade clássica (SD) é total. Para o laço diário do Monte Carlo, 
@@ -532,7 +531,9 @@ export function monteCarloSimulation(
             const driftEffect = sampledDrift * 1;
             // Apenas a componente "atual" (baseline e média ponderada externa) acompanha o drift.
             // A média aritmética (âncora histórica) permanece estática para evitar o colapso da reversão (Bug-Math-02).
-            const driftTrackingFactor = (optionsCurrentMean !== undefined) ? 1.0 : 0.3;
+            // CORREÇÃO: O alvo dinâmico DEVE acompanhar o drift na mesma velocidade (1:1), 
+            // caso contrário a reversão à média anula a tendência real validada pela regressão.
+            const driftTrackingFactor = 1.0; 
             const movingOuTarget = ouTarget + (sampledDrift * d * driftTrackingFactor);
             const meanReversion = thetaOU * (movingOuTarget - currentSimScore) * 1;
             
