@@ -428,7 +428,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const dynamicInstabilityMax = Math.max(10, (volatilityRisk / totalPain) * 110);
 
         // FIX: Aumentar a amplitude do multiplicador de importância
-        const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.8; // Range de 0.2x a 1.8x
+        // ✅ DEPOIS (Compressão de Amplitude Conservadora)
+        // Limitamos o castigo estatístico das matérias secundárias.
+        // O novo range será de 0.65x a 1.35x. A matéria "secundária" não é ignorada, 
+        // apenas ligeiramente despriorizada face à principal.
+        const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.35; 
         
         // A. Performance Score
         // BUG-19 FIX: Garantir invariância de escala através da normalização para base 100
@@ -802,8 +806,9 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const catId = category.id || category.name;
     const openTasks = (category.tasks || []).filter(t => !t.completed).length;
     
-    // CORREÇÃO: Hash resiliente baseada no último timestamp modificado, evitando Race Conditions.
+    // ✅ DEPOIS (Cache Isolado Estatisticamente)
     let lastSimTimestamp = 0;
+    let historyVolume = 0; // Novo marcador de entropia
     if (simulados.length > 0) {
         const lastSim = simulados.reduce((latest, current) => {
             const latestTime = new Date(latest.date || latest.createdAt || 0).getTime();
@@ -811,10 +816,13 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
             return currTime > latestTime ? current : latest;
         }, simulados[0]);
         lastSimTimestamp = new Date(lastSim.date || lastSim.createdAt || 0).getTime();
+        historyVolume = simulados.length;
     }
-    
-    const hash = `${lastSimTimestamp}-${openTasks}-${maxScore}`; 
-    const cacheKey = `${catId}-${hash}`;
+
+    // Injeção do volume histórico atua como 'salt' criptográfico para o cache, 
+    // garantindo que concursos distintos ou novos dados invalidem o estado corretamente.
+    const hash = `${lastSimTimestamp}-${openTasks}-${maxScore}-${historyVolume}`; 
+    const cacheKey = `isolate_${catId}_${hash}`;
 
     if (_topicsCache.has(cacheKey)) {
         // Renovar a posição na fila do Map (LRU)

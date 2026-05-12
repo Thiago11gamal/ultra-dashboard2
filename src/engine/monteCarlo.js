@@ -229,7 +229,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     
     // CORREÇÃO: Prevenir a anulação catastrófica (Underflow) em caudas severamente truncadas,
     // garantindo que a matemática analítica sobrevive a amostras estatisticamente extremas.
-    const truncNormFactor = Math.max(1e-25, phiMin - phiMax);
+    let truncNormFactor = phiMin - phiMax;
+    if (truncNormFactor < 1e-15) {
+        const zScoreMin = (minScore - muParam) / safeSD;
+        // Aproximação segura da densidade local na fronteira
+        truncNormFactor = Math.max(1e-15, Math.exp(-0.5 * zScoreMin * zScoreMin) / (Math.abs(zScoreMin) + 1e-6));
+    }
     const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
 
     let analyticalProbability;

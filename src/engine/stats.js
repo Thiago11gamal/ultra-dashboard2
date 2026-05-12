@@ -192,9 +192,10 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
                 const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
                 const minN = retentionFloor;
                 
+                const HARD_FLOOR = 3.0;
                 const nAfterDecay = nBeforeDecay < minN 
-                    ? nBeforeDecay * entryDecay 
-                    : Math.max(minN, nBeforeDecay * entryDecay);
+                    ? Math.max(HARD_FLOOR, nBeforeDecay * entryDecay)
+                    : Math.max(Math.max(minN, HARD_FLOOR), nBeforeDecay * entryDecay);
                 
                 alpha = nAfterDecay * currentP;
                 beta = nAfterDecay * (1 - currentP);
@@ -228,9 +229,10 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             
             const minN = retentionFloor;
             // [CORREÇÃO MATH-BUG-1] Aplica a mesma lógica de não-inflação artificial
+            const HARD_FLOOR = 3.0;
             const nAfterDecay = nBeforeDecay < minN 
-                ? nBeforeDecay * finalDecay 
-                : Math.max(minN, nBeforeDecay * finalDecay);
+                ? Math.max(HARD_FLOOR, nBeforeDecay * finalDecay)
+                : Math.max(Math.max(minN, HARD_FLOOR), nBeforeDecay * finalDecay);
             
             // CORREÇÃO: Apenas decair o N, mantendo o P atual
             alpha = nAfterDecay * currentP;
