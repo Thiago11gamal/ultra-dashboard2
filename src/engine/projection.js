@@ -260,8 +260,8 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
         const x = (new Date(hDate).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000;
         
         let y = getSafeScore(h, maxScore);
-        // Protege contra log(0)
-        y = Math.max(maxScore * 0.01, Math.min(maxScore * 0.99, y));
+        // Protege contra log(0) e log(negativo)
+        y = Math.max(maxScore * 0.01, Math.min(maxScore, y));
 
         // Transformação Logit
         const logitY = Math.log(y / (L - y));

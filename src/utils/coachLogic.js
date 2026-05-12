@@ -1155,14 +1155,15 @@ export function getBestTask(categories, excludeTaskId = null) {
             if (task.errorRate) {
                 const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
                 
-                // FIX BUG 4: Proteger contra taxas reais de 1% (validErrorRate === 1) 
+                // FIX BUG 3: Proteger contra taxas reais de 1% (validErrorRate === 1) 
                 // que eram convertidas para 100% de erro de forma destrutiva.
+                // Agora tratamos 1.0 como 100% se estiver na escala decimal.
                 let normalizedErrorRate;
-                if (validErrorRate <= 1 && validErrorRate > 0 && !Number.isInteger(validErrorRate)) {
-                    // É puramente decimal/fracional (ex: 0.05, 0.80)
+                if (validErrorRate <= 1 && validErrorRate > 0) {
+                    // Se for <= 1, assume-se que já é uma percentagem decimal (ex: 0.8 ou 1.0)
                     normalizedErrorRate = validErrorRate; 
                 } else {
-                    // É um inteiro ou excede 1 (ex: 1, 15, 80). Converte para base percentual.
+                    // É um inteiro ou excede 1 (ex: 15, 80). Converte para base percentual.
                     normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
                 }
                 

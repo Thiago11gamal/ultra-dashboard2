@@ -23,7 +23,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
         // Se a base de dados tiver métricas híbridas antigas, elas devem ser normalizadas
         // num script de migração. O motor estatístico não pode adivinhar escalas.
         // Assume-se que o valor já vem na escala percentual real (0 a 100).
-        return Math.max(0, Math.min(100, n));
+        return Math.max(-100, Math.min(100, n));
     };
 
     if (historyRow.score != null) {
@@ -36,7 +36,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
             s = (normalizePercentInput(s) / 100) * safeMaxScore;
         }
 
-        return Number.isFinite(s) ? Math.max(0, Math.min(safeMaxScore, s)) : 0;
+        return Number.isFinite(s) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, s)) : 0;
     }
 
     const total = (Number.isFinite(Number(historyRow.total)) ? Number(historyRow.total) : 0);
@@ -48,12 +48,12 @@ export function getSafeScore(historyRow, maxScore = 100) {
         // FIX: score já foi verificado como null na L16, então usamos `correct` como valor percentual direto.
         const pValue = normalizePercentInput(correct);
         const scoreFromPercentage = (pValue / 100) * safeMaxScore;
-        return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(safeMaxScore, scoreFromPercentage)) : 0;
+        return Number.isFinite(scoreFromPercentage) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, scoreFromPercentage)) : 0;
     }
 
     // Fallback de retrocompatibilidade para provas clássicas (correct / total)
     if (total > 0) {
-        return Math.max(0, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
+        return Math.max(-safeMaxScore, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
     }
 
     return 0; // Prevenção de NaN
