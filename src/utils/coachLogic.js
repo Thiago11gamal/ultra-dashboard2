@@ -876,16 +876,30 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             if (!topicMap[name]) {
                 topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: false, scores: [] };
             }
-            let topicTotal = parseInt(t.total, 10) || 0;
-            let topicCorrect = Math.min(topicTotal, parseInt(t.correct, 10) || 0);
+            let rawTotal = Number(t.total);
+            let topicTotal = Number.isFinite(rawTotal) && rawTotal > 0 ? rawTotal : 0;
+            let topicCorrect = 0;
 
             const isTotalMissing = t.total === undefined || t.total === null || String(t.total).trim() === "";
+
             if (t.score != null && isTotalMissing) {
+                // Cenário: Foi inserido apenas a percentagem sem volume
                 topicTotal = getSyntheticTotal(maxScore);
-                topicCorrect = Math.round((getSafeScore(t, maxScore) / maxScore) * topicTotal);
-            } else if (topicTotal === 0) {
-                return;
+                topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;
+            } else if (topicTotal > 0) {
+                // Cenário: Tem volume de questões
+                if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
+                    topicCorrect = Math.min(topicTotal, Number(t.correct) || 0);
+                } else {
+                    // Fallback seguro em caso de notas penalizadas ao nível do subtópico
+                    topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;
+                }
+            } else {
+                return; // Se o total for zero (e sem score percentual), sai da iteração para evitar Infinity/NaN
             }
+
+            // Limpeza final de limites matemáticos
+            topicCorrect = Math.max(0, topicCorrect);
 
             topicMap[name].total += (topicTotal * timeWeight);
             topicMap[name].correct += (topicCorrect * timeWeight);

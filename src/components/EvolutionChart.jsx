@@ -212,7 +212,8 @@ export default function EvolutionChart({
 
         let cancelled = false;
 
-        (async () => {
+        // Cria um timer de debounce de 400ms para evitar congestionar a main thread
+        const workerDebounceTimeout = setTimeout(async () => {
             setMcLoading(true);
             try {
                 // BUG 4b FIX: Propagate maxScore to computeBayesianLevel
@@ -263,9 +264,12 @@ export default function EvolutionChart({
             } finally {
                 if (!cancelled) setMcLoading(false);
             }
-        })();
+        }, 400); // <-- Tempo ótimo para UI interativa
 
-        return () => { cancelled = true; };
+        return () => { 
+            cancelled = true; 
+            clearTimeout(workerDebounceTimeout); // Estanca o processamento e previne Memory Leaks ao desmontar/reagir
+        };
     }, [focusCategory?.id, historyArray, historyHash, targetScore, projectDays, runAnalysis, minScore, maxScore]);
 
     const compareData = useMemo(() => {
@@ -610,6 +614,10 @@ export default function EvolutionChart({
 
     const engine = ENGINES.find((e) => e.id === activeEngine) || ENGINES[0];
 
+    // Acima do retorno do JSX no EvolutionChart, extraia o estado dos dados:
+    const accountHasData = chartData.length >= 2;
+    const filterHasData = filteredChartData.length >= 2;
+
     const handleExport = async () => {
         setIsExporting(true);
         await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
@@ -785,12 +793,26 @@ export default function EvolutionChart({
                         maxScore={maxScore}
                         unit={unit}
                     />
-                ) : filteredChartData.length < 2 ? (
+                ) : !accountHasData ? (
                     <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-none border border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>
-                            <p className="text-slate-500 text-sm max-w-xs">Registre pelo menos <span className="text-indigo-400 font-bold">2 simulados</span> para desbloquear os gráficos de evolução.</p>
+                            <p className="text-slate-500 text-sm max-w-xs">Registre pelo menos <span className="text-indigo-400 font-bold">2 simulados</span> na sua conta para desbloquear os gráficos.</p>
+                        </div>
+                    </div>
+                ) : !filterHasData ? (
+                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-none border border-slate-800 bg-slate-950/30">
+                        <span className="text-5xl">📅</span>
+                        <div className="text-center">
+                            <p className="text-slate-300 font-bold text-base mb-1">Nenhuma atividade recente</p>
+                            <p className="text-slate-500 text-sm max-w-xs">Não registrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.</p>
+                            <button 
+                                onClick={() => setTimeWindow("all")} 
+                                className="mt-4 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-600/40 font-bold text-xs hover:bg-indigo-600/30 transition-colors"
+                            >
+                                Ver Todo o Histórico
+                            </button>
                         </div>
                     </div>
                 ) : activeEngine === "compare" ? (

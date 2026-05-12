@@ -28,20 +28,35 @@ const flushPendingIDBSaves = () => {
     Object.entries(saveTimeouts).forEach(([name, timeoutId]) => {
         if (timeoutId) {
             clearTimeout(timeoutId);
-            // Salva de imediato no localStorage como barreira de segurança vitalícia
             const stateToRescue = useAppStore.getState();
             try {
+                // Tenta salvar o estado completo
                 localStorage.setItem(name, JSON.stringify({ state: { appState: stateToRescue.appState } }));
-            } catch (e) {
-                console.error("[Storage] Fatal error forcing sync flush", e);
+            } catch {
+                console.warn("[Storage] Quota excedida no flush. Tentando salvar versão de resgate...");
+                try {
+                    // Fallback: descarta arrays pesados que não são essenciais para não perder o progresso
+                    const minimalState = { 
+                        ...stateToRescue.appState, 
+                        trash: [], 
+                        // Pode limpar o histórico do Monte Carlo aqui se necessário para poupar espaço
+                    };
+                    localStorage.setItem(name, JSON.stringify({ state: { appState: minimalState } }));
+                } catch (fallbackError) {
+                    console.error("[Storage] Falha total no flush de segurança", fallbackError);
+                }
             }
         }
     });
 };
 
 if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', flushPendingIDBSaves);
-    window.addEventListener('pagehide', flushPendingIDBSaves); // Para iOS Safari
+    // visibilitychange é a API moderna e fiável para dispositivos móveis e desktop
+    window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            flushPendingIDBSaves();
+        }
+    });
 }
 
 const idbStorage = {

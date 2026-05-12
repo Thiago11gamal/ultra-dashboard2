@@ -126,73 +126,38 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         for (let i = 0; i < sortedHistory.length; i++) {
             const h = sortedHistory[i];
             let total = Number(h.total) || 0;
-            const isPurePercentage = (total === 0 && h.score != null); // Identifica registos sem métrica de volume
+            const isPurePercentage = (total === 0 && h.score != null);
 
             const normalizedScore = getSafeScore(h, safeMaxScore);
-            
-            // FIX BUG 4: Heurística Anti-Colapso para provas penalizadas
-            // Se a nota líquida for próxima de zero, a pessoa acertou ~50% e errou ~50% (chute).
-            // O pior cenário teórico é 0 absoluto (onde pct vira 0.05).
-            // FIX BUG 3 (Matemática): Removida a conversão cega de notas negativas.
-            // Agora a penalização só ocorre se o formato for estritamente penalizado.
             let rawPct = normalizedScore / safeMaxScore;
-            
+
             if (options.isPenalizedFormat) {
-                // Aplica-se a toda a escala. Um Net de -20% vira 40% de precisão.
                 rawPct = Math.max(0.05, (rawPct + 1) / 2);
             } else {
-                // Previne notas negativas se não for o formato correto, truncando no zero
                 rawPct = Math.max(0, rawPct);
             }
-            
             const pct = Math.min(1, rawPct);
-            
-            // CORREÇÃO TÉCNICA E ESTATÍSTICA:
-            // Isolamento rigoroso. Registos percentuais contribuem para a Média Dinâmica (EMA/Kalman),
-            // mas NÃO DEVEM inflacionar a credibilidade Bayesiana (alpha/beta) gerando um N artificial.
-            if (isPurePercentage) {
-                // Injeta um N estritamente fracionário (ex: 0.5) para causar leve pull
-                // na média posterior sem afunilar o cone de incerteza da distribuição Beta.
-                alpha += pct * 0.5;
-                beta += (1 - pct) * 0.5;
-                continue; 
-            }
 
-            let correct = Math.round(pct * total);
-
-            if (total < 1) continue;
-
-            const safeCorrect = Math.max(0, Math.min(total, correct));
-            
-            // 💡 1. TRI Pseudo-Adaptativa: Multiplicador de Dificuldade
-            // Lê do histórico ou assume peso neutro (1.0)
-            const acertosHoje = safeCorrect;
-            const errosHoje = total - safeCorrect;
-
+            // 1. O cálculo de tempo (gap) e esquecimento tem de ocorrer ANTES de injetar o novo simulado
             const entryDate = new Date(h.date);
             const prevDate = i > 0 ? new Date(sortedHistory[i - 1].date) : entryDate;
             const gapDays = Math.max(0, Math.floor((entryDate - prevDate) / (1000 * 60 * 60 * 24)));
-            
-            // 💡 2. Decaimento Bayesiano Dinâmico (Curva de Ebbinghaus)
-            // CORREÇÃO MATH: Adicionado piso de Math.max(0.005) para prevenir Underflow a zero absoluto
-            // que causava o "Bug da Memória Imortal" após dezenas de sessões.
+
             const adaptiveLambdaBase = computeAdaptiveLambda(sortedHistory);
             const rawLambda = adaptiveLambdaBase * Math.exp(-0.15 * i);
             const lambda = Math.max(0.005, rawLambda); 
             const entryDecay = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
-            
-            // [DEPOIS] Piso dinâmico que esvazia com o tempo
+
             const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
-            // Calcula o esquecimento macro: se o aluno está parado há meses, o piso histórico cai
             const macroDecay = Math.max(0.1, Math.exp(-0.005 * (gapDays || 0))); 
             const retentionFloor = (cappedMaxN * 0.3) * macroDecay;
-            
+
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
                 const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
                 const minN = retentionFloor;
-                
                 const HARD_FLOOR = 3.0;
+                
                 const nAfterDecay = nBeforeDecay < minN 
                     ? Math.max(HARD_FLOOR, nBeforeDecay * entryDecay)
                     : Math.max(Math.max(minN, HARD_FLOOR), nBeforeDecay * entryDecay);
@@ -201,9 +166,20 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
                 beta = nAfterDecay * (1 - currentP);
             }
 
-            alpha += acertosHoje;
-            beta += errosHoje;
-            
+            // 2. Agora injetamos a nota na matemática (SEM usar `continue`)
+            if (isPurePercentage) {
+                alpha += pct * 0.5;
+                beta += (1 - pct) * 0.5;
+            } else {
+                let correct = Math.round(pct * total);
+                if (total >= 1) {
+                    const safeCorrect = Math.max(0, Math.min(total, correct));
+                    alpha += safeCorrect;
+                    beta += (total - safeCorrect);
+                }
+            }
+
+            // 3. Atualizamos o teto global com os novos valores
             const currentN = alpha + beta;
             if (currentN > maxNEver) maxNEver = Math.min(currentN, dynamicAlphaCap);
         }
