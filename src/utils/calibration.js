@@ -42,10 +42,14 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
   let relTerm = 0;
   let resTerm = 0;
   
+  // [FIX 3] Usar bins de largura fixa (Equal Width) para evitar aglomeração visual
   for (let i = 0; i < bins; i++) {
-    const start = Math.floor(i * sorted.length / bins);
-    const end = Math.floor((i + 1) * sorted.length / bins);
-    const slice = sorted.slice(start, end);
+    const binMin = i / bins;
+    const binMax = (i + 1) / bins;
+    
+    // Filtra pares que caem dentro deste intervalo de probabilidade
+    const slice = sorted.filter(p => p.probability >= binMin && p.probability < (i === bins - 1 ? 1.01 : binMax));
+    
     if (slice.length === 0) continue;
     
     const meanPred = slice.reduce((a, b) => a + b.probability, 0) / slice.length;
