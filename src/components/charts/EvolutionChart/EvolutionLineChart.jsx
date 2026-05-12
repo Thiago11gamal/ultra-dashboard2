@@ -221,7 +221,7 @@ export function EvolutionLineChart({
 
                     <Tooltip 
                         cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
-                        content={<ChartTooltip chartData={enhancedChartData} isCompare={false} unit={unit} />} 
+                        content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} />} 
                     />
 
                     <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px', paddingBottom: '0' }} />
