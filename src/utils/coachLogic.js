@@ -933,72 +933,76 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         // Flag para garantir que o alerta global seja emitido apenas uma vez por categoria
         let alertEmitted = false;
+        let topicCursor = 0;
 
         for (let i = 0; i < iterations; i++) {
-            // CORREÇÃO: Variável auxiliar para não perder o weakTopic[0] se um alerta consumir a primeira task
-            const weakTopicIndex = alertEmitted ? i - 1 : i;
-            const weakTopic = (weakTopicIndex >= 0 && weakTopicIndex < weakTopics.length) ? weakTopics[weakTopicIndex] : null;
             const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
-            const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[OTIMIZAÇÃO DE BASE] `;
-
-            const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '') + weakTopic.total) : `geral-${i}`;
-
             const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
             const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
 
+            // 1. Alertas Críticos (Prioridade Máxima, não consomem tópicos)
             if (mc && mc.probabilityRaw < adaptiveDanger && !alertEmitted) {
                 alertEmitted = true;
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-mc-danger-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance. Medidas drásticas necessárias.`,
+                    id: `${cat.id}-mc-danger-${safeUUID}-${i}`,
+                    text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
                         reason: "Monte Carlo — Zona de Perigo",
-                        details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
+                        details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias.`,
                         metrics: cat.urgency.details.humanReadable,
                         monteCarlo: mc,
-                        verdict: `Probabilidade crítica detectada (${cfg.MC_SIMULATIONS} simulações). Abandone estudos passivos e mude de método imediatamente.`
+                        verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
                     }
                 });
-            } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE && !alertEmitted) {
+                continue; // Alerta emitido, passa para próxima iteração
+            }
+
+            if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE && !alertEmitted) {
                 alertEmitted = true;
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-mc-chaos-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado. Consolide o núcleo antes de avançar.`,
+                    id: `${cat.id}-mc-chaos-${safeUUID}-${i}`,
+                    text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
                         reason: "Monte Carlo — Caos Estatístico",
-                        details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)} (limiar: ${(cfg.MC_VOLATILITY_HIGH * (maxScore / 100)).toFixed(2)}). Probabilidade atual: ${probPct}%.`,
+                        details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)}. Probabilidade: ${probPct}%.`,
                         metrics: cat.urgency.details.humanReadable,
                         monteCarlo: mc,
-                        verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível. Reduza as oscilações."
+                        verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível."
                     }
                 });
-            } else if (mc && mc.probabilityRaw >= adaptiveSafe && !alertEmitted) {
+                continue;
+            }
+
+            if (mc && mc.probabilityRaw >= adaptiveSafe && !alertEmitted) {
                 alertEmitted = true;
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-mc-safe-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%. Mantenha o fluxo de manutenção.`,
+                    id: `${cat.id}-mc-safe-${safeUUID}-${i}`,
+                    text: `${cat.name}: ${priorityLabel}[STATUS] 🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
                         reason: "Monte Carlo — Cruzeiro Seguro",
-                        details: `${probPct}% de probabilidade de atingir ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
+                        details: `${probPct}% de probabilidade de atingir a meta.`,
                         metrics: cat.urgency.details.humanReadable,
                         monteCarlo: mc,
-                        verdict: "Mantenha o ritmo atual. Manutenção leve é suficiente para proteger essa posição."
+                        verdict: "Mantenha o ritmo atual para proteger sua posição."
                     }
                 });
-            } else if (cat.urgency?.details?.srsLabel && !alertEmitted) {
+                continue;
+            }
+
+            if (cat.urgency?.details?.srsLabel && !alertEmitted) {
                 alertEmitted = true;
                 allGeneratedTasks.push({
-                    id: `${cat.id}-srs-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
+                    id: `${cat.id}-srs-${safeUUID}-${i}`,
+                    text: `${cat.name}: ${priorityLabel}[REVISÃO] 🧠 ${cat.urgency.details.srsLabel}.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
@@ -1009,11 +1013,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
                     }
                 });
-            } else if (performDeepCheck(cat).isTrap && !alertEmitted) {
+                continue;
+            }
+
+            if (performDeepCheck(cat).isTrap && !alertEmitted) {
                 alertEmitted = true;
                 allGeneratedTasks.push({
-                    id: `${cat.id}-trap-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}⚠️ ANOMALIA DE MÉTODO: Teoria excedente. Foco TOTAL em processamento de questões.`,
+                    id: `${cat.id}-trap-${safeUUID}-${i}`,
+                    text: `${cat.name}: ${priorityLabel}[MÉTODO] ⚠️ ANOMALIA: Teoria excedente detectada.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
@@ -1024,7 +1031,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
                     }
                 });
-            } else if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
+                continue;
+            }
+
+            // 2. Consumo de Tópicos (Só acontece se não houver alerta pendente nesta iteração)
+            const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
+            const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[OTIMIZAÇÃO DE BASE] `;
+            const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '') + weakTopic.total) : `geral-${i}`;
+
+            if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
                 let taskTitle = "";
                 let reasonStr = "";
                 if (weakTopic.isUntested) {
@@ -1061,6 +1076,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 });
             } else {
+                // Fallback se não houver tópicos fracos ou se todos estiverem bons
                 allGeneratedTasks.push({
                     id: `${cat.id}-general-review-${uniqueIdSuffix}-${safeUUID}-it${i}`,
                     text: `${cat.name}: ${topicLabel}Revisão Geral Complementar (Volume ${i + 1})`,
@@ -1134,9 +1150,9 @@ export function getBestTask(categories, excludeTaskId = null) {
             // MATH-ERRORRATE-SCALE FIX: errorRate pode estar em 0-1 ou 0-100 dependendo da fonte.
             // Normalizar para 0-1 antes de usar para evitar que um campo de 0-100 produza score+=3200.
             if (task.errorRate) {
-                // CORREÇÃO: Tratar todo input numérico de errorRate como percentual (0 a 100)
                 const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
-                const normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
+                // Se for <= 1, assume-se que já é uma percentagem decimal (ex: 0.8), caso contrário, divide por 100.
+                const normalizedErrorRate = validErrorRate <= 1 ? validErrorRate : Math.min(100, Math.max(0, validErrorRate)) / 100;
                 score += normalizedErrorRate * 40; // 0-40 pts
             }
 

@@ -234,9 +234,9 @@ export function adaptiveConfidenceShrinkage(options = {}) {
     // Componente 3: Trend uncertainty (tendência forte = mais incerteza no futuro, não no presente)
     const trendShrink = Math.min(0.15, trend * 0.04);
 
-    // FIX BUG 3: A tendência foi removida da contração da média. 
-    // Pesos redistribuídos para amostra (60%) e calibração (40%)
-    const rawShrink = (sampleShrink * 0.60) + (calibShrink * 0.40); 
+    // FIX BUG 4: Incluir a incerteza da tendência no cálculo final de contração
+    // Redistribuir os pesos para incluir a incerteza da tendência (15%)
+    const rawShrink = (sampleShrink * 0.50) + (calibShrink * 0.35) + (trendShrink * 0.15); 
     const finalShrink = Math.max(0, Math.min(maxShrink, rawShrink));
 
     return {

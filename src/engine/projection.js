@@ -93,7 +93,8 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
     // Garantir que não há divisão por zero ou variância negativa com N insuficiente
     if (effectiveN <= 2.1) return 1.5 * scaleFactorFallback; // Retorna incerteza base
 
-    const variance = rss / (effectiveN - 2);
+    // Normaliza pela soma dos pesos e aplica o fator de correção para amostras pequenas
+    const variance = (rss / sumW) * (effectiveN / Math.max(0.1, effectiveN - 2));
     const det = sumW * sumWXX - sumWX * sumWX;
 
     if (Math.abs(det) < 1e-6) return 1.5;
@@ -114,12 +115,17 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const now = options.referenceDate || Date.now();
     const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
+    const { slope, intercept } = weightedRegression(sorted, lambda, maxScore, options);
+    const t0_vol = new Date(sorted[0].date || sorted[0].createdAt).getTime();
+
     const residualSamples = sorted.map(h => {
         const hDate = h.date || h.createdAt;
+        const x = (new Date(hDate).getTime() - t0_vol) / 86400000;
         const t = (now - new Date(hDate).getTime()) / 86400000;
         const w = Math.exp(-lambda * t);
         const y = getSafeScore(h, maxScore);
-        return { value: y, weight: w };
+        const pred = intercept + slope * x;
+        return { value: y - pred, weight: w }; // Resíduos reais (detrended)
     });
 
     // FIX: MSSD Real Ponderado (Bug 13)
@@ -456,9 +462,11 @@ export function monteCarloSimulation(
     }) : [0];
 
     // Clamping de resíduos extremos (Huber-like)
-    const resMedian = getPercentile(residuals, 50);
-    const resMad = getPercentile(residuals.map(r => Math.abs(r - resMedian)), 50) || (1.0 * scaleFactor);
-    const safeResiduals = residuals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
+    // Antes de calcular os percentis, limpe a semente artificial (BUG 5)
+    const validResiduals = residuals.length > 1 ? residuals.slice(1) : residuals;
+    const resMedian = getPercentile(validResiduals, 50);
+    const resMad = getPercentile(validResiduals.map(r => Math.abs(r - resMedian)), 50) || (1.0 * scaleFactor);
+    const safeResiduals = validResiduals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
 
     // 3. Simulação de Monte Carlo
     const results = [];
@@ -509,8 +517,9 @@ export function monteCarloSimulation(
         let currentSimScore = baselineScore;
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
-            // FIX: Alvo de reversão não segue mais o drift diário (evita double-dipping)
-            const meanReversion = thetaOU * (ouTarget - currentSimScore) * 1;
+            // FIX BUG 2: Alvo de reversão acompanha o drift acumulado
+            const movingOuTarget = ouTarget + (sampledDrift * d);
+            const meanReversion = thetaOU * (movingOuTarget - currentSimScore) * 1;
             
             let shock = (safeResiduals.length > 5 && rng() > 0.3)
                 ? safeResiduals[Math.floor(rng() * safeResiduals.length)]
