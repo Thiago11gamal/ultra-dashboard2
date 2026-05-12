@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useId } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, LabelList, Cell, ReferenceLine,
@@ -24,11 +24,29 @@ const MEGA_PALETTE = [
     "#f43f5e", "#fb7185", "#34d399", "#fbbf24", "#a3e635"
 ];
 
-export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSubjectId, showOnlyFocus, timeWindow, targetScore = 80, maxScore = 100 }) => {
-
+/**
+ * SubtopicsPerformanceChart
+ * 
+ * Provides a detailed breakdown of performance by subtopic, offering both a ranking view
+ * and a temporal evolution view. Hardened to support non-zero scoring floors and prevent
+ * rendering artifacts in sparse data.
+ */
+export const SubtopicsPerformanceChart = React.memo(({ 
+    categories = [], 
+    focusSubjectId, 
+    showOnlyFocus, 
+    timeWindow, 
+    targetScore = 80, 
+    minScore = 0,
+    maxScore = 100 
+}) => {
+    const instanceId = useId().replace(/:/g, "");
     const [viewMode, setViewMode] = useState('lines'); // 'bars' | 'lines'
     const accuracyUnit = '%';
-    const targetScorePct = maxScore > 0 ? (targetScore / maxScore) * 100 : 0;
+    
+    // Normalização da meta em percentual relativo ao range [minScore, maxScore]
+    const range = maxScore - minScore;
+    const targetScorePct = range > 0 ? ((targetScore - minScore) / range) * 100 : 0;
 
     // ── CALC LIMITS ──
     const limitMs = useMemo(() => {
@@ -37,7 +55,6 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
         if (timeWindow !== "all") {
             const days = parseInt(timeWindow, 10);
             if (Number.isFinite(days) && days > 0) {
-                // BUGFIX: Zera as horas para retroceder até a meia-noite (00:00) do limite.
                 const pastDate = new Date();
                 pastDate.setDate(pastDate.getDate() - days);
                 pastDate.setHours(0, 0, 0, 0);
@@ -79,8 +96,12 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
 
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
+                    
+                    // Cálculo de acertos pesados pela escala do simulado
+                    const score = getSafeScore(t, maxScore);
+                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                     const correctCount = total > 0
-                        ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
+                        ? ((normalizedScore - minScore) / (maxScore - minScore)) * total
                         : (Number(t.correct) || 0);
 
                     topicMap[key].total += total;
@@ -92,17 +113,17 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
         return Object.values(topicMap)
             .filter(d => d.total > 0)
             .map(d => {
-                const acc = (d.correct / d.total) * 100;
+                const acc = Math.max(0, Math.min(100, (d.correct / d.total) * 100));
                 return {
                     name: d.name.length > 25 ? d.name.substring(0, 23) + '...' : d.name,
                     fullName: d.name,
-                    correct: d.correct,
+                    correct: Math.round(d.correct),
                     total: d.total,
                     accuracy: Number(acc.toFixed(2)),
                 };
             })
             .sort((a, b) => a.accuracy - b.accuracy);
-    }, [relevantCategories, limitMs, maxScore]);
+    }, [relevantCategories, limitMs, maxScore, minScore]);
 
 
     // ── COMPUTATION 2: TIME SERIES LINES ──
@@ -140,8 +161,10 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
                     // Contabiliza volume total para filtrar depois
                     topicVolumeMap[topicName] = (topicVolumeMap[topicName] || 0) + total;
 
+                    const score = getSafeScore(t, maxScore);
+                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                     const correct = total > 0
-                        ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
+                        ? ((normalizedScore - minScore) / (maxScore - minScore)) * total
                         : (Number(t.correct) || 0);
 
                     const totKey = `${topicName}_total`;
@@ -157,7 +180,7 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
             }
         });
 
-        // PERFORMANCE FIX: Seleciona apenas os TOP 10 tópicos em volume de questões para evitar poluição visual e lentidão.
+        // PERFORMANCE: Seleciona apenas os TOP 10 tópicos em volume de questões para evitar poluição visual.
         const topTopics = Object.entries(topicVolumeMap)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10)
@@ -171,7 +194,8 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
                 const tot = entry[`${topic}_total`];
                 const cor = entry[`${topic}_correct`];
                 if (tot !== undefined && tot > 0) {
-                    entry[topic] = Number(((cor / tot) * 100).toFixed(2));
+                    const accRaw = (cor / tot) * 100;
+                    entry[topic] = Number(Math.max(0, Math.min(100, accRaw)).toFixed(2));
                 }
             });
         });
@@ -182,13 +206,11 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
         });
 
         return { timeSeriesData: series, uniqueTopics: topTopics };
-    }, [relevantCategories, limitMs, maxScore]);
+    }, [relevantCategories, limitMs, maxScore, minScore]);
 
-
-    // Removido o early return daqui para colocá-lo dentro do render principal.
 
     return (
-        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-5 shadow-xl w-full min-h-[600px]">
+        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-5 shadow-xl w-full min-h-[600px]" id={`subtopics_container_${instanceId}`}>
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-2 gap-3">
                 <div>
@@ -284,7 +306,7 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
                 // ── LINES RENDER ──
                 <div className="w-full relative min-h-[750px]">
                     <div className="absolute top-0 right-4 text-[10px] text-indigo-400/60 font-mono">
-                        {uniqueTopics.length} linhas sendo plotadas simultaneamente.
+                        {uniqueTopics.length} tópicos mais relevantes sendo plotados.
                     </div>
                     {timeSeriesData.length > 1 ? (
                         <ResponsiveContainer width="100%" height={750}>
@@ -326,15 +348,15 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
                                     return (
                                         <Line
                                             key={topicName}
-                                            type="monotone"
+                                            type="monotoneX"
                                             dataKey={topicName}
                                             name={topicName}
                                             stroke={color}
                                             strokeWidth={3}
                                             dot={{ r: 4, fill: '#0f172a', strokeWidth: 2, stroke: color }}
                                             activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
-                                            // connectNulls evita que a linha quebre se o usuário não fez simulado desse tópico no dia específico
                                             connectNulls={true}
+                                            animationDuration={1500}
                                         />
                                     );
                                 })}
