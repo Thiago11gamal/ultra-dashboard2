@@ -213,7 +213,7 @@ function generateAnalyticsStats({
         return { date, score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * maxScore : -1 };
     }).filter(item => item.score >= 0 && !isNaN(item.score));
 
-    const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory.map(item => item.score));
+    const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory);
     const confidenceMultiplier = getConfidenceMultiplier(adaptiveSignal.effectiveN) * adaptiveSignal.ciInflation;
     const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
     const weightedHigh = Math.max(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);

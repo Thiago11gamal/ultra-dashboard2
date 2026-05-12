@@ -455,7 +455,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let empiricalTrust = 1.0;
         if (!hasData) {
             // Avalia o histórico global de disciplina do utilizador
-            const globalSignal = computeAdaptiveCoachWeight(lastNScores); 
+            const globalSignal = computeAdaptiveCoachWeight(trendHistory); 
             // Garante um piso de 20% e um teto de 100% consoante a estabilidade real do aluno
             empiricalTrust = Math.max(0.2, globalSignal.confidenceWeight);
         }
