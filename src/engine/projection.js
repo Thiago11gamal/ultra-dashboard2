@@ -478,10 +478,9 @@ export function monteCarloSimulation(
     // BUG-MATH-02 FIX: O-U deve reverter para a média histórica ponderada, não para o baseline (último EMA).
     // Reverter para o baseline causa ancoragem: os ICs ficam artificialmente estreitos porque toda simulação
     // "puxa" de volta para a nota mais recente, impedindo cenários realistas de melhora ou piora.
-    const historicalScores = sortedHistory.map(h => getSafeScore(h, maxScore));
-    const historicalWeightedMean = historicalScores.length > 0
-        ? historicalScores.reduce((a, b) => a + b, 0) / historicalScores.length
-        : baselineScore;
+    const historicalWeightedMean = optionsCurrentMean !== undefined 
+        ? optionsCurrentMean 
+        : baselineScore; // Respeita a EMA Bayesiana em vez da aritmética bruta
     // Blend: 70% média histórica + 30% baseline recente (para não ignorar completamente a tendência recente)
     const ouTarget = 0.7 * historicalWeightedMean + 0.3 * baselineScore;
 

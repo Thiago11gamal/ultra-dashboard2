@@ -50,7 +50,7 @@ export function getConfidenceMultiplier(sampleSize, options = {}) {
         const lowT = smallSampleTCritical[lowDf] ?? smallSampleTCritical[1];
         const highT = smallSampleTCritical[highDf] ?? smallSampleTCritical[30];
         if (lowDf === highDf) return lowT;
-        const w = df - lowDf;
+        const w = (1/lowDf - 1/df) / (1/lowDf - 1/highDf);
         return (lowT * (1 - w)) + (highT * w);
     }
 
@@ -167,12 +167,13 @@ export function computeAdaptiveSignal(scores = []) {
     const robustSigma = Math.max(1e-6, 1.4826 * mad);
     const huberK = 2.5 * robustSigma;
 
-    const weightedVariance = finiteScores.reduce((acc, s, i) => {
+    const clippedVariance = finiteScores.reduce((acc, s, i) => {
         const d = s - weightedMean;
         const clipped = Math.max(-huberK, Math.min(huberK, d));
         return acc + (weighted[i] * clipped * clipped);
     }, 0) / kishDenom; // Aplicar a divisão de Kish aqui!
-    const sd = Math.sqrt(Math.max(0, weightedVariance));
+    const CONSISTENCY_FACTOR = 1.11; 
+    const sd = Math.sqrt(Math.max(0, clippedVariance * CONSISTENCY_FACTOR));
     // Reduz sensibilidade a ruído usando média dos últimos deltas (até 4 passos).
     const k = Math.min(4, Math.max(1, finiteScores.length - 1));
     const recentDeltas = [];

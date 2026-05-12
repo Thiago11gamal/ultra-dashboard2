@@ -179,6 +179,27 @@ describe('BUG-MATH-04: Bayesian amnesia cap', () => {
         // O CI deve ser mais largo que sem decaimento
         expect(result.ciHigh - result.ciLow).toBeGreaterThan(0);
     });
+
+    test('BUG 1: Provas normais com score 0 não devem ser infladas para 66%', () => {
+        const history = [
+            { date: '2024-01-01', total: 100, correct: 0, score: 0 }
+        ];
+        const result = computeBayesianLevel(history, 1, 1, 100);
+        // Sem o fix, isso voltava ~66. Com o fix, deve ser baixo (perto de 0, com laplace smoothing)
+        // alpha=1+0=1, beta=1+100=101 -> mean = 1/102 * 100 = ~0.98
+        expect(result.mean).toBeLessThan(5); 
+    });
+
+    test('BUG 1: Provas penalizadas com score 0 devem ser convertidas para 50%', () => {
+        const history = [
+            { date: '2024-01-01', total: 100, correct: 0, score: 0 }
+        ];
+        const result = computeBayesianLevel(history, 1, 1, 100, { isPenalizedFormat: true });
+        // Score 0 em penalizada -> rawPct = (0+1)/2 = 0.5
+        // alpha=1+50=51, beta=1+50=51 -> mean = 51/104 * 100 = ~49
+        expect(result.mean).toBeGreaterThan(40);
+        expect(result.mean).toBeLessThan(60);
+    });
 });
 
 // ─────────────────────────────────────────────────────────────────

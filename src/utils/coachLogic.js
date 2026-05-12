@@ -228,12 +228,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             // "Bug da Meia-Noite" e ignorar lotes importados subitamente.
             // Consideramos "sessão anterior" qualquer nota gerada pelo menos 1 hora antes do teste mais recente.
             const mostRecentSimDate = relevantSimulados.length > 0 
-                ? new Date(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime() 
-                : Date.now();
+                ? normalizeDate(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime() 
+                : normalizeDate(new Date()).getTime();
             const SESSION_GAP_MS = 60 * 60 * 1000; // 1 Hora
 
             const pastSimulados = relevantSimulados.filter(s => {
-                const sTime = new Date(s.date || s.createdAt).getTime();
+                const sTime = normalizeDate(s.date || s.createdAt).getTime();
                 return sTime < (mostRecentSimDate - SESSION_GAP_MS);
             });
             

@@ -90,7 +90,7 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
  * A cada simulado: alpha += acertos, beta += erros.
  * Retorna média posterior + IC 95%.
  */
-export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 100) {
+export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 100, options = {}) {
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     let alpha = alpha0;
     let beta = beta0;
@@ -125,12 +125,15 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             // Se a nota líquida for próxima de zero, a pessoa acertou ~50% e errou ~50% (chute).
             // O pior cenário teórico é 0 absoluto (onde pct vira 0.05).
             let rawPct = normalizedScore / safeMaxScore;
-            if (rawPct < 0.1 && (h.total || 0) > 0) {
-                // Se o aluno deixou muitas em branco, a nota líquida baixa não significa 
-                // necessariamente um acerto de 50% (chute).
-                const blankPenaltyMitigation = (correct > 0) ? 0.2 : 0.5;
-                rawPct = Math.max(0.05, (rawPct + 1) / (2 - blankPenaltyMitigation));
+            
+            if (rawPct < 0.1 && (h.total || 0) > 0 && options.isPenalizedFormat) {
+                // Apenas converte escala [-1, 1] para [0, 1] se a prova for sabidamente penalizada
+                rawPct = Math.max(0.05, (rawPct + 1) / 2);
+            } else if (rawPct < 0) {
+                // Se não temos certeza, mas a nota é negativa, é penalizada
+                rawPct = Math.max(0.05, (rawPct + 1) / 2);
             }
+            // Remove o boost artificial para notas não negativas em provas normais
             
             const pct = Math.min(1, Math.max(0, rawPct));
             
