@@ -154,7 +154,10 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         }
         density *= normFactor;
 
-        if (x < minScore || x > maxScore) density = 0;
+        // FIX BUG 5: Remover o Hard-Cut da densidade.
+        // O algoritmo Silverman's Reflection Kernel já cuida de não deixar a densidade vazar 
+        // mantendo a integral igual a 1. Forçar a zero destrói a suavização vetorial (SVG) do UI.
+        // REMOVIDO: if (x < minScore || x > maxScore) density = 0;
 
         if (density > maxY) maxY = density;
         rawData.push({ x, density });

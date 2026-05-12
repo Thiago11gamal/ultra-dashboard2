@@ -327,7 +327,11 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
     const effectiveDaysForError = 45 * Math.log(1 + projectDays / 45);
     const angularUncertainty = slopeStdError * effectiveDaysForError;
-    const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(empiricalSD, 2));
+    // FIX BUG 3: A volatilidade diária (empiricalSD) é ruído branco cumulativo.
+    // Em processos estocásticos, a variância escala linearmente com o tempo, 
+    // logo o Desvio Padrão escala com a raiz quadrada do tempo (Math.sqrt(effectiveDaysForError)).
+    const randomWalkUncertainty = empiricalSD * Math.sqrt(Math.max(1, effectiveDaysForError));
+    const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(randomWalkUncertainty, 2));
     const marginOfError = 1.96 * predictionSD; 
 
     return {
@@ -555,26 +559,11 @@ export function monteCarloSimulation(
     const finalSD = calculateVolatility(results.map(r => ({ score: r })), maxScore, minScore);
     const empiricalProb = (successes / simulations) * 100;
 
-    let analyticalProb = empiricalProb; // fallback
-    // BUG-3 FIX: Calcular via fórmula truncada direta (normalCDF_complement importado no topo)
-    if (finalSD > 1e-6) {
-        const phiMin = normalCDF_complement((minScore - meanResult) / finalSD);
-        const phiMax = normalCDF_complement((maxScore - meanResult) / finalSD);
-        const phiTarget = normalCDF_complement((targetScore - meanResult) / finalSD);
-        const truncFactor = Math.max(1e-10, phiMin - phiMax);
-        const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
-
-        if (targetScore >= maxScore) {
-            analyticalProb = 0;
-        } else if (targetScore <= minScore) {
-            analyticalProb = 100;
-        } else {
-            analyticalProb = truncFactor > 1e-18
-                ? ((clampedPhiTarget - phiMax) / truncFactor) * 100
-                : empiricalProb;
-        }
-        analyticalProb = Math.min(100, Math.max(0, analyticalProb));
-    }
+    // FIX BUG 4: Simulações O-U com choques difusos e Clamping diário não formam 
+    // uma Distribuição Normal Truncada perfeita no limite estacionário.
+    // Usar a CDF analítica aqui causa divergência drástica e invalida as previsões.
+    // Para modelos difusos complexos, a probabilidade empírica convergida é a única fonte da verdade.
+    let analyticalProb = empiricalProb;
 
     return {
         probability: empiricalProb,

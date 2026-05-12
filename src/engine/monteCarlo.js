@@ -145,17 +145,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     const allScores = new Float64Array(safeSimulations);
 
-    // CORREÇÃO MATH: Compensação heurística de momento.
-    // A média amostral de uma Normal Truncada não é igual ao seu parâmetro mu.
-    // Aplicamos um "shift" no mu para cima ou para baixo consoante o achatamento 
-    // causado pelos limites, garantindo convergência não enviesada para alunos de elite.
-    let muParam = safeMean;
-    if (safeSD > 0) {
-        const zMax = (maxScore - safeMean) / safeSD;
-        const zMin = (minScore - safeMean) / safeSD;
-        if (zMax < 1.5) muParam += safeSD * 0.25 * (1.5 - Math.max(0, zMax));
-        if (zMin > -1.5) muParam -= safeSD * 0.25 * (1.5 - Math.max(0, Math.abs(zMin)));
-    }
+    // FIX BUG 2: Remover a heurística de shift artificial.
+    // A Normal Truncada já acumula densidade fisicamente correta nas bordas.
+    // Forçar o muParam corrompe a amostragem de Monte Carlo e a CDF analítica.
+    let muParam = safeMean; 
 
     for (let i = 0; i < safeSimulations; i++) {
         let score = sampleTruncatedNormal(muParam, safeSD, minScore, maxScore, rng);
@@ -196,10 +189,18 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     
     const wasVisualCIClamped = (rawHigh - rawLow < MIN_SPREAD);
     if (wasVisualCIClamped) {
+        // FIX BUG 6: Compensação assimétrica.
+        // Se bater no teto, o recuo do MIN_SPREAD tem de ser integralmente descontado do piso,
+        // garantindo que o spread final nunca seja menor que MIN_SPREAD.
         rawLow = Math.max(minScore, clampedDisplayMean - MIN_SPREAD / 2);
         rawHigh = Math.min(maxScore, clampedDisplayMean + MIN_SPREAD / 2);
-        
-        // Proteção matemática absoluta contra limites estritos que gerem inversão
+
+        if (rawHigh === maxScore) {
+            rawLow = Math.max(minScore, maxScore - MIN_SPREAD);
+        } else if (rawLow === minScore) {
+            rawHigh = Math.min(maxScore, minScore + MIN_SPREAD);
+        }
+
         if (rawLow > rawHigh) {
             rawLow = minScore;
             rawHigh = maxScore;
