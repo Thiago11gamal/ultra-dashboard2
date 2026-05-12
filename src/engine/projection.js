@@ -479,13 +479,16 @@ export function monteCarloSimulation(
 
     // 3. Simulação de Monte Carlo
     const results = [];
-    // Seed fixa baseada na data e histórico para determinismo intra-dia
     // FIX BUG-LOGIC: Semente baseada no conteúdo do último registro para determinismo real
+    // FIX: Hash FNV-1a simples para melhor distribuição de sementes
     const lastEntry = sortedHistory[sortedHistory.length - 1];
     const seedStr = `${lastEntry.date || lastEntry.createdAt}-${getSafeScore(lastEntry, maxScore)}-${sortedHistory.length}`;
-    let seedValue = 0;
-    for (let i = 0; i < seedStr.length; i++) seedValue = (seedValue << 5) - seedValue + seedStr.charCodeAt(i);
-    const rng = mulberry32(Math.abs(seedValue));
+    let seedValue = 2166136261; // FNV offset basis
+    for (let i = 0; i < seedStr.length; i++) {
+        seedValue ^= seedStr.charCodeAt(i);
+        seedValue = Math.imul(seedValue, 16777619); // FNV prime
+    }
+    const rng = mulberry32(Math.abs(seedValue >>> 0));
     const normalRng = makeNormalRng(rng);
 
     // Damping factor: reduz a incerteza ao longo do tempo (reversão à média/estabilidade)

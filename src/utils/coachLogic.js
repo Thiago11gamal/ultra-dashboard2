@@ -388,10 +388,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const dynamicRecencyMax = Math.max(15, (memoryRisk / totalPain) * 110);
         const dynamicInstabilityMax = Math.max(10, (volatilityRisk / totalPain) * 110);
 
+        // FIX: Aumentar a amplitude do multiplicador de importância
+        const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.8; // Range de 0.2x a 1.8x
+        
         // A. Performance Score
         // BUG-19 FIX: Garantir invariância de escala através da normalização para base 100
         const normalizedAvg = (averageScore / maxScore) * 100;
-        const scoreComponent = Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100)) * backtestWeights.scoreWeight;
+        const scoreComponent = Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100)) * weightMultiplier;
 
         // B. Recency
         const weightDeviation = (weight / 100) - 1;
@@ -719,20 +722,21 @@ function _getTopicsHash(simulados = [], maxScore = 100) {
     return `${simulados.length}-${maxScore}-${sample}`;
 }
 
+// FIX: Alterar a estratégia de limpeza do cache
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const catId = category.id || category.name;
-    const hash = _getTopicsHash(simulados, maxScore);
+    // Usar apenas o ID e o comprimento como hash para evitar chaves infinitas por timestamp
+    const hash = `${simulados.length}-${maxScore}`; 
     const cacheKey = `${catId}-${hash}`;
 
     if (_topicsCache.has(cacheKey)) return _topicsCache.get(cacheKey);
 
-    const result = _buildSortedTopicsImpl(category, simulados, maxScore);
-    
-    if (_topicsCache.size > 200) {
-        const firstKey = _topicsCache.keys().next().value;
-        _topicsCache.delete(firstKey);
+    // Se o cache exceder o limite, limpa tudo para evitar fragmentação
+    if (_topicsCache.size > 100) {
+        _topicsCache.clear(); 
     }
-    
+
+    const result = _buildSortedTopicsImpl(category, simulados, maxScore);
     _topicsCache.set(cacheKey, result);
     return result;
 }
@@ -1108,7 +1112,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 export function getCognitiveState(stats) {
     if (!stats || typeof stats !== 'object') return 100;
 
+    // FIX: Se não houver minutos na sessão atual, verificar o tempo desde o último estudo
     let focusMinutes = stats.consecutiveMinutes || 0;
+    
+    if (focusMinutes === 0 && stats.lastActivityTimestamp) {
+        const minutesSinceLast = (Date.now() - stats.lastActivityTimestamp) / 60000;
+        // Se passou menos de 30 min, o utilizador ainda está "quente" da sessão anterior
+        if (minutesSinceLast < 30) focusMinutes = stats.previousSessionMinutes || 0;
+    }
     let hadBreaks = false;
 
     if (focusMinutes === 0 && (stats.pomodorosCompleted || 0) > 0) {

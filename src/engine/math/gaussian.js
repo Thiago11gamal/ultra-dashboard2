@@ -126,7 +126,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     // FIX MATEMÁTICO: A normalização usa a base total de simulações para 
     // evitar inflar o pico visual quando há muitos outliers fora da tela.
-    const normFactor = 1 / (safeSimCount * bandwidth * Math.sqrt(2 * Math.PI));
+    // FIX: Adicionar proteção contra divisão por zero e underflow
+    const normFactor = 1 / (Math.max(1, safeSimCount) * Math.max(1e-10, bandwidth) * Math.sqrt(2 * Math.PI));
 
     let maxY = 0;
     const rawData = [];
@@ -167,7 +168,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // FASE 2: Formatar (y: 0-1 para visualização, density: área=1 para probabilidades)
     return rawData.map(d => ({
         x: Number(d.x.toFixed(2)),
-        y: maxY > 0 ? Number((d.density / maxY).toFixed(4)) : 0,
+        y: maxY > 1e-15 ? Number((d.density / maxY).toFixed(4)) : 0, // Proteção contra maxY zero
         density: d.density * normFactor2
     }));
 }
