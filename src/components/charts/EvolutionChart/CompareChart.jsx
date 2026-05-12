@@ -54,7 +54,6 @@ export function CompareChart({
                 yPos[i].yPos = yPos[i - 1].yPos - DIST;
             }
         }
-        // 🎯 SCALE BUG FIX: Impede que a legenda vaze do container
         yPos.forEach(p => {
             const span = Math.max(1, safeMaxScore - safeMinScore);
             const pad = Math.min(5, span * 0.1);
@@ -71,6 +70,7 @@ export function CompareChart({
         const hasObserved = curr["Nota Bruta"] != null || curr["Nível Bayesiano"] != null || curr["Média Histórica"] != null;
         return hasObserved ? i : acc;
     }, -1);
+    
     const todayPoints = [];
     if (todayIdx >= 0) {
         const d = filteredChartData[todayIdx];
@@ -169,6 +169,7 @@ export function CompareChart({
                     </defs>
                     <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.03)" vertical={false} />
                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dy={12} axisLine={false} tickLine={false} minTickGap={35} />
+                    
                     <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[safeMinScore, safeMaxScore]} allowDataOverflow={true} tickFormatter={(v) => `${v}${unit}`} width={50} />
                     
                     <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"

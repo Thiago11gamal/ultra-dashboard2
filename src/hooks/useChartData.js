@@ -90,7 +90,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
                 // FIX BUG 1 (Matemática): Consistência Bayesiana para entradas percentuais
                 if (total === 0 && entry.score != null) {
                     const pct = Math.min(1, Math.max(0, Number(entry.score) / maxScore));
-                    total = 5; // Peso estatístico realista mínimo em vez do getSyntheticTotal(100)
+                    total = 5; // Peso estatístico realista mínimo para estabilidade bayesiana
                     correct = Math.round(pct * total);
                 }
 

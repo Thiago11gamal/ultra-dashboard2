@@ -16,7 +16,6 @@ const CustomTooltipStyle = {
     boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
 };
 
-// 20 Distinct Colors for the lines
 const MEGA_PALETTE = [
     "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e",
     "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6",
@@ -24,13 +23,6 @@ const MEGA_PALETTE = [
     "#f43f5e", "#fb7185", "#34d399", "#fbbf24", "#a3e635"
 ];
 
-/**
- * SubtopicsPerformanceChart
- * 
- * Provides a detailed breakdown of performance by subtopic, offering both a ranking view
- * and a temporal evolution view. Hardened to support non-zero scoring floors and prevent
- * rendering artifacts in sparse data.
- */
 export const SubtopicsPerformanceChart = React.memo(({ 
     categories = [], 
     focusSubjectId, 
@@ -41,14 +33,12 @@ export const SubtopicsPerformanceChart = React.memo(({
     maxScore = 100 
 }) => {
     const instanceId = useId().replace(/:/g, "");
-    const [viewMode, setViewMode] = useState('lines'); // 'bars' | 'lines'
+    const [viewMode, setViewMode] = useState('lines');
     const accuracyUnit = '%';
     
-    // Normalização da meta em percentual relativo ao range [minScore, maxScore]
     const range = maxScore - minScore;
     const targetScorePct = range > 0 ? ((targetScore - minScore) / range) * 100 : 0;
 
-    // ── CALC LIMITS ──
     const limitMs = useMemo(() => {
         const now = new Date();
         now.setHours(23, 59, 59, 999);
@@ -68,7 +58,6 @@ export const SubtopicsPerformanceChart = React.memo(({
         return categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
     }, [categories, showOnlyFocus, focusSubjectId]);
 
-    // ── COMPUTATION 1: AGGREGATE BARS ──
     const chartData = useMemo(() => {
         const topicMap = {};
 
@@ -97,7 +86,6 @@ export const SubtopicsPerformanceChart = React.memo(({
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
                     
-                    // Cálculo de acertos pesados pela escala do simulado
                     const score = getSafeScore(t, maxScore);
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                     const correctCount = total > 0
@@ -126,10 +114,9 @@ export const SubtopicsPerformanceChart = React.memo(({
     }, [relevantCategories, limitMs, maxScore, minScore]);
 
 
-    // ── COMPUTATION 2: TIME SERIES LINES ──
     const { timeSeriesData, uniqueTopics } = useMemo(() => {
-        const dateMap = {}; // { "DD/MM": { dateLabel, originalDate, [topic_total]: x, [topic_correct]: y } }
-        const topicVolumeMap = {}; // Para filtrar os top 10 tópicos
+        const dateMap = {}; 
+        const topicVolumeMap = {}; 
 
         relevantCategories.forEach(cat => {
             const history = cat.simuladoStats?.history || [];
@@ -158,7 +145,6 @@ export const SubtopicsPerformanceChart = React.memo(({
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
 
-                    // Contabiliza volume total para filtrar depois
                     topicVolumeMap[topicName] = (topicVolumeMap[topicName] || 0) + total;
 
                     const score = getSafeScore(t, maxScore);
@@ -180,7 +166,6 @@ export const SubtopicsPerformanceChart = React.memo(({
             }
         });
 
-        // PERFORMANCE: Seleciona apenas os TOP 10 tópicos em volume de questões para evitar poluição visual.
         const topTopics = Object.entries(topicVolumeMap)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10)
@@ -188,7 +173,6 @@ export const SubtopicsPerformanceChart = React.memo(({
 
         let series = Object.values(dateMap).sort((a, b) => a.originalDate - b.originalDate);
 
-        // Converter as somas diárias em % de acerto apenas para os TOP tópicos
         series.forEach(entry => {
             topTopics.forEach(topic => {
                 const tot = entry[`${topic}_total`];
@@ -200,7 +184,6 @@ export const SubtopicsPerformanceChart = React.memo(({
             });
         });
 
-        // Filtrar dias com poucos dados
         series = series.filter(entry => {
             return topTopics.some(topic => entry[topic] !== undefined);
         });
@@ -211,7 +194,6 @@ export const SubtopicsPerformanceChart = React.memo(({
 
     return (
         <div className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-5 shadow-xl w-full min-h-[600px]" id={`subtopics_container_${instanceId}`}>
-
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-2 gap-3">
                 <div>
                     <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-amber-500 mb-0.5">
@@ -245,7 +227,6 @@ export const SubtopicsPerformanceChart = React.memo(({
                     </div>
                 </div>
             ) : viewMode === 'bars' ? (
-                // ── BARS RENDER ──
                 <div className="w-full relative" style={{ height: Math.max(400, chartData.length * 50) }}>
                     <ResponsiveContainer width="100%" height="100%" minHeight={400}>
                         <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: -5, bottom: 0 }}>
@@ -259,6 +240,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                 tickLine={false}
                                 tickFormatter={(v) => `${v}${accuracyUnit}`}
+                                allowDataOverflow={true}
                             />
 
                             <YAxis
@@ -303,7 +285,6 @@ export const SubtopicsPerformanceChart = React.memo(({
                     </ResponsiveContainer>
                 </div>
             ) : (
-                // ── LINES RENDER ──
                 <div className="w-full relative min-h-[750px]">
                     <div className="absolute top-0 right-4 text-[10px] text-indigo-400/60 font-mono">
                         {uniqueTopics.length} tópicos mais relevantes sendo plotados.
@@ -328,6 +309,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     axisLine={false}
                                     tickLine={false}
                                     tickFormatter={(v) => `${v}%`}
+                                    allowDataOverflow={true}
                                 />
 
                                 <Tooltip
@@ -348,14 +330,14 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     return (
                                         <Line
                                             key={topicName}
-                                            type="monotoneX"
+                                            type="monotoneX" // FIX: Evita overshoot (barriga matemática) em séries temporais
                                             dataKey={topicName}
                                             name={topicName}
                                             stroke={color}
                                             strokeWidth={3}
                                             dot={{ r: 4, fill: '#0f172a', strokeWidth: 2, stroke: color }}
                                             activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
-                                            connectNulls={true}
+                                            connectNulls={true} // FIX: Preserva continuidade temporal
                                             animationDuration={1500}
                                         />
                                     );

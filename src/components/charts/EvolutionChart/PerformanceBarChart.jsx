@@ -9,6 +9,7 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;
+    
     return (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0">
             <div className="flex items-center justify-between mb-3 sm:mb-5 min-w-0">
@@ -49,16 +50,18 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                 </linearGradient>
                             </defs>
                             <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
+                            
                             <XAxis
                                 dataKey="name"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fill: '#94a3b8', fontSize: 10 }}
+                                tick={{ fill: '#94a3b8', fontSize: 10, width: 80 }}
                                 dy={8}
                                 angle={showOnlyFocus ? 0 : -35}
                                 textAnchor={showOnlyFocus ? 'middle' : 'end'}
                                 interval={0}
                             />
+                            
                             <YAxis
                                 axisLine={false}
                                 tickLine={false}
@@ -67,6 +70,7 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                 allowDecimals={false}
                                 label={{ value: 'Questões', angle: -90, position: 'insideLeft', fill: '#475569', fontSize: 10, dx: -2 }}
                             />
+                            
                             <Tooltip
                                 cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 4 }}
                                 content={({ active, payload }) => {
@@ -110,10 +114,9 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                     return null;
                                 }}
                             />
-                            {/* Barra de Acertos (Base) */}
+                            
                             <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} isAnimationActive={true} />
                             
-                            {/* Barra de Erros (Topo) */}
                             <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[5, 5, 0, 0]} isAnimationActive={true}>
                                 <LabelList 
                                     dataKey="questoes" 

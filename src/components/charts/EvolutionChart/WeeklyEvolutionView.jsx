@@ -8,8 +8,6 @@ import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/sco
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
 
-// FIX CRÍTICO: Forçar T12:00:00 para evitar que new Date("YYYY-MM-DD") recue 1 dia em UTC-4.
-// Extracção de data local em vez de toISOString() (que retorna UTC).
 const getMondayStr = (dateStr) => {
     const dt = typeof dateStr === 'string' && dateStr.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
         ? new Date(`${dateStr}T12:00:00`)
@@ -24,14 +22,12 @@ const getMondayStr = (dateStr) => {
     return `${y}-${m}-${d}`;
 };
 
-// Formatação legível para o XAxis
 const formatWeek = (isoString) => {
     if (!isoString || typeof isoString !== 'string') return '--/--';
     const [year, month, day] = isoString.split('-');
     if (!year || !month || !day) return '--/--';
     return `${day}/${month}`;
 };
-
 
 const shortenLabel = (value, max = 18) => {
     const text = String(value || '').trim();
@@ -47,10 +43,9 @@ export const WeeklyEvolutionView = ({
     maxScore = 100,
     unit = '%'
 }) => {
-    const [viewMode, setViewMode] = useState('performance'); // 'evolution' | 'variation' | 'performance'
+    const [viewMode, setViewMode] = useState('performance');
     const [userToggles, setUserToggles] = useState({});
 
-    // Limpa a memória de cliques na legenda sempre que trocar de matéria ou modo
     React.useEffect(() => {
         setUserToggles({});
     }, [showOnlyFocus, focusSubjectId]);
@@ -75,7 +70,6 @@ export const WeeklyEvolutionView = ({
         ].join('|');
     }).join('||'), [categories]);
 
-    // 2. PROCESSAMENTO DOMINADO
     const { chartData, activeKeys, rankedKeys } = useMemo(() => {
         let itemsMap = {};
 
@@ -128,7 +122,6 @@ export const WeeklyEvolutionView = ({
                 let totalQ = Number(h.total) || 0;
                 let score = getSafeScore(h, maxScore);
 
-                // MATH FIX: Impedir que testes baseados puramente em porcentagem sem métrica de questões gerem 'missing data' (zeros cegos)
                 if (totalQ === 0 && h.score != null) {
                     totalQ = getSyntheticTotal(maxScore);
                 }
@@ -154,7 +147,6 @@ export const WeeklyEvolutionView = ({
                             if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
 
-                            // BUG-2 FIX: Normalizar topics pelo maxScore (consistente com processHistory)
                             let totalQ = Number(t.total) || 0;
                             const topicScore = getSafeScore(t, maxScore);
                             if (totalQ === 0 && t.score != null) {
@@ -174,9 +166,7 @@ export const WeeklyEvolutionView = ({
         const sortedWeeks = Object.values(weeksTemp).sort((a, b) => a.week.localeCompare(b.week));
         if (sortedWeeks.length === 0) return { chartData: [], activeKeys: {}, rankedKeys: [] };
 
-        // 3. BACKFILL & DELTA CALC
-        // Preenche semanas sem dados com 'null' e calcula o Delta em relação à última semana que teve dado
-        const memoryByItem = {}; // { itemId: { pct: number, total: number } }
+        const memoryByItem = {}; 
 
         const finalData = sortedWeeks.map(weekObj => {
             const dataPoint = {
@@ -188,12 +178,10 @@ export const WeeklyEvolutionView = ({
                 const currentData = weekObj[id];
 
                 if (currentData && currentData.total > 0) {
-                    // 1. Calcula o percentual da semana atual
                     const rawPct = (currentData.correct / currentData.total) * maxScore;
                     const currentPct = Number(Math.max(0, Math.min(maxScore, rawPct)).toFixed(2));
                     dataPoint[id] = currentPct;
 
-                    // 2. Calcula o Delta se houver registro anterior
                     if (memoryByItem[id] !== undefined) {
                         const prevPct = memoryByItem[id].pct;
                         const delta = Number((currentPct - prevPct).toFixed(2));
@@ -201,7 +189,6 @@ export const WeeklyEvolutionView = ({
                         dataPoint[`delta_${id}`] = delta;
                         dataPoint[`deltaColor_${id}`] = delta > 0 ? '#10b981' : delta < 0 ? '#ef4444' : '#94a3b8';
 
-                        // Metadados para o Tooltip
                         dataPoint[`meta_${id}`] = {
                             currTot: currentData.total,
                             currPct: currentPct,
@@ -209,16 +196,13 @@ export const WeeklyEvolutionView = ({
                             prevTot: memoryByItem[id].total
                         };
                     } else {
-                        // Primeira semana com dados: sem variação
                         dataPoint[`delta_${id}`] = null;
                         dataPoint[`deltaColor_${id}`] = '#94a3b8';
                         dataPoint[`meta_${id}`] = { currTot: currentData.total, currPct: currentPct, prevPct: null, prevTot: 0 };
                     }
 
-                    // 3. Atualiza a memória PARA A PRÓXIMA SEMANA
                     memoryByItem[id] = { pct: currentPct, total: currentData.total };
                 } else {
-                    // Semana sem dados para esta matéria específica
                     dataPoint[id] = null;
                     dataPoint[`delta_${id}`] = null;
                     dataPoint[`deltaColor_${id}`] = '#94a3b8';
@@ -228,7 +212,6 @@ export const WeeklyEvolutionView = ({
             return dataPoint;
         });
 
-        // Ranqueamento dos validIds por volume total (para default view)
         const volumeTracker = {};
         validIds.forEach(id => volumeTracker[id] = 0);
         finalData.forEach(week => {
@@ -245,13 +228,12 @@ export const WeeklyEvolutionView = ({
 
     const keys = Object.keys(activeKeys);
 
-    // 🌟 LÓGICA DO "Noodle Bowl" (Oculta linhas exedentes se houverem mais de 6 opções)
     const hiddenKeys = useMemo(() => {
         const result = {};
         rankedKeys?.forEach((key, idx) => {
-            const defaultHide = showOnlyFocus ? false : idx >= 6; // Em assuntos, mostra todos por padrão
+            const defaultHide = showOnlyFocus ? false : idx >= 6; 
             if (userToggles[key] !== undefined) {
-                result[key] = userToggles[key]; // Escolha manual do aluno domina
+                result[key] = userToggles[key]; 
             } else {
                 result[key] = defaultHide;
             }
@@ -259,10 +241,7 @@ export const WeeklyEvolutionView = ({
         return result;
     }, [rankedKeys, userToggles, showOnlyFocus]);
 
-
     const topRegressions = useMemo(() => computeTopRegressions({ viewMode, chartData, keys, activeKeys, hiddenKeys }), [viewMode, chartData, keys, activeKeys, hiddenKeys]);
-
-
     const trendKpi = useMemo(() => computeTrendKpi({ chartData, keys, hiddenKeys }), [chartData, keys, hiddenKeys]);
 
     const handleLegendClick = useCallback((e) => {
@@ -271,7 +250,7 @@ export const WeeklyEvolutionView = ({
         const keyID = String(dataKey).replace('delta_', '');
         setUserToggles(prev => ({
             ...prev,
-            [keyID]: !hiddenKeys[keyID] // Inverte o frame de ocultação
+            [keyID]: !hiddenKeys[keyID] 
         }));
     }, [hiddenKeys]);
 
@@ -288,7 +267,6 @@ export const WeeklyEvolutionView = ({
                             const isDelta = dataKey.startsWith('delta_');
                             const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
 
-                            // Se a key tá oculta no click, pula no Tooltip pra manter sincro visual
                             if (hiddenKeys[baseKey]) return null;
 
                             const val = entry.value;
@@ -297,7 +275,6 @@ export const WeeklyEvolutionView = ({
                             const meta = entry.payload[`meta_${baseKey}`];
 
                             if (isDelta) {
-                                // Design para Variação
                                 const color = entry.payload[`deltaColor_${baseKey}`] || (val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
                                 const prefix = val > 0 ? '+' : '';
                                 const currentPct = Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey];
@@ -324,7 +301,6 @@ export const WeeklyEvolutionView = ({
                                     </div>
                                 );
                             } else {
-                                // Design para Evolução
                                 return (
                                     <div key={idx} className="flex flex-col gap-0.5">
                                         <div className="flex justify-between items-center text-[10px]">
@@ -435,14 +411,14 @@ export const WeeklyEvolutionView = ({
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                <YAxis domain={[0, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
+                                <YAxis domain={[0, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={true} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
                                 <Tooltip content={renderCustomTooltip} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {keys.map(key => (
                                     <Line
                                         key={key}
-                                        type="monotone"
+                                        type="monotoneX" // FIX: Evita overshoot indesejado
                                         dataKey={key}
                                         name={activeKeys[key].name}
                                         stroke={activeKeys[key].color}
@@ -451,6 +427,7 @@ export const WeeklyEvolutionView = ({
                                         activeDot={{ r: 6, strokeWidth: 0 }}
                                         hide={hiddenKeys[key]}
                                         isAnimationActive={true}
+                                        connectNulls={true} // FIX: Preserva integridade temporal na falta de dados entre as semanas
                                     />
                                 ))}
 

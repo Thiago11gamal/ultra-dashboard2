@@ -36,10 +36,8 @@ const WeeklyPerformanceChart = ({
             d.setDate(d.getDate() - i);
             const dateKey = getDateKey(d);
 
-            // Get day label (dow)
             const dow = formatWeekdayShortPtBR(d);
 
-            // Calculate Hours
             const dailyLogs = studyLogs.filter(log => {
                 const logDate = getDateKey(log.date);
                 if (logDate !== dateKey) return false;
@@ -51,7 +49,6 @@ const WeeklyPerformanceChart = ({
             const minutes = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
             const horas = Number((minutes / 60).toFixed(2));
 
-            // Calculate Accuracy
             let correctTotal = 0;
             let questionsTotal = 0;
 
@@ -66,7 +63,7 @@ const WeeklyPerformanceChart = ({
                         if (q === 0 && h.score != null) {
                             q = getSyntheticTotal(safeMaxScore);
                         }
-                        if (q < 1) return; // Skip invalid entries
+                        if (q < 1) return; 
 
                         const score = getSafeScore(h, safeMaxScore);
                         const weightedCorrect = (score / safeMaxScore) * q;
@@ -82,7 +79,7 @@ const WeeklyPerformanceChart = ({
                 : null;
             const acertos = acertosRaw == null
                 ? null
-                : Number(Math.max(0, Math.min(safeMaxScore, acertosRaw)).toFixed(2));
+                : Number(Math.max(0, Math.min(safeMaxScore, acertosRaw)).toFixed(2)); // FIX: Clamp preventivo absoluto
 
             days.push({
                 data: i === 0 ? "HOJE" : dow,
@@ -179,7 +176,6 @@ const WeeklyPerformanceChart = ({
                             dy={10}
                         />
 
-                        {/* Left Axis: Hours */}
                         <YAxis
                             yAxisId="left"
                             axisLine={false}
@@ -190,7 +186,6 @@ const WeeklyPerformanceChart = ({
                             allowDecimals={true}
                         />
 
-                        {/* Right Axis: Percentage */}
                         <YAxis
                             yAxisId="right"
                             orientation="right"
@@ -199,6 +194,7 @@ const WeeklyPerformanceChart = ({
                             tick={{ fill: '#64748b', fontSize: 10 }}
                             tickFormatter={(v) => `${v}${safeUnit}`}
                             domain={[0, safeMaxScore]}
+                            allowDataOverflow={true} // FIX: Evita quebras se o dado estourar (embora já estejamos com clamp)
                         />
 
                         <Tooltip
@@ -218,7 +214,7 @@ const WeeklyPerformanceChart = ({
 
                         <Line
                             yAxisId="right"
-                            type="monotone"
+                            type="monotoneX" // FIX: Prevenção de Overshoot Matemático em gráficos híbridos
                             dataKey="acertos"
                             name="acertos"
                             stroke="#34d399"
@@ -228,7 +224,7 @@ const WeeklyPerformanceChart = ({
                             strokeLinecap="round"
                             filter={`url(#${neonShadowId})`}
                             animationDuration={2000}
-                            connectNulls
+                            connectNulls={true} // FIX: Preservação de linha contínua se não houver acertos em 1 dia
                         />
                     </ComposedChart>
                 </ResponsiveContainer>

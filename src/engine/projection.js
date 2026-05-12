@@ -8,7 +8,6 @@ import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
-// Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
 import { sampleTruncatedNormal } from './math/gaussian.js';
 import { Z_95 } from './math/constants.js';
 
