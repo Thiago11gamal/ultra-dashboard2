@@ -22,6 +22,7 @@ export default function Dashboard() {
     const navigate = useNavigate();
 
     const filter = useAppStore(state => state.appState.dashboardFilter || 'all');
+    const isHydrated = useAppStore(state => state.appState.isHydrated); // <- ADICIONAR ISTO
     const activeId = useAppStore(state => state.appState.activeId);
     
     // Otimização: Agrupar as extrações de estado para reduzir re-renders desnecessários
@@ -93,10 +94,20 @@ export default function Dashboard() {
         }
     }, [data.categories, startPomodoroSession, setData, showToast, navigate]);
 
-    if (!data || !data.categories) {
+    // ✅ DEPOIS (Barreira de Hidratação Atómica)
+    if (!isHydrated || !data || !data.categories) {
         return (
-            <div className="flex items-center justify-center p-12">
-                <p className="text-slate-400">Carregando dados...</p>
+            <div className="flex items-center justify-center h-[70vh] w-full animate-fade-in">
+                <div className="flex flex-col items-center gap-5 p-12">
+                    <div className="relative">
+                        <div className="w-12 h-12 border-4 border-indigo-500/20 rounded-full"></div>
+                        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <p className="text-indigo-400 font-black uppercase tracking-[0.2em] text-xs">A Calibrar Motor</p>
+                        <p className="text-slate-500 text-[10px] uppercase tracking-widest mt-1">A carregar perfil de aprendizagem</p>
+                    </div>
+                </div>
             </div>
         );
     }
