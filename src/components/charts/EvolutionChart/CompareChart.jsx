@@ -96,7 +96,8 @@ export function CompareChart({
         if (!pts || !pts.length) return 0;
         const pt = pts.find(p => p.name === name);
         if (!pt) return 0;
-        const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / safeMaxScore : 4.6;
+        const range = safeMaxScore - safeMinScore;
+        const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / (range || 1) : 4.6;
         return (value - pt.yPos) * pxPerPct;
     };
 

@@ -2,7 +2,9 @@ import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Target } from 'lucide-react';
 
-// Moved outside the main component to prevent recreation on each render
+/**
+ * CustomTooltip for ReliabilityCurveChart
+ */
 const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
         const dataPoint = payload[0].payload;
@@ -39,11 +41,16 @@ const CustomTooltip = ({ active, payload }) => {
     return null;
 };
 
+/**
+ * ReliabilityCurveChart
+ * 
+ * Visualizes the calibration of the prediction engine by comparing predicted probabilities 
+ * against observed outcomes.
+ */
 export default function ReliabilityCurveChart({ buckets }) {
     const data = useMemo(() => {
         if (!Array.isArray(buckets) || buckets.length === 0) return [];
         
-        // Mapeia os buckets do motor de calibração para renderização
         return buckets
             .filter(b => b.count > 0)
             .map(b => ({
@@ -93,12 +100,11 @@ export default function ReliabilityCurveChart({ buckets }) {
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '3 3' }} />
                     
-                    {/* Linha de Honestidade Perfeita (Perfect Calibration) */}
                     <ReferenceLine segment={[{x: 0, y: 0}, {x: 100, y: 100}]} stroke="rgba(255,255,255,0.2)" strokeDasharray="3 3" />
                     
-                    {/* Linha Empírica do Modelo */}
+                    {/* FIX: Uso de type="linear" previne o "efeito espaguete" retrocedente indesejado em gráficos empíricos pontuais */}
                     <Line 
-                        type="monotone" 
+                        type="linear" 
                         dataKey="obs" 
                         stroke="#06b6d4" 
                         strokeWidth={3} 

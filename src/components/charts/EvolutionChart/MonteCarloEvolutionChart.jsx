@@ -15,7 +15,19 @@ const SCENARIO_OPTIONS = [
     { id: 'optimistic', label: 'Otim.', fullLabel: 'Otimista' },
 ];
 
-export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = 'pts', maxScore = 100 }) => {
+/**
+ * MonteCarloEvolutionChart
+ * 
+ * Visualizes the trajectory of projected scores and success probabilities over time.
+ * Hardened to support non-zero scoring floors (minScore) and preventing Y-axis overshoot.
+ */
+export const MonteCarloEvolutionChart = ({ 
+    data = [], 
+    targetScore = 75, 
+    unit = 'pts', 
+    minScore = 0, 
+    maxScore = 100 
+}) => {
     const rawId = useId();
     const gradientId = `colorMonteCarlo-${rawId.replace(/:/g, '')}`;
     const [scenario, setScenario] = useState('base');
@@ -36,12 +48,12 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 fullDate = format(d.parsedDate, 'dd MMM yyyy', { locale: ptBR });
 
                 // Sanitização: manter intervalo de confiança dentro do domínio e com ordem válida
-                const meanRaw = Number.isFinite(Number(d.mean)) ? Number(d.mean) : 0;
-                const mean = Math.max(0, Math.min(maxScore, meanRaw));
+                const meanRaw = Number.isFinite(Number(d.mean)) ? Number(d.mean) : minScore;
+                const mean = Math.max(minScore, Math.min(maxScore, meanRaw));
                 const rawLow = Number.isFinite(Number(d.ci95Low)) ? Number(d.ci95Low) : mean;
                 const rawHigh = Number.isFinite(Number(d.ci95High)) ? Number(d.ci95High) : mean;
-                const boundedLow = Math.max(0, Math.min(maxScore, rawLow));
-                const boundedHigh = Math.max(0, Math.min(maxScore, rawHigh));
+                const boundedLow = Math.max(minScore, Math.min(maxScore, rawLow));
+                const boundedHigh = Math.max(minScore, Math.min(maxScore, rawHigh));
                 const low = Math.min(boundedLow, boundedHigh);
                 const high = Math.max(boundedLow, boundedHigh);
 
@@ -50,19 +62,16 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     displayDate,
                     fullDate,
                     mean,
-                    projectedMean: Number.isFinite(Number(d.projectedMean)) ? Math.max(0, Math.min(maxScore, Number(d.projectedMean))) : mean,
+                    projectedMean: Number.isFinite(Number(d.projectedMean)) ? Math.max(minScore, Math.min(maxScore, Number(d.projectedMean))) : mean,
                     probability: Math.max(0, Math.min(100, Number.isFinite(Number(d.probability)) ? Number(d.probability) : 0)),
                     ciRange: [low, high]
                 };
             });
-    }, [data, maxScore]);
+    }, [data, minScore, maxScore]);
 
 
     const scenarioAdjustedData = useMemo(() => applyScenarioAdjustments(formattedData, scenario, maxScore), [formattedData, scenario, maxScore]);
-
-
     const qualitySignal = useMemo(() => classifyScenarioSignal(scenarioAdjustedData, maxScore), [scenarioAdjustedData, maxScore]);
-
 
     const mcAssumptions = useMemo(() => {
         if (!scenarioAdjustedData.length) return null;
@@ -75,15 +84,14 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
         };
     }, [scenarioAdjustedData, scenario, scenarioLabels]);
 
-
     const renderCustomTooltip = useCallback(({ active, payload }) => {
         if (active && payload && payload.length) {
             const dataPoint = payload[0].payload;
             const fullDate = dataPoint.fullDate;
 
-            // Operador de coalescência nula garante falhas seguras
-            const pointTarget = Math.max(0, Math.min(maxScore, Number.isFinite(Number(dataPoint.target)) ? Number(dataPoint.target) : targetScore));
-            const pointMean = Math.max(0, Math.min(maxScore, Number.isFinite(Number(dataPoint.mean)) ? Number(dataPoint.mean) : 0));
+            // Operador de coalescência nula garante falhas seguras e respeita o piso (minScore)
+            const pointTarget = Math.max(minScore, Math.min(maxScore, Number.isFinite(Number(dataPoint.target)) ? Number(dataPoint.target) : targetScore));
+            const pointMean = Math.max(minScore, Math.min(maxScore, Number.isFinite(Number(dataPoint.mean)) ? Number(dataPoint.mean) : minScore));
             const pointProb = Math.max(0, Math.min(100, Number.isFinite(Number(dataPoint.probability)) ? Number(dataPoint.probability) : 0));
             const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
             const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
@@ -132,7 +140,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             );
         }
         return null;
-    }, [unit, targetScore, maxScore]);
+    }, [unit, targetScore, maxScore, minScore]);
 
     if (formattedData.length === 0) {
         return (
@@ -148,8 +156,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     <ResponsiveContainer width="100%" height="100%" minWidth={120} minHeight={150}>
                         <AreaChart data={[{ date: '1', mean: 40 }, { date: '2', mean: 60 }, { date: '3', mean: 85 }]}>
                             <XAxis dataKey="date" hide />
-                            <YAxis hide domain={[0, maxScore]} />
-                            <Area type="monotone" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={false} />
+                            <YAxis hide domain={[minScore, maxScore]} />
+                            <Area type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={false} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -160,7 +168,6 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
     return (
         <div className="w-full min-h-[400px] flex flex-col py-4 mt-2">
             <div className="flex items-center justify-between mb-4 px-2 relative z-10">
-
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-none bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
                         <TrendingUp size={16} className="text-blue-400" />
@@ -201,7 +208,6 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     )}
                 </div>
             </div>
-
 
             {mcAssumptions && (
                 <div className="px-2 mb-2">
@@ -254,7 +260,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 axisLine={false}
                                 dx={-5}
                                 width={45}
-                                domain={[0, maxScore]}
+                                domain={[minScore, maxScore]}
                                 allowDataOverflow={true}
                                 tickCount={6}
                                 tickFormatter={(v) => unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit}`}
@@ -264,9 +270,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
                             />
 
-                            {/* Área do Cone de Incerteza (Intervalo de Confiança) */}
                             <Area
-                                type="linear" // MUDANÇA: 'linear' para evitar distorção de Bezier no array ciRange
+                                type="linear" 
                                 dataKey="ciRange"
                                 stroke="none"
                                 fillOpacity={1}
@@ -274,9 +279,9 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 isAnimationActive={true}
                             />
 
-                            {/* Linha da Média Atual (HOJE) */}
+                            {/* FIX: monotoneX previne barrigas e estouramentos em y */}
                             <Area
-                                type="monotone"
+                                type="monotoneX"
                                 dataKey="mean"
                                 stroke="#60a5fa"
                                 strokeWidth={3}
@@ -285,9 +290,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 dot={scenarioAdjustedData.length < 15 ? { r: 4, strokeWidth: 2, fill: '#0f172a', stroke: '#60a5fa' } : false}
                             />
 
-                            {/* Linha da Projeção (FUTURO) - Tracejada */}
                             <Area
-                                type="monotone"
+                                type="monotoneX"
                                 dataKey="projectedMean"
                                 stroke="#818cf8"
                                 strokeWidth={2}
@@ -302,7 +306,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
                     <ResponsiveContainer width="100%" height="100%" minHeight={150}>
                         <AreaChart data={[{ mean: 0 }, { mean: scenarioAdjustedData[0].mean }, { mean: 0 }]}>
-                            <Area type="monotone" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
+                            <Area type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
                         </AreaChart>
                     </ResponsiveContainer>
                     </div>

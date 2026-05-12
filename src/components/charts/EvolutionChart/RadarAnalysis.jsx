@@ -5,7 +5,7 @@ import {
 } from "recharts";
 
 const CustomTooltipStyle = {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)', // Fundo mais opaco para leitura
+    backgroundColor: 'rgba(15, 23, 42, 0.95)', 
     border: '1px solid rgba(99,102,241,0.3)',
     borderRadius: '12px',
     padding: '12px 16px',
@@ -14,6 +14,12 @@ const CustomTooltipStyle = {
     boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
 };
 
+/**
+ * RadarAnalysis
+ * 
+ * A comprehensive disciplinary cross-section (Raio-X) using a Radar chart.
+ * Compares current performance levels against target scores.
+ */
 export function RadarAnalysis({ radarData, maxScore = 100, unit = '%' }) {
     const rawId = useId();
     const glowId = `ra_glow-${rawId.replace(/:/g, '')}`;
@@ -25,10 +31,8 @@ export function RadarAnalysis({ radarData, maxScore = 100, unit = '%' }) {
                 <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">🕸️ Raio-X das Disciplinas</h3>
             </div>
 
-            {/* Aumentei a altura mínima e dei flex-1 para preencher o card */}
             <div className="flex-1 min-h-[260px] sm:min-h-[300px] w-full relative">
                 <ResponsiveContainer width="100%" height="100%" minHeight={260}>
-                    {/* outerRadius reduzido de 60% para 55% para não cortar o texto nas pontas */}
                     <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
                         <defs>
                             <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
@@ -40,14 +44,46 @@ export function RadarAnalysis({ radarData, maxScore = 100, unit = '%' }) {
                             </filter>
                         </defs>
                         <PolarGrid stroke="rgba(255,255,255,0.08)" />
-                        {/* Aumentado fontSize para melhor acessibilidade */}
                         <PolarAngleAxis dataKey="subject" tick={{ fill: '#cbd5e1', fontSize: 10, fontWeight: 500 }} />
-                        <PolarRadiusAxis angle={30} domain={[0, maxScore]} tick={{ fill: '#475569', fontSize: 9 }} axisLine={false} />
+                        
+                        {/* FIX: Ocultar o tick do "0" central para manter o gráfico limpo */}
+                        <PolarRadiusAxis 
+                            angle={30} 
+                            domain={[0, maxScore]} 
+                            tick={{ fill: '#475569', fontSize: 9 }} 
+                            tickFormatter={(v) => v === 0 ? '' : v} 
+                            axisLine={false} 
+                        />
 
-                        <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.6} fill="none" dot={{ r: 2, fill: '#166534', stroke: '#22c55e', strokeWidth: 1 }} />
-                        <Radar name="Seu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.25} dot={{ r: 3, fill: '#1e293b', stroke: '#818cf8', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#fff', strokeWidth: 0 }} style={{ filter: `url(#${glowId})` }} />
+                        {/* Reference Line / Target Radar */}
+                        <Radar 
+                            name="Meta" 
+                            dataKey="meta" 
+                            stroke="#22c55e" 
+                            strokeDasharray="3 3" 
+                            strokeOpacity={0.6} 
+                            fill="none" 
+                            dot={{ r: 2, fill: '#166534', stroke: '#22c55e', strokeWidth: 1 }} 
+                        />
 
-                        <Tooltip formatter={(v) => [`${v}${unit}`, '']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#f8fafc', fontWeight: 'bold' }} />
+                        {/* Actual Performance Radar */}
+                        <Radar 
+                            name="Seu Nível" 
+                            dataKey="nivel" 
+                            stroke="#818cf8" 
+                            strokeWidth={2} 
+                            fill="#818cf8" 
+                            fillOpacity={0.25} 
+                            dot={{ r: 3, fill: '#1e293b', stroke: '#818cf8', strokeWidth: 2 }} 
+                            activeDot={{ r: 5, fill: '#fff', strokeWidth: 0 }} 
+                            style={{ filter: `url(#${glowId})` }} 
+                        />
+
+                        <Tooltip 
+                            formatter={(v) => [`${v}${unit}`, '']} 
+                            contentStyle={CustomTooltipStyle} 
+                            itemStyle={{ color: '#f8fafc', fontWeight: 'bold' }} 
+                        />
                         <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '15px' }} />
                     </RadarChart>
                 </ResponsiveContainer>
