@@ -533,9 +533,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // --- RAW MAX ---
         // CORREÇÃO: Usar as variáveis de teto dinâmico em vez de cfg
-        const maxSrsBoost = cfg.SRS_BOOST * 2.0;
+        // FIX BUG 3: Integrar o crunchMultiplier e backtestWeights.recencyWeight 
+        // no cálculo do teto (RAW_MAX) para impedir o overflow a 100%.
+        const effectiveRecencyMax = dynamicRecencyMax * 0.8 * crunchMultiplier * backtestWeights.recencyWeight;
+        
         const RAW_MAX_ACTUAL = dynamicScoreMax
-            + (dynamicRecencyMax * 0.8)
+            + effectiveRecencyMax
             + dynamicInstabilityMax
             + (cfg.PRIORITY_BOOST + maxSrsBoost) * (1 + (crunchMultiplier - 1) * 0.5)
             + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE)
@@ -1151,8 +1154,18 @@ export function getBestTask(categories, excludeTaskId = null) {
             // Normalizar para 0-1 antes de usar para evitar que um campo de 0-100 produza score+=3200.
             if (task.errorRate) {
                 const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
-                // Se for <= 1, assume-se que já é uma percentagem decimal (ex: 0.8), caso contrário, divide por 100.
-                const normalizedErrorRate = validErrorRate <= 1 ? validErrorRate : Math.min(100, Math.max(0, validErrorRate)) / 100;
+                
+                // FIX BUG 4: Proteger contra taxas reais de 1% (validErrorRate === 1) 
+                // que eram convertidas para 100% de erro de forma destrutiva.
+                let normalizedErrorRate;
+                if (validErrorRate <= 1 && validErrorRate > 0 && !Number.isInteger(validErrorRate)) {
+                    // É puramente decimal/fracional (ex: 0.05, 0.80)
+                    normalizedErrorRate = validErrorRate; 
+                } else {
+                    // É um inteiro ou excede 1 (ex: 1, 15, 80). Converte para base percentual.
+                    normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
+                }
+                
                 score += normalizedErrorRate * 40; // 0-40 pts
             }
 

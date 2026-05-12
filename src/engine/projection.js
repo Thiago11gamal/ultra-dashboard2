@@ -190,7 +190,9 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     for (let i = 1; i < scores.length; i++) {
         sumSqDiff += Math.pow(scores[i] - scores[i - 1], 2);
     }
-    const mssd = sumSqDiff / (scores.length - 1);
+    // FIX BUG 1: A variância da diferença de duas variáveis é 2x a variância individual.
+    // Portanto, dividimos o somatório por 2 para extrair o estimador não-enviesado.
+    const mssd = (sumSqDiff / 2) / Math.max(1, scores.length - 1); 
     return Math.sqrt(mssd);
 }
 
@@ -461,12 +463,16 @@ export function monteCarloSimulation(
         return detrendedChange / Math.sqrt(rawDays);
     }) : [0];
 
-    // Clamping de resíduos extremos (Huber-like)
-    // Antes de calcular os percentis, limpe a semente artificial (BUG 5)
+    // Clamping de resíduos extremos (Huber-like) e Mean-Centering (Ghost Drift Fix)
     const validResiduals = residuals.length > 1 ? residuals.slice(1) : residuals;
-    const resMedian = getPercentile(validResiduals, 50);
-    const resMad = getPercentile(validResiduals.map(r => Math.abs(r - resMedian)), 50) || (1.0 * scaleFactor);
-    const safeResiduals = validResiduals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
+    
+    // FIX BUG 2: Remover o Drift residual da amostra empírica (Mean-Centering)
+    const residualMean = validResiduals.reduce((a, b) => a + b, 0) / Math.max(1, validResiduals.length);
+    const centeredResiduals = validResiduals.map(r => r - residualMean);
+    
+    const resMedian = getPercentile(centeredResiduals, 50);
+    const resMad = getPercentile(centeredResiduals.map(r => Math.abs(r - resMedian)), 50) || (1.0 * scaleFactor);
+    const safeResiduals = centeredResiduals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
 
     // 3. Simulação de Monte Carlo
     const results = [];

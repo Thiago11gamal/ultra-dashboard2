@@ -132,18 +132,38 @@ export function deriveAdaptiveConfig(scores = []) {
     };
 }
 
-export function computeAdaptiveSignal(scores = []) {
-    const finiteScores = Array.isArray(scores) ? scores.filter(v => Number.isFinite(v)) : [];
-    if (finiteScores.length === 0) {
+export function computeAdaptiveSignal(historyOrScores = []) {
+    const isObjectHistory = historyOrScores.length > 0 && typeof historyOrScores[0] === 'object' && historyOrScores[0] !== null;
+    
+    // Extrai scores e datas
+    const parsedData = historyOrScores.map((item, i) => {
+        if (isObjectHistory) {
+            return {
+                score: Number(item.score || item.value || 0),
+                time: new Date(item.date || item.createdAt || Date.now() - (historyOrScores.length - i) * 86400000).getTime()
+            };
+        }
+        // Fallback legado se enviarem apenas o array de números
+        return { score: Number(item), time: Date.now() - (historyOrScores.length - i) * 86400000 }; 
+    }).filter(d => Number.isFinite(d.score));
+
+    if (parsedData.length === 0) {
         return { effectiveN: 1, trendStrength: 0, adaptiveWinsor: { low: 0.05, high: 0.95 }, ciInflation: 1 };
     }
 
+    const finiteScores = parsedData.map(d => d.score);
     const cfg = deriveAdaptiveConfig(finiteScores);
+    const referenceNow = parsedData[parsedData.length - 1].time; // O tempo do último evento
 
     const weighted = [];
-    for (let i = 0; i < finiteScores.length; i++) {
-        const age = finiteScores.length - 1 - i;
-        weighted.push(Math.pow(cfg.lambda, age));
+    for (let i = 0; i < parsedData.length; i++) {
+        // FIX BUG 5: Idade baseada no delta real de dias (Entropia do Tempo), não em índices
+        const ageInDays = Math.max(0, (referenceNow - parsedData[i].time) / (1000 * 60 * 60 * 24));
+        
+        // Conversão de lambda (pensado para index) numa constante de tempo diária (λ ≈ exp(-k * dias))
+        // Assumindo um espaçamento médio de 2 dias no design original do índice
+        const dailyDecay = Math.pow(cfg.lambda, 0.5); 
+        weighted.push(Math.pow(dailyDecay, ageInDays));
     }
 
     const sumW = weighted.reduce((a, b) => a + b, 0);
