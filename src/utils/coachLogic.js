@@ -137,39 +137,33 @@ function getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, e
 }
 
 /**
- * Calcula o Limite Inferior do Intervalo de Confiança de Wilson.
- * Usa um Z-score de 1.96 (95% de confiança).
- * @param {number} acertos - Total de acertos
- * @param {number} total - Total de questões respondidas
- * @returns {number} Score real ponderado
+ * Média Bayesiana para Proficiência Real
+ * Ancorada na média global do aluno para evitar penalização artificial de pequenas amostras.
  */
-export const calculateWilsonScore = (acertos, total) => {
-    if (total === 0) return 0; // Sem dados, proficiência zero.
-
-    const z = 1.96; // 95% de confiança estatística
-    const phat = acertos / total; // Taxa de acerto crua
-    const z2 = z * z;
+export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5) => {
+    if (total === 0) return 0;
     
-    const denominator = 1 + z2 / total;
-    const center = phat + z2 / (2 * total);
-    const spread = z * Math.sqrt((phat * (1 - phat) + z2 / (4 * total)) / total);
+    // Prior Weight (K): Força da crença inicial (ex: 5 questões virtuais)
+    const K = 5; 
+    const smoothedAcertos = acertos + (mediaGlobal * K);
+    const smoothedTotal = total + K;
     
-    // O algoritmo retorna o limite INFERIOR. 
-    // Só confia em notas altas se houver muito volume de questões.
-    return (center - spread) / denominator;
+    return smoothedAcertos / smoothedTotal;
 };
 
-/**
- * Função de Recomendação do Coach (Substituir a atual)
- */
+// Substitua a função atual getCoachPriorities:
 export const getCoachPriorities = (topicsData) => {
     if (!Array.isArray(topicsData)) return [];
+    
+    // 1. Extrair a média real global do aluno nestes tópicos para o Prior
+    const globalCorrect = topicsData.reduce((acc, t) => acc + (t.acertos || t.correct || 0), 0);
+    const globalTotal = topicsData.reduce((acc, t) => acc + (t.total || 0), 0);
+    const mediaGlobal = globalTotal > 0 ? globalCorrect / globalTotal : 0.5;
+
     return topicsData.map(topic => ({
         ...topic,
-        // Substitui (topic.acertos / topic.total) pelo Wilson Score
-        realProficiency: calculateWilsonScore(topic.acertos || topic.correct || 0, topic.total || 0)
+        realProficiency: computeBayesianProficiency(topic.acertos || topic.correct || 0, topic.total || 0, mediaGlobal)
     }))
-    // Ordena do menor conhecimento real para o maior
     .sort((a, b) => a.realProficiency - b.realProficiency);
 };
 
@@ -623,12 +617,25 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // O RAW_MAX_ACTUAL continua a ser calculado normalmente, MAS a normalização muda.
         const weightedRaw = rawScore;
         
-        // Transformação Logística Suave (Previne que o denominador dinâmico esmague a urgência)
-        const sigMidPoint = RAW_MAX_ACTUAL * 0.50; 
-        const sigSteepness = 4 / RAW_MAX_ACTUAL; 
+        // Transformação Sigmoidal REMOVIDA.
+        // CORREÇÃO: Transformação Linear por Partes (Piecewise Linear)
         
-        const sigNormalized = 100 / (1 + Math.exp(-sigSteepness * (weightedRaw - sigMidPoint)));
-        const normalized = Math.max(0, Math.min(100, Math.round(sigNormalized)));
+        let normalized;
+        const CRITICAL_THRESHOLD = RAW_MAX_ACTUAL * 0.8; 
+        
+        if (weightedRaw <= 0) {
+            normalized = 0;
+        } else if (weightedRaw <= CRITICAL_THRESHOLD) {
+            // Zona Normal: Escala linear até 80% do dashboard
+            normalized = (weightedRaw / CRITICAL_THRESHOLD) * 80;
+        } else {
+            // Zona Crítica (80-100%): Compressão assintótica suave (evita empate técnico)
+            const excess = weightedRaw - CRITICAL_THRESHOLD;
+            const excessNormalized = 20 * (1 - Math.exp(-excess / (RAW_MAX_ACTUAL * 0.4)));
+            normalized = 80 + excessNormalized;
+        }
+
+        normalized = Math.max(0, Math.min(100, Math.round(normalized)));
 
         // --- RECOMMENDATION ---
         let recommendation = "";
@@ -789,20 +796,38 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 const _topicsCache = new Map();
 
 
-// FIX: Alterar a estratégia de limpeza do cache
+const MAX_CACHE_SIZE = 50; // Metade do tamanho anterior para manter memória baixa
+
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const catId = category.id || category.name;
-    // Usar apenas o ID e o comprimento como hash para evitar chaves infinitas por timestamp
-    // Mapeia quantos tópicos estão abertos para forçar a quebra do cache quando o estado mudar
     const openTasks = (category.tasks || []).filter(t => !t.completed).length;
-    const hash = `${simulados.length}-${openTasks}-${maxScore}`; 
+    
+    // CORREÇÃO: Hash resiliente baseada no último timestamp modificado, evitando Race Conditions.
+    let lastSimTimestamp = 0;
+    if (simulados.length > 0) {
+        const lastSim = simulados.reduce((latest, current) => {
+            const latestTime = new Date(latest.date || latest.createdAt || 0).getTime();
+            const currTime = new Date(current.date || current.createdAt || 0).getTime();
+            return currTime > latestTime ? current : latest;
+        }, simulados[0]);
+        lastSimTimestamp = new Date(lastSim.date || lastSim.createdAt || 0).getTime();
+    }
+    
+    const hash = `${lastSimTimestamp}-${openTasks}-${maxScore}`; 
     const cacheKey = `${catId}-${hash}`;
 
-    if (_topicsCache.has(cacheKey)) return _topicsCache.get(cacheKey);
+    if (_topicsCache.has(cacheKey)) {
+        // Renovar a posição na fila do Map (LRU)
+        const result = _topicsCache.get(cacheKey);
+        _topicsCache.delete(cacheKey);
+        _topicsCache.set(cacheKey, result);
+        return result;
+    }
 
-    // Se o cache exceder o limite, limpa tudo para evitar fragmentação
-    if (_topicsCache.size > 100) {
-        _topicsCache.clear(); 
+    // CORREÇÃO: Em vez de destruir 100 itens (Jank Rendering), remove apenas o mais antigo.
+    if (_topicsCache.size >= MAX_CACHE_SIZE) {
+        const oldestKey = _topicsCache.keys().next().value;
+        _topicsCache.delete(oldestKey);
     }
 
     const result = _buildSortedTopicsImpl(category, simulados, maxScore);
@@ -965,7 +990,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     const topCategories = ranked.slice(0, 10);
 
-    const performDeepCheck = (category) => {
+    // Adicione a averageScore como argumento na verificação profunda
+    const performDeepCheck = (category, averageScore) => {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const cutoffTime = thirtyDaysAgo.getTime();
@@ -975,21 +1001,19 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const recentSims = simulados.filter(s => normalize(s.subject) === catNormalized && new Date(s.date || s.createdAt || 0).getTime() >= cutoffTime);
 
         const totalHours = recentLogs.reduce((acc, l) => acc + (Number(l.minutes) || 0), 0) / 60;
-        const totalQuestions = recentSims.reduce((acc, s) => {
-            const sTotal = Number(s.total) || 0;
-            if (sTotal === 0 && s.score != null) {
-                return acc + (maxScore > 0 ? Math.min(maxScore, 80) : 80);
-            }
-            return acc + sTotal;
-        }, 0);
+        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
 
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
         const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
 
-        if (totalHours > 5 && questionsPerHour < dynamicThreshold) {
+        // CORREÇÃO: "Burn-in period". Ignorar alerta se o aluno está a começar a matéria (< 45%)
+        const normalizedScore = averageScore !== undefined ? (averageScore / maxScore) * 100 : 100;
+        const isFormingBase = normalizedScore < 45;
+
+        if (totalHours > 5 && questionsPerHour < dynamicThreshold && !isFormingBase) {
             return {
                 isTrap: true,
-                msg: `⚠️ Alerta de Método: Nos últimos 30 dias você estudou ${totalHours.toFixed(2)}h de ${category.name} mas fez poucas questões (${questionsPerHour.toFixed(2)}/h). Meta para seu nível: >${dynamicThreshold}/h.`
+                msg: `⚠️ Alerta de Método: Estudou ${totalHours.toFixed(1)}h de ${category.name} mas resolveu poucas questões (${questionsPerHour.toFixed(1)}/h). O seu nível atual exige prática >${dynamicThreshold}/h.`
             };
         }
         return { isTrap: false };
@@ -1095,7 +1119,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 continue;
             }
 
-            if (performDeepCheck(cat).isTrap && !alertEmitted) {
+            if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap && !alertEmitted) {
                 alertEmitted = true;
                 allGeneratedTasks.push({
                     id: `${cat.id}-trap-${safeUUID}-${i}`,

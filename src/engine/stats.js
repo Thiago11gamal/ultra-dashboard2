@@ -97,16 +97,25 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     let maxNEver = alpha0 + beta0;
     
     // 🎯 O Teto é vivo. Baseia-se na constância do aluno.
+    // No início da função computeBayesianLevel, substitua o bloco do dynamicAlphaCap:
     const sessionGaps = history && history.length > 1 
         ? history.map((h, i) => i > 0 ? (new Date(h.date) - new Date(history[i-1].date)) / 86400000 : 0) 
         : [0];
-    const avgGap = sessionGaps.reduce((a, b) => a + b, 0) / Math.max(1, sessionGaps.length - 1);
+    const avgGap = Math.max(0.1, sessionGaps.reduce((a, b) => a + b, 0) / Math.max(1, sessionGaps.length - 1));
 
-    // Fórmula Estocástica: Quanto menor o buraco médio entre estudos (avgGap), maior a capacidade
-    // do cérebro de reter N amostras ativas. Ex: Se estuda a cada 2 dias = Cap de ~1200 questões vivas.
-    // FIX BUG-MATH-04: Ajustar constante de 2500 para 250 (escala correta de questões "vivas")
-    // Isso garante que o modelo reaja a mudanças de nível após ~250 questões.
-    const dynamicAlphaCap = Math.max(100, Math.floor(250 / Math.max(1, avgGap)));
+    // CORREÇÃO: Estimar capacidade viva baseada no volume diário real
+    const totalQuestionsHist = history ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) : 0;
+    const historyDays = history && history.length > 1 
+        ? Math.max(1, (new Date(history[history.length-1].date) - new Date(history[0].date)) / 86400000) 
+        : 1;
+    const questionsPerDay = totalQuestionsHist / historyDays;
+
+    // Capacidade base (Tempo) vs Capacidade de Volume (30 dias de memória ativa)
+    const baseCapacity = 250 / avgGap;
+    const volumeCapacity = questionsPerDay * 30;
+    
+    // O teto adapta-se à realidade hiperativa do aluno
+    const dynamicAlphaCap = Math.max(250, Math.floor(Math.min(baseCapacity, volumeCapacity)));
     const dynamicEffectiveN = dynamicAlphaCap;
     
     const now = Date.now();

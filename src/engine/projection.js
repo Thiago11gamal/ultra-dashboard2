@@ -259,18 +259,21 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     const now = options.referenceDate || Date.now();
     let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
     
-    // [DEPOIS] Assíntota baseada no pico empírico do aluno + margem (Teto Realista)
+    // CORREÇÃO MATEMÁTICA: O espaço vazio até ao gabarito rege a Assíntota.
     const historicalScores = sorted.map(h => getSafeScore(h, maxScore));
     const peakScore = Math.max(...historicalScores);
-    // Usa uma estimativa rápida de variância
     const meanVal = historicalScores.reduce((a, b) => a + b, 0) / historicalScores.length;
     const currentVariance = Math.sqrt(historicalScores.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / Math.max(1, historicalScores.length - 1));
-    
-    // O modelo logit achata no pico máximo do aluno + 1.5x do seu desvio padrão, nunca forçando o 100% absoluto
-    // FIX MATH-05: Assíntota Suavizada.
-    // Garante uma folga respiratória adequada (mínimo 15% do maxScore ou 2.5x a variância) 
-    // para que a curva S do aluno não achate de forma prematura e impossível de reverter.
-    const L = Math.min(maxScore, peakScore + Math.max(currentVariance * 2.5, maxScore * 0.15)); 
+
+    const spaceToMax = maxScore - peakScore;
+    const dynamicHeadroom = Math.max(
+        currentVariance * 2.5, 
+        maxScore * 0.10, // Garante pelo menos 10% da escala total de respiro
+        spaceToMax * 0.3 // Assume que o aluno consegue evoluir pelo menos 30% da margem que lhe falta
+    );
+
+    // O teto 'L' nunca é menor que o pico atual + folga dinâmica
+    const L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom); 
 
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
@@ -563,8 +566,17 @@ export function monteCarloSimulation(
                 : normalRng() * dailyVolatility;
             
             currentSimScore += driftEffect + meanReversion + shock;
-            // [REMOVIDO]: currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore));
-            // Deixar o Random Walk fluir livremente para não esmagar a variância.
+            
+            // CORREÇÃO MATEMÁTICA: Reflected Brownian Motion (RBM)
+            // Rebate a energia excedente nas bordas físicas da prova em vez de truncar cegamente
+            if (currentSimScore > maxScore) {
+                currentSimScore = maxScore - (currentSimScore - maxScore);
+            } else if (currentSimScore < minScore) {
+                currentSimScore = minScore + (minScore - currentSimScore);
+            }
+            
+            // Fallback de segurança estrito (Clamp final diário)
+            currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore));
         }
 
         // Aplica os limites físicos da prova APENAS no resultado assintótico final
