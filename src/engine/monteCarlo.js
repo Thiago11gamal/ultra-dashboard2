@@ -145,7 +145,6 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     const allScores = new Float64Array(safeSimulations);
 
-    for (let i = 0; i < safeSimulations; i++) {
     // CORREÇÃO MATH: Compensação heurística de momento.
     // A média amostral de uma Normal Truncada não é igual ao seu parâmetro mu.
     // Aplicamos um "shift" no mu para cima ou para baixo consoante o achatamento 
