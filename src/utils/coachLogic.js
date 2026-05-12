@@ -716,11 +716,6 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 
 const _topicsCache = new Map();
 
-function _getTopicsHash(simulados = [], maxScore = 100) {
-    if (!simulados || simulados.length === 0) return `0-${maxScore}`;
-    const sample = simulados.slice(-5).map(s => `${s.id || s.createdAt}-${s.correct}/${s.total}`).join('|');
-    return `${simulados.length}-${maxScore}-${sample}`;
-}
 
 // FIX: Alterar a estratégia de limpeza do cache
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
