@@ -183,13 +183,30 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
         return 0.05 * range;
     }
     const scores = history.map(h => getSafeScore(h, maxScore));
-    let sumSqDiff = 0;
-    for (let i = 1; i < scores.length; i++) {
-        sumSqDiff += Math.pow(scores[i] - scores[i - 1], 2);
+    const n = scores.length;
+    
+    // 1. DETRENDING: Extrair a inclinação pura para não penalizar crescimento legítimo
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for(let i = 0; i < n; i++) {
+        sumX += i;
+        sumY += scores[i];
+        sumXY += i * scores[i];
+        sumXX += i * i;
     }
-    // CORREÇÃO: Divisão por 2 para corrigir a variância da diferença (Var(X-Y)=2σ²)
-    const rmssd = (sumSqDiff / 2) / Math.max(1, scores.length - 1); 
-    return Math.sqrt(rmssd);
+    // slope = inclinação da reta (crescimento do aluno)
+    const slope = (n * sumXX - sumX * sumX) === 0 ? 0 : (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    
+    // Extrai a nota limpa (sem o crescimento) para avaliar apenas o "ruído" do estudo
+    const detrendedScores = scores.map((y, i) => y - (slope * i));
+    
+    let sumSqDiff = 0;
+    for (let i = 1; i < n; i++) {
+        sumSqDiff += Math.pow(detrendedScores[i] - detrendedScores[i - 1], 2);
+    }
+    
+    // Correção de Bessel para diferenças (dividido por 2)
+    const rmssd = (sumSqDiff / 2) / Math.max(1, n - 1); 
+    return Math.sqrt(Math.max(1e-6, rmssd));
 }
 
 // -----------------------------
@@ -534,8 +551,6 @@ export function monteCarloSimulation(
         let currentSimScore = baselineScore;
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
-            // Apenas a componente "atual" (baseline e média ponderada externa) acompanha o drift (1.0).
-            // A média aritmética (âncora histórica) permanece estática (0.0) para evitar o colapso da reversão (Bug-Math-02).
             const driftTrackingFactor = optionsCurrentMean !== undefined ? 1.0 : 0.0; 
             const movingOuTarget = ouTarget + (sampledDrift * d * driftTrackingFactor);
             const meanReversion = thetaOU * (movingOuTarget - currentSimScore) * 1;
@@ -545,8 +560,8 @@ export function monteCarloSimulation(
                 : normalRng() * dailyVolatility;
             
             currentSimScore += driftEffect + meanReversion + shock;
-            // [FIX 5] Força os limites físicos da prova DIARIAMENTE (Spaghetti Overflow)
-            currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore));
+            // CORREÇÃO M-1: Remoção do limite refletor estrito diário. 
+            // Permite a integridade da variância de Ornstein-Uhlenbeck sem "esmagar" a distribution.
         }
 
         results.push(Math.max(minScore, Math.min(maxScore, currentSimScore)));

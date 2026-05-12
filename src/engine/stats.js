@@ -329,8 +329,10 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         // 🎯 Teoria de Credibilidade de Bühlmann (Shrinkage Perfeito)
         // K = (Variância da População) / (Variância Esperada do Indivíduo)
         const popVar = Math.pow(POPULATION_SD, 2);
-        const studentVar = Math.max(1e-6, sampleVar); // Evita colapso se aluno só tirou a mesma nota
-        const KAPPA = Math.max(0.1, Math.min(5.0, popVar / studentVar));
+        // CORREÇÃO M-3: O piso do aluno não pode ser zero absoluto (1e-6) se a população varia.
+        // O desempenho do aluno assume um mínimo de 5% da variância global para estabilidade bayesiana.
+        const safeStudentVar = Math.max(popVar * 0.05, sampleVar); 
+        const KAPPA = Math.max(0.1, Math.min(3.0, popVar / safeStudentVar)); // Teto reduzido de 5 para 3
 
         // 🎯 Kish Effective Sample Size (Fix): Usa o volume de questões real para o shrinkage bayesiano
         // em vez da contagem bruta de simulados.

@@ -87,10 +87,9 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     // [FIX 4] Jamais force um 0 em domínios não triviais. Deixe o filtro NaN tratar jusante.
     if (finiteValues.length === 0) return values;
     if (finiteValues.length < 5) {
-        const fallback = finiteValues.length > 0
-            ? finiteValues.reduce((a, b) => a + b, 0) / finiteValues.length
-            : 0;
-        return values.map(v => Number.isFinite(v) ? v : fallback);
+        // CORREÇÃO M-4: Jamais injetar média em micro-amostras de performance académica.
+        // Apenas repassamos a série original preservando os NaNs para evitar Overfitting.
+        return values.map(v => Number.isFinite(v) ? v : NaN);
     }
 
     const sorted = [...finiteValues].sort((a, b) => a - b);

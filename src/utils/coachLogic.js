@@ -572,7 +572,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty;
 
         const weightedRaw = rawScore;
-        const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / RAW_MAX_ACTUAL) * 100)));
+        
+        // CORREÇÃO M-6: Normalização Logística Suave (Sigmoid Transform)
+        // Isso previne que a inflação temporal do RAW_MAX_ACTUAL suprima o alerta de dor.
+        const sigMidPoint = RAW_MAX_ACTUAL * 0.50; // Onde a urgência bate em 50%
+        const sigSteepness = 4 / RAW_MAX_ACTUAL; // Curvatura da sensibilidade
+        
+        const sigNormalized = 100 / (1 + Math.exp(-sigSteepness * (weightedRaw - sigMidPoint)));
+        const normalized = Math.max(0, Math.min(100, Math.round(sigNormalized)));
 
         // --- RECOMMENDATION ---
         let recommendation = "";
