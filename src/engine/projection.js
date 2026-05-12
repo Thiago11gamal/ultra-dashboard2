@@ -185,18 +185,14 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     const scores = history.map(h => getSafeScore(h, maxScore));
     const n = scores.length;
     
-    // 1. DETRENDING: Extrair a inclinação pura para não penalizar crescimento legítimo
+    // Detrending Linear Rápido
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     for(let i = 0; i < n; i++) {
-        sumX += i;
-        sumY += scores[i];
-        sumXY += i * scores[i];
-        sumXX += i * i;
+        sumX += i; sumY += scores[i]; sumXY += i * scores[i]; sumXX += i * i;
     }
-    // slope = inclinação da reta (crescimento do aluno)
-    const slope = (n * sumXX - sumX * sumX) === 0 ? 0 : (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const det = n * sumXX - sumX * sumX;
+    const slope = det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
     
-    // Extrai a nota limpa (sem o crescimento) para avaliar apenas o "ruído" do estudo
     const detrendedScores = scores.map((y, i) => y - (slope * i));
     
     let sumSqDiff = 0;
@@ -204,7 +200,6 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
         sumSqDiff += Math.pow(detrendedScores[i] - detrendedScores[i - 1], 2);
     }
     
-    // Correção de Bessel para diferenças (dividido por 2)
     const rmssd = (sumSqDiff / 2) / Math.max(1, n - 1); 
     return Math.sqrt(Math.max(1e-6, rmssd));
 }
@@ -264,8 +259,15 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     const now = options.referenceDate || Date.now();
     let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
     
-    // Limite assintótico (105% do teto para evitar estourar a matemática de limites)
-    const L = maxScore + (maxScore * 0.05); 
+    // [DEPOIS] Assíntota baseada no pico empírico do aluno + margem (Teto Realista)
+    const historicalScores = sorted.map(h => getSafeScore(h, maxScore));
+    const peakScore = Math.max(...historicalScores);
+    // Usa uma estimativa rápida de variância
+    const meanVal = historicalScores.reduce((a, b) => a + b, 0) / historicalScores.length;
+    const currentVariance = Math.sqrt(historicalScores.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / Math.max(1, historicalScores.length - 1));
+    
+    // O modelo logit achata no pico máximo do aluno + 1.5x do seu desvio padrão, nunca forçando o 100% absoluto
+    const L = Math.min(maxScore, peakScore + (currentVariance * 1.5) + (maxScore * 0.02)); 
 
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
@@ -560,10 +562,11 @@ export function monteCarloSimulation(
                 : normalRng() * dailyVolatility;
             
             currentSimScore += driftEffect + meanReversion + shock;
-            // CORREÇÃO M-1: Remoção do limite refletor estrito diário. 
-            // Permite a integridade da variância de Ornstein-Uhlenbeck sem "esmagar" a distribution.
+            // [REMOVIDO]: currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore));
+            // Deixar o Random Walk fluir livremente para não esmagar a variância.
         }
 
+        // Aplica os limites físicos da prova APENAS no resultado assintótico final
         results.push(Math.max(minScore, Math.min(maxScore, currentSimScore)));
     }
 

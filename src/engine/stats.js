@@ -169,20 +169,21 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const lambda = Math.max(0.005, rawLambda); 
             const entryDecay = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
             
-            // Retenção do Ratio Bayesiano
+            // [DEPOIS] Piso dinâmico que esvazia com o tempo
             const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
-            const retentionFloor = cappedMaxN * 0.3;
+            // Calcula o esquecimento macro: se o aluno está parado há meses, o piso histórico cai
+            const macroDecay = Math.max(0.1, Math.exp(-0.005 * (gapDays || 0))); 
+            const retentionFloor = (cappedMaxN * 0.3) * macroDecay;
+            
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
                 const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
-                
                 const minN = retentionFloor;
-                // [CORREÇÃO MATH-BUG-1] Só trava no piso se já estava acima dele
+                
                 const nAfterDecay = nBeforeDecay < minN 
                     ? nBeforeDecay * entryDecay 
                     : Math.max(minN, nBeforeDecay * entryDecay);
                 
-                // CORREÇÃO: Apenas decair o N, mantendo o P atual (sem forçar o regresso a 0.5)
                 alpha = nAfterDecay * currentP;
                 beta = nAfterDecay * (1 - currentP);
             }
@@ -199,7 +200,10 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
             const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
-            const retentionFloor = cappedMaxN * 0.3;
+            // [DEPOIS] Piso dinâmico que esvazia com o tempo
+            const macroDecay = Math.max(0.1, Math.exp(-0.005 * (gapToToday || 0))); 
+            const retentionFloor = (cappedMaxN * 0.3) * macroDecay;
+            
             const finalLambdaBase = computeAdaptiveLambda(sortedHistory);
             
             // CORREÇÃO MATH: O mesmo piso é aplicado aqui para consistência assintótica.
@@ -329,10 +333,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         // 🎯 Teoria de Credibilidade de Bühlmann (Shrinkage Perfeito)
         // K = (Variância da População) / (Variância Esperada do Indivíduo)
         const popVar = Math.pow(POPULATION_SD, 2);
-        // CORREÇÃO M-3: O piso do aluno não pode ser zero absoluto (1e-6) se a população varia.
-        // O desempenho do aluno assume um mínimo de 5% da variância global para estabilidade bayesiana.
+        // O piso da variância do aluno não pode ser zero absoluto (1e-6) 
         const safeStudentVar = Math.max(popVar * 0.05, sampleVar); 
-        const KAPPA = Math.max(0.1, Math.min(3.0, popVar / safeStudentVar)); // Teto reduzido de 5 para 3
+        const KAPPA = Math.max(0.1, Math.min(3.0, popVar / safeStudentVar)); // Teto reduzido para 3.0
 
         // 🎯 Kish Effective Sample Size (Fix): Usa o volume de questões real para o shrinkage bayesiano
         // em vez da contagem bruta de simulados.

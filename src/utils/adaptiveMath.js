@@ -87,8 +87,7 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     // [FIX 4] Jamais force um 0 em domínios não triviais. Deixe o filtro NaN tratar jusante.
     if (finiteValues.length === 0) return values;
     if (finiteValues.length < 5) {
-        // CORREÇÃO M-4: Jamais injetar média em micro-amostras de performance académica.
-        // Apenas repassamos a série original preservando os NaNs para evitar Overfitting.
+        // [DEPOIS] Nunca injete a média em micro-amostras acadêmicas. Retorna a série "limpa".
         return values.map(v => Number.isFinite(v) ? v : NaN);
     }
 
@@ -161,7 +160,8 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         
         // Conversão de lambda (pensado para index) numa constante de tempo diária (λ ≈ exp(-k * dias))
         // Assumindo um espaçamento médio de 2 dias no design original do índice
-        const dailyDecay = Math.pow(cfg.lambda, 0.5); 
+        // [DEPOIS] O lambda já é a taxa de decaimento diária! Não extraia a raiz quadrada.
+        const dailyDecay = cfg.lambda; 
         weighted.push(Math.pow(dailyDecay, ageInDays));
     }
 
