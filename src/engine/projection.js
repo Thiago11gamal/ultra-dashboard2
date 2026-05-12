@@ -267,7 +267,10 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     const currentVariance = Math.sqrt(historicalScores.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / Math.max(1, historicalScores.length - 1));
     
     // O modelo logit achata no pico máximo do aluno + 1.5x do seu desvio padrão, nunca forçando o 100% absoluto
-    const L = Math.min(maxScore, peakScore + (currentVariance * 1.5) + (maxScore * 0.02)); 
+    // FIX MATH-05: Assíntota Suavizada.
+    // Garante uma folga respiratória adequada (mínimo 15% do maxScore ou 2.5x a variância) 
+    // para que a curva S do aluno não achate de forma prematura e impossível de reverter.
+    const L = Math.min(maxScore, peakScore + Math.max(currentVariance * 2.5, maxScore * 0.15)); 
 
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
@@ -347,10 +350,13 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
     const effectiveDaysForError = 45 * Math.log(1 + projectDays / 45);
     const angularUncertainty = slopeStdError * effectiveDaysForError;
-    // FIX BUG 3: A volatilidade diária (empiricalSD) é ruído branco cumulativo.
-    // Em processos estocásticos, a variância escala linearmente com o tempo, 
-    // logo o Desvio Padrão escala com a raiz quadrada do tempo (Math.sqrt(effectiveDaysForError)).
-    const randomWalkUncertainty = empiricalSD * Math.sqrt(Math.max(1, effectiveDaysForError));
+
+    // FIX MATH-01: Usar Volatilidade Transiente (MSSD) normalizada para passos diários
+    // Assumimos um gap médio heurístico de 7 dias para evitar volatilidade infinita
+    const stepVolatility = calculateMSSD(sortedHistory, maxScore, minScore) / Math.sqrt(7);
+
+    // Agora multiplicamos a instabilidade real de passo-a-passo pela raiz do tempo
+    const randomWalkUncertainty = stepVolatility * Math.sqrt(Math.max(1, effectiveDaysForError));
     const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(randomWalkUncertainty, 2));
     const marginOfError = 1.96 * predictionSD; 
 
@@ -518,15 +524,10 @@ export function monteCarloSimulation(
     // BUG-MATH-02 FIX: O-U deve reverter para a média histórica ponderada.
     // Se não for fornecida externamente, calculamos a média aritmética histórica do histórico para 
     // ancorar a reversão e evitar o colapso das projeções em tendências negativas agudas.
-    let historicalMean = baselineScore;
-    if (sortedHistory.length > 0) {
-        const scoresForMean = sortedHistory.map(h => getSafeScore(h, maxScore));
-        historicalMean = scoresForMean.reduce((a, b) => a + b, 0) / scoresForMean.length;
-    }
-
-    const ouTarget = optionsCurrentMean !== undefined 
-        ? optionsCurrentMean 
-        : historicalMean; 
+    // FIX MATH-02: O alvo do Processo de Ornstein-Uhlenbeck DEVE ser a nota de partida 
+    // (baselineScore) ou a média ponderada mais recente. Jamais ancorar na média aritmética do 
+    // passado distante, para não causar "quedas artificiais" no Dia 1 do Monte Carlo.
+    const ouTarget = optionsCurrentMean !== undefined ? optionsCurrentMean : baselineScore; 
 
     // BUG-MATH-01 FIX: Normalização da Volatilidade Diária
     // A volatilidade clássica (SD) é total. Para o laço diário do Monte Carlo, 

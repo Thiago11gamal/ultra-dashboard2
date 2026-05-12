@@ -272,8 +272,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             log?.categoryId === categoryId &&
             normalizeDate(log.date).getTime() > 0
         );
-        if (categoryStudyLogs.length > 0) {
-            const sortedLogs = [...categoryStudyLogs].sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
+        // FIX LOGIC-03: Fricção de Carga. Apenas considerar que houve "estudo real" capaz 
+        // de reiniciar a curva de recência se o utilizador estudou pelo menos 15 minutos.
+        const MIN_MINUTES_VALID_STUDY = 15; 
+        const validStudyLogs = categoryStudyLogs.filter(log => (Number(log.minutes) || 0) >= MIN_MINUTES_VALID_STUDY);
+
+        // Usamos os logs válidos para atualizar a lastDate (para o cálculo de urgência)
+        if (validStudyLogs.length > 0) {
+            const sortedLogs = [...validStudyLogs].sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
             const logDate = normalizeDate(sortedLogs[0].date);
             if (logDate > lastDate) lastDate = logDate;
         }
@@ -545,8 +551,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             
             // CORREÇÃO MATH: Substituir o degrau (if-else abrupto) por uma transição 
             // linear/logística suave. Penalidade começa a escalar a partir dos 40%.
-            const rawRatio = averageScore / maxScore;
-            const smoothingFactor = Math.max(0, Math.min(1, (rawRatio - 0.4) * 2.5)); // 0 a 1
+            // FIX MATH-04: Penalidade de Rotação guiada por INSTABILIDADE (Risco Estocástico),
+            // não por Punição de Excelência. Alunos de elite constantes não devem ser fadigados.
+            // Normalizamos a MSSD pelo limite crítico (10% da prova)
+            const volatileRatio = mssdVolatility / Math.max(1, maxScore * 0.10); 
+            const smoothingFactor = Math.max(0, Math.min(1, volatileRatio)); // Escala de 0 a 1
             
             rotationPenalty = dynamicPenalty * smoothingFactor;
 
