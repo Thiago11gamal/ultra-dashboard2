@@ -376,3 +376,49 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
 export default {
     runMonteCarloAnalysis
 };
+/**
+ * Motor Estocástico com Teto Logístico e Heteroscedasticidade
+ */
+export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuestoesFeitas) => {
+    // Extrai última nota e desvio padrão histórico
+    const ultimaNota = historicoNotas.length > 0 ? historicoNotas[historicoNotas.length - 1] : 0.5;
+    const varianciaBase = 0.05; // 5% de ruído basal
+    
+    // A volatilidade CAI quanto mais o aluno estuda (Lei dos Grandes Números)
+    const volatilidadeAdaptativa = varianciaBase / Math.sqrt(Math.max(totalQuestoesFeitas, 1));
+    
+    // Parâmetros da curva logística
+    const limiteAssintotico = 0.96; // Ninguém tira mais que 96% de forma consistente
+    const taxaCrescimento = 0.005; // "Drift" de aprendizado por dia
+    
+    let simulacoes = [];
+    
+    // Simular 1000 caminhos possíveis
+    for(let sim = 0; sim < 1000; sim++) {
+        let caminho = [ultimaNota];
+        let notaAtual = ultimaNota;
+        
+        for(let dia = 1; dia <= diasProjecao; dia++) {
+            // Gerador Gaussiano Simples (Box-Muller transform simplificado)
+            let u1 = Math.max(1e-9, Math.random());
+            let u2 = Math.max(1e-9, Math.random());
+            let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            
+            let ruido = z0 * volatilidadeAdaptativa;
+            
+            // Fórmula Logística (S-Curve) impedindo crescimento linear irreal
+            // notaAtual = L / (1 + e^(-k*t) * (L - n0)/n0)
+            const n0 = Math.max(0.01, ultimaNota);
+            const logisticPart = Math.exp(-taxaCrescimento * dia) * ((limiteAssintotico - n0) / n0);
+            notaAtual = limiteAssintotico / (1 + logisticPart);
+            
+            // Adiciona o ruído estocástico respeitando limites físicos
+            notaAtual = Math.max(0, Math.min(limiteAssintotico, notaAtual + ruido));
+            caminho.push(notaAtual);
+        }
+        simulacoes.push(caminho);
+    }
+    
+    // Agregação simples para retornar percentis se necessário ou o array completo
+    return simulacoes;
+};

@@ -38,3 +38,26 @@ export const aliases = {
     'direito civil': ['civil', 'dir. civil', 'd. civil', 'dc', 'dir civil'],
     'direito processual civil': ['processo civil', 'dpc', 'dir. proc. civil', 'dir proc civil']
 };
+/**
+ * Normaliza um valor evitando divisão por zero e garantindo limites entre 0 e 1.
+ * Se o máximo e o mínimo forem iguais (ex: primeira semana do aluno), 
+ * assume-se o percentil 50% (0.5) para evitar distorções no gráfico.
+ */
+export const safeNormalize = (val, max, min) => {
+    // Tratamento de edge case crítico
+    if (typeof val !== 'number' || isNaN(val)) return 0;
+    if (max === min) return 0.5; 
+    
+    const normalized = (val - min) / (max - min);
+    
+    // Clamping para evitar explodir a escala (valores > 1 ou < 0)
+    return Math.max(0, Math.min(1, normalized));
+};
+
+/**
+ * Divisão segura global para evitar Infinity ou NaN.
+ */
+export const safeDivide = (numerator, denominator, fallback = 0) => {
+    if (denominator === 0 || isNaN(denominator)) return fallback;
+    return numerator / denominator;
+};

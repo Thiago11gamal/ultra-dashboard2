@@ -310,3 +310,23 @@ export function computeAdaptiveCoachWeight(scores = []) {
         adaptiveWinsor: signal.adaptiveWinsor
     };
 }
+/**
+ * Calcula a retenção real usando Ebbinghaus com Smoothing Matemático.
+ * @param {number} horasDesdeEstudo - Tempo (t) em horas.
+ * @param {number} forcaMemoria - Força do traço de memória (S) baseada em revisões (0 a 10).
+ * @returns {number} Percentual de Retenção (0.20 a 1.0)
+ */
+export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria) => {
+    const c = 1.5; // Constante de estabilidade (Laplace Smoothing)
+    const baseline = 0.2; // O aluno nunca esquece 100% (Limiar mínimo de 20%)
+    
+    // Evita valores absurdamente negativos e crash de UI
+    const tempoDias = Math.max(0, horasDesdeEstudo / 24);
+    const forcaSegura = Math.max(0.1, forcaMemoria); 
+    
+    // Retenção = e^(-t / (S + c))
+    let retention = Math.exp(-tempoDias / (forcaSegura + c));
+    
+    // Limita a queda máxima no limite basal
+    return Math.max(baseline, retention);
+};

@@ -136,7 +136,42 @@ function getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, e
     return { boost: 0, label: null };
 }
 
-// MATH-03 / LEAK-01 FIX: Expose cache invalidation for session/contest changes.
+/**
+ * Calcula o Limite Inferior do Intervalo de Confiança de Wilson.
+ * Usa um Z-score de 1.96 (95% de confiança).
+ * @param {number} acertos - Total de acertos
+ * @param {number} total - Total de questões respondidas
+ * @returns {number} Score real ponderado
+ */
+export const calculateWilsonScore = (acertos, total) => {
+    if (total === 0) return 0; // Sem dados, proficiência zero.
+
+    const z = 1.96; // 95% de confiança estatística
+    const phat = acertos / total; // Taxa de acerto crua
+    const z2 = z * z;
+    
+    const denominator = 1 + z2 / total;
+    const center = phat + z2 / (2 * total);
+    const spread = z * Math.sqrt((phat * (1 - phat) + z2 / (4 * total)) / total);
+    
+    // O algoritmo retorna o limite INFERIOR. 
+    // Só confia em notas altas se houver muito volume de questões.
+    return (center - spread) / denominator;
+};
+
+/**
+ * Função de Recomendação do Coach (Substituir a atual)
+ */
+export const getCoachPriorities = (topicsData) => {
+    if (!Array.isArray(topicsData)) return [];
+    return topicsData.map(topic => ({
+        ...topic,
+        // Substitui (topic.acertos / topic.total) pelo Wilson Score
+        realProficiency: calculateWilsonScore(topic.acertos || topic.correct || 0, topic.total || 0)
+    }))
+    // Ordena do menor conhecimento real para o maior
+    .sort((a, b) => a.realProficiency - b.realProficiency);
+};
 
 
 // ==================== FUNÇÃO PRINCIPAL ====================
