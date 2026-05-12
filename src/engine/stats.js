@@ -175,16 +175,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
                 const minN = retentionFloor;
                 const nAfterDecay = Math.max(minN, nBeforeDecay * entryDecay);
                 
-                // CORREÇÃO: À medida que a memória decai, a taxa de sucesso (currentP) não pode ficar congelada.
-                // Tem de regredir progressivamente para o Prior neutro natural (Uniforme = 0.5).
-                const priorP = 0.5;
-                const decayRatio = nAfterDecay / Math.max(1e-6, nBeforeDecay);
-                
-                // O novo P é uma fusão entre a memória restante e o estado inicial de ignorância (0.5)
-                const regressedP = (currentP * decayRatio) + (priorP * (1 - decayRatio));
-                
-                alpha = nAfterDecay * regressedP;
-                beta = nAfterDecay * (1 - regressedP);
+                // CORREÇÃO: Apenas decair o N, mantendo o P atual (sem forçar o regresso a 0.5)
+                alpha = nAfterDecay * currentP;
+                beta = nAfterDecay * (1 - currentP);
             }
 
             alpha += acertosHoje;
@@ -210,19 +203,12 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const nBeforeDecay = alpha + beta;
             const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
             
-            const minN = retentionFloor; // Correção Bayesiana
+            const minN = retentionFloor;
             const nAfterDecay = Math.max(minN, nBeforeDecay * finalDecay);
             
-            // CORREÇÃO: À medida que a memória decai, a taxa de sucesso (currentP) não pode ficar congelada.
-            // Tem de regredir progressivamente para o Prior neutro natural (Uniforme = 0.5).
-            const priorP = 0.5;
-            const decayRatio = nAfterDecay / Math.max(1e-6, nBeforeDecay);
-            
-            // O novo P é uma fusão entre a memória restante e o estado inicial de ignorância (0.5)
-            const regressedP = (currentP * decayRatio) + (priorP * (1 - decayRatio));
-            
-            alpha = nAfterDecay * regressedP;
-            beta = nAfterDecay * (1 - regressedP);
+            // CORREÇÃO: Apenas decair o N, mantendo o P atual
+            alpha = nAfterDecay * currentP;
+            beta = nAfterDecay * (1 - currentP);
         }
     }
 

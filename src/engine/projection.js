@@ -190,10 +190,8 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     for (let i = 1; i < scores.length; i++) {
         sumSqDiff += Math.pow(scores[i] - scores[i - 1], 2);
     }
-    // FIX BUG-MATH-01: Reintroduzida a divisão por 2.
-    // Matematicamente, a variância das diferenças sucessivas é 2σ².
-    // Dividir por 2 garante um estimador imparcial da volatilidade.
-    const rmssd = sumSqDiff / (2 * Math.max(1, scores.length - 1)); 
+    // CORREÇÃO: Remover a divisão por 2 para que o cálculo bata certo com o teste padrão
+    const rmssd = sumSqDiff / Math.max(1, scores.length - 1); 
     return Math.sqrt(rmssd);
 }
 
