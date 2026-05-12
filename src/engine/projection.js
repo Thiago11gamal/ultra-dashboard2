@@ -322,7 +322,6 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const sortedHistory = getSortedHistory(history);
     if (!sortedHistory || sortedHistory.length === 0) return { projected: 0, marginOfError: 0 };
 
-    const empiricalSD = calculateVolatility(sortedHistory, maxScore, minScore);
     
     // Tenta aplicar o modelo de regressão logística (Curva S)
     const logisticFit = logisticRegression(sortedHistory, maxScore, options);
