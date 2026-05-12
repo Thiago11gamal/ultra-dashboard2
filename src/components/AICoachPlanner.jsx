@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { Play, BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
+import { Play, BrainCircuit, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { getSafeId } from '../utils/idGenerator';
@@ -136,7 +135,10 @@ export default function AICoachPlanner() {
 
     useEffect(() => {
         if (!isDragging) {
-            queueMicrotask(() => setColumns(getInitialColumns()));
+            const timer = setTimeout(() => {
+                setColumns(getInitialColumns());
+            }, 0);
+            return () => clearTimeout(timer);
         }
     }, [currentHash, isDragging, getInitialColumns]);
 

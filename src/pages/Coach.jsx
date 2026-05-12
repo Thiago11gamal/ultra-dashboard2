@@ -3,13 +3,10 @@ import {
     Brain, 
     Zap, 
     AlertCircle, 
-    BarChart3,
     ArrowUpRight,
-    Sparkles,
     ShieldCheck,
     Dna,
-    List,
-    ChevronDown
+    List
 } from 'lucide-react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
@@ -56,8 +53,8 @@ export default function Coach() {
         showToastRef.current = showToast;
     }, [showToast]);
     
-    const history = useMemo(() => data?.simuladoRows ?? [], [data]);
-    const simulados = useMemo(() => data?.simulados ?? [], [data]);
+    const history = useMemo(() => data?.simuladoRows ?? [], [data?.simuladoRows]);
+    const simulados = useMemo(() => data?.simulados ?? [], [data?.simulados]);
     const categories = useMemo(() => data?.categories || [], [data?.categories]);
     const userProfile = data?.user;
     
