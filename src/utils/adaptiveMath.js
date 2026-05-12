@@ -232,20 +232,21 @@ export function adaptiveConfidenceShrinkage(options = {}) {
     const calibShrink = calPen * 0.8; // escalar para não dominar
 
     // Componente 3: Trend uncertainty (tendência forte = mais incerteza no futuro, não no presente)
-    const trendShrink = Math.min(0.15, trend * 0.04);
+    // FIX: Usar índice bruto de penalidade (0 a 1) para evitar dupla supressão de peso.
+    const trendPenaltyFactor = Math.min(1.0, trend * 0.25); 
 
     // FIX BUG 4: Incluir a incerteza da tendência no cálculo final de contração
     // Redistribuir os pesos para incluir a incerteza da tendência (15%)
-    const rawShrink = (sampleShrink * 0.50) + (calibShrink * 0.35) + (trendShrink * 0.15); 
+    const rawShrink = (sampleShrink * 0.50) + (calibShrink * 0.35) + (trendPenaltyFactor * 0.15); 
     const finalShrink = Math.max(0, Math.min(maxShrink, rawShrink));
 
     return {
         shrinkFactor: Number(finalShrink.toFixed(4)),
-        trendUncertaintyPenalty: Number(trendShrink.toFixed(4)), // Exporta para o Monte Carlo inflar o desvio padrão
+        trendUncertaintyPenalty: Number(trendPenaltyFactor.toFixed(4)), // Exporta para o Monte Carlo inflar o desvio padrão
         components: {
             sampleShrink: Number(sampleShrink.toFixed(4)),
             calibShrink: Number(calibShrink.toFixed(4)),
-            trendShrink: Number(trendShrink.toFixed(4))
+            trendShrink: Number(trendPenaltyFactor.toFixed(4))
         },
         // Helper: aplica o shrinkage a um valor
         apply: (value) => {

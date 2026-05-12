@@ -126,23 +126,23 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             // O pior cenário teórico é 0 absoluto (onde pct vira 0.05).
             let rawPct = normalizedScore / safeMaxScore;
             
-            if (rawPct < 0.1 && (h.total || 0) > 0 && options.isPenalizedFormat) {
-                // Apenas converte escala [-1, 1] para [0, 1] se a prova for sabidamente penalizada
+            if (options.isPenalizedFormat) {
+                // Aplica-se a toda a escala. Um Net de -20% vira 40% de precisão. Um Net de 80% vira 90% de precisão.
                 rawPct = Math.max(0.05, (rawPct + 1) / 2);
             } else if (rawPct < 0) {
-                // Se não temos certeza, mas a nota é negativa, é penalizada
+                // Fallback de segurança para provas não declaradas mas claramente penalizadas
                 rawPct = Math.max(0.05, (rawPct + 1) / 2);
             }
-            // Remove o boost artificial para notas não negativas em provas normais
             
             const pct = Math.min(1, Math.max(0, rawPct));
             
-            if (total > 0 && correct === 0 && Number.isFinite(normalizedScore)) {
-                correct = Math.round(pct * total);
-            } else if (total === 0 && Number.isFinite(normalizedScore)) {
+            if (total === 0) {
                 total = getSyntheticTotal(safeMaxScore);
-                correct = Math.round(pct * total);
             }
+
+            // O Bayesian prior DEVE ser alimentado pela percentagem limpa e padronizada (pct), 
+            // e não pelo `correct` original que não reflete a punição sistêmica ou o teto dinâmico.
+            correct = Math.round(pct * total);
 
             if (total < 1) continue;
 
