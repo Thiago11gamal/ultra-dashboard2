@@ -32,7 +32,7 @@ export function computeEffectiveSampleSizeFromWeights(weights = []) {
     const clean = Array.isArray(weights) ? weights.map(w => Number(w)).filter(w => Number.isFinite(w) && w > 0) : [];
     if (clean.length === 0) return 0;
     const sumW = clean.reduce((a, b) => a + b, 0);
-    const sumW2 = clean.reduce((a, b) => (a + (b * b)), 0);
+    const sumW2 = clean.reduce((a, b) => a + (b * b), 0);
     return sumW2 > 0 ? (sumW * sumW) / sumW2 : 0;
 }
 

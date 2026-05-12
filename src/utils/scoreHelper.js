@@ -10,15 +10,15 @@ export function getSyntheticTotal(maxScore = 100) {
     return Math.max(1, Math.min(maxScore > 0 ? maxScore : 100, 20));
 }
 
+export const normalizePercentInput = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return n <= 1 ? n * 100 : n;
+};
+
 export function getSafeScore(historyRow, maxScore = 100) {
     if (!historyRow) return 0;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-
-    const normalizePercentInput = (value) => {
-        const n = Number(value);
-        if (!Number.isFinite(n)) return 0;
-        return n <= 1 ? n * 100 : n;
-    };
 
     if (historyRow.score != null) {
         let rawScore = historyRow.score;
