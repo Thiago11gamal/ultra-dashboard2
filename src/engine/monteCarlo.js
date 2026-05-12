@@ -219,7 +219,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const phiMax    = normalCDF_complement((maxScore - safeMean) / safeSD); 
     const phiTarget = normalCDF_complement((effectiveTarget - safeMean) / safeSD); 
     
-    const truncNormFactor = phiMin - phiMax;
+    // CORREÇÃO: Prevenir a anulação catastrófica (Underflow) em caudas severamente truncadas,
+    // garantindo que a matemática analítica sobrevive a amostras estatisticamente extremas.
+    const truncNormFactor = Math.max(1e-25, phiMin - phiMax);
     const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
 
     let analyticalProbability;
@@ -228,7 +230,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     } else if (effectiveTarget <= minScore) {
         analyticalProbability = 100;
     } else {
-        analyticalProbability = truncNormFactor > 1e-10 
+        analyticalProbability = truncNormFactor > 1e-25 
             ? ((clampedPhiTarget - phiMax) / truncNormFactor) * 100 
             : empiricalProbability; 
     }

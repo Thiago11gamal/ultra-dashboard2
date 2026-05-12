@@ -190,9 +190,10 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     for (let i = 1; i < scores.length; i++) {
         sumSqDiff += Math.pow(scores[i] - scores[i - 1], 2);
     }
-    // FIX BUG-MATH-01: Removida a divisão por 2. RMSSD exige a média exata dos quadrados das diferenças 
-    // para não subestimar visualmente e estatisticamente o tamanho do salto (step size).
-    const rmssd = sumSqDiff / Math.max(1, scores.length - 1); 
+    // FIX BUG-MATH-01: Reintroduzida a divisão por 2.
+    // Matematicamente, a variância das diferenças sucessivas é 2σ².
+    // Dividir por 2 garante um estimador imparcial da volatilidade.
+    const rmssd = sumSqDiff / (2 * Math.max(1, scores.length - 1)); 
     return Math.sqrt(rmssd);
 }
 
@@ -229,8 +230,9 @@ export function calculateSlope(history, maxScore = 100, options = {}) {
         lambda = Math.max(0.03, Math.min(0.12, 0.03 + 0.08 * Math.exp(-medianGap / 10)));
     }
     const { slope } = weightedRegression(history, lambda, maxScore, options);
-    // Limita drift diário a no máximo 0.5% da escala total (ex: 0.5 pts por dia no Enem)
-    const limit = 0.005 * maxScore;
+    // CORREÇÃO: Limita o drift diário a 1.5% da escala total para permitir
+    // a captação da curva íngreme de aprendizagem de alunos iniciantes (até 45% ao mês).
+    const limit = 0.015 * maxScore;
     return Math.max(-limit, Math.min(limit, slope));
 }
 

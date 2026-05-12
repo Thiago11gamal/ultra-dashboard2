@@ -1159,12 +1159,13 @@ export function getBestTask(categories, excludeTaskId = null) {
                 const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
                 
                 let normalizedErrorRate;
-                // FIX BUG: Removido !Number.isInteger() que transformava validErrorRate=1 (100%) em 0.01 (1%)
-                if (validErrorRate <= 1 && validErrorRate > 0) {
-                    // É puramente decimal/fracional (ex: 0.05, 0.80, 1.0)
+                // CORREÇÃO: Usar < 1 para garantir que uma taxa de "1" exata (inserida como inteiro de 1%) 
+                // não seja tratada erradamente como 100% (1.0).
+                if (validErrorRate < 1 && validErrorRate > 0) {
+                    // É puramente decimal/fracional (ex: 0.05, 0.80)
                     normalizedErrorRate = validErrorRate; 
                 } else {
-                    // É um inteiro ou excede 1 (ex: 15, 80). Converte para base percentual.
+                    // É um inteiro (incluindo 1 ou 100). Converte para base percentual.
                     normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
                 }
                 

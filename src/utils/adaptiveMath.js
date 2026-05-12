@@ -102,7 +102,9 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
         : sorted[Math.floor(mid)];
 
     return values.map((v) => {
-        if (!Number.isFinite(v)) return median;
+        // CORREÇÃO: Em vez de injetar uma mediana falsa (o que destrói a variância em séries com poucos dados),
+        // preservamos o valor inválido original para que os filtros a jusante lidem com a lacuna naturalmente.
+        if (!Number.isFinite(v)) return v; 
         return Math.max(low, Math.min(high, v));
     });
 }

@@ -170,13 +170,21 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const retentionFloor = cappedMaxAlpha * 0.3;
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
-                const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0;
+                const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
                 
-                const minN = retentionFloor; // REMOVIDO: / Math.max(0.01, currentP)
+                const minN = retentionFloor;
                 const nAfterDecay = Math.max(minN, nBeforeDecay * entryDecay);
                 
-                alpha = nAfterDecay * currentP;
-                beta = nAfterDecay * (1 - currentP);
+                // CORREÇÃO: À medida que a memória decai, a taxa de sucesso (currentP) não pode ficar congelada.
+                // Tem de regredir progressivamente para o Prior neutro natural (Uniforme = 0.5).
+                const priorP = 0.5;
+                const decayRatio = nAfterDecay / Math.max(1e-6, nBeforeDecay);
+                
+                // O novo P é uma fusão entre a memória restante e o estado inicial de ignorância (0.5)
+                const regressedP = (currentP * decayRatio) + (priorP * (1 - decayRatio));
+                
+                alpha = nAfterDecay * regressedP;
+                beta = nAfterDecay * (1 - regressedP);
             }
 
             alpha += acertosHoje;
@@ -199,13 +207,21 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             
             const finalDecay = Math.exp(-finalLambda * gapToToday);
             const nBeforeDecay = alpha + beta;
-            const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0;
+            const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
             
             const minN = retentionFloor; // Correção Bayesiana
             const nAfterDecay = Math.max(minN, nBeforeDecay * finalDecay);
             
-            alpha = nAfterDecay * currentP;
-            beta = nAfterDecay * (1 - currentP);
+            // CORREÇÃO: À medida que a memória decai, a taxa de sucesso (currentP) não pode ficar congelada.
+            // Tem de regredir progressivamente para o Prior neutro natural (Uniforme = 0.5).
+            const priorP = 0.5;
+            const decayRatio = nAfterDecay / Math.max(1e-6, nBeforeDecay);
+            
+            // O novo P é uma fusão entre a memória restante e o estado inicial de ignorância (0.5)
+            const regressedP = (currentP * decayRatio) + (priorP * (1 - decayRatio));
+            
+            alpha = nAfterDecay * regressedP;
+            beta = nAfterDecay * (1 - regressedP);
         }
     }
 
