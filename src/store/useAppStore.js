@@ -20,7 +20,29 @@ import { clearMcCache } from '../utils/coachAdaptive';
 // --- IndexedDB Adapter with localStorage Migration ---
 // --- Otimização de Persistência: Debounced IndexedDB Adapter ---
 const saveTimeouts = {}; 
-const DEBOUNCE_TIME = 500; // ms
+const DEBOUNCE_TIME = 100; // ms
+
+// CORREÇÃO TÉCNICA E QA: Gestor de Flush Atómico
+// Garante o esvaziamento síncrono da fila de escrita antes de a thread ser morta.
+const flushPendingIDBSaves = () => {
+    Object.entries(saveTimeouts).forEach(([name, timeoutId]) => {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+            // Salva de imediato no localStorage como barreira de segurança vitalícia
+            const stateToRescue = useAppStore.getState();
+            try {
+                localStorage.setItem(name, JSON.stringify({ state: { appState: stateToRescue.appState } }));
+            } catch (e) {
+                console.error("[Storage] Fatal error forcing sync flush", e);
+            }
+        }
+    });
+};
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', flushPendingIDBSaves);
+    window.addEventListener('pagehide', flushPendingIDBSaves); // Para iOS Safari
+}
 
 const idbStorage = {
     getItem: async (name) => {
@@ -65,14 +87,13 @@ const idbStorage = {
         }
     },
     setItem: (name, value) => {
-        // --- PATCH: Backup síncrono imediato ---
         try {
-            // Verificar tamanho aproximado antes de tentar gravar (5MB limite padrão)
-            if (value.length < 2250000) { 
+            // Limite de segurança reduzido para evitar bloqueios de thread (Storage Quota)
+            if (value.length < 2000000) { 
                 localStorage.setItem(name, value);
             }
         } catch {
-            console.warn("[Storage] LocalStorage cheio. Mantendo apenas no IndexedDB.");
+            console.warn("[Storage] LocalStorage cheio. Delegação exclusiva ao IDB.");
         }
 
         if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
@@ -81,10 +102,10 @@ const idbStorage = {
             try {
                 await idbSet(name, value);
                 saveTimeouts[name] = null;
-            } catch {
-                console.error("[Storage] Critical IDB save failure.");
+            } catch (err) {
+                console.error("[Storage] Critical IDB save failure.", err);
             }
-        }, 100); // Reduzido para 100ms para maior agilidade em localhost
+        }, DEBOUNCE_TIME); 
 
         return Promise.resolve();
     },

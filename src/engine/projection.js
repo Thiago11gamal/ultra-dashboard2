@@ -253,28 +253,30 @@ export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
 // -----------------------------
 export function logisticRegression(history, maxScore = 100, options = {}) {
     const sorted = getSortedHistory(history);
-    // Se histórico for muito curto, não há como formar uma curva em S
     if (sorted.length < 4) return { isLogistic: false };
 
     const now = options.referenceDate || Date.now();
-    let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
-    
-    // CORREÇÃO MATEMÁTICA: O espaço vazio até ao gabarito rege a Assíntota.
     const historicalScores = sorted.map(h => getSafeScore(h, maxScore));
-    const peakScore = Math.max(...historicalScores);
+    
+    // CORREÇÃO MATEMÁTICA E UX: Estabilização de Assíntota via Percentil Robusto
+    // Evita que um único "chute certeiro" (outlier) deforme o teto da curva em S de aprendizagem.
+    const peakScore = getPercentile(historicalScores, 0.90); // Usa o P90 em vez do Máximo Absoluto
+    
     const meanVal = historicalScores.reduce((a, b) => a + b, 0) / historicalScores.length;
     const currentVariance = Math.sqrt(historicalScores.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / Math.max(1, historicalScores.length - 1));
 
     const spaceToMax = maxScore - peakScore;
+    
+    // O teto assintótico agora é calculado sob um sinal de ruído amortecido
     const dynamicHeadroom = Math.max(
-        currentVariance * 2.5, 
-        maxScore * 0.10, // Garante pelo menos 10% da escala total de respiro
-        spaceToMax * 0.3 // Assume que o aluno consegue evoluir pelo menos 30% da margem que lhe falta
+        currentVariance * 1.5, // Fator de variância reduzido para não explodir em históricos ruidosos
+        maxScore * 0.10,
+        spaceToMax * 0.25 
     );
 
-    // O teto 'L' nunca é menor que o pico atual + folga dinâmica
     const L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom); 
 
+    let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
         const t = (now - new Date(hDate).getTime()) / 86400000;

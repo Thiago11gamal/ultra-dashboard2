@@ -36,7 +36,20 @@ function sanitizeSimulations(simulations) {
     return clamp(normalized, 1, MAX_SIMULATIONS);
 }
 
-export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
+// CORREÇÃO VISUAL E MATEMÁTICA: Geração de semente estável (FNV-1a Hash)
+// Ancoramos a semente na volumetria e topologia do histórico, não na flutuação da média.
+function generateStableSeed(historyCount, categoryName, targetScore) {
+    let h = 2166136261; // Offset base FNV
+    const seedStr = `${historyCount}-${String(categoryName || 'global')}-${Math.floor(targetScore || 0)}`;
+    
+    for(let i = 0; i < seedStr.length; i++) {
+        h ^= seedStr.charCodeAt(i);
+        h = Math.imul(h, 16777619); // Primo FNV
+    }
+    return h >>> 0;
+}
+
+export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI, historyLength = 0) {
     let mean = typeof meanOrObj === 'number' ? meanOrObj : 0;
     let minScore = DEFAULT_DOMAIN_MIN;
     let maxScore = DEFAULT_DOMAIN_MAX;
@@ -52,6 +65,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         bayesianCI = meanOrObj.bayesianCI ?? bayesianCI;
         minScore = meanOrObj.minScore ?? minScore;
         maxScore = meanOrObj.maxScore ?? maxScore;
+        historyLength = meanOrObj.historyLength ?? 0;
     }
 
     const safeDomain = sanitizeDomain(minScore, maxScore);
@@ -125,16 +139,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         };
     }
 
-    let h = 0xdeadbeef;
-    h = Math.imul(h ^ (Math.floor(safeMean * 10000) >>> 0), 2654435761);
-    h = Math.imul(h ^ Math.floor(safeSD * 10000), 1597334677);
-    const catStr = String(categoryName || '');
-    if (catStr) {
-        for(let i = 0; i < catStr.length; i++) {
-            h = Math.imul(h ^ catStr.charCodeAt(i), 339020473);
-        }
-    }
-    const stableSeed = seed ?? ((h ^ (h >>> 16)) >>> 0);
+    // SUBSTITUIÇÃO DA LÓGICA DE SEMENTE ANTIGA:
+    // Remover o hash fraco (Math.floor(safeMean * 10000)) que causava o layout shift.
+    const stableSeed = seed ?? generateStableSeed(historyLength, categoryName, targetScore);
 
     const rng = mulberry32(stableSeed);
     let success = 0;
@@ -370,6 +377,7 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
         bayesianCI: options.bayesianCI,
         minScore: safeDomain.minScore,
         maxScore: safeDomain.maxScore,
+        historyLength: (options.history || []).length
     });
 }
 

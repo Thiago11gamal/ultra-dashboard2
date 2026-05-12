@@ -126,9 +126,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         for (let i = 0; i < sortedHistory.length; i++) {
             const h = sortedHistory[i];
             let total = Number(h.total) || 0;
-            let correct = Number(h.correct) || 0;
+            const isPurePercentage = (total === 0 && h.score != null); // Identifica registos sem métrica de volume
 
-            const normalizedScore = getSafeScore(h, maxScore);
+            const normalizedScore = getSafeScore(h, safeMaxScore);
             
             // FIX BUG 4: Heurística Anti-Colapso para provas penalizadas
             // Se a nota líquida for próxima de zero, a pessoa acertou ~50% e errou ~50% (chute).
@@ -147,15 +147,18 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             
             const pct = Math.min(1, rawPct);
             
-            // FIX BUG 1 (Matemática): Previne Inflação Artificial Bayesiana.
-            // Se o usuário reportou apenas a % (total = 0), não podemos usar um volume gigante.
-            // Injetar um volume pequeno (ex: 5) garante que o modelo reconheça o acerto,
-            // mas mantenha a alta incerteza (banda larga) até ter volume real.
-            if (total === 0) {
-                total = 5; 
+            // CORREÇÃO TÉCNICA E ESTATÍSTICA:
+            // Isolamento rigoroso. Registos percentuais contribuem para a Média Dinâmica (EMA/Kalman),
+            // mas NÃO DEVEM inflacionar a credibilidade Bayesiana (alpha/beta) gerando um N artificial.
+            if (isPurePercentage) {
+                // Injeta um N estritamente fracionário (ex: 0.5) para causar leve pull
+                // na média posterior sem afunilar o cone de incerteza da distribuição Beta.
+                alpha += pct * 0.5;
+                beta += (1 - pct) * 0.5;
+                continue; 
             }
 
-            correct = Math.round(pct * total);
+            let correct = Math.round(pct * total);
 
             if (total < 1) continue;
 

@@ -10,10 +10,17 @@ export function getSyntheticTotal(maxScore = 100) {
     return Math.max(1, Math.min(maxScore > 0 ? maxScore : 100, 20));
 }
 
-export const normalizePercentInput = (value) => {
+export const normalizePercentInput = (value, isExplicitFraction = false) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
-    return n <= 1 ? n * 100 : n;
+    
+    // Se o frontend garantir que o input foi via slider de fração (0 a 1)
+    if (isExplicitFraction && n <= 1 && n >= 0) {
+        return n * 100;
+    }
+    
+    // Retorna o valor cru de forma segura, sem assumir erros do utilizador
+    return Math.max(0, Math.min(100, n));
 };
 
 export function getSafeScore(historyRow, maxScore = 100) {
@@ -25,9 +32,9 @@ export function getSafeScore(historyRow, maxScore = 100) {
         if (typeof rawScore === 'string') rawScore = rawScore.replace(',', '.');
         let s = parseFloat(rawScore);
         
-        // BUGFIX M3: se isPercentage for true, tratamos o score existente como %
         if (historyRow.isPercentage) {
-            s = (normalizePercentInput(s) / 100) * safeMaxScore;
+            // Passamos false ou a flag apropriada. O frontend DEVE enviar valores de 0-100 na API.
+            s = (normalizePercentInput(s, historyRow.isFractionInput) / 100) * safeMaxScore;
         }
 
         return Number.isFinite(s) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, s)) : 0;
@@ -39,8 +46,8 @@ export function getSafeScore(historyRow, maxScore = 100) {
     // PRIORIDADE MÁXIMA: Flag isPercentage deve ser respeitada mesmo que total > 0.
     // Isso evita corrupção de dados em registros híbridos de bancos legados.
     if (historyRow.isPercentage) {
-        // FIX: score já foi verificado como null na L16, então usamos `correct` como valor percentual direto.
-        const pValue = normalizePercentInput(correct);
+        // FIX: score já foi verificado como null, então usamos `correct` como valor percentual direto.
+        const pValue = normalizePercentInput(correct, historyRow.isFractionInput);
         const scoreFromPercentage = (pValue / 100) * safeMaxScore;
         return Number.isFinite(scoreFromPercentage) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, scoreFromPercentage)) : 0;
     }
