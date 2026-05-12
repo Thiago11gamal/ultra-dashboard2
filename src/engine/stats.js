@@ -50,11 +50,9 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
     const n = clean.length;
     const m = customMean !== null && Number.isFinite(Number(customMean)) ? Number(customMean) : mean(clean);
 
-    // [CORREÇÃO MATH-BUG-3] Ajuste dos graus de liberdade (Degrees of Freedom)
-    // Se recebemos a média populacional de fora (customMean), não perdemos 1 DOF.
-    const degreesOfFreedom = customMean !== null ? n : (n > 1 ? n - 1 : 1);
+
     const sampleVar = n > 1
-        ? clean.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / degreesOfFreedom
+        ? clean.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
         : 0;
 
     // Robustez adicional: MAD reduz influência de outliers em séries curtas/ruidosas.
