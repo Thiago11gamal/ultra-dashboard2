@@ -45,7 +45,8 @@ describe('BUG-MATH-01: MSSD vs SD', () => {
         const mssd = calculateMSSD(history, 100);
         // SD penaliza o spread total (50-70), MSSD apenas as diferenças consecutivas (5 cada)
         expect(mssd).toBeLessThan(sd);
-        expect(mssd).toBeCloseTo(Math.sqrt(12.5), 1); // √(25 / 2) = ~3.535
+        // O MSSD detrended de uma reta perfeita deve ser zero (que bate no piso de segurança 0.001)
+        expect(mssd).toBeCloseTo(0.001, 3);
     });
 
     test('série oscilante: MSSD > SD', () => {
