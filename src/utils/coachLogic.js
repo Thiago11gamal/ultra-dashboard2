@@ -467,7 +467,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             empiricalTrust = Math.max(0.2, globalSignal.confidenceWeight);
         }
 
-        const efficiencyBridgeBoost = cfg.EFFICIENCY_MAX * inefficiency * empiricalTrust;
+        // [DEPOIS] Anulamos a ponte aditiva (que maquiava a dor):
+        const efficiencyBridgeBoost = 0; 
+        
+        // Aplicamos a ineficiência como um agravante na "Recência" (quem não faz micro-tarefas esquece mais rápido)
+        const inefficiencyPenaltyMultiplier = 1.0 + (inefficiency * 0.3 * empiricalTrust); 
+        recencyComponent = (dynamicRecencyMax * 0.8) * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight * inefficiencyPenaltyMultiplier;
 
         // E. Burnout detection
         const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
@@ -571,12 +576,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const currentSrsBoost = srsBoost * crunchMultiplier;
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty;
 
+        // O RAW_MAX_ACTUAL continua a ser calculado normalmente, MAS a normalização muda.
         const weightedRaw = rawScore;
         
-        // CORREÇÃO M-6: Normalização Logística Suave (Sigmoid Transform)
-        // Isso previne que a inflação temporal do RAW_MAX_ACTUAL suprima o alerta de dor.
-        const sigMidPoint = RAW_MAX_ACTUAL * 0.50; // Onde a urgência bate em 50%
-        const sigSteepness = 4 / RAW_MAX_ACTUAL; // Curvatura da sensibilidade
+        // Transformação Logística Suave (Previne que o denominador dinâmico esmague a urgência)
+        const sigMidPoint = RAW_MAX_ACTUAL * 0.50; 
+        const sigSteepness = 4 / RAW_MAX_ACTUAL; 
         
         const sigNormalized = 100 / (1 + Math.exp(-sigSteepness * (weightedRaw - sigMidPoint)));
         const normalized = Math.max(0, Math.min(100, Math.round(sigNormalized)));
