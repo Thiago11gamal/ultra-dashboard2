@@ -186,13 +186,14 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     const robustSigma = Math.max(1e-6, 1.4826 * mad);
     const huberK = 2.5 * robustSigma;
 
-    const clippedVariance = finiteScores.reduce((acc, s, i) => {
+    const weightedVariance = finiteScores.reduce((acc, s, i) => {
         const d = s - weightedMean;
         const clipped = Math.max(-huberK, Math.min(huberK, d));
         return acc + (weighted[i] * clipped * clipped);
-    }, 0) / kishDenom; // Aplicar a divisão de Kish aqui!
+    }, 0) / Math.max(1e-9, sumW);
+
     const CONSISTENCY_FACTOR = 1.11; 
-    const sd = Math.sqrt(Math.max(0, clippedVariance * CONSISTENCY_FACTOR));
+    const sd = Math.sqrt(Math.max(0, weightedVariance * CONSISTENCY_FACTOR));
     // Reduz sensibilidade a ruído usando média dos últimos deltas (até 4 passos).
     const k = Math.min(4, Math.max(1, finiteScores.length - 1));
     const recentDeltas = [];

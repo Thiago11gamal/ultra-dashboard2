@@ -128,17 +128,15 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         return { value: y - pred, weight: w }; // Resíduos reais (detrended)
     });
 
-    // FIX: MSSD Real Ponderado (Bug 13)
-    let mssdSum = 0;
-    let weightSumMSSD = 0;
+    // Variância Ponderada dos Resíduos (Robust Component)
+    const sumWeights = residualSamples.reduce((acc, it) => acc + it.weight, 0);
+    const sumResidualsWeighted = residualSamples.reduce((acc, it) => acc + it.value * it.weight, 0);
+    const sumSw = residualSamples.reduce((acc, it) => acc + it.value * it.value * it.weight, 0);
 
-    for (let i = 1; i < residualSamples.length; i++) {
-        const diff = residualSamples[i].value - residualSamples[i-1].value;
-        const w = Math.min(residualSamples[i].weight, residualSamples[i-1].weight);
-        mssdSum += w * (diff * diff);
-        weightSumMSSD += w;
-    }
-    const mssdVariance = (mssdSum / (2 * Math.max(1e-9, weightSumMSSD)));
+    const expectedResidual = sumResidualsWeighted / sumWeights;
+    const n_res = sorted.length - 1;
+    const bessel = n_res > 1 ? n_res / (n_res - 1) : 1;
+    const mssdVariance = ((sumSw / sumWeights) - (expectedResidual * expectedResidual)) * bessel;
 
     const weightedMedian = (arr) => {
         if (!arr.length) return 0;

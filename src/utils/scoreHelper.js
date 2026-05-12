@@ -17,13 +17,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
     const normalizePercentInput = (value) => {
         const n = Number(value);
         if (!Number.isFinite(n)) return 0;
-        
-        // CORREÇÃO (Bug do 1%): Removida a heurística destrutiva (n <= 1 ? n * 100 : n).
-        // Essa heurística corrompia notas baixas reais (ex: 0.5% virava 50%, 1% virava 100%).
-        // Se a base de dados tiver métricas híbridas antigas, elas devem ser normalizadas
-        // num script de migração. O motor estatístico não pode adivinhar escalas.
-        // Assume-se que o valor já vem na escala percentual real (0 a 100).
-        return Math.max(-100, Math.min(100, n));
+        return n <= 1 ? n * 100 : n;
     };
 
     if (historyRow.score != null) {
