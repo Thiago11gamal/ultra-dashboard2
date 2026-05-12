@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
-import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
+import { getSafeScore } from '../utils/scoreHelper';
 
 const EMPTY_OBJECT = {};
 const EMPTY_ARRAY = [];

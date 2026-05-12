@@ -170,8 +170,6 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     const sumW2 = weighted.reduce((a, b) => a + (b * b), 0);
     const effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
     
-    // FIX BUG 6: Denominador de Kish previne subestimação da variância (Overconfidence)
-    const kishDenom = Math.max(1e-9, sumW - (sumW2 / sumW));
 
     const weightedMean = finiteScores.reduce((acc, s, i) => acc + (s * weighted[i]), 0) / Math.max(1e-9, sumW);
 
