@@ -1,5 +1,5 @@
 import { safeClone } from './safeClone.js';
-import { create } from 'zustand';
+import { create, useStore } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { temporal } from 'zundo';
@@ -239,8 +239,7 @@ export const useAppStore = create(
 
 // Helper to access temporal store easily
 export const useTemporalStore = (selector) => {
-    const useStore = useAppStore.temporal;
-    return useStore(selector);
+    return useStore(useAppStore.temporal, selector);
 };
 
 // MATH-03 / LEAK-01 FIX: Invalidate cache when activeId changes
