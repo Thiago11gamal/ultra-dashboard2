@@ -186,13 +186,46 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
   return Number(stability.toFixed(1));
 }
 
-export function computeOptimalReviewInterval(stability, targetRetention = 0.7) {
+// ATUALIZAÇÃO 1: Injeção de Inteligência no Cálculo do Intervalo
+export function computeOptimalReviewInterval(stability, targetRetention = 0.7, mssdVolatility = null, effectiveN = null, maxScore = 100, currentMean = null) {
   const S = Math.max(0.5, Number(stability) || 7);
   const R = Math.max(0.05, Math.min(0.99, Number(targetRetention) || 0.7));
-  return Math.max(1, Math.round(-S * Math.log(R)));
+  let baseInterval = Math.max(1, -S * Math.log(R));
+
+  // --- LÓGICA DE MSSD E VOLATILIDADE ROBUSTA ---
+  if (mssdVolatility !== null && effectiveN !== null) {
+      // Normaliza o MSSD para uma escala de 0 a 1
+      const normalizedMssd = mssdVolatility / maxScore;
+      
+      // 1. Fator de Fragilidade (Conhecimento Frágil)
+      // Se a nota "salta" muito (> 10% de volatilidade), cortamos o intervalo de revisão.
+      // Uma penalidade máxima reduz o intervalo para 40% do tempo original.
+      const fragilityPenalty = Math.max(0.4, 1 - (normalizedMssd * 3));
+
+      // 2. Fator de Cristalização (Domínio Consolidado)
+      // MSSD Baixo + N Alto (muitas provas) -> Expande o intervalo exponencialmente
+      let crystallizationBonus = 1.0;
+      if (effectiveN >= 3 && normalizedMssd < 0.08) {
+          // A confiança cresce até 15 amostras
+          const confidence = Math.min(1, effectiveN / 15); 
+          // Transforma estabilidade fina (0 a 0.08) num multiplicador
+          const stabilityBonus = Math.max(0, 0.08 - normalizedMssd) * 12; 
+          
+          // Confirma se a média é efetivamente alta (ex: > 70%) para garantir o bónus
+          const performanceFactor = currentMean !== null ? Math.max(0, (currentMean / maxScore) - 0.5) * 2.5 : 1; 
+
+          // Pode expandir o intervalo de revisão em até 2x a 3x
+          crystallizationBonus = 1 + (confidence * stabilityBonus * performanceFactor); 
+      }
+
+      baseInterval = baseInterval * fragilityPenalty * crystallizationBonus;
+  }
+
+  return Math.max(1, Math.round(baseInterval));
 }
 
-export function computeForgettingRisk(history, maxScore = 100, baselineScore = null) {
+// ATUALIZAÇÃO 2: Passagem de Parâmetros na Avaliação de Risco
+export function computeForgettingRisk(history, maxScore = 100, baselineScore = null, mssdVolatility = null, effectiveN = null) {
   const noData = { risk: 'low', retentionPct: 100, stabilityDays: 3, optimalIntervalDays: 3, daysSinceLast: 0 };
   if (!Array.isArray(history) || history.length === 0) return noData;
 
@@ -206,12 +239,16 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   const stability = estimateMemoryStability(sorted.reverse(), maxScore, baselineScore);
   const retention = computeEbbinghausRetention(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));
-  const optimalIntervalDays = computeOptimalReviewInterval(stability, 0.7);
+  
+  // Calcula a média empírica para validar a Cristalização do Conhecimento
+  const currentMean = _mean(history.map(h => Math.max(0, Math.min(maxScore, Number(h?.score) || 0))));
+
+  const optimalIntervalDays = computeOptimalReviewInterval(stability, 0.7, mssdVolatility, effectiveN, maxScore, currentMean);
 
   let risk;
   if (retentionPct < 30) risk = 'critical';
   else if (retentionPct < 55) risk = 'high';
-  else if (retentionPct < 75) risk = 'medium';
+  else if (retentionPct < 75 && daysSinceLast >= optimalIntervalDays * 0.8) risk = 'medium'; // Sensível ao novo intervalo
   else risk = 'low';
 
   return { risk, retentionPct, stabilityDays: stability, optimalIntervalDays, daysSinceLast: Number(daysSinceLast.toFixed(1)) };

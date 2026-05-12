@@ -123,18 +123,16 @@ function getCrunchMultiplier(daysToExam, historyStartDate) {
     return Math.max(1.0, Math.min(2.5, scaled));
 }
 
-function getSRSBoost(history, daysSince, maxScore, cfg) {
-    // Calcula a estabilidade da memória do aluno baseada no histórico real de notas
-    const forgettingData = computeForgettingRisk(history, maxScore);
+function getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null) {
+    // Agora passa o MSSD e o EffectiveN para o motor de diagnóstico
+    const forgettingData = computeForgettingRisk(history, maxScore, null, mssdVolatility, effectiveN);
     
-    // retentionPct é a curva de Ebbinghaus real do usuário (100% a 0%)
     const retention = forgettingData.retentionPct;
 
     if (retention < 30) return { boost: cfg.SRS_BOOST * 2.0, label: "⚠️ Memória Crítica (Risco de Branco)" };
     if (retention < 55) return { boost: cfg.SRS_BOOST * 1.4, label: "🧠 Revisão Necessária (Curva de Esquecimento)" };
     if (retention < 75) return { boost: cfg.SRS_BOOST * 0.8, label: "🔄 Revisão de Reforço" };
     
-    // Se a retenção está alta (ex: 90%), o aluno não precisa revisar, mesmo que faça 20 dias.
     return { boost: 0, label: null };
 }
 
@@ -506,12 +504,23 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const underAllocation = Math.max(0, idealShare - observedShare);
         const balanceBridgeBoost = Math.min(cfg.EFFICIENCY_MAX, underAllocation * cfg.EFFICIENCY_MAX * 2.0);
 
-        // F. SRS Boost
+        // F. SRS Boost com Integração de Volatilidade e Confiança Bayesiana
         let srsBoost = 0;
         let srsLabel = null;
 
         if (hasData && !recencyUnknown) {
-            const srsResult = getSRSBoost(simuladosWithMaxScore, daysSinceLastStudy, maxScore, cfg);
+            // Extraímos a confiança da matemática adaptativa já importada
+            const signal = computeAdaptiveCoachWeight(trendHistory);
+            const effectiveN = signal.effectiveN;
+
+            const srsResult = getSRSBoost(
+                simuladosWithMaxScore, 
+                daysSinceLastStudy, 
+                maxScore, 
+                cfg, 
+                mssdVolatility, // Variável já calculada na linha ~307
+                effectiveN      // Injeção de Confiança
+            );
             srsBoost = srsResult.boost;
             srsLabel = srsResult.label;
         }
