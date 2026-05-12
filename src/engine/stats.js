@@ -244,9 +244,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     let ciLow = centerForCI - marginOfError;
     let ciHigh = centerForCI + marginOfError;
 
-    ciHigh = Math.max(bayesianMean, ciHigh);
-    ciLow = Math.min(bayesianMean, ciLow);
-
+    // FIX BUG 1: Remover o clamp estrito contra a bayesianMean. 
+    // O intervalo de Agresti-Coull (Shrinkage) PODE legitimamente não conter 
+    // a média amostral bruta em casos de pontuações perfeitas (0% ou 100%) com amostra pequena.
     const strictLow = Math.max(0, ciLow);
     const strictHigh = Math.min(safeMaxScore, ciHigh);
 
