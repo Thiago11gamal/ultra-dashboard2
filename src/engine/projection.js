@@ -262,8 +262,10 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
         // O logit não quebra porque L (teto assintótico) já é definido como maxScore * 1.05.
         y = Math.max(maxScore * 0.01, Math.min(maxScore, y));
 
-        // Transformação Logit
-        const logitY = Math.log(y / (L - y));
+        // [FIX 2] A função Logit precisa respeitar o minScore (ENEM/OAB/SAT)
+        const safeMin = options.minScore || 0;
+        const boundedY = Math.max(safeMin + 0.1, Math.min(L - 0.1, y)); // Previne infinito/div por zero
+        const logitY = Math.log((boundedY - safeMin) / (L - boundedY));
 
         sumW += w;
         sumWX += w * x;
@@ -544,6 +546,8 @@ export function monteCarloSimulation(
                 : normalRng() * dailyVolatility;
             
             currentSimScore += driftEffect + meanReversion + shock;
+            // [FIX 5] Força os limites físicos da prova DIARIAMENTE (Spaghetti Overflow)
+            currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore));
         }
 
         results.push(Math.max(minScore, Math.min(maxScore, currentSimScore)));

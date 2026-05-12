@@ -113,9 +113,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             projectedMean: safeMean,
             projectedSD: 0,
             kdeData: [
-                { x: safeMean - 0.1, y: 0 },
+                { x: Math.max(minScore, safeMean - 0.1), y: 0 },
                 { x: safeMean, y: 1 },
-                { x: safeMean + 0.1, y: 0 }
+                { x: Math.min(maxScore, safeMean + 0.1), y: 0 }
             ], 
             drift: 0,
             volatility: 0,
