@@ -55,7 +55,8 @@ export const mapRetentionData = (categories = []) => {
             data.push({
                 nomeTopico: cat.name,
                 diasSemRevisao: Math.floor(days),
-                nivelCritico: 100 - retention // INVERSÃO: Agora 100% é o mais crítico (esquecido)
+                nivelCritico: 100 - retention,
+                isTask: false
             });
         }
         
@@ -80,7 +81,8 @@ export const mapRetentionData = (categories = []) => {
                         data.push({
                             nomeTopico: task.text || task.title || 'Tarefa sem nome',
                             diasSemRevisao: Math.floor(days),
-                            nivelCritico: 100 - retention // INVERSÃO
+                            nivelCritico: 100 - retention,
+                            isTask: true
                         });
                     }
                 }

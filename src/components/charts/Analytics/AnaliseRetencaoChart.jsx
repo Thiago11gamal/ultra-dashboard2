@@ -39,10 +39,29 @@ export function AnaliseRetencaoChart({ data }) {
                         tickLine={false}
                         axisLine={false}
                         dy={10}
-                        // CORREÇÃO 1 e 3: Texto inclinado e padding para as barras não colarem na borda
                         angle={-45}
                         textAnchor="end"
                         padding={{ left: 15, right: 15 }}
+                        tick={(props) => {
+                            const { x, y, payload } = props;
+                            const item = data[payload.index];
+                            return (
+                                <g transform={`translate(${x},${y})`}>
+                                    <text
+                                        x={0}
+                                        y={0}
+                                        dy={16}
+                                        textAnchor="end"
+                                        fill={item?.isTask ? "#94a3b8" : "#f1f5f9"}
+                                        fontSize={item?.isTask ? 9 : 10}
+                                        fontWeight={item?.isTask ? 400 : 700}
+                                        transform="rotate(-45)"
+                                    >
+                                        {item?.isTask ? `• ${payload.value}` : payload.value}
+                                    </text>
+                                </g>
+                            );
+                        }}
                     />
 
                     {/* CORREÇÃO 2: Labels removidos para evitar poluição visual (a legenda já faz este papel) */}

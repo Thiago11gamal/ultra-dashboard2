@@ -25,7 +25,7 @@ const CustomTooltip = ({ active, payload, label }) => {
             <div className="bg-slate-900/95 border border-white/10 p-4 rounded-xl shadow-2xl backdrop-blur-md text-sm min-w-[180px]">
                 <p className="font-bold text-white mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.color || CHART_COLORS.primary }} />
-                    {label || data.name}
+                    {data.fullName || label || data.name}
                 </p>
                 <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-xs">
@@ -68,6 +68,7 @@ export default function Charts({ data, compact = false }) {
         const tasks = cat.tasks || [];
         return {
             name: cat.name && cat.name.length > 12 ? cat.name.substring(0, 10) + '...' : (cat.name || 'Unlabeled'),
+            fullName: cat.name || 'Unlabeled',
             total: tasks.length,
             completed: tasks.filter(t => t.completed).length,
             color: cat.color || CHART_COLORS.primary,
