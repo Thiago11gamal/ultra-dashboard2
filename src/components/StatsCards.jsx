@@ -160,8 +160,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         </div>
                         <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Equilíbrio</span>
                     </div>
-                    <div className={`mt-1 mb-1 capitalize leading-none line-clamp-2 min-h-[2.5rem] flex items-center ${balance?.status ? 'text-xl sm:text-2xl font-black text-white' : 'text-sm sm:text-base font-bold text-slate-500'}`}>
-                        {balance?.status?.replace(/_/g, ' ') || 'Sem Dados'}
+                    {/* [CORREÇÃO VISUAL-BUG-4] Separar Flex de Line-Clamp */}
+                    <div className="mt-1 mb-1 min-h-[2.5rem] flex flex-col justify-center">
+                        <div className={`capitalize leading-none line-clamp-2 ${balance?.status ? 'text-xl sm:text-2xl font-black text-white' : 'text-sm sm:text-base font-bold text-slate-500'}`}>
+                            {balance?.status?.replace(/_/g, ' ') || 'Sem Dados'}
+                        </div>
                     </div>
                     <div className="mt-auto pt-1 pb-1 flex flex-col gap-1 pl-2">
                         {balance?.distribution?.[0] && (
@@ -259,8 +262,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 <div
                     className="relative z-10 flex-1 flex flex-col items-center justify-center w-full sm:w-1/2 group/rightside cursor-pointer py-2"
                     onClick={(e) => {
-                        // Se o clique já veio do input nativo, não fazemos nada para evitar loops.
-                        if (e.target === dateInputRef.current) return;
+                        // [CORREÇÃO VISUAL-BUG-6] Prevenir double-trigger que trava o calendário em mobile
+                        if (e.target === dateInputRef.current) {
+                            e.stopPropagation();
+                            return;
+                        }
 
                         try {
                             if (dateInputRef.current) {

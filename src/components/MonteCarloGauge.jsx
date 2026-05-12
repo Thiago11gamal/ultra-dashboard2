@@ -336,7 +336,8 @@ export default function MonteCarloGauge({
                     <input
                         type="range"
                         min="0"
-                        max={timelineDates.length - 1}
+                        // [CORREÇÃO VISUAL-BUG-5] Impedir max negativo que quebra a renderização nativa
+                        max={Math.max(1, timelineDates.length - 1)}
                         value={clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex}
                         onChange={(e) => {
                             const val = Number(e.target.value);

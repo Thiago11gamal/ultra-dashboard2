@@ -50,9 +50,11 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
     const n = clean.length;
     const m = customMean !== null && Number.isFinite(Number(customMean)) ? Number(customMean) : mean(clean);
 
-    // B-02 FIX: n=1 has no sample variance, use pure prior (shrinkage)
+    // [CORREÇÃO MATH-BUG-3] Ajuste dos graus de liberdade (Degrees of Freedom)
+    // Se recebemos a média populacional de fora (customMean), não perdemos 1 DOF.
+    const degreesOfFreedom = customMean !== null ? n : (n > 1 ? n - 1 : 1);
     const sampleVar = n > 1
-        ? clean.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
+        ? clean.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / degreesOfFreedom
         : 0;
 
     // Robustez adicional: MAD reduz influência de outliers em séries curtas/ruidosas.
@@ -177,7 +179,10 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
                 const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
                 
                 const minN = retentionFloor;
-                const nAfterDecay = Math.max(minN, nBeforeDecay * entryDecay);
+                // [CORREÇÃO MATH-BUG-1] Só trava no piso se já estava acima dele
+                const nAfterDecay = nBeforeDecay < minN 
+                    ? nBeforeDecay * entryDecay 
+                    : Math.max(minN, nBeforeDecay * entryDecay);
                 
                 // CORREÇÃO: Apenas decair o N, mantendo o P atual (sem forçar o regresso a 0.5)
                 alpha = nAfterDecay * currentP;
@@ -208,7 +213,10 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
             
             const minN = retentionFloor;
-            const nAfterDecay = Math.max(minN, nBeforeDecay * finalDecay);
+            // [CORREÇÃO MATH-BUG-1] Aplica a mesma lógica de não-inflação artificial
+            const nAfterDecay = nBeforeDecay < minN 
+                ? nBeforeDecay * finalDecay 
+                : Math.max(minN, nBeforeDecay * finalDecay);
             
             // CORREÇÃO: Apenas decair o N, mantendo o P atual
             alpha = nAfterDecay * currentP;
