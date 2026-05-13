@@ -51,11 +51,11 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
     const m = customMean !== null && Number.isFinite(Number(customMean)) ? Number(customMean) : mean(clean);
 
 
+    // Cálculo de Desvio Padrão Robusto (sample + MAD)
     const sampleVar = n > 1
         ? clean.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
         : 0;
 
-    // Robustez adicional: MAD reduz influência de outliers em séries curtas/ruidosas.
     const sorted = [...clean].sort((a, b) => a - b);
     const median = sorted.length % 2 === 0
         ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
@@ -64,6 +64,7 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
     const mad = absDev.length % 2 === 0
         ? (absDev[absDev.length / 2 - 1] + absDev[absDev.length / 2]) / 2
         : absDev[Math.floor(absDev.length / 2)];
+
     const robustSigma = 1.4826 * mad;
     const robustVar = robustSigma * robustSigma;
     const blendedSampleVar = (0.8 * sampleVar) + (0.2 * robustVar);
@@ -72,9 +73,7 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
     const POPULATION_SD = getDynamicPriorSD(arr, safeMaxScore);
     const KAPPA = 1;
 
-    const adjustedVar =
-        ((n - 1) * blendedSampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) /
-        ((n - 1) + KAPPA);
+    const adjustedVar = ((n - 1) * blendedSampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) / ((n - 1) + KAPPA);
 
     const finalSdFloor = MIN_SD_FLOOR * safeMaxScore;
     return Math.max(finalSdFloor, Math.sqrt(adjustedVar));
@@ -173,6 +172,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             } else {
                 let correct = Math.round(pct * total);
                 if (total >= 1) {
+                    // Sanitização de acertos
                     const safeCorrect = Math.max(0, Math.min(total, correct));
                     const acertosHoje = safeCorrect;
                     const errosHoje = total - safeCorrect;

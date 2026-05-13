@@ -13,7 +13,7 @@ export function getSyntheticTotal(maxScore = 100) {
 export const normalizePercentInput = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
-    return (n < 1 && n > 0) ? n * 100 : n;
+    return n <= 1 ? n * 100 : n;
 };
 
 export function getSafeScore(historyRow, maxScore = 100) {
