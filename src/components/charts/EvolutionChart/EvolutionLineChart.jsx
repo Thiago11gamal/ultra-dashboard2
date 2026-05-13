@@ -100,11 +100,17 @@ export function EvolutionLineChart({
             yPositions.forEach(p => p.yPos += shift);
         }
 
-        // Pass 3: Hard safety clamp (Safety first!)
-        const topLimit = maxScore - (range * 0.04);
-        yPositions.forEach(p => {
-            p.yPos = Math.max(bottomLimit, Math.min(topLimit, p.yPos));
-        });
+        // Pass 3: Top overflow cascade fix (substitui o Math.min/max esmagador)
+        const topLimit = maxScore - (range * 0.02);
+        for (let i = yPositions.length - 1; i >= 0; i--) {
+            if (yPositions[i].yPos > topLimit) {
+                yPositions[i].yPos = topLimit;
+                // Empurra o item de baixo recursivamente se a distância for violada
+                if (i > 0 && yPositions[i].yPos - yPositions[i-1].yPos < effectiveDistance) {
+                    yPositions[i-1].yPos = yPositions[i].yPos - effectiveDistance;
+                }
+            }
+        }
 
         const map = {};
         yPositions.forEach(p => { map[p.id] = p.yPos; });
@@ -153,7 +159,8 @@ export function EvolutionLineChart({
             <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0">
                 <ComposedChart 
                     data={enhancedChartData} 
-                    margin={{ top: 20, right: 85, left: 0, bottom: 20 }} 
+                    // 🎯 FIX: Aumento da margem direita (right: 110) para acomodar a Label formatada
+                    margin={{ top: 20, right: 110, left: 0, bottom: 20 }} 
                     style={{ outline: 'none' }} 
                     tabIndex="-1"
                 >

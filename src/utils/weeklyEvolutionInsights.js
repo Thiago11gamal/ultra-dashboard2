@@ -28,20 +28,34 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
   const visibleKeys = keys.filter((key) => !hiddenKeys[key]);
   if (visibleKeys.length === 0) return null;
 
-  const weeklyAverages = chartData.map((week) => {
-    const values = visibleKeys.map((key) => week?.[key]).filter((v) => Number.isFinite(Number(v))).map(Number);
-    if (!values.length) return null;
-    return values.reduce((acc, v) => acc + v, 0) / values.length;
-  }).filter((v) => Number.isFinite(Number(v)));
-
-  if (weeklyAverages.length < 2) return null;
-  const recentWindow = weeklyAverages.slice(-4);
-  const previousWindow = weeklyAverages.slice(-8, -4);
+  const recentWindow = chartData.slice(-4);
+  const previousWindow = chartData.slice(-8, -4);
   if (!previousWindow.length) return null;
 
-  const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-  const recentAvg = avg(recentWindow);
-  const previousAvg = avg(previousWindow);
+  // 🎯 FIX: Cálculo de média ponderada pelo volume real de questões da semana
+  const calculateWeightedAvg = (windowData) => {
+    let totalWeightedScore = 0;
+    let totalVolume = 0;
+
+    windowData.forEach(week => {
+      visibleKeys.forEach(key => {
+        const meta = week[`meta_${key}`];
+        // Verifica se há volume e se o valor é válido numéricamente
+        if (meta && meta.currTot > 0 && Number.isFinite(Number(week[key]))) {
+          totalWeightedScore += (Number(week[key]) * meta.currTot);
+          totalVolume += meta.currTot;
+        }
+      });
+    });
+
+    return totalVolume > 0 ? (totalWeightedScore / totalVolume) : null;
+  };
+
+  const recentAvg = calculateWeightedAvg(recentWindow);
+  const previousAvg = calculateWeightedAvg(previousWindow);
+
+  if (recentAvg === null || previousAvg === null) return null;
+
   return {
     recentAvg,
     previousAvg,

@@ -449,7 +449,17 @@ export const WeeklyEvolutionView = ({
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}${unit}`} />
+                                {/* 🎯 FIX: Uso do formatValue e correcção lógica para o sinal de mais (+) e o Zero perfeito */}
+                                <YAxis 
+                                    stroke="#64748b" 
+                                    fontSize={10} 
+                                    tickLine={false} 
+                                    axisLine={false} 
+                                    tickFormatter={(v) => {
+                                        if (v === 0) return `0${unit}`;
+                                        return `${v > 0 ? '+' : ''}${formatValue(v)}${unit}`;
+                                    }} 
+                                />
                                 <Tooltip content={renderCustomTooltip} cursor={{ fill: '#ffffff08' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="square" formatter={renderLegendText} onClick={handleLegendClick} wrapperStyle={{ paddingTop: '20px' }} />
                                 <ReferenceLine y={0} stroke="#ffffff22" />

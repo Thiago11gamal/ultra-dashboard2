@@ -3,6 +3,8 @@ import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     ResponsiveContainer, Tooltip, Legend
 } from "recharts";
+// 🎯 FIX: Importação adicionada
+import { formatValue } from '../../../utils/scoreHelper';
 
 const CustomTooltipStyle = {
     backgroundColor: 'rgba(15, 23, 42, 0.95)', 
@@ -79,8 +81,9 @@ export function RadarAnalysis({ radarData, maxScore = 100, unit = '%' }) {
                             style={{ filter: `url(#${glowId})` }} 
                         />
 
+                        {/* 🎯 FIX: Adição do formatValue no formatter do Tooltip */}
                         <Tooltip 
-                            formatter={(v) => [`${v}${unit}`, '']} 
+                            formatter={(v) => [`${formatValue(v)}${unit}`, '']} 
                             contentStyle={CustomTooltipStyle} 
                             itemStyle={{ color: '#f8fafc', fontWeight: 'bold' }} 
                         />
