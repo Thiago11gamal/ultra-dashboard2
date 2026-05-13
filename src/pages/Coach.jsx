@@ -70,6 +70,12 @@ export default function Coach() {
     const timeoutRef = useRef(null);
     const lastPushedScoreRef = useRef(null);
     const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
 
     useEffect(() => {
         calibrationHistoryRef.current = data?.calibrationHistoryByCategory || {};
@@ -96,7 +102,7 @@ export default function Coach() {
 
     const lastPersistRef = useRef(0);
     const persistCalibrationMetric = useCallback((metric) => {
-        if (!metric?.categoryId) return;
+        if (!metric?.categoryId || !isMountedRef.current) return;
 
         // RATE-LIMIT: Evita loops se muitas métricas forem emitidas em sequência rápida
         const now = Date.now();
