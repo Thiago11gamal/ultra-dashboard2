@@ -98,8 +98,9 @@ export default function EvolutionChart({
         if (typeof goalDate === 'string') {
             // FIX: Standardize all dates to Local Time to prevent "Timezone Drift".
             if (goalDate.includes('T')) {
-                const g = new Date(goalDate);
-                goal = new Date(g.getFullYear(), g.getMonth(), g.getDate());
+                const dateString = goalDate.split('T')[0];
+                const p = dateString.split('-');
+                goal = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
             } else {
                 const p = goalDate.split('-');
                 if (p.length === 3) {
@@ -368,7 +369,7 @@ export default function EvolutionChart({
 
                 const totalCorrect = Math.round(history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
-                    if (tot === 0 && h.score != null) tot = 100;
+                    if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
                     // BUG 4b FIX: Use maxScore instead of hardcoded 100
                     return s + (getSafeScore(h, maxScore) / maxScore * tot);
                 }, 0));

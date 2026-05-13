@@ -1088,7 +1088,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
                     }
                 });
-                continue; // Alerta emitido, passa para próxima iteração
+                i--; continue; // Alerta emitido, passa para próxima iteração
             }
 
             if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE && !alertEmitted) {
@@ -1107,7 +1107,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível."
                     }
                 });
-                continue;
+                i--; continue;
             }
 
             if (mc && mc.probabilityRaw >= adaptiveSafe && !alertEmitted) {
@@ -1126,7 +1126,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Mantenha o ritmo atual para proteger sua posição."
                     }
                 });
-                continue;
+                i--; continue;
             }
 
             if (cat.urgency?.details?.srsLabel && !alertEmitted) {
@@ -1144,7 +1144,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
                     }
                 });
-                continue;
+                i--; continue;
             }
 
             if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap && !alertEmitted) {
@@ -1162,7 +1162,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
                     }
                 });
-                continue;
+                i--; continue;
             }
 
             // 2. Consumo de Tópicos (Só acontece se não houver alerta pendente nesta iteração)
@@ -1290,7 +1290,7 @@ export function getBestTask(categories, excludeTaskId = null) {
                 
                 let normalizedErrorRate;
                 // CORREÇÃO: Usar <= 1 para tratar 1.0 como 100% e evitar o "abismo" matemático entre 0.99 e 1.0.
-                normalizedErrorRate = validErrorRate <= 1 ? validErrorRate : Math.min(100, Math.max(0, validErrorRate)) / 100;
+                normalizedErrorRate = (validErrorRate < 1 && validErrorRate > 0) ? validErrorRate : Math.min(100, Math.max(0, validErrorRate)) / 100;
                 
                 score += normalizedErrorRate * 40; // 0-40 pts
             }
