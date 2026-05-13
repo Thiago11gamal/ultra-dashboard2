@@ -497,11 +497,18 @@ export function monteCarloSimulation(
     }) : [0];
 
     // Clamping de resíduos extremos (Huber-like) e Mean-Centering (Ghost Drift Fix)
+    // Clamping de resíduos extremos (Huber-like) e Mean-Centering (Ghost Drift Fix)
     const validResiduals = residuals.length > 1 ? residuals.slice(1) : residuals;
     
-    // FIX BUG 2: Remover o Drift residual da amostra empírica (Mean-Centering)
-    const residualMean = validResiduals.reduce((a, b) => a + b, 0) / Math.max(1, validResiduals.length);
-    const centeredResiduals = validResiduals.map(r => r - residualMean);
+    // CORREÇÃO: Só aplicar a remoção de média (Mean-Centering) se houver múltiplos resíduos,
+    // caso contrário, anularíamos a volatilidade inteira em amostras muito pequenas.
+    let centeredResiduals;
+    if (validResiduals.length > 1) {
+        const residualMean = validResiduals.reduce((a, b) => a + b, 0) / validResiduals.length;
+        centeredResiduals = validResiduals.map(r => r - residualMean);
+    } else {
+        centeredResiduals = validResiduals;
+    }
     
     const resMedian = getPercentile(centeredResiduals, 50);
     const resMad = getPercentile(centeredResiduals.map(r => Math.abs(r - resMedian)), 50) || (1.0 * scaleFactor);
