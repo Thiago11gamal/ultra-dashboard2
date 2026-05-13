@@ -1,11 +1,11 @@
 import { computeTopRegressions, computeTrendKpi } from '../src/utils/weeklyEvolutionInsights.js';
 
 const chartData = [
-  { displayDate: '01/01', a: 60, b: 55, delta_a: null, delta_b: null },
-  { displayDate: '08/01', a: 62, b: 54, delta_a: 2, delta_b: -1 },
-  { displayDate: '15/01', a: 59, b: 50, delta_a: -3, delta_b: -4 },
-  { displayDate: '22/01', a: 58, b: 52, delta_a: -1, delta_b: 2 },
-  { displayDate: '29/01', a: 57, b: 48, delta_a: -1, delta_b: -4 },
+  { displayDate: '01/01', a: 60, b: 55, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: null, delta_b: null },
+  { displayDate: '08/01', a: 62, b: 54, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: 2, delta_b: -1 },
+  { displayDate: '15/01', a: 59, b: 50, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -3, delta_b: -4 },
+  { displayDate: '22/01', a: 58, b: 52, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: 2 },
+  { displayDate: '29/01', a: 57, b: 48, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: -4 },
 ];
 const keys = ['a', 'b'];
 const activeKeys = { a: { name: 'A', color: '#fff' }, b: { name: 'B', color: '#fff' } };
