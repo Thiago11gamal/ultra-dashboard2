@@ -174,8 +174,10 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
                 let correct = Math.round(pct * total);
                 if (total >= 1) {
                     const safeCorrect = Math.max(0, Math.min(total, correct));
-                    alpha += safeCorrect;
-                    beta += (total - safeCorrect);
+                    const acertosHoje = safeCorrect;
+                    const errosHoje = total - safeCorrect;
+                    alpha += acertosHoje;
+                    beta += errosHoje;
                 }
             }
 
