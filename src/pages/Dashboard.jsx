@@ -94,8 +94,8 @@ export default function Dashboard() {
         }
     }, [data.categories, startPomodoroSession, setData, showToast, navigate]);
 
-    // ✅ DEPOIS (Barreira de Hidratação Atómica)
-    if (!isHydrated || !data || !data.categories) {
+    // ✅ DEPOIS (Barreira de Hidratação Atómica - Relaxada para permitir categorias vazias)
+    if (!isHydrated) {
         return (
             <div className="flex items-center justify-center h-[70vh] w-full animate-fade-in">
                 <div className="flex flex-col items-center gap-5 p-12">

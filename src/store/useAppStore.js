@@ -257,6 +257,10 @@ export const useAppStore = create(
                     
                     if ((!targetId || !appState.contests[targetId]) && contestsList.length > 0) {
                         targetId = contestsList[0];
+                    } else if (contestsList.length === 0) {
+                        // FIX: Se não há concursos (erro crítico de estado), reconstrói o default
+                        targetId = 'default';
+                        appState.contests = { 'default': safeClone(INITIAL_DATA) };
                     }
 
                     // Atualização Atômica: ID e Hidratação juntos

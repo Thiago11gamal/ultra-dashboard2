@@ -174,7 +174,7 @@ export default function Sidebar({
                                 }
                             }}
                             className="sidebar-item group justify-between"
-                            title="Meus Concursos"
+                            title={collapsed ? "Meus Concursos" : ""}
                             aria-expanded={contestsExpanded && !collapsed}
                             aria-controls="sidebar-contests-panel"
                         >
@@ -298,7 +298,7 @@ export default function Sidebar({
                                     }
                                 }}
                                 className="sidebar-item group"
-                                title="Configurações"
+                                title={collapsed ? "Configurações" : ""}
                                 aria-expanded={settingsExpanded && !collapsed}
                                 aria-controls="sidebar-settings-panel"
                             >

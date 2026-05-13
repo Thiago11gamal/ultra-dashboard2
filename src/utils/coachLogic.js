@@ -258,13 +258,15 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             // CORREÇÃO LÓGICA: Removido 'normalizeDate(new Date())' para prevenir o 
             // "Bug da Meia-Noite" e ignorar lotes importados subitamente.
             // Consideramos "sessão anterior" qualquer nota gerada pelo menos 1 hora antes do teste mais recente.
+            // CORREÇÃO LÓGICA: Não utilize normalizeDate aqui, pois zera as horas e quebra a precisão de 1h.
+            // Usamos datas brutas (timestamps) para garantir a separação real das sessões.
             const mostRecentSimDate = relevantSimulados.length > 0 
-                ? normalizeDate(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime() 
-                : normalizeDate(new Date()).getTime();
+                ? new Date(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime() 
+                : Date.now();
             const SESSION_GAP_MS = 60 * 60 * 1000; // 1 Hora
 
             let pastSimulados = relevantSimulados.filter(s => {
-                const sTime = normalizeDate(s.date || s.createdAt).getTime();
+                const sTime = new Date(s.date || s.createdAt).getTime();
                 return sTime < (mostRecentSimDate - SESSION_GAP_MS);
             });
             
@@ -1287,12 +1289,8 @@ export function getBestTask(categories, excludeTaskId = null) {
                 const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
                 
                 let normalizedErrorRate;
-                // CORREÇÃO: Usar estritamente '< 1' para evitar que o input de '1' exato (1%) seja tratado como 100%
-                if (validErrorRate < 1 && validErrorRate > 0) {
-                    normalizedErrorRate = validErrorRate; 
-                } else {
-                    normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
-                }
+                // CORREÇÃO: Usar <= 1 para tratar 1.0 como 100% e evitar o "abismo" matemático entre 0.99 e 1.0.
+                normalizedErrorRate = validErrorRate <= 1 ? validErrorRate : Math.min(100, Math.max(0, validErrorRate)) / 100;
                 
                 score += normalizedErrorRate * 40; // 0-40 pts
             }
