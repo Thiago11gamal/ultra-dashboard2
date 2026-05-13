@@ -237,9 +237,12 @@ export function calculateSlope(history, maxScore = 100, options = {}) {
         lambda = Math.max(0.03, Math.min(0.12, 0.03 + 0.08 * Math.exp(-medianGap / 10)));
     }
     const { slope } = weightedRegression(history, lambda, maxScore, options);
-    // CORREÇÃO: Limita o drift diário a 1.5% da escala total para permitir
-    // a captação da curva íngreme de aprendizagem de alunos iniciantes (até 45% ao mês).
-    const limit = 0.015 * maxScore;
+    
+    // MELHORIA: O limite diário de drift deixa de ser heurístico fixo.
+    // Permite que o edital ou a configuração injetem a tolerância máxima.
+    const maxDailyDriftPct = options.maxDailyDriftPct !== undefined ? options.maxDailyDriftPct : 0.015;
+    const limit = maxDailyDriftPct * maxScore;
+    
     return Math.max(-limit, Math.min(limit, slope));
 }
 
@@ -459,9 +462,9 @@ export function monteCarloSimulation(
     // C1 FIX: Cap drift uncertainty to prevent bimodal explosion with short history.
     const scaleFactor = scaleFactorFallback;
     const rawDriftUncertainty = Math.max(0.05 * scaleFactor, slopeStdError);
-    // ESCALA INVARIANTE: O teto 1.5 foi reduzido para 0.4 para evitar colapso bimodal
-    // em projeções longas com baixa confiança.
-    let driftUncertainty = Math.min(rawDriftUncertainty, 0.4 * scaleFactor) * (scenarioCfg.ciMult || 1);
+    // MELHORIA: Teto de incerteza configurável para evitar explosão bimodal
+    const driftUncertaintyCap = options.driftUncertaintyCap !== undefined ? options.driftUncertaintyCap : 0.4;
+    let driftUncertainty = Math.min(rawDriftUncertainty, driftUncertaintyCap * scaleFactor) * (scenarioCfg.ciMult || 1);
 
     // LOW-N ROBUSTNESS: Inflate epistemic uncertainty for small samples
     if (sortedHistory.length < 10) {

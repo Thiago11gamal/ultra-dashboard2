@@ -36,12 +36,27 @@ export function computeEffectiveSampleSizeFromWeights(weights = []) {
     return sumW2 > 0 ? (sumW * sumW) / sumW2 : 0;
 }
 
-// FIX 2.3: Proteção estrita contra a injeção de parâmetros corrompidos (null/NaN) do DB
-export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION, preserveScale = false) {
+// MELHORIA: Permite a injeção de parâmetros dinâmicos ou cálculo on-the-fly do rho
+export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER_SUBJECT_CORRELATION) {
     if (!Array.isArray(stats) || stats.length === 0) return 0;
 
-    // BUG 7 FIX: Use the provided totalWeight if valid, otherwise fallback to calculated total.
-    // This respects the function contract while remaining defensive.
+    let rho = INTER_SUBJECT_CORRELATION;
+    let preserveScale = false;
+
+    // Extrai rho dinâmico se um objeto de opções for passado
+    if (typeof optionsOrRho === 'object' && optionsOrRho !== null) {
+        preserveScale = optionsOrRho.preserveScale || false;
+        if (typeof optionsOrRho.rho === 'number') {
+            rho = optionsOrRho.rho;
+        } else if (optionsOrRho.scoreRows && optionsOrRho.subjectNames) {
+            // Estimação empírica dinâmica baseada no histórico real!
+            rho = estimateInterSubjectCorrelation(optionsOrRho.scoreRows, optionsOrRho.subjectNames, INTER_SUBJECT_CORRELATION);
+        }
+    } else {
+        // Fallback de compatibilidade
+        rho = Number.isFinite(optionsOrRho) ? optionsOrRho : INTER_SUBJECT_CORRELATION;
+    }
+
     const toFiniteNonNegative = (value) => {
         const n = Number(value);
         return Number.isFinite(n) && n > 0 ? n : 0;
@@ -57,32 +72,21 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
 
     if (effectiveTotalWeight === 0) return 0;
 
-    // Garantia absoluta de tipo e limite para correlação
-    const validRho = Number.isFinite(rho) && rho !== null ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
-
+    const validRho = Math.max(0, Math.min(1, rho));
     const rawWeights = stats.map(cat => toFiniteNonNegative(cat?.weight));
     const adjustedSDs = stats.map(cat => toFiniteSd(cat?.sd));
 
-    // SAFETY: If caller passes inconsistent totalWeight, force normalized simplex weights (Σwi=1).
-    // This preserves scale invariance of linear-combination variance instead of silently shrinking/blowing up SD.
     const sumRawWeights = rawWeights.reduce((acc, w) => acc + w, 0);
     if (!Number.isFinite(sumRawWeights) || sumRawWeights <= 0) return 0;
     
-    // FIX BUG-VAR-01: Adicionar opção para preservar a escala real (edital)
     const weights = preserveScale 
         ? rawWeights 
-        : rawWeights.map(w => w / sumRawWeights); // Fallback para simplex
+        : rawWeights.map(w => w / sumRawWeights);
 
-    // 1. Independent Variance Component (Weighted Sum of Variances): Σ (wi² * σi²)
-    // BUGFIX: Respeito estrito à variância de uma combinação linear para editais.
-    // O peso (wi) PRECISA ser elevado ao quadrado para a componente independente.
     const independentVar = weights.reduce((acc, w, i) => acc + Math.pow(w, 2) * Math.pow(adjustedSDs[i], 2), 0);
-
-    // 2. Coherent Variance Component (Full Correlation): (Σ wi * σi)²
     const weightedSumSD = weights.reduce((acc, w, i) => acc + (w * adjustedSDs[i]), 0);
     const coherentVar = Math.pow(weightedSumSD, 2);
 
-    // 3. Interpolated Variance: Usar validRho em vez de rho bruto
     return (1 - validRho) * independentVar + (validRho * coherentVar);
 }
 

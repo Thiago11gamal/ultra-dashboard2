@@ -2,6 +2,12 @@
  * Utilitários de Matemática Adaptativa para o Motor Estatístico
  */
 
+/**
+ * Calcula o multiplicador de confiança (T-Student aproximado).
+ * @param {number} sampleSize - Tamanho da amostra.
+ * @param {Object} options 
+ * @param {boolean} [options.allowFractional=false] - Se true, permite N fracionário (útil apenas para N Efetivo de Kish). Se false, força um número inteiro para manter a consistência da T-Student em contagens de amostras reais.
+ */
 export function getConfidenceMultiplier(sampleSize, options = {}) {
     const nRaw = Number(sampleSize);
     const allowFractional = options?.allowFractional === true;
@@ -192,22 +198,28 @@ export function computeAdaptiveSignal(historyOrScores = []) {
 
     const CONSISTENCY_FACTOR = 1.11; 
     const sd = Math.sqrt(Math.max(0, weightedVariance * CONSISTENCY_FACTOR));
-    // Reduz sensibilidade a ruído usando média dos últimos deltas (até 4 passos).
-    const k = Math.min(4, Math.max(1, finiteScores.length - 1));
-    const recentDeltas = [];
-    for (let i = finiteScores.length - k; i < finiteScores.length; i++) {
-        if (i <= 0) continue;
-        // CORREÇÃO MATH: O uso de valor absoluto previne a "Soma Telescópica".
-        // Antes, flutuações violentas [50 -> 100 -> 50] anulavam-se, resultando em média = 0.
-        // Agora, capturamos a verdadeira turbulência passo-a-passo.
-        recentDeltas.push(Math.abs(finiteScores[i] - finiteScores[i - 1]));
+    
+    // MELHORIA MATEMÁTICA: Regressão Linear Curta (Short-Term Momentum)
+    // Em vez de somar deltas absolutos (que se confundem com ruído), 
+    // medimos a inclinação real dos últimos K pontos.
+    const kPoints = Math.min(5, Math.max(2, finiteScores.length));
+    let shortTermSlope = 0;
+    
+    if (kPoints > 1) {
+        const recent = finiteScores.slice(-kPoints);
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        for (let i = 0; i < kPoints; i++) {
+            sumX += i;
+            sumY += recent[i];
+            sumXY += i * recent[i];
+            sumXX += i * i;
+        }
+        const det = kPoints * sumXX - sumX * sumX;
+        shortTermSlope = det === 0 ? 0 : (kPoints * sumXY - sumX * sumY) / det;
     }
-    const avgRecentAbsDelta = recentDeltas.length > 0
-        ? recentDeltas.reduce((a, b) => a + b, 0) / recentDeltas.length
-        : 0;
         
-    // BUGFIX: quando sd≈0, qualquer delta pequeno explodia numericamente.
-    const trendStrength = sd > 1e-9 ? Math.min(2.5, avgRecentAbsDelta / sd) : 0;
+    // trendStrength agora mede o momento real contra o desvio padrão global
+    const trendStrength = sd > 1e-9 ? Math.min(3.0, Math.abs(shortTermSlope) / sd) : 0;
 
     const ciInflationRaw = 1 + (trendStrength * cfg.trendSensitivity);
     const ciInflation = Math.max(1, Math.min(cfg.maxCIInflation, ciInflationRaw));
