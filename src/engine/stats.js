@@ -99,6 +99,49 @@ export const calcularDesvioPadrao = (arr) => {
  * @param {number} maxScore - Escala máxima da prova.
  * @param {Object} options - Configurações extras (maxEffectiveN, priorMean, etc).
  */
+export function computeBayesianLevel(
+    historyOrScore, 
+    arg1 = 1, 
+    arg2 = 1, 
+    arg3 = 100, 
+    arg4 = {}
+) {
+    let history, alpha, beta, safeMaxScore, options;
+    
+    // 1. Polimorfismo de Assinatura
+    if (Array.isArray(historyOrScore)) {
+        // Modo A: Histórico de Simulados (history, alpha0, beta0, maxScore, options)
+        history = historyOrScore;
+        alpha = Number(arg1) || 1;
+        beta = Number(arg2) || 1;
+        safeMaxScore = Number(arg3) || 100;
+        options = arg4 || {};
+    } else {
+        // Modo B: Score Direto (score, n, maxScore, options)
+        history = [];
+        const score = Number(historyOrScore) || 0;
+        const n_eff = Number(arg1) || 1;
+        safeMaxScore = Number(arg2) || 100;
+        options = arg3 || {};
+        
+        const pct = Math.max(0, Math.min(1, score / safeMaxScore));
+        alpha = pct * n_eff;
+        beta = (1 - pct) * n_eff;
+    }
+
+    const alpha0 = alpha;
+    const beta0 = beta;
+
+    let maxNEver = alpha + beta;
+    const gaps = [];
+    if (history.length > 1) {
+        for (let i = 1; i < history.length; i++) {
+            const gap = (new Date(history[i].date) - new Date(history[i - 1].date)) / 86400000;
+            if (gap > 0) gaps.push(gap);
+        }
+    }
+    const avgGap = gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 7;
+
     const totalQuestionsHist = history ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) : 0;
     const historyDays = history && history.length > 1 
         ? Math.max(1, (new Date(history[history.length-1].date) - new Date(history[0].date)) / 86400000) 

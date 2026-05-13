@@ -1,0 +1,28 @@
+﻿
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\ultra-patched\ultra-patched\coverage\block-navigation.js
+  1:1  warning  Unused eslint-disable directive (no problems were reported)
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\ultra-patched\ultra-patched\src\components\EvolutionChart.jsx
+  199:17  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\ultra-patched\ultra-patched\src\engine\stats.js
+  262:62  error  'alpha0' is not defined  no-undef
+  262:76  error  'beta0' is not defined   no-undef
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\ultra-patched\ultra-patched\src\hooks\useCloudSync.js
+  348:21  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  350:21  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  355:21  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  364:13  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  366:13  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  540:17  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  542:17  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  551:13  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  553:13  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\ultra-patched\ultra-patched\src\utils\coachLogic.js
+  2:10  error  'standardDeviation' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+Ô£û 14 problems (3 errors, 11 warnings)
+  0 errors and 11 warnings potentially fixable with the `--fix` option.
+

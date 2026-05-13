@@ -28,5 +28,9 @@ describe('Adaptive Math Utilities', () => {
         const signal = computeAdaptiveSignal([40, 42, 41, 45, 47, 44, 46]);
         expect(signal.effectiveN).toBeGreaterThanOrEqual(1);
         expect(signal.ciInflation).toBeGreaterThanOrEqual(1);
+        expect(signal.isPlateau).toBeDefined();
+        expect(signal.adaptiveWinsor).toBeDefined();
+        expect(signal.adaptiveWinsor.low).toBeGreaterThan(0);
+        expect(signal.adaptiveWinsor.high).toBeLessThan(1);
     });
 });
