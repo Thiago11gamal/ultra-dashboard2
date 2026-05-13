@@ -27,11 +27,11 @@ describe('evolution utils', () => {
 
   it('computes weekly insights', () => {
     const chartData = [
-      { displayDate: '01/01', a: 60, b: 55, delta_a: null, delta_b: null },
-      { displayDate: '08/01', a: 62, b: 54, delta_a: 2, delta_b: -1 },
-      { displayDate: '15/01', a: 59, b: 50, delta_a: -3, delta_b: -4 },
-      { displayDate: '22/01', a: 58, b: 52, delta_a: -1, delta_b: 2 },
-      { displayDate: '29/01', a: 57, b: 48, delta_a: -1, delta_b: -4 },
+      { displayDate: '01/01', a: 60, b: 55, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: null, delta_b: null },
+      { displayDate: '08/01', a: 62, b: 54, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: 2, delta_b: -1 },
+      { displayDate: '15/01', a: 59, b: 50, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -3, delta_b: -4 },
+      { displayDate: '22/01', a: 58, b: 52, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: 2 },
+      { displayDate: '29/01', a: 57, b: 48, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: -4 },
     ];
     const keys = ['a', 'b'];
     const activeKeys = { a: { name: 'A' }, b: { name: 'B' } };
@@ -60,10 +60,10 @@ describe('evolution utils', () => {
 
   it('returns null trend KPI when there are not enough prior windows', () => {
     const chartData = [
-      { displayDate: '01/01', a: 60 },
-      { displayDate: '08/01', a: 62 },
-      { displayDate: '15/01', a: 63 },
-      { displayDate: '22/01', a: 64 },
+      { displayDate: '01/01', a: 60, meta_a: { currTot: 10 } },
+      { displayDate: '08/01', a: 62, meta_a: { currTot: 10 } },
+      { displayDate: '15/01', a: 63, meta_a: { currTot: 10 } },
+      { displayDate: '22/01', a: 64, meta_a: { currTot: 10 } },
     ];
 
     const trend = computeTrendKpi({ chartData, keys: ['a'], hiddenKeys: { a: false } });
