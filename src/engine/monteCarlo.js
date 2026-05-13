@@ -447,3 +447,32 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
     
     return simulacoes;
 };
+
+/**
+ * Interface simplificada para Backtesting e Regressão
+ * Suporta o formato do teste coach-math-regressions.test.js
+ */
+export function simularMonteCarlo(metricas, simulacoes = 1000) {
+    if (metricas && metricas.volumeSemanasAnteriores) {
+        const history = metricas.volumeSemanasAnteriores;
+        const lastVal = history[history.length - 1] || 0;
+        const sd = metricas.focoMedio ? (1 - metricas.focoMedio) * lastVal : lastVal * 0.1;
+        
+        const results = [];
+        // Geração simples para validação de Backtest
+        for (let i = 0; i < simulacoes; i++) {
+            // Box-Muller para normalidade
+            const u1 = Math.random() || 1e-9;
+            const u2 = Math.random() || 1e-9;
+            const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            results.push(lastVal + z * sd);
+        }
+        results.sort((a, b) => a - b);
+        return {
+            p50: results[Math.floor(simulacoes * 0.5)],
+            p10: results[Math.floor(simulacoes * 0.1)],
+            p90: results[Math.floor(simulacoes * 0.9)]
+        };
+    }
+    return runMonteCarloSimulation(metricas, 7, 100);
+}

@@ -208,10 +208,19 @@ export function getVarianceBreakdown(stats, totalWeight) {
     };
 }
 
+export function calcularVariancia(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return 0;
+    const clean = arr.map(Number).filter(Number.isFinite);
+    if (clean.length === 0) return 0;
+    const m = clean.reduce((a, b) => a + b, 0) / clean.length;
+    return clean.reduce((acc, v) => acc + Math.pow(v - m, 2), 0) / clean.length;
+}
+
 export default {
     computeWeightedVariance,
     computePooledSD,
     getVarianceBreakdown,
     estimateInterSubjectCorrelation,
-    computeEffectiveSampleSizeFromWeights
+    computeEffectiveSampleSizeFromWeights,
+    calcularVariancia
 };

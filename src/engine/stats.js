@@ -40,6 +40,7 @@ export function mean(arr) {
     if (!clean.length) return 0;
     return clean.reduce((a, b) => a + b, 0) / clean.length;
 }
+export const calcularMedia = mean;
 
 export function standardDeviation(arr, maxScore = 100, customMean = null) {
     if (!arr || arr.length < 1) return 0;
@@ -79,6 +80,7 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
     return Math.max(finalSdFloor, Math.sqrt(adjustedVar));
 
 }
+export const calcularDesvioPadrao = standardDeviation;
 
 
 
