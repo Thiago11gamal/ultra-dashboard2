@@ -137,14 +137,16 @@ export function computeBayesianLevel(
     if (history.length > 1) {
         for (let i = 1; i < history.length; i++) {
             const gap = (new Date(history[i].date) - new Date(history[i - 1].date)) / 86400000;
-            if (gap > 0) gaps.push(gap);
+            if (gap > 0) {
+                gaps.push(gap);
+            }
         }
     }
     const avgGap = gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 7;
 
     const totalQuestionsHist = history ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) : 0;
     const historyDays = history && history.length > 1 
-        ? Math.max(1, (new Date(history[history.length-1].date) - new Date(history[0].date)) / 86400000) 
+        ? Math.max(1, (new Date(history[history.length - 1].date) - new Date(history[0].date)) / 86400000) 
         : 1;
     const questionsPerDay = totalQuestionsHist / historyDays;
 
@@ -206,15 +208,12 @@ export function computeBayesianLevel(
 
             // 2. Agora injetamos a nota na matemática (SEM usar `continue`)
             if (isPurePercentage) {
-                // 🎯 FIX: Usar o peso sintético global em vez de "0.5".
-                // Isto garante que as notas inseridas apenas como % movam efetivamente o IC 95%
                 const syntheticN = getSyntheticTotal(safeMaxScore);
                 alpha += pct * syntheticN;
                 beta += (1 - pct) * syntheticN;
             } else {
                 let correct = Math.round(pct * total);
                 if (total >= 1) {
-                    // Sanitização de acertos
                     const safeCorrect = Math.max(0, Math.min(total, correct));
                     const acertosHoje = safeCorrect;
                     const errosHoje = total - safeCorrect;
@@ -225,7 +224,9 @@ export function computeBayesianLevel(
 
             // 3. Atualizamos o teto global com os novos valores
             const currentN = alpha + beta;
-            if (currentN > maxNEver) maxNEver = Math.min(currentN, dynamicAlphaCap);
+            if (currentN > maxNEver) {
+                maxNEver = Math.min(currentN, dynamicAlphaCap);
+            }
         }
         
         // Decaimento final até o dia de hoje
@@ -233,13 +234,10 @@ export function computeBayesianLevel(
         const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
             const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
-            // [DEPOIS] Piso dinâmico que esvazia com o tempo
             const macroDecay = Math.max(0.1, Math.exp(-0.005 * (gapToToday || 0))); 
             const retentionFloor = (cappedMaxN * 0.3) * macroDecay;
             
             const finalLambdaBase = computeAdaptiveLambda(sortedHistory);
-            
-            // CORREÇÃO MATH: O mesmo piso é aplicado aqui para consistência assintótica.
             const rawFinalLambda = finalLambdaBase * Math.exp(-0.15 * sortedHistory.length);
             const finalLambda = Math.max(0.005, rawFinalLambda);
             
@@ -248,13 +246,11 @@ export function computeBayesianLevel(
             const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
             
             const minN = retentionFloor;
-            // [CORREÇÃO MATH-BUG-1] Aplica a mesma lógica de não-inflação artificial
             const HARD_FLOOR = 3.0;
             const nAfterDecay = nBeforeDecay < minN 
                 ? Math.max(HARD_FLOOR, nBeforeDecay * finalDecay)
                 : Math.max(Math.max(minN, HARD_FLOOR), nBeforeDecay * finalDecay);
             
-            // CORREÇÃO: Apenas decair o N, mantendo o P atual
             alpha = nAfterDecay * currentP;
             beta = nAfterDecay * (1 - currentP);
         }
@@ -275,8 +271,6 @@ export function computeBayesianLevel(
     const n_tilde = effectiveN + z2;
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
-    // CORREÇÃO: Em vez de Math.max(20, ...), permitimos que o tamanho físico 
-    // real da prova não seja artificialmente distorcido se for uma prova pequena.
     const TAMANHO_PROVA_ESTIMADO = Math.max(1, Math.round(safeMaxScore));
     const epistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;
     const aleatoricVar = (p_tilde * (1 - p_tilde)) / TAMANHO_PROVA_ESTIMADO;
@@ -290,9 +284,6 @@ export function computeBayesianLevel(
     let ciLow = centerForCI - marginOfError;
     let ciHigh = centerForCI + marginOfError;
 
-    // FIX BUG 1: Remover o clamp estrito contra a bayesianMean. 
-    // O intervalo de Agresti-Coull (Shrinkage) PODE legitimamente não conter 
-    // a média amostral bruta em casos de pontuações perfeitas (0% ou 100%) com amostra pequena.
     const strictLow = Math.max(0, ciLow);
     const strictHigh = Math.min(safeMaxScore, ciHigh);
 
