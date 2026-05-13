@@ -7,6 +7,7 @@ import { HorasDisciplinaChart } from '../components/charts/Analytics/HorasDiscip
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../utils/chartDataMappers';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
+const EMPTY_ARRAY = [];
 
 export default function Stats() {
     // FIX: Extração granular blindada contra renders desnecessários
@@ -15,8 +16,8 @@ export default function Stats() {
         const activeId = state?.appState?.activeId;
         const contest = contests[activeId] || {};
         return {
-            categories: contest.categories || [],
-            studyLogs: contest.studyLogs || [],
+            categories: contest.categories ?? EMPTY_ARRAY,
+            studyLogs: contest.studyLogs ?? EMPTY_ARRAY,
             user: contest.user || null
         };
     }));

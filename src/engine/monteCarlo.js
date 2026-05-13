@@ -393,7 +393,12 @@ export default {
  * Motor Estocástico com Teto Logístico e Heteroscedasticidade
  */
 export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuestoesFeitas) => {
-    const ultimaNota = historicoNotas.length > 0 ? historicoNotas[historicoNotas.length - 1] : 0.5;
+    const ultimoRegisto = historicoNotas.length > 0 ? historicoNotas[historicoNotas.length - 1] : 0.5;
+    // Forçar extração numérica segura do objeto, ou manter o valor se já for numérico
+    const ultimaNota = typeof ultimoRegisto === 'object' && ultimoRegisto !== null 
+        ? Number(ultimoRegisto.score || 0) 
+        : Number(ultimoRegisto);
+    
     const varianciaBase = 0.05; 
     
     const volatilidadeAdaptativa = varianciaBase / Math.sqrt(Math.max(totalQuestoesFeitas, 1));

@@ -365,7 +365,7 @@ export default function Coach() {
     ]);
 
     useEffect(() => {
-        if (!isNaN(projectedScore) && projectedScore !== lastPushedScoreRef.current) {
+        if (typeof projectedScore === 'number' && !Number.isNaN(projectedScore) && projectedScore !== lastPushedScoreRef.current) {
             if (lastPushedScoreRef.current === null || Math.abs(projectedScore - lastPushedScoreRef.current) > 0.01) {
                 lastPushedScoreRef.current = projectedScore;
                 const timer = setTimeout(() => {
@@ -376,11 +376,7 @@ export default function Coach() {
         }
     }, [projectedScore, updateCoachScore]);
 
-    useEffect(() => {
-        return () => {
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        };
-    }, []);
+
 
     const handleGenerateGoals = useCallback(() => {
         if (!data?.categories || coachLoading) return;
