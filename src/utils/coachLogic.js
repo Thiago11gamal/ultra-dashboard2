@@ -98,29 +98,19 @@ const getDaysDiff = (newer, older) => {
     return Math.max(0, Math.floor((newerDate.getTime() - olderDate.getTime()) / MS_PER_DAY));
 };
 
-function getCrunchMultiplier(daysToExam, historyStartDate) {
-    if (daysToExam === undefined || daysToExam === null || daysToExam < 0) return 1.0;
+/**
+ * Calcula o multiplicador de urgência baseado nos dias restantes para a prova.
+ * Substituição da escada em degraus por uma curva Exponencial Contínua.
+ */
+export function getCrunchMultiplier(daysToExam) {
+    if (!Number.isFinite(daysToExam) || daysToExam <= 0) return 2.0; // Urgência máxima no dia
     
-    // 1. Descobre a extensão total do projeto do aluno
-    let totalJourneyDays = 90; // Default razoável
-    if (historyStartDate && historyStartDate.getTime() > 0) {
-        const elapsed = (Date.now() - historyStartDate.getTime()) / MS_PER_DAY;
-        totalJourneyDays = Math.max(30, elapsed + daysToExam);
-    }
-
-    // 2. Midpoint Dinâmico: A "reta final" é definida como os últimos 15% do tempo de preparação, com limites sãos.
-    const dynamicMidpoint = Math.min(60, Math.max(5, totalJourneyDays * 0.15));
+    // MELHORIA MATEMÁTICA: Curva Exponencial Contínua.
+    // Assíntota em 1.0 para tempo longo (> 90 dias) e limite superior de 2.0.
+    // A curva tem uma meia-vida ajustada para "aquecer" aos 45 dias e disparar nos últimos 15.
+    const urgency = 1.0 + Math.exp(-daysToExam / 21); // Constante 21 dias dita a rampa
     
-    // 3. Inclinação Dinâmica (steepness): Garante que a transição de "calmo" para "desespero" ocorra suavemente dentro desse espaço.
-    const dynamicSteepness = 1.8 / dynamicMidpoint; 
-
-    if (daysToExam > dynamicMidpoint * 3) return 1.0; // Poupando CPU
-
-    const x = Number(daysToExam);
-    const logistic = 1 / (1 + Math.exp(dynamicSteepness * (x - dynamicMidpoint)));
-    const scaled = 1 + (1.5 * logistic);
-
-    return Math.max(1.0, Math.min(2.5, scaled));
+    return Number(Math.min(2.0, urgency).toFixed(4));
 }
 
 function getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null) {
@@ -156,6 +146,25 @@ export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, gl
     
     return smoothedAcertos / smoothedTotal;
 };
+
+/**
+ * Calcula uma volatilidade robusta para o Coach, combinando o desvio padrão empírico
+ * com um piso de incerteza (Bayesian shrinkage) para evitar subestimar o risco em amostras pequenas.
+ */
+export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
+    const n = history.length;
+    const fallbackVol = 0.08 * maxScore; // Piso de incerteza (8%)
+    if (n < 2) return fallbackVol;
+    
+    const scores = history.map(h => Number(h.score) || 0);
+    const mean = scores.reduce((a, b) => a + b, 0) / n;
+    const variance = scores.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (n - 1);
+    const nPenalty = Math.max(1, 4 / n); // Penaliza amostras muito pequenas
+    const empiricalVol = Math.sqrt(Math.max(0, variance));
+    
+    // Combinação Bayesiana simples: 70% empírico, 30% prior (piso) escalado por N
+    return (empiricalVol * 0.7) + (fallbackVol * 0.3 * nPenalty);
+}
 
 // Substitua a função atual getCoachPriorities:
 export const getCoachPriorities = (topicsData) => {
@@ -353,9 +362,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
         const mssdVolatility = mcHistory.length >= 3
             ? calculateMSSD(mcHistory, maxScore)
-            : (lastNScores.length >= 2
-                ? standardDeviation(lastNScores, maxScore)
-                : (lastNScores.length === 1 ? maxScore * 0.05 : maxScore * 0.1)); // scale-aware fallback uncertainty
+            : computeRobustVolatilityForCoach(mcHistory, maxScore);
 
         // ─────────────────────────────────────────────────────────
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta

@@ -91,26 +91,14 @@ export const calcularDesvioPadrao = (arr) => {
 
 
 /**
- * Nível Bayesiano Real — Modelo Beta-Binomial Conjugado
- * Prior: Beta(1,1) = Uniforme (Laplace Smoothing).
- * Assumimos total desconhecimento do Nível inicial do aluno (mais justo).
- * A cada simulado: alpha += acertos, beta += erros.
- * Retorna média posterior + IC 95%.
+ * Calcula o nível Bayesiano (Beta-Binomial ou Normal Shrinkage) de proficiência.
+ * Protege contra escalas inválidas e adapta a confiança ao volume da coorte.
+ * 
+ * @param {Array|number} historyOrScore - Array de histórico ou score normalizado.
+ * @param {number} effectiveNOrAlpha - Tamanho da amostra ou Alpha inicial.
+ * @param {number} maxScore - Escala máxima da prova.
+ * @param {Object} options - Configurações extras (maxEffectiveN, priorMean, etc).
  */
-export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 100, options = {}) {
-    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-    let alpha = alpha0;
-    let beta = beta0;
-    let maxNEver = alpha0 + beta0;
-    
-    // 🎯 O Teto é vivo. Baseia-se na constância do aluno.
-    // No início da função computeBayesianLevel, substitua o bloco do dynamicAlphaCap:
-    const sessionGaps = history && history.length > 1 
-        ? history.map((h, i) => i > 0 ? (new Date(h.date) - new Date(history[i-1].date)) / 86400000 : 0) 
-        : [0];
-    const avgGap = Math.max(0.1, sessionGaps.reduce((a, b) => a + b, 0) / Math.max(1, sessionGaps.length - 1));
-
-    // CORREÇÃO: Estimar capacidade viva baseada no volume diário real
     const totalQuestionsHist = history ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) : 0;
     const historyDays = history && history.length > 1 
         ? Math.max(1, (new Date(history[history.length-1].date) - new Date(history[0].date)) / 86400000) 
