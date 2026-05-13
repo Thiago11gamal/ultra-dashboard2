@@ -1,6 +1,7 @@
 /**
  * Utilitários de Matemática Adaptativa para o Motor Estatístico
  */
+import { bootstrapCI } from '../engine/math/bootstrap.js';
 
 /**
  * Calcula o multiplicador de confiança (T-Student aproximado).
@@ -199,32 +200,57 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     const CONSISTENCY_FACTOR = 1.11; 
     const sd = Math.sqrt(Math.max(0, weightedVariance * CONSISTENCY_FACTOR));
     
-    // MELHORIA MATEMÁTICA: Regressão Linear Curta (Short-Term Momentum)
-    // Em vez de somar deltas absolutos (que se confundem com ruído), 
-    // medimos a inclinação real dos últimos K pontos.
-    const kPoints = Math.min(5, Math.max(2, finiteScores.length));
-    let shortTermSlope = 0;
+    // MATEMÁTICA COMPLEXA: Em vez de linear trend clampada, usamos Bootstrapping 
+    // para medir se o momento positivo é estatisticamente significativo ou só sorte.
     
-    if (kPoints > 1) {
-        const recent = finiteScores.slice(-kPoints);
+    // Função para extrair a inclinação
+    const calcSlope = (amostra) => {
         let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        for (let i = 0; i < kPoints; i++) {
-            sumX += i;
-            sumY += recent[i];
-            sumXY += i * recent[i];
-            sumXX += i * i;
+        const n = amostra.length;
+        for (let i = 0; i < n; i++) {
+            sumX += i; sumY += amostra[i]; sumXY += i * amostra[i]; sumXX += i * i;
         }
-        const det = kPoints * sumXX - sumX * sumX;
-        shortTermSlope = det === 0 ? 0 : (kPoints * sumXY - sumX * sumY) / det;
-    }
-        
-    // trendStrength agora mede o momento real contra o desvio padrão global
-    const trendStrength = sd > 1e-9 ? Math.min(3.0, Math.abs(shortTermSlope) / sd) : 0;
+        const det = n * sumXX - sumX * sumX;
+        return det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
+    };
 
-    const ciInflationRaw = 1 + (trendStrength * cfg.trendSensitivity);
+    let trueTrendStrength = 0;
+    let isPlateau = false;
+
+    if (finiteScores.length >= 5) {
+        // Reamostragem de Monte Carlo (Bootstrap) com os deltas mais recentes
+        const recentDeltas = [];
+        for (let i = 1; i < finiteScores.length; i++) {
+            recentDeltas.push(finiteScores[i] - finiteScores[i-1]);
+        }
+        
+        // Pede o Intervalo de Confiança (CI) a 95% para a média dos deltas
+        const momentumCI = bootstrapCI(recentDeltas, (arr) => arr.reduce((a,b)=>a+b,0)/arr.length, { iterations: 500 });
+        
+        // Diagnóstico de Estagnação (Platô): Se a ponta alta for positiva, mas a baixa negativa,
+        // significa que a variação é apenas ruído estocástico, logo a tendência forte = 0.
+        if (momentumCI.low <= 0 && momentumCI.high >= 0) {
+            isPlateau = true;
+            trueTrendStrength = 0; // Zera a tendência, forçando o motor a focar no baseline histórico
+        } else {
+            trueTrendStrength = Math.abs(momentumCI.estimate) / (sd > 0 ? sd : 1);
+        }
+    } else {
+       // Fallback matemático rigoroso para micro-amostras (N<5)
+       const shortSlope = calcSlope(finiteScores);
+       trueTrendStrength = sd > 1e-9 ? Math.min(3.0, Math.abs(shortSlope) / sd) : 0;
+    }
+
+    const ciInflationRaw = 1 + (trueTrendStrength * cfg.trendSensitivity);
     const ciInflation = Math.max(1, Math.min(cfg.maxCIInflation, ciInflationRaw));
 
-    return { effectiveN, trendStrength, adaptiveWinsor: { low: cfg.lowWinsor, high: cfg.highWinsor }, ciInflation };
+    return { 
+        effectiveN, 
+        trendStrength: trueTrendStrength, 
+        isPlateau, 
+        adaptiveWinsor: { low: cfg.lowWinsor, high: cfg.highWinsor }, 
+        ciInflation 
+    };
 }
 
 // NOTE: deriveCoachAdaptiveParams lives in coachAdaptive.js (canonical version).

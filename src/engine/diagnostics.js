@@ -44,7 +44,7 @@ function _interSessionGaps(history) {
 }
 
 export function computeHurstExponent(scores) {
-  const fallback = { H: 0.5, confidence: 'low', interpretation: 'Dados insuficientes para análise de persistência.' };
+  const fallback = { H: 0.5, confidence: 'low', interpretation: 'Dados insuficientes', rSquared: 0 };
   if (!Array.isArray(scores) || scores.length < 8) return fallback;
 
   const clean = scores.map(Number).filter(Number.isFinite);
@@ -99,17 +99,42 @@ export function computeHurstExponent(scores) {
   const muY = _mean(logRS);
   const Sxy = logN.reduce((s, x, i) => s + (x - muX) * (logRS[i] - muY), 0);
   const Sxx = logN.reduce((s, x) => s + (x - muX) ** 2, 0);
+  
   const H = Sxx > 1e-10 ? Sxy / Sxx : 0.5;
-
   const clampedH = Math.max(0.1, Math.min(0.9, H));
-  const confidence = logRS.length >= 6 ? 'high' : logRS.length >= 4 ? 'medium' : 'low';
+  
+  let interpretation = 'Passeio Aleatório (Random Walk)';
+  if (clampedH > 0.65) interpretation = 'Série Persistente (Tendência Robusta)';
+  else if (clampedH < 0.4) interpretation = 'Reversão à Médio (Alta Instabilidade / Efeito Ioiô)';
 
-  let interpretation;
-  if (clampedH > 0.6) interpretation = `Série persistente — tendências tendem a se manter (H>${clampedH.toFixed(2)}).`;
-  else if (clampedH < 0.4) interpretation = `Série anti-persistente — reversão à média dominante (H<${clampedH.toFixed(2)}).`;
-  else interpretation = 'Série quasi-aleatória — difícil prever a próxima nota com base apenas no histórico.';
+  // DIAGNÓSTICO AVANÇADO: Confiança do cálculo baseada no Erro Padrão da Regressão (R²)
+  const SSR = logRS.reduce((s, y, i) => s + (y - (muY + H * (logN[i] - muX))) ** 2, 0);
+  const SST = logRS.reduce((s, y) => s + (y - muY) ** 2, 0);
+  const rSquared = SST > 0 ? 1 - (SSR / SST) : 0;
 
-  return { H: Number(clampedH.toFixed(3)), confidence, interpretation };
+  return {
+    H: Number(clampedH.toFixed(3)),
+    rSquared: Number(rSquared.toFixed(3)),
+    confidence: rSquared > 0.7 && logRS.length >= 5 ? 'high' : rSquared > 0.4 ? 'medium' : 'low',
+    interpretation
+  };
+}
+
+// NOVA FUNÇÃO: Diagnóstico Clínico do Desempenho
+export function generateMathDiagnostic(history, maxScore = 100) {
+   const scores = history.map(h => Number(h.score || h));
+   const hurst = computeHurstExponent(scores);
+   
+   // Fator de esquecimento (Lambda) agora não é hardcoded, é adaptativo ao perfil de "memória" do utilizador
+   // Pessoas com H baixo (reversão à média) precisam de lambdas MAIORES (esquecer o ruído antigo)
+   const optimalLambda = hurst.H < 0.45 ? 0.12 : hurst.H > 0.65 ? 0.04 : 0.08;
+   
+   return {
+       profile: hurst.interpretation,
+       momentumHurst: hurst.H,
+       recommendedLambda: optimalLambda,
+       isDataNoisy: hurst.H < 0.5 && hurst.confidence !== 'low'
+   };
 }
 
 export function computeKLDivergenceNormal(mu1, sd1, mu2, sd2) {

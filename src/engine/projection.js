@@ -261,23 +261,46 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     const now = options.referenceDate || Date.now();
     const historicalScores = sorted.map(h => getSafeScore(h, maxScore));
     
-    // CORREÇÃO MATEMÁTICA E UX: Estabilização de Assíntota via Percentil Robusto
-    // Evita que um único "chute certeiro" (outlier) deforme o teto da curva em S de aprendizagem.
-    const peakScore = getPercentile(historicalScores, 0.90); // Usa o P90 em vez do Máximo Absoluto
+    // MATEMÁTICA AVANÇADA: Shrinkage Bayesiano do Teto (L)
+    // Em vez de heurísticas de "+10% do peakScore", calculamos o teto assintótico real 
+    // olhando para a desaceleração do aluno.
     
-    const meanVal = historicalScores.reduce((a, b) => a + b, 0) / historicalScores.length;
-    const currentVariance = Math.sqrt(historicalScores.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / Math.max(1, historicalScores.length - 1));
-
-    const spaceToMax = maxScore - peakScore;
-    
-    // O teto assintótico agora é calculado sob um sinal de ruído amortecido
-    const dynamicHeadroom = Math.max(
-        currentVariance * 1.5, // Fator de variância reduzido para não explodir em históricos ruidosos
-        maxScore * 0.10,
-        spaceToMax * 0.25 
-    );
-
-    const L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom); 
+    let L = maxScore;
+    if (sorted.length >= 6) {
+        // Primeira Derivada (Velocidade)
+        const vel = [];
+        for(let i=1; i<sorted.length; i++) vel.push(getSafeScore(sorted[i], maxScore) - getSafeScore(sorted[i-1], maxScore));
+        
+        // Segunda Derivada (Aceleração)
+        const acc = [];
+        for(let i=1; i<vel.length; i++) acc.push(vel[i] - vel[i-1]);
+        
+        const meanAcc = acc.reduce((a,b)=>a+b,0)/acc.length;
+        const meanVel = vel.reduce((a,b)=>a+b,0)/vel.length;
+        
+        // Se a aceleração é negativa (curva côncava), o aluno está a desacelerar em direção ao seu platô.
+        if (meanAcc < -0.1 && meanVel > 0) {
+            // Formula matemática do limite: L ~ Y_atual + (Velocidade_atual^2 / 2 * |Aceleração|)
+            const currentY = getSafeScore(sorted[sorted.length-1], maxScore);
+            const predictedCap = currentY + (Math.pow(meanVel, 2) / (2 * Math.abs(meanAcc)));
+            
+            // Suavização Bayesiana: 60% empírico, 40% a priori (maxScore total)
+            L = (predictedCap * 0.60) + (maxScore * 0.40);
+            L = Math.max(currentY + 1, Math.min(maxScore, L));
+        } else {
+            // Fallback para quando não há desaceleração clara: usa P90 com headroom conservador
+            const peakScore = getPercentile(historicalScores, 0.90);
+            const spaceToMax = maxScore - peakScore;
+            const dynamicHeadroom = Math.max(currentVariance * 1.5, maxScore * 0.10, spaceToMax * 0.25);
+            L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom);
+        }
+    } else {
+        // Amostra pequena: usa o P90 tradicional
+        const peakScore = getPercentile(historicalScores, 0.90);
+        const spaceToMax = maxScore - peakScore;
+        const dynamicHeadroom = Math.max(currentVariance * 1.5, maxScore * 0.10, spaceToMax * 0.25);
+        L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom);
+    }
 
     let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
     sorted.forEach(h => {
