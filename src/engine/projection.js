@@ -260,7 +260,9 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
 
     const now = options.referenceDate || Date.now();
     const historicalScores = sorted.map(h => getSafeScore(h, maxScore));
-    
+    const meanVal = historicalScores.reduce((a, b) => a + b, 0) / historicalScores.length;
+    const currentVariance = Math.sqrt(historicalScores.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / Math.max(1, historicalScores.length - 1));
+
     // MATEMÁTICA AVANÇADA: Shrinkage Bayesiano do Teto (L)
     // Em vez de heurísticas de "+10% do peakScore", calculamos o teto assintótico real 
     // olhando para a desaceleração do aluno.

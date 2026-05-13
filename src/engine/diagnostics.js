@@ -122,7 +122,7 @@ export function computeHurstExponent(scores) {
 
 // NOVA FUNÇÃO: Diagnóstico Clínico do Desempenho
 export function generateMathDiagnostic(history, maxScore = 100) {
-   const scores = history.map(h => Number(h.score || h));
+   const scores = history.map(h => getSafeScore(h, maxScore));
    const hurst = computeHurstExponent(scores);
    
    // Fator de esquecimento (Lambda) agora não é hardcoded, é adaptativo ao perfil de "memória" do utilizador
@@ -549,6 +549,7 @@ export function computeCategoryDiagnostics({
     .map((h) => Math.max(0, Math.min(maxScore, Number(h?.score) || 0)))
     .filter(Number.isFinite);
 
+  const diagnostic = generateMathDiagnostic(history, maxScore);
   const hurst = computeHurstExponent(scores);
   const forgetting = computeForgettingRisk(history, maxScore, targetScore);
   const consistency = computeConsistencyIndex(history, maxScore);
@@ -585,13 +586,14 @@ export function computeCategoryDiagnostics({
 
   return {
     hurst,
+    diagnostic,
     forgetting,
     consistency,
     velocity,
     klToTarget,
     efficiency,
     flags,
-    adaptiveLambda: computeAdaptiveLambda(history),
+    adaptiveLambda: diagnostic.recommendedLambda,
     adaptiveDecayFactor: computeAdaptiveDecayFactor(history),
   };
 }
