@@ -792,6 +792,35 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     }
 };
 
+/**
+ * Motor de Regressão Histórica para o Coach AI
+ * Valida a consistência entre projeções passadas e resultados reais.
+ */
+export function analisarDesempenhoHistorico(historico) {
+    if (!historico || historico.length === 0) {
+        return {
+            tendencia: 'neutra',
+            confiabilidadeDosDados: 'insuficiente',
+            projecaoRetencao: 0
+        };
+    }
+    
+    // Converte o formato do teste para o formato esperado pelo computeForgettingRisk
+    const formattedHistory = historico.map((h, i) => ({
+        score: h.acertos,
+        total: h.total || 100,
+        date: new Date(Date.now() - (h.diasRevisao || i) * 86400000).toISOString()
+    }));
+
+    const risk = computeForgettingRisk(formattedHistory);
+    
+    return {
+        tendencia: risk.retentionPct > 80 ? 'alta' : (risk.retentionPct > 50 ? 'estável' : 'baixa'),
+        confiabilidadeDosDados: historico.length > 5 ? 'alta' : 'média',
+        projecaoRetencao: risk.retentionPct
+    };
+}
+
 export const getSuggestedFocus = (categories, simulados, studyLogs = [], options = {}) => {
     if (!categories || categories.length === 0) return null;
 
