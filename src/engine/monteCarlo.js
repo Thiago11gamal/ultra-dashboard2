@@ -127,10 +127,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             projectedMean: safeMean,
             projectedSD: 0,
             kdeData: [
-                { x: Math.max(minScore, safeMean - 0.1), y: 0 },
+                safeMean > minScore ? { x: safeMean - 0.1, y: 0 } : null,
                 { x: safeMean, y: 1 },
-                { x: Math.min(maxScore, safeMean + 0.1), y: 0 }
-            ], 
+                safeMean < maxScore ? { x: safeMean + 0.1, y: 0 } : null
+            ].filter(Boolean), 
             drift: 0,
             volatility: 0,
             minScore,
@@ -403,20 +403,29 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
     let simulacoes = [];
     const n0 = Math.max(0.01, ultimaNota);
     
+    const stableSeed = generateStableSeed(historicoNotas.length, "monteCarloSimulation", totalQuestoesFeitas);
+    const rng = mulberry32(stableSeed);
+
+    // [BUG-1A FIX] Pré-calcular o drift logístico fora do loop de simulações (determinístico)
+    const driftsDiarios = new Float64Array(diasProjecao + 1);
+    for (let d = 1; d <= diasProjecao; d++) {
+        const logisticaOntem = limiteAssintotico / (1 + Math.exp(-taxaCrescimento * (d - 1)) * ((limiteAssintotico - n0) / n0));
+        const logisticaHoje  = limiteAssintotico / (1 + Math.exp(-taxaCrescimento * d) * ((limiteAssintotico - n0) / n0));
+        driftsDiarios[d] = logisticaHoje - logisticaOntem;
+    }
+    
     for(let sim = 0; sim < 1000; sim++) {
         let caminho = [ultimaNota];
         let notaAtual = ultimaNota;
         
         for(let dia = 1; dia <= diasProjecao; dia++) {
-            let u1 = Math.max(1e-9, Math.random());
-            let u2 = Math.max(1e-9, Math.random());
-            let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-            let ruido = z0 * volatilidadeAdaptativa;
+            // [BUG-1A FIX] Usar RNG estável (mulberry32) em vez de Math.random()
+            const u1 = Math.max(1e-9, rng());
+            const u2 = Math.max(1e-9, rng());
+            const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            const ruido = z0 * volatilidadeAdaptativa;
             
-            // CORREÇÃO: Calcular o drift (crescimento marginal) logístico diário
-            const logisticaOntem = limiteAssintotico / (1 + Math.exp(-taxaCrescimento * (dia - 1)) * ((limiteAssintotico - n0) / n0));
-            const logisticaHoje  = limiteAssintotico / (1 + Math.exp(-taxaCrescimento * dia) * ((limiteAssintotico - n0) / n0));
-            const driftDiario = logisticaHoje - logisticaOntem;
+            const driftDiario = driftsDiarios[dia];
             
             // A nota acumula o progresso real perturbado pelo ruído
             notaAtual = Math.max(0, Math.min(limiteAssintotico, notaAtual + driftDiario + ruido));

@@ -443,7 +443,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // A. Performance Score
         // BUG-19 FIX: Garantir invariância de escala através da normalização para base 100
         const normalizedAvg = (averageScore / maxScore) * 100;
-        const scoreComponent = Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100)) * weightMultiplier;
+        const scoreComponent = Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100) * weightMultiplier);
 
         // B. Recency
         const weightDeviation = (weight / 100) - 1;
@@ -456,7 +456,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             : normalizeDate(new Date());
 
         const crunchMultiplier = getCrunchMultiplier(daysToExam, firstActivityDate);
-        let recencyComponent = (dynamicRecencyMax * 0.8) * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight;
+        let recencyComponent = 0; // Calculado abaixo no bloco Efficiency Bridge
 
         // ─────────────────────────────────────────────────────────
         let instabilityComponent = mssdVolatility * (dynamicInstabilityMax / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);

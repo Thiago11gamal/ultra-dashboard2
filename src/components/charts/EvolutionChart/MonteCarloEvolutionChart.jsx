@@ -226,7 +226,7 @@ export const MonteCarloEvolutionChart = ({
                         <p className="text-xs font-black text-slate-200 uppercase tracking-[0.2em]">Ponto Único Registrado</p>
                         <p className="text-[10px] text-slate-500 mt-2 max-w-[200px] leading-relaxed">
                             Aguardando o próximo registro para traçar a evolução.
-                            <br /><strong className="text-blue-400"> Nota Atual: {unit === 'horas' ? formatDuration(scenarioAdjustedData[0].mean) : unit === '%' ? formatValue(scenarioAdjustedData[0].mean) : scenarioAdjustedData[0].mean} {unit}</strong>
+                            <br /><strong className="text-blue-400"> Nota Atual: {unit === 'horas' ? formatDuration(scenarioAdjustedData[0]?.mean ?? minScore) : unit === '%' ? formatValue(scenarioAdjustedData[0]?.mean ?? minScore) : scenarioAdjustedData[0]?.mean ?? minScore} {unit}</strong>
                         </p>
                     </div>
                 )}
@@ -287,7 +287,12 @@ export const MonteCarloEvolutionChart = ({
                                 strokeWidth={3}
                                 fill="none"
                                 activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa', className: "animate-pulse shadow-lg" }}
-                                dot={scenarioAdjustedData.length < 15 ? { r: 4, strokeWidth: 2, fill: '#0f172a', stroke: '#60a5fa' } : false}
+                                dot={scenarioAdjustedData.length < 40 ? { 
+                                    r: Math.max(1, 4 - (scenarioAdjustedData.length / 12)), 
+                                    strokeWidth: 1, 
+                                    fill: '#0f172a', 
+                                    stroke: '#60a5fa' 
+                                } : false}
                             />
 
                             <Area
@@ -305,7 +310,7 @@ export const MonteCarloEvolutionChart = ({
                 ) : scenarioAdjustedData.length === 0 ? null : (
                     <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
                     <ResponsiveContainer width="100%" height="100%" minHeight={150}>
-                        <AreaChart data={[{ mean: 0 }, { mean: scenarioAdjustedData[0].mean }, { mean: 0 }]}>
+                        <AreaChart data={[{ mean: minScore }, { mean: scenarioAdjustedData[0]?.mean ?? minScore }, { mean: minScore }]}>
                             <Area type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
                         </AreaChart>
                     </ResponsiveContainer>
