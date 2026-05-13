@@ -49,7 +49,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                 <div className="flex flex-col items-start gap-2 min-w-0">
                     <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border border-white/20 max-w-full overflow-hidden shrink-0`}>
                         <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
-                        <span className="leading-tight whitespace-normal break-words">{displaySubject(subjectPart)}</span>
+                        <span className="leading-tight truncate min-w-0 block">{displaySubject(subjectPart)}</span>
                     </div>
                 </div>
                 <button 
@@ -90,7 +90,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                             ))}
                                         </div>
                                     )}
-                                    {task.analysis.monteCarlo?.calibrationPenalty > 0 && (
+                                    {task.analysis.monteCarlo?.calibrationPenalty >= 0.005 && (
                                         <div className="mt-2 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
                                             <Zap size={14} className="text-amber-400 mt-0.5 shrink-0" />
                                             <p className="text-[10px] text-amber-300/90 leading-relaxed">
@@ -133,9 +133,18 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         let sessionTasks = unallocatedTasks;
 
         if (targetIndex === -1) {
-            // Fallback: se não estiver no unallocated, usa o coachPlan inteiro
-            sessionTasks = coachPlan;
-            targetIndex = coachPlan.findIndex(t => getSafeId(t) === getSafeId(task));
+            // BUG-DESYNC FIX: Se não estiver nos não-alocados, buscar ativamente em qual dia do planner está
+            const dayEntry = Object.entries(coachPlanner).find(([day, tasks]) => 
+                (tasks || []).some(t => getSafeId(t) === getSafeId(task))
+            );
+            if (dayEntry) {
+                sessionTasks = dayEntry[1];
+                targetIndex = sessionTasks.findIndex(t => getSafeId(t) === getSafeId(task));
+            } else {
+                // Fallback: se não estiver no unallocated nem em nenhum dia, usa o coachPlan inteiro
+                sessionTasks = coachPlan;
+                targetIndex = coachPlan.findIndex(t => getSafeId(t) === getSafeId(task));
+            }
         }
 
         if (!Array.isArray(sessionTasks) || sessionTasks.length === 0) return;
