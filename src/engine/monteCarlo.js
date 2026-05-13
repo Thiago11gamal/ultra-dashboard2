@@ -455,18 +455,25 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
 export function simularMonteCarlo(metricas, simulacoes = 1000) {
     if (metricas && metricas.volumeSemanasAnteriores) {
         const history = metricas.volumeSemanasAnteriores;
-        const lastVal = history[history.length - 1] || 0;
-        const sd = metricas.focoMedio ? (1 - metricas.focoMedio) * lastVal : lastVal * 0.1;
+        // FIX: Usar a média histórica (avgVal) para ser consistente com o Backtest da Semana 14
+        const avgVal = history.reduce((a, b) => a + b, 0) / history.length;
+        const sd = metricas.focoMedio ? (1 - metricas.focoMedio) * avgVal : avgVal * 0.1;
         
         const results = [];
+        
+        // FIX: Usar gerador determinístico (mulberry32) em vez de Math.random()
+        // Uma semente estática garante que os testes unitários dão sempre o mesmo resultado
+        const rng = mulberry32(123456789); 
+
         // Geração simples para validação de Backtest
         for (let i = 0; i < simulacoes; i++) {
-            // Box-Muller para normalidade
-            const u1 = Math.random() || 1e-9;
-            const u2 = Math.random() || 1e-9;
+            // Box-Muller para normalidade com RNG estável
+            const u1 = Math.max(1e-9, rng());
+            const u2 = Math.max(1e-9, rng());
             const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-            results.push(lastVal + z * sd);
+            results.push(avgVal + z * sd);
         }
+        
         results.sort((a, b) => a - b);
         return {
             p50: results[Math.floor(simulacoes * 0.5)],

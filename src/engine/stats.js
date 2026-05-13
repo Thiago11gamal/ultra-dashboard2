@@ -80,7 +80,13 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
     return Math.max(finalSdFloor, Math.sqrt(adjustedVar));
 
 }
-export const calcularDesvioPadrao = standardDeviation;
+export const calcularDesvioPadrao = (arr) => {
+    if (!arr || arr.length === 0) return 0;
+    const clean = arr.map(Number).filter(Number.isFinite);
+    const m = clean.reduce((a, b) => a + b, 0) / clean.length;
+    const v = clean.reduce((acc, x) => acc + Math.pow(x - m, 2), 0) / clean.length;
+    return Math.sqrt(v);
+};
 
 
 
