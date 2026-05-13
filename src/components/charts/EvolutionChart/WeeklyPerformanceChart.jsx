@@ -46,8 +46,8 @@ const WeeklyPerformanceChart = ({
                 }
                 return true;
             });
-            const minutes = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
-            const horas = Number((minutes / 60).toFixed(2));
+            // 🎯 FIX: Calcular apenas os minutos puros para entregar ao Recharts
+            const minutos = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
 
             let correctTotal = 0;
             let questionsTotal = 0;
@@ -84,7 +84,7 @@ const WeeklyPerformanceChart = ({
             days.push({
                 data: i === 0 ? "HOJE" : dow,
                 fullDate: dateKey,
-                horas,
+                minutos, // 🎯 FIX: Enviamos 'minutos' brutos em vez da variável 'horas'
                 acertos
             });
         }
@@ -204,8 +204,8 @@ const WeeklyPerformanceChart = ({
 
                         <Bar
                             yAxisId="left"
-                            dataKey="horas"
-                            name="horas"
+                            dataKey="minutos" // 🎯 FIX: Atualizado de "horas" para "minutos"
+                            name="Tempo de Estudo"
                             fill={`url(#${barGradId})`}
                             radius={[6, 6, 0, 0]}
                             barSize={32}

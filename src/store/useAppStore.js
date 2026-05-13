@@ -35,12 +35,22 @@ const flushPendingIDBSaves = () => {
             } catch {
                 console.warn("[Storage] Quota excedida no flush. Tentando salvar versão de resgate...");
                 try {
-                    // Fallback: descarta arrays pesados que não são essenciais para não perder o progresso
+                    // 🎯 FIX: Fallback real de sobrevivência.
+                    // Limpamos o lixo e expurgamos o array massivo do Monte Carlo da RAM,
+                    // salvando assim o progresso crítico (tarefas, histórico real).
                     const minimalState = { 
                         ...stateToRescue.appState, 
-                        trash: [], 
-                        // Pode limpar o histórico do Monte Carlo aqui se necessário para poupar espaço
+                        trash: [] 
                     };
+                    
+                    if (minimalState.contests) {
+                        Object.keys(minimalState.contests).forEach(contestId => {
+                            if (minimalState.contests[contestId]) {
+                                minimalState.contests[contestId].monteCarloHistory = [];
+                            }
+                        });
+                    }
+                    
                     localStorage.setItem(name, JSON.stringify({ state: { appState: minimalState } }));
                 } catch (fallbackError) {
                     console.error("[Storage] Falha total no flush de segurança", fallbackError);

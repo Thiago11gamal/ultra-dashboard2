@@ -13,7 +13,14 @@ export function getSyntheticTotal(maxScore = 100) {
 export const normalizePercentInput = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
-    return n <= 1 ? n * 100 : n;
+    
+    // 🎯 FIX: Só converte multiplicando por 100 se for um decimal 
+    // estritamente entre 0 e 1, que possua efetivamente uma casa decimal.
+    if (n > 0 && n < 1 && value.toString().includes('.')) {
+        return n * 100;
+    }
+    
+    return n;
 };
 
 export function getSafeScore(historyRow, maxScore = 100) {

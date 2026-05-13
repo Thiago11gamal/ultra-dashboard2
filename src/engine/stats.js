@@ -175,8 +175,11 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
             // 2. Agora injetamos a nota na matemática (SEM usar `continue`)
             if (isPurePercentage) {
-                alpha += pct * 0.5;
-                beta += (1 - pct) * 0.5;
+                // 🎯 FIX: Usar o peso sintético global em vez de "0.5".
+                // Isto garante que as notas inseridas apenas como % movam efetivamente o IC 95%
+                const syntheticN = getSyntheticTotal(safeMaxScore);
+                alpha += pct * syntheticN;
+                beta += (1 - pct) * syntheticN;
             } else {
                 let correct = Math.round(pct * total);
                 if (total >= 1) {
