@@ -21,7 +21,13 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
     
     // Danger: probabilidade abaixo da qual historicamente <30% dos outcomes foram sucesso
     // Safe: probabilidade acima da qual >90% foram sucesso
-    // Usar Beta posterior (Jeffreys prior α=0.5, β=0.5) para shrinkage
+    // ADAPT-03 FIX: Prior dinâmico baseado na taxa global de sucesso (Empirical Bayes)
+    // para evitar distorções gravitacionais de priors estáticos (0.5/0.5) em n muito baixo.
+    const globalSuccessRate = cleanPairs.filter(p => Number(p.observed) >= 0.5).length / cleanPairs.length;
+    const K = 1.0; // Força do prior
+    const alphaPrior = Math.max(0.2, Math.min(0.8, globalSuccessRate)) * K;
+    const betaPrior = K - alphaPrior;
+
     let dangerCandidates = [];
     let safeCandidates = [];
     
@@ -31,14 +37,14 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
       
       if (below.length >= 2) {
         const successBelow = below.filter(p => Number(p.observed) >= 0.5).length;
-        const posteriorMeanBelow = (successBelow + 0.5) / (below.length + 1); // Jeffreys
+        const posteriorMeanBelow = (successBelow + alphaPrior) / (below.length + K);
         if (posteriorMeanBelow < 0.35) {
           dangerCandidates.push(cutoff * 100);
         }
       }
       if (above.length >= 2) {
         const successAbove = above.filter(p => Number(p.observed) >= 0.5).length;
-        const posteriorMeanAbove = (successAbove + 0.5) / (above.length + 1);
+        const posteriorMeanAbove = (successAbove + alphaPrior) / (above.length + K);
         if (posteriorMeanAbove > 0.85) {
           safeCandidates.push(cutoff * 100);
         }

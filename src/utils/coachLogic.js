@@ -445,7 +445,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // A. Performance Score
         // BUG-19 FIX: Garantir invariância de escala através da normalização para base 100
         const normalizedAvg = (averageScore / maxScore) * 100;
-        const scoreComponent = Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100) * weightMultiplier);
+        const scoreComponent = Math.max(0, Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100) * weightMultiplier));
 
         // B. Recency
         const weightDeviation = (weight / 100) - 1;
@@ -647,7 +647,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         } else {
             // Zona Crítica (80-100%): Compressão assintótica suave (evita empate técnico)
             const excess = weightedRaw - CRITICAL_THRESHOLD;
-            const excessNormalized = 20 * (1 - Math.exp(-excess / (RAW_MAX_ACTUAL * 0.4)));
+            const safeMaxActual = Math.max(1, RAW_MAX_ACTUAL);
+            const excessNormalized = 20 * (1 - Math.exp(-excess / (safeMaxActual * 0.4)));
             normalized = 80 + excessNormalized;
         }
 
@@ -1243,7 +1244,7 @@ export function getCognitiveState(stats) {
     let focusMinutes = stats.consecutiveMinutes || 0;
     
     if (focusMinutes === 0 && stats.lastActivityTimestamp) {
-        const minutesSinceLast = (Date.now() - stats.lastActivityTimestamp) / 60000;
+        const minutesSinceLast = Math.max(0, (Date.now() - stats.lastActivityTimestamp) / 60000);
         // Se passou menos de 30 min, o utilizador ainda está "quente" da sessão anterior
         if (minutesSinceLast < 30) focusMinutes = stats.previousSessionMinutes || 0;
     }
