@@ -427,8 +427,14 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
             
             const driftDiario = driftsDiarios[dia];
             
-            // A nota acumula o progresso real perturbado pelo ruído
-            notaAtual = Math.max(0, Math.min(limiteAssintotico, notaAtual + driftDiario + ruido));
+            // OTIMIZAÇÃO: Comprimir o ruído à medida que a nota se aproxima do teto logístico
+            // Evita que notas de elite "batam" constantemente no teto de forma assimétrica.
+            const margemTeto = limiteAssintotico - notaAtual;
+            const compressaoRuido = 1 - Math.exp(-5 * margemTeto);
+            const ruidoAjustado = ruido * Math.max(0.1, compressaoRuido);
+            
+            // A nota acumula o progresso real perturbado pelo ruído ajustado
+            notaAtual = Math.max(0, Math.min(limiteAssintotico, notaAtual + driftDiario + ruidoAjustado));
             caminho.push(notaAtual);
         }
         simulacoes.push(caminho);

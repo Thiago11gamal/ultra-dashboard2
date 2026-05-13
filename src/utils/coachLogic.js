@@ -144,11 +144,13 @@ function getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, e
  * Média Bayesiana para Proficiência Real
  * Ancorada na média global do aluno para evitar penalização artificial de pequenas amostras.
  */
-export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5) => {
+export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, globalTotal = 0) => {
     // CORREÇÃO: Removido o 'if (total === 0) return 0;' para permitir o Fallback Bayesiano
-    // Se o total for zero, a equação abaixo resulta exatamente em 'mediaGlobal'
     
-    const K = 5; // Prior Weight: Força da crença inicial (ex: 5 questões virtuais)
+    // OTIMIZAÇÃO: Peso da crença (K) escala com a maturidade do aluno na plataforma.
+    // Novatos (globalTotal baixo): K=3. Veteranos (globalTotal alto): K escala até 15.
+    const K = Math.max(3, Math.min(15, Math.log10(globalTotal + 1) * 3));
+    
     const smoothedAcertos = acertos + (mediaGlobal * K);
     const smoothedTotal = total + K;
     
@@ -166,7 +168,7 @@ export const getCoachPriorities = (topicsData) => {
 
     return topicsData.map(topic => ({
         ...topic,
-        realProficiency: computeBayesianProficiency(topic.acertos || topic.correct || 0, topic.total || 0, mediaGlobal)
+        realProficiency: computeBayesianProficiency(topic.acertos || topic.correct || 0, topic.total || 0, mediaGlobal, globalTotal)
     }))
     .sort((a, b) => a.realProficiency - b.realProficiency);
 };
@@ -558,8 +560,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             return acc + w;
         }, 0);
         const idealShare = totalActiveWeight > 0 ? rawWeight / totalActiveWeight : (1 / activeCount);
-        const underAllocation = Math.max(0, idealShare - observedShare);
-        const balanceBridgeBoost = Math.min(cfg.EFFICIENCY_MAX, underAllocation * cfg.EFFICIENCY_MAX * 2.0);
+        
+        // OTIMIZAÇÃO: Tolerância de 5% para evitar micro-correções e multiplicador exponencial 
+        // para não punir severamente matérias de peso muito baixo.
+        const tolerancia = 0.05; 
+        const underAllocation = Math.max(0, idealShare - observedShare - tolerancia);
+        const balanceBridgeBoost = Math.min(cfg.EFFICIENCY_MAX, Math.pow(underAllocation * 10, 1.5));
 
         // F. SRS Boost com Integração de Volatilidade e Confiança Bayesiana
         let srsBoost = 0;
