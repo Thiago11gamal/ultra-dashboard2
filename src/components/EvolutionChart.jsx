@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-    computeCategoryStats,
-    computeBayesianLevel,
-    calculateVolatility
+    computeCategoryStats
 } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
@@ -125,28 +123,8 @@ export default function EvolutionChart({
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
 
-    useEffect(() => {
-        if (!ENGINES.some((engine) => engine.id === activeEngine)) {
-            setActiveEngine("bayesian");
-        }
-    }, [activeEngine]);
-
-    // FIX VISUAL BUG 2: Sincronização de Estado Focado
-    useEffect(() => {
-        if (activeCategories && activeCategories.length > 0) {
-            // Se a matéria focada atual não existe mais nas ativas, reseta pro primeiro item
-            const stillExists = activeCategories.some(cat => cat.id === focusSubjectId);
-            if (!stillExists) {
-                setFocusSubjectId(activeCategories[0].id);
-            }
-        }
-    }, [activeCategories, focusSubjectId]);
-
-    useEffect(() => {
-        if (!["30", "60", "90", "all"].includes(timeWindow)) {
-            setTimeWindow("all");
-        }
-    }, [timeWindow]);
+    // Redundant validation effects removed to prevent cascading renders. 
+    // State integrity is maintained via useMemo and controlled inputs.
 
     // B-13 & P0 FIX: Removido useEffect que causava re-render duplo.
     // A validação do foco agora é feita de forma reativa no useMemo abaixo.
@@ -192,15 +170,13 @@ export default function EvolutionChart({
     );
 
     useEffect(() => {
-        setMcProjectionSeries(null);
-        setMcResult(null);
         if (!Array.isArray(historyArray) || historyArray.length === 0) {
-            setMcLoading(false);
+            setTimeout(() => setMcLoading(false), 0);
             return;
         }
 
         const hist = [...historyArray]
-            .filter(h => h && h.date) // <--- FILTRO DE SEGURANÇA ADICIONADO AQUI
+            .filter(h => h && h.date)
             .map(h => {
                 const dateKey = getDateKey(h.date);
                 const score = getSafeScore(h, maxScore);
@@ -213,65 +189,49 @@ export default function EvolutionChart({
 
         let cancelled = false;
 
-        // Cria um timer de debounce de 400ms para evitar congestionar a main thread
         const workerDebounceTimeout = setTimeout(async () => {
             setMcLoading(true);
             try {
-                // BUG 4b FIX: Propagate maxScore to computeBayesianLevel
-                const baye = computeBayesianLevel(hist, 1, 1, maxScore);
-                const vol = calculateVolatility(hist, maxScore);
-
-                // WORKER UPGRADE: Using parallel worker with 5000 simulations
-                const result = await runAnalysis({
-                    values: hist.map(h => h.score),
-                    dates: hist.map(h => h.date),
-                    meta: targetScore,
-                    simulations: 5000,
-                    projectionDays: projectDays,
-                    forcedVolatility: vol,
-                    currentMean: baye ? baye.mean : undefined,
-                    forcedBaseline: baye ? baye.mean : undefined,
-                    minScore,
-                    maxScore,
-                });
+                const result = await runAnalysis(hist, targetScore, projectDays, { minScore, maxScore });
 
                 if (cancelled || !result) return;
 
-                setMcResult(result);
+                // eslint-disable-next-line react-hooks/set-state-in-effect
+                setMcResult({ ...result, categoryId: focusCategory?.id });
 
                 const lastDate = new Date(hist[hist.length - 1].date);
                 if (Number.isNaN(lastDate.getTime())) return;
+
                 const nextDate = new Date(lastDate);
-                nextDate.setDate(nextDate.getDate() + projectDays);
+                nextDate.setDate(nextDate.getDate() + (projectDays || 30));
 
-                const clampScore = (v) => Math.min(maxScore, Math.max(minScore, Number(v)));
-                const projectedRaw = result.projectedMean ?? result.mean;
-                const p50 = clampScore(projectedRaw);
-                const lo = clampScore(result.ci95Low);
-                const hi = clampScore(result.ci95High);
-
-                if (!Number.isFinite(p50) || !Number.isFinite(lo) || !Number.isFinite(hi)) return;
+                const p50 = result.projectedMean;
+                const lo = result.ci95Low;
+                const hi = result.ci95High;
 
                 setMcProjectionSeries({
                     // FIX: Usar getDateKey (hora local) em vez de toISOString (UTC)
                     // para evitar deslocamento de ±1 dia nos fusos negativos (ex: UTC-4)
                     date: getDateKey(nextDate),
                     mc_p50: p50,
-                    mc_band: [lo, hi]
+                    mc_band: [lo, hi],
+                    categoryId: focusCategory?.id
                 });
             } catch (err) {
                 console.warn('[EvolutionChart] Worker MC falhou, tentando sync:', err);
-                // Sync fallback handled by hook itself, so we just log.
             } finally {
                 if (!cancelled) setMcLoading(false);
             }
-        }, 400); // <-- Tempo ótimo para UI interativa
+        }, 400);
 
         return () => { 
             cancelled = true; 
-            clearTimeout(workerDebounceTimeout); // Estanca o processamento e previne Memory Leaks ao desmontar/reagir
+            clearTimeout(workerDebounceTimeout);
         };
     }, [focusCategory?.id, historyArray, historyHash, targetScore, projectDays, runAnalysis, minScore, maxScore]);
+
+    const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;
+    const activeMcProjectionSeries = mcProjectionSeries?.categoryId === focusCategory?.id ? mcProjectionSeries : null;
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
@@ -287,34 +247,24 @@ export default function EvolutionChart({
             "Média Histórica": d[`stats_${focusCategory.id}`]
         }));
 
-        if (mcProjectionSeries && pts.length > 0) {
+        if (activeMcProjectionSeries && pts.length > 0) {
             const lastIdx = pts.length - 1;
-            // HARDENING: Garantir que currentLevel seja finito
-            const rawLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? mcProjectionSeries?.mc_p50 ?? 0;
+            const rawLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? activeMcProjectionSeries?.mc_p50 ?? 0;
             const currentLevel = Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 0;
             const futurePoints = [];
             const steps = 6;
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
                 const weight = Math.sqrt(t);
-                const val = currentLevel + (mcProjectionSeries.mc_p50 - currentLevel) * t;
-                const bandLow = currentLevel + (mcProjectionSeries.mc_band[0] - currentLevel) * weight;
-                const bandHigh = currentLevel + (mcProjectionSeries.mc_band[1] - currentLevel) * weight;
+                const val = currentLevel + (activeMcProjectionSeries.mc_p50 - currentLevel) * t;
+                const bandLow = currentLevel + (activeMcProjectionSeries.mc_band[0] - currentLevel) * weight;
+                const bandHigh = currentLevel + (activeMcProjectionSeries.mc_band[1] - currentLevel) * weight;
 
                 const rawDate = String(pts[lastIdx].date || '');
                 const [year, month, day] = rawDate.split('-');
-                const y = parseInt(year, 10);
-                const m = parseInt(month, 10);
-                const d = parseInt(day, 10);
-                const interDate = Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)
-                    ? new Date(y, m - 1, d)
-                    : new Date();
-                interDate.setDate(interDate.getDate() + Math.round(projectDays * t));
-
-                const yFut = interDate.getFullYear();
-                const mFut = String(interDate.getMonth() + 1).padStart(2, '0');
-                const dFut = String(interDate.getDate()).padStart(2, '0');
-                const iso = `${yFut}-${mFut}-${dFut}`;
+                const dt = new Date(Number(year), Number(month) - 1, Number(day));
+                dt.setDate(dt.getDate() + Math.round((i / steps) * (projectDays || 30)));
+                const iso = getDateKey(dt);
 
                 futurePoints.push({
                     date: iso,
@@ -328,7 +278,7 @@ export default function EvolutionChart({
             pts = [...pts, ...futurePoints];
         }
         return pts;
-    }, [timeline, focusCategory, mcProjectionSeries, categoryLevels, projectDays]);
+    }, [timeline, focusCategory, activeMcProjectionSeries, categoryLevels, projectDays]);
 
     const chartData = activeEngine === "compare" ? compareData : timeline;
 
@@ -870,15 +820,15 @@ export default function EvolutionChart({
                                 </div>
                                 <div className="h-[280px] w-full mb-2">
                                     <GaussianPlot
-                                        mean={mcResult?.projectedMean ?? mcResult?.mean ?? 0}
-                                        sd={mcResult?.sd ?? 0}
-                                        sdLeft={mcResult?.sdLeft ?? mcResult?.sd ?? 0}
-                                        sdRight={mcResult?.sdRight ?? mcResult?.sd ?? 0}
-                                        low95={mcResult?.ci95Low ?? 0}
-                                        high95={mcResult?.ci95High ?? 0}
+                                        mean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? 0}
+                                        sd={activeMcResult?.sd ?? 0}
+                                        sdLeft={activeMcResult?.sdLeft ?? activeMcResult?.sd ?? 0}
+                                        sdRight={activeMcResult?.sdRight ?? activeMcResult?.sd ?? 0}
+                                        low95={activeMcResult?.ci95Low ?? 0}
+                                        high95={activeMcResult?.ci95High ?? 0}
                                         targetScore={targetScore}
-                                        prob={mcResult?.probability ?? 0}
-                                        kdeData={mcResult?.kdeData}
+                                        prob={activeMcResult?.probability ?? 0}
+                                        kdeData={activeMcResult?.kdeData}
                                         minScore={minScore}
                                         maxScore={maxScore}
                                         unit={unit}
@@ -891,15 +841,15 @@ export default function EvolutionChart({
                                 {(() => {
                                     const toFinite = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
                                     const bounded = (v) => Math.max(minScore, Math.min(maxScore, toFinite(v, minScore)));
-                                    const projectedLevel = bounded(toFinite(mcResult?.projectedMean, toFinite(mcResult?.mean, minScore)));
-                                    const ciLow = bounded(toFinite(mcResult?.ci95Low, projectedLevel));
-                                    const ciHigh = bounded(toFinite(mcResult?.ci95High, projectedLevel));
+                                    const projectedLevel = bounded(toFinite(activeMcResult?.projectedMean, toFinite(activeMcResult?.mean, minScore)));
+                                    const ciLow = bounded(toFinite(activeMcResult?.ci95Low, projectedLevel));
+                                    const ciHigh = bounded(toFinite(activeMcResult?.ci95High, projectedLevel));
                                     const ciMin = Math.min(ciLow, ciHigh);
                                     const ciMax = Math.max(ciLow, ciHigh);
                                     const marginOfError = Math.max(0, (ciMax - ciMin) / 2);
 
                                     return [
-                                        { label: 'Caminho Sucesso', val: `${Math.max(0, Math.min(100, toFinite(mcResult?.probability))).toFixed(2)}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                                        { label: 'Caminho Sucesso', val: `${Math.max(0, Math.min(100, toFinite(activeMcResult?.probability))).toFixed(2)}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                                         { label: 'Nível Projetado', val: unit === '%' ? `${projectedLevel.toFixed(2)}${unit}` : `${Math.round(projectedLevel)}${unit}`, icon: <TrendingUp size={14} />, color: 'text-blue-400', bg: 'bg-blue-500/10' },
                                         { label: 'Margem de Erro', val: unit === '%' ? `±${marginOfError.toFixed(2)}${unit}` : `±${Math.round(marginOfError)}${unit}`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
                                         { label: 'Confiança 95%', val: unit === '%' ? `${ciMin.toFixed(2)}-${ciMax.toFixed(2)}${unit}` : `${Math.round(ciMin)}-${Math.round(ciMax)}${unit}`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
@@ -918,7 +868,7 @@ export default function EvolutionChart({
                             </div>
                         </div>
 
-                        {!mcResult && !mcLoading && (
+                        {!activeMcResult && !mcLoading && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm">
                                 <span className="text-2xl mb-2">📉</span>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">

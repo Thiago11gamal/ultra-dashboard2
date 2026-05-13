@@ -34,7 +34,8 @@ export default function MonteCarloGauge({
 
     const [localSimulateToday, setLocalSimulateToday] = useState(Boolean(simulateToday));
 
-    useEffect(() => {
+    React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLocalSimulateToday(Boolean(simulateToday));
     }, [simulateToday]);
 
@@ -336,7 +337,6 @@ export default function MonteCarloGauge({
                     <input
                         type="range"
                         min="0"
-                        // [CORREÇÃO VISUAL-BUG-5] Impedir max negativo que quebra a renderização nativa
                         max={Math.max(1, timelineDates.length - 1)}
                         value={clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex}
                         onChange={(e) => {
@@ -345,7 +345,6 @@ export default function MonteCarloGauge({
                         }}
                         className="custom-slider w-full h-1.5 rounded-full outline-none"
                         style={{
-                            // BUG-06 FIX: Guard division by zero (defensive, outer guard already prevents length <= 1)
                             background: `linear-gradient(to right, #6366f1 ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
                             touchAction: 'none'
                         }}

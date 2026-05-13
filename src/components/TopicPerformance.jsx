@@ -5,11 +5,15 @@ import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-reac
 export default function TopicPerformance({ categories = [] }) {
     const [selectedCategoryId, setSelectedCategoryId] = useState(() => categories[0]?.id || '');
 
+    const effectiveCategoryId = (categories.length > 0 && !categories.find(c => c.id === selectedCategoryId))
+        ? categories[0].id
+        : selectedCategoryId;
+
     // Aggregate Data Logic
     const aggregatedData = useMemo(() => {
-        if (!selectedCategoryId) return [];
+        if (!effectiveCategoryId) return [];
 
-        const category = categories.find(c => c.id === selectedCategoryId);
+        const category = categories.find(c => c.id === effectiveCategoryId);
         if (!category) return [];
         const maxScore = category.maxScore ?? 100;
         const scoreUnit = maxScore === 100 ? '%' : 'pts';
@@ -55,14 +59,7 @@ export default function TopicPerformance({ categories = [] }) {
         // Sort: Highest Percentage Top (Descending)
         return topicList.sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
 
-    }, [categories, selectedCategoryId]);
-
-    // Update selected if categories change and current selection is invalid
-    React.useEffect(() => {
-        if (categories.length > 0 && !categories.find(c => c.id === selectedCategoryId)) {
-            setSelectedCategoryId(categories[0].id);
-        }
-    }, [categories, selectedCategoryId]);
+    }, [categories, effectiveCategoryId]);
 
     return (
         <div className="glass p-6 h-full flex flex-col">
@@ -105,7 +102,7 @@ export default function TopicPerformance({ categories = [] }) {
 
             {/* Content List */}
             <div
-                key={selectedCategoryId}
+                key={effectiveCategoryId}
                 className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pr-2 space-y-2"
             >
                 {aggregatedData.length > 0 ? (

@@ -26,7 +26,7 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
     const globalSuccessRate = cleanPairs.filter(p => Number(p.observed) >= 0.5).length / cleanPairs.length;
     const K = 1.0; // Força do prior
     const alphaPrior = Math.max(0.2, Math.min(0.8, globalSuccessRate)) * K;
-    const betaPrior = K - alphaPrior;
+    const betaPrior = K - alphaPrior; // eslint-disable-line no-unused-vars
 
     let dangerCandidates = [];
     let safeCandidates = [];

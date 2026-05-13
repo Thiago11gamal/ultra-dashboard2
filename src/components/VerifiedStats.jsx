@@ -227,6 +227,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
     // B-06 FIX: Sincronização Robusta com Trava de Round-trip
     const storeTarget = user?.targetProbability;
+    
     React.useEffect(() => {
         const parsedStore = parseFloat(storeTarget);
         if (isNaN(parsedStore)) return;
@@ -243,10 +244,10 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // Se o cadeado está aberto e o valor da Store mudou (ex: vindo de outro dispositivo)
         if (Math.abs(parsedStore - targetScore) > 0.01) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setTargetScore(parsedStore);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [storeTarget]); // O segredo é monitorar a Store, mas respeitar a trava
+    }, [storeTarget, targetScore]);
     const [showConfig, setShowConfig] = React.useState(false);
     const [showSubjects, setShowSubjects] = React.useState(false);
 

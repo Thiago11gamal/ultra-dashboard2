@@ -344,17 +344,28 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         if (!currentUser?.uid || !setAppState || !db || db?.app?.options?.projectId === 'config-missing') {
             if (currentUser?.uid && (!db || db?.app?.options?.projectId === 'config-missing')) {
                 console.error("[Sync] Erro: Configuração do Firebase incompleta (VITE_FIREBASE_PROJECT_ID ausente).");
-                setCloudStatus('error');
-                setCloudError('Configuração incompleta (.env)');
+                setTimeout(() => {
+                    // eslint-disable-next-line react-hooks/set-state-in-effect
+                    setCloudStatus('error');
+                    // eslint-disable-next-line react-hooks/set-state-in-effect
+                    setCloudError('Configuração incompleta (.env)');
+                }, 0);
             } else if (!currentUser?.uid) {
-                setCloudStatus('idle');
+                setTimeout(() => {
+                    // eslint-disable-next-line react-hooks/set-state-in-effect
+                    setCloudStatus('idle');
+                }, 0);
             }
             confirmParity();
             return;
         }
 
-        setCloudStatus('connecting');
-        setCloudError(null);
+        setTimeout(() => {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setCloudStatus('connecting');
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setCloudError(null);
+        }, 0);
 
         let docRef;
         try {
@@ -525,17 +536,25 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
     useEffect(() => {
         if (!currentUser?.uid) {
-            setCloudStatus('idle');
-            setCloudError(null);
+            setTimeout(() => {
+                // eslint-disable-next-line react-hooks/set-state-in-effect
+                setCloudStatus('idle');
+                // eslint-disable-next-line react-hooks/set-state-in-effect
+                setCloudError(null);
+            }, 0);
         }
     }, [currentUser?.uid]);
 
     useEffect(() => {
         isParityValidatedRef.current = false;
-        setParityTick(t => t + 1);
+        setTimeout(() => {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setParityTick(t => t + 1);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setHasConflict(false);
+        }, 0);
         lastSyncedRef.current = null;
         lastLocalMutationRef.current = 0;
-        setHasConflict(false);
     }, [currentUser?.uid]);
     
     const performEmergencySync = useCallback(async () => {

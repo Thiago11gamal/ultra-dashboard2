@@ -134,7 +134,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
         if (targetIndex === -1) {
             // BUG-DESYNC FIX: Se não estiver nos não-alocados, buscar ativamente em qual dia do planner está
-            const dayEntry = Object.entries(coachPlanner).find(([day, tasks]) => 
+            const dayEntry = Object.entries(coachPlanner).find(([, tasks]) => 
                 (tasks || []).some(t => getSafeId(t) === getSafeId(task))
             );
             if (dayEntry) {
@@ -172,8 +172,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             const rows = Array.isArray(history) ? history : [];
             if (rows.length === 0) return null;
  
-            // Janela móvel baseada no último evento disponível da categoria para
-            // manter o resumo consistente mesmo com histórico esparso.
             const latestTimestamp = rows.reduce((mx, h) => Math.max(mx, toFinite(h?.timestamp)), 0);
             const sevenDaysAgo = latestTimestamp - 7 * 24 * 60 * 60 * 1000;
             const recent = rows.filter(h => toFinite(h?.timestamp) >= sevenDaysAgo);

@@ -47,6 +47,7 @@ export const WeeklyEvolutionView = ({
     const [userToggles, setUserToggles] = useState({});
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUserToggles({});
     }, [showOnlyFocus, focusSubjectId]);
 

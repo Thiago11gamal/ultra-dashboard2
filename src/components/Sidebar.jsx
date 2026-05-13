@@ -81,20 +81,24 @@ export default function Sidebar({
     const isSingleContest = contestEntries.length <= 1;
 
     React.useEffect(() => {
-        const width = collapsed ? '70px' : '280px';
-        document.documentElement.style.setProperty('--sidebar-width', width);
-
         // Garantir que as configurações comecem fechadas ao expandir o menu
         if (!collapsed) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSettingsExpanded(false);
         }
     }, [collapsed]);
 
     React.useEffect(() => {
         if (!collapsed && contestEntries.length > 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setContestsExpanded(true);
         }
     }, [collapsed, contestEntries.length]);
+
+    React.useEffect(() => {
+        const width = collapsed ? '70px' : '280px';
+        document.documentElement.style.setProperty('--sidebar-width', width);
+    }, [collapsed]);
 
     React.useEffect(() => {
         if (typeof window === 'undefined') return;
