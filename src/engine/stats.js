@@ -231,7 +231,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const n_tilde = effectiveN + z2;
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
-    const TAMANHO_PROVA_ESTIMADO = Math.max(20, Math.round(safeMaxScore));
+    // CORREÇÃO: Em vez de Math.max(20, ...), permitimos que o tamanho físico 
+    // real da prova não seja artificialmente distorcido se for uma prova pequena.
+    const TAMANHO_PROVA_ESTIMADO = Math.max(1, Math.round(safeMaxScore));
     const epistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;
     const aleatoricVar = (p_tilde * (1 - p_tilde)) / TAMANHO_PROVA_ESTIMADO;
 
