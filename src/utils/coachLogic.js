@@ -140,11 +140,15 @@ function getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, e
  * Média Bayesiana para Proficiência Real
  * Ancorada na média global do aluno para evitar penalização artificial de pequenas amostras.
  */
+/**
+ * Média Bayesiana para Proficiência Real
+ * Ancorada na média global do aluno para evitar penalização artificial de pequenas amostras.
+ */
 export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5) => {
-    if (total === 0) return 0;
+    // CORREÇÃO: Removido o 'if (total === 0) return 0;' para permitir o Fallback Bayesiano
+    // Se o total for zero, a equação abaixo resulta exatamente em 'mediaGlobal'
     
-    // Prior Weight (K): Força da crença inicial (ex: 5 questões virtuais)
-    const K = 5; 
+    const K = 5; // Prior Weight: Força da crença inicial (ex: 5 questões virtuais)
     const smoothedAcertos = acertos + (mediaGlobal * K);
     const smoothedTotal = total + K;
     
@@ -1278,21 +1282,15 @@ export function getBestTask(categories, excludeTaskId = null) {
                 score += 45; 
             }
 
-            // Fator 3: Taxa de Erro
-            // MATH-ERRORRATE-SCALE FIX: errorRate pode estar em 0-1 ou 0-100 dependendo da fonte.
-            // Normalizar para 0-1 antes de usar para evitar que um campo de 0-100 produza score+=3200.
-            // [FIX 4] Evitar falha por valor "falsy" quando errorRate é 0
+            // Fator 3: Taxa de Erro (dentro de getBestTask)
             if (task.errorRate !== undefined && task.errorRate !== null) {
                 const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
                 
                 let normalizedErrorRate;
-                // CORREÇÃO: Usar < 1 para garantir que uma taxa de "1" exata (inserida como inteiro de 1%) 
-                // não seja tratada erradamente como 100% (1.0).
-                if (validErrorRate <= 1 && validErrorRate > 0) {
-                    // É puramente decimal/fracional (ex: 0.05, 0.80)
+                // CORREÇÃO: Usar estritamente '< 1' para evitar que o input de '1' exato (1%) seja tratado como 100%
+                if (validErrorRate < 1 && validErrorRate > 0) {
                     normalizedErrorRate = validErrorRate; 
                 } else {
-                    // É um inteiro (incluindo 1 ou 100). Converte para base percentual.
                     normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
                 }
                 
