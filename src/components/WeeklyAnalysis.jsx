@@ -30,11 +30,12 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         const grouped = {};
 
         sortedLogs.forEach(log => {
-            // Fix Bug 112: Handle potential timezone drift if date is just "YYYY-MM-DD"
+            // CORREÇÃO: Forçar SEMPRE as 12:00 do dia apontado, esmagando qualquer Timezone Drift (Bug 3.1 Fix)
             let dateObj;
-            if (typeof log.date === 'string' && log.date.length === 10) {
-                // It's likely YYYY-MM-DD. Append T12:00 to force midday local/safe parsing
-                dateObj = new Date(`${log.date}T12:00:00`);
+            const safeLogDate = typeof log.date === 'string' && log.date.includes('T') ? log.date.split('T')[0] : log.date;
+
+            if (typeof safeLogDate === 'string' && safeLogDate.length >= 10) {
+                dateObj = new Date(`${safeLogDate.substring(0, 10)}T12:00:00`);
             } else {
                 dateObj = new Date(log.date);
             }

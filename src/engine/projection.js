@@ -695,11 +695,11 @@ export function monteCarloSimulation(
             // CORREÇÃO MATEMÁTICA: O RBM ingénuo quebra perante choques que excedem
             // o dobro da amplitude do limite. Substituído por reflexão modular com teto absoluto.
             if (currentSimScore > maxScore) {
-                const overflow = currentSimScore - maxScore;
-                currentSimScore = maxScore - Math.min(overflow, maxScore - minScore);
+                let overflow = currentSimScore - maxScore;
+                currentSimScore = maxScore - (overflow % (maxScore - minScore)); 
             } else if (currentSimScore < minScore) {
-                const underflow = minScore - currentSimScore;
-                currentSimScore = minScore + Math.min(underflow, maxScore - minScore);
+                let underflow = minScore - currentSimScore;
+                currentSimScore = minScore + (underflow % (maxScore - minScore));
             }
             
             // Fallback de segurança estrito (Clamp final diário)

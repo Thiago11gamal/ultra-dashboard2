@@ -103,7 +103,15 @@ export function analyzeProgressState(scores, config = {}) {
     // para o eixo X de dias reais passados.
     const n = finiteRecentScores.length;
     const startTime = recentDates[0] || Date.now();
-    const xDays = recentDates.map(d => (d - startTime) / 86400000);
+    // CORREÇÃO: Forçar spread artificial mínimo (micro-passos) se os testes colidirem no mesmo dia (Bug 1.1 Fix)
+    const xDays = [];
+    recentDates.forEach((d, i) => {
+        let days = (d - startTime) / 86400000;
+        if (i > 0 && days <= xDays[i - 1]) {
+            days = xDays[i - 1] + 0.01; // Adiciona um micro-delta temporal (~14 minutos)
+        }
+        xDays.push(days);
+    });
     const xMean = xDays.reduce((a, b) => a + b, 0) / n;
 
     let numerator = 0;
