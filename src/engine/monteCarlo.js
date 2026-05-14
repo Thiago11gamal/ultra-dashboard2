@@ -466,6 +466,13 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
 export function simularMonteCarlo(metricas, simulacoes = 1000) {
     if (metricas && metricas.volumeSemanasAnteriores) {
         const history = metricas.volumeSemanasAnteriores;
+        
+        // CORREÇÃO MÁXIMA: Rejeitar tentativas matemáticas sobre o vazio e devolver limites base 
+        // para não colapsar os percentis no painel "Evolução do Foco".
+        if (!history || history.length === 0) {
+            return { p50: 0, p10: 0, p90: 0 };
+        }
+        
         // FIX: Usar a média histórica (avgVal) para ser consistente com o Backtest da Semana 14
         const avgVal = history.reduce((a, b) => a + b, 0) / history.length;
         const sd = metricas.focoMedio ? (1 - metricas.focoMedio) * avgVal : avgVal * 0.1;

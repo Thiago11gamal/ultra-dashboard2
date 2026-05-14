@@ -145,10 +145,14 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const sumResidualsWeighted = residualSamples.reduce((acc, it) => acc + it.value * it.weight, 0);
     const sumSw = residualSamples.reduce((acc, it) => acc + it.value * it.value * it.weight, 0);
 
-    const expectedResidual = sumResidualsWeighted / sumWeights;
+    // CORREÇÃO: Prevenir o colapso por "amnésia temporal". Se os pesos decaírem para zero absoluto,
+    // evitamos a divisão por zero para que o aluno mantenha um cone de projeção conservador.
+    const safeWeights = sumWeights > 1e-9 ? sumWeights : 1;
+    const expectedResidual = sumWeights > 1e-9 ? (sumResidualsWeighted / safeWeights) : 0;
+    
     const n_res = sorted.length - 1;
     const bessel = n_res > 1 ? n_res / (n_res - 1) : 1;
-    const mssdVariance = ((sumSw / sumWeights) - (expectedResidual * expectedResidual)) * bessel;
+    const mssdVariance = sumWeights > 1e-9 ? ((sumSw / safeWeights) - (expectedResidual * expectedResidual)) * bessel : 0;
 
     const weightedMedian = (arr) => {
         if (!arr.length) return 0;
@@ -402,6 +406,19 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         projectedScore = L / (1 + Math.exp(safeExponent));
     } else {
         // Caminho B: Fallback Clássico Linear se os dados forem caóticos ou muito curtos
+        // RESTAURAÇÃO: Recuperar cálculo de EMA e Slope removidos por engano
+        const slope = calculateSlope(sortedHistory, maxScore, options);
+        let ema = getSafeScore(sortedHistory[0], maxScore) || 0; 
+        for (let i = 1; i < sortedHistory.length; i++) {
+            const daysSinceLast = Math.max(1, (new Date(sortedHistory[i].date || sortedHistory[i].createdAt) - new Date(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
+            const currentPoint = getSafeScore(sortedHistory[i], maxScore);
+            
+            // CORREÇÃO: Evitar injeção permanente de veneno acumulado
+            if (!Number.isNaN(currentPoint)) {
+                ema = calculateDynamicEMA(currentPoint, ema, i + 1, daysSinceLast);
+            }
+        }
+
         // CORREÇÃO: Impedir que projeções de datas passadas quebrem a função Logarítmica
         const safeProjectDays = Math.max(0, projectDays);
         const effectiveDays = 45 * Math.log(1 + safeProjectDays / 45);
@@ -487,10 +504,15 @@ export function monteCarloSimulation(
 
     if (sortedHistory.length > 0) {
         // BUG-2.2 FIX: EMA initialization for baseline
-        let ema = getSafeScore(sortedHistory[0], maxScore);
+        let ema = getSafeScore(sortedHistory[0], maxScore) || 0;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = Math.max(1, (new Date(sortedHistory[i].date || sortedHistory[i].createdAt) - new Date(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
-            ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1, daysSinceLast);
+            const currentPoint = getSafeScore(sortedHistory[i], maxScore);
+            
+            // CORREÇÃO: Evitar injeção permanente de veneno acumulado
+            if (!Number.isNaN(currentPoint)) {
+                ema = calculateDynamicEMA(currentPoint, ema, i + 1, daysSinceLast);
+            }
         }
         
         if (forcedBaseline === undefined) {
@@ -549,7 +571,13 @@ export function monteCarloSimulation(
         const time1 = new Date(h.date || h.createdAt).getTime();
         const time0 = new Date(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt).getTime();
 
-        const rawDays = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
+        const deltaT = (time1 - time0) / (1000 * 60 * 60 * 24);
+        
+        // CORREÇÃO MÁXIMA: Math.max não é imune a NaNs. O Delta temporal precisa
+        // ser forçado à validação finita nativa antes do clamp de limite inferior.
+        const safeDeltaT = Number.isFinite(deltaT) ? deltaT : 0.1;
+        const rawDays = Math.max(0.1, safeDeltaT);
+        
         const detrendedChange = actualChange - (drift * rawDays);
 
         // Normalização pela raiz do tempo (movimento browniano)
