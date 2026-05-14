@@ -86,7 +86,12 @@ export function detectRegimeTransition(scores = [], options = {}) {
             });
         }
         // Se a variância está subindo enquanto o slope diminui
-        if (current.variance > previous.variance * 1.5 && slopeChange < 0) {
+        // [CORREÇÃO] Injetar um limite mínimo (Epsilon) de variância para impedir (Bug 3.1 Fix)
+        // que um salto de 0 para 0.01 dispare uma falsa "Instabilidade crescente".
+        const varianciaMinima = Math.pow(maxScore * 0.02, 2); // Piso de 2%
+        const varianciaAnteriorSegura = Math.max(previous.variance, varianciaMinima);
+        
+        if (current.variance > varianciaAnteriorSegura * 1.5 && slopeChange < 0) {
             flags.push({
                 type: 'info',
                 msg: 'Instabilidade crescente durante evolução. Consolide a base antes de avançar.',

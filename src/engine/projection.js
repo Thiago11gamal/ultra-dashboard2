@@ -556,12 +556,18 @@ export function monteCarloSimulation(
     baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * maxScore)));
 
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
-    const { slopeStdError } = sortedHistory.length > 1
+    // [CORREÇÃO] Centralizar a chamada de regressão numa única execução pesada (Bug 5.1 Fix).
+    // Evita a dupla iteração massiva (O(N)) no histórico do utilizador.
+    const regressionResult = sortedHistory.length > 1
         ? weightedRegression(sortedHistory, 0.08, maxScore, options)
-        // FIX: O fallback de 1.5 precisa ser escalonado pela base da prova (senão fica inútil no Enem/OAB)
         : { slope: 0, slopeStdError: 1.5 * scaleFactorFallback };
 
-    const drift = calculateSlope(sortedHistory, maxScore, options); // Tendência clampeada para a média determinística
+    const slopeStdError = regressionResult.slopeStdError;
+    
+    // [CORREÇÃO] Drift adaptativo sem segunda iteração massiva (calculateSlope O(N) removida)
+    const maxDailyDriftPct = options.maxDailyDriftPct !== undefined ? options.maxDailyDriftPct : 0.015;
+    const driftLimit = maxDailyDriftPct * maxScore;
+    const drift = Math.max(-driftLimit, Math.min(driftLimit, regressionResult.slope));
     const simulationDays = days; // Hoisted for C1 cap below
     // C1 FIX: Cap drift uncertainty to prevent bimodal explosion with short history.
     const scaleFactor = scaleFactorFallback;

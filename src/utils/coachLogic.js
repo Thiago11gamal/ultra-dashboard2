@@ -183,22 +183,34 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
 export const getCoachPriorities = (topicsData) => {
     if (!Array.isArray(topicsData)) return [];
     
-    // CORREÇÃO: Impedir o "Vírus de Concatenação" forçando parsing numérico estrito
+    // [CORREÇÃO] Função de sanitização robusta para lidar com strings e separadores vírgula (Bug 4.1 Fix)
+    const sanitizeNum = (val) => {
+        if (typeof val === 'string') return Number(val.replace(',', '.'));
+        return Number(val);
+    };
+    
     const globalCorrect = topicsData.reduce((acc, t) => {
-        const c = Number.isFinite(Number(t.acertos)) ? Number(t.acertos) : (Number.isFinite(Number(t.correct)) ? Number(t.correct) : 0);
+        const parsedAcertos = sanitizeNum(t.acertos);
+        const parsedCorrect = sanitizeNum(t.correct);
+        const c = Number.isFinite(parsedAcertos) ? parsedAcertos : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
         return acc + c;
     }, 0);
     
     const globalTotal = topicsData.reduce((acc, t) => {
-        const tot = Number.isFinite(Number(t.total)) ? Number(t.total) : 0;
+        const parsedTotal = sanitizeNum(t.total);
+        const tot = Number.isFinite(parsedTotal) ? parsedTotal : 0;
         return acc + tot;
     }, 0);
     
     const mediaGlobal = globalTotal > 0 ? globalCorrect / globalTotal : 0.5;
 
     return topicsData.map(topic => {
-        const c = Number.isFinite(Number(topic.acertos)) ? Number(topic.acertos) : (Number.isFinite(Number(topic.correct)) ? Number(topic.correct) : 0);
-        const tot = Number.isFinite(Number(topic.total)) ? Number(topic.total) : 0;
+        const parsedAcertos = sanitizeNum(topic.acertos);
+        const parsedCorrect = sanitizeNum(topic.correct);
+        const parsedTotal = sanitizeNum(topic.total);
+        
+        const c = Number.isFinite(parsedAcertos) ? parsedAcertos : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
+        const tot = Number.isFinite(parsedTotal) ? parsedTotal : 0;
         
         let realProficiency = computeBayesianProficiency(c, tot, mediaGlobal, globalTotal);
         
@@ -623,8 +635,15 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         
         const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
         
-        // Se estudou nas últimas 4 semanas, calcula a média, caso contrário, fallback humano de 5h/semana
-        const baselineHoursPerWeek = recentBaselineLogs.length > 0 ? (recentBaselineHours / 4) : 5.0;
+        // [CORREÇÃO] Calcular as semanas ativas reais do utilizador (máximo 4) em vez de dividir cegamente por 4 (Bug 1.1 Fix)
+        // Evita subestimar o burnout de novos utilizadores que estão cá há apenas poucos dias.
+        const firstLogTime = sortedLogsForBurnout.length > 0 
+            ? new Date(sortedLogsForBurnout[0].date).getTime() 
+            : nowMs;
+        const daysSinceFirstLog = Math.max(1, (nowMs - firstLogTime) / MS_PER_DAY);
+        const activeWeeks = Math.max(1, Math.min(4, daysSinceFirstLog / 7));
+        
+        const baselineHoursPerWeek = recentBaselineLogs.length > 0 ? (recentBaselineHours / activeWeeks) : 5.0;
 
         // 2. Definir o limiar dinâmico: Burnout acontece se ele exceder 1.8x o que está acostumado
         // [FIX 5] Elevar o piso para evitar falsos positivos alarmistas em volumes baixos
@@ -686,17 +705,28 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             srsLabel = srsResult.label;
         }
 
+        // [CORREÇÃO] Fuga à Penalidade de Rotação (Bug da Fronteira da Meia-Noite - Bug 2.1 Fix)
+        // Calcular as horas exatas desde a última atividade usando o tempo real para evitar resets arbitrários à meia-noite.
+        let exactLastTime = 0;
+        if (relevantSimulados.length > 0) exactLastTime = new Date(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime();
+        if (validStudyLogs.length > 0) {
+            const logTime = new Date(validStudyLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date).getTime();
+            if (logTime > exactLastTime) exactLastTime = logTime;
+        }
+
+        const exactHoursSinceLast = exactLastTime > 0 ? (Date.now() - exactLastTime) / (1000 * 60 * 60) : 48;
+
         // G. Rotation Penalty (Dinâmico)
         let rotationPenalty = 0;
-        if (daysSinceLastStudy < 1) {
-            // CORREÇÃO: A penalidade diária atua com base no excesso de confiança e volume, 
-            // e não é cancelada pela consistência (volatilidade).
+        
+        // Aplica a penalidade rigorosamente se passaram menos de 24 horas reais
+        if (exactHoursSinceLast < 24) {
             const fatigueRatio = Math.max(0, Math.min(1, averageScore / maxScore)); 
             const dynamicPenalty = Math.min(25, 15 * fatigueRatio * (1 + (mssdVolatility / maxScore)));
             
             rotationPenalty = dynamicPenalty;
 
-        } else if (daysSinceLastStudy === 1 && !srsLabel) {
+        } else if (exactHoursSinceLast >= 24 && exactHoursSinceLast < 48 && !srsLabel) {
             rotationPenalty = mssdVolatility > (maxScore * 0.05) ? 8 : 2; 
         }
         if (srsBoost > 0) rotationPenalty *= 0.1;
