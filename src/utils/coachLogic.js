@@ -78,12 +78,10 @@ function getDynamicTrendThreshold(currentScore, maxScore) {
 const normalizeDate = (dateInput) => {
     if (!dateInput) return new Date(0);
     try {
-        const d = typeof dateInput === 'string' && dateInput.length === 10
-            ? new Date(`${dateInput}T12:00:00`)
-            : new Date(dateInput);
+        const d = new Date(dateInput);
         if (isNaN(d.getTime())) return new Date(0);
-        d.setHours(0, 0, 0, 0);
-        return d;
+        // 🎯 FIX: Isola a data UTC explicitamente para evitar drift de fuso horário
+        return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
     } catch {
         return new Date(0);
     }
@@ -1076,7 +1074,8 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             let topicTotal = Number.isFinite(rawTotal) && rawTotal > 0 ? rawTotal : 0;
             let topicCorrect = 0;
 
-            const isTotalMissing = t.total === undefined || t.total === null || String(t.total).trim() === "";
+            // 🎯 FIX: Aceitar total === 0 se houver score válido (heurística isTotalMissing expandida)
+            const isTotalMissing = t.total === undefined || t.total === null || String(t.total).trim() === "" || Number(t.total) === 0;
 
             if (t.score != null && isTotalMissing) {
                 // Cenário: Foi inserido apenas a percentagem sem volume
