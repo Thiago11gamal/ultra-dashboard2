@@ -24,8 +24,14 @@ export const normalizePercentInput = (value) => {
 };
 
 export function getSafeScore(historyRow, maxScore = 100) {
-    if (!historyRow) return NaN;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    
+    // Suporte para entrada direta de números (utilitários matemáticos)
+    if (typeof historyRow === 'number') {
+        return Math.max(-safeMaxScore, Math.min(safeMaxScore, historyRow));
+    }
+
+    if (!historyRow) return NaN;
 
     if (historyRow.score != null) {
         let rawScore = historyRow.score;

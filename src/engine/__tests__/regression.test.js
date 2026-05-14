@@ -61,9 +61,9 @@ describe('BUG-FIXED: isPercentage — getSafeScore', () => {
         expect(getSafeScore(entry, 180)).toBe(162);
     });
 
-    it('entry nulo retorna 0 sem lançar exceção', () => {
-        expect(getSafeScore(null, 100)).toBe(0);
-        expect(getSafeScore(undefined, 100)).toBe(0);
+    it('entry nulo retorna NaN para evitar viés estatístico', () => {
+        expect(getSafeScore(null, 100)).toBeNaN();
+        expect(getSafeScore(undefined, 100)).toBeNaN();
     });
 });
 
