@@ -229,10 +229,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     
     // CORREÇÃO: Prevenir a anulação catastrófica (Underflow) em caudas severamente truncadas,
     // garantindo que a matemática analítica sobrevive a amostras estatisticamente extremas.
-    let truncNormFactor = phiMin - phiMax;
-    if (truncNormFactor < 1e-15) {
+    const rawTruncNormFactor = phiMin - phiMax;
+    const isUnderflowStress = rawTruncNormFactor < 1e-15;
+    
+    let truncNormFactor = rawTruncNormFactor;
+    if (isUnderflowStress) {
         const zScoreMin = (minScore - muParam) / safeSD;
-        // Aproximação segura da densidade local na fronteira
         truncNormFactor = Math.max(1e-15, Math.exp(-0.5 * zScoreMin * zScoreMin) / (Math.abs(zScoreMin) + 1e-6));
     }
     const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
@@ -243,9 +245,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     } else if (effectiveTarget <= minScore) {
         analyticalProbability = 100;
     } else {
-        analyticalProbability = truncNormFactor > 1e-25 
-            ? ((clampedPhiTarget - phiMax) / truncNormFactor) * 100 
-            : empiricalProbability; 
+        // CORREÇÃO: Se houve stress de underflow (valores atómicos irreais),
+        // abdicamos do integral analítico para não gerar falsos Zeros (0/1e-15)
+        // e confiamos 100% no motor de Monte Carlo bruto (Empírico).
+        analyticalProbability = isUnderflowStress 
+            ? empiricalProbability 
+            : ((clampedPhiTarget - phiMax) / truncNormFactor) * 100; 
     }
     analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
 
@@ -402,7 +407,7 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
     const varianciaBase = 0.05; 
     
     const volatilidadeAdaptativa = varianciaBase / Math.sqrt(Math.max(totalQuestoesFeitas, 1));
-    const limiteAssintotico = 0.96; 
+    const limiteAssintotico = Math.max(0.96, Math.min(1.0, ultimaNota)); 
     const taxaCrescimento = 0.005; 
     
     let simulacoes = [];
@@ -434,11 +439,11 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
             
             // OTIMIZAÇÃO: Comprimir o ruído à medida que a nota se aproxima do teto logístico
             // Evita que notas de elite "batam" constantemente no teto de forma assimétrica.
-            const margemTeto = limiteAssintotico - notaAtual;
+            const margemTeto = Math.max(0, limiteAssintotico - notaAtual); // Evita valores negativos
             const compressaoRuido = 1 - Math.exp(-5 * margemTeto);
             const ruidoAjustado = ruido * Math.max(0.1, compressaoRuido);
             
-            // A nota acumula o progresso real perturbado pelo ruído ajustado
+            // O Clamp agora respeita o teto adaptado ao talento do aluno
             notaAtual = Math.max(0, Math.min(limiteAssintotico, notaAtual + driftDiario + ruidoAjustado));
             caminho.push(notaAtual);
         }

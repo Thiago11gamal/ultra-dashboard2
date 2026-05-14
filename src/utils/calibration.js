@@ -190,9 +190,12 @@ export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
     const end = Math.floor((i + 1) * sorted.length / bins);
     const slice = sorted.slice(start, end);
     if (slice.length === 0) continue;
-    const lo = slice[0].probability;
-    const hi = slice[slice.length - 1].probability;
-    if (p < lo || p > hi) continue;
+    const isFirstBin = (i === 0);
+    const isLastBin = (i === bins - 1);
+    const lo = isFirstBin ? -0.01 : sorted[start].probability;
+    const hi = isLastBin ? 1.01 : sorted[end - 1].probability;
+
+    if (p < lo || p >= hi && !isLastBin) continue;
     const succ = slice.reduce((a, b) => a + b.observed, 0);
     const n = slice.length;
     return (succ + alpha0) / (n + alpha0 + beta0);
