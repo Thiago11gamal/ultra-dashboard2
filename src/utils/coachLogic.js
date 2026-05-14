@@ -223,7 +223,6 @@ export const getCoachPriorities = (topicsData) => {
             realProficiency
         };
     })
-    })
     .sort((a, b) => {
         const valA = Number.isFinite(a.realProficiency) ? a.realProficiency : 1; // NaN vai pro final da fila de prioridade (sabe tudo)
         const valB = Number.isFinite(b.realProficiency) ? b.realProficiency : 1;
