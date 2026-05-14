@@ -41,6 +41,7 @@ export function CompareChart({
         return last;
     }, [filteredChartData]);
 
+    // 🎯 FIX: Algoritmo de Colisão Adaptativo baseado no Range Real
     const solveCollisions = (points) => {
         if (!points.length) return [];
         const sorted = [...points].sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
@@ -48,21 +49,36 @@ export function CompareChart({
             ...p,
             yPos: Number.isFinite(Number(p.value)) ? Number(p.value) : safeMinScore
         }));
-        const DIST = 9;
+        
+        const range = safeMaxScore - safeMinScore;
+        const MIN_PCT_DISTANCE = range * 0.085; // 8.5% do escopo visual (Flexível)
+
+        // Pass 1: Espaçamento de cima para baixo
         for (let i = 1; i < yPos.length; i++) {
-            if (yPos[i - 1].yPos - yPos[i].yPos < DIST) {
-                yPos[i].yPos = yPos[i - 1].yPos - DIST;
+            if (yPos[i - 1].yPos - yPos[i].yPos < MIN_PCT_DISTANCE) {
+                yPos[i].yPos = yPos[i - 1].yPos - MIN_PCT_DISTANCE;
             }
         }
-        yPos.forEach(p => {
-            const span = Math.max(1, safeMaxScore - safeMinScore);
-            const pad = Math.min(5, span * 0.1);
-            const minBound = safeMinScore + pad;
-            const maxBound = safeMaxScore - pad;
-            p.yPos = minBound <= maxBound
-                ? Math.max(minBound, Math.min(maxBound, p.yPos))
-                : Math.max(safeMinScore, Math.min(safeMaxScore, p.yPos));
-        });
+
+        // Pass 2: Teto - Previne estourar o gráfico pra cima
+        const topLimit = safeMaxScore - (range * 0.02);
+        for (let i = 0; i < yPos.length; i++) {
+            if (i === 0) {
+                if (yPos[i].yPos > topLimit) yPos[i].yPos = topLimit;
+            } else {
+                if (yPos[i - 1].yPos - yPos[i].yPos < MIN_PCT_DISTANCE) {
+                    yPos[i].yPos = yPos[i - 1].yPos - MIN_PCT_DISTANCE;
+                }
+            }
+        }
+
+        // Pass 3: Chão - Recupera caso tenha vazado pelo fundo
+        const bottomLimit = safeMinScore + (range * 0.05);
+        if (yPos.length > 0 && yPos[yPos.length - 1].yPos < bottomLimit) {
+            const shift = bottomLimit - yPos[yPos.length - 1].yPos;
+            yPos.forEach(p => p.yPos += shift);
+        }
+
         return yPos;
     };
 
@@ -133,7 +149,8 @@ export function CompareChart({
     return (
         <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
             <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0">
-                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 75, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
+                {/* 🎯 FIX: right: 85 impede que as Labels cortem a borda direita na renderização do MC */}
+                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 85, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
                         <linearGradient id={CC.projectionPurpleGradient} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.2} />

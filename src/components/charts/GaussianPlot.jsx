@@ -236,19 +236,28 @@ export const GaussianPlot = ({
         return res;
     }, [targetPos, meanPos, currentPos, isTargetVisible, isCurrentVisible]);
 
-    const getLabelTop = (yPercent, level) => `calc(${yPercent}% - ${32 + level * 30}px)`;
+    // 🎯 FIX: Se a curva bater no teto do SVG (yPercent < 20), ele renderiza o label ABAIXO da linha 
+    // em vez de forçar para cima e ser cortado pelo Box Model
+    const getLabelTop = (yPercent, level) => {
+        if (yPercent < 20) {
+            return `calc(${yPercent}% + ${15 + level * 25}px)`;
+        }
+        return `calc(${yPercent}% - ${32 + level * 30}px)`;
+    };
 
     return (
         <div className="relative w-full h-[220px] mt-28 mb-6 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const percentage = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                // 🎯 FIX: Proteção contra Divisão por Zero em Arrays estáticos
                 const safeRange = Math.max(1e-6, range);
                 const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * safeRange));
                 setHover({ x: xp(val), val });
             }}
             onMouseLeave={() => setHover(null)}
         >
+            {/* ... Gradientes laterais e SVG defs continuam iguais ... */}
             <div style={{
                 position: 'absolute', width: '40px', top: 0, bottom: 0, pointerEvents: 'none', zIndex: 10, left: 0,
                 background: 'linear-gradient(to right, rgb(15, 23, 42), transparent)'
@@ -347,13 +356,6 @@ export const GaussianPlot = ({
                         <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${10 + (resolvedLabels.today || 0) * 30}px` }} />
                     </div>
                 )}
-
-                {isTargetVisible && (
-                    <div className="absolute flex flex-col items-center opacity-0 group-hover/chart:opacity-100 transition-all duration-500 scale-90 group-hover/chart:scale-100" style={{ left: `${Math.min(targetPos + (100 - targetPos) / 2, 88)}%`, top: '40%', transform: 'translateX(-50%)', filter: `drop-shadow(0 0 10px ${successColor}44)` }}>
-                        <span className="text-[40px] font-black transition-colors duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.4)]" style={{ color: successColor }}>{formatValue(prob)}%</span>
-                        <span className="text-[8px] font-black uppercase tracking-[0.2em] leading-none mt-1 opacity-80" style={{ color: successColor }}>Caminho de Sucesso</span>
-                    </div>
-                )}
             </div>
 
             {hover && (
@@ -361,8 +363,10 @@ export const GaussianPlot = ({
                     <div className="absolute h-full w-px bg-white/10" style={{ left: `${hover.x}%` }} />
                     <div className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_12px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, curveY(hover.val))}%`, transform: 'translate(-50%, -50%)' }} />
                     
-                    {/* FIX: Clamp defensivo no Hover para evitar Tooltip cortado nos cantos */}
-                    <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 text-white px-2.5 py-1.5 rounded-none shadow-2xl flex flex-col items-center min-w-[90px]" style={{ left: `${Math.max(12, Math.min(88, hover.x))}%`, top: `${Math.max(15, curveY(hover.val) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
+                    {/* 🎯 FIX: Topo Seguro para a Tooltip, protegendo-a de sumir no topo da tela (Math.max(30)) */}
+                    <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 text-white px-2.5 py-1.5 rounded-none shadow-2xl flex flex-col items-center min-w-[90px]" 
+                        style={{ left: `${Math.max(12, Math.min(88, hover.x))}%`, top: `${Math.max(30, curveY(hover.val) - 5)}%`, transform: 'translate(-50%, -100%)' }}>
+                        
                         <span className="text-[15px] font-black tracking-tight leading-none">{unit === 'horas' ? formatDuration(hover.val) : unit === '%' ? formatValue(hover.val) : hover.val}{unit}</span>
                         <div className="flex items-center gap-1 mt-1">
                             <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
@@ -382,11 +386,6 @@ export const GaussianPlot = ({
                         </span>
                     );
                 })}
-            </div>
-
-            <div className="absolute top-2 left-4 flex items-center gap-2 opacity-60 group-hover/chart:opacity-100 transition-opacity bg-slate-900/40 backdrop-blur-sm px-2 py-1 rounded-none border border-white/5">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500/40 border border-blue-400/50" />
-                <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">IC 95%: {ciLabel}</span>
             </div>
         </div>
     );

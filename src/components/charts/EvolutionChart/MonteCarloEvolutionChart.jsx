@@ -233,9 +233,10 @@ export const MonteCarloEvolutionChart = ({
 
                 {formattedData.length > 1 ? (
                     <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={300}>
+                        {/* 🎯 FIX: margin right de 10 -> 30 para evitar que a última data seja mastigada pelo limite do componente */}
                         <AreaChart
                             data={scenarioAdjustedData}
-                            margin={{ top: 20, right: 10, left: -15, bottom: 5 }}
+                            margin={{ top: 20, right: 30, left: -15, bottom: 5 }}
                         >
                             <defs>
                                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -279,7 +280,6 @@ export const MonteCarloEvolutionChart = ({
                                 isAnimationActive={true}
                             />
 
-                            {/* FIX: monotoneX previne barrigas e estouramentos em y */}
                             <Area
                                 type="monotoneX"
                                 dataKey="mean"
