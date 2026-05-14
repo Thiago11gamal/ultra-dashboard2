@@ -5,6 +5,7 @@ export { monteCarloSimulation };
 import { getPercentile, quickSelect, calculateInterpolatedPercentile } from './math/percentile.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
+import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 
 export { getPercentile };
 
@@ -85,7 +86,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         const low = bayesianCI.unclampedLow !== undefined ? bayesianCI.unclampedLow : bayesianCI.ciLow;
         
         if (high !== undefined && low !== undefined) {
-            let inferredSD = (high - low) / 3.92;
+            // CORREÇÃO: Usar o mesmo T-Multiplier dinâmico que gerou o CI, em vez da constante estática 3.92
+            const effectiveN = bayesianCI.n || Math.max(1, historyLength);
+            const tMultiplier = getConfidenceMultiplier(effectiveN, { allowFractional: true });
+            
+            let inferredSD = (high - low) / (tMultiplier * 2);
             const distToBoundary = Math.min(safeMean - minScore, maxScore - safeMean);
 
             // Se a média estiver muito próxima do limite (0 ou 100), o intervalo de 95% 
@@ -428,9 +433,16 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
         return Math.max(max, val);
     }, 0);
     
-    // Infere a escala: Se alguma nota na vida do aluno for > 1.0, o sistema é de 0-100.
-    // Fallback de segurança: Se o histórico estiver totalmente zerado, assume 100.
-    const escala = picoHistorico > 1.0 ? 100 : (picoHistorico === 0 ? 100 : 1.0);
+    // CORREÇÃO: Triagem heurística adaptável que suporta escalas de faculdade [0 a 10]
+    let escala = 100;
+    if (picoHistorico <= 1.0 && picoHistorico > 0) {
+        escala = 1.0;
+    } else if (picoHistorico > 1.0 && picoHistorico <= 10.0) {
+        // Se todas as notas na vida do aluno couberem entre 0 e 10, protege a curva de saltar para 100.
+        escala = 10;
+    } else if (picoHistorico === 0) {
+        escala = 100; // Ignorância máxima
+    }
     
     const varianciaBase = 0.05 * escala; 
     
