@@ -404,14 +404,20 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
         ? Number(ultimoRegisto.score || 0) 
         : Number(ultimoRegisto);
     
-    const varianciaBase = 0.05; 
+    // CORREÇÃO MÁXIMA: Inferir e injetar a escala correta (0-1 vs 0-100)
+    // Se a nota ultrapassar 1.0, o motor converte os limites físicos para a escala percentual cheia
+    const escala = ultimaNota > 1.0 ? 100 : 1.0;
+    
+    const varianciaBase = 0.05 * escala; 
     
     const volatilidadeAdaptativa = varianciaBase / Math.sqrt(Math.max(totalQuestoesFeitas, 1));
-    const limiteAssintotico = Math.max(0.96, Math.min(1.0, ultimaNota)); 
+    
+    // Limite superior adaptativo que respeita notas altíssimas reais sem prender no 1 artificial
+    const limiteAssintotico = Math.max(0.96 * escala, Math.min(escala, ultimaNota * 1.05)); 
     const taxaCrescimento = 0.005; 
     
     let simulacoes = [];
-    const n0 = Math.max(0.01, ultimaNota);
+    const n0 = Math.max(0.01 * escala, ultimaNota);
     
     const stableSeed = generateStableSeed(historicoNotas.length, "monteCarloSimulation", totalQuestoesFeitas);
     const rng = mulberry32(stableSeed);

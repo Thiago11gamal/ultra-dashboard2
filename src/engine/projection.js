@@ -198,15 +198,23 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     const scores = history.map(h => getSafeScore(h, maxScore));
     const n = scores.length;
     
-    // Detrending Linear Rápido
+    // CORREÇÃO: Utilizar o diferencial de dias contínuos reais em vez de índices cegos 
+    // para um Detrending Linear que respeita a física e a cronologia do histórico.
+    const t0 = new Date(history[0].date || history[0].createdAt).getTime();
+    const timeX = history.map(h => (new Date(h.date || h.createdAt).getTime() - t0) / 86400000);
+    
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     for(let i = 0; i < n; i++) {
-        sumX += i; sumY += scores[i]; sumXY += i * scores[i]; sumXX += i * i;
+        const tx = timeX[i];
+        sumX += tx; 
+        sumY += scores[i]; 
+        sumXY += tx * scores[i]; 
+        sumXX += tx * tx;
     }
     const det = n * sumXX - sumX * sumX;
     const slope = det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
     
-    const detrendedScores = scores.map((y, i) => y - (slope * i));
+    const detrendedScores = scores.map((y, i) => y - (slope * timeX[i]));
     
     let sumSqDiff = 0;
     for (let i = 1; i < n; i++) {
@@ -302,16 +310,21 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
             // Suavização Bayesiana: 60% empírico, 40% a priori (maxScore total)
             L = (predictedCap * 0.60) + (maxScore * 0.40);
             L = Math.max(currentY + 1, Math.min(maxScore, L));
-        } else {
             // Fallback para quando não há desaceleração clara: usa P90 com headroom conservador
-            const peakScore = getPercentile(historicalScores, 0.90);
+            // CORREÇÃO: Obrigar a ordenação numérica antes de extrair os percentis 
+            // para garantir que o Peak Score é o verdadeiro limite empírico do aluno.
+            const sortedForPercentile = [...historicalScores].sort((a, b) => a - b);
+            const peakScore = getPercentile(sortedForPercentile, 0.90);
             const spaceToMax = maxScore - peakScore;
             const dynamicHeadroom = Math.max(currentVariance * 1.5, maxScore * 0.10, spaceToMax * 0.25);
             L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom);
         }
     } else {
         // Amostra pequena: usa o P90 tradicional
-        const peakScore = getPercentile(historicalScores, 0.90);
+        // CORREÇÃO: Obrigar a ordenação numérica antes de extrair os percentis 
+        // para garantir que o Peak Score é o verdadeiro limite empírico do aluno.
+        const sortedForPercentile = [...historicalScores].sort((a, b) => a - b);
+        const peakScore = getPercentile(sortedForPercentile, 0.90);
         const spaceToMax = maxScore - peakScore;
         const dynamicHeadroom = Math.max(currentVariance * 1.5, maxScore * 0.10, spaceToMax * 0.25);
         L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom);
@@ -557,8 +570,14 @@ export function monteCarloSimulation(
         centeredResiduals = validResiduals;
     }
     
-    const resMedian = getPercentile(centeredResiduals, 0.5);
-    const resMad = getPercentile(centeredResiduals.map(r => Math.abs(r - resMedian)), 0.5) || (1.0 * scaleFactor);
+    // CORREÇÃO: Isolar, ordenar e derivar as medidas de robustez (MAD) de forma
+    // matematicamente pura, impedindo a escolha cega de elementos pseudo-medianos.
+    const sortedResiduals = [...centeredResiduals].sort((a, b) => a - b);
+    const resMedian = getPercentile(sortedResiduals, 0.5);
+    
+    const absDevs = centeredResiduals.map(r => Math.abs(r - resMedian)).sort((a, b) => a - b);
+    const resMad = getPercentile(absDevs, 0.5) || (1.0 * scaleFactor);
+    
     const safeResiduals = centeredResiduals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
 
     // 3. Simulação de Monte Carlo
