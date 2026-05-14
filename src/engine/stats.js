@@ -2,8 +2,8 @@
 export const BAYESIAN_DECAY_FACTOR = 0.985;
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
 // BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
-import { calculateSlope } from './projection.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
+import { kahanSum, kahanMean } from './math/kahan.js';
 
 import { computeAdaptiveLambda } from './diagnostics.js';
 
@@ -44,10 +44,7 @@ function getDynamicPriorSD(history, maxScore) {
 }
 
 export function mean(arr) {
-    if (!arr || !arr.length) return 0;
-    const clean = arr.map(Number).filter(Number.isFinite);
-    if (!clean.length) return 0;
-    return clean.reduce((a, b) => a + b, 0) / clean.length;
+    return kahanMean(arr);
 }
 export const calcularMedia = mean;
 
@@ -63,7 +60,7 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
 
     // Cálculo de Desvio Padrão Robusto (sample + MAD)
     const sampleVar = n > 1
-        ? clean.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
+        ? kahanSum(clean.map(val => Math.pow(val - m, 2))) / (n - 1)
         : 0;
 
     const sorted = [...clean].sort((a, b) => a - b);
@@ -95,8 +92,8 @@ export const calcularDesvioPadrao = (arr) => {
     if (clean.length <= 1) return 0;
     const m = clean.reduce((a, b) => a + b, 0) / clean.length;
     
-    // CORREÇÃO: Divisão por (N - 1) para gerar Desvio Padrão Amostral não viesado
-    const v = clean.reduce((acc, x) => acc + Math.pow(x - m, 2), 0) / (clean.length - 1);
+    const sumSq = clean.map(x => Math.pow(x - m, 2));
+    const v = clean.length > 1 ? kahanSum(sumSq) / (clean.length - 1) : 0;
     
     return Math.sqrt(v);
 };
@@ -118,7 +115,8 @@ export function calcularAssimetria(arr) {
     if (sd < 1e-5) return 0;
 
     const n = clean.length;
-    const sumCube = clean.reduce((acc, val) => acc + Math.pow(val - m, 3), 0);
+    const cubeDiffs = clean.map(val => Math.pow(val - m, 3));
+    const sumCube = kahanSum(cubeDiffs);
     
     // Fator de correção de viés estatístico
     const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.pow(sd, 3));
@@ -196,7 +194,7 @@ export function computeBayesianLevel(
     const safeAvgGap = Math.max(0.5, gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 7);
     const baseCapacity = 250 / safeAvgGap;
 
-    const totalQuestionsHist = history ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) : 0;
+    const totalQuestionsHist = history ? kahanSum(history.map(h => Number(h.total) || 20)) : 0;
     // CORREÇÃO: Usar obrigatoriamente a linha do tempo previamente ordenada (historySortedForGaps) 
     // para não distorcer o fluxo de tempo e explodir a memória ativa.
     const historyDays = historySortedForGaps && historySortedForGaps.length > 1 
@@ -279,16 +277,20 @@ export function computeBayesianLevel(
             }
 
             // 2. Agora injetamos a nota na matemática (SEM usar `continue`)
+            // [TRI FIX]: Se houver um peso/dificuldade no item, escalamos a confiança bayesiana.
+            // Acertos em questões difíceis pesam mais na subida do nível.
+            const itemWeight = Number(h.weight || h.difficulty || 1.0);
+            
             if (isPurePercentage) {
-                const syntheticN = getSyntheticTotal(safeMaxScore);
+                const syntheticN = getSyntheticTotal(safeMaxScore) * itemWeight;
                 alpha += pct * syntheticN;
                 beta += (1 - pct) * syntheticN;
             } else {
                 let correct = Math.round(pct * total);
                 if (total >= 1) {
                     const safeCorrect = Math.max(0, Math.min(total, correct));
-                    const acertosHoje = safeCorrect;
-                    const errosHoje = total - safeCorrect;
+                    const acertosHoje = safeCorrect * itemWeight;
+                    const errosHoje = (total - safeCorrect) * itemWeight;
                     alpha += acertosHoje;
                     beta += errosHoje;
                 }
@@ -433,8 +435,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const validHistoryForMean = historyToUse.filter(h => !Number.isNaN(getSafeScore(h, safeMaxScore)));
     const actualTotalQ = validHistoryForMean.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
     
+    const weightedScores = validHistoryForMean.map(h => getSafeScore(h, safeMaxScore) * (Number(h.total) || 0));
     const m = actualTotalQ > 0
-        ? validHistoryForMean.reduce((acc, h) => acc + getSafeScore(h, safeMaxScore) * (Number(h.total) || 0), 0) / actualTotalQ
+        ? kahanSum(weightedScores) / actualTotalQ
         : mean(scores);
 
     let variance = 0;
@@ -451,9 +454,13 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             const w = Number(h.total) || 0; 
             if (w > 0) {
                 const safeScore = getSafeScore(h, safeMaxScore);
-                wVarSum += w * Math.pow(safeScore - m, 2);
-                sumW += w;
-                sumW2 += w * w;
+                // [TRI] Peso adicional de dificuldade se disponível
+                const difficultyWeight = Number(h.weight || h.difficulty || 1.0);
+                const effectiveWeight = w * difficultyWeight;
+                
+                wVarSum += effectiveWeight * Math.pow(safeScore - m, 2);
+                sumW += effectiveWeight;
+                sumW2 += Math.pow(effectiveWeight, 2);
             }
         });
 

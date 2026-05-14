@@ -4,6 +4,7 @@
  * Implements weighted variance calculation and time uncertainty
  * All formulas are statistically correct and auditable
  */
+import { kahanSum } from './math/kahan.js';
 
 /**
  * Compute weighted variance from category statistics
@@ -31,8 +32,8 @@ export const INTER_SUBJECT_CORRELATION = 0.25;
 export function computeEffectiveSampleSizeFromWeights(weights = []) {
     const clean = Array.isArray(weights) ? weights.map(w => Number(w)).filter(w => Number.isFinite(w) && w > 0) : [];
     if (clean.length === 0) return 0;
-    const sumW = clean.reduce((a, b) => a + b, 0);
-    const sumW2 = clean.reduce((a, b) => a + (b * b), 0);
+    const sumW = kahanSum(clean);
+    const sumW2 = kahanSum(clean.map(w => w * w));
     return sumW2 > 0 ? (sumW * sumW) / sumW2 : 0;
 }
 
@@ -67,7 +68,7 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
         return Number.isFinite(n) && n >= 0 ? n : 0;
     };
 
-    const calculatedTotalWeight = stats.reduce((acc, cat) => acc + toFiniteNonNegative(cat?.weight), 0);
+    const calculatedTotalWeight = kahanSum(stats.map(cat => toFiniteNonNegative(cat?.weight)));
     const effectiveTotalWeight = (Number.isFinite(totalWeight) && totalWeight > 0) ? totalWeight : calculatedTotalWeight;
 
     if (effectiveTotalWeight === 0) return 0;
@@ -76,15 +77,15 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
     const rawWeights = stats.map(cat => toFiniteNonNegative(cat?.weight));
     const adjustedSDs = stats.map(cat => toFiniteSd(cat?.sd));
 
-    const sumRawWeights = rawWeights.reduce((acc, w) => acc + w, 0);
+    const sumRawWeights = kahanSum(rawWeights);
     if (!Number.isFinite(sumRawWeights) || sumRawWeights <= 0) return 0;
     
     const weights = preserveScale 
         ? rawWeights 
         : rawWeights.map(w => w / sumRawWeights);
 
-    const independentVar = weights.reduce((acc, w, i) => acc + Math.pow(w, 2) * Math.pow(adjustedSDs[i], 2), 0);
-    const weightedSumSD = weights.reduce((acc, w, i) => acc + (w * adjustedSDs[i]), 0);
+    const independentVar = kahanSum(weights.map((w, i) => Math.pow(w, 2) * Math.pow(adjustedSDs[i], 2)));
+    const weightedSumSD = kahanSum(weights.map((w, i) => w * adjustedSDs[i]));
     const coherentVar = Math.pow(weightedSumSD, 2);
 
     let finalVar = (1 - validRho) * independentVar + (validRho * coherentVar);
@@ -144,19 +145,22 @@ export function estimateInterSubjectCorrelation(
             const n = xs.length;
             if (n < 4) continue;
 
-            const meanX = xs.reduce((acc, v) => acc + v, 0) / n;
-            const meanY = ys.reduce((acc, v) => acc + v, 0) / n;
+            const meanX = kahanSum(xs) / n;
+            const meanY = kahanSum(ys) / n;
 
-            let cov = 0;
-            let varX = 0;
-            let varY = 0;
+            let covArr = [];
+            let varXArr = [];
+            let varYArr = [];
             for (let k = 0; k < n; k++) {
                 const dx = xs[k] - meanX;
                 const dy = ys[k] - meanY;
-                cov += dx * dy;
-                varX += dx * dx;
-                varY += dy * dy;
+                covArr.push(dx * dy);
+                varXArr.push(dx * dx);
+                varYArr.push(dy * dy);
             }
+            cov = kahanSum(covArr);
+            varX = kahanSum(varXArr);
+            varY = kahanSum(varYArr);
 
             const denom = Math.sqrt(varX * varY);
             if (denom <= 0) continue;
@@ -188,7 +192,7 @@ export function estimateInterSubjectCorrelation(
     const empirical = (Math.exp(2 * avgZ) - 1) / (Math.exp(2 * avgZ) + 1);
 
     const overlaps = pairwise.map(p => p.n);
-    const avgOverlap = overlaps.reduce((acc, n) => acc + n, 0) / overlaps.length;
+    const avgOverlap = kahanSum(overlaps) / overlaps.length;
     const essPairs = computeEffectiveSampleSizeFromWeights(pairwise.map(p => Math.max(1, p.n - 3)));
     // Shrinkage empírico-bayesiano: usa overlap médio e ESS para evitar overfit em poucos pares.
     const shrink = Math.max(0, Math.min(1, (avgOverlap / (avgOverlap + 10)) * (essPairs / (essPairs + 6))));
@@ -250,10 +254,10 @@ export function calcularVariancia(arr) {
     if (!Array.isArray(arr) || arr.length <= 1) return 0;
     const clean = arr.map(Number).filter(Number.isFinite);
     if (clean.length <= 1) return 0;
-    const m = clean.reduce((a, b) => a + b, 0) / clean.length;
+    const m = kahanMean(clean);
     
     // CORREÇÃO: Divisão Amostral Não-Viesada (N - 1)
-    return clean.reduce((acc, v) => acc + Math.pow(v - m, 2), 0) / (clean.length - 1);
+    return kahanSum(clean.map(v => Math.pow(v - m, 2))) / (clean.length - 1);
 }
 
 export default {

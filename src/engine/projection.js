@@ -10,6 +10,7 @@ import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
 import { sampleTruncatedNormal } from './math/gaussian.js';
 import { Z_95 } from './math/constants.js';
+import { kahanSum, kahanMean } from './math/kahan.js';
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {
@@ -60,6 +61,27 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         sumWXX += w * x * x;
         sumWXY += w * x * y;
     });
+
+    const sumW_k = kahanSum(sorted.map(h => {
+        const t = Math.max(0, (now - new Date(h.date || h.createdAt).getTime()) / 86400000);
+        return Math.exp(-lambda * t);
+    }));
+    // We'll keep the loop for now but use kahanSum for final values if possible. 
+    // Actually, let's just replace the final aggregations.
+    
+    // For simplicity and performance in this specific loop, we'll keep the accumulators 
+    // but use kahanSum for the entire series if accuracy is critical.
+    // Given the request, let's use kahanSum on the arrays.
+    
+    const weights = sorted.map(h => Math.exp(-lambda * Math.max(0, (now - new Date(h.date || h.createdAt).getTime()) / 86400000)));
+    const Xs = sorted.map(h => (new Date(h.date || h.createdAt).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000);
+    const Ys = sorted.map(h => getSafeScore(h, maxScore));
+
+    sumW = kahanSum(weights);
+    sumWX = kahanSum(weights.map((w, i) => w * Xs[i]));
+    sumWY = kahanSum(weights.map((w, i) => w * Ys[i]));
+    sumWXX = kahanSum(weights.map((w, i) => w * Xs[i] * Xs[i]));
+    sumWXY = kahanSum(weights.map((w, i) => w * Xs[i] * Ys[i]));
 
     const det = sumW * sumWXX - sumWX * sumWX;
     
@@ -192,8 +214,8 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
         return 0.05 * range;
     }
     const scores = history.map(h => getSafeScore(h, maxScore));
-    const meanVal = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const variance = scores.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / (scores.length - 1);
+    const meanVal = kahanMean(scores);
+    const variance = kahanSum(scores.map(b => Math.pow(b - meanVal, 2))) / (scores.length - 1);
     return Math.sqrt(variance);
 }
 
@@ -703,15 +725,31 @@ export function monteCarloSimulation(
         const sampledDrift = sampleTruncatedNormal(drift, driftUncertainty, -0.01 * maxScore, 0.01 * maxScore, rng);
 
         let currentSimScore = baselineScore;
+        // [GARCH(1,1) FIX]: Volatilidade estocástica adaptativa.
+        // A variância de amanhã depende do choque de hoje.
+        let currentVolSq = Math.pow(dailyVolatility, 2);
+        const omega = 0.05 * currentVolSq; // Componente de longo prazo (piso)
+        const alphaG = 0.10;               // Sensibilidade ao choque (aprendizado/erro)
+        const betaG = 0.85;                // Persistência da volatilidade
+        
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
             const driftTrackingFactor = optionsCurrentMean !== undefined ? 1.0 : 0.0; 
             const movingOuTarget = ouTarget + (sampledDrift * d * driftTrackingFactor);
             const meanReversion = thetaOU * (movingOuTarget - currentSimScore) * 1;
             
+            // A volatilidade atual é a raiz da variância GARCH
+            const adaptiveVol = Math.sqrt(Math.max(1e-6, currentVolSq));
+            
             let shock = (safeResiduals.length > 5 && rng() > 0.3)
                 ? safeResiduals[Math.floor(rng() * safeResiduals.length)]
-                : normalRng() * dailyVolatility;
+                : normalRng() * adaptiveVol;
+            
+            // Evolução da Volatilidade GARCH(1,1): Var(t+1) = w + a*e^2 + b*Var(t)
+            currentVolSq = omega + alphaG * Math.pow(shock, 2) + betaG * currentVolSq;
+            
+            // Clamp de sanidade para evitar divergência explosiva em projeções longas
+            currentVolSq = Math.min(currentVolSq, Math.pow(maxScore * 0.2, 2));
             
             currentSimScore += driftEffect + meanReversion + shock;
             
@@ -734,7 +772,7 @@ export function monteCarloSimulation(
 
     // 4. Agregação Estatística
     results.sort((a, b) => a - b);
-    const meanResult = results.reduce((a, b) => a + b, 0) / safeSimulations;
+    const meanResult = kahanMean(results);
     const successes = results.filter(r => r >= targetScore).length;
 
     // BUG-3 FIX: Calcular a probabilidade analítica real usando a Normal Truncada

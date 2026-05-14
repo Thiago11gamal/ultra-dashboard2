@@ -2,6 +2,7 @@
  * Utilitários de Matemática Adaptativa para o Motor Estatístico
  */
 import { bootstrapCI } from '../engine/math/bootstrap.js';
+import { kahanSum, kahanMean } from '../engine/math/kahan.js';
 
 /**
  * Calcula o multiplicador de confiança (T-Student aproximado).
@@ -118,8 +119,8 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
 export function deriveAdaptiveConfig(scores = []) {
     const finiteScores = Array.isArray(scores) ? scores.filter(v => Number.isFinite(v)) : [];
     const n = finiteScores.length;
-    const mean = n > 0 ? finiteScores.reduce((a, b) => a + b, 0) / n : 0;
-    const variance = n > 1 ? finiteScores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / (n - 1) : 0;
+    const mean = kahanMean(finiteScores);
+    const variance = n > 1 ? kahanSum(finiteScores.map(s => Math.pow(s - mean, 2))) / (n - 1) : 0;
     const sd = Math.sqrt(Math.max(0, variance));
     const cv = mean !== 0 ? Math.min(2, Math.abs(sd / mean)) : 1;
 
@@ -156,18 +157,14 @@ export const calcSlopeWithSignificance = (amostra) => {
         sumX += i; sumY += amostra[i]; sumXY += i * amostra[i]; sumXX += i * i;
     }
     
-    const det = n * sumXX - sumX * sumX;
-    const slope = det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
-    const intercept = (sumY - slope * sumX) / n;
+    const Xs = Array.from({ length: n }, (_, i) => i);
+    const det = n * kahanSum(Xs.map(x => x * x)) - Math.pow(kahanSum(Xs), 2);
+    const slope = det === 0 ? 0 : (n * kahanSum(amostra.map((y, i) => i * y)) - kahanSum(Xs) * kahanSum(amostra)) / det;
+    const intercept = (kahanSum(amostra) - slope * kahanSum(Xs)) / n;
     
-    let ssRes = 0; // Soma dos Quadrados dos Resíduos
-    for (let i = 0; i < n; i++) {
-        const yPred = intercept + slope * i;
-        ssRes += Math.pow(amostra[i] - yPred, 2);
-    }
-    
+    const ssRes = kahanSum(amostra.map((y, i) => Math.pow(y - (intercept + slope * i), 2)));
     const varRes = ssRes / (n - 2); // Variância residual
-    const ssX = sumXX - (sumX * sumX) / n;
+    const ssX = kahanSum(Xs.map(x => Math.pow(x - kahanMean(Xs), 2)));
     const seSlope = ssX > 0 ? Math.sqrt(varRes / ssX) : 0;
     const tStat = seSlope > 0 ? slope / seSlope : 0;
     
@@ -212,12 +209,11 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         weighted.push(Math.pow(dailyDecay, ageInDays));
     }
 
-    const sumW = weighted.reduce((a, b) => a + b, 0);
-    const sumW2 = weighted.reduce((a, b) => a + (b * b), 0);
+    const sumW = kahanSum(weighted);
+    const sumW2 = kahanSum(weighted.map(w => w * w));
     const effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
     
-
-    const weightedMean = finiteScores.reduce((acc, s, i) => acc + (s * weighted[i]), 0) / Math.max(1e-9, sumW);
+    const weightedMean = kahanSum(finiteScores.map((s, i) => s * weighted[i])) / Math.max(1e-9, sumW);
 
     // Robustez adaptativa: Huber-like clipping guiado por MAD para reduzir impacto de outliers
     const sorted = [...finiteScores].sort((a, b) => a - b);
@@ -231,11 +227,11 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     const robustSigma = Math.max(1e-6, 1.4826 * mad);
     const huberK = 2.5 * robustSigma;
 
-    const weightedVariance = finiteScores.reduce((acc, s, i) => {
+    const weightedVariance = kahanSum(finiteScores.map((s, i) => {
         const d = s - weightedMean;
         const clipped = Math.max(-huberK, Math.min(huberK, d));
-        return acc + (weighted[i] * clipped * clipped);
-    }, 0) / Math.max(1e-9, sumW);
+        return weighted[i] * clipped * clipped;
+    })) / Math.max(1e-9, sumW);
 
     // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo (que só funcionava para N=10) 
     // pela verdadeira Correção de Bessel adaptável ao Tamanho Efetivo da Amostra (effectiveN).
@@ -392,22 +388,29 @@ export function computeAdaptiveCoachWeight(scores = []) {
     };
 }
 /**
- * Calcula a retenção real usando Ebbinghaus com Smoothing Matemático.
+ * Calcula a retenção real usando o algoritmo FSRS (Free Spaced Repetition Scheduler).
+ * Substitui o modelo clássico de Ebbinghaus por uma matriz de Estabilidade e Recuperabilidade.
+ * 
  * @param {number} horasDesdeEstudo - Tempo (t) em horas.
  * @param {number} forcaMemoria - Força do traço de memória (S) baseada em revisões (0 a 10).
+ * @param {number} dificuldade - Fator de dificuldade do item (0.1 a 1.0).
  * @returns {number} Percentual de Retenção (0.20 a 1.0)
  */
-export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria) => {
-    const c = 1.5; // Constante de estabilidade (Laplace Smoothing)
-    const baseline = 0.2; // O aluno nunca esquece 100% (Limiar mínimo de 20%)
-    
-    // Evita valores absurdamente negativos e crash de UI
+export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificuldade = 0.5) => {
+    const baseline = 0.2; // Limiar mínimo de retenção
     const tempoDias = Math.max(0, horasDesdeEstudo / 24);
-    const forcaSegura = Math.max(0.1, forcaMemoria); 
     
-    // Retenção = e^(-t / (S + c))
-    let retention = Math.exp(-tempoDias / (forcaSegura + c));
+    // Conversão de Proficiência em Estabilidade (Stability) do FSRS
+    // S = exp(forcaMemoria * fator_escala). Valores entre 0.5 e 100 dias.
+    const stability = Math.max(0.5, Math.exp(forcaMemoria * 0.45));
     
-    // Limita a queda máxima no limite basal
-    return Math.max(baseline, retention);
+    // Retrievability (R) = 0.9^(t / S)
+    // Este é o padrão ouro para prever a probabilidade de recordação.
+    const retrievability = Math.pow(0.9, tempoDias / stability);
+    
+    // Ajuste por dificuldade: Itens difíceis decaem mais rápido
+    const difficultyFactor = 1 - (Math.max(0.1, dificuldade) * 0.1);
+    const finalRetention = retrievability * difficultyFactor;
+    
+    return Math.max(baseline, finalRetention);
 };

@@ -3,6 +3,7 @@ import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
 import { getPercentile } from './math/percentile.js';
+import { kahanSum, kahanMean } from './math/kahan.js';
 
 export { getPercentile };
 
@@ -475,7 +476,7 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
         const history = metricas.volumeSemanasAnteriores;
         if (!history || history.length === 0) return { p50: 0, p10: 0, p90: 0 };
         
-        const avgVal = history.reduce((a, b) => a + b, 0) / history.length;
+        const avgVal = kahanMean(history);
         const sd = metricas.focoMedio ? (1 - metricas.focoMedio) * avgVal : avgVal * 0.1;
         const results = new Float64Array(simulacoes);
         const rng = mulberry32(123456789); 
