@@ -102,11 +102,9 @@ const getDaysDiff = (newer, older) => {
  * Substituição da escada em degraus por uma curva Exponencial Contínua.
  */
 export function getCrunchMultiplier(daysToExam) {
-    // CORREÇÃO: Se não há data (null/undefined), o utilizador está em modo cruzeiro (1.0)
-    if (daysToExam === null || daysToExam === undefined) return 1.0; 
-    
-    // Se a data já passou ou é hoje, urgência máxima
-    if (!Number.isFinite(daysToExam) || daysToExam <= 0) return 2.0; 
+    if (daysToExam === null || daysToExam === undefined) return 1.0; // Sem prova definida
+    if (daysToExam < 0) return 1.0; // A prova já passou, regresso ao ritmo base de cruzeiro
+    if (daysToExam === 0) return 2.0; // A prova é literalmente hoje
     
     const urgency = 1.0 + Math.exp(-daysToExam / 21);
     return Number(Math.min(2.0, urgency).toFixed(4));
