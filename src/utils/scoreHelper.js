@@ -36,12 +36,16 @@ export function getSafeScore(historyRow, maxScore = 100) {
             s = historyRow.score;
         } else {
             let rawScore = String(historyRow.score);
-            // 🎯 FIX: Só remove pontos se houver vírgula, indicando formato BR (milhar.decimal)
-            // Caso contrário, o ponto é o separador decimal e deve ser mantido.
-            if (rawScore.includes(',') && rawScore.includes('.')) {
-                rawScore = rawScore.replace(/\./g, '');
+            const lastComma = rawScore.lastIndexOf(',');
+            const lastDot = rawScore.lastIndexOf('.');
+            
+            if (lastComma > lastDot) {
+                // Formato BR: 1.000,50
+                rawScore = rawScore.replace(/\./g, '').replace(',', '.');
+            } else {
+                // Formato US: 1,000.50
+                rawScore = rawScore.replace(/,/g, '');
             }
-            rawScore = rawScore.replace(',', '.');
             s = parseFloat(rawScore);
         }
         
@@ -54,14 +58,20 @@ export function getSafeScore(historyRow, maxScore = 100) {
 
     // CORREÇÃO: Tratar campos vazios como Inválidos (NaN) e não como Zeros absolutos.
     let rawTotal = String(historyRow.total !== null && historyRow.total !== undefined ? historyRow.total : '');
-    if (rawTotal.includes(',') && rawTotal.includes('.')) rawTotal = rawTotal.replace(/\./g, '');
-    rawTotal = rawTotal.replace(',', '.'); 
+    const ltC = rawTotal.lastIndexOf(',');
+    const ltD = rawTotal.lastIndexOf('.');
+    if (ltC > ltD) rawTotal = rawTotal.replace(/\./g, '').replace(',', '.');
+    else rawTotal = rawTotal.replace(/,/g, '');
+    
     const hasValidTotal = rawTotal !== undefined && rawTotal !== null && rawTotal !== '' && rawTotal !== 'NaN';
     const total = hasValidTotal && Number.isFinite(Number(rawTotal)) ? Number(rawTotal) : NaN;
 
     let rawCorrect = String(historyRow.correct !== null && historyRow.correct !== undefined ? historyRow.correct : '');
-    if (rawCorrect.includes(',') && rawCorrect.includes('.')) rawCorrect = rawCorrect.replace(/\./g, '');
-    rawCorrect = rawCorrect.replace(',', '.'); 
+    const lcX = rawCorrect.lastIndexOf(',');
+    const ldX = rawCorrect.lastIndexOf('.');
+    if (lcX > ldX) rawCorrect = rawCorrect.replace(/\./g, '').replace(',', '.');
+    else rawCorrect = rawCorrect.replace(/,/g, '');
+
     const hasValidCorrect = rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== '' && rawCorrect !== 'NaN';
     const correct = hasValidCorrect && Number.isFinite(Number(rawCorrect)) ? Number(rawCorrect) : NaN;
 
@@ -95,8 +105,10 @@ export function formatPercent(value) {
         num = value;
     } else {
         let raw = String(value || '');
-        if (raw.includes(',') && raw.includes('.')) raw = raw.replace(/\./g, '');
-        raw = raw.replace(',', '.'); 
+        const lastC = raw.lastIndexOf(',');
+        const lastD = raw.lastIndexOf('.');
+        if (lastC > lastD) raw = raw.replace(/\./g, '').replace(',', '.');
+        else raw = raw.replace(/,/g, '');
         num = Number.isFinite(Number(raw)) ? Number(raw) : 0;
     }
     
@@ -118,8 +130,10 @@ export function formatValue(value) {
         num = value;
     } else {
         let raw = String(value || '');
-        if (raw.includes(',') && raw.includes('.')) raw = raw.replace(/\./g, '');
-        raw = raw.replace(',', '.'); 
+        const lastC = raw.lastIndexOf(',');
+        const lastD = raw.lastIndexOf('.');
+        if (lastC > lastD) raw = raw.replace(/\./g, '').replace(',', '.');
+        else raw = raw.replace(/,/g, '');
         num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
     }
     

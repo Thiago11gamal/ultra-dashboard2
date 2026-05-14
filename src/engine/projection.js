@@ -700,17 +700,14 @@ export function monteCarloSimulation(
             
             currentSimScore += driftEffect + meanReversion + shock;
             
-            // CORREÇÃO MATEMÁTICA: Reflected Brownian Motion (RBM)
-            // Rebate a energia excedente nas bordas físicas da prova em vez de truncar cegamente
-            // CORREÇÃO MATEMÁTICA: O RBM ingénuo quebra perante choques que excedem
-            // o dobro da amplitude do limite. Substituído por reflexão modular com teto absoluto.
-            if (currentSimScore > maxScore) {
-                let overflow = currentSimScore - maxScore;
-                currentSimScore = maxScore - (overflow % (maxScore - minScore)); 
-            } else if (currentSimScore < minScore) {
-                let underflow = minScore - currentSimScore;
-                currentSimScore = minScore + (underflow % (maxScore - minScore));
-            }
+            // CORREÇÃO MATEMÁTICA: Reflected Brownian Motion (RBM) Contínuo
+            // Utiliza um espelhamento absoluto contínuo para evitar o efeito "serrote" do módulo simples
+            let range = maxScore - minScore;
+            let normalized = currentSimScore - minScore;
+            let wraps = Math.floor(normalized / range);
+            let remainder = normalized % range;
+            if (remainder < 0) remainder += range;
+            currentSimScore = minScore + (wraps % 2 === 0 ? remainder : range - remainder);
             
             // Fallback de segurança estrito (Clamp final diário)
             currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore));
