@@ -239,11 +239,13 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
 }
 
 export function calcularVariancia(arr) {
-    if (!Array.isArray(arr) || arr.length === 0) return 0;
+    if (!Array.isArray(arr) || arr.length <= 1) return 0;
     const clean = arr.map(Number).filter(Number.isFinite);
-    if (clean.length === 0) return 0;
+    if (clean.length <= 1) return 0;
     const m = clean.reduce((a, b) => a + b, 0) / clean.length;
-    return clean.reduce((acc, v) => acc + Math.pow(v - m, 2), 0) / clean.length;
+    
+    // CORREÇÃO: Divisão Amostral Não-Viesada (N - 1)
+    return clean.reduce((acc, v) => acc + Math.pow(v - m, 2), 0) / (clean.length - 1);
 }
 
 export default {

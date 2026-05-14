@@ -43,7 +43,8 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
-        const t = (now - new Date(hDate).getTime()) / (1000 * 60 * 60 * 24);
+        // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
+        const t = Math.max(0, (now - new Date(hDate).getTime()) / (1000 * 60 * 60 * 24));
         const w = Math.exp(-lambda * t);
         const x = (new Date(hDate).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / (1000 * 60 * 60 * 24);
         const y = getSafeScore(h, maxScore);
@@ -76,7 +77,9 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
         const hDate = h.date || h.createdAt;
         const x = (new Date(hDate).getTime() - t0) / (1000 * 60 * 60 * 24);
         const y = getSafeScore(h, maxScore);
-        const w = Math.exp(-lambda * (now - new Date(hDate).getTime()) / 86400000);
+        // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
+        const t = Math.max(0, (now - new Date(hDate).getTime()) / 86400000);
+        const w = Math.exp(-lambda * t);
         const pred = intercept + slope * x;
         rss += w * Math.pow(y - pred, 2);
         sumW += w;
@@ -120,7 +123,8 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const residualSamples = sorted.map(h => {
         const hDate = h.date || h.createdAt;
         const x = (new Date(hDate).getTime() - t0_vol) / 86400000;
-        const t = (now - new Date(hDate).getTime()) / 86400000;
+        // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
+        const t = Math.max(0, (now - new Date(hDate).getTime()) / 86400000);
         const w = Math.exp(-lambda * t);
         const y = getSafeScore(h, maxScore);
         const pred = intercept + slope * x;
@@ -307,7 +311,8 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
-        const t = (now - new Date(hDate).getTime()) / 86400000;
+        // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
+        const t = Math.max(0, (now - new Date(hDate).getTime()) / 86400000);
         const w = Math.exp(-0.08 * t);
         const x = (new Date(hDate).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000;
         
@@ -369,18 +374,16 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         projectedScore = L / (1 + Math.exp(safeExponent));
     } else {
         // Caminho B: Fallback Clássico Linear se os dados forem caóticos ou muito curtos
-        const slope = calculateSlope(sortedHistory, maxScore, options);
-        let ema = getSafeScore(sortedHistory[0], maxScore); 
-        for (let i = 1; i < sortedHistory.length; i++) {
-            const daysSinceLast = Math.max(1, (new Date(sortedHistory[i].date || sortedHistory[i].createdAt) - new Date(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
-            ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1, daysSinceLast);
-        }
-        const effectiveDays = 45 * Math.log(1 + projectDays / 45);
+        // CORREÇÃO: Impedir que projeções de datas passadas quebrem a função Logarítmica
+        const safeProjectDays = Math.max(0, projectDays);
+        const effectiveDays = 45 * Math.log(1 + safeProjectDays / 45);
         projectedScore = ema + slope * effectiveDays;
     }
 
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
-    const effectiveDaysForError = 45 * Math.log(1 + projectDays / 45);
+    // CORREÇÃO: Repetir blindagem para o cálculo de incerteza
+    const safeProjectDays = Math.max(0, projectDays);
+    const effectiveDaysForError = 45 * Math.log(1 + safeProjectDays / 45);
     const angularUncertainty = slopeStdError * effectiveDaysForError;
 
     // FIX MATH-01: Usar Volatilidade Transiente (MSSD) normalizada para passos diários
@@ -432,6 +435,7 @@ export function monteCarloSimulation(
     const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean, minScore = 0, maxScore = 100, scenario = 'base' } = options;
     const scenarioCfg = SCENARIO_CONFIG[scenario] || SCENARIO_CONFIG.base;
     const sortedHistory = getSortedHistory(history);
+    const safeSimulations = Math.max(1, simulations); // CORREÇÃO: Guardião contra divisão por Zero
     const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
     // Safety check - allow at least 1 point for a flat projection
@@ -585,7 +589,7 @@ export function monteCarloSimulation(
     }
     const dailyVolatility = volatility / Math.sqrt(Math.max(1, medianGap));
 
-    for (let i = 0; i < simulations; i++) {
+    for (let i = 0; i < safeSimulations; i++) {
         // Sample epistemic uncertainty (Drift)
         // BUG 1 FIX: Use truncated normal for drift to avoid "black swan" slopes in long projections
         const sampledDrift = sampleTruncatedNormal(drift, driftUncertainty, -0.01 * maxScore, 0.01 * maxScore, rng);
@@ -621,13 +625,13 @@ export function monteCarloSimulation(
 
     // 4. Agregação Estatística
     results.sort((a, b) => a - b);
-    const meanResult = results.reduce((a, b) => a + b, 0) / simulations;
+    const meanResult = results.reduce((a, b) => a + b, 0) / safeSimulations;
     const successes = results.filter(r => r >= targetScore).length;
 
     // BUG-3 FIX: Calcular a probabilidade analítica real usando a Normal Truncada
     // em vez de copiar a empírica como fallback.
     const finalSD = calculateVolatility(results.map(r => ({ score: r })), maxScore, minScore);
-    const empiricalProb = (successes / simulations) * 100;
+    const empiricalProb = (successes / safeSimulations) * 100;
 
     // FIX BUG 4: Simulações O-U com choques difusos e Clamping diário não formam 
     // uma Distribuição Normal Truncada perfeita no limite estacionário.
