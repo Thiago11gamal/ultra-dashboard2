@@ -222,7 +222,7 @@ export function computeBayesianLevel(
             let total = Number(h.total) || 0;
             // CORREÇÃO: Em vez de confiar na chave estrita 'score', utiliza a resiliência 
             // do getSafeScore para confirmar se o registo representa uma percentagem real
-            const isPurePercentage = (total === 0 && !Number.isNaN(getSafeScore(h, safeMaxScore)));
+            const isPurePercentage = ((!total || total === 0) && !Number.isNaN(getSafeScore(h, safeMaxScore)));
 
             const normalizedScore = getSafeScore(h, safeMaxScore);
             
@@ -243,7 +243,13 @@ export function computeBayesianLevel(
             // assumimos gap zero para não destruir os alphas e betas em cadeia.
             const entryDate = new Date(h.date);
             const prevDate = i > 0 ? new Date(sortedHistory[i - 1].date) : entryDate;
-            const gapDays = Math.max(0, Math.floor((entryDate.getTime() - prevDate.getTime()) / 86400000)) || 0;
+            
+            // CORREÇÃO: Impedir que Invalid Dates gerem NaNs.
+            const timeEntry = entryDate.getTime();
+            const timePrev = prevDate.getTime();
+            const gapDays = (!isNaN(timeEntry) && !isNaN(timePrev)) 
+                ? Math.max(0, Math.floor((timeEntry - timePrev) / 86400000)) 
+                : 0;
 
             const adaptiveLambdaBase = computeAdaptiveLambda(sortedHistory);
             const rawLambda = adaptiveLambdaBase * Math.exp(-0.15 * i);
@@ -332,7 +338,10 @@ export function computeBayesianLevel(
     const n_tilde = effectiveN + z2;
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
-    const TAMANHO_PROVA_ESTIMADO = Math.max(1, Math.round(safeMaxScore));
+    const mediaDeQuestoesDoAluno = history && history.length > 0 
+        ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) / history.length 
+        : 100;
+    const TAMANHO_PROVA_ESTIMADO = Math.max(20, Math.round(mediaDeQuestoesDoAluno));
     const epistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;
     const aleatoricVar = (p_tilde * (1 - p_tilde)) / TAMANHO_PROVA_ESTIMADO;
 
@@ -446,7 +455,8 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const kishDenomTerm = Number.isFinite(n_eff) ? Math.max(0.001, (n_eff - 1)) : 0.001;
         variance = (kishDenomTerm * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) / (kishDenomTerm + KAPPA);
     } else {
-        variance = Math.pow(standardDeviation(scores, maxScore, m), 2);
+        // Para N=1, assuma a ignorância máxima usando o Prior Populacional fixado na média
+        variance = Math.pow(getDynamicPriorSD(historyToUse, safeMaxScore), 2);
     }
 
     const sd = Math.max(Math.sqrt(variance), 0.001 * maxScore);

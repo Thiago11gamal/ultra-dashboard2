@@ -14,12 +14,9 @@ export const normalizePercentInput = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
     
-    // CORREÇÃO: Proteção contra destruição de notas < 1% ou exatamente 100%.
-    // Só assumimos que é uma fração decimal do legado se for uma string explícita que começa com "0."
-    if (n > 0 && n <= 1 && typeof value === 'string' && value.startsWith('0.')) {
-        return n * 100;
-    }
-    
+    // Remova a inferência perigosa baseada em startsWith('0.'). 
+    // O backend ou o form deve dizer explicitamente se é decimal.
+    // Retorne o número puro e deixe isPercentage fazer o trabalho sujo de formatação.
     return n;
 };
 

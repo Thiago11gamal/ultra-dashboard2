@@ -71,10 +71,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             // CORREÇÃO: Injeção de suporte a números inteiros nativos (Unix Epoch)
             if (typeof raw === 'number') {
                 const d = new Date(raw);
-                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                raw = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
             } else if (typeof raw === 'object' && raw.seconds) {
                 const d = new Date(raw.seconds * 1000);
-                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                raw = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
             } else {
                 raw = String(raw).trim().split('T')[0];
             }
@@ -299,11 +299,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 // CORREÇÃO COMPLEMENTAR NO PICKER
                                 if (typeof raw === 'number') {
                                     const d = new Date(raw);
-                                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
                                 }
                                 if (typeof raw === 'object' && raw.seconds) {
                                     const d = new Date(raw.seconds * 1000);
-                                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
                                 }
                                 return String(raw).trim().split('T')[0];
                                 } catch (error) {
@@ -337,12 +337,12 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     // CORREÇÃO: Terceira camada de proteção UI esquecida contra inteiros Unix
                                     if (typeof rawDate === 'number') {
                                         const d = new Date(rawDate);
-                                        return d.toLocaleDateString('pt-BR');
+                                        return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                                     }
                                     
                                     if (typeof rawDate === 'object' && rawDate.seconds) {
                                         const d = new Date(rawDate.seconds * 1000);
-                                        rawDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                        rawDate = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
                                     }
                                     const raw = String(rawDate).trim().split('T')[0];
                                     const parts = raw.split('-');
