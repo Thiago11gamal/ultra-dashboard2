@@ -234,7 +234,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // 1. Weighted Average Score
         const catNormalized = normalize(safeCategory?.name || "Sem Nome");
         const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject || "") === catNormalized);
-        relevantSimulados.sort((a, b) => normalizeDate(b.date || b.createdAt).getTime() - normalizeDate(a.date || a.createdAt).getTime());
+        relevantSimulados.sort((a, b) => {
+            const timeA = new Date(a.date || a.createdAt || 0).getTime();
+            const timeB = new Date(b.date || b.createdAt || 0).getTime();
+            return timeB - timeA;
+        });
         const simuladosWithMaxScore = relevantSimulados;
 
         let averageScore = 0;
@@ -337,7 +341,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // 3. Trend (Garantir 10 mais recentes para cálculo de tendência)
         const trendHistory = [...simuladosWithMaxScore]
-            .sort((a, b) => normalizeDate(b.date || b.createdAt).getTime() - normalizeDate(a.date || a.createdAt).getTime())
+            .sort((a, b) => {
+                const timeA = new Date(a.date || a.createdAt || 0).getTime();
+                const timeB = new Date(b.date || b.createdAt || 0).getTime();
+                return timeB - timeA;
+            })
             .slice(0, 10)
             .map(s => ({
                 score: getSafeScore(s, maxScore),
