@@ -329,12 +329,16 @@ export function computeBayesianLevel(
             const HARD_FLOOR = 3.0;
             const safeFloor = Math.min(HARD_FLOOR, nBeforeDecay);
             
-            // MATH-CLIFF-FIX: Unifica a aplicação do piso de proteção de forma contínua
-            const nAfterDecay = Math.max(safeFloor, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * finalDecay)));
-            
-            // CORREÇÃO: Regressão à média (0.5) proporcional ao esquecimento final (Bug 1.1 Fix)
-            const priorP = 0.5;
-            const regressedP = (currentP * finalDecay) + (priorP * (1 - finalDecay));
+            // O decaimento atinge severamente o acerto (P), mas a confiança (N) sofre atrito menor.
+            const epistemicDecay = Math.pow(finalDecay, 0.35); // A inércia da confiança resiste mais
+
+            // Piso rígido: O algoritmo nunca esquece mais que 70% do tamanho total da coorte acumulada
+            const epistemicFloor = Math.max(3.0, maxNEver * 0.3);
+
+            const nAfterDecay = Math.max(epistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
+
+            // Regressão à média severa (0.5) proporcional ao esquecimento da memória de fato
+            const regressedP = (currentP * finalDecay) + (0.5 * (1 - finalDecay));
 
             alpha = nAfterDecay * regressedP;
             beta = nAfterDecay * (1 - regressedP);
@@ -453,11 +457,15 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             }
         });
 
-        // Estimador imparcial de variância ponderada (Kish / Reliability weights)
-        const kishDenom = Math.max(1e-4, sumW - (sumW2 / sumW));
-        const sampleVar = sumW > 0 && kishDenom > 1e-6
+        // Estimador imparcial de variância ponderada com blindagem contra pesos dominantes únicos
+        const kishDifference = sumW - (sumW2 / sumW);
+        // Se a diferença for muito pequena, significa que 1 peso engoliu a amostra inteira (N Efetivo ~= 1).
+        // Dividir por 1e-4 explodiria a variância. O correto é assumir peso mínimo de variância conservadora.
+        const kishDenom = kishDifference > 1e-2 ? kishDifference : Math.max(1, sumW * 0.1);
+
+        const sampleVar = sumW > 0 
             ? wVarSum / kishDenom
-            : wVarSum / Math.max(1e-6, sumW * 0.01);
+            : 0; // Se não há pesos, não há variância.
 
         const POPULATION_SD = getDynamicPriorSD(historyToUse, safeMaxScore);
         

@@ -234,11 +234,22 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     const detrendedScores = scores.map((y, i) => y - (slope * timeX[i]));
     
     let sumSqDiff = 0;
+    let totalTimeWeight = 0;
+
     for (let i = 1; i < n; i++) {
-        sumSqDiff += Math.pow(detrendedScores[i] - detrendedScores[i - 1], 2);
+        const time1 = new Date(safeHistory[i].date || safeHistory[i].createdAt).getTime();
+        const time0 = new Date(safeHistory[i - 1].date || safeHistory[i - 1].createdAt).getTime();
+        
+        // Calcula os dias exatos de distância entre as avaliações
+        const deltaDays = Math.max(0.5, (time1 - time0) / 86400000); 
+        
+        const diff = detrendedScores[i] - detrendedScores[i - 1];
+        // Variância normalizada pelo tempo (processo de difusão)
+        sumSqDiff += Math.pow(diff, 2) / deltaDays;
+        totalTimeWeight += 1; // Ou deltaDays se quiser ponderação temporal estrita
     }
-    
-    const rmssd = (sumSqDiff / 2) / Math.max(1, n - 1); 
+
+    const rmssd = (sumSqDiff / 2) / Math.max(1, totalTimeWeight); 
     return Math.sqrt(Math.max(1e-6, rmssd));
 }
 
@@ -325,12 +336,14 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
             
             // Se a aceleração é negativa (curva côncava), o aluno está a desacelerar em direção ao seu platô.
             if (meanAcc < -0.1 && meanVel > 0) {
-                // [CORREÇÃO] Usar 'validScores' para garantir que a nota é estritamente numérica (Bug 1.4 Fix)
                 const currentY = validScores[validScores.length - 1]; 
+                // Blindagem térmica: Evita a singularidade e limita a inferência do teto
+                const safeAcc = Math.max(1e-4, Math.abs(meanAcc));
+                const rawCap = currentY + (Math.pow(meanVel, 2) / (2 * safeAcc));
                 
-                const predictedCap = currentY + (Math.pow(meanVel, 2) / (2 * Math.abs(meanAcc)));
+                // Limita fisicamente a extrapolação para não estourar a RAM ou o UI
+                const predictedCap = Math.min(currentY + (maxScore * 0.5), rawCap);
                 
-                // Suavização Bayesiana: 60% empírico, 40% a priori (maxScore total)
                 L = (predictedCap * 0.60) + (maxScore * 0.40);
                 L = Math.max(currentY + 1, Math.min(maxScore, L));
             } else {

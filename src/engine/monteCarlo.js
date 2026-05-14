@@ -473,44 +473,19 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
 export function simularMonteCarlo(metricas, simulacoes = 1000) {
     if (metricas && metricas.volumeSemanasAnteriores) {
         const history = metricas.volumeSemanasAnteriores;
+        if (!history || history.length === 0) return { p50: 0, p10: 0, p90: 0 };
         
-        // CORREÇÃO MÁXIMA: Rejeitar tentativas matemáticas sobre o vazio e devolver limites base 
-        // para não colapsar os percentis no painel "Evolução do Foco".
-        if (!history || history.length === 0) {
-            return { p50: 0, p10: 0, p90: 0 };
-        }
-        
-        // FIX: Usar a média histórica (avgVal) para ser consistente com o Backtest da Semana 14
         const avgVal = history.reduce((a, b) => a + b, 0) / history.length;
         const sd = metricas.focoMedio ? (1 - metricas.focoMedio) * avgVal : avgVal * 0.1;
-        
-        const results = [];
-        
-        // FIX: Usar gerador determinístico (mulberry32) em vez de Math.random()
-        // Uma semente estática garante que os testes unitários dão sempre o mesmo resultado
+        const results = new Float64Array(simulacoes);
         const rng = mulberry32(123456789); 
 
-        // Geração simples para validação de Backtest
         for (let i = 0; i < simulacoes; i++) {
-            let validScore = -1;
-            let iteracoesGarantia = 0; // Previne loops infinitos em parâmetros absurdos
-            
-            while (validScore < 0 || validScore > 100) {
-                const u1 = Math.max(1e-9, rng());
-                const u2 = Math.max(1e-9, rng());
-                const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-                validScore = avgVal + z * sd;
-                
-                iteracoesGarantia++;
-                if (iteracoesGarantia > 15) {
-                    validScore = Math.min(100, Math.max(0, validScore)); // Fallback de segurança limite
-                    break;
-                }
-            }
-            results.push(validScore);
+            // SUBSTITUIÇÃO: Remoção do while loop amador. Uso da matemática correta para Normal Truncada.
+            results[i] = sampleTruncatedNormal(avgVal, sd, 0, 100, rng);
         }
         
-        results.sort((a, b) => a - b);
+        results.sort();
         return {
             p50: results[Math.floor(simulacoes * 0.5)],
             p10: results[Math.floor(simulacoes * 0.1)],

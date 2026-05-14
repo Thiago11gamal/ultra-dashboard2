@@ -29,32 +29,24 @@ const flushPendingIDBSaves = () => {
         if (timeoutId) {
             clearTimeout(timeoutId);
             const stateToRescue = useAppStore.getState();
-            try {
-                // Tenta salvar o estado completo
-                localStorage.setItem(name, JSON.stringify({ state: { appState: stateToRescue.appState } }));
-            } catch {
-                console.warn("[Storage] Quota excedida no flush. Tentando salvar versão de resgate...");
-                try {
-                    // 🎯 FIX: Fallback real de sobrevivência.
-                    // Limpamos o lixo e expurgamos o array massivo do Monte Carlo da RAM,
-                    // salvando assim o progresso crítico (tarefas, histórico real).
-                    const minimalState = { 
-                        ...stateToRescue.appState, 
-                        trash: [] 
-                    };
-                    
-                    if (minimalState.contests) {
-                        Object.keys(minimalState.contests).forEach(contestId => {
-                            if (minimalState.contests[contestId]) {
-                                minimalState.contests[contestId].monteCarloHistory = [];
-                            }
-                        });
+            
+            // FILTRO SÍNCRONO RÁPIDO O(1) antes da serialização
+            const slimState = { ...stateToRescue.appState, trash: [] };
+            
+            // Remove matrizes matemáticas não essenciais antes de estrangular a CPU
+            if (slimState.contests) {
+                Object.keys(slimState.contests).forEach(id => {
+                    if (slimState.contests[id]) {
+                        delete slimState.contests[id].monteCarloHistory;
+                        delete slimState.contests[id].simuladoRows; // Se recarregável via IDB
                     }
-                    
-                    localStorage.setItem(name, JSON.stringify({ state: { appState: minimalState } }));
-                } catch (fallbackError) {
-                    console.error("[Storage] Falha total no flush de segurança", fallbackError);
-                }
+                });
+            }
+
+            try {
+                localStorage.setItem(name, JSON.stringify({ state: { appState: slimState } }));
+            } catch (err) {
+                console.error("[Storage] OOM ou Quota falhou no teardown.", err);
             }
         }
     });
