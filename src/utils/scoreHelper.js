@@ -5,9 +5,9 @@
  */
 
 export function getSyntheticTotal(maxScore = 100) {
-    // REDUÇÃO ESTATÍSTICA: Teto reduzido de 80 para 20 para evitar saturação precoce
-    // da confiabilidade bayesiana (n) quando o usuário informa apenas a porcentagem.
-    return Math.max(1, Math.min(maxScore > 0 ? maxScore : 100, 20));
+    // CORREÇÃO: Uma entrada puramente percentual tem peso estatístico fixo e 
+    // equivalente a uma prova curta/média (ex: 20 tentativas de Bernoulli).
+    return 20; 
 }
 
 export const normalizePercentInput = (value) => {

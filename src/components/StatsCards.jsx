@@ -85,6 +85,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             } else {
                 goal = new Date(raw);
             }
+
+            // CORREÇÃO: Forçar alinhamento de ponteiros de tempo para evitar drifts orbitais
+            if (!goal || isNaN(goal.getTime())) return null;
+            goal.setHours(12, 0, 0, 0); 
         } catch (error) {
             console.error('Failed to parse goalDate in StatsCards:', error);
             return null;
@@ -315,7 +319,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         onChange={(e) => {
                             const selected = e.target.value;
                             if (!selected) return onUpdateGoalDate('');
-                            onUpdateGoalDate(selected < minGoalDate ? minGoalDate : selected);
+                            // CORREÇÃO: Respeito imutável ao que foi clicado. 
+                            // O atributo 'min' cuida da validação visual.
+                            onUpdateGoalDate(selected);
                         }}
                         className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 pointer-events-auto [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                         title="Escolher data da prova"

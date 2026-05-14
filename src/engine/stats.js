@@ -290,6 +290,14 @@ export function computeBayesianLevel(
 
             // 3. Atualizamos o teto global com os novos valores
             const currentN = alpha + beta;
+            const stepCap = dynamicAlphaCap; // O limite cognitivo vivo
+
+            if (currentN > stepCap) {
+                const clampFactor = stepCap / currentN;
+                alpha = alpha * clampFactor;
+                beta = beta * clampFactor;
+            }
+
             if (currentN > maxNEver) {
                 maxNEver = Math.min(currentN, dynamicAlphaCap);
             }
