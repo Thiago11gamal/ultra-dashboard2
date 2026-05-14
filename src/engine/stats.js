@@ -2,6 +2,7 @@
 export const BAYESIAN_DECAY_FACTOR = 0.985;
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
 // BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
+import { calculateSlope } from './projection.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
 
