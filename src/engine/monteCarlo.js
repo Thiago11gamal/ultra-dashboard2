@@ -471,7 +471,9 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
             const u1 = Math.max(1e-9, rng());
             const u2 = Math.max(1e-9, rng());
             const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-            results.push(Math.max(0, avgVal + z * sd));
+            
+            // CORREÇÃO: Inclusão do limite Math.min(100, ...) para truncar o limite superior assintótico
+            results.push(Math.min(100, Math.max(0, avgVal + z * sd)));
         }
         
         results.sort((a, b) => a - b);

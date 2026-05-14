@@ -101,10 +101,6 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                     </div>
                 );
 
-                if (snapshot.isDragging && typeof document !== 'undefined') {
-                    return createPortal(child, document.body);
-                }
-                
                 return child;
             }}
         </Draggable>
@@ -164,9 +160,23 @@ export default function AICoachPlanner() {
 
         if (destination.droppableId === 'backlog') {
             const assignedIds = new Set();
-            Object.entries(updatedPlanner).forEach(([key, dayTasks]) => { if (key !== 'backlog') dayTasks.forEach(t => { const sid = getSafeId(t); if (sid) assignedIds.add(sid); }); });
-            const backlogIds = new Set(finishList.map(f => getSafeId(f)));
-            const newCoachPlan = (coachPlan || []).filter(t => { const sid = getSafeId(t); return !assignedIds.has(sid) || backlogIds.has(sid); });
+            Object.entries(updatedPlanner).forEach(([key, dayTasks]) => { 
+                if (key !== 'backlog') {
+                    dayTasks.forEach(t => { 
+                        const sid = getSafeId(t); 
+                        if (sid) assignedIds.add(sid); 
+                    }); 
+                }
+            });
+            
+            // CORREÇÃO DE DADOS E VISUAL: 
+            // 1. O spread de `finishList` preserva a ordem exata do drag (acaba com o rubber-banding).
+            // 2. O filtro recupera TODAS as tarefas agendadas nos outros dias (evita o apagamento silencioso).
+            const newCoachPlan = [
+                ...finishList,
+                ...(coachPlan || []).filter(t => assignedIds.has(getSafeId(t))) 
+            ];
+            
             setData(prev => ({ ...prev, coachPlan: newCoachPlan }));
         }
         setIsDragging(false);
