@@ -268,8 +268,12 @@ export function computeBayesianLevel(
                 const safeFloor = Math.min(HARD_FLOOR, nBeforeDecay);
                 const nAfterDecay = Math.max(safeFloor, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * entryDecay)));
                 
-                alpha = nAfterDecay * currentP;
-                beta = nAfterDecay * (1 - currentP);
+                // CORREÇÃO: Regressão à média (0.5) proporcional ao esquecimento (Bug 1.1 Fix)
+                const priorP = 0.5;
+                const regressedP = (currentP * entryDecay) + (priorP * (1 - entryDecay));
+
+                alpha = nAfterDecay * regressedP;
+                beta = nAfterDecay * (1 - regressedP);
             }
 
             // 2. Agora injetamos a nota na matemática (SEM usar `continue`)
@@ -326,8 +330,12 @@ export function computeBayesianLevel(
             // MATH-CLIFF-FIX: Unifica a aplicação do piso de proteção de forma contínua
             const nAfterDecay = Math.max(safeFloor, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * finalDecay)));
             
-            alpha = nAfterDecay * currentP;
-            beta = nAfterDecay * (1 - currentP);
+            // CORREÇÃO: Regressão à média (0.5) proporcional ao esquecimento final (Bug 1.1 Fix)
+            const priorP = 0.5;
+            const regressedP = (currentP * finalDecay) + (priorP * (1 - finalDecay));
+
+            alpha = nAfterDecay * regressedP;
+            beta = nAfterDecay * (1 - regressedP);
         }
     }
 
