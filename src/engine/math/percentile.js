@@ -44,3 +44,59 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
     const weight = idx - lower;
     return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 };
+
+/**
+ * Algoritmo Quickselect In-place (Média O(N), Memória O(1))
+ * Encontra o k-ésimo menor elemento sem ordenar o array inteiro.
+ */
+export const quickSelect = (arr, k, left = 0, right = arr.length - 1) => {
+    while (left < right) {
+        let pivotIndex = partition(arr, left, right);
+        if (pivotIndex === k) return arr[k];
+        if (k < pivotIndex) right = pivotIndex - 1;
+        else left = pivotIndex + 1;
+    }
+    return arr[k];
+};
+
+function partition(arr, left, right) {
+    const pivot = arr[Math.floor((left + right) / 2)];
+    let i = left, j = right;
+    while (i <= j) {
+        while (arr[i] < pivot) i++;
+        while (arr[j] > pivot) j--;
+        if (i <= j) {
+            const temp = arr[i]; arr[i] = arr[j]; arr[j] = temp;
+            i++; j--;
+        }
+    }
+    return i;
+}
+
+/**
+ * Matemática Padrão de Percentil Contínuo (Linear Interpolation).
+ * O valor deve interpolar entre as casas adjacentes quando a posição não for inteira.
+ * [BUG-PERCENTIL-DISCRETO FIX]
+ */
+export const calculateInterpolatedPercentile = (sortedArray, p) => {
+    if (!sortedArray || sortedArray.length === 0) return 0;
+    if (sortedArray.length === 1) return sortedArray[0];
+    if (p <= 0) return sortedArray[0];
+    if (p >= 1) return sortedArray[sortedArray.length - 1];
+
+    // Calculamos o índice exacto em ponto flutuante
+    const exactIndex = p * (sortedArray.length - 1);
+    
+    // As "paredes" dos índices
+    const lowerIndex = Math.floor(exactIndex);
+    const upperIndex = Math.ceil(exactIndex);
+    
+    // A fracção remanescente (ex: se exactIndex = 9.5, weight = 0.5)
+    const weight = exactIndex - lowerIndex;
+    
+    const lowerValue = sortedArray[lowerIndex];
+    const upperValue = sortedArray[upperIndex];
+    
+    // Interpolação linear fina entre os dois limites da amostra discreta
+    return lowerValue + weight * (upperValue - lowerValue);
+};

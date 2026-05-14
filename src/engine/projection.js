@@ -74,20 +74,22 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         const yWXY = valWXY - cWXY; const tWXY = sumWXY + yWXY; cWXY = (tWXY - sumWXY) - yWXY; sumWXY = tWXY;
     }
 
-    const det = sumW * sumWXX - sumWX * sumWX;
-    
-    // CORREÇÃO: Prevenir divisão letal por ZERO se a amnésia temporal (decaimento)
-    // for tão alta que apagou todo o somatório de pesos (sumW = 0).
-    if (Math.abs(det) < 1e-6) {
-        return { 
-            slope: 0, 
-            intercept: sumW > 1e-9 ? (sumWY / sumW) : (sorted.length > 0 ? getSafeScore(sorted[sorted.length-1], maxScore) : 0), 
-            slopeStdError: 1.5 
-        };
-    }
+    // Regularização de Tikhonov (Ridge) para estabilizar a matriz inversa da Regressão WLS
+    // Adicionamos um lambda epsilon baseado na escala dos dias. (Bug 4 Fix)
+    const RIDGE_PENALTY = 0.0001; 
+    const safeSumW = Math.max(1e-8, sumW);
+    const varianceX = sumWXX - (sumWX * sumWX) / safeSumW;
+    const covXY = sumWXY - (sumWX * sumWY) / safeSumW;
 
-    const slope = (sumW * sumWXY - sumWX * sumWY) / det;
-    const intercept = (sumWXX * sumWY - sumWX * sumWXY) / det;
+    const regularizedDenominator = varianceX + RIDGE_PENALTY;
+    let slope = covXY / regularizedDenominator;
+
+    // Clamp de segurança: um aluno não consegue aprender (nem desaprender) mais do 
+    // que 5% ao dia sustentadamente.
+    const maxSlopeLimit = maxScore * 0.05;
+    slope = Math.max(-maxSlopeLimit, Math.min(maxSlopeLimit, slope));
+
+    const intercept = (sumWY - slope * sumWX) / safeSumW;
 
     // Erro padrão robusto (ajustado para small samples)
     const slopeStdError = calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options);

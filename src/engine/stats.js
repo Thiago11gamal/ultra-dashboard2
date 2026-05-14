@@ -569,3 +569,34 @@ export const calculateEMA = (scores, alpha = 0.25) => {
     
     return ema;
 };
+
+/**
+ * Calcula a Time-Weighted Exponential Moving Average (T-EMA).
+ * Resolve a distorção temporal onde simulados com gaps de meses recebem o mesmo
+ * peso que simulados diários. O peso Alpha (esquecimento) é função do tempo real.
+ */
+export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
+    if (!historicData || historicData.length === 0) return 0;
+    
+    // Assumimos que historicData possui { score: number, timestamp: number }
+    // O timestamp deve estar em milissegundos.
+    let ema = historicData[0].score;
+    let lastTime = historicData[0].timestamp;
+    
+    for(let i = 1; i < historicData.length; i++) {
+        const currentItem = historicData[i];
+        // Gap em dias entre as provas
+        const deltaDays = Math.max(0, (currentItem.timestamp - lastTime) / 86400000);
+        
+        // Se deltaDays é grande, o alpha sobe muito, forçando a EMA a "esquecer" 
+        // o passado distante e ancorar na nota nova.
+        const dynamicAlpha = 1 - Math.exp(-lambda * deltaDays);
+        // Garantir um alpha mínimo mesmo se fez simulados no mesmo dia
+        const safeAlpha = Math.max(0.1, Math.min(1.0, dynamicAlpha)); 
+        
+        ema = safeAlpha * currentItem.score + (1 - safeAlpha) * ema;
+        lastTime = currentItem.timestamp;
+    }
+    
+    return ema;
+};
