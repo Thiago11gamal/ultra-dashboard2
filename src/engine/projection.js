@@ -437,7 +437,8 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
             const currentPoint = getSafeScore(sortedHistory[i], maxScore);
             if (!Number.isNaN(currentPoint)) {
-                ema = calculateDynamicEMA(currentPoint, ema, i + 1, daysSinceLast);
+                // CORREÇÃO: Limitar a inércia a 15 eventos para evitar o congelamento permanente do EMA
+                ema = calculateDynamicEMA(currentPoint, ema, Math.min(i + 1, 15), daysSinceLast);
             }
         }
 
@@ -447,10 +448,20 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     }
 
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
-    const stepVolatility = calculateMSSD(sortedHistory, maxScore, minScore) / Math.sqrt(7);
+    
+    // CORREÇÃO: Descobrir o gap temporal médio verdadeiro do aluno
+    const avgGapDays = sortedHistory.length > 1 
+        ? ((safeDateParse(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt) - safeDateParse(sortedHistory[0].date || sortedHistory[0].createdAt)) / 86400000) / (sortedHistory.length - 1)
+        : 7; // fallback para 7 se só houver 1 teste
+        
+    // Volatilidade POR EVENTO (sem assumir semanas mágicas)
+    const eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
+    
+    // A incerteza do Random Walk espalha-se com a raiz do número de EVENTOS ESPERADOS, não dos dias.
+    const expectedFutureEvents = Math.max(1, projectDays / Math.max(0.5, avgGapDays));
+    const randomWalkUncertainty = eventVolatility * Math.sqrt(expectedFutureEvents);
     
     const angularUncertainty = slopeStdError * projectDays;
-    const randomWalkUncertainty = stepVolatility * Math.sqrt(Math.max(1, projectDays));
     const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(randomWalkUncertainty, 2));
     const marginOfError = 1.96 * predictionSD; 
 
@@ -513,7 +524,8 @@ export function monteCarloSimulation(
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
             const currentPoint = getSafeScore(sortedHistory[i], maxScore);
             if (!Number.isNaN(currentPoint)) {
-                ema = calculateDynamicEMA(currentPoint, ema, i + 1, daysSinceLast);
+                // CORREÇÃO: Limitar a inércia a 15 eventos para evitar o congelamento permanente do EMA
+                ema = calculateDynamicEMA(currentPoint, ema, Math.min(i + 1, 15), daysSinceLast);
             }
         }
         if (forcedBaseline === undefined) {
@@ -586,6 +598,10 @@ export function monteCarloSimulation(
     const resMad = getPercentile(absDevs, 0.5) || (1.0 * scaleFactor);
     const safeResiduals = centeredResiduals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
 
+    // Adicionar esta linha após criar o safeResiduals:
+    const empResidualSD = Math.sqrt(safeResiduals.reduce((a, b) => a + b*b, 0) / Math.max(1, safeResiduals.length));
+    const standardizer = empResidualSD > 0 ? empResidualSD : 1;
+
     const results = [];
     const lastEntry = sortedHistory[sortedHistory.length - 1];
     const seedStr = `${lastEntry.date || lastEntry.createdAt}-${getSafeScore(lastEntry, maxScore)}-${sortedHistory.length}`;
@@ -633,9 +649,15 @@ export function monteCarloSimulation(
             const meanReversion = thetaOU * (baselineScore - currentSimScore);
             const adaptiveVol = Math.sqrt(Math.max(1e-6, currentVolSq));
             
-            let shock = (safeResiduals.length > 5 && rng() > 0.3)
-                ? safeResiduals[Math.floor(rng() * safeResiduals.length)]
-                : normalRng() * adaptiveVol;
+            // CORREÇÃO: Padrão Ouro de Filtered Historical Simulation (FHS)
+            // O choque empírico tem de ser escalado para a volatilidade GARCH atual
+            let shock = 0;
+            if (safeResiduals.length > 5 && rng() > 0.3) {
+                const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
+                shock = (rawEmpirical / standardizer) * adaptiveVol; 
+            } else {
+                shock = normalRng() * adaptiveVol;
+            }
             
             // [FIX-GARCH-01] O choque que entra na equação de volatilidade DEVE ser clamped
             const clampedShock = Math.max(-volatility * 2.5, Math.min(volatility * 2.5, shock));

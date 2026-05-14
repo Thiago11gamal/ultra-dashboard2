@@ -336,8 +336,8 @@ export function computeBayesianLevel(
             // O decaimento atinge severamente o acerto (P), mas a confiança (N) sofre atrito menor.
             const epistemicDecay = Math.pow(finalDecay, 0.35); // A inércia da confiança resiste mais
 
-            // Piso rígido: O algoritmo nunca esquece mais que 70% do tamanho total da coorte acumulada
-            const epistemicFloor = Math.max(3.0, maxNEver * 0.3);
+            // CORREÇÃO: O piso da memória latente deve ceder drasticamente a longo prazo (cap max: 10 questões de peso).
+            const epistemicFloor = Math.max(3.0, Math.min(10.0, maxNEver * 0.05));
 
             const nAfterDecay = Math.max(epistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
 
