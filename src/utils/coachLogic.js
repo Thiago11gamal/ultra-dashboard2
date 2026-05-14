@@ -1494,8 +1494,7 @@ export function getBestTask(categories, excludeTaskId = null) {
                 const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
                 
                 let normalizedErrorRate;
-                // CORREÇÃO: Usar <= 1 para tratar 1.0 como 100% e evitar o "abismo" matemático entre 0.99 e 1.0.
-                normalizedErrorRate = (validErrorRate <= 1 && validErrorRate >= 0) ? validErrorRate : Math.min(100, Math.max(0, validErrorRate)) / 100;
+                normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
                 
                 score += normalizedErrorRate * 40; // 0-40 pts
             }

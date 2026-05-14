@@ -167,6 +167,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         if (!arr.length) return 0;
         const sortedArr = [...arr].sort((a, b) => a.value - b.value);
         const totalW = sortedArr.reduce((acc, it) => acc + it.weight, 0);
+        if (totalW < 1e-9) return sortedArr[Math.floor(sortedArr.length / 2)].value;
         let accW = 0;
         for (const it of sortedArr) {
             accW += it.weight;
@@ -424,11 +425,12 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         const { k, intercept, L, t0 } = logisticFit;
         const targetTimeX = ((now - t0) / 86400000) + projectDays;
         
-        // Reverte o logit para calcular a nota predita: Y = L / (1 + e^-(kX + intercept))
+        // Reverte o logit para calcular a nota predita: Y = safeMin + (L - safeMin) / (1 + e^-(kX + intercept))
         const exponent = -(k * targetTimeX + intercept);
         const safeExponent = Math.max(-50, Math.min(50, exponent)); // Impede overflow
         
-        projectedScore = L / (1 + Math.exp(safeExponent));
+        const safeMin = options.minScore || 0;
+        projectedScore = safeMin + ((L - safeMin) / (1 + Math.exp(safeExponent)));
     } else {
         // Caminho B: Fallback Clássico Linear se os dados forem caóticos ou muito curtos
         // RESTAURAÇÃO: Recuperar cálculo de EMA e Slope removidos por engano
