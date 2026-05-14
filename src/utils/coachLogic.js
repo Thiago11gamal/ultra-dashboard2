@@ -237,6 +237,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             const timeB = new Date(b.date || b.createdAt || 0).getTime();
             return timeB - timeA;
         });
+
+        // CORREÇÃO: Limite de Retenção Ativa (Poda de Avalanche)
+        // Se houverem mais de 50 testes na mesma matéria, preservamos apenas os 50 mais recentes.
+        // Isto previne que o agregado de cauda longa (mesmo com PESO_MIN) destrua a reatividade do painel hoje.
+        if (relevantSimulados.length > 50) {
+            relevantSimulados.length = 50; 
+        }
+
         const simuladosWithMaxScore = relevantSimulados;
 
         let averageScore = 0;
@@ -382,12 +390,16 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // Lógica de Meta Proximal Dinâmica (ZDP)
         const DISTANCE_THRESHOLD = 0.15 * maxScore; // Se a meta está a mais de 15% de distância
         let effectiveMCTarget = targetScore;
+        let effectiveMCDays = 90; 
 
         if (targetScore - averageScore > DISTANCE_THRESHOLD) {
             // O alvo passa a ser a média atual + 1 salto equivalente à volatilidade da pessoa + margem empírica (2%)
             effectiveMCTarget = averageScore + Math.max(mssdVolatility, maxScore * 0.05) + (maxScore * 0.02);
             // Garantia para nunca ultrapassar a meta final
             effectiveMCTarget = Math.min(effectiveMCTarget, targetScore); 
+            
+            // CORREÇÃO: Se a meta foi fatiada, o prazo também tem de ser! (Horizonte Tático)
+            effectiveMCDays = Math.max(14, Math.floor(daysToExam ? (effectiveMCTarget / targetScore) * daysToExam : 21));
         }
 
         // 🎯 ADAPT-NEUTRAL: O "Neutro" do aluno é a média global dele em todas as matérias combinadas.
@@ -414,7 +426,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             effectiveCfg, 
             categoryId, 
             maxScore, 
-            mcAdaptive
+            mcAdaptive,
+            effectiveMCDays
         );
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
@@ -542,10 +555,16 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         
         // CORREÇÃO: Ordenar o array para garantir a busca correta pela data raiz
         const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => normalizeDate(a.date).getTime() - normalizeDate(b.date).getTime());
-        const historyStart = sortedLogsForBurnout.length > 0 ? normalizeDate(sortedLogsForBurnout[0].date).getTime() : Date.now();
-        const weeksActive = Math.max(1, (Date.now() - historyStart) / MS_PER_WEEK);
         
-        const baselineHoursPerWeek = (totalHours / weeksActive);
+        // CORREÇÃO: Janela Rolante de 28 dias para capturar o ritmo real, ignorando fantasmas do passado
+        const rollingWindowMs = 28 * MS_PER_DAY;
+        const nowMs = Date.now();
+        const recentBaselineLogs = sortedLogsForBurnout.filter(log => (nowMs - normalizeDate(log.date).getTime()) <= rollingWindowMs);
+        
+        const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
+        
+        // Se estudou nas últimas 4 semanas, calcula a média, caso contrário, fallback humano de 5h/semana
+        const baselineHoursPerWeek = recentBaselineLogs.length > 0 ? (recentBaselineHours / 4) : 5.0;
 
         // 2. Definir o limiar dinâmico: Burnout acontece se ele exceder 1.8x o que está acostumado
         // [FIX 5] Elevar o piso para evitar falsos positivos alarmistas em volumes baixos
