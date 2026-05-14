@@ -16,21 +16,21 @@ import { kahanSum, kahanMean } from './math/kahan.js';
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {
     if (!Array.isArray(history)) return [];
-    return [...history]
-        .filter(h => h && (h.date || h.createdAt) && !isNaN(safeDateParse(h.date || h.createdAt).getTime()))
+    
+    // OTIMIZAÇÃO DE MEMÓRIA (Schwartzian Transform): 
+    // Evita instanciar objetos Date O(N log N) vezes dentro do .sort()
+    return history
+        .map(h => ({ 
+            original: h, 
+            time: h && (h.date || h.createdAt) ? safeDateParse(h.date || h.createdAt).getTime() : NaN 
+        }))
+        .filter(item => !Number.isNaN(item.time))
         .sort((a, b) => {
-            const dateA = safeDateParse(a.date || a.createdAt);
-            const dateB = safeDateParse(b.date || b.createdAt);
-            // Ordenação determinística por "dia UTC" para evitar variação por timezone do runtime.
-            const utcA = Date.UTC(dateA.getUTCFullYear(), dateA.getUTCMonth(), dateA.getUTCDate());
-            const utcB = Date.UTC(dateB.getUTCFullYear(), dateB.getUTCMonth(), dateB.getUTCDate());
-            if (utcA !== utcB) return utcA - utcB;
-            // Desempate determinístico intra-dia para evitar depender da estabilidade do sort do runtime.
-            const diff = dateA.getTime() - dateB.getTime();
-            if (diff !== 0) return diff;
-            // Desempate determinístico final por ID (Bug 15)
-            return (a.id || "").localeCompare(b.id || "");
-        });
+            if (a.time !== b.time) return a.time - b.time;
+            // Desempate determinístico
+            return (a.original.id || "").localeCompare(b.original.id || "");
+        })
+        .map(item => item.original);
 }
 
 // -----------------------------
@@ -169,32 +169,33 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
 
     const { slope, intercept } = weightedRegression(sorted, lambda, maxScore, options);
     const t0_vol = safeDateParse(sorted[0].date || sorted[0].createdAt).getTime();
+    
+    // OTIMIZAÇÃO DE PERFORMANCE: Fusão de loops O(5N) para O(N)
+    let sumWeights = 0, sumResidualsWeighted = 0, sumSw = 0, sumSw2 = 0;
 
     const residualSamples = sorted.map(h => {
         const hDate = h.date || h.createdAt;
         const x = (safeDateParse(hDate).getTime() - t0_vol) / 86400000;
-        // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
         const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
         const w = Math.exp(-lambda * t);
         const y = getSafeScore(h, maxScore);
-        const pred = intercept + slope * x;
-        return { value: y - pred, weight: w }; // Resíduos reais (detrended)
+        const val = y - (intercept + slope * x); // Resíduo (detrended)
+        
+        // Acumulação numa única passagem
+        sumWeights += w;
+        sumResidualsWeighted += val * w;
+        sumSw += val * val * w;
+        sumSw2 += w * w;
+
+        return { value: val, weight: w }; 
     });
 
-    // Variância Ponderada dos Resíduos (Robust Component)
-    const sumWeights = residualSamples.reduce((acc, it) => acc + it.weight, 0);
-    const sumResidualsWeighted = residualSamples.reduce((acc, it) => acc + it.value * it.weight, 0);
-    const sumSw = residualSamples.reduce((acc, it) => acc + it.value * it.value * it.weight, 0);
-
-    // CORREÇÃO: Prevenir o colapso por "amnésia temporal". Se os pesos decaírem para zero absoluto,
-    // evitamos a divisão por zero para que o aluno mantenha um cone de projeção conservador.
     // CORREÇÃO: Prevenir o colapso por "amnésia temporal". Se os pesos decaírem para zero absoluto,
     // evitamos a divisão por zero para que o aluno mantenha um cone de projeção conservador.
     const safeWeights = sumWeights > 1e-15 ? sumWeights : 1;
     const expectedResidual = sumWeights > 1e-15 ? (sumResidualsWeighted / safeWeights) : 0;
     
     // CORREÇÃO: Calcular o Tamanho Efetivo de Amostra (Kish) dos pesos exponenciais
-    const sumSw2 = residualSamples.reduce((acc, it) => acc + (it.weight * it.weight), 0);
     const effectiveN = sumSw2 > 1e-15 ? (sumWeights * sumWeights) / sumSw2 : 1;
     
     // O bessel deve responder ao Effective N, não à contagem bruta temporal (n_res)

@@ -177,11 +177,10 @@ export function computeBayesianLevel(
     const gaps = [];
     // CORREÇÃO: Fallback absoluto para (0) na ordenação temporal caso a data 
     // esteja ilegível, protegendo a cronologia matemática da V8 engine
-    const historySortedForGaps = history ? [...history].sort((a, b) => {
-        const timeA = new Date(a.date).getTime();
-        const timeB = new Date(b.date).getTime();
-        return (timeA || 0) - (timeB || 0);
-    }) : [];
+    const historySortedForGaps = history ? history
+        .map(h => ({ original: h, time: new Date(h.date).getTime() || 0 }))
+        .sort((a, b) => a.time - b.time)
+        .map(item => item.original) : [];
     if (historySortedForGaps.length > 1) {
         for (let i = 1; i < historySortedForGaps.length; i++) {
             const time1 = new Date(historySortedForGaps[i].date).getTime();
@@ -213,11 +212,13 @@ export function computeBayesianLevel(
     const now = Date.now();
 
     if (history && history.length > 0) {
-        const sortedHistory = [...history].sort((a, b) => {
-            const timeA = new Date(a.date).getTime();
-            const timeB = new Date(b.date).getTime();
-            return (timeA || 0) - (timeB || 0);
-        });
+        // OTIMIZAÇÃO: Pré-calcular tempos para evitar vazamento de memória no sort
+        const historyWithTime = history.map(h => ({
+            ...h,
+            _parsedTime: new Date(h.date).getTime() || 0
+        }));
+        
+        const sortedHistory = historyWithTime.sort((a, b) => a._parsedTime - b._parsedTime);
         
         for (let i = 0; i < sortedHistory.length; i++) {
             const h = sortedHistory[i];

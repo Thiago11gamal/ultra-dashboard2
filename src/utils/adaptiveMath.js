@@ -88,10 +88,9 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
 
     const nullCount = values.filter(v => !Number.isFinite(v)).length;
     if (nullCount > values.length * 0.5) {
-        // CORREÇÃO: Retorna a série preservando os NaNs originais. 
-        // Os métodos a jusante (mean, stdDev) já usam .filter(Number.isFinite) nativamente.
-        // Nunca se deve fazer zero-imputation em desempenho acadêmico, pois destrói a média real.
-        return values.map(v => Number.isFinite(v) ? v : v); 
+        // OTIMIZAÇÃO DE MEMÓRIA: Se mais de 50% for lixo, retornar a referência original
+        // em vez de criar um novo array map com NaNs. Evita alocação desnecessária.
+        return values; 
     }
  
     const finiteValues = values.filter(v => Number.isFinite(v));

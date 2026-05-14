@@ -143,9 +143,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             projectedMean: safeMean,
             projectedSD: 0,
             kdeData: [
-                safeMean > minScore ? { x: safeMean - 0.1, y: 0 } : null,
-                { x: safeMean, y: 1 },
-                safeMean < maxScore ? { x: safeMean + 0.1, y: 0 } : null
+                // BUGFIX VISUAL: Adicionada a chave 'density' para evitar quebra do Recharts
+                safeMean > minScore ? { x: safeMean - 0.1, y: 0, density: 0 } : null,
+                { x: safeMean, y: 1, density: 1 },
+                safeMean < maxScore ? { x: safeMean + 0.1, y: 0, density: 0 } : null
             ].filter(Boolean), 
             drift: 0,
             volatility: 0,
