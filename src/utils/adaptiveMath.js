@@ -142,29 +142,45 @@ export function deriveAdaptiveConfig(scores = []) {
 }
 
 /**
- * Calcula a regressão linear incluindo o Erro Padrão da Inclinação (Standard Error)
- * e o T-Stat. Permite avaliar se a tendência de melhoria do aluno é
- * estatisticamente significativa ou apenas ruído.
+ * Calcula a regressão linear incluindo o Erro Padrão da Inclinação (Standard Error) e o T-Stat.
+ * Atualizado para suportar deltas de tempo reais (x) em vez de assumir índices estáticos.
  */
-export const calcSlopeWithSignificance = (amostra) => {
+export const calcSlopeWithSignificance = (dados) => {
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-    const n = amostra.length;
+    const n = dados.length;
     
     // N < 3 não tem graus de liberdade (df = n-2) para calcular erro padrão
     if (n < 3) return { slope: 0, se: 0, tStat: 0 };
     
+    // Extrai X (tempo) e Y (nota). Se for array de números antigos, usa o índice como fallback.
+    const Xs = dados.map((d, i) => (typeof d === 'number' ? i : (d.x !== undefined ? d.x : i)));
+    const Ys = dados.map(d => (typeof d === 'number' ? d : d.y));
+    
     for (let i = 0; i < n; i++) {
-        sumX += i; sumY += amostra[i]; sumXY += i * amostra[i]; sumXX += i * i;
+        const x = Xs[i];
+        const y = Ys[i];
+        sumX += x; 
+        sumY += y; 
+        sumXY += x * y; 
+        sumXX += x * x;
     }
     
-    const Xs = Array.from({ length: n }, (_, i) => i);
-    const det = n * kahanSum(Xs.map(x => x * x)) - Math.pow(kahanSum(Xs), 2);
-    const slope = det === 0 ? 0 : (n * kahanSum(amostra.map((y, i) => i * y)) - kahanSum(Xs) * kahanSum(amostra)) / det;
-    const intercept = (kahanSum(amostra) - slope * kahanSum(Xs)) / n;
+    const meanX = sumX / n;
+    const det = n * sumXX - sumX * sumX;
     
-    const ssRes = kahanSum(amostra.map((y, i) => Math.pow(y - (intercept + slope * i), 2)));
+    const slope = det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
+    const intercept = (sumY - slope * sumX) / n;
+    
+    let ssRes = 0;
+    let ssX = 0;
+    
+    for (let i = 0; i < n; i++) {
+        const predY = intercept + slope * Xs[i];
+        ssRes += Math.pow(Ys[i] - predY, 2);
+        ssX += Math.pow(Xs[i] - meanX, 2);
+    }
+    
     const varRes = ssRes / (n - 2); // Variância residual
-    const ssX = kahanSum(Xs.map(x => Math.pow(x - kahanMean(Xs), 2)));
     const seSlope = ssX > 0 ? Math.sqrt(varRes / ssX) : 0;
     const tStat = seSlope > 0 ? slope / seSlope : 0;
     
@@ -267,8 +283,11 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         const momentumCI = bootstrapCI(recentDeltas, (arr) => arr.reduce((a,b)=>a+b,0)/arr.length, { iterations: 500 });
         
         // Diagnóstico de Estagnação (Platô): Se a ponta alta for positiva, mas a baixa negativa,
-        // significa que a variação é apenas ruído estocástico, logo a tendência forte = 0.
-        if (momentumCI.low <= 0 && momentumCI.high >= 0) {
+        // E houver variância real (não é apenas uma série de zeros exatos),
+        // significa que a variação é apenas ruído estocástico.
+        const amplitudeCI = momentumCI.high - momentumCI.low;
+        
+        if (momentumCI.low <= 0 && momentumCI.high >= 0 && amplitudeCI > 1e-6) {
             isPlateau = true;
             trueTrendStrength = 0; // Zera a tendência, forçando o motor a focar no baseline histórico
         } else {

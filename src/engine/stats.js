@@ -7,6 +7,7 @@ import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
 
 import { computeAdaptiveLambda } from './diagnostics.js';
+import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 
 function getDynamicTrendThreshold(currentScore, maxScore) {
     const currentPct = currentScore / maxScore;
@@ -373,12 +374,12 @@ export function computeBayesianLevel(
     const predictiveVariance = epistemicVar + aleatoricVar;
     const effectiveSd = Math.sqrt(Math.max(0, predictiveVariance));
 
-    const marginOfError = Z_95 * effectiveSd * safeMaxScore;
+    // FIX: Substituição do Z_95 estático pelo Multiplicador T-Student Adaptativo.
+    // Expande corretamente o cone de incerteza para N pequeno ou muito decaído no tempo.
+    const tMultiplier = getConfidenceMultiplier(effectiveN, { allowFractional: true });
+    const marginOfError = tMultiplier * effectiveSd * safeMaxScore;
 
-    // CORREÇÃO: Removida a continuityCorrection de Yates (Bug 1.3 Fix)
-    // Agresti-Coull + Epistemic/Aleatoric Var já resolvem o intervalo para N pequeno.
     const adjustedMarginOfError = marginOfError;
-
     const centerForCI = p_tilde * safeMaxScore;
     let ciLow = centerForCI - adjustedMarginOfError;
     let ciHigh = centerForCI + adjustedMarginOfError;
@@ -467,9 +468,10 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
         // Estimador imparcial de variância ponderada com blindagem contra pesos dominantes únicos
         const kishDifference = sumW - (sumW2 / sumW);
-        // Se a diferença for muito pequena, significa que 1 peso engoliu a amostra inteira (N Efetivo ~= 1).
-        // Dividir por 1e-4 explodiria a variância. O correto é assumir peso mínimo de variância conservadora.
-        const kishDenom = kishDifference > 1e-2 ? kishDifference : Math.max(1, sumW * 0.1);
+        
+        // FIX: Se a diferença for muito pequena (um simulado engoliu 99% do peso), 
+        // evitamos o magic number anterior e recuamos de forma conservadora para a soma bruta.
+        const kishDenom = kishDifference > 1e-4 ? kishDifference : Math.max(1e-4, sumW);
 
         const sampleVar = sumW > 0 
             ? wVarSum / kishDenom
