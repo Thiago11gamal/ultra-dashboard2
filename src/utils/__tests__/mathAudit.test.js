@@ -153,11 +153,12 @@ describe('BUG-MATH-03: Adaptive risk thresholds', () => {
 // ─────────────────────────────────────────────────────────────────
 describe('BUG-MATH-04: Bayesian amnesia cap', () => {
     test('alpha deve ser limitado a dynamicAlphaCap após longo histórico', () => {
-        // Criar um histórico massivo para inflar alpha
+        // [CORREÇÃO] Usar datas recentes para evitar que a Regressão por Amnésia (Bug 1.1 Fix) puxe tudo para 50%
+        const today = new Date();
         const history = [];
         for (let i = 0; i < 100; i++) {
             history.push({
-                date: `2024-${String(Math.floor(i / 30) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+                date: new Date(today.getTime() - (100 - i) * 3600000).toISOString(),
                 total: 100,
                 correct: 80, // 80% consistente
             });
@@ -183,7 +184,7 @@ describe('BUG-MATH-04: Bayesian amnesia cap', () => {
 
     test('BUG 1: Provas normais com score 0 não devem ser infladas para 66%', () => {
         const history = [
-            { date: '2024-01-01', total: 100, correct: 0, score: 0 }
+            { date: new Date().toISOString(), total: 100, correct: 0, score: 0 }
         ];
         const result = computeBayesianLevel(history, 1, 1, 100);
         // Sem o fix, isso voltava ~66. Com o fix, deve ser baixo (perto de 0, com laplace smoothing)

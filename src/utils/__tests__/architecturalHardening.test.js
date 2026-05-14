@@ -33,8 +33,8 @@ describe('Architectural Hardening: Rodadas 6-8', () => {
         ];
         
         // detectRegimeTransition usa analyzeProgressState internamente.
-        // [CORREÇÃO] Passar minHistory=5 para evitar retorno 'insufficient_data' (Bug-Fix no Teste)
-        const result = detectRegimeTransition(history.map(h => h.score), { maxScore: 100, windowSize: 5, minHistory: 5 });
+        // [CORREÇÃO] Passar minHistory=5 e os OBJETOS completos (não apenas scores) para habilitar o micro-stepping (Bug-Fix no Teste)
+        const result = detectRegimeTransition(history, { maxScore: 100, windowSize: 5, minHistory: 5 });
         
         // Sem o fix (micro-delta), o slope seria 0 porque todos os x seriam iguais após normalizeDate
         // Com o fix, o slope deve ser positivo e finito
