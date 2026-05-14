@@ -117,12 +117,25 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 return (c.tasks?.length || 0) + hLen;
             };
             if (!nameMap[key]) {
-                nameMap[key] = cat;
-            } else if (richness(cat) > richness(nameMap[key])) {
-                console.warn(`[dedup] "${cat.name}" — keeping richer copy (id=${cat.id}).`);
-                nameMap[key] = cat;
+                nameMap[key] = { ...cat };
             } else {
-                console.warn(`[dedup] "${cat.name}" — discarding thin copy (id=${cat.id}).`);
+                const winner = richness(cat) > richness(nameMap[key]) ? { ...cat } : { ...nameMap[key] };
+                const loser = richness(cat) > richness(nameMap[key]) ? nameMap[key] : cat;
+                
+                // Salvar dados do perdedor antes de o descartar
+                const mergedTasks = [...(winner.tasks || []), ...(loser.tasks || [])];
+                const mergedHistory = [...(winner.simuladoStats?.history || []), ...(loser.simuladoStats?.history || [])];
+                
+                // Remover duplicados por ID e Data (para não dobrar dados legítimos)
+                winner.tasks = Array.from(new Map(mergedTasks.map(t => [t.id, t])).values());
+                
+                if (winner.simuladoStats) {
+                    winner.simuladoStats.history = Array.from(new Map(mergedHistory.map(h => [h.date, h])).values())
+                                                        .sort((a,b) => new Date(a.date) - new Date(b.date));
+                }
+                
+                nameMap[key] = winner;
+                logger.warn(`[dedup] Fundindo dados do clone "${cat.name}". Nenhuma nota perdida.`);
             }
         });
         const deduped = Object.values(nameMap);
@@ -183,8 +196,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             const localContest = localContests[id];
             
             if (!localContest) {
-                // Novo painel vindo da nuvem
-                mergedContests[id] = cloudContest;
+                // CORREÇÃO: Verifica se o painel não foi apagado localmente (está na lixeira)
+                const isDeletedLocally = (local.trash || []).some(t => t.contestId === id);
+                if (!isDeletedLocally) {
+                    // É legitimamente um novo painel criado noutro dispositivo
+                    mergedContests[id] = cloudContest;
+                } else {
+                    logger.debug(`[Sync] Painel "${id}" ignorado da nuvem pois foi apagado localmente.`);
+                }
             } else {
                 // Painel existente: comparar timestamps granulares
                 const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();

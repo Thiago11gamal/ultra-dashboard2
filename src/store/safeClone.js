@@ -40,7 +40,7 @@ export function safeClone(value, fallback = null) {
 
     try {
       const seen = new WeakSet();
-      const sanitized = JSON.parse(JSON.stringify(value, (key, val) => {
+      const sanitized = JSON.parse(JSON.stringify(value, function(key, val) {
         if (typeof val === 'function' || typeof val === 'symbol') return undefined;
         
         // Proteção contra Window, Event e DOM
@@ -51,9 +51,14 @@ export function safeClone(value, fallback = null) {
           return undefined;
         }
 
-        if (typeof val === 'object' && val !== null) {
-          if (seen.has(val)) return undefined;
+        if (val && typeof val === 'object') {
+          if (seen.has(val)) return undefined; // Corta a referência circular silenciosamente
           seen.add(val);
+          
+          // PROTEÇÃO ADICIONAL: Referências internas do React que podem vazar para o estado
+          if (key === '_reactInternalInstance' || key === '_reactFiber' || key === 'ref') {
+            return undefined;
+          }
         }
         return val;
       }));
