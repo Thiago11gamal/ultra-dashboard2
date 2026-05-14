@@ -16,10 +16,10 @@
  * Erro 48: Colapso dos Pesos de Edital
  */
 import { describe, test, expect } from 'vitest';
-import { getCoachPriorities, calculateUrgency, getCognitiveState, computeRobustVolatilityForCoach } from '../coachLogic.js';
+import { getCoachPriorities, calculateUrgency, getCognitiveState, computeRobustVolatilityForCoach, analisarDesempenhoHistorico } from '../coachLogic.js';
 import { getPercentile } from '../../engine/math/percentile.js';
 import { generateKDE } from '../../engine/math/gaussian.js';
-import { standardDeviation } from '../../engine/stats.js';
+import { standardDeviation, calcularAssimetria } from '../../engine/stats.js';
 
 describe('Hardening Audit: Erros 37-48', () => {
 
@@ -138,6 +138,42 @@ describe('Hardening Audit: Erros 37-48', () => {
         // Sem o fix, '7,5' viraria 5 (fallback). Com o fix, vira 7.5
         // weight no retorno é boundedWeight * 20 -> 7.5 * 20 = 150
         expect(result.details.weight).toBe(150);
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Erro 49: Invalid Date RangeError
+    // ─────────────────────────────────────────────────────────────────
+    test('Erro 49: analisarDesempenhoHistorico deve evitar RangeError com datas inválidas', () => {
+        const history = [
+            { acertos: 80, diasRevisao: '10,5' } // Vírgula causava NaN -> Invalid Date
+        ];
+        // Sem o fix, chamar toISOString() lançaria RangeError
+        expect(() => analisarDesempenhoHistorico(history)).not.toThrow();
+        const result = analisarDesempenhoHistorico(history);
+        expect(result.projecaoRetencao).toBeDefined();
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Erro 51: KDE NaN Poisoning
+    // ─────────────────────────────────────────────────────────────────
+    test('Erro 51: generateKDE deve ser resiliente a projectedSD=NaN', () => {
+        const data = new Float32Array([50, 60, 70]);
+        // projectedMean=NaN, projectedSD=NaN
+        const kde = generateKDE(data, NaN, NaN, 3, 0, 100);
+        expect(kde.length).toBeGreaterThan(0);
+        expect(Number.isFinite(kde[0].x)).toBe(true);
+        expect(Number.isFinite(kde[0].y)).toBe(true);
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Erro 52: Skewness Underflow
+    // ─────────────────────────────────────────────────────────────────
+    test('Erro 52: calcularAssimetria deve evitar NaN em distribuições quase uniformes', () => {
+        // Notas quase idênticas podem gerar SD muito pequeno e underflow no cubo
+        const data = [80.0000001, 80.0, 80.00000005];
+        const skew = calcularAssimetria(data);
+        expect(Number.isFinite(skew)).toBe(true);
+        expect(skew).toBe(0); // Para SD muito pequeno, assume simetria
     });
 
 });

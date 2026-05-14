@@ -102,7 +102,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         ? safeSimulations
         : Math.max(1, allScores.length);
     const iqr = getPercentile(allScores, 0.75, true) - getPercentile(allScores, 0.25, true);
-    const scottFactor = iqr > 0 ? Math.min(projectedSD, iqr / 1.34) : projectedSD;
+    const scottFactor = iqr > 0 ? Math.min(safeSD, iqr / 1.34) : safeSD;
     const h = 0.9 * scottFactor * Math.pow(safeSimCount, -0.2);
 
     // REVISION: KDE using 300 Bins for higher UI resolution
@@ -112,14 +112,13 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // CORREÇÃO: Cálculo dinâmico do bandwidth sem o limite rígido de 1.0.
     // Isso evita que escalas maiores (ex: 0-1000) colapsem a resolução do KDE.
     const finiteH = Number.isFinite(h) && h > 0 ? h : 0;
-    const finiteProjectedSD = Number.isFinite(projectedSD) && projectedSD > 0 ? projectedSD : 0;
     
     // CORREÇÃO EXTREMA: A banda não pode implodir perante a falta de variância ou o cálculo
     // exponencial da densidade (KDE) entra em underflow maciço (Zero-Out visual).
     // O raio mínimo obriga a expansão de, pelo menos, 1.5 unidades relativas na grelha SVG.
     const minPhysicalBandwidth = Math.max(1.5, (plotMax - plotMin) / (BIN_COUNT / 3)); 
     
-    const bandwidth = Math.max(minPhysicalBandwidth, finiteH, binWidth * 2, finiteProjectedSD * 0.15);
+    const bandwidth = Math.max(minPhysicalBandwidth, finiteH, binWidth * 2, safeSD * 0.15);
     const bins = new Float32Array(BIN_COUNT);
 
     // BUG-KDE-01 FIX: usar allScores.length para evitar acesso OOB se safeSimulations != allScores.length

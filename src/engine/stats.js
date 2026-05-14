@@ -113,13 +113,18 @@ export function calcularAssimetria(arr) {
     const m = mean(clean);
     const sd = calcularDesvioPadrao(clean);
     
-    if (sd === 0) return 0;
+    // CORREÇÃO MÁXIMA: Tolerância de underflow. Se o desvio for inferior a 0.00001,
+    // a assimetria é considerada estatisticamente nula.
+    if (sd < 1e-5) return 0;
 
     const n = clean.length;
     const sumCube = clean.reduce((acc, val) => acc + Math.pow(val - m, 3), 0);
     
     // Fator de correção de viés estatístico
     const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.pow(sd, 3));
+    
+    // Fallback absoluto: Se a divisão gerar valores indefinidos, exporta 0 (Simetria perfeita)
+    if (Number.isNaN(skewness) || !Number.isFinite(skewness)) return 0;
     
     return Math.max(-5, Math.min(5, skewness)); // Clamp para proteção de outliers
 }
