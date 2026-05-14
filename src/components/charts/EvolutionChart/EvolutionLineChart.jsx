@@ -100,14 +100,19 @@ export function EvolutionLineChart({
             yPositions.forEach(p => p.yPos += shift);
         }
 
-        // Pass 3: Top overflow cascade fix (substitui o Math.min/max esmagador)
+        // 🎯 FIX MATEMÁTICO: Pass 3 (Top overflow cascade fix)
+        // O loop original reverso destruía a escala. Devemos iterar do maior valor (0) para o menor
         const topLimit = maxScore - (range * 0.02);
-        for (let i = yPositions.length - 1; i >= 0; i--) {
-            if (yPositions[i].yPos > topLimit) {
-                yPositions[i].yPos = topLimit;
-                // Empurra o item de baixo recursivamente se a distância for violada
-                if (i > 0 && yPositions[i].yPos - yPositions[i-1].yPos < effectiveDistance) {
-                    yPositions[i-1].yPos = yPositions[i].yPos - effectiveDistance;
+        for (let i = 0; i < yPositions.length; i++) {
+            if (i === 0) {
+                // O primeiro (maior valor) é impedido de estourar o limite superior
+                if (yPositions[i].yPos > topLimit) {
+                    yPositions[i].yPos = topLimit;
+                }
+            } else {
+                // Os itens abaixo dele são empurrados para manter a distância mínima
+                if (yPositions[i - 1].yPos - yPositions[i].yPos < effectiveDistance) {
+                    yPositions[i].yPos = yPositions[i - 1].yPos - effectiveDistance;
                 }
             }
         }

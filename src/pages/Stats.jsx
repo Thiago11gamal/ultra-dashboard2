@@ -10,7 +10,6 @@ import { useShallow } from 'zustand/react/shallow';
 const EMPTY_ARRAY = [];
 
 export default function Stats() {
-    // FIX: Extração granular blindada contra renders desnecessários
     const { categories, studyLogs, user } = useAppStore(useShallow(state => {
         const contests = state?.appState?.contests || {};
         const activeId = state?.appState?.activeId;
@@ -25,20 +24,19 @@ export default function Stats() {
     const focusData = useMemo(() => mapFocusEvolutionData(studyLogs), [studyLogs]);
     const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories]);
 
-    const hasData = (Array.isArray(categories) && categories.length > 0) || 
-                    (Array.isArray(studyLogs) && studyLogs.length > 0);
+    // 🎯 FIX LÓGICO: Gráficos de analytics precisam ESTRITAMENTE de logs para serem montados
+    const hasData = Array.isArray(studyLogs) && studyLogs.length > 0;
 
     return (
         <PageErrorBoundary pageName="Estatísticas">
             <div className="space-y-8 animate-fade-in pb-12">
-                {/* VerifiedStats TEM QUE FICAR LIVRE DO BLOQUEIO pois guarda as configurações da IA (Bug 3.1 Fix) */}
                 <VerifiedStats categories={categories} user={user} />
 
                 {!hasData ? (
                     <div className="flex items-center justify-center min-h-[30vh]">
                         <div className="text-center text-slate-400">
                             <p className="font-bold uppercase tracking-wider text-xs">Aguardando dados</p>
-                            <p className="text-[11px] text-slate-500 mt-1">Registe simulados para gerar relatórios de foco.</p>
+                            <p className="text-[11px] text-slate-500 mt-1">Registre horas de estudo ou simulados para gerar relatórios.</p>
                         </div>
                     </div>
                 ) : (
