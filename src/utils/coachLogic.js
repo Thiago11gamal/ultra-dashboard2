@@ -730,31 +730,25 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         if (srsBoost > 0) rotationPenalty *= 0.1;
 
         // --- RAW MAX ---
-        // CORREÇÃO: Usar as variáveis de teto dinâmico em vez de cfg
-        // FIX BUG 3: Integrar o crunchMultiplier e backtestWeights.recencyWeight 
-        // no cálculo do teto (RAW_MAX) para impedir o overflow a 100%.
-        const effectiveRecencyMax = dynamicRecencyMax * 0.8 * crunchMultiplier * backtestWeights.recencyWeight * inefficiencyPenaltyMultiplier;
-        
-        // FIX: maxSrsBoost declarado para impedir o crash no cálculo de Urgência
-        const maxSrsBoost = cfg.SRS_BOOST * 2.0; 
-        
+        // 1. Teto Fixo de Esforço (Baseado apenas nos riscos reais, sem inflação de peso)
         const RAW_MAX_ACTUAL = dynamicScoreMax
-            + effectiveRecencyMax
+            + dynamicRecencyMax * 0.8 * crunchMultiplier * inefficiencyPenaltyMultiplier
             + dynamicInstabilityMax
-            + (cfg.PRIORITY_BOOST + maxSrsBoost) * crunchMultiplier
+            + (cfg.PRIORITY_BOOST + (cfg.SRS_BOOST * 2.0)) * crunchMultiplier
             + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE)
-            + cfg.EFFICIENCY_MAX; // [FIX 3] Limite real é 1x EFFICIENCY_MAX
+            + cfg.EFFICIENCY_MAX;
 
+        // 2. Cálculo do Raw Score
         const currentPriorityBoost = priorityBoost * crunchMultiplier;
         const currentSrsBoost = srsBoost * crunchMultiplier;
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty;
 
-        // O RAW_MAX_ACTUAL continua a ser calculado normalmente, MAS a normalização muda.
-        const weightedRaw = rawScore;
-        
-        // Transformação Sigmoidal REMOVIDA.
-        // CORREÇÃO: Transformação Linear por Partes (Piecewise Linear)
-        
+        // 3. APLICAÇÃO REAL DO PESO: O peso é um amplificador de DOR sobre o rawScore,
+        // não uma mudança na escala do universo.
+        const weightMultiplier_actual = 1 + ((boundedWeight - 5) / 5) * 0.40; // 0.6x a 1.4x
+        const weightedRaw = rawScore * weightMultiplier_actual; 
+
+        // 4. Normalização
         let normalized;
         const CRITICAL_THRESHOLD = RAW_MAX_ACTUAL * 0.8; 
         

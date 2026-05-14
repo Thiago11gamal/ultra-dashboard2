@@ -40,48 +40,38 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
 
     const now = options.referenceDate || Date.now();
-    let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
+    // Kahan summation imperativo (Inline Performance Pura) - [BUG-MEMORY-01 FIX]
+    let sumW = 0, cW = 0;
+    let sumWX = 0, cWX = 0;
+    let sumWY = 0, cWY = 0;
+    let sumWXX = 0, cWXX = 0;
+    let sumWXY = 0, cWXY = 0;
 
-    sorted.forEach(h => {
+    for(let i = 0; i < sorted.length; i++) {
+        const h = sorted[i];
         const hDate = h.date || h.createdAt;
         const y = getSafeScore(h, maxScore);
+        if (Number.isNaN(y)) continue;
 
-        // CORREÇÃO: Blindagem de Titânio contra "NaN Poisoning". 
-        // Se a nota é matematicamente inválida, saltamos o ponto para não envenenar a regressão inteira.
-        if (Number.isNaN(y)) return;
-
-        // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
-        const t = Math.max(0, (now - new Date(hDate).getTime()) / (1000 * 60 * 60 * 24));
+        const t = Math.max(0, (now - new Date(hDate).getTime()) / 86400000);
         const w = Math.exp(-lambda * t);
-        const x = (new Date(hDate).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        const x = (new Date(hDate).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000;
 
-        sumW += w;
-        sumWX += w * x;
-        sumWY += w * y;
-        sumWXX += w * x * x;
-        sumWXY += w * x * y;
-    });
-
-    const sumW_k = kahanSum(sorted.map(h => {
-        const t = Math.max(0, (now - new Date(h.date || h.createdAt).getTime()) / 86400000);
-        return Math.exp(-lambda * t);
-    }));
-    // We'll keep the loop for now but use kahanSum for final values if possible. 
-    // Actually, let's just replace the final aggregations.
-    
-    // For simplicity and performance in this specific loop, we'll keep the accumulators 
-    // but use kahanSum for the entire series if accuracy is critical.
-    // Given the request, let's use kahanSum on the arrays.
-    
-    const weights = sorted.map(h => Math.exp(-lambda * Math.max(0, (now - new Date(h.date || h.createdAt).getTime()) / 86400000)));
-    const Xs = sorted.map(h => (new Date(h.date || h.createdAt).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000);
-    const Ys = sorted.map(h => getSafeScore(h, maxScore));
-
-    sumW = kahanSum(weights);
-    sumWX = kahanSum(weights.map((w, i) => w * Xs[i]));
-    sumWY = kahanSum(weights.map((w, i) => w * Ys[i]));
-    sumWXX = kahanSum(weights.map((w, i) => w * Xs[i] * Xs[i]));
-    sumWXY = kahanSum(weights.map((w, i) => w * Xs[i] * Ys[i]));
+        // Kahan summation imperativo para evitar O(N) alocações de map
+        const yW = w - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
+        
+        const valWX = w * x;
+        const yWX = valWX - cWX; const tWX = sumWX + yWX; cWX = (tWX - sumWX) - yWX; sumWX = tWX;
+        
+        const valWY = w * y;
+        const yWY = valWY - cWY; const tWY = sumWY + yWY; cWY = (tWY - sumWY) - yWY; sumWY = tWY;
+        
+        const valWXX = w * x * x;
+        const yWXX = valWXX - cWXX; const tWXX = sumWXX + yWXX; cWXX = (tWXX - sumWXX) - yWXX; sumWXX = tWXX;
+        
+        const valWXY = w * x * y;
+        const yWXY = valWXY - cWXY; const tWXY = sumWXY + yWXY; cWXY = (tWXY - sumWXY) - yWXY; sumWXY = tWXY;
+    }
 
     const det = sumW * sumWXX - sumWX * sumWX;
     
@@ -256,22 +246,19 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     const detrendedScores = scores.map((y, i) => y - (slope * timeX[i]));
     
     let sumSqDiff = 0;
-    let totalTimeWeight = 0;
+    let validTransitions = 0;
 
     for (let i = 1; i < n; i++) {
-        const time1 = new Date(safeHistory[i].date || safeHistory[i].createdAt).getTime();
-        const time0 = new Date(safeHistory[i - 1].date || safeHistory[i - 1].createdAt).getTime();
-        
-        // Calcula os dias exatos de distância entre as avaliações
-        const deltaDays = Math.max(0.5, (time1 - time0) / 86400000); 
-        
         const diff = detrendedScores[i] - detrendedScores[i - 1];
-        // Variância normalizada pelo tempo (processo de difusão)
-        sumSqDiff += Math.pow(diff, 2) / deltaDays;
-        totalTimeWeight += 1; // Ou deltaDays se quiser ponderação temporal estrita
+        
+        // MSSD Estatístico Puro (Para diagnóstico de Amplitude, sem divisão temporal)
+        // [FIX-DIMENSIONAL-01] Remove a divisão por deltaDays para evitar viés de frequência
+        sumSqDiff += Math.pow(diff, 2);
+        validTransitions++;
     }
 
-    const rmssd = (sumSqDiff / 2) / Math.max(1, totalTimeWeight); 
+    // rmssd puro na dimensão de Pontos (absolutos)
+    const rmssd = (sumSqDiff) / Math.max(1, validTransitions); 
     return Math.sqrt(Math.max(1e-6, rmssd));
 }
 
@@ -339,52 +326,35 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     // olhando para a desaceleração do aluno.
     
     let L = maxScore;
-    if (sorted.length >= 6) {
-        // CORREÇÃO: Extrair amostra isolada e purificada para garantir que a derivada matemática
-        // e as médias das taxas de aceleração não sofrem envenenamento (NaN Poisoning).
+    if (sorted.length >= 4) {
         const validScores = sorted.map(h => getSafeScore(h, maxScore)).filter(s => !Number.isNaN(s));
         
-        if (validScores.length >= 6) {
-            // Primeira Derivada (Velocidade)
-            const vel = [];
-            for(let i=1; i<validScores.length; i++) vel.push(validScores[i] - validScores[i-1]);
+        if (validScores.length >= 4) {
+            // Teoria de Valores Extremos: O teto provável é uma função do pico histórico + volatilidade
+            const sortedScores = [...validScores].sort((a, b) => a - b);
+            const peak1 = sortedScores[sortedScores.length - 1];
+            const peak2 = sortedScores[sortedScores.length - 2];
             
-            // Segunda Derivada (Aceleração)
-            const acc = [];
-            for(let i=1; i<vel.length; i++) acc.push(vel[i] - vel[i-1]);
+            const robustPeak = (peak1 * 0.6) + (peak2 * 0.4);
             
-            const meanAcc = acc.reduce((a,b)=>a+b,0)/acc.length;
-            const meanVel = vel.reduce((a,b)=>a+b,0)/vel.length;
+            // O headroom (espaço para crescer) depende da volatilidade recente.
+            // Alunos muito estáveis têm pouco headroom. Alunos caóticos podem "saltar" mais.
+            const dynamicHeadroom = Math.min(
+                maxScore * 0.15, // Teto máximo de expansão assintótica (15%)
+                Math.max(currentVariance * 1.5, maxScore * 0.05)
+            );
+
+            // Crescimento desacelerado: Se a inclinação linear recente for baixa, o teto está próximo.
+            const recentSlope = calculateSlope(validScores.slice(-4), maxScore);
+            const slopeMultiplier = recentSlope > 0 ? Math.min(1, recentSlope / (maxScore * 0.01)) : 0;
             
-            // Se a aceleração é negativa (curva côncava), o aluno está a desacelerar em direção ao seu platô.
-            if (meanAcc < -0.1 && meanVel > 0) {
-                const currentY = validScores[validScores.length - 1]; 
-                // Blindagem térmica: Evita a singularidade e limita a inferência do teto
-                const safeAcc = Math.max(1e-4, Math.abs(meanAcc));
-                const rawCap = currentY + (Math.pow(meanVel, 2) / (2 * safeAcc));
-                
-                // Limita fisicamente a extrapolação para não estourar a RAM ou o UI
-                const predictedCap = Math.min(currentY + (maxScore * 0.5), rawCap);
-                
-                L = (predictedCap * 0.60) + (maxScore * 0.40);
-                L = Math.max(currentY + 1, Math.min(maxScore, L));
-            } else {
-                // Fallback para quando não há desaceleração clara: usa P90 com headroom conservador
-                // CORREÇÃO: Obrigar a ordenação numérica antes de extrair os percentis 
-                // para garantir que o Peak Score é o verdadeiro limite empírico do aluno.
-                const sortedForPercentile = [...historicalScores].sort((a, b) => a - b);
-                const peakScore = getPercentile(sortedForPercentile, 0.90);
-                const spaceToMax = maxScore - peakScore;
-                const dynamicHeadroom = Math.max(currentVariance * 1.5, maxScore * 0.10, spaceToMax * 0.25);
-                L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom);
-            }
+            L = robustPeak + (dynamicHeadroom * slopeMultiplier);
+            L = Math.max(validScores[validScores.length - 1] + 1, Math.min(maxScore + 0.1, L));
         } else {
-            // Recair no percentil conservador se os dados limpos forem escassos
+            // Fallback para quando não há dados suficientes
             const sortedForPercentile = [...historicalScores].sort((a, b) => a - b);
             const peakScore = getPercentile(sortedForPercentile, 0.90);
-            const spaceToMax = maxScore - peakScore;
-            const dynamicHeadroom = Math.max(currentVariance * 1.5, maxScore * 0.10, spaceToMax * 0.25);
-            L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom);
+            L = Math.min(maxScore + 0.1, peakScore + (maxScore * 0.10));
         }
     } else {
         // Amostra pequena: usa o P90 tradicional
@@ -726,11 +696,11 @@ export function monteCarloSimulation(
 
         let currentSimScore = baselineScore;
         // [GARCH(1,1) FIX]: Volatilidade estocástica adaptativa.
-        // A variância de amanhã depende do choque de hoje.
+        // GARCH ajustado para Psicologia do Aprendizado
         let currentVolSq = Math.pow(dailyVolatility, 2);
         const omega = 0.05 * currentVolSq; // Componente de longo prazo (piso)
-        const alphaG = 0.10;               // Sensibilidade ao choque (aprendizado/erro)
-        const betaG = 0.85;                // Persistência da volatilidade
+        const alphaG = 0.05;               // Sensibilidade menor ao choque de um único simulado ruim
+        const betaG = 0.75;                // Memória de volatilidade curta (Persistência = 0.80)
         
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
@@ -745,8 +715,11 @@ export function monteCarloSimulation(
                 ? safeResiduals[Math.floor(rng() * safeResiduals.length)]
                 : normalRng() * adaptiveVol;
             
+            // [FIX-GARCH-01] O choque que entra na equação de volatilidade DEVE ser clamped
+            const clampedShock = Math.max(-volatility * 2.5, Math.min(volatility * 2.5, shock));
+            
             // Evolução da Volatilidade GARCH(1,1): Var(t+1) = w + a*e^2 + b*Var(t)
-            currentVolSq = omega + alphaG * Math.pow(shock, 2) + betaG * currentVolSq;
+            currentVolSq = omega + alphaG * Math.pow(clampedShock, 2) + betaG * currentVolSq;
             
             // Clamp de sanidade para evitar divergência explosiva em projeções longas
             currentVolSq = Math.min(currentVolSq, Math.pow(maxScore * 0.2, 2));
