@@ -204,17 +204,20 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
 // Ex: [50,55,60,65] → SD=6.5 (penaliza crescimento), MSSD_root=5 (correto: baixa instabilidade)
 // -----------------------------
 export function calculateMSSD(history, maxScore = 100, minScore = 0) {
-    if (!Array.isArray(history) || history.length < 2) {
+    // [CORREÇÃO] Aplicar 'getSortedHistory' para assegurar cronologia e purgar datas inválidas (Bug 1.3 Fix)
+    const safeHistory = getSortedHistory(history);
+
+    if (!Array.isArray(safeHistory) || safeHistory.length < 2) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
     }
-    const scores = history.map(h => getSafeScore(h, maxScore));
+    const scores = safeHistory.map(h => getSafeScore(h, maxScore));
     const n = scores.length;
     
     // CORREÇÃO: Utilizar o diferencial de dias contínuos reais em vez de índices cegos 
     // para um Detrending Linear que respeita a física e a cronologia do histórico.
-    const t0 = new Date(history[0].date || history[0].createdAt).getTime();
-    const timeX = history.map(h => (new Date(h.date || h.createdAt).getTime() - t0) / 86400000);
+    const t0 = new Date(safeHistory[0].date || safeHistory[0].createdAt).getTime();
+    const timeX = safeHistory.map(h => (new Date(h.date || h.createdAt).getTime() - t0) / 86400000);
     
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     for(let i = 0; i < n; i++) {
@@ -321,8 +324,9 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
             
             // Se a aceleração é negativa (curva côncava), o aluno está a desacelerar em direção ao seu platô.
             if (meanAcc < -0.1 && meanVel > 0) {
-                // Formula matemática do limite: L ~ Y_atual + (Velocidade_atual^2 / 2 * |Aceleração|)
-                const currentY = getSafeScore(sorted[sorted.length-1], maxScore);
+                // [CORREÇÃO] Usar 'validScores' para garantir que a nota é estritamente numérica (Bug 1.4 Fix)
+                const currentY = validScores[validScores.length - 1]; 
+                
                 const predictedCap = currentY + (Math.pow(meanVel, 2) / (2 * Math.abs(meanAcc)));
                 
                 // Suavização Bayesiana: 60% empírico, 40% a priori (maxScore total)

@@ -277,9 +277,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             return timeB - timeA;
         });
 
-        // CORREÇÃO: Limite de Retenção Ativa (Poda de Avalanche)
-        // Se houverem mais de 50 testes na mesma matéria, preservamos apenas os 50 mais recentes.
-        // Isto previne que o agregado de cauda longa (mesmo com PESO_MIN) destrua a reatividade do painel hoje.
+        // [CORREÇÃO] 1. Extrair a data raiz (firstActivityDate) ANTES da poda da matriz (Bug 1.1 Fix)
+        const rootActivityDate = relevantSimulados.length > 0 
+            ? normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) 
+            : normalizeDate(new Date());
+
+        // 2. Aplicar Limite de Retenção Ativa (Poda de Avalanche)
         if (relevantSimulados.length > 50) {
             relevantSimulados.length = 50; 
         }
@@ -539,7 +542,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             ? normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) 
             : normalizeDate(new Date());
 
-        const crunchMultiplier = getCrunchMultiplier(daysToExam, firstActivityDate);
+        const crunchMultiplier = getCrunchMultiplier(daysToExam, rootActivityDate);
         let recencyComponent = 0; // Calculado abaixo no bloco Efficiency Bridge
 
         // ─────────────────────────────────────────────────────────

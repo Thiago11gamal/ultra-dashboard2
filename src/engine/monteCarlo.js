@@ -404,9 +404,16 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
         ? Number(ultimoRegisto.score || 0) 
         : Number(ultimoRegisto);
     
-    // CORREÇÃO MÁXIMA: Inferir e injetar a escala correta (0-1 vs 0-100)
-    // Se a nota ultrapassar 1.0, o motor converte os limites físicos para a escala percentual cheia
-    const escala = ultimaNota > 1.0 ? 100 : 1.0;
+    // [CORREÇÃO] Em vez de olhar apenas para a última nota, procurar no histórico inteiro (Bug 1.2 Fix)
+    // Se o aluno obteve 0 na última prova, o motor não pode assumir que o exame vale 1.0.
+    const picoHistorico = historicoNotas.reduce((max, reg) => {
+        const val = typeof reg === 'object' && reg !== null ? Number(reg.score || 0) : Number(reg);
+        return Math.max(max, val);
+    }, 0);
+    
+    // Infere a escala: Se alguma nota na vida do aluno for > 1.0, o sistema é de 0-100.
+    // Fallback de segurança: Se o histórico estiver totalmente zerado, assume 100.
+    const escala = picoHistorico > 1.0 ? 100 : (picoHistorico === 0 ? 100 : 1.0);
     
     const varianciaBase = 0.05 * escala; 
     
