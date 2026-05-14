@@ -240,8 +240,10 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
         return 0.05 * range;
     }
     const scores = history.map(h => getSafeScore(h, maxScore));
+    const n = scores.length;
+    if (n < 2) return 0;
     const meanVal = kahanMean(scores);
-    const variance = kahanSum(scores.map(b => Math.pow(b - meanVal, 2))) / (scores.length - 1);
+    const variance = kahanSum(scores.map(b => Math.pow(b - meanVal, 2))) / (n - 1);
     return Math.sqrt(variance);
 }
 
@@ -674,11 +676,13 @@ export function monteCarloSimulation(
             // CORREÇÃO MATEMÁTICA: Reflected Brownian Motion (RBM) Contínuo
             // Utiliza um espelhamento absoluto contínuo para evitar o efeito "serrote" do módulo simples
             let range = maxScore - minScore;
-            let normalized = currentSimScore - minScore;
-            let wraps = Math.floor(normalized / range);
-            let remainder = normalized % range;
-            if (remainder < 0) remainder += range;
-            currentSimScore = minScore + (wraps % 2 === 0 ? remainder : range - remainder);
+            if (range > 0) {
+                let normalized = currentSimScore - minScore;
+                let wraps = Math.floor(normalized / range);
+                let remainder = normalized % range;
+                if (remainder < 0) remainder += range;
+                currentSimScore = minScore + (wraps % 2 === 0 ? remainder : range - remainder);
+            }
             
             // Fallback de segurança estrito (Clamp final diário)
             currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore));

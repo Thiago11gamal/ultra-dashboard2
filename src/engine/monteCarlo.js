@@ -107,7 +107,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     // O PULO DO GATO: Shrinkage Bayesiano para safeSD (Bug 1 Fix)
     // Se temos um histórico curto, não podemos confiar em SD=0.
-    if (historyLength > 0 && historyLength < 15) {
+    if (historyLength < 15) {
         const floorVolatility = maxScore * 0.04;
         const confidence = historyLength / 15;
         safeSD = (safeSD * confidence) + (floorVolatility * (1 - confidence));
@@ -534,11 +534,14 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
             results[i] = sampleTruncatedNormal(avgVal, sd, 0, 100, rng);
         }
         
-        results.sort();
+        const i10 = Math.floor(simulacoes * 0.1);
+        const i50 = Math.floor(simulacoes * 0.5);
+        const i90 = Math.floor(simulacoes * 0.9);
+
         return {
-            p50: results[Math.floor(simulacoes * 0.5)],
-            p10: results[Math.floor(simulacoes * 0.1)],
-            p90: results[Math.floor(simulacoes * 0.9)]
+            p50: quickSelect(results, i50),
+            p10: quickSelect(results, i10),
+            p90: quickSelect(results, i90)
         };
     }
     return runMonteCarloSimulation(metricas, 7, 100);
