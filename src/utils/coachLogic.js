@@ -232,6 +232,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // 1. Weighted Average Score
         const catNormalized = normalize(safeCategory?.name || "Sem Nome");
         const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject || "") === catNormalized);
+        // Preserva os timestamps brutos para garantir a ordem exata ao nível do segundo
         relevantSimulados.sort((a, b) => {
             const timeA = new Date(a.date || a.createdAt || 0).getTime();
             const timeB = new Date(b.date || b.createdAt || 0).getTime();
@@ -404,10 +405,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // 🎯 ADAPT-NEUTRAL: O "Neutro" do aluno é a média global dele em todas as matérias combinadas.
         let globalBaselinePct = 50;
-        const allSimsForBaseline = (options.allCategories || []).flatMap(c => {
-            const catNorm = normalize(c.name || "");
-            return (simulados || []).filter(s => normalize(s.subject) === catNorm);
-        });
+        const validCatNorms = new Set((options.allCategories || []).map(c => normalize(c.name || "")));
+        
+        // Filtramos os simulados apenas uma vez numa única passagem!
+        const allSimsForBaseline = (simulados || []).filter(s => s && validCatNorms.has(normalize(s.subject || "")));
         if (allSimsForBaseline.length > 0) {
             const totalPoints = allSimsForBaseline.reduce((acc, s) => acc + getSafeScore(s, maxScore), 0);
             globalBaselinePct = (totalPoints / (allSimsForBaseline.length * maxScore)) * 100;
@@ -528,7 +529,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const allTasks = Array.isArray(safeCategory.tasks) ? safeCategory.tasks : [];
         const totalTasks = allTasks.length;
         const completedTasks = allTasks.filter(t => t?.completed).length;
-        const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0.5;
+        const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 1.0; // 1.0 = Neutro (sem penalidade)
         const inefficiency = Math.max(0, 1 - completionRate);
         
         let empiricalTrust = 1.0;
@@ -1239,7 +1240,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[OTIMIZAÇÃO DE BASE] `;
             const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '') + weakTopic.total) : `geral-${i}`;
 
-            if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
+            if (weakTopic) {
                 let taskTitle = "";
                 let reasonStr = "";
                 if (weakTopic.isUntested) {
@@ -1248,9 +1249,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 } else if (weakTopic.manualPriority > 0) {
                     taskTitle = `🚨 (Prioridade). Nota: ${Math.round(weakTopic.percentage)}%`;
                     reasonStr = "Alta Prioridade Manual";
-                } else {
+                } else if (weakTopic.percentage < 70) {
                     taskTitle = `🚨 (${Math.round(weakTopic.percentage)}% de acerto). Revise agora!`;
                     reasonStr = "Baixa Performance";
+                } else {
+                    taskTitle = `⭐ (${Math.round(weakTopic.percentage)}% de acerto). Rumo à excelência!`;
+                    reasonStr = "Aperfeiçoamento Contínuo";
                 }
                 allGeneratedTasks.push({
                     id: `${cat.id}-weaktopic-${uniqueIdSuffix}`,
