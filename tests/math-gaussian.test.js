@@ -139,6 +139,18 @@ describe('Motor Matemático: Distribuição Gaussiana', () => {
             const result = generateKDE(scores, 100, 0.001, 3, 0, 100);
             expect(result.length).toBeGreaterThan(0);
         });
+
+        it('Deve manter integridade sob underflow (normalização KDE)', () => {
+            const scores = new Float32Array([50, 50.000001]);
+            // SD extremamente baixo causaria underflow na densidade e divisão por zero na normalização
+            const result = generateKDE(scores, 50, 1e-9, 10, 0, 100);
+            
+            expect(result.length).toBeGreaterThan(0);
+            result.forEach(pt => {
+                expect(Number.isFinite(pt.y)).toBe(true);
+                expect(Number.isFinite(pt.density)).toBe(true);
+            });
+        });
     });
 
     describe('Utilidades de Visualização', () => {
