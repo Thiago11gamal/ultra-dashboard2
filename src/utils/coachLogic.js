@@ -101,18 +101,26 @@ const getDaysDiff = (newer, older) => {
  * Calcula o multiplicador de urgência baseado nos dias restantes para a prova.
  * Substituição da escada em degraus por uma curva Exponencial Contínua.
  */
-export function getCrunchMultiplier(daysToExam) {
-    if (daysToExam === null || daysToExam === undefined) return 1.0; // Sem prova definida
-    if (daysToExam < 0) return 1.0; // A prova já passou, regresso ao ritmo base de cruzeiro
-    if (daysToExam === 0) return 2.0; // A prova é literalmente hoje
+export function getCrunchMultiplier(daysToExam, firstActivityDate = null) {
+    if (daysToExam === null || daysToExam === undefined) return 1.0; 
+    if (daysToExam < 0) return 1.0; 
+    if (daysToExam === 0) return 2.0; 
     
-    const urgency = 1.0 + Math.exp(-daysToExam / 21);
+    // CORREÇÃO: A urgência (Crunch) adapta-se ao tamanho da jornada do aluno.
+    let timeDivisor = 21; // Padrão
+    if (firstActivityDate && firstActivityDate.getTime() > 0) {
+        const totalJourneyDays = Math.max(1, (normalizeDate(new Date()).getTime() - firstActivityDate.getTime()) / 86400000) + daysToExam;
+        // Se a jornada é longa (ex: 300 dias), a rampa começa mais cedo.
+        timeDivisor = Math.max(14, totalJourneyDays * 0.15); 
+    }
+    
+    const urgency = 1.0 + Math.exp(-daysToExam / timeDivisor);
     return Number(Math.min(2.0, urgency).toFixed(4));
 }
 
 function getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null) {
-    // Agora passa o MSSD e o EffectiveN para o motor de diagnóstico
-    const forgettingData = computeForgettingRisk(history, maxScore, null, mssdVolatility, effectiveN);
+    // CORREÇÃO: Transmitir a recência real (dias desde a última interação teórica ou prática)
+    const forgettingData = computeForgettingRisk(history, maxScore, daysSince, mssdVolatility, effectiveN);
     
     const retention = forgettingData.retentionPct;
 
@@ -305,7 +313,15 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 let clampedDiff = diff;
                 if (diff > DELTA) clampedDiff = DELTA;
                 else if (diff < -DELTA) clampedDiff = -DELTA;
-                averageScore = notaAnterior + clampedDiff;
+                
+                // CORREÇÃO: Dissipação temporal do choque.
+                // Se a última sessão já tem mais de 24 horas, o salto foi consolidado.
+                const hoursSinceLastSim = (Date.now() - mostRecentSimDate) / (1000 * 60 * 60);
+                if (hoursSinceLastSim < 24) {
+                    averageScore = notaAnterior + clampedDiff;
+                } else {
+                    averageScore = notaBruta; // Assume a realidade matemática
+                }
             } else {
                 averageScore = notaBruta;
             }
@@ -1099,7 +1115,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const recentSims = simulados.filter(s => normalize(s.subject) === catNormalized && new Date(s.date || s.createdAt || 0).getTime() >= cutoffTime);
 
         const totalHours = recentLogs.reduce((acc, l) => acc + (Number(l.minutes) || 0), 0) / 60;
-        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || getSyntheticTotal(maxScore)), 0);
 
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
         const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
