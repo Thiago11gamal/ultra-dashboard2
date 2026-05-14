@@ -1283,11 +1283,10 @@ export function getCognitiveState(stats) {
         // Se passou menos de 30 min, o utilizador ainda está "quente" da sessão anterior
         if (minutesSinceLast < 30) focusMinutes = stats.previousSessionMinutes || 0;
     }
-    let hadBreaks = false;
+    let hadBreaks = (stats.pomodorosCompleted || 0) > 0;
 
-    if (focusMinutes === 0 && (stats.pomodorosCompleted || 0) > 0) {
+    if (focusMinutes === 0 && hadBreaks) {
         focusMinutes = stats.pomodorosCompleted * (stats.settings?.pomodoroWork || 25);
-        hadBreaks = true;
     }
 
     const userLevel = stats.user?.level || 1;
@@ -1332,7 +1331,7 @@ export function getBestTask(categories, excludeTaskId = null) {
                 
                 let normalizedErrorRate;
                 // CORREÇÃO: Usar <= 1 para tratar 1.0 como 100% e evitar o "abismo" matemático entre 0.99 e 1.0.
-                normalizedErrorRate = (validErrorRate < 1 && validErrorRate > 0) ? validErrorRate : Math.min(100, Math.max(0, validErrorRate)) / 100;
+                normalizedErrorRate = (validErrorRate <= 1 && validErrorRate >= 0) ? validErrorRate : Math.min(100, Math.max(0, validErrorRate)) / 100;
                 
                 score += normalizedErrorRate * 40; // 0-40 pts
             }

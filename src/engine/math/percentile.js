@@ -11,15 +11,15 @@
  * @param {number} p - Percentile (0 to 1, e.g. 0.025 for 2.5th percentile)
  * @returns {number} Interpolated percentile value
  */
-export const getPercentile = (arr, p) => {
+export const getPercentile = (arr, p, isAlreadySorted = false) => {
     if (!arr || arr.length === 0) return 0;
 
-    // BUG-7 FIX: Fast path para TypedArrays (Monte Carlo output) já ordenados.
-    // Evita cópia O(n) + re-sort O(n log n) desnecessários por chamada.
     let sorted;
-    if (arr instanceof Float64Array || arr instanceof Float32Array) {
-        // Typed arrays do Monte Carlo são pre-sorted antes das chamadas a getPercentile
+    if (isAlreadySorted) {
         sorted = arr;
+    } else if (arr instanceof Float64Array || arr instanceof Float32Array) {
+        // Typed arrays do not have a default numeric sort, must specify or use a copy
+        sorted = new arr.constructor(arr).sort();
     } else {
         const finite = Array.from(arr).filter(v => Number.isFinite(v));
         if (finite.length === 0) return 0;

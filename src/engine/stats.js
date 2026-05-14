@@ -221,9 +221,8 @@ export function computeBayesianLevel(
                 const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
                 const minN = retentionFloor;
                 const HARD_FLOOR = 3.0;
-                
-                // MATH-CLIFF-FIX: Unifica a aplicação do piso de proteção de forma contínua para evitar saltos lógicos (Bug 3)
-                const nAfterDecay = Math.max(HARD_FLOOR, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * entryDecay)));
+                const safeFloor = Math.min(HARD_FLOOR, nBeforeDecay);
+                const nAfterDecay = Math.max(safeFloor, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * entryDecay)));
                 
                 alpha = nAfterDecay * currentP;
                 beta = nAfterDecay * (1 - currentP);
@@ -270,9 +269,10 @@ export function computeBayesianLevel(
             
             const minN = retentionFloor;
             const HARD_FLOOR = 3.0;
+            const safeFloor = Math.min(HARD_FLOOR, nBeforeDecay);
             
             // MATH-CLIFF-FIX: Unifica a aplicação do piso de proteção de forma contínua
-            const nAfterDecay = Math.max(HARD_FLOOR, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * finalDecay)));
+            const nAfterDecay = Math.max(safeFloor, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * finalDecay)));
             
             alpha = nAfterDecay * currentP;
             beta = nAfterDecay * (1 - currentP);

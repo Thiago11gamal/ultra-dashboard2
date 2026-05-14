@@ -174,8 +174,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     allScores.sort((a, b) => a - b);
 
-    const statisticalCi95Low = getPercentile(allScores, 0.025);
-    const statisticalCi95High = getPercentile(allScores, 0.975);
+    const statisticalCi95Low = getPercentile(allScores, 0.025, true);
+    const statisticalCi95High = getPercentile(allScores, 0.975, true);
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;
 
@@ -249,9 +249,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     }
     analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
 
-    const empMedian = getPercentile(allScores, 0.5);
-    const rawLeft = getPercentile(allScores, 0.16);
-    const rawRight = getPercentile(allScores, 0.84);
+    const empMedian = getPercentile(allScores, 0.5, true);
+    const rawLeft = getPercentile(allScores, 0.16, true);
+    const rawRight = getPercentile(allScores, 0.84, true);
 
     const finiteEmpiricalProbability = Number.isFinite(bayesEmpiricalProbability) ? bayesEmpiricalProbability : 0;
     const finiteAnalyticalProbability = Number.isFinite(analyticalProbability) ? analyticalProbability : 0;
@@ -471,7 +471,7 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
             const u1 = Math.max(1e-9, rng());
             const u2 = Math.max(1e-9, rng());
             const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-            results.push(avgVal + z * sd);
+            results.push(Math.max(0, avgVal + z * sd));
         }
         
         results.sort((a, b) => a - b);

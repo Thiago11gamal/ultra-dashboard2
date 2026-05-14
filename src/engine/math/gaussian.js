@@ -97,7 +97,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const safeSimCount = Number.isFinite(safeSimulations) && safeSimulations > 0
         ? safeSimulations
         : Math.max(1, allScores.length);
-    const iqr = getPercentile(allScores, 0.75) - getPercentile(allScores, 0.25);
+    const iqr = getPercentile(allScores, 0.75, true) - getPercentile(allScores, 0.25, true);
     const scottFactor = iqr > 0 ? Math.min(projectedSD, iqr / 1.34) : projectedSD;
     const h = 0.9 * scottFactor * Math.pow(safeSimCount, -0.2);
 

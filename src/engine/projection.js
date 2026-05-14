@@ -538,8 +538,8 @@ export function monteCarloSimulation(
         centeredResiduals = validResiduals;
     }
     
-    const resMedian = getPercentile(centeredResiduals, 50);
-    const resMad = getPercentile(centeredResiduals.map(r => Math.abs(r - resMedian)), 50) || (1.0 * scaleFactor);
+    const resMedian = getPercentile(centeredResiduals, 0.5);
+    const resMad = getPercentile(centeredResiduals.map(r => Math.abs(r - resMedian)), 0.5) || (1.0 * scaleFactor);
     const safeResiduals = centeredResiduals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
 
     // 3. Simulação de Monte Carlo
@@ -642,8 +642,8 @@ export function monteCarloSimulation(
         sd: Number(finalSD.toFixed(2)),
         // BUG-GLOBAL-01 FIX: getPercentile espera p em [0,1], não [0,100].
         // Antes: 2.5 e 97.5 → p>=1 retornava último elemento → CI = [minScore, maxScore] sempre.
-        ci95Low: Number(getPercentile(results, 0.025).toFixed(2)),
-        ci95High: Number(getPercentile(results, 0.975).toFixed(2)),
+        ci95Low: Number(getPercentile(results, 0.025, true).toFixed(2)),
+        ci95High: Number(getPercentile(results, 0.975, true).toFixed(2)),
         currentMean: Number(baselineScore.toFixed(2)),
         drift: Number((drift * 30).toFixed(2)),
         volatility: Number(volatility.toFixed(2)),
