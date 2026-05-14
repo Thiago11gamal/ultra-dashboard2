@@ -15,25 +15,29 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         // No config padrão: dynamicScoreMax = 45, dynamicRecencyMax = 25, dynamicInstabilityMax = 15
         // total ~85 + boosts.
         // Verificamos se a componente de performance (scoreComponent) ultrapassou os 45.
-        expect(res.details.components.performance).toBeGreaterThan(45);
-        expect(res.details.components.performance).toBeLessThanOrEqual(45 * 1.35); // Limite do multiplicador
+        expect(res.details.components.scoreComponent).toBeGreaterThan(45);
+        expect(res.details.components.scoreComponent).toBeLessThanOrEqual(45 * 1.35); // Limite do multiplicador
     });
 
-    it('🕳️ RAW_MAX_ACTUAL deve incluir o teto de ineficiência', () => {
+    it('🕳️ RAW_MAX_ACTUAL deve incluir o teto de ineficiência via recencyComponent', () => {
         // Setup: Aluno com muitas tarefas pendentes (ineficiência alta)
         const categories = [{
             ...baseCategory,
             tasks: Array.from({ length: 10 }, (_, i) => ({ id: `t${i}`, completed: false }))
         }];
         
-        const res = calculateUrgency(categories[0], [], [], { 
+        // Simulamos algum tempo sem estudar para ter recência > 0
+        const simulados = [{ subject: 'Matemática', score: 50, total: 100, date: '2026-01-01' }];
+        
+        const res = calculateUrgency(categories[0], simulados, [], { 
             maxScore: 100, 
             allCategories: categories 
         });
 
         // Verificamos se o normalizedScore não ultrapassa 100 mesmo com ineficiência máxima
         expect(res.normalizedScore).toBeLessThanOrEqual(100);
-        expect(res.details.components.efficiency).toBeGreaterThan(0);
+        // Recency deve estar inflada pela ineficiência (padrão é dynamicRecencyMax * 0.8 * multiplier)
+        expect(res.details.components.recencyComponent).toBeGreaterThan(0);
     });
 
     it('☀️ Elite Maintenance: não deve marcar como estagnado acima de 95%', () => {
@@ -59,14 +63,12 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         // Caso B: Aluno com performance alta (90%)
         const resHigh = calculateUrgency(baseCategory, [{ subject: 'Matemática', score: 90, total: 100, date: '2026-01-01' }], studyLogs, { maxScore: 100 });
         
-        // Pelo fix, o rotationPenalty (penalidade negativa) deve ser maior (mais negativa) no resHigh 
+        // Pelo fix, o rotationPenalty (penalidade negativa) deve ser maior no resHigh 
         // porque fatigueRatio é maior.
-        // Nota: O resultado final é subtraído, então score(resHigh) terá uma redução maior proporcionalmente à fadiga.
-        // No console.log ou debug veríamos dynamicPenalty sendo maior no resHigh.
         
-        // Verificamos se as componentes de rotação existem
-        expect(resLow.details.components.rotation).toBeDefined();
-        expect(resHigh.details.components.rotation).toBeDefined();
+        expect(resLow.details.components.rotationPenalty).toBeDefined();
+        expect(resHigh.details.components.rotationPenalty).toBeDefined();
+        expect(resHigh.details.components.rotationPenalty).toBeGreaterThan(resLow.details.components.rotationPenalty);
     });
 
     it('💥 simuladosToHistory deve manter a ordem intra-dia por timestamp', () => {
