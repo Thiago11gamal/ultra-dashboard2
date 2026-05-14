@@ -193,8 +193,12 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const safeWeights = sumWeights > 1e-15 ? sumWeights : 1;
     const expectedResidual = sumWeights > 1e-15 ? (sumResidualsWeighted / safeWeights) : 0;
     
-    const n_res = sorted.length - 1;
-    const bessel = n_res > 1 ? n_res / (n_res - 1) : 1;
+    // CORREÇÃO: Calcular o Tamanho Efetivo de Amostra (Kish) dos pesos exponenciais
+    const sumSw2 = residualSamples.reduce((acc, it) => acc + (it.weight * it.weight), 0);
+    const effectiveN = sumSw2 > 1e-15 ? (sumWeights * sumWeights) / sumSw2 : 1;
+    
+    // O bessel deve responder ao Effective N, não à contagem bruta temporal (n_res)
+    const bessel = effectiveN > 1.5 ? effectiveN / (effectiveN - 1) : 1;
     const mssdVariance = sumWeights > 1e-15 ? ((sumSw / safeWeights) - (expectedResidual * expectedResidual)) * bessel : 0;
 
     const weightedMedian = (arr) => {
@@ -608,7 +612,14 @@ export function monteCarloSimulation(
     const dailyVolatility = volatility / Math.sqrt(Math.max(1, medianGap));
 
     for (let i = 0; i < safeSimulations; i++) {
-        const sampledDrift = sampleTruncatedNormal(drift, driftUncertainty, -0.01 * maxScore, 0.01 * maxScore, rng);
+        // CORREÇÃO: O truncamento normal tem de respeitar o driftLimit dinâmico e não hardcodes de 1%.
+        const sampledDrift = sampleTruncatedNormal(
+            drift, 
+            driftUncertainty, 
+            -driftLimit, 
+            driftLimit, 
+            rng
+        );
         let currentSimScore = baselineScore;
         let currentVolSq = Math.pow(dailyVolatility, 2);
         const alphaG = 0.05;
