@@ -175,16 +175,14 @@ export function simuladosToHistory(simulados, maxScore = 100) {
             const parsed = Date.parse(rawDate);
             return {
                 score: getSafeScore(s, maxScore),
-                date: Number.isFinite(parsed) 
-                    ? new Date(parsed).toLocaleDateString('en-CA') // Retorna de forma segura o formato YYYY-MM-DD no fuso local
-                    : null,
+                rawTimestamp: Number.isFinite(parsed) ? parsed : 0, // Adiciona o timestamp real
+                date: Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : null,
                 _idx: idx
             };
         })
         .sort((a, b) => {
-            const ta = a.date ? Date.parse(a.date) : Number.POSITIVE_INFINITY;
-            const tb = b.date ? Date.parse(b.date) : Number.POSITIVE_INFINITY;
-            if (ta !== tb) return ta - tb;
+            // Usa os milissegundos precisos para a ordenação, garantindo ordem intra-dia perfeita
+            if (a.rawTimestamp !== b.rawTimestamp) return a.rawTimestamp - b.rawTimestamp;
             return a._idx - b._idx;
         })
         .map(({ score, date }) => ({ score, date }))

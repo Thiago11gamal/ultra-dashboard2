@@ -487,7 +487,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // A. Performance Score
         // BUG-19 FIX: Garantir invariância de escala através da normalização para base 100
         const normalizedAvg = (averageScore / maxScore) * 100;
-        const scoreComponent = Math.max(0, Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100) * weightMultiplier));
+        // Expandimos o teto de acordo com o peso da matéria
+        const effectiveScoreMax = dynamicScoreMax * weightMultiplier;
+        const scoreComponent = Math.max(0, Math.min(effectiveScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100) * weightMultiplier));
 
         // B. Recency
         const weightDeviation = (weight / 100) - 1;
@@ -658,7 +660,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // CORREÇÃO: Usar as variáveis de teto dinâmico em vez de cfg
         // FIX BUG 3: Integrar o crunchMultiplier e backtestWeights.recencyWeight 
         // no cálculo do teto (RAW_MAX) para impedir o overflow a 100%.
-        const effectiveRecencyMax = dynamicRecencyMax * 0.8 * crunchMultiplier * backtestWeights.recencyWeight;
+        const effectiveRecencyMax = dynamicRecencyMax * 0.8 * crunchMultiplier * backtestWeights.recencyWeight * inefficiencyPenaltyMultiplier;
         
         // FIX: maxSrsBoost declarado para impedir o crash no cálculo de Urgência
         const maxSrsBoost = cfg.SRS_BOOST * 2.0; 
@@ -666,7 +668,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const RAW_MAX_ACTUAL = dynamicScoreMax
             + effectiveRecencyMax
             + dynamicInstabilityMax
-            + (cfg.PRIORITY_BOOST + maxSrsBoost) * (1 + (crunchMultiplier - 1) * 0.5)
+            + (cfg.PRIORITY_BOOST + maxSrsBoost) * crunchMultiplier
             + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE)
             + cfg.EFFICIENCY_MAX; // [FIX 3] Limite real é 1x EFFICIENCY_MAX
 
