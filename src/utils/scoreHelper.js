@@ -14,9 +14,9 @@ export const normalizePercentInput = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
     
-    // 🎯 FIX: Só converte multiplicando por 100 se for um decimal 
-    // estritamente entre 0 e 1, que possua efetivamente uma casa decimal.
-    if (n > 0 && n < 1 && value.toString().includes('.')) {
+    // CORREÇÃO: Proteção contra destruição de notas < 1% ou exatamente 100%.
+    // Só assumimos que é uma fração decimal do legado se for uma string explícita que começa com "0."
+    if (n > 0 && n <= 1 && typeof value === 'string' && value.startsWith('0.')) {
         return n * 100;
     }
     
@@ -46,8 +46,16 @@ export function getSafeScore(historyRow, maxScore = 100) {
         return Number.isFinite(s) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, s)) : NaN;
     }
 
-    const total = (Number.isFinite(Number(historyRow.total)) ? Number(historyRow.total) : 0);
-    const correct = (Number.isFinite(Number(historyRow.correct)) ? Number(historyRow.correct) : 0);
+    // CORREÇÃO: Tratar campos vazios como Inválidos (NaN) e não como Zeros absolutos.
+    let rawTotal = historyRow.total;
+    if (typeof rawTotal === 'string') rawTotal = rawTotal.replace(',', '.');
+    const hasValidTotal = rawTotal !== undefined && rawTotal !== null && rawTotal !== '';
+    const total = hasValidTotal && Number.isFinite(Number(rawTotal)) ? Number(rawTotal) : NaN;
+
+    let rawCorrect = historyRow.correct;
+    if (typeof rawCorrect === 'string') rawCorrect = rawCorrect.replace(',', '.');
+    const hasValidCorrect = rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== '';
+    const correct = hasValidCorrect && Number.isFinite(Number(rawCorrect)) ? Number(rawCorrect) : NaN;
 
     // PRIORIDADE MÁXIMA: Flag isPercentage deve ser respeitada mesmo que total > 0.
     // Isso evita corrupção de dados em registros híbridos de bancos legados.
@@ -73,9 +81,11 @@ export function getSafeScore(historyRow, maxScore = 100) {
  */
 export function formatPercent(value) {
     if (value === null || value === undefined) return '0%';
-    const num = (Number.isFinite(Number(value)) ? Number(value) : 0);
+    // CORREÇÃO: Blindagem de renderização visual contra separadores decimais não-americanos
+    let raw = value;
+    if (typeof raw === 'string') raw = raw.replace(',', '.');
+    const num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
     
-    // Remove trailing zeros and unnecessary decimal point
     const formatted = parseFloat(num.toFixed(2));
     return `${formatted}%`;
 }
@@ -88,8 +98,9 @@ export function formatPercent(value) {
  */
 export function formatValue(value) {
     if (value === null || value === undefined) return '0';
-    const num = (Number.isFinite(Number(value)) ? Number(value) : 0);
+    let raw = value;
+    if (typeof raw === 'string') raw = raw.replace(',', '.');
+    const num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
     
-    // Remove trailing zeros and unnecessary decimal point
     return String(parseFloat(num.toFixed(2)));
 }

@@ -25,12 +25,14 @@ export default function Stats() {
     const focusData = useMemo(() => mapFocusEvolutionData(studyLogs), [studyLogs]);
     const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories]);
 
-    if (!Array.isArray(categories) || categories.length === 0) {
+    // CORREÇÃO: Permitir renderização se houver categorias OU registos de estudo gerais (Pomodoro/Horas)
+    if ((!Array.isArray(categories) || categories.length === 0) && 
+        (!Array.isArray(studyLogs) || studyLogs.length === 0)) {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
                 <div className="text-center text-slate-400">
                     <p className="font-bold uppercase tracking-wider text-xs">Sem dados de estatísticas</p>
-                    <p className="text-[11px] text-slate-500 mt-1">Adicione simulados para liberar o painel completo.</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Adicione registos de estudo para liberar o painel.</p>
                 </div>
             </div>
         );

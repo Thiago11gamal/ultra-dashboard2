@@ -81,10 +81,14 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
 
 }
 export const calcularDesvioPadrao = (arr) => {
-    if (!arr || arr.length === 0) return 0;
+    if (!arr || arr.length <= 1) return 0;
     const clean = arr.map(Number).filter(Number.isFinite);
+    if (clean.length <= 1) return 0;
     const m = clean.reduce((a, b) => a + b, 0) / clean.length;
-    const v = clean.reduce((acc, x) => acc + Math.pow(x - m, 2), 0) / clean.length;
+    
+    // CORREÇÃO: Divisão por (N - 1) para gerar Desvio Padrão Amostral não viesado
+    const v = clean.reduce((acc, x) => acc + Math.pow(x - m, 2), 0) / (clean.length - 1);
+    
     return Math.sqrt(v);
 };
 
@@ -157,7 +161,13 @@ export function computeBayesianLevel(
 
     let maxNEver = alpha + beta;
     const gaps = [];
-    const historySortedForGaps = history ? [...history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) : [];
+    // CORREÇÃO: Fallback absoluto para (0) na ordenação temporal caso a data 
+    // esteja ilegível, protegendo a cronologia matemática da V8 engine
+    const historySortedForGaps = history ? [...history].sort((a, b) => {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        return (timeA || 0) - (timeB || 0);
+    }) : [];
     if (historySortedForGaps.length > 1) {
         for (let i = 1; i < historySortedForGaps.length; i++) {
             const gap = (new Date(historySortedForGaps[i].date) - new Date(historySortedForGaps[i - 1].date)) / 86400000;
@@ -169,8 +179,10 @@ export function computeBayesianLevel(
     const avgGap = gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 7;
 
     const totalQuestionsHist = history ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) : 0;
-    const historyDays = history && history.length > 1 
-        ? Math.max(1, (new Date(history[history.length - 1].date) - new Date(history[0].date)) / 86400000) 
+    // CORREÇÃO: Usar obrigatoriamente a linha do tempo previamente ordenada (historySortedForGaps) 
+    // para não distorcer o fluxo de tempo e explodir a memória ativa.
+    const historyDays = historySortedForGaps && historySortedForGaps.length > 1 
+        ? Math.max(1, (new Date(historySortedForGaps[historySortedForGaps.length - 1].date).getTime() - new Date(historySortedForGaps[0].date).getTime()) / 86400000) 
         : 1;
     const questionsPerDay = totalQuestionsHist / historyDays;
 
@@ -185,14 +197,24 @@ export function computeBayesianLevel(
     const now = Date.now();
 
     if (history && history.length > 0) {
-        const sortedHistory = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const sortedHistory = [...history].sort((a, b) => {
+            const timeA = new Date(a.date).getTime();
+            const timeB = new Date(b.date).getTime();
+            return (timeA || 0) - (timeB || 0);
+        });
         
         for (let i = 0; i < sortedHistory.length; i++) {
             const h = sortedHistory[i];
             let total = Number(h.total) || 0;
-            const isPurePercentage = (total === 0 && h.score != null);
+            // CORREÇÃO: Em vez de confiar na chave estrita 'score', utiliza a resiliência 
+            // do getSafeScore para confirmar se o registo representa uma percentagem real
+            const isPurePercentage = (total === 0 && !Number.isNaN(getSafeScore(h, safeMaxScore)));
 
             const normalizedScore = getSafeScore(h, safeMaxScore);
+            
+            // CORREÇÃO BLINDADA: Evita a injeção de veneno (NaN) nas pontuações Bayesianas
+            if (Number.isNaN(normalizedScore)) continue;
+
             let rawPct = normalizedScore / safeMaxScore;
 
             if (options.isPenalizedFormat) {
@@ -203,9 +225,11 @@ export function computeBayesianLevel(
             const pct = Math.min(1, rawPct);
 
             // 1. O cálculo de tempo (gap) e esquecimento tem de ocorrer ANTES de injetar o novo simulado
+            // CORREÇÃO: Impedir que Invalid Dates gerem NaNs. Se a data for corrompida, 
+            // assumimos gap zero para não destruir os alphas e betas em cadeia.
             const entryDate = new Date(h.date);
             const prevDate = i > 0 ? new Date(sortedHistory[i - 1].date) : entryDate;
-            const gapDays = Math.max(0, Math.floor((entryDate - prevDate) / (1000 * 60 * 60 * 24)));
+            const gapDays = Math.max(0, Math.floor((entryDate.getTime() - prevDate.getTime()) / 86400000)) || 0;
 
             const adaptiveLambdaBase = computeAdaptiveLambda(sortedHistory);
             const rawLambda = adaptiveLambdaBase * Math.exp(-0.15 * i);
@@ -345,7 +369,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const syntheticTotal = Number.isFinite(rawSynthetic) ? rawSynthetic : 20;
     
     const historyWithSynthetics = history.map(h => {
-        if ((Number(h.total) || 0) === 0 && h.score != null) {
+        // CORREÇÃO: Avaliar se possui uma pontuação válida via getSafeScore, 
+        // em vez de confiar cegamente que a chave 'score' não é nula.
+        if ((Number(h.total) || 0) === 0 && !Number.isNaN(getSafeScore(h, safeMaxScore))) {
             return { ...h, total: syntheticTotal };
         }
         return h;
@@ -357,9 +383,13 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     // BUG 4b FIX: Pass maxScore to getSafeScore
     const scores = historyToUse.map(h => getSafeScore(h, safeMaxScore));
 
-    const totalQ = historyToUse.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
-    const m = totalQ > 0
-        ? historyToUse.reduce((acc, h) => acc + getSafeScore(h, safeMaxScore) * (Number(h.total) || 0), 0) / totalQ
+    // CORREÇÃO: Filtrar notas corrompidas ANTES de aplicar o peso de Kish na média,
+    // garantindo que não dividimos por um denominador fantasma.
+    const validHistoryForMean = historyToUse.filter(h => !Number.isNaN(getSafeScore(h, safeMaxScore)));
+    const actualTotalQ = validHistoryForMean.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
+    
+    const m = actualTotalQ > 0
+        ? validHistoryForMean.reduce((acc, h) => acc + getSafeScore(h, safeMaxScore) * (Number(h.total) || 0), 0) / actualTotalQ
         : mean(scores);
 
     let variance = 0;
@@ -369,9 +399,12 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         let wVarSum = 0;
         let sumW = 0;
         let sumW2 = 0; // Somatório dos pesos ao quadrado
-        historyToUse.forEach(h => {
+        // CORREÇÃO: Usar estritamente o validHistoryForMean para que os pesos (w) 
+        // e a variância ponderada (wVarSum) sejam calculados numa amostra matematicamente pura.
+        validHistoryForMean.forEach(h => {
             const w = Number(h.total) || 1;
-            wVarSum += w * Math.pow(getSafeScore(h, safeMaxScore) - m, 2);
+            const safeScore = getSafeScore(h, safeMaxScore);
+            wVarSum += w * Math.pow(safeScore - m, 2);
             sumW += w;
             sumW2 += w * w;
         });
@@ -406,22 +439,34 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const safeSD = sd;
 
     const slopePerDay = calculateSlope(historyToUse, safeMaxScore);
-    // Converter para pp/30-dias para comparação com threshold
-    // BUG-TREND-01 FIX: unificar com coachLogic.js (0.02 * maxScore = 2 pts/mês para maxScore=100)
-    // Antes: 0.005 * maxScore era 4x menos sensível, causando inconsistência nos rótulos
-    const trendThreshold = getDynamicTrendThreshold(m, safeMaxScore);
     
-    // FIX-SORT3: historyToUse pode não estar ordenado por data (é um filter() do map() original).
-    // calculateSlope() ordena internamente, mas o cap de tendência precisa do score mais recente.
-    const sortedForTrendCap = [...historyToUse].sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    // CORREÇÃO: Limpar falhas de regressão linear (divisões por zero no delta Time).
+    // Se o slope explodir, assume inclinação 0 (estável).
+    // CORREÇÃO MÁXIMA: Infinity bypass. Protege contra divisões por zero temporais (Delta-T = 0)
+    // ao assumir inclinação nula se o algoritmo matemático retornar Infinitos ou NaNs.
+    const safeSlope = !Number.isFinite(slopePerDay) ? 0 : slopePerDay;
+    
+    const trendThreshold = getDynamicTrendThreshold(m, safeMaxScore);
+    // CORREÇÃO: Filtrar o array que determina o limite da tendência para garantir
+    // que o último ponto (lastScore) é matematicamente viável e não corrompe a regressão.
+    const validHistoryForTrend = historyToUse.filter(h => !Number.isNaN(getSafeScore(h, safeMaxScore)));
+    
+    const sortedForTrendCap = [...validHistoryForTrend].sort((a, b) => {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        return (timeA || 0) - (timeB || 0);
+    });
+    
     const lastScore = sortedForTrendCap.length > 0
         ? getSafeScore(sortedForTrendCap[sortedForTrendCap.length - 1], safeMaxScore)
         : m;
-    const limiteSuperior = safeMaxScore - lastScore; // O que falta pra gabaritar a partir de agora
-    const limiteInferior = -lastScore; // O que falta pra zerar a partir de agora
-    const rawTrend = Math.max(limiteInferior, Math.min(limiteSuperior, slopePerDay * 30));
+        
+    const limiteSuperior = safeMaxScore - lastScore; 
+    const limiteInferior = -lastScore; 
+
+    
+    // Aplicação agora segura
+    const rawTrend = Math.max(limiteInferior, Math.min(limiteSuperior, safeSlope * 30));
 
     let trendLabel = 'stable';
     if (rawTrend > trendThreshold) trendLabel = 'up';

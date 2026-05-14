@@ -66,12 +66,17 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
         let goal;
         try {
-            let raw = '';
-            if (typeof user.goalDate === 'object' && user.goalDate.seconds) {
-                const d = new Date(user.goalDate.seconds * 1000);
+            let raw = user.goalDate;
+            
+            // CORREÇÃO: Injeção de suporte a números inteiros nativos (Unix Epoch)
+            if (typeof raw === 'number') {
+                const d = new Date(raw);
+                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            } else if (typeof raw === 'object' && raw.seconds) {
+                const d = new Date(raw.seconds * 1000);
                 raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             } else {
-                raw = String(user.goalDate).trim().split('T')[0];
+                raw = String(raw).trim().split('T')[0];
             }
 
             const parts = raw.split('-');
@@ -194,8 +199,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             Nível {progress.level}
                         </span>
                     </div>
-                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3 truncate" title={`${(user.xp || 0).toLocaleString('pt-PT')} XP`}>
-                        {(user.xp || 0).toLocaleString('pt-PT')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
+                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3 truncate" title={`${(user.xp || 0).toLocaleString('pt-BR')} XP`}>
+                        {(user.xp || 0).toLocaleString('pt-BR')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
                     </div>
                     <div className="space-y-1 mt-auto pt-1 pb-1 pl-2">
                         <div className="h-2 bg-slate-800 rounded-full overflow-hidden shadow-inner">
@@ -290,6 +295,12 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             try {
                                 if (!user.goalDate) return '';
                                 let raw = user.goalDate;
+                                
+                                // CORREÇÃO COMPLEMENTAR NO PICKER
+                                if (typeof raw === 'number') {
+                                    const d = new Date(raw);
+                                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                }
                                 if (typeof raw === 'object' && raw.seconds) {
                                     const d = new Date(raw.seconds * 1000);
                                     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -322,6 +333,13 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             {user.goalDate ? (() => {
                                 try {
                                     let rawDate = user.goalDate;
+                                    
+                                    // CORREÇÃO: Terceira camada de proteção UI esquecida contra inteiros Unix
+                                    if (typeof rawDate === 'number') {
+                                        const d = new Date(rawDate);
+                                        return d.toLocaleDateString('pt-BR');
+                                    }
+                                    
                                     if (typeof rawDate === 'object' && rawDate.seconds) {
                                         const d = new Date(rawDate.seconds * 1000);
                                         rawDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
