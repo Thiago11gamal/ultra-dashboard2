@@ -161,10 +161,18 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
     const fallbackVol = 0.08 * maxScore; // Piso de incerteza (8%)
     if (n < 2) return fallbackVol;
     
-    const scores = history.map(h => Number(h.score) || 0);
-    const mean = scores.reduce((a, b) => a + b, 0) / n;
-    const variance = scores.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (n - 1);
-    const nPenalty = Math.max(1, 4 / n); // Penaliza amostras muito pequenas
+    // CORREÇÃO MÁXIMA: Sanitizar vírgulas usando getSafeScore e remover provas nulas
+    // (NaN) em vez de injetar Zeros absolutos que arruínam a variância empírica.
+    const validScores = history
+        .map(h => getSafeScore(h, maxScore))
+        .filter(s => !Number.isNaN(s));
+        
+    const validN = validScores.length;
+    if (validN < 2) return fallbackVol;
+
+    const mean = validScores.reduce((a, b) => a + b, 0) / validN;
+    const variance = validScores.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (validN - 1);
+    const nPenalty = Math.max(1, 4 / validN); // Penaliza amostras muito pequenas
     const empiricalVol = Math.sqrt(Math.max(0, variance));
     
     // Combinação Bayesiana simples: 70% empírico, 30% prior (piso) escalado por N
@@ -968,15 +976,24 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
     const todayForTopics = new Date();
 
     // CORREÇÃO: Organizar o caos temporal antes de mapear os tópicos
+    // CORREÇÃO: Aplicar blindagem temporal ao motor de ordenação (sort).
+    // Impede o colapso estrutural da lista se uma data do servidor vier ilegível.
     const sortedTopicsHistory = [...history].sort((a, b) => {
-        return new Date(a.date || a.createdAt || 0).getTime() - new Date(b.date || b.createdAt || 0).getTime();
+        const timeA = new Date(a.date || a.createdAt || 0).getTime();
+        const timeB = new Date(b.date || b.createdAt || 0).getTime();
+        return (Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0);
     });
 
     sortedTopicsHistory.forEach(entry => {
         if (!entry) return;
         const entryDate = new Date(entry.date || entry.createdAt || 0);
+        const entryTime = entryDate.getTime();
         
-        const daysOld = Math.max(0, (todayForTopics.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
+        // CORREÇÃO: Se a data não fizer sentido estatístico, assume-se tempo presente (0 dias)
+        // para que a nota seja contabilizada de forma neutra em vez de ser aniquilada por NaNs.
+        const safeEntryTime = Number.isFinite(entryTime) ? entryTime : todayForTopics.getTime();
+        
+        const daysOld = Math.max(0, (todayForTopics.getTime() - safeEntryTime) / (1000 * 60 * 60 * 24));
         const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));
 
         const topics = entry.topics || [];
@@ -1365,7 +1382,10 @@ export function getCognitiveState(stats) {
         focusMinutes = stats.pomodorosCompleted * (stats.settings?.pomodoroWork || 25);
     }
 
-    const userLevel = stats.user?.level || 1;
+    // CORREÇÃO: Forçar a validação matemática do nível do utilizador, assegurando um 
+    // multiplicador saudável (fallback para 1) caso a BD entregue uma string ilegível.
+    const rawLevel = stats.user?.level;
+    const userLevel = Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 1;
     const levelMultiplier = 1 + (userLevel * 0.05);
     
     const decayModifier = hadBreaks ? 0.6 : 1.0;
