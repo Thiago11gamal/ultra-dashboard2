@@ -334,9 +334,12 @@ export default function VerifiedStats({ categories = [], user }) {
                     const safeScore = getSafeScore(h, catMaxScore);
                     const parsedDate = normalizeDate(h.date);
                     if (parsedDate && safeScore >= 0) {
+                        // CORREÇÃO: Normaliza para a escala global universal para evitar envenenamento de escalas (Bug 1.1 Fix)
+                        const normalizedToGlobalScale = (safeScore / catMaxScore) * maxScore;
+
                         allHistory.push({
                             date: parsedDate.getTime(),
-                            score: safeScore,
+                            score: normalizedToGlobalScale,
                             totalQuestions: Number(h.total) || 0
                         });
                         totalQuestionsGlobal += (Number(h.total) || 0);
@@ -372,8 +375,8 @@ export default function VerifiedStats({ categories = [], user }) {
             window_size: Math.min(5, dailyHistory.length),
             stagnation_threshold: 0.04 * maxScore, // 4% do teto
             low_level_limit: 0.60 * maxScore,      // 60% do teto
-            high_level_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
-            mastery_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
+            high_level_limit: (statsTarget / 100) * maxScore,
+            mastery_limit: (statsTarget / 100) * maxScore,
             maxScore: maxScore
         });
 
@@ -559,8 +562,8 @@ export default function VerifiedStats({ categories = [], user }) {
                     window_size: Math.min(5, analysisHistory.length),
                     stagnation_threshold: 0.04 * maxScore, // 4% do teto
                     low_level_limit: 0.60 * maxScore,      // 60% do teto
-                    high_level_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
-                    mastery_limit: (maxScore > 0 ? (statsTarget / maxScore) * 100 : statsTarget),
+                    high_level_limit: (statsTarget / 100) * maxScore,
+                    mastery_limit: (statsTarget / 100) * maxScore,
                     maxScore: maxScore
                 });
 
@@ -579,9 +582,12 @@ export default function VerifiedStats({ categories = [], user }) {
                             const isSynthetic = total === 0 && t.score != null;
                             if (isSynthetic) total = 100; // Synthetic total for percentage-only inputs
 
-                            // CORREÇÃO: Não bloquear a retroengenharia do acerto por falta de 'isPercentage' se score existir
-                            const correct = (t.score != null && total > 0)
-                                ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
+                            // CORREÇÃO: Blindagem regex antes de transformar o tópico numa entidade matemática (Bug 2.1 Fix)
+                            let rawVal = String(t.score || '').replace(/\./g, '').replace(',', '.').replace('%', '');
+                            let cleanTopicScore = Number(rawVal);
+
+                            const correct = (t.score != null && total > 0 && !Number.isNaN(cleanTopicScore))
+                                ? Math.round((Math.min(maxScore, Math.max(0, cleanTopicScore)) / maxScore) * total)
                                 : Math.min(total, (Number(t.correct) || 0)); // BUG-03 FIX: Limitar acertos ao total
 
                             if (total > 0) {

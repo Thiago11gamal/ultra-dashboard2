@@ -31,14 +31,14 @@ export default function Stats() {
     return (
         <PageErrorBoundary pageName="Estatísticas">
             <div className="space-y-8 animate-fade-in pb-12">
-                {/* StatsCards e VerifiedStats DEVEM renderizar sempre para permitir setup inicial (Bug 2.1 Fix) */}
+                {/* VerifiedStats TEM QUE FICAR LIVRE DO BLOQUEIO pois guarda as configurações da IA (Bug 3.1 Fix) */}
                 <VerifiedStats categories={categories} user={user} />
-                
+
                 {!hasData ? (
                     <div className="flex items-center justify-center min-h-[30vh]">
                         <div className="text-center text-slate-400">
-                            <p className="font-bold uppercase tracking-wider text-xs">Sem dados avançados</p>
-                            <p className="text-[11px] text-slate-500 mt-1">Adicione registos de estudo para liberar os gráficos.</p>
+                            <p className="font-bold uppercase tracking-wider text-xs">Aguardando dados</p>
+                            <p className="text-[11px] text-slate-500 mt-1">Registe simulados para gerar relatórios de foco.</p>
                         </div>
                     </div>
                 ) : (
@@ -78,4 +78,3 @@ export default function Stats() {
         </PageErrorBoundary>
     );
 }
-
