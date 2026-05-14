@@ -637,7 +637,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             + dynamicInstabilityMax
             + (cfg.PRIORITY_BOOST + maxSrsBoost) * (1 + (crunchMultiplier - 1) * 0.5)
             + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE)
-            + cfg.EFFICIENCY_MAX 
             + cfg.EFFICIENCY_MAX; // [FIX 3] Limite real é 1x EFFICIENCY_MAX
 
         const currentPriorityBoost = priorityBoost * crunchMultiplier;

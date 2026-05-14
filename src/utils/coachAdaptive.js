@@ -113,18 +113,24 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
   const p = Math.max(0, Math.min(100, Number(probability) || 0));
   const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER || 30));
   const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE || 90));
-  const center = (d + s) / 2;
-
-  // Curva logística centrada no ponto médio entre perigo e segurança.
-  // Produz uma transição suave de MC_BOOST_SAFE_PENALTY (-8) até MC_BOOST_DANGER_MAX (25).
-  const width = Math.max(8, (s - d) / 2);
-  const k = 4 / width; // Fator de inclinação para cobrir a transição no range
-  const z = (center - p) * k;
-  const sigmoid = 1 / (1 + Math.exp(-z));
-
-  const maxBoost = (Number(cfg.MC_BOOST_DANGER_BASE) || 12) + (Number(cfg.MC_BOOST_DANGER_RANGE) || 13);
+  const maxDangerBoost = (Number(cfg.MC_BOOST_DANGER_BASE) || 12) + (Number(cfg.MC_BOOST_DANGER_RANGE) || 13);
+  const baseDangerBoost = Number(cfg.MC_BOOST_DANGER_BASE) || 12;
   const minBoost = Number(cfg.MC_BOOST_SAFE_PENALTY) || -8;
-  let boost = minBoost + (maxBoost - minBoost) * sigmoid;
+
+  let boost = 0;
+
+  if (p <= d) {
+      // Zona Crítica (0% até Perigo): Escala de maxDangerBoost (25) descendo até baseDangerBoost (12)
+      const ratio = d > 0 ? Math.max(0, Math.min(1, p / d)) : 0;
+      boost = maxDangerBoost - (ratio * (maxDangerBoost - baseDangerBoost));
+  } else if (p < s) {
+      // Zona Moderada (Perigo até Segurança): Transição de 12 descendo até -8
+      const ratio = Math.max(0, Math.min(1, (p - d) / (s - d)));
+      boost = baseDangerBoost - (ratio * (baseDangerBoost - minBoost));
+  } else {
+      // Modo Cruzeiro (>= Segurança): Fixo no alívio de -8
+      boost = minBoost;
+  }
 
   // MATH-FIX: Se a volatilidade for alta, reduzimos o 'alívio' (boost negativo).
   // Não permitimos que o usuário relaxe se a incerteza estatística for grande.
@@ -134,8 +140,8 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
   }
 
   let riskLabel = 'ok';
-  if (p < d) riskLabel = 'critical';
-  else if (p < center) riskLabel = 'moderate';
+  if (p <= d) riskLabel = 'critical';
+  else if (p < s) riskLabel = 'moderate';
   else if (p >= s && boost < 0) riskLabel = 'safe';
 
   return { 
