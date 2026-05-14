@@ -110,8 +110,11 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const finiteH = Number.isFinite(h) && h > 0 ? h : 0;
     const finiteProjectedSD = Number.isFinite(projectedSD) && projectedSD > 0 ? projectedSD : 0;
     
-    // Garantir que a banda do kernel abranja sempre pelo menos 3 bins físicos (suavização forçada)
-    const minPhysicalBandwidth = (plotMax - plotMin) / (BIN_COUNT / 3); 
+    // CORREÇÃO EXTREMA: A banda não pode implodir perante a falta de variância ou o cálculo
+    // exponencial da densidade (KDE) entra em underflow maciço (Zero-Out visual).
+    // O raio mínimo obriga a expansão de, pelo menos, 1.5 unidades relativas na grelha SVG.
+    const minPhysicalBandwidth = Math.max(1.5, (plotMax - plotMin) / (BIN_COUNT / 3)); 
+    
     const bandwidth = Math.max(minPhysicalBandwidth, finiteH, binWidth * 2, finiteProjectedSD * 0.15);
     const bins = new Float32Array(BIN_COUNT);
 
