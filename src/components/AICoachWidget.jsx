@@ -81,12 +81,12 @@ function UrgencyBar({ score, cfg }) {
                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">Urgência</span>
                 <span className={`text-[11px] font-black ${cfg.accent}`}>{Math.round(pct)}</span>
             </div>
-            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-white/5 rounded-none overflow-hidden">
                 <Motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${pct}%` }}
                     transition={{ duration: 1.2, ease: 'easeOut', delay: 0.4 }}
-                    className={`h-full rounded-full bg-gradient-to-r ${cfg.bar}`}
+                    className={`h-full rounded-none bg-gradient-to-r ${cfg.bar}`}
                 />
             </div>
         </div>
@@ -109,7 +109,7 @@ function MonteCarloGauge({ mc }) {
         <Motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-3 p-4 rounded-2xl bg-black/40 border border-white/10 relative overflow-hidden"
+            className="mt-3 p-4 rounded-none bg-black/40 border border-white/10 relative overflow-hidden"
         >
             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                 <BrainCircuit size={64} />
@@ -129,7 +129,7 @@ function MonteCarloGauge({ mc }) {
             </div>
 
             {/* Intervalo de Confiança Visual */}
-            <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05] my-4">
+            <div className="relative h-2.5 bg-white/[0.03] rounded-none overflow-hidden border border-white/[0.05] my-4">>
                 {/* Background Track Padrão */}
                 <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,white_4px,white_8px)]" />
                 
@@ -138,7 +138,7 @@ function MonteCarloGauge({ mc }) {
                     initial={{ width: 0 }}
                     animate={{ left: `${low}%`, width: `${high - low}%` }}
                     transition={{ duration: 1.5, ease: "easeOut" }}
-                    className="absolute top-0 bottom-0 bg-white/10 rounded-full"
+                    className="absolute top-0 bottom-0 bg-white/10 rounded-none"
                 />
                 
                 {/* Ponto de Probabilidade Exata */}
@@ -146,7 +146,7 @@ function MonteCarloGauge({ mc }) {
                     initial={{ left: 0 }}
                     animate={{ left: `${prob}%` }}
                     transition={{ duration: 1.5, ease: "easeOut" }}
-                    className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
+                    className={`absolute top-0 bottom-0 w-1.5 rounded-none ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
                 />
             </div>
             
@@ -307,7 +307,7 @@ export default function AICoachWidget({ suggestion }) {
                                     <Motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        className="relative rounded-2xl overflow-hidden border border-white/10 bg-black/40 group/quote"
+                                        className="relative rounded-none overflow-hidden border border-white/10 bg-black/40 group/quote"
                                     >
                                         <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${cfg.bar} shadow-[0_0_10px_rgba(255,255,255,0.2)]`} />
                                         <div className="p-5">
