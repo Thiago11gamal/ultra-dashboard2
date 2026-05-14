@@ -175,15 +175,33 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
 export const getCoachPriorities = (topicsData) => {
     if (!Array.isArray(topicsData)) return [];
     
-    // 1. Extrair a média real global do aluno nestes tópicos para o Prior
-    const globalCorrect = topicsData.reduce((acc, t) => acc + (t.acertos || t.correct || 0), 0);
-    const globalTotal = topicsData.reduce((acc, t) => acc + (t.total || 0), 0);
+    // CORREÇÃO: Impedir o "Vírus de Concatenação" forçando parsing numérico estrito
+    const globalCorrect = topicsData.reduce((acc, t) => {
+        const c = Number.isFinite(Number(t.acertos)) ? Number(t.acertos) : (Number.isFinite(Number(t.correct)) ? Number(t.correct) : 0);
+        return acc + c;
+    }, 0);
+    
+    const globalTotal = topicsData.reduce((acc, t) => {
+        const tot = Number.isFinite(Number(t.total)) ? Number(t.total) : 0;
+        return acc + tot;
+    }, 0);
+    
     const mediaGlobal = globalTotal > 0 ? globalCorrect / globalTotal : 0.5;
 
-    return topicsData.map(topic => ({
-        ...topic,
-        realProficiency: computeBayesianProficiency(topic.acertos || topic.correct || 0, topic.total || 0, mediaGlobal, globalTotal)
-    }))
+    return topicsData.map(topic => {
+        const c = Number.isFinite(Number(topic.acertos)) ? Number(topic.acertos) : (Number.isFinite(Number(topic.correct)) ? Number(topic.correct) : 0);
+        const tot = Number.isFinite(Number(topic.total)) ? Number(topic.total) : 0;
+        
+        let realProficiency = computeBayesianProficiency(c, tot, mediaGlobal, globalTotal);
+        
+        // CORREÇÃO: Clamp matemático vital para evitar proficiências negativas ou superiores a 100%
+        realProficiency = Math.max(0, Math.min(1, realProficiency));
+        
+        return {
+            ...topic,
+            realProficiency
+        };
+    })
     .sort((a, b) => a.realProficiency - b.realProficiency);
 };
 
@@ -968,7 +986,9 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             if (typeof rawName !== 'string' || !rawName) rawName = "Tópico Desconhecido";
             const name = rawName.trim();
             if (!topicMap[name]) {
-                topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: false, scores: [] };
+                // CORREÇÃO: Se não há tarefas iniciais, assume-se "neutro", mas sinalizado sem tarefas
+                topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: true, hasTasks: false, scores: [] };
+                topicMap[name].hasUnfinishedTask = false;
             }
             let rawTotal = Number(t.total);
             let topicTotal = Number.isFinite(rawTotal) && rawTotal > 0 ? rawTotal : 0;
@@ -1016,9 +1036,10 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         if (!name) return;
 
         if (!topicMap[name]) {
-            topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: !!task.completed, scores: [] };
+            topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: !!task.completed, hasTasks: true, scores: [] };
             topicMap[name].hasUnfinishedTask = !task.completed;
         } else {
+            topicMap[name].hasTasks = true; // Confirma existência
             if (topicMap[name].hasUnfinishedTask === undefined) {
                 topicMap[name].hasUnfinishedTask = !task.completed;
             } else if (!task.completed) {
@@ -1072,13 +1093,19 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             trend: Number(trend.toFixed(2)), priorityBoost, urgencyScore,
             isUntested: data.total === 0,
             manualPriority: data.manualPriority || 0,
-            completed: data.completed
+            completed: data.completed,
+            hasTasks: !!data.hasTasks
         };
     });
 
     topics.sort((a, b) => {
-        if (!a.completed && b.completed) return -1;
-        if (a.completed && !b.completed) return 1;
+        // CORREÇÃO: Apenas damos prioridade absoluta (Boost) se houver uma tarefa por fazer
+        const aNeedsAction = !a.completed && a.hasTasks;
+        const bNeedsAction = !b.completed && b.hasTasks;
+        
+        if (aNeedsAction && !bNeedsAction) return -1;
+        if (!aNeedsAction && bNeedsAction) return 1;
+        
         return b.urgencyScore - a.urgencyScore;
     });
 
