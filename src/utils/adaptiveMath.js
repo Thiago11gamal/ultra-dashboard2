@@ -53,15 +53,17 @@ export function getConfidenceMultiplier(sampleSize, options = {}) {
     };
 
     if (df <= 30) {
-        // CORREÇÃO: Forçar limite inferior de 1 para evitar Math.floor(0) e divisão por zero (Infinity/NaN)
         const lowDf = Math.max(1, Math.floor(df)); 
         const highDf = Math.ceil(df);
         const lowT = smallSampleTCritical[lowDf] ?? smallSampleTCritical[1];
         const highT = smallSampleTCritical[highDf] ?? smallSampleTCritical[30];
         
         if (lowDf === highDf) return lowT;
-        // Agora essa interpolação harmônica não vai mais quebrar
-        const w = (1/lowDf - 1/df) / (1/lowDf - 1/highDf);
+        
+        // CORREÇÃO: Em vez de interpolação harmónica reversa instável, 
+        // usamos interpolação log-linear no espaço dos Graus de Liberdade.
+        // É estatisticamente superior para o decaimento em cauda pesada.
+        const w = (Math.log(df) - Math.log(lowDf)) / (Math.log(highDf) - Math.log(lowDf));
         return (lowT * (1 - w)) + (highT * w);
     }
 

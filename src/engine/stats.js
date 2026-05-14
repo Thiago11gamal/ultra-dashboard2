@@ -368,11 +368,17 @@ export function computeBayesianLevel(
         ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) / history.length 
         : 100;
     const TAMANHO_PROVA_ESTIMADO = Math.max(20, Math.round(mediaDeQuestoesDoAluno));
-    const epistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;
-    const aleatoricVar = (p_tilde * (1 - p_tilde)) / TAMANHO_PROVA_ESTIMADO;
+    
+    // CORREÇÃO: Clamp matemático. A incerteza epistêmica (falta de dados infinitos) 
+    // nunca pode ser estatisticamente igual a zero (1e-6 previne o colapso do Monte Carlo).
+    const rawEpistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;
+    const epistemicVar = Math.max(1e-6, rawEpistemicVar);
+    
+    const rawAleatoricVar = (p_tilde * (1 - p_tilde)) / TAMANHO_PROVA_ESTIMADO;
+    const aleatoricVar = Math.max(1e-6, rawAleatoricVar);
 
     const predictiveVariance = epistemicVar + aleatoricVar;
-    const effectiveSd = Math.sqrt(Math.max(0, predictiveVariance));
+    const effectiveSd = Math.sqrt(predictiveVariance);
 
     // FIX: Substituição do Z_95 estático pelo Multiplicador T-Student Adaptativo.
     // Expande corretamente o cone de incerteza para N pequeno ou muito decaído no tempo.

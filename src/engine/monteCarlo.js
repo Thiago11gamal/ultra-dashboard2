@@ -477,10 +477,14 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
         for(let dia = 1; dia <= diasProjecao; dia++) {
             const z0 = generateGaussian(rng);
             
-            // 1. Inércia Cognitiva (Processo AR-1)
+            // 1. Inércia Cognitiva (Processo AR-1 Verdadeiro)
             const pureNoise = z0 * volatilidadeAdaptativa;
+            // O choque efetivo soma o ruído de hoje com a inércia de ontem
             const effectiveShock = pureNoise + (PHI_AR1 * previousShock);
-            previousShock = pureNoise;
+            
+            // CORREÇÃO: A memória para amanhã tem de ser o choque efetivo total,
+            // não apenas o ruído isolado de hoje. Isso garante decaimento exponencial correto.
+            previousShock = effectiveShock; 
             
             const driftDiario = driftsDiarios[dia];
             

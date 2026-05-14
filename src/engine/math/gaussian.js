@@ -189,13 +189,17 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // BUGFIX B5: Normalizar integral da densidade para 1.0 (Reflexão de fronteira infla a integral)
     const totalArea = rawData.reduce((s, d, i) =>
         i > 0 ? s + (d.density + rawData[i - 1].density) * stepSize / 2 : s, 0);
-    const normFactor2 = totalArea > 0 ? 1 / totalArea : 1;
+        
+    // CORREÇÃO: Proteção rígida contra underflow do IEEE 754. 
+    // Se a área for residual/atómica (< 1e-15), evitamos inflar lixo numérico para a interface.
+    const normFactor2 = totalArea > 1e-15 ? 1 / totalArea : 1;
 
     // FASE 2: Formatar (y: 0-1 para visualização, density: área=1 para probabilidades)
     return rawData.map(d => ({
         x: Number(d.x.toFixed(2)),
-        y: maxY > 1e-15 ? Number((d.density / maxY).toFixed(4)) : 0, // Proteção contra maxY zero
-        density: d.density * normFactor2
+        // Proteção extra na exportação do vetor Y:
+        y: maxY > 1e-15 ? Number((Math.max(0, d.density) / maxY).toFixed(4)) : 0, 
+        density: Math.max(0, d.density * normFactor2)
     }));
 }
 
