@@ -123,10 +123,10 @@ export default function TopicPerformance({ categories = [] }) {
                         }
 
                         return (
-                            <div
-                                key={topic.name}
-                                className="bg-white/5 border border-white/5 rounded-none p-2 hover:bg-white/10 transition-all duration-300 group animate-in fade-in slide-in-from-bottom-2"
-                            >
+                                <div
+                                    key={topic.name}
+                                    className="bg-white/15 border border-white/10 rounded-none p-2 hover:bg-white/25 transition-all duration-300 group animate-in fade-in slide-in-from-bottom-2"
+                                >
                                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                                     <div className="flex items-center gap-2 min-w-0">
                                         <span className="font-bold text-slate-200 truncate sm:max-w-xs" title={topic.name}>{topic.name}</span>
@@ -145,7 +145,7 @@ export default function TopicPerformance({ categories = [] }) {
 
                                 <div className="flex items-center gap-4">
                                     {/* Progress Bar Container */}
-                                    <div className="flex-1 h-2 bg-black/40 rounded-none overflow-hidden relative shadow-inner">
+                                    <div className="flex-1 h-2 bg-black/60 rounded-none overflow-hidden relative shadow-inner">
                                         <div
                                             className={`h-full rounded-none transition-all duration-700 shadow-[0_0_12px_rgba(255,255,255,0.15)] ${topic.percentage >= 80 ? 'bg-green-500 shadow-green-500/30' :
                                                 topic.percentage <= 40 ? 'bg-red-500 shadow-red-500/30' : 'bg-yellow-500 shadow-yellow-500/30'

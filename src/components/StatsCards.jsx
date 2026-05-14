@@ -95,7 +95,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     return (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 auto-rows-auto gap-3 sm:gap-4 animate-fade-in-down">
             {/* ── Sequência ─────────────────────────────────────────────────── */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl">
+            <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10 flex flex-col h-full">
@@ -123,7 +123,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* ── Eficiência ────────────────────────────────────────────────── */}
-            <div className={`relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl`}>
+            <div className={`relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl`}>
                 <div className={`absolute -top-10 -left-10 w-24 h-24 ${effTheme.glow} rounded-full blur-[40px] ${effTheme.glowHover} transition-all duration-700`} />
                 <div className={`absolute inset-0 bg-gradient-to-br ${effTheme.gradient} to-transparent pointer-events-none`} />
                 <div className="relative z-10 flex flex-col h-full">
@@ -150,7 +150,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* ── Equilíbrio ─────────────────────────────────────────────── */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl">
+            <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full blur-[40px] group-hover:bg-blue-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10 flex flex-col h-full">
@@ -182,7 +182,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* ── XP / Nível ─────────────────────────────────────────────── */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl">
+            <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-purple-500/10 rounded-full blur-[40px] group-hover:bg-purple-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10 flex flex-col h-full">
@@ -212,7 +212,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* ── Data da Prova ───────────────────────────────────────────── */}
-            <div className={`col-span-2 md:col-span-2 xl:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-6 sm:p-6 transition-all duration-700 flex flex-col sm:flex-row items-center justify-between h-full group shadow-2xl ${!user.goalDate
+            <div className={`col-span-2 md:col-span-2 xl:col-span-1 relative bg-[#151720]/95 border rounded-2xl p-6 sm:p-6 transition-all duration-700 flex flex-col sm:flex-row items-center justify-between h-full group shadow-2xl ${!user.goalDate
                 ? 'border-slate-500/30'
                 : 'border-white/10 hover:border-rose-500/30'
                 }`}>

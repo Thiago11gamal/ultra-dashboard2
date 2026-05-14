@@ -641,7 +641,7 @@ export default function EvolutionChart({
                 </div>
             </div>
 
-            <div className="relative z-[50] rounded-none border border-slate-800/70 bg-slate-900/70 backdrop-blur p-4 sm:p-6 shadow-xl w-full min-w-0 transition-all duration-500">
+            <div className="relative z-[50] rounded-none border border-slate-800/70 bg-slate-900/90 backdrop-blur p-4 sm:p-6 shadow-xl w-full min-w-0 transition-all duration-500">
                 <div className="relative w-full">
                     {/* Fade indicators for hidden tabs */}
                     <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-slate-900/90 to-transparent z-10 sm:hidden" />

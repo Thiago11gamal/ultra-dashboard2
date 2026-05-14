@@ -9,7 +9,7 @@
   --neon-purple: #818cf8;
   --neon-pink: #f472b6;
   --neon-green: #34d399;
-  --glass-bg: rgba(15, 23, 42, 0.7);
+  --glass-bg: rgba(15, 23, 42, 0.92);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-glow: rgba(139, 92, 246, 0.15);
   --text-primary: #f8fafc;
@@ -99,7 +99,7 @@ body::before {
 }
 
 .glass-panel {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 27, 75, 0.8) 100%);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 27, 75, 0.9) 100%);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.12);
