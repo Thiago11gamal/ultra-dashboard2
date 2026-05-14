@@ -229,7 +229,12 @@ export const getCoachPriorities = (topicsData) => {
             realProficiency
         };
     })
-    .sort((a, b) => a.realProficiency - b.realProficiency);
+    })
+    .sort((a, b) => {
+        const valA = Number.isFinite(a.realProficiency) ? a.realProficiency : 1; // NaN vai pro final da fila de prioridade (sabe tudo)
+        const valB = Number.isFinite(b.realProficiency) ? b.realProficiency : 1;
+        return valA - valB;
+    });
 };
 
 
@@ -687,20 +692,15 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let srsLabel = null;
 
         if (hasData && !recencyUnknown) {
-            // Extraímos a confiança da matemática adaptativa já importada
-            const signal = computeAdaptiveCoachWeight(trendHistory);
-            const effectiveN = signal.effectiveN;
-
-            const srsResult = getSRSBoost(
-                simuladosWithMaxScore, 
-                daysSinceLastStudy, 
-                maxScore, 
-                cfg, 
-                mssdVolatility, // Variável já calculada na linha ~307
-                effectiveN      // Injeção de Confiança
-            );
-            srsBoost = srsResult.boost;
-            srsLabel = srsResult.label;
+            // A urgência de repetição (SRS) DEVE saturar. O aluno não desaprende ao infinito.
+            // Em vez de exponencial puro e destrutivo, usamos o Complemento da Retenção.
+            const CONSTANTE_ESQUECIMENTO = 0.03; 
+            const retencao = Math.exp(-CONSTANTE_ESQUECIMENTO * daysSinceLastStudy);
+            
+            // O Desespero do Coach (Dor de SRS) é o oposto da Retenção.
+            // A dor máxima NUNCA ultrapassará o teto configurado (cfg.SRS_BOOST)
+            srsBoost = (1 - retencao) * cfg.SRS_BOOST;
+            srsLabel = srsBoost > (cfg.SRS_BOOST * 0.7) ? "⚠️ Memória Crítica" : (srsBoost > (cfg.SRS_BOOST * 0.3) ? "🧠 Revisão Necessária" : "🔄 Revisão de Reforço");
         }
 
         // [CORREÇÃO] Fuga à Penalidade de Rotação (Bug da Fronteira da Meia-Noite - Bug 2.1 Fix)
@@ -764,7 +764,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             normalized = 80 + excessNormalized;
         }
 
-        normalized = Math.max(0, Math.min(100, Math.round(normalized)));
+
+
+        // Sanitização rigorosa de Not-a-Number (NaN) antes da injeção na UI ou Sort
+        normalized = Number.isFinite(normalized) ? Math.max(0, Math.min(100, Math.round(normalized))) : 0;
 
         // --- RECOMMENDATION ---
         let recommendation = "";
@@ -952,7 +955,11 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     const ranked = categories.map(cat => ({
         ...cat,
         urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
-    })).sort((a, b) => b.urgency.normalizedScore - a.urgency.normalizedScore);
+    })).sort((a, b) => {
+        const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
+        const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
+        return valB - valA;
+    });
 
     const top = ranked[0];
     if (!top) return null;
@@ -1207,7 +1214,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const ranked = categories.map(cat => ({
         ...cat,
         urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
-    })).sort((a, b) => b.urgency.normalizedScore - a.urgency.normalizedScore);
+    })).sort((a, b) => {
+        const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
+        const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
+        return valB - valA;
+    });
 
     const topCategories = ranked.slice(0, 10);
 

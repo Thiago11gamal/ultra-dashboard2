@@ -454,25 +454,42 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
         driftsDiarios[d] = logisticaHoje - logisticaOntem;
     }
     
+    // [BUG-3 & 4 FIX] Injetar Memória Estocástica (AR-1) e Absorção Fria (Piso/Teto)
+    const PHI_AR1 = 0.35; // 35% do choque de ontem se transfere para hoje
+
     for(let sim = 0; sim < 1000; sim++) {
         let caminho = [ultimaNota];
         let notaAtual = ultimaNota;
+        let previousShock = 0; 
         
         for(let dia = 1; dia <= diasProjecao; dia++) {
-            // [BUG-BOX-MULLER FIX] Usar o gerador protegido para evitar Math.log(0) -> NaN Poisoning
             const z0 = generateGaussian(rng);
-            const ruido = z0 * volatilidadeAdaptativa;
+            
+            // 1. Inércia Cognitiva (Processo AR-1)
+            const pureNoise = z0 * volatilidadeAdaptativa;
+            const effectiveShock = pureNoise + (PHI_AR1 * previousShock);
+            previousShock = pureNoise;
             
             const driftDiario = driftsDiarios[dia];
             
+            // 2. Absorção Fria (Piso e Teto Físicos)
+            let effectiveDrift = driftDiario;
+            let currentVolatility = volatilidadeAdaptativa;
+
+            if (notaAtual <= (0.05 * escala) && driftDiario < 0) {
+                effectiveDrift = driftDiario * 0.1; // O Drift afunda contra o chão
+                currentVolatility = volatilidadeAdaptativa * (notaAtual / (0.05 * escala)); // Volatilidade cai a zero
+            } else if (notaAtual >= (0.95 * escala) && driftDiario > 0) {
+                effectiveDrift = driftDiario * 0.1;
+                currentVolatility = volatilidadeAdaptativa * ((escala - notaAtual) / (0.05 * escala));
+            }
+
             // OTIMIZAÇÃO: Comprimir o ruído à medida que a nota se aproxima do teto logístico
-            // Evita que notas de elite "batam" constantemente no teto de forma assimétrica.
-            const margemTeto = Math.max(0, limiteAssintotico - notaAtual); // Evita valores negativos
-            const compressaoRuido = 1 - Math.exp(-5 * margemTeto);
-            const ruidoAjustado = ruido * Math.max(0.1, compressaoRuido);
+            const margemTeto = Math.max(0, limiteAssintotico - notaAtual); 
+            const compressaoRuido = 1 - Math.exp(-5 * (margemTeto / escala));
+            const ruidoAjustado = effectiveShock * Math.max(0.1, compressaoRuido) * (currentVolatility / volatilidadeAdaptativa);
             
-            // O Clamp agora respeita o teto adaptado ao talento do aluno
-            notaAtual = Math.max(0, Math.min(limiteAssintotico, notaAtual + driftDiario + ruidoAjustado));
+            notaAtual = Math.max(0, Math.min(limiteAssintotico, notaAtual + effectiveDrift + ruidoAjustado));
             caminho.push(notaAtual);
         }
         simulacoes.push(caminho);

@@ -55,7 +55,12 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         if (Number.isNaN(y)) continue;
 
         const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
-        const w = Math.exp(-lambda * t);
+        
+        // Calcula o peso exponencial, mas NUNCA deixa zerar completamente (Bug 2 Fix)
+        const EPSILON_WEIGHT = 1e-10;
+        const rawWeight = Math.exp(-lambda * t);
+        const w = Math.max(EPSILON_WEIGHT, rawWeight);
+
         const x = ((safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000) + (i * 1e-5);
 
         // Kahan summation imperativo para evitar O(N) alocações de map
@@ -82,6 +87,12 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     const covXY = sumWXY - (sumWX * sumWY) / safeSumW;
 
     const regularizedDenominator = varianceX + RIDGE_PENALTY;
+    
+    // Na hora da divisão final da regressão, adicione proteção contra pesos nulos (Bug 2 Fix)
+    if (safeSumW < 1e-9 || regularizedDenominator < 1e-12) {
+        return { slope: 0, intercept: getSafeScore(sorted[sorted.length-1], maxScore), slopeStdError: 1.5 };
+    }
+    
     let slope = covXY / regularizedDenominator;
 
     // Clamp de segurança: um aluno não consegue aprender (nem desaprender) mais do 
@@ -108,7 +119,12 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
         const y = getSafeScore(h, maxScore);
         // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
         const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
-        const w = Math.exp(-lambda * t);
+        
+        // Calcula o peso exponencial, mas NUNCA deixa zerar completamente (Bug 2 Fix)
+        const EPSILON_WEIGHT = 1e-10;
+        const rawWeight = Math.exp(-lambda * t);
+        const w = Math.max(EPSILON_WEIGHT, rawWeight);
+
         const pred = intercept + slope * x;
         rss += w * Math.pow(y - pred, 2);
         sumW += w;
