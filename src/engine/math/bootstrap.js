@@ -49,7 +49,12 @@ export function bootstrapCI(samples, statFn, {
       // Aplicação do Smoothed Bootstrap via Transformada de Box-Muller
       if (normalRng) {
         val += normalRng() * noiseStdDev;
-        val = Math.max(0, Math.min(100, val)); // Clamping defensivo
+        // CORREÇÃO: Remover o hardcode destrutivo de (0, 100).
+        // Usamos limites dinâmicos relaxados baseados na própria amostra empírica 
+        // para não corromper domínios diferentes (ex: escalas de 0-1000 ou negativas).
+        const maxObserved = Math.max(...clean) + (noiseStdDev * 3);
+        const minObserved = Math.max(0, Math.min(...clean) - (noiseStdDev * 3));
+        val = Math.max(minObserved, Math.min(maxObserved, val));
       }
       
       bag[j] = val;

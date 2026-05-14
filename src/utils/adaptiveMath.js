@@ -251,7 +251,10 @@ export function computeAdaptiveSignal(historyOrScores = []) {
 
     // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo (que só funcionava para N=10) 
     // pela verdadeira Correção de Bessel adaptável ao Tamanho Efetivo da Amostra (effectiveN).
-    const consistencyFactor = effectiveN > 1 ? (effectiveN / (effectiveN - 1)) : 1; 
+    // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo pela verdadeira Correção de Bessel,
+    // mas com clamping defensivo para evitar assíntotas hiperbólicas quando effectiveN cai para perto de 1.
+    const safeDenominator = Math.max(1.0, effectiveN - 1); // Nunca permite divisão letal
+    const consistencyFactor = effectiveN > 1.5 ? (effectiveN / safeDenominator) : 1; 
     
     const sd = Math.sqrt(Math.max(0, weightedVariance * consistencyFactor));
     

@@ -83,7 +83,8 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     // Adicionamos um lambda epsilon baseado na escala dos dias. (Bug 4 Fix)
     const RIDGE_PENALTY = 0.0001; 
     const safeSumW = Math.max(1e-15, sumW);
-    const varianceX = sumWXX - (sumWX * sumWX) / safeSumW;
+    // CORREÇÃO: Impedir o underflow de precisão (IEEE 754) que gera variâncias X negativas
+    const varianceX = Math.max(0, sumWXX - (sumWX * sumWX) / safeSumW);
     const covXY = sumWXY - (sumWX * sumWY) / safeSumW;
 
     const regularizedDenominator = varianceX + RIDGE_PENALTY;
@@ -610,9 +611,10 @@ export function monteCarloSimulation(
         const sampledDrift = sampleTruncatedNormal(drift, driftUncertainty, -0.01 * maxScore, 0.01 * maxScore, rng);
         let currentSimScore = baselineScore;
         let currentVolSq = Math.pow(dailyVolatility, 2);
-        const omega = 0.05 * currentVolSq;
         const alphaG = 0.05;
         const betaG = 0.75;
+        // CORREÇÃO: Forçar a estacionariedade para que a variância não impluda a 25% no longo prazo.
+        const omega = (1 - alphaG - betaG) * currentVolSq;
         
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
