@@ -187,7 +187,10 @@ describe('Hardening Audit: Erros 37-48', () => {
             { score: NaN, date: '2024-01-02' },
             { score: 70, date: '2024-01-03' }
         ];
-        const result = weightedRegression(history);
+        // Definir data de referência próxima dos dados para evitar underflow do peso (Math.exp)
+        const result = weightedRegression(history, 0.08, 100, { 
+            referenceDate: new Date('2024-01-04').getTime() 
+        });
         expect(Number.isFinite(result.slope)).toBe(true);
         expect(result.slope).toBeGreaterThan(0);
     });

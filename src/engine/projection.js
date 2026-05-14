@@ -321,16 +321,25 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
             
             // Se a aceleração é negativa (curva côncava), o aluno está a desacelerar em direção ao seu platô.
             if (meanAcc < -0.1 && meanVel > 0) {
-            // Formula matemática do limite: L ~ Y_atual + (Velocidade_atual^2 / 2 * |Aceleração|)
-            const currentY = getSafeScore(sorted[sorted.length-1], maxScore);
-            const predictedCap = currentY + (Math.pow(meanVel, 2) / (2 * Math.abs(meanAcc)));
-            
-            // Suavização Bayesiana: 60% empírico, 40% a priori (maxScore total)
-            L = (predictedCap * 0.60) + (maxScore * 0.40);
-            L = Math.max(currentY + 1, Math.min(maxScore, L));
-            // Fallback para quando não há desaceleração clara: usa P90 com headroom conservador
-            // CORREÇÃO: Obrigar a ordenação numérica antes de extrair os percentis 
-            // para garantir que o Peak Score é o verdadeiro limite empírico do aluno.
+                // Formula matemática do limite: L ~ Y_atual + (Velocidade_atual^2 / 2 * |Aceleração|)
+                const currentY = getSafeScore(sorted[sorted.length-1], maxScore);
+                const predictedCap = currentY + (Math.pow(meanVel, 2) / (2 * Math.abs(meanAcc)));
+                
+                // Suavização Bayesiana: 60% empírico, 40% a priori (maxScore total)
+                L = (predictedCap * 0.60) + (maxScore * 0.40);
+                L = Math.max(currentY + 1, Math.min(maxScore, L));
+            } else {
+                // Fallback para quando não há desaceleração clara: usa P90 com headroom conservador
+                // CORREÇÃO: Obrigar a ordenação numérica antes de extrair os percentis 
+                // para garantir que o Peak Score é o verdadeiro limite empírico do aluno.
+                const sortedForPercentile = [...historicalScores].sort((a, b) => a - b);
+                const peakScore = getPercentile(sortedForPercentile, 0.90);
+                const spaceToMax = maxScore - peakScore;
+                const dynamicHeadroom = Math.max(currentVariance * 1.5, maxScore * 0.10, spaceToMax * 0.25);
+                L = Math.min(maxScore + 0.1, peakScore + dynamicHeadroom);
+            }
+        } else {
+            // Recair no percentil conservador se os dados limpos forem escassos
             const sortedForPercentile = [...historicalScores].sort((a, b) => a - b);
             const peakScore = getPercentile(sortedForPercentile, 0.90);
             const spaceToMax = maxScore - peakScore;
@@ -339,8 +348,6 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
         }
     } else {
         // Amostra pequena: usa o P90 tradicional
-        // CORREÇÃO: Obrigar a ordenação numérica antes de extrair os percentis 
-        // para garantir que o Peak Score é o verdadeiro limite empírico do aluno.
         const sortedForPercentile = [...historicalScores].sort((a, b) => a - b);
         const peakScore = getPercentile(sortedForPercentile, 0.90);
         const spaceToMax = maxScore - peakScore;
