@@ -31,13 +31,21 @@ export function getSafeScore(historyRow, maxScore = 100) {
     if (!historyRow) return NaN;
 
     if (historyRow.score != null) {
-        let rawScore = String(historyRow.score !== null && historyRow.score !== undefined ? historyRow.score : '');
-        // Remove pontos de milhar, troca vírgulas por pontos para blindagem contra truncamento (Bug 2.1)
-        rawScore = rawScore.replace(/\./g, '').replace(',', '.'); 
-        let s = parseFloat(rawScore);
+        let s;
+        if (typeof historyRow.score === 'number') {
+            s = historyRow.score;
+        } else {
+            let rawScore = String(historyRow.score);
+            // 🎯 FIX: Só remove pontos se houver vírgula, indicando formato BR (milhar.decimal)
+            // Caso contrário, o ponto é o separador decimal e deve ser mantido.
+            if (rawScore.includes(',') && rawScore.includes('.')) {
+                rawScore = rawScore.replace(/\./g, '');
+            }
+            rawScore = rawScore.replace(',', '.');
+            s = parseFloat(rawScore);
+        }
         
         if (historyRow.isPercentage) {
-            // Passamos false ou a flag apropriada. O frontend DEVE enviar valores de 0-100 na API.
             s = (normalizePercentInput(s) / 100) * safeMaxScore;
         }
 
@@ -46,12 +54,14 @@ export function getSafeScore(historyRow, maxScore = 100) {
 
     // CORREÇÃO: Tratar campos vazios como Inválidos (NaN) e não como Zeros absolutos.
     let rawTotal = String(historyRow.total !== null && historyRow.total !== undefined ? historyRow.total : '');
-    rawTotal = rawTotal.replace(/\./g, '').replace(',', '.'); 
+    if (rawTotal.includes(',') && rawTotal.includes('.')) rawTotal = rawTotal.replace(/\./g, '');
+    rawTotal = rawTotal.replace(',', '.'); 
     const hasValidTotal = rawTotal !== undefined && rawTotal !== null && rawTotal !== '' && rawTotal !== 'NaN';
     const total = hasValidTotal && Number.isFinite(Number(rawTotal)) ? Number(rawTotal) : NaN;
 
     let rawCorrect = String(historyRow.correct !== null && historyRow.correct !== undefined ? historyRow.correct : '');
-    rawCorrect = rawCorrect.replace(/\./g, '').replace(',', '.'); 
+    if (rawCorrect.includes(',') && rawCorrect.includes('.')) rawCorrect = rawCorrect.replace(/\./g, '');
+    rawCorrect = rawCorrect.replace(',', '.'); 
     const hasValidCorrect = rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== '' && rawCorrect !== 'NaN';
     const correct = hasValidCorrect && Number.isFinite(Number(rawCorrect)) ? Number(rawCorrect) : NaN;
 
@@ -79,10 +89,16 @@ export function getSafeScore(historyRow, maxScore = 100) {
  */
 export function formatPercent(value) {
     if (value === null || value === undefined) return '0%';
-    // CORREÇÃO: Blindagem de renderização visual contra separadores decimais não-americanos
-    let raw = String(value || '');
-    raw = raw.replace(/\./g, '').replace(',', '.'); 
-    const num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
+    
+    let num;
+    if (typeof value === 'number') {
+        num = value;
+    } else {
+        let raw = String(value || '');
+        if (raw.includes(',') && raw.includes('.')) raw = raw.replace(/\./g, '');
+        raw = raw.replace(',', '.'); 
+        num = Number.isFinite(Number(raw)) ? Number(raw) : 0;
+    }
     
     const formatted = parseFloat(num.toFixed(2));
     return `${formatted}%`;
@@ -96,9 +112,16 @@ export function formatPercent(value) {
  */
 export function formatValue(value) {
     if (value === null || value === undefined) return '0';
-    let raw = String(value || '');
-    raw = raw.replace(/\./g, '').replace(',', '.'); 
-    const num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
+    
+    let num;
+    if (typeof value === 'number') {
+        num = value;
+    } else {
+        let raw = String(value || '');
+        if (raw.includes(',') && raw.includes('.')) raw = raw.replace(/\./g, '');
+        raw = raw.replace(',', '.'); 
+        num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
+    }
     
     return String(parseFloat(num.toFixed(2)));
 }
