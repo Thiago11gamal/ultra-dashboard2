@@ -52,11 +52,14 @@ export function getConfidenceMultiplier(sampleSize, options = {}) {
     };
 
     if (df <= 30) {
-        const lowDf = Math.floor(df);
+        // CORREÇÃO: Forçar limite inferior de 1 para evitar Math.floor(0) e divisão por zero (Infinity/NaN)
+        const lowDf = Math.max(1, Math.floor(df)); 
         const highDf = Math.ceil(df);
         const lowT = smallSampleTCritical[lowDf] ?? smallSampleTCritical[1];
         const highT = smallSampleTCritical[highDf] ?? smallSampleTCritical[30];
+        
         if (lowDf === highDf) return lowT;
+        // Agora essa interpolação harmônica não vai mais quebrar
         const w = (1/lowDf - 1/df) / (1/lowDf - 1/highDf);
         return (lowT * (1 - w)) + (highT * w);
     }
@@ -234,8 +237,11 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         return acc + (weighted[i] * clipped * clipped);
     }, 0) / Math.max(1e-9, sumW);
 
-    const CONSISTENCY_FACTOR = 1.11; 
-    const sd = Math.sqrt(Math.max(0, weightedVariance * CONSISTENCY_FACTOR));
+    // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo (que só funcionava para N=10) 
+    // pela verdadeira Correção de Bessel adaptável ao Tamanho Efetivo da Amostra (effectiveN).
+    const consistencyFactor = effectiveN > 1 ? (effectiveN / (effectiveN - 1)) : 1; 
+    
+    const sd = Math.sqrt(Math.max(0, weightedVariance * consistencyFactor));
     
     // MATEMÁTICA COMPLEXA: Em vez de linear trend clampada, usamos Bootstrapping 
     // para medir se o momento positivo é estatisticamente significativo ou só sorte.

@@ -160,11 +160,15 @@ export default function AICoachPlanner() {
         
         // NOVA CORREÇÃO: Limpar o array mestre quando arrasta FORA do backlog
         if (source.droppableId === 'backlog' && destination.droppableId !== 'backlog') {
-            const draggedId = getSafeId(removed);
-            if (draggedId) {
-                const newCoachPlan = (coachPlan || []).filter(t => getSafeId(t) !== draggedId);
-                setData(prev => ({ ...prev, coachPlan: newCoachPlan }));
-            }
+            // CORREÇÃO: Não deletamos do array mestre (coachPlan). 
+            // Apenas atualizamos a fonte de dados do planejador. 
+            // Se deletarmos daqui, a tarefa evapora se o usuário sair da página sem salvar ou se houver re-render.
+            
+            // const draggedId = getSafeId(removed);
+            // if (draggedId) {
+            //     const newCoachPlan = (coachPlan || []).filter(t => getSafeId(t) !== draggedId);
+            //     setData(prev => ({ ...prev, coachPlan: newCoachPlan }));
+            // }
         }
 
         if (destination.droppableId === 'backlog') {

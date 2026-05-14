@@ -5,13 +5,19 @@ import { getXPProgress } from '../utils/gamification';
 import { formatValue } from '../utils/scoreHelper';
 
 const getEfficiencyTheme = (score) => {
-    if (!Number.isFinite(score)) return {
-        glow: 'bg-slate-500/10',
-        glowHover: 'group-hover:bg-slate-500/20',
-        gradient: 'from-slate-500/[0.02]',
-        iconBg: 'bg-slate-500/10 group-hover:bg-slate-500/20',
-        iconColor: 'text-slate-400',
-    };
+    // CORREÇÃO: Evitar que NaN (originado por divisão por 0 em diários vazios)
+    // dispare o tema "Vermelho Crítico" de alerta caindo no "return default".
+    if (!Number.isFinite(score) || score === null) {
+        return { 
+            glow: 'bg-slate-500/10', 
+            glowHover: 'group-hover:bg-slate-500/20',
+            gradient: 'from-slate-500/[0.02]',
+            iconBg: 'bg-slate-500/10 group-hover:bg-slate-500/20',
+            iconColor: 'text-slate-400',
+            bg: 'bg-slate-500/10', 
+            border: 'border-slate-500/20' 
+        }; // Tema Neutro (Cinza)
+    }
     if (score >= 85) return {
         glow: 'bg-emerald-500/10',
         glowHover: 'group-hover:bg-emerald-500/20',

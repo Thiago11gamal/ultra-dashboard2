@@ -77,11 +77,11 @@ export function analyzeProgressState(scores, config = {}) {
     const recentDates = recentData.map((d, index) => {
         if (typeof d === 'object') {
             const time = new Date(d.date).getTime();
-            // Se a data for inválida, criamos uma data sintética linear baseada no índice para não quebrar o declive
-            return isNaN(time) ? syntheticNow + (index * 86400000) : time; 
+            // CORREÇÃO: Puxar datas inválidas para o PASSADO (-), e não para o FUTURO (+)
+            // Isso impede que provas corrompidas invertam o declive da linha de tendência
+            return isNaN(time) ? syntheticNow - ((recentData.length - index) * 86400000) : time; 
         }
-        // Se d for primitivo, simula um intervalo de 1 dia por teste
-        return syntheticNow + (index * 86400000); 
+        return syntheticNow - ((recentData.length - index) * 86400000); 
     });
 
     // 5.1 Mean (Absolute Level)
