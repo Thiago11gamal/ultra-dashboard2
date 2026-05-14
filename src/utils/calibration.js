@@ -164,12 +164,18 @@ export function fitIsotonicCalibration(pairs = []) {
 
 export function predictIsotonicProbability(probability01, model = []) {
   const p = Math.max(0, Math.min(1, Number(probability01) || 0));
-  if (!Array.isArray(model) || model.length === 0) return p;
-  const hit = model.find(b => p >= b.minX && p <= b.maxX);
-  if (hit) return Math.max(0, Math.min(1, Number(hit.value) || 0));
+  if (!model || model.length === 0) return p;
   if (p < model[0].minX) return Math.max(0, Math.min(1, Number(model[0].value) || 0));
-  const last = model[model.length - 1];
-  return Math.max(0, Math.min(1, Number(last.value) || 0));
+
+  let bestValue = model[0].value;
+  for (const block of model) {
+      if (p >= block.minX) {
+          bestValue = block.value;
+      } else {
+          break; // Passámos o ponto, ficamos com o último degrau válido
+      }
+  }
+  return Math.max(0, Math.min(1, Number(bestValue) || 0));
 }
 
 export function calibrateWithBBQ(probability01, pairs = [], options = {}) {

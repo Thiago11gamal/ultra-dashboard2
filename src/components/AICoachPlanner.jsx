@@ -157,6 +157,15 @@ export default function AICoachPlanner() {
         if (source.droppableId !== 'backlog') updatedPlanner[source.droppableId] = startList;
         if (destination.droppableId !== 'backlog') updatedPlanner[destination.droppableId] = finishList;
         updateCoachPlanner(updatedPlanner);
+        
+        // NOVA CORREÇÃO: Limpar o array mestre quando arrasta FORA do backlog
+        if (source.droppableId === 'backlog' && destination.droppableId !== 'backlog') {
+            const draggedId = getSafeId(removed);
+            if (draggedId) {
+                const newCoachPlan = (coachPlan || []).filter(t => getSafeId(t) !== draggedId);
+                setData(prev => ({ ...prev, coachPlan: newCoachPlan }));
+            }
+        }
 
         if (destination.droppableId === 'backlog') {
             const assignedIds = new Set();
