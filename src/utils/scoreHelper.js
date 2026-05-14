@@ -40,11 +40,22 @@ export function getSafeScore(historyRow, maxScore = 100) {
             const lastDot = rawScore.lastIndexOf('.');
             
             if (lastComma > lastDot) {
-                // Formato BR: 1.000,50
+                // Formato BR: 1.000,50 ou 1.000
                 rawScore = rawScore.replace(/\./g, '').replace(',', '.');
+            } else if (lastDot > lastComma) {
+                // Formato US: 1,000.50 ou 1,000
+                // OU BR: 1.000 (ambíguo)
+                const parts = rawScore.split('.');
+                const lastPart = parts[parts.length - 1];
+                if (lastComma === -1 && parts.length === 2 && lastPart.length === 3) {
+                    // Heurística: ponto único seguido de exatamente 3 dígitos -> Milhar
+                    rawScore = rawScore.replace(/\./g, '');
+                } else {
+                    rawScore = rawScore.replace(/,/g, '');
+                }
             } else {
-                // Formato US: 1,000.50
-                rawScore = rawScore.replace(/,/g, '');
+                // Caso extremo sem nenhum separador (ou strings vazias tratadas pelo caller)
+                rawScore = rawScore.replace(/[,.]/g, '');
             }
             s = parseFloat(rawScore);
         }

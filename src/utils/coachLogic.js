@@ -874,15 +874,15 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
                 },
                 components: {
-                    scoreComponent: Number(scoreComponent.toFixed(2)),
-                    recencyComponent: Number(recencyComponent.toFixed(2)),
-                    instabilityComponent: Number(instabilityComponent.toFixed(2)),
-                    priorityBoost: Number(priorityBoost.toFixed(2)),
-                    srsBoost: Number(srsBoost.toFixed(2)),
-                    rotationPenalty: Number(rotationPenalty.toFixed(2)),
-                    mcUrgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
-                    efficiencyBridgeBoost: Number(efficiencyBridgeBoost.toFixed(2)),
-                    balanceBridgeBoost: Number(balanceBridgeBoost.toFixed(2)),
+                    scoreComponent: Number((scoreComponent * weightMultiplier).toFixed(2)),
+                    recencyComponent: Number((recencyComponent * weightMultiplier).toFixed(2)),
+                    instabilityComponent: Number((instabilityComponent * weightMultiplier).toFixed(2)),
+                    priorityBoost: Number((priorityBoost * weightMultiplier).toFixed(2)),
+                    srsBoost: Number((srsBoost * weightMultiplier).toFixed(2)),
+                    rotationPenalty: Number((rotationPenalty * weightMultiplier).toFixed(2)),
+                    mcUrgencyBoost: Number((mcUrgencyBoost * weightMultiplier).toFixed(2)),
+                    efficiencyBridgeBoost: Number((efficiencyBridgeBoost * weightMultiplier).toFixed(2)),
+                    balanceBridgeBoost: Number((balanceBridgeBoost * weightMultiplier).toFixed(2)),
                 }
             }
         };

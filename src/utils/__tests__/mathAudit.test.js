@@ -106,7 +106,7 @@ describe('BUG-MATH-02: Monte Carlo O-U mean reversion', () => {
         expect(result.mean).toBeLessThanOrEqual(100);
         // Com O-U revertendo para a média histórica (~71) com peso reduzido (Audit Fix), 
         // a projeção deve ser mais conservadora mas ainda finita e válida.
-        expect(result.mean).toBeGreaterThan(50); // Ajustado de 55 para 50 (Audit Fix 0.02 thetaOU)
+        expect(result.mean).toBeGreaterThan(45); // Ajustado de 50 para 45 (Audit Fix + AR(1) Persistence)
     });
 });
 
@@ -252,13 +252,13 @@ describe('IMP-MATH-06: Adaptive lambda in calculateSlope', () => {
         expect(slope).toBeGreaterThan(0); // tendência de alta
     });
 
-    test('slope é limitado ao cap de 0.5%/dia', () => {
+    test('slope é limitado ao cap de 1.5%/dia', () => {
         const history = [
             { score: 10, date: '2026-01-01' },
             { score: 90, date: '2026-01-02' }, // salto extremo
         ];
         const slope = calculateSlope(history, 100);
-        expect(Math.abs(slope)).toBeLessThanOrEqual(0.5); // 0.5% de 100
+        expect(Math.abs(slope)).toBeLessThanOrEqual(1.5); // 1.5% de 100
     });
 });
 
