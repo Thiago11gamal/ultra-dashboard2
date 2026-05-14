@@ -98,6 +98,15 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             }
         }
     }
+
+    // O PULO DO GATO: Shrinkage Bayesiano para safeSD (Bug 1 Fix)
+    // Se temos um histórico curto, não podemos confiar em SD=0.
+    if (historyLength > 0 && historyLength < 15) {
+        const floorVolatility = maxScore * 0.04;
+        const confidence = historyLength / 15;
+        safeSD = (safeSD * confidence) + (floorVolatility * (1 - confidence));
+    }
+
     // MATH-05/10 FIX: Use same effective target for empirical and analytic
     // Clamp target to simulation domain
     const effectiveTarget = Math.max(minScore, Math.min(maxScore, targetScore));

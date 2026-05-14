@@ -546,3 +546,26 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         level
     };
 }
+
+/**
+ * Calcula a Média Móvel Exponencial (EMA) com correção de viés de inicialização.
+ * O Marco Zero (T0) é o primeiro valor empírico, prevenindo a âncora no zero.
+ */
+export const calculateEMA = (scores, alpha = 0.25) => {
+    if (!scores || scores.length === 0) return 0;
+    
+    // O Marco Zero da EMA é estritamente o valor empírico mais antigo, NÃO ZERO. (Bug 4 Fix)
+    let ema = scores[0]; 
+    
+    // Começa a iteração a partir do 1 (segundo simulado)
+    for (let i = 1; i < scores.length; i++) {
+        // Dinamismo: O alpha deve ser maior se a nota subiu muito (absorvemos o sucesso rápido,
+        // mas resistimos à queda brusca - Princípio do Benefício da Dúvida).
+        const trendBonus = scores[i] > ema ? 0.05 : 0;
+        const currentAlpha = Math.min(1, alpha + trendBonus);
+        
+        ema = (scores[i] * currentAlpha) + (ema * (1 - currentAlpha));
+    }
+    
+    return ema;
+};

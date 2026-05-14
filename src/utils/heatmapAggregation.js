@@ -54,3 +54,33 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
 
   return { dates, rows };
 }
+
+/**
+ * Agrega a proficiência de uma matéria pai a partir de seus subtópicos.
+ * Resolve o Paradoxo de Simpson agregando numeradores e denominadores 
+ * antes da divisão final, e aplica Shrinkage Bayesiano (K=5).
+ */
+export const calculateSubjectMastery = (subtopics) => {
+    if (!subtopics || subtopics.length === 0) return 0;
+
+    let totalAcertosPonderados = 0;
+    let totalQuestoesPonderadas = 0;
+    let baseIgnorancia = 0; // Para Tópicos não estudados
+
+    subtopics.forEach(topic => {
+        // Usa o K Bayesiano para não deixar tópicos com 1 questão dominarem
+        const K = 5; 
+        const pesoRelevancia = topic.pesoEdital || 1;
+
+        // Se nunca estudou, injetamos um peso negativo invisível
+        if (topic.total === 0) {
+            baseIgnorancia += (K * pesoRelevancia * 0.25); // Chute
+            totalQuestoesPonderadas += (K * pesoRelevancia);
+        } else {
+            totalAcertosPonderados += (topic.acertos + K * 0.5) * pesoRelevancia;
+            totalQuestoesPonderadas += (topic.total + K) * pesoRelevancia;
+        }
+    });
+
+    return (totalAcertosPonderados + baseIgnorancia) / Math.max(1, totalQuestoesPonderadas);
+};

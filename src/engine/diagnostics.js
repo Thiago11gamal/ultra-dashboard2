@@ -158,8 +158,31 @@ export function computeKLDivergenceNormal(mu1, sd1, mu2, sd2) {
 export function computeEbbinghausRetention(daysSince, stabilityDays) {
   const t = Math.max(0, Number(daysSince) || 0);
   const S = Math.max(0.1, Number(stabilityDays) || 7);
-  return Math.exp(-t / S);
+  const retention = Math.exp(-t / S);
+  return Math.max(0.1, Math.min(1.0, retention));
 }
+
+/**
+ * Calcula a curva de esquecimento com garantia de causalidade física.
+ * Impede que gaps temporais negativos (viagem no tempo) causem explosão de nota.
+ */
+export const calculateForgettingCurve = (lastStudyDate, lambda = 0.03) => {
+    if (!lastStudyDate) return 1.0;
+    
+    const now = Date.now();
+    const lastTime = new Date(lastStudyDate).getTime();
+    
+    // CAUSALIDADE: O delta T não pode ser negativo. Se for o futuro, 
+    // consideramos o gap como 0 (acabou de estudar). (Bug 5 Fix)
+    const rawGapDays = (now - lastTime) / 86400000;
+    const gapDays = Math.max(0, rawGapDays); 
+    
+    // Cálculo seguro e contido no limite assintótico [0, 1]
+    const retention = Math.exp(-lambda * gapDays);
+    
+    // Fallback absoluto de prevenção
+    return Math.max(0.1, Math.min(1.0, retention));
+};
 
 export function estimateMemoryStability(history, maxScore = 100, baselineScore = null) {
   if (!Array.isArray(history) || history.length === 0) return 3;

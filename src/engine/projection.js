@@ -56,7 +56,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
         const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
         const w = Math.exp(-lambda * t);
-        const x = (safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000;
+        const x = ((safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000) + (i * 1e-5);
 
         // Kahan summation imperativo para evitar O(N) alocações de map
         const yW = w - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
@@ -196,7 +196,16 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const robustVariance = robustSigma * robustSigma;
     const blendedVariance = (0.75 * mssdVariance) + (0.25 * robustVariance);
 
-    return Math.sqrt(Math.max(Math.pow(1.0 * scaleFactorFallback, 2), blendedVariance));
+    // O PULO DO GATO: Shrinkage Bayesiano para Volatilidade (Bug 1 Fix)
+    // Assumimos que o piso natural de flutuação de qualquer aluno é de ~4% do MaxScore
+    const floorVolatility = maxScore * 0.04; 
+    const floorVariance = Math.pow(floorVolatility, 2);
+    
+    // Quanto menor a amostra, mais puxamos para o piso natural.
+    const confidence = Math.min(1, sorted.length / 15);
+    const trueVariance = (blendedVariance * confidence) + (floorVariance * (1 - confidence));
+
+    return Math.sqrt(Math.max(1e-6, trueVariance));
 }
 
 export function calculateVolatility(history, maxScore = 100, minScore = 0) {
