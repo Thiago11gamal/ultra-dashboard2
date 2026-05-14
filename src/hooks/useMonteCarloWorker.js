@@ -50,24 +50,20 @@ export function useMonteCarloWorker() {
             console.warn('[MC Worker] Not available, using main thread:', e.message);
         }
 
-        const cleanupPendingMap = pendingRequestsRef.current;
-
         return () => {
-            // 🎯 RIGOR FIX: Usar a referência capturada na closure (worker) em vez do ref volátil
-            if (worker) {
-                worker.terminate();
-                if (workerRef.current === worker) workerRef.current = null;
+            const currentWorker = workerRef.current;
+            if (currentWorker) {
+                currentWorker.terminate();
+                workerRef.current = null;
             }
             
-            // Limpa apenas os pendentes DESTE worker específico
-            const pendingMap = cleanupPendingMap;
-            for (const [id, pending] of pendingMap) {
-                if (pending.worker === worker) {
-                    if (pending.timeoutId) clearTimeout(pending.timeoutId);
-                    pending.reject(new Error('Worker foi encerrado (component unmounted).'));
-                    pendingMap.delete(id);
-                }
+            // CORREÇÃO: Limpa TODOS os pendentes deste hook, independentemente 
+            // de qual reencarnação do worker os estava a processar.
+            for (const [id, pending] of pendingRequestsRef.current) {
+                if (pending.timeoutId) clearTimeout(pending.timeoutId);
+                pending.reject(new Error('Worker foi encerrado (component unmounted).'));
             }
+            pendingRequestsRef.current.clear();
         };
     }, []);
 
@@ -174,7 +170,13 @@ export function useMonteCarloWorker() {
                 }
             });
             
-            worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
+            try {
+                worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
+            } catch (postErr) {
+                clearTimeout(timeoutId);
+                pendingRequestsRef.current.delete(id);
+                reject(new Error(`Falha ao enviar dados para o Worker (DataCloneError). Estrutura inválida.`));
+            }
         });
     }, []);
 
