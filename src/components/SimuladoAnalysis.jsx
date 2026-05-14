@@ -241,6 +241,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         correct,
                         total,
                         percentage: pct,
+                        difficulty: Number(row.difficulty || 1.0),
                         status,
                         action
                     });
@@ -378,8 +379,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     </div>
 
                     {/* Colunas header */}
-                    <div className="hidden md:grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 px-1 pb-1 border-b border-slate-700/50 mb-1">
-                        {['Matéria', 'Assunto', '✓', 'Total', ''].map((h, i) => (
+                    <div className="hidden md:grid grid-cols-[1fr_1fr_52px_52px_52px_28px] gap-1.5 px-1 pb-1 border-b border-slate-700/50 mb-1">
+                        {['Matéria', 'Assunto', '✓', 'Total', 'Peso', ''].map((h, i) => (
                             <span key={i} className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center first:text-left">{h}</span>
                         ))}
                     </div>
@@ -400,7 +401,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         </div>
                                     )}
                                     <div
-                                        className="group flex flex-col md:grid md:grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-2 md:py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
+                                        className="group flex flex-col md:grid md:grid-cols-[1fr_1fr_52px_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-2 md:py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
 
                                         <div className="flex gap-1.5 w-full md:contents">
                                             <input type="text" value={row.subject}
@@ -421,6 +422,16 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                             <input type="number" min="0" value={row.total}
                                                 onChange={(e) => updateRow(index, 'total', e.target.value)}
                                                 className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-14 md:w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5" />
+                                            <select 
+                                                value={row.difficulty || 1.0}
+                                                onChange={(e) => updateRow(index, 'difficulty', e.target.value)}
+                                                className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-[10px] text-purple-400 font-bold text-center w-14 md:w-full focus:border-purple-500/50 focus:bg-slate-900 transition-colors py-1"
+                                            >
+                                                <option value={0.7}>0.7 (F)</option>
+                                                <option value={1.0}>1.0 (M)</option>
+                                                <option value={1.3}>1.3 (D)</option>
+                                                <option value={1.6}>1.6 (E)</option>
+                                            </select>
                                             <div className="w-[12px]"></div>
                                         </div>
                                     </div>

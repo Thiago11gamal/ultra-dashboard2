@@ -159,14 +159,20 @@ export default function Simulados() {
 
                     if (finalQ > 0) {
                         const maxScore = Number(cat.maxScore) || 100;
+                        
+                        // [TRI] Cálculo da dificuldade ponderada média do simulado para esta matéria
+                        const topicList = Array.isArray(stats.topics) ? stats.topics : [];
+                        const totalDifficultyWeight = topicList.reduce((acc, t) => 
+                            acc + (Number(t.difficulty) || 1.0) * (Number(t.total) || 0), 0);
+                        const avgDifficulty = topicList.length > 0 && totalDifficultyWeight > 0
+                            ? totalDifficultyWeight / finalQ
+                            : 1.0;
+
                         historyWithCurrent.push({
                             date: todayKey,
                             correct: finalC,
                             total: finalQ,
-                            // BUG-FIX: isPercentage:true não deve ser setado aqui — esse flag
-                            // é reservado para rows legados onde 'correct' era o score percentual.
-                            // Setá-lo em entradas novas (onde score já está calculado corretamente)
-                            // fazia o repairContestHistory aplicar conversão dupla.
+                            difficulty: Number(avgDifficulty.toFixed(2)),
                             score: Math.min(maxScore, Math.max(0, (finalC / finalQ) * maxScore)),
                             topics: stats.topics || []
                         });
