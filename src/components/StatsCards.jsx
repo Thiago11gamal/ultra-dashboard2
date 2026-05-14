@@ -5,6 +5,13 @@ import { getXPProgress } from '../utils/gamification';
 import { formatValue } from '../utils/scoreHelper';
 
 const getEfficiencyTheme = (score) => {
+    if (!Number.isFinite(score)) return {
+        glow: 'bg-slate-500/10',
+        glowHover: 'group-hover:bg-slate-500/20',
+        gradient: 'from-slate-500/[0.02]',
+        iconBg: 'bg-slate-500/10 group-hover:bg-slate-500/20',
+        iconColor: 'text-slate-400',
+    };
     if (score >= 85) return {
         glow: 'bg-emerald-500/10',
         glowHover: 'group-hover:bg-emerald-500/20',
