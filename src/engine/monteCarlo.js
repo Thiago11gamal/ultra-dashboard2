@@ -267,23 +267,20 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const pHat = finiteEmpiricalProbability / 100;
     const empiricalStdErr = Math.sqrt(Math.max(1e-12, (pHat * (1 - pHat)) / Math.max(1, safeSimulations))) * 100;
 
-    // Fusão adaptativa avançada (empírico + analítico):
-    // - peso analítico cresce com tamanho amostral efetivo
-    // - reduz peso analítico sob truncamento extremo
-    // - penaliza divergência alta entre os dois estimadores
-    // Fusão adaptativa avançada (empírico + analítico) corrigida:
-    const requestedSims = typeof simulations === 'number' && simulations > 200 ? simulations : 5000;
-    const dynamicDenom = Math.max(100, requestedSims - 200);
+    // [AUDIT-FIX-03] Fusão adaptativa avançada (empírico + analítico):
+    // O "Padrão Ouro" para confiança total no Monte Carlo de cauda é alto.
+    const GOLD_STANDARD_SIMS = 15000;
 
-    // [CORREÇÃO MATH-BUG-2] Confiança no Monte Carlo (Empírico)
-    const empiricalConfidence = Math.min(1, Math.max(0, (safeSimulations - 200) / dynamicDenom));
+    // Confiança varia suavemente dependendo do volume real processado frente ao Padrão Ouro
+    const empiricalConfidence = Math.min(1, Math.max(0, safeSimulations / GOLD_STANDARD_SIMS));
     
     const truncationPenalty = highTruncationStress ? 0.55 : 1;
     const uncertaintyScaledGap = empiricalVsAnalyticalGap / Math.max(1, empiricalStdErr * 2.2);
     const disagreementPenalty = Math.max(0.35, 1 - (uncertaintyScaledGap / 6));
     
-    // O peso ANALÍTICO deve cair conforme a confiança EMPÍRICA sobe (1 - empiricalConfidence)
-    const analyticalWeight = Math.min(0.9, Math.max(0.1, (1 - empiricalConfidence) * truncationPenalty * disagreementPenalty));
+    // O peso ANALÍTICO responde verdadeiramente ao poder computacional:
+    // cai conforme a confiança EMPÍRICA sobe.
+    const analyticalWeight = Math.min(0.9, Math.max(0.05, (1 - empiricalConfidence) * truncationPenalty * disagreementPenalty));
 
     const blendedProbability = (finiteAnalyticalProbability * analyticalWeight)
         + (finiteEmpiricalProbability * (1 - analyticalWeight));

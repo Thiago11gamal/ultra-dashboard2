@@ -2,6 +2,7 @@
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
+import { safeDateParse } from './dateHelper.js';
 import { normalize } from './normalization.js';
 import { computeRollingCalibrationParams } from './calibration.js';
 import { 
@@ -134,18 +135,26 @@ function getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, e
  * Ancorada na média global do aluno para evitar penalização artificial de pequenas amostras.
  */
 /**
- * Média Bayesiana para Proficiência Real
- * Ancorada na média global do aluno para evitar penalização artificial de pequenas amostras.
+ * Calcula a proficiência bayesiana de um tópico, tratando o Prior de forma adaptativa.
+ * [AUDIT-FIX-01] Resolve o "Efeito Halo": Tópicos nunca estudados assumem 25% de ignorância,
+ * impedindo que a média global do aluno oculte lacunas de base.
  */
 export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, globalTotal = 0) => {
-    // CORREÇÃO: Removido o 'if (total === 0) return 0;' para permitir o Fallback Bayesiano
-    
-    // OTIMIZAÇÃO: Peso da crença (K) escala com a maturidade do aluno na plataforma.
-    // Novatos (globalTotal baixo): K=3. Veteranos (globalTotal alto): K escala até 15.
+    const rawAcertos = Number(acertos) || 0;
+    const rawTotal = Number(total) || 0;
+
+    // Se o aluno nunca fez NENHUMA questão deste tópico, o Prior é a ignorância (chute), 
+    // NÃO a sua média de excelência em outras matérias.
+    if (rawTotal === 0) {
+        return 0.25; // Assume 25% de proficiência natural (tópico de alto risco)
+    }
+
+    // Fator de suavização (K) adaptativo baseado na experiência global do aluno
     const K = Math.max(3, Math.min(15, Math.log10(globalTotal + 1) * 3));
     
-    const smoothedAcertos = acertos + (mediaGlobal * K);
-    const smoothedTotal = total + K;
+    // Quando o aluno começa a estudar, aí sim a média global atua como âncora de segurança
+    const smoothedAcertos = rawAcertos + (mediaGlobal * K);
+    const smoothedTotal = rawTotal + K;
     
     return smoothedAcertos / smoothedTotal;
 };

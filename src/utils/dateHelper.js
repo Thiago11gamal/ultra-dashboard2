@@ -3,6 +3,20 @@
  */
 export const APP_TIMEZONE = 'America/Manaus';
 
+/**
+ * [FIX-WEBKIT-01] Garante que strings de data SQL (YYYY-MM-DD HH:MM:SS) sejam
+ * convertidas para o padrão ISO (YYYY-MM-DDTHH:MM:SS) compatível com Safari/WebKit.
+ */
+export const safeDateParse = (dateInput) => {
+    if (!dateInput) return new Date(0);
+    // Transforma string SQL "YYYY-MM-DD HH:MM:SS" em padrão ISO WebKit-Safe
+    const normalizedString = typeof dateInput === 'string' 
+        ? dateInput.replace(' ', 'T') 
+        : dateInput;
+    const d = new Date(normalizedString);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+};
+
 export const getDateKey = (rawDate) => {
     if (!rawDate) return null;
     let date;
