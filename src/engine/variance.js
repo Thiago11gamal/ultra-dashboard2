@@ -83,6 +83,10 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
         ? rawWeights 
         : rawWeights.map(w => w / sumRawWeights);
 
+    const independentVar = weights.reduce((acc, w, i) => acc + Math.pow(w, 2) * Math.pow(adjustedSDs[i], 2), 0);
+    const weightedSumSD = weights.reduce((acc, w, i) => acc + (w * adjustedSDs[i]), 0);
+    const coherentVar = Math.pow(weightedSumSD, 2);
+
     let finalVar = (1 - validRho) * independentVar + (validRho * coherentVar);
 
     // CORREÇÃO: Se estivermos usando pesos brutos (preserveScale), 
