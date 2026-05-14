@@ -196,7 +196,6 @@ export default function EvolutionChart({
 
                 if (cancelled || !result) return;
 
-                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setMcResult({ ...result, categoryId: focusCategory?.id });
 
                 const lastDate = new Date(hist[hist.length - 1].date);

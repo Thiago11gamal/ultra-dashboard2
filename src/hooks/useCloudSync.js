@@ -345,14 +345,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             if (currentUser?.uid && (!db || db?.app?.options?.projectId === 'config-missing')) {
                 console.error("[Sync] Erro: Configuração do Firebase incompleta (VITE_FIREBASE_PROJECT_ID ausente).");
                 setTimeout(() => {
-                    // eslint-disable-next-line react-hooks/set-state-in-effect
                     setCloudStatus('error');
-                    // eslint-disable-next-line react-hooks/set-state-in-effect
                     setCloudError('Configuração incompleta (.env)');
                 }, 0);
             } else if (!currentUser?.uid) {
                 setTimeout(() => {
-                    // eslint-disable-next-line react-hooks/set-state-in-effect
                     setCloudStatus('idle');
                 }, 0);
             }
@@ -361,9 +358,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         }
 
         setTimeout(() => {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCloudStatus('connecting');
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCloudError(null);
         }, 0);
 
@@ -537,9 +532,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     useEffect(() => {
         if (!currentUser?.uid) {
             setTimeout(() => {
-                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setCloudStatus('idle');
-                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setCloudError(null);
             }, 0);
         }
@@ -548,9 +541,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     useEffect(() => {
         isParityValidatedRef.current = false;
         setTimeout(() => {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setParityTick(t => t + 1);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setHasConflict(false);
         }, 0);
         lastSyncedRef.current = null;
