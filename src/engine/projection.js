@@ -43,11 +43,16 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
+        const y = getSafeScore(h, maxScore);
+
+        // CORREÇÃO: Blindagem de Titânio contra "NaN Poisoning". 
+        // Se a nota é matematicamente inválida, saltamos o ponto para não envenenar a regressão inteira.
+        if (Number.isNaN(y)) return;
+
         // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
         const t = Math.max(0, (now - new Date(hDate).getTime()) / (1000 * 60 * 60 * 24));
         const w = Math.exp(-lambda * t);
         const x = (new Date(hDate).getTime() - new Date(sorted[0].date || sorted[0].createdAt).getTime()) / (1000 * 60 * 60 * 24);
-        const y = getSafeScore(h, maxScore);
 
         sumW += w;
         sumWX += w * x;
@@ -98,6 +103,10 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
     });
 
     // FIX: Usar o Tamanho Efetivo da Amostra de Kish para o divisor em WLS (Bug 16 / Lint Fix)
+    // CORREÇÃO: Prevenir Underflow letal. Se os pesos desapareceram no esquecimento,
+    // garantimos a exportação da incerteza base em vez de dividir por ZERO.
+    if (sumW2 <= 1e-12) return 1.5 * (maxScore / 100);
+    
     const effectiveN = (sumW * sumW) / sumW2;
     const scaleFactorFallback = maxScore / 100;
 
@@ -294,19 +303,24 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     
     let L = maxScore;
     if (sorted.length >= 6) {
-        // Primeira Derivada (Velocidade)
-        const vel = [];
-        for(let i=1; i<sorted.length; i++) vel.push(getSafeScore(sorted[i], maxScore) - getSafeScore(sorted[i-1], maxScore));
+        // CORREÇÃO: Extrair amostra isolada e purificada para garantir que a derivada matemática
+        // e as médias das taxas de aceleração não sofrem envenenamento (NaN Poisoning).
+        const validScores = sorted.map(h => getSafeScore(h, maxScore)).filter(s => !Number.isNaN(s));
         
-        // Segunda Derivada (Aceleração)
-        const acc = [];
-        for(let i=1; i<vel.length; i++) acc.push(vel[i] - vel[i-1]);
-        
-        const meanAcc = acc.reduce((a,b)=>a+b,0)/acc.length;
-        const meanVel = vel.reduce((a,b)=>a+b,0)/vel.length;
-        
-        // Se a aceleração é negativa (curva côncava), o aluno está a desacelerar em direção ao seu platô.
-        if (meanAcc < -0.1 && meanVel > 0) {
+        if (validScores.length >= 6) {
+            // Primeira Derivada (Velocidade)
+            const vel = [];
+            for(let i=1; i<validScores.length; i++) vel.push(validScores[i] - validScores[i-1]);
+            
+            // Segunda Derivada (Aceleração)
+            const acc = [];
+            for(let i=1; i<vel.length; i++) acc.push(vel[i] - vel[i-1]);
+            
+            const meanAcc = acc.reduce((a,b)=>a+b,0)/acc.length;
+            const meanVel = vel.reduce((a,b)=>a+b,0)/vel.length;
+            
+            // Se a aceleração é negativa (curva côncava), o aluno está a desacelerar em direção ao seu platô.
+            if (meanAcc < -0.1 && meanVel > 0) {
             // Formula matemática do limite: L ~ Y_atual + (Velocidade_atual^2 / 2 * |Aceleração|)
             const currentY = getSafeScore(sorted[sorted.length-1], maxScore);
             const predictedCap = currentY + (Math.pow(meanVel, 2) / (2 * Math.abs(meanAcc)));

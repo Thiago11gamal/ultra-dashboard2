@@ -20,6 +20,8 @@ import { getCoachPriorities, calculateUrgency, getCognitiveState, computeRobustV
 import { getPercentile } from '../../engine/math/percentile.js';
 import { generateKDE } from '../../engine/math/gaussian.js';
 import { standardDeviation, calcularAssimetria } from '../../engine/stats.js';
+import { weightedRegression, logisticRegression } from '../../engine/projection.js';
+import { bootstrapCI } from '../../engine/math/bootstrap.js';
 
 describe('Hardening Audit: Erros 37-48', () => {
 
@@ -174,6 +176,52 @@ describe('Hardening Audit: Erros 37-48', () => {
         const skew = calcularAssimetria(data);
         expect(Number.isFinite(skew)).toBe(true);
         expect(skew).toBe(0); // Para SD muito pequeno, assume simetria
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Erro 53: Regression NaN Poisoning
+    // ─────────────────────────────────────────────────────────────────
+    test('Erro 53: weightedRegression deve ignorar pontos NaN', () => {
+        const history = [
+            { score: 50, date: '2024-01-01' },
+            { score: NaN, date: '2024-01-02' },
+            { score: 70, date: '2024-01-03' }
+        ];
+        const result = weightedRegression(history);
+        expect(Number.isFinite(result.slope)).toBe(true);
+        expect(result.slope).toBeGreaterThan(0);
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Erro 55: Logistic Derivative NaN Poisoning
+    // ─────────────────────────────────────────────────────────────────
+    test('Erro 55: logisticRegression deve ser resiliente a NaNs nas derivadas', () => {
+        const history = [
+            { score: 50, date: '2024-01-01' },
+            { score: 55, date: '2024-01-02' },
+            { score: NaN, date: '2024-01-03' },
+            { score: 65, date: '2024-01-04' },
+            { score: 70, date: '2024-01-05' },
+            { score: 75, date: '2024-01-06' },
+            { score: 80, date: '2024-01-07' }
+        ];
+        const result = logisticRegression(history);
+        // Mesmo com um NaN no meio, se tivermos 6 pontos válidos, ele deve tentar o ajuste
+        expect(result).toBeDefined();
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Erro 56: Bootstrap Sort Failure
+    // ─────────────────────────────────────────────────────────────────
+    test('Erro 56: bootstrapCI deve ordenar corretamente mesmo com NaNs na distribuição', () => {
+        const data = [10, 20, 30];
+        // statFn que devolve NaN em certas condições
+        const statFn = (bag) => bag.includes(20) ? 50 : NaN;
+        
+        const result = bootstrapCI(data, statFn, { iterations: 200 });
+        expect(Number.isFinite(result.low)).toBe(true);
+        expect(Number.isFinite(result.high)).toBe(true);
+        expect(result.high).toBeGreaterThanOrEqual(result.low);
     });
 
 });
