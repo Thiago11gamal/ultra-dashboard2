@@ -523,7 +523,8 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         : m;
         
     const limiteSuperior = safeMaxScore - lastScore; 
-    const limiteInferior = (-safeMaxScore) - lastScore; 
+    // A maior queda possível é perder o que já se tem (chegar a 0)
+    const limiteInferior = -lastScore; 
 
     
     // Aplicação agora segura

@@ -277,7 +277,8 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     }
 
     const rmssd = (sumSqDiff) / Math.max(1, validTransitions); 
-    return Math.sqrt(Math.max(1e-6, rmssd));
+    // Divide-se por 2 porque a diferença sucessiva carrega a variância de X_i e X_{i-1}
+    return Math.sqrt(Math.max(1e-6, rmssd / 2)); 
 }
 
 // -----------------------------
