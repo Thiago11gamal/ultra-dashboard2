@@ -31,7 +31,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
     if (!historyRow) return NaN;
 
     if (historyRow.score != null) {
-        let rawScore = String(historyRow.score || '');
+        let rawScore = String(historyRow.score !== null && historyRow.score !== undefined ? historyRow.score : '');
         // Remove pontos de milhar, troca vírgulas por pontos para blindagem contra truncamento (Bug 2.1)
         rawScore = rawScore.replace(/\./g, '').replace(',', '.'); 
         let s = parseFloat(rawScore);
@@ -45,12 +45,12 @@ export function getSafeScore(historyRow, maxScore = 100) {
     }
 
     // CORREÇÃO: Tratar campos vazios como Inválidos (NaN) e não como Zeros absolutos.
-    let rawTotal = String(historyRow.total || '');
+    let rawTotal = String(historyRow.total !== null && historyRow.total !== undefined ? historyRow.total : '');
     rawTotal = rawTotal.replace(/\./g, '').replace(',', '.'); 
     const hasValidTotal = rawTotal !== undefined && rawTotal !== null && rawTotal !== '' && rawTotal !== 'NaN';
     const total = hasValidTotal && Number.isFinite(Number(rawTotal)) ? Number(rawTotal) : NaN;
 
-    let rawCorrect = String(historyRow.correct || '');
+    let rawCorrect = String(historyRow.correct !== null && historyRow.correct !== undefined ? historyRow.correct : '');
     rawCorrect = rawCorrect.replace(/\./g, '').replace(',', '.'); 
     const hasValidCorrect = rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== '' && rawCorrect !== 'NaN';
     const correct = hasValidCorrect && Number.isFinite(Number(rawCorrect)) ? Number(rawCorrect) : NaN;
