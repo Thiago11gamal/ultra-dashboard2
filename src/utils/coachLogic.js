@@ -528,24 +528,15 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const dynamicRecencyMax = Math.max(15, (memoryRisk / totalPain) * 110);
         const dynamicInstabilityMax = Math.max(10, (volatilityRisk / totalPain) * 110);
 
-        // FIX: Aumentar a amplitude do multiplicador de importância
-        // ✅ DEPOIS (Compressão de Amplitude Conservadora)
-        // Limitamos o castigo estatístico das matérias secundárias.
-        // O novo range será de 0.65x a 1.35x. A matéria "secundária" não é ignorada, 
-        // apenas ligeiramente despriorizada face à principal.
-        const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.35; 
+        // FIX: Aumentar a amplitude do multiplicador de importância (0.6x a 1.4x)
+        const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.40; 
         
-        // A. Performance Score
-        // BUG-19 FIX: Garantir invariância de escala através da normalização para base 100
+        // A. Performance Score (Unweighted raw component)
         const normalizedAvg = (averageScore / maxScore) * 100;
-        // Expandimos o teto de acordo com o peso da matéria
-        const effectiveScoreMax = dynamicScoreMax * weightMultiplier;
-        const scoreComponent = Math.max(0, Math.min(effectiveScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100) * weightMultiplier));
+        const scoreComponent = Math.max(0, Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100)));
 
-        // B. Recency
-        const weightDeviation = (weight / 100) - 1;
-        const dampenedWeightMultiplier = 1 + (weightDeviation * 0.5);
-        const effectiveRiskDays = daysSinceLastStudy * dampenedWeightMultiplier;
+        // B. Recency (Unweighted raw component)
+        const effectiveRiskDays = daysSinceLastStudy; 
         
         // Encontre a data do simulado ou estudo mais antigo (a raiz da jornada)
         const firstActivityDate = (relevantSimulados.length > 0) 
@@ -745,8 +736,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // 3. APLICAÇÃO REAL DO PESO: O peso é um amplificador de DOR sobre o rawScore,
         // não uma mudança na escala do universo.
-        const weightMultiplier_actual = 1 + ((boundedWeight - 5) / 5) * 0.40; // 0.6x a 1.4x
-        const weightedRaw = rawScore * weightMultiplier_actual; 
+        const weightedRaw = rawScore * weightMultiplier; 
 
         // 4. Normalização
         let normalized;
