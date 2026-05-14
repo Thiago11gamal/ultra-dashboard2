@@ -239,7 +239,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
-    const parsedWeight = Number(safeCategory.weight);
+    // CORREÇÃO: Proteger as intenções estratégicas do aluno contra separadores decimais locais
+    let rawWeightVal = safeCategory.weight;
+    if (typeof rawWeightVal === 'string') rawWeightVal = rawWeightVal.replace(',', '.');
+    const parsedWeight = Number(rawWeightVal);
+    
     const rawWeight = Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 5;
     const boundedWeight = Math.min(10, Math.max(1, rawWeight));
     // MATH-WEIGHT-ASYMMETRY FIX: era rawWeight * 10, cujo teto (rawWeight=10 → weight=100 → deviation=0)
@@ -452,8 +456,16 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // Filtramos os simulados apenas uma vez numa única passagem!
         const allSimsForBaseline = (simulados || []).filter(s => s && validCatNorms.has(normalize(s.subject || "")));
         if (allSimsForBaseline.length > 0) {
-            const totalPoints = allSimsForBaseline.reduce((acc, s) => acc + getSafeScore(s, maxScore), 0);
-            globalBaselinePct = (totalPoints / (allSimsForBaseline.length * maxScore)) * 100;
+            // CORREÇÃO: Purgar resíduos NaN antes da redução transversal, caso contrário, 
+            // 1 único simulado arruinado destrói o piso do Monte Carlo em todas as matérias.
+            const validGlobalSims = allSimsForBaseline
+                .map(s => getSafeScore(s, maxScore))
+                .filter(s => !Number.isNaN(s));
+                
+            if (validGlobalSims.length > 0) {
+                const totalPoints = validGlobalSims.reduce((acc, s) => acc + s, 0);
+                globalBaselinePct = (totalPoints / (validGlobalSims.length * maxScore)) * 100;
+            }
         }
 
         const effectiveCfg = { 
@@ -633,7 +645,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
         
         const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
-            const parsedW = Number(c.weight);
+            // CORREÇÃO COMPLEMENTAR: Garantir que o peso total reflete o que o aluno
+            // introduziu com precisão decimal em todas as parcelas do Edital
+            let rawW = c.weight;
+            if (typeof rawW === 'string') rawW = rawW.replace(',', '.');
+            const parsedW = Number(rawW);
             const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
             return acc + w;
         }, 0);
@@ -1020,7 +1036,11 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             } else if (topicTotal > 0) {
                 // Cenário: Tem volume de questões
                 if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
-                    topicCorrect = Math.min(topicTotal, Number(t.correct) || 0);
+                // CORREÇÃO: Sanitização estrita contra separadores decimais legados
+                // que causavam a aniquilação total da nota do subtópico.
+                let rawC = t.correct;
+                if (typeof rawC === 'string') rawC = rawC.replace(',', '.');
+                topicCorrect = Math.min(topicTotal, Number.isFinite(Number(rawC)) ? Number(rawC) : 0);
                 } else {
                     // Fallback seguro em caso de notas penalizadas ao nível do subtópico
                     topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;

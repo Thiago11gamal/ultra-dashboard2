@@ -24,7 +24,16 @@ function getDynamicTrendThreshold(currentScore, maxScore) {
 // com um piso de 5% e teto de 20% para evitar colapso bayesiano.
 function getDynamicPriorSD(history, maxScore) {
     if (!history || history.length < 5) return maxScore * 0.15; // Fallback inicial seguro
-    const scores = history.map(h => getSafeScore(h, maxScore));
+    
+    // CORREÇÃO MÁXIMA: Polimorfismo para ler corretamente arrays de números nus 
+    // ou arrays de objetos complexos (impedindo NaN poisoning no Prior Bayesiano).
+    const scores = history.map(h => {
+        if (typeof h === 'number') return h;
+        return getSafeScore(h, maxScore);
+    }).filter(Number.isFinite);
+    
+    if (scores.length < 5) return maxScore * 0.15;
+    
     const globalMean = mean(scores);
     const globalVar = scores.length > 1
         ? scores.reduce((acc, s) => acc + Math.pow(s - globalMean, 2), 0) / (scores.length - 1)
