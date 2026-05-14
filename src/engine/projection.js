@@ -57,7 +57,16 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     });
 
     const det = sumW * sumWXX - sumWX * sumWX;
-    if (Math.abs(det) < 1e-6) return { slope: 0, intercept: sumWY / sumW, slopeStdError: 1.5 };
+    
+    // CORREÇÃO: Prevenir divisão letal por ZERO se a amnésia temporal (decaimento)
+    // for tão alta que apagou todo o somatório de pesos (sumW = 0).
+    if (Math.abs(det) < 1e-6) {
+        return { 
+            slope: 0, 
+            intercept: sumW > 1e-9 ? (sumWY / sumW) : (sorted.length > 0 ? getSafeScore(sorted[sorted.length-1], maxScore) : 0), 
+            slopeStdError: 1.5 
+        };
+    }
 
     const slope = (sumW * sumWXY - sumWX * sumWY) / det;
     const intercept = (sumWXX * sumWY - sumWX * sumWXY) / det;
@@ -322,9 +331,15 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
         y = Math.max(maxScore * 0.01, Math.min(maxScore, y));
 
         // [FIX 2] A função Logit precisa respeitar o minScore (ENEM/OAB/SAT)
+        // CORREÇÃO: Assegurar matematicamente que o teto (L) é estritamente superior ao valor limitado 
+        // para impedir a inversão de sinal que causa Math.log de negativos (NaN).
         const safeMin = options.minScore || 0;
-        const boundedY = Math.max(safeMin + 0.1, Math.min(L - 0.1, y)); // Previne infinito/div por zero
-        const logitY = Math.log((boundedY - safeMin) / (L - boundedY));
+        
+        // Empurra L ligeiramente para cima se este ameaçar colapsar sobre o y
+        const safeL = Math.max(L, y + 0.5); 
+        
+        const boundedY = Math.max(safeMin + 0.1, Math.min(safeL - 0.1, y)); 
+        const logitY = Math.log((boundedY - safeMin) / (safeL - boundedY));
 
         sumW += w;
         sumWX += w * x;
@@ -609,10 +624,14 @@ export function monteCarloSimulation(
             
             // CORREÇÃO MATEMÁTICA: Reflected Brownian Motion (RBM)
             // Rebate a energia excedente nas bordas físicas da prova em vez de truncar cegamente
+            // CORREÇÃO MATEMÁTICA: O RBM ingénuo quebra perante choques que excedem
+            // o dobro da amplitude do limite. Substituído por reflexão modular com teto absoluto.
             if (currentSimScore > maxScore) {
-                currentSimScore = maxScore - (currentSimScore - maxScore);
+                const overflow = currentSimScore - maxScore;
+                currentSimScore = maxScore - Math.min(overflow, maxScore - minScore);
             } else if (currentSimScore < minScore) {
-                currentSimScore = minScore + (minScore - currentSimScore);
+                const underflow = minScore - currentSimScore;
+                currentSimScore = minScore + Math.min(underflow, maxScore - minScore);
             }
             
             // Fallback de segurança estrito (Clamp final diário)

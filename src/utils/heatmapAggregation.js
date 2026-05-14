@@ -32,8 +32,18 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
     cells: [...buckets.values()].map(({ indices }) => {
       const samples = indices.map(i => row.cells?.[i]).filter(Boolean);
       if (!samples.length) return null;
-      const total = samples.reduce((a, c) => a + (Number(c.total) || 0), 0);
-      const correct = samples.reduce((a, c) => a + (Number(c.correct) || 0), 0);
+      // CORREÇÃO: Normalizar strings de dados legados com vírgulas ANTES de tentar somar
+      const total = samples.reduce((a, c) => {
+          let val = c.total;
+          if (typeof val === 'string') val = val.replace(',', '.');
+          return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
+      }, 0);
+      
+      const correct = samples.reduce((a, c) => {
+          let val = c.correct;
+          if (typeof val === 'string') val = val.replace(',', '.');
+          return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
+      }, 0);
       // BUG-GLOBAL-02 FIX: pct deve ser percentual [0,100], não score em [0, maxScore].
       // Antes: (correct/total) * maxScore → para maxScore=120, 8/10 → 96 (errado).
       // Agora: (correct/total) * 100 → 8/10 → 80% (correto, invariante à escala).
