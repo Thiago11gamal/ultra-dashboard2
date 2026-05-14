@@ -415,6 +415,25 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     };
 }
 
+/**
+ * Calcula o Damping Base adaptativo baseado no histórico.
+ * @returns {number} Valor entre 30 e 60.
+ */
+export function computeAdaptiveDampingBase({ sampleSize, drift, driftUncertainty, scaleFactor, normalizedVol }) {
+    const n = Math.max(1, Number(sampleSize) || 1);
+    const safeDrift = Number.isFinite(drift) ? drift : 0;
+    const safeUncertainty = Math.max(1e-6, Number(driftUncertainty) || 0);
+    const safeScale = Math.max(1e-6, Number(scaleFactor) || 1);
+    const safeNormVol = Math.max(0, Number(normalizedVol) || 0);
+
+    const nConfidence = 1 - Math.exp(-n / 12);
+    const trendSNR = Math.abs(safeDrift) / Math.max(0.05 * safeScale, safeUncertainty);
+    const trendConfidence = Math.tanh(trendSNR / 2);
+    const volPenalty = Math.min(1, safeNormVol / 18);
+    const confidenceScore = Math.max(0, Math.min(1, (0.5 * nConfidence) + (0.35 * trendConfidence) + (0.15 * (1 - volPenalty))));
+    return 30 + (30 * confidenceScore);
+}
+
 export function monteCarloSimulation(
     history,
     targetScore = 85,

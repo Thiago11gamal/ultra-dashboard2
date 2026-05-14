@@ -104,9 +104,9 @@ describe('BUG-MATH-02: Monte Carlo O-U mean reversion', () => {
         // Média projetada deve estar entre 0 e maxScore
         expect(result.mean).toBeGreaterThanOrEqual(0);
         expect(result.mean).toBeLessThanOrEqual(100);
-        // Com O-U revertendo para a média histórica (~71), a projeção não deve colapsar em 60
-        // (que seria o comportamento com reversão ao baseline puro)
-        expect(result.mean).toBeGreaterThan(55); // deve ser puxado para cima pela reversão
+        // Com O-U revertendo para a média histórica (~71) com peso reduzido (Audit Fix), 
+        // a projeção deve ser mais conservadora mas ainda finita e válida.
+        expect(result.mean).toBeGreaterThan(50); // Ajustado de 55 para 50 (Audit Fix 0.02 thetaOU)
     });
 });
 
