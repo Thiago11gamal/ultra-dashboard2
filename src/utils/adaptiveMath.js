@@ -214,6 +214,40 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         return det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
     };
 
+    /**
+     * Calcula a regressão linear incluindo o Erro Padrão da Inclinação (Standard Error)
+     * e o T-Stat. Permite avaliar se a tendência de melhoria do aluno é
+     * estatisticamente significativa ou apenas ruído.
+     */
+    const calcSlopeWithSignificance = (amostra) => {
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        const n = amostra.length;
+        
+        // N < 3 não tem graus de liberdade (df = n-2) para calcular erro padrão
+        if (n < 3) return { slope: 0, se: 0, tStat: 0 };
+        
+        for (let i = 0; i < n; i++) {
+            sumX += i; sumY += amostra[i]; sumXY += i * amostra[i]; sumXX += i * i;
+        }
+        
+        const det = n * sumXX - sumX * sumX;
+        const slope = det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
+        const intercept = (sumY - slope * sumX) / n;
+        
+        let ssRes = 0; // Soma dos Quadrados dos Resíduos
+        for (let i = 0; i < n; i++) {
+            const yPred = intercept + slope * i;
+            ssRes += Math.pow(amostra[i] - yPred, 2);
+        }
+        
+        const varRes = ssRes / (n - 2); // Variância residual
+        const ssX = sumXX - (sumX * sumX) / n;
+        const seSlope = ssX > 0 ? Math.sqrt(varRes / ssX) : 0;
+        const tStat = seSlope > 0 ? slope / seSlope : 0;
+        
+        return { slope, se: seSlope, tStat };
+    };
+
     let trueTrendStrength = 0;
     let isPlateau = false;
 

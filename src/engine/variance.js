@@ -212,6 +212,32 @@ export function getVarianceBreakdown(stats, totalWeight) {
     };
 }
 
+/**
+ * Constrói a Matriz de Covariância completa NxN a partir dos desvios padrão
+ * individuais e do fator de correlação (Rho). Necessária para alimentar
+ * o Cholesky Decomposition para Monte Carlo multidimensional.
+ */
+export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTER_SUBJECT_CORRELATION) {
+    const n = stats.length;
+    const matrix = Array(n).fill(0).map(() => Array(n).fill(0));
+    
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            const sdI = Number.isFinite(stats[i]?.sd) ? stats[i].sd : 0;
+            const sdJ = Number.isFinite(stats[j]?.sd) ? stats[j].sd : 0;
+            if (i === j) {
+                matrix[i][j] = sdI * sdJ; // Variância pura na diagonal
+            } else {
+                const currentRho = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) 
+                                   ? rhoMatrix[i][j] 
+                                   : defaultRho;
+                matrix[i][j] = currentRho * sdI * sdJ; // Covariância
+            }
+        }
+    }
+    return matrix;
+}
+
 export function calcularVariancia(arr) {
     if (!Array.isArray(arr) || arr.length === 0) return 0;
     const clean = arr.map(Number).filter(Number.isFinite);
@@ -226,5 +252,6 @@ export default {
     getVarianceBreakdown,
     estimateInterSubjectCorrelation,
     computeEffectiveSampleSizeFromWeights,
-    calcularVariancia
+    calcularVariancia,
+    buildCovarianceMatrix
 };

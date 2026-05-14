@@ -257,6 +257,20 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
 }
 
 /**
+ * Aplica Regularização de Tikhonov (Jitter/Ridge) para garantir
+ * que uma matriz empírica de correlação seja Positiva Semi-Definida (PSD)
+ * antes de passar pela Decomposição de Cholesky.
+ */
+export function ensurePositiveSemiDefinite(matrix, jitter = 1e-6) {
+    const n = matrix.length;
+    const psdMatrix = matrix.map(row => [...row]);
+    for (let i = 0; i < n; i++) {
+        psdMatrix[i][i] += jitter; // Estabiliza a diagonal principal
+    }
+    return psdMatrix;
+}
+
+/**
  * 💡 Decomposição de Cholesky (A = L * L^T)
  * Converte um array de ruídos normais independentes em ruídos correlacionados.
  */

@@ -88,6 +88,29 @@ export const calcularDesvioPadrao = (arr) => {
     return Math.sqrt(v);
 };
 
+/**
+ * Calcula a Assimetria (Skewness) da série usando ajuste para amostras pequenas (G1 de Fisher-Pearson).
+ * Crucial para alimentar o 'sdLeft' e 'sdRight' de uma curva de Gauss Assimétrica real.
+ */
+export function calcularAssimetria(arr) {
+    if (!arr || arr.length < 3) return 0;
+    const clean = arr.map(Number).filter(Number.isFinite);
+    if (clean.length < 3) return 0;
+    
+    const m = mean(clean);
+    const sd = calcularDesvioPadrao(clean);
+    
+    if (sd === 0) return 0;
+
+    const n = clean.length;
+    const sumCube = clean.reduce((acc, val) => acc + Math.pow(val - m, 3), 0);
+    
+    // Fator de correção de viés estatístico
+    const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.pow(sd, 3));
+    
+    return Math.max(-5, Math.min(5, skewness)); // Clamp para proteção de outliers
+}
+
 
 
 /**
@@ -280,9 +303,13 @@ export function computeBayesianLevel(
 
     const marginOfError = Z_95 * effectiveSd * safeMaxScore;
 
+    // Adição de Correção de Continuidade (útil quando N é pequeno e o traço é discreto)
+    const continuityCorrection = effectiveN > 0 ? safeMaxScore / (2 * effectiveN) : 0;
+    const adjustedMarginOfError = marginOfError + continuityCorrection;
+
     const centerForCI = p_tilde * safeMaxScore;
-    let ciLow = centerForCI - marginOfError;
-    let ciHigh = centerForCI + marginOfError;
+    let ciLow = centerForCI - adjustedMarginOfError;
+    let ciHigh = centerForCI + adjustedMarginOfError;
 
     const strictLow = Math.max(0, ciLow);
     const strictHigh = Math.min(safeMaxScore, ciHigh);
