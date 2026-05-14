@@ -102,13 +102,13 @@ const getDaysDiff = (newer, older) => {
  * Substituição da escada em degraus por uma curva Exponencial Contínua.
  */
 export function getCrunchMultiplier(daysToExam) {
-    if (!Number.isFinite(daysToExam) || daysToExam <= 0) return 2.0; // Urgência máxima no dia
+    // CORREÇÃO: Se não há data (null/undefined), o utilizador está em modo cruzeiro (1.0)
+    if (daysToExam === null || daysToExam === undefined) return 1.0; 
     
-    // MELHORIA MATEMÁTICA: Curva Exponencial Contínua.
-    // Assíntota em 1.0 para tempo longo (> 90 dias) e limite superior de 2.0.
-    // A curva tem uma meia-vida ajustada para "aquecer" aos 45 dias e disparar nos últimos 15.
-    const urgency = 1.0 + Math.exp(-daysToExam / 21); // Constante 21 dias dita a rampa
+    // Se a data já passou ou é hoje, urgência máxima
+    if (!Number.isFinite(daysToExam) || daysToExam <= 0) return 2.0; 
     
+    const urgency = 1.0 + Math.exp(-daysToExam / 21);
     return Number(Math.min(2.0, urgency).toFixed(4));
 }
 

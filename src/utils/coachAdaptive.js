@@ -319,12 +319,24 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             const brierScores = [];
             for (let i = 1; i <= horizon; i++) {
                 const train = history.slice(0, history.length - i);
-                const observed = history[history.length - i].score >= safeTargetScore ? 1 : 0;
+                const observedRecord = history[history.length - i];
+                const observed = observedRecord.score >= safeTargetScore ? 1 : 0;
+                
                 try {
+                    // CORREÇÃO: Calcular o delta real em dias para projetar apenas o necessário
+                    let gapDays = 7; // Fallback
+                    if (train.length > 0 && observedRecord.date) {
+                        const trainDateMs = new Date(train[train.length - 1].date).getTime();
+                        const obsDateMs = new Date(observedRecord.date).getTime();
+                        if (obsDateMs > trainDateMs) {
+                            gapDays = Math.max(1, (obsDateMs - trainDateMs) / 86400000);
+                        }
+                    }
+
                     const bt = monteCarloSimulation(
                         train,
                         safeTargetScore,
-                        days,
+                        gapDays, // <-- SUBSTITUÍDO: antes era 'days' (o alvo global incorreto)
                         Math.min(500, Math.max(200, Math.floor(safeSimulations * 0.35))),
                         { maxScore }
                     );

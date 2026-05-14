@@ -234,8 +234,12 @@ export function computeStackingWeights(candidateProbs = [], observed = []) {
     return acc / n;
   });
   const temp = 0.08;
-  const scores = losses.map(l => Math.exp(-l / temp));
-  const z = scores.reduce((a, b) => a + b, 0) || 1;
+  const minLoss = Math.min(...losses); // Shift Trick
+  const scores = losses.map(l => Math.exp(-(l - minLoss) / temp));
+  const z = scores.reduce((a, b) => a + b, 0);
+
+  // Fallback robusto se z ainda for 0 (devido a imprecisão de float)
+  if (z === 0) return new Array(k).fill(1 / k);
   return scores.map(s => s / z);
 }
 
