@@ -23,12 +23,12 @@ export function normalCDF_complement(z) {
  * Gerador de ruído gaussiano (Normal(0,1)) usando a Transformada de Box-Muller.
  * [BUG-BOX-MULLER FIX] Proteção contra u1=0 que causaria Math.log(0) = -Infinity.
  */
-export const generateGaussian = () => {
+export const generateGaussian = (rng = Math.random) => {
     let u1 = 0, u2 = 0;
     
     // O u1 não pode NUNCA ser zero estatístico absoluto
-    while (u1 === 0) u1 = Math.random(); 
-    u2 = Math.random();
+    while (u1 === 0) u1 = rng(); 
+    u2 = rng();
     
     return Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
 };

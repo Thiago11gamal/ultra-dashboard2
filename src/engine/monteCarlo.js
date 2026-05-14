@@ -2,8 +2,9 @@ import { mulberry32 } from './random.js';
 import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math/gaussian.js';
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
-import { getPercentile } from './math/percentile.js';
+import { getPercentile, quickSelect, calculateInterpolatedPercentile } from './math/percentile.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
+import { generateGaussian } from './math/gaussian.js';
 
 export { getPercentile };
 
@@ -182,10 +183,23 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const projectedMean = welfordMean;
     const projectedSD = Math.sqrt(Math.max(0, welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0));
 
-    allScores.sort((a, b) => a - b);
+    // [BUG-SORT-FIX] Para encontrar percentis (P2.5, P97.5), nunca se deve ordenar o array inteiro. 
+    // Deve-se usar o algoritmo QuickSelect (Hoare's Selection), que possui complexidade média de O(N).
+    // Isso evita o congelamento da Main Thread por ordenação O(NlogN).
+    const nAll = allScores.length;
+    const iLow = Math.floor(nAll * 0.025);
+    const iHigh = Math.floor(nAll * 0.975);
+    const iMedian = Math.floor(nAll * 0.5);
+    const i16 = Math.floor(nAll * 0.16);
+    const i84 = Math.floor(nAll * 0.84);
 
-    const statisticalCi95Low = getPercentile(allScores, 0.025, true);
-    const statisticalCi95High = getPercentile(allScores, 0.975, true);
+    // Encontramos os pontos críticos usando QuickSelect (O(N))
+    const statisticalCi95Low = quickSelect(allScores, iLow);
+    const statisticalCi95High = quickSelect(allScores, iHigh);
+    const empMedian = quickSelect(allScores, iMedian);
+    const rawLeft = quickSelect(allScores, i16);
+    const rawRight = quickSelect(allScores, i84);
+
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;
 
@@ -262,14 +276,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             ? empiricalProbability 
             : ((clampedPhiTarget - phiMax) / truncNormFactor) * 100; 
     }
-    analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
-
-    const empMedian = getPercentile(allScores, 0.5, true);
-    const rawLeft = getPercentile(allScores, 0.16, true);
-    const rawRight = getPercentile(allScores, 0.84, true);
+    const finalAnalyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
 
     const finiteEmpiricalProbability = Number.isFinite(bayesEmpiricalProbability) ? bayesEmpiricalProbability : 0;
-    const finiteAnalyticalProbability = Number.isFinite(analyticalProbability) ? analyticalProbability : 0;
+    const finiteAnalyticalProbability = Number.isFinite(finalAnalyticalProbability) ? finalAnalyticalProbability : 0;
     const empiricalVsAnalyticalGap = Math.abs(finiteEmpiricalProbability - finiteAnalyticalProbability);
     const lowSimulation = safeSimulations < 1200;
     const highTruncationStress = truncNormFactor < 1e-6;
@@ -449,10 +459,8 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
         let notaAtual = ultimaNota;
         
         for(let dia = 1; dia <= diasProjecao; dia++) {
-            // [BUG-1A FIX] Usar RNG estável (mulberry32) em vez de Math.random()
-            const u1 = Math.max(1e-9, rng());
-            const u2 = Math.max(1e-9, rng());
-            const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            // [BUG-BOX-MULLER FIX] Usar o gerador protegido para evitar Math.log(0) -> NaN Poisoning
+            const z0 = generateGaussian(rng);
             const ruido = z0 * volatilidadeAdaptativa;
             
             const driftDiario = driftsDiarios[dia];
