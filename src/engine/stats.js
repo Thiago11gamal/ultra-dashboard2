@@ -184,9 +184,11 @@ export function computeBayesianLevel(
     }) : [];
     if (historySortedForGaps.length > 1) {
         for (let i = 1; i < historySortedForGaps.length; i++) {
-            const gap = (new Date(historySortedForGaps[i].date) - new Date(historySortedForGaps[i - 1].date)) / 86400000;
-            if (gap > 0) {
-                gaps.push(gap);
+            const time1 = new Date(historySortedForGaps[i].date).getTime();
+            const time0 = new Date(historySortedForGaps[i - 1].date).getTime();
+            if (!isNaN(time1) && !isNaN(time0)) {
+                const gap = (time1 - time0) / 86400000;
+                if (gap > 0) gaps.push(gap);
             }
         }
     }

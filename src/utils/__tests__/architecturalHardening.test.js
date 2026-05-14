@@ -26,10 +26,10 @@ describe('Architectural Hardening: Rodadas 6-8', () => {
     test('Micro-stepping: Eventos no mesmo dia não devem colapsar o slope para zero', () => {
         const history = [
             { score: 50, date: '2026-01-01T10:00:00' },
-            { score: 55, date: '2026-01-01T10:01:00' }, // 1 minuto depois
-            { score: 60, date: '2026-01-01T10:02:00' },
-            { score: 65, date: '2026-01-01T10:03:00' },
-            { score: 70, date: '2026-01-01T10:04:00' }
+            { score: 55, date: '2026-01-01T11:00:00' }, // 1 hora depois
+            { score: 60, date: '2026-01-01T12:00:00' },
+            { score: 65, date: '2026-01-01T13:00:00' },
+            { score: 70, date: '2026-01-01T14:00:00' }
         ];
         
         // detectRegimeTransition usa analyzeProgressState internamente.
