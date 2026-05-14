@@ -433,11 +433,14 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         // CORREÇÃO: Usar estritamente o validHistoryForMean para que os pesos (w) 
         // e a variância ponderada (wVarSum) sejam calculados numa amostra matematicamente pura.
         validHistoryForMean.forEach(h => {
-            const w = Number(h.total) || 1;
-            const safeScore = getSafeScore(h, safeMaxScore);
-            wVarSum += w * Math.pow(safeScore - m, 2);
-            sumW += w;
-            sumW2 += w * w;
+            // Se não tem volume, o peso É ZERO. Não pode forçar 1. (Bug 1.1 Fix)
+            const w = Number(h.total) || 0; 
+            if (w > 0) {
+                const safeScore = getSafeScore(h, safeMaxScore);
+                wVarSum += w * Math.pow(safeScore - m, 2);
+                sumW += w;
+                sumW2 += w * w;
+            }
         });
 
         // Estimador imparcial de variância ponderada (Kish / Reliability weights)

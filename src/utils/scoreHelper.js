@@ -31,8 +31,9 @@ export function getSafeScore(historyRow, maxScore = 100) {
     if (!historyRow) return NaN;
 
     if (historyRow.score != null) {
-        let rawScore = historyRow.score;
-        if (typeof rawScore === 'string') rawScore = rawScore.replace(',', '.');
+        let rawScore = String(historyRow.score || '');
+        // Remove pontos de milhar, troca vírgulas por pontos para blindagem contra truncamento (Bug 2.1)
+        rawScore = rawScore.replace(/\./g, '').replace(',', '.'); 
         let s = parseFloat(rawScore);
         
         if (historyRow.isPercentage) {
@@ -44,14 +45,14 @@ export function getSafeScore(historyRow, maxScore = 100) {
     }
 
     // CORREÇÃO: Tratar campos vazios como Inválidos (NaN) e não como Zeros absolutos.
-    let rawTotal = historyRow.total;
-    if (typeof rawTotal === 'string') rawTotal = rawTotal.replace(',', '.');
-    const hasValidTotal = rawTotal !== undefined && rawTotal !== null && rawTotal !== '';
+    let rawTotal = String(historyRow.total || '');
+    rawTotal = rawTotal.replace(/\./g, '').replace(',', '.'); 
+    const hasValidTotal = rawTotal !== undefined && rawTotal !== null && rawTotal !== '' && rawTotal !== 'NaN';
     const total = hasValidTotal && Number.isFinite(Number(rawTotal)) ? Number(rawTotal) : NaN;
 
-    let rawCorrect = historyRow.correct;
-    if (typeof rawCorrect === 'string') rawCorrect = rawCorrect.replace(',', '.');
-    const hasValidCorrect = rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== '';
+    let rawCorrect = String(historyRow.correct || '');
+    rawCorrect = rawCorrect.replace(/\./g, '').replace(',', '.'); 
+    const hasValidCorrect = rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== '' && rawCorrect !== 'NaN';
     const correct = hasValidCorrect && Number.isFinite(Number(rawCorrect)) ? Number(rawCorrect) : NaN;
 
     // PRIORIDADE MÁXIMA: Flag isPercentage deve ser respeitada mesmo que total > 0.
@@ -79,8 +80,8 @@ export function getSafeScore(historyRow, maxScore = 100) {
 export function formatPercent(value) {
     if (value === null || value === undefined) return '0%';
     // CORREÇÃO: Blindagem de renderização visual contra separadores decimais não-americanos
-    let raw = value;
-    if (typeof raw === 'string') raw = raw.replace(',', '.');
+    let raw = String(value || '');
+    raw = raw.replace(/\./g, '').replace(',', '.'); 
     const num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
     
     const formatted = parseFloat(num.toFixed(2));
@@ -95,8 +96,8 @@ export function formatPercent(value) {
  */
 export function formatValue(value) {
     if (value === null || value === undefined) return '0';
-    let raw = value;
-    if (typeof raw === 'string') raw = raw.replace(',', '.');
+    let raw = String(value || '');
+    raw = raw.replace(/\./g, '').replace(',', '.'); 
     const num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
     
     return String(parseFloat(num.toFixed(2)));

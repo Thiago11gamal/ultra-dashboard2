@@ -210,7 +210,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         <div className="h-2 bg-slate-800 rounded-full overflow-hidden shadow-inner">
                             <div
                                 className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-1000 ease-out"
-                                style={{ width: `${progress.percentage}%` }}
+                                style={{ width: `${Math.max(0, Math.min(100, Number(progress?.percentage) || 0))}%` }}
                             />
                         </div>
                         <div className="text-[10px] sm:text-xs text-purple-400 font-bold leading-normal">
@@ -343,7 +343,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     // CORREÇÃO: Terceira camada de proteção UI esquecida contra inteiros Unix
                                     if (typeof rawDate === 'number') {
                                         const d = new Date(rawDate);
-                                        return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                                        // Extrai a data baseada no meridiano primário para blindar o timezone (Bug 3.1 Fix)
+                                        return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
                                     }
                                     
                                     if (typeof rawDate === 'object' && rawDate.seconds) {
@@ -359,7 +360,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                         g = new Date(raw);
                                     }
                                     if (isNaN(g.getTime())) return 'INVÁLIDA';
-                                    return g.toLocaleDateString('pt-BR');
+                                    // CORREÇÃO: Renderização UTC para evitar drift de fuso no Card
+                                    return `${String(g.getUTCDate()).padStart(2, '0')}/${String(g.getUTCMonth() + 1).padStart(2, '0')}/${g.getUTCFullYear()}`;
                                     } catch (error) {
                                         console.error('Failed to format goalDate for display:', error);
                                         return 'INVÁLIDA';
