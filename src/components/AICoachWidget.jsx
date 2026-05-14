@@ -93,6 +93,71 @@ function UrgencyBar({ score, cfg }) {
     );
 }
 
+// Adicione este componente dentro de AICoachWidget.jsx
+function MonteCarloGauge({ mc }) {
+    if (!mc || !mc.probability) return null;
+    
+    const prob = Math.min(100, Math.max(0, mc.probability));
+    const low = Math.min(100, Math.max(0, mc.ci95Low || prob - 5));
+    const high = Math.min(100, Math.max(0, mc.ci95High || prob + 5));
+
+    // Define a cor baseada na zona de risco (lógica exata do seu motor)
+    const isCritical = prob < (mc.thresholds?.danger || 30);
+    const color = isCritical ? 'bg-red-400' : (prob >= (mc.thresholds?.safe || 90) ? 'bg-emerald-400' : 'bg-indigo-400');
+
+    return (
+        <Motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 p-4 rounded-2xl bg-black/30 border border-white/10 relative overflow-hidden"
+        >
+            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                <BrainCircuit size={64} />
+            </div>
+            
+            <div className="relative z-10 flex justify-between items-end mb-3">
+                <div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-1">
+                        Projeção Estocástica (Monte Carlo)
+                    </span>
+                    <span className="text-xl font-black text-white">{Math.round(prob)}% <span className="text-sm text-slate-500 font-medium">de chance</span></span>
+                </div>
+                <div className="text-right">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">Volatilidade (MSSD)</span>
+                    <span className="text-xs font-mono font-bold text-amber-400">±{Math.round(mc.volatility)} pts</span>
+                </div>
+            </div>
+
+            {/* Intervalo de Confiança Visual */}
+            <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05]">
+                {/* Background Track Padrão */}
+                <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,white_4px,white_8px)]" />
+                
+                {/* Faixa de Confiança 95% (A dispersão matemática) */}
+                <Motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ left: `${low}%`, width: `${high - low}%` }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    className="absolute top-0 bottom-0 bg-white/10 rounded-full"
+                />
+                
+                {/* Ponto de Probabilidade Exata */}
+                <Motion.div 
+                    initial={{ left: 0 }}
+                    animate={{ left: `${prob}%` }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
+                />
+            </div>
+            
+            <div className="flex justify-between mt-2 px-1">
+                <span className="text-[9px] font-mono text-slate-500">Pior Cenário: {Math.round(low)}%</span>
+                <span className="text-[9px] font-mono text-slate-500">Teto: {Math.round(high)}%</span>
+            </div>
+        </Motion.div>
+    );
+}
+
 export default function AICoachWidget({ suggestion }) {
     const [showMatrix, setShowMatrix] = useState(false);
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
@@ -229,6 +294,9 @@ export default function AICoachWidget({ suggestion }) {
 
                             <div className="space-y-6">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
+                                {suggestion.urgency?.details?.monteCarlo && (
+                                    <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} />
+                                )}
                                 {suggestion.urgency?.recommendation && (
                                     <Motion.div
                                         initial={{ opacity: 0, y: 10 }}

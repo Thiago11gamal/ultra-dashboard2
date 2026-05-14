@@ -62,12 +62,26 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     <Play size={14} fill="currentColor" />
                 </button>
             </div>
-            <div className="relative z-10 flex-1 mb-6">
+            <div className="relative z-10 flex-1 mb-4">
                 <h3 className="text-lg sm:text-xl font-black text-white leading-tight mb-2 tracking-tighter">
                     {displayAssunto}
                 </h3>
                 <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed font-medium">{displayMeta}</p>
             </div>
+
+            {/* Exposição Visual dos KPIs Matemáticos */}
+            {task.analysis?.monteCarlo && (
+                <div className="relative z-10 grid grid-cols-2 gap-2 mb-4">
+                    <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-2.5 flex items-center justify-between">
+                        <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
+                        <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(task.analysis.monteCarlo.probability)}%</span>
+                    </div>
+                    <div className={`border rounded-xl p-2.5 flex items-center justify-between ${task.analysis.monteCarlo.volatility > 8 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-slate-500/10 border-slate-500/20'}`}>
+                        <span className={`text-[9px] font-black tracking-widest uppercase ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
+                        <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{Math.round(task.analysis.monteCarlo.volatility)}</span>
+                    </div>
+                </div>
+            )}
             {task.analysis && (
                 <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.06]">
                     <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors py-1 leading-none w-full">
@@ -325,12 +339,21 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                         <div>
                                             <div className="flex justify-between text-[10px] mb-2 px-1">
                                                 <span className="text-slate-500 font-bold uppercase tracking-[0.1em]">Erro (Brier)</span>
-                                                <span className={`font-mono font-bold ${toFinite(row.avgBrier) > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{toFinite(row.avgBrier).toFixed(3)}</span>
+                                                {/* Destaca se passou do baseline do seu motor (0.18) invés de 0.25 */}
+                                                <span className={`font-mono font-bold ${toFinite(row.avgBrier) > 0.18 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                    {toFinite(row.avgBrier).toFixed(3)}
+                                                </span>
                                             </div>
                                             <div className="h-2 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05]">
                                                 <div 
-                                                    className={`h-full transition-all duration-1000 ${toFinite(row.avgBrier) > 0.25 ? 'bg-gradient-to-r from-rose-500 to-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.3)]' : 'bg-gradient-to-r from-emerald-500 to-emerald-400'}`}
-                                                    style={{ width: `${Math.min(100, (toFinite(row.avgBrier) / 0.5) * 100)}%` }}
+                                                    // Se Brier > 0.18 (baseline), fica âmbar/vermelho. Se > 0.25 (crítico), fica pulsante.
+                                                    className={`h-full transition-all duration-1000 ${
+                                                        toFinite(row.avgBrier) >= 0.25 ? 'bg-gradient-to-r from-rose-500 to-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' :
+                                                        toFinite(row.avgBrier) > 0.18 ? 'bg-gradient-to-r from-amber-500 to-orange-400' : 
+                                                        'bg-gradient-to-r from-emerald-500 to-teal-400'
+                                                    }`}
+                                                    // Ajuste da matemática visual: o máximo considerável é 0.35 (limite prático de descalibração severa)
+                                                    style={{ width: `${Math.min(100, (toFinite(row.avgBrier) / 0.35) * 100)}%` }}
                                                 />
                                             </div>
                                         </div>
