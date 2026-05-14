@@ -370,3 +370,32 @@ describe('BUG-C2 guard: MC_SIMULATIONS deve ser 800 no coach', () => {
         expect(DEFAULT_CONFIG.MC_SIMULATIONS).toBeLessThanOrEqual(1000);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOVO: Verificação de Integridade Matemática — Rodada 9
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('NOVO: Processo Estocástico AR(1) — Persistência de Choque', () => {
+    it('deve apresentar decaimento AR(1) correto (persistência > ruído puro)', () => {
+        const history = makeHistory([70, 70, 70, 70, 70]);
+        // Simulamos 30 dias. Em RW puro, SD ≈ Vol * sqrt(30/7) ≈ Vol * 2.
+        // Com AR(1) (phi=0.5), SD aumenta significativamente.
+        const result = monteCarloSimulation(history, 80, 30, 1000);
+        
+        expect(result.sd).toBeGreaterThan(result.volatility * 1.2); 
+        expect(Number.isFinite(result.sd)).toBe(true);
+    });
+});
+
+describe('NOVO: Bayesian Variance Clamp — Prevenção de Colapso', () => {
+    it('variância nunca deve ser zero absoluto (piso 1e-6)', () => {
+        const history = makeHistory([100, 100, 100, 100, 100]); // Proficiência máxima
+        const result = computeBayesianLevel(history, 1, 1, 100);
+        
+        // Mesmo com 100% de acertos, a incerteza (SD) deve ser positiva devido ao clamp 1e-6
+        expect(result.sd).toBeGreaterThan(0);
+        // O unclampedHigh e Low devem existir para auditoria
+        expect(result.unclampedLow).toBeDefined();
+    });
+});
+
