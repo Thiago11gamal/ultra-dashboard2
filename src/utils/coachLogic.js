@@ -143,12 +143,6 @@ export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, gl
     const rawAcertos = Number(acertos) || 0;
     const rawTotal = Number(total) || 0;
 
-    // Se o aluno nunca fez NENHUMA questão deste tópico, o Prior é a ignorância (chute), 
-    // NÃO a sua média de excelência em outras matérias.
-    if (rawTotal === 0) {
-        return 0.25; // Assume 25% de proficiência natural (tópico de alto risco)
-    }
-
     // Fator de suavização (K) adaptativo baseado na experiência global do aluno
     const K = Math.max(3, Math.min(15, Math.log10(globalTotal + 1) * 3));
     

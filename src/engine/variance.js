@@ -90,12 +90,6 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
 
     let finalVar = (1 - validRho) * independentVar + (validRho * coherentVar);
 
-    // CORREÇÃO: Se estivermos usando pesos brutos (preserveScale), 
-    // precisamos neutralizar a explosão matemática dividindo pelo (peso_total)^2
-    if (preserveScale && sumRawWeights > 0) {
-        finalVar = finalVar / Math.pow(sumRawWeights, 2);
-    }
-
     return finalVar;
 }
 
