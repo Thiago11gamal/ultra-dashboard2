@@ -157,9 +157,10 @@ export function computeBayesianLevel(
 
     let maxNEver = alpha + beta;
     const gaps = [];
-    if (history.length > 1) {
-        for (let i = 1; i < history.length; i++) {
-            const gap = (new Date(history[i].date) - new Date(history[i - 1].date)) / 86400000;
+    const historySortedForGaps = history ? [...history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) : [];
+    if (historySortedForGaps.length > 1) {
+        for (let i = 1; i < historySortedForGaps.length; i++) {
+            const gap = (new Date(historySortedForGaps[i].date) - new Date(historySortedForGaps[i - 1].date)) / 86400000;
             if (gap > 0) {
                 gaps.push(gap);
             }
@@ -221,9 +222,8 @@ export function computeBayesianLevel(
                 const minN = retentionFloor;
                 const HARD_FLOOR = 3.0;
                 
-                const nAfterDecay = nBeforeDecay < minN 
-                    ? Math.max(HARD_FLOOR, nBeforeDecay * entryDecay)
-                    : Math.max(Math.max(minN, HARD_FLOOR), nBeforeDecay * entryDecay);
+                // MATH-CLIFF-FIX: Unifica a aplicação do piso de proteção de forma contínua para evitar saltos lógicos (Bug 3)
+                const nAfterDecay = Math.max(HARD_FLOOR, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * entryDecay)));
                 
                 alpha = nAfterDecay * currentP;
                 beta = nAfterDecay * (1 - currentP);
@@ -270,9 +270,9 @@ export function computeBayesianLevel(
             
             const minN = retentionFloor;
             const HARD_FLOOR = 3.0;
-            const nAfterDecay = nBeforeDecay < minN 
-                ? Math.max(HARD_FLOOR, nBeforeDecay * finalDecay)
-                : Math.max(Math.max(minN, HARD_FLOOR), nBeforeDecay * finalDecay);
+            
+            // MATH-CLIFF-FIX: Unifica a aplicação do piso de proteção de forma contínua
+            const nAfterDecay = Math.max(HARD_FLOOR, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * finalDecay)));
             
             alpha = nAfterDecay * currentP;
             beta = nAfterDecay * (1 - currentP);

@@ -185,6 +185,9 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         // Fallback legado se enviarem apenas o array de números
         return { score: Number(item), time: Date.now() - (historyOrScores.length - i) * 86400000 }; 
     }).filter(d => Number.isFinite(d.score));
+    
+    // ADAPT-SORT: Força ordenação cronológica para garantir que ages (referenceNow - time) sejam sempre >= 0.
+    parsedData.sort((a, b) => a.time - b.time);
 
     if (parsedData.length === 0) {
         return { effectiveN: 1, trendStrength: 0, adaptiveWinsor: { low: 0.05, high: 0.95 }, ciInflation: 1 };

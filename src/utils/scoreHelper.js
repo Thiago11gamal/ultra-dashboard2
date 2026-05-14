@@ -24,7 +24,7 @@ export const normalizePercentInput = (value) => {
 };
 
 export function getSafeScore(historyRow, maxScore = 100) {
-    if (!historyRow) return 0;
+    if (!historyRow) return NaN;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
 
     if (historyRow.score != null) {
@@ -37,7 +37,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
             s = (normalizePercentInput(s) / 100) * safeMaxScore;
         }
 
-        return Number.isFinite(s) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, s)) : 0;
+        return Number.isFinite(s) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, s)) : NaN;
     }
 
     const total = (Number.isFinite(Number(historyRow.total)) ? Number(historyRow.total) : 0);
@@ -49,7 +49,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
         // FIX: score já foi verificado como null, então usamos `correct` como valor percentual direto.
         const pValue = normalizePercentInput(correct);
         const scoreFromPercentage = (pValue / 100) * safeMaxScore;
-        return Number.isFinite(scoreFromPercentage) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, scoreFromPercentage)) : 0;
+        return Number.isFinite(scoreFromPercentage) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, scoreFromPercentage)) : NaN;
     }
 
     // Fallback de retrocompatibilidade para provas clássicas (correct / total)
@@ -57,7 +57,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
         return Math.max(-safeMaxScore, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
     }
 
-    return 0; // Prevenção de NaN
+    return NaN; // Prevenção de NaN (antigo fallback 0 removido para evitar bias de volatilidade)
 }
 
 /**
