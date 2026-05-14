@@ -285,10 +285,20 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
 // EMA Dinâmico
 // -----------------------------
 export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast = 1) {
-    const baseAlpha = 2 / (n + 1);
-    const timeWeight = 1 - Math.exp(-daysSinceLast / 7);
-    const alpha = Math.min(0.8, baseAlpha + (1 - baseAlpha) * timeWeight);
-    return alpha * currentScore + (1 - alpha) * previousEMA;
+    // BUG-02 FIX: Implementação de EMA Dinâmica com Decaimento Temporal Contínuo.
+    // Resolve a distorção onde longos períodos de inatividade eram ignorados (amnésia temporal).
+    // Fórmula: α_real = 1 - (1 - α_base)^Δt
+    const alphaBase = 2 / (n + 1);
+    const deltaT = Math.max(1, daysSinceLast);
+    
+    // O decaimento exponencial contínuo garante que o peso da nova nota cresça proporcionalmente
+    // ao tempo decorrido desde o último registro, compensando o "esquecimento".
+    const alphaDinamico = 1 - Math.pow(1 - alphaBase, deltaT);
+    
+    // Clamping de segurança para evitar que uma única nota de baixo volume destrua o histórico.
+    const safeAlpha = Math.min(0.95, alphaDinamico);
+    
+    return (currentScore * safeAlpha) + (previousEMA * (1 - safeAlpha));
 }
 
 // -----------------------------

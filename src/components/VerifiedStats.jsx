@@ -365,7 +365,8 @@ export default function VerifiedStats({ categories = [], user }) {
             .map(d => ({ 
                 // BUG-01 FIX: Converte a string YYYY-MM-DD de volta para ms local para o motor (calculateSlope)
                 date: new Date(getDateKey(new Date(d.date)) + 'T12:00:00').getTime(), 
-                score: d.scoreSum / d.weightSum 
+                score: d.scoreSum / d.weightSum,
+                weight: d.weightSum // BUG-01 FIX: Preservamos o volume para evitar Paradoxo de Simpson em médias posteriores
             }))
             .sort((a, b) => a.date - b.date);
 
@@ -402,9 +403,13 @@ export default function VerifiedStats({ categories = [], user }) {
         const distinctDays = dailyHistory.length;
 
         if (distinctDays >= 3) {
-            // Get recent average (last 5 for better stability)
+            // BUG-01 FIX: Rendimento Recente ponderado por volume real.
+            // Elimina o Paradoxo de Simpson ao evitar a "Média das Médias" diárias.
             const recentHistory = dailyHistory.slice(-5);
-            const currentAvg = recentHistory.reduce((a, b) => a + b.score, 0) / recentHistory.length;
+            const totalWeight = recentHistory.reduce((acc, d) => acc + (d.weight || 1), 0);
+            const currentAvg = totalWeight > 0 
+                ? recentHistory.reduce((acc, d) => acc + (d.score * (d.weight || 1)), 0) / totalWeight
+                : recentHistory.reduce((acc, d) => acc + d.score, 0) / recentHistory.length;
 
             // Determine Target dynamically IF user is already above their target
             if (currentAvg >= userTarget) {

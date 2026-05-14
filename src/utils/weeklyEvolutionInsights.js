@@ -32,27 +32,49 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
   const previousWindow = chartData.slice(-8, -4);
   if (!previousWindow.length) return null;
 
-  // 🎯 FIX: Cálculo de média ponderada pelo volume real de questões da semana
-  const calculateWeightedAvg = (windowData) => {
-    let totalWeightedScore = 0;
-    let totalVolume = 0;
+  // BUG-02 FIX: Substituímos o cálculo de Médias Simples por T-EMA (Time-Weighted Moving Average).
+  // Resolve a distorção temporal onde semanas antigas pesavam igual às recentes.
+  // Fórmula: α = 1 - (1 - α_base)^Δt
+  const calculateEMA = (windowData, alphaBase = 0.3) => {
+    if (!windowData.length) return null;
+    
+    let ema = null;
+    let lastTime = null;
 
-    windowData.forEach(week => {
+    windowData.forEach((week) => {
+      const currentTime = new Date(week.week + 'T12:00:00').getTime();
+      const deltaT = lastTime ? Math.max(1, (currentTime - lastTime) / 86400000) : 1;
+      
+      const alpha = 1 - Math.pow(1 - alphaBase, deltaT);
+      const safeAlpha = Math.min(0.9, alpha);
+
+      let weekSum = 0;
+      let weekVol = 0;
+
       visibleKeys.forEach(key => {
         const meta = week[`meta_${key}`];
-        // Verifica se há volume e se o valor é válido numéricamente
         if (meta && meta.currTot > 0 && Number.isFinite(Number(week[key]))) {
-          totalWeightedScore += (Number(week[key]) * meta.currTot);
-          totalVolume += meta.currTot;
+          weekSum += (Number(week[key]) * meta.currTot);
+          weekVol += meta.currTot;
         }
       });
+
+      if (weekVol > 0) {
+        const weekAvg = weekSum / weekVol;
+        if (ema === null) {
+          ema = weekAvg;
+        } else {
+          ema = (weekAvg * safeAlpha) + (ema * (1 - safeAlpha));
+        }
+      }
+      lastTime = currentTime;
     });
 
-    return totalVolume > 0 ? (totalWeightedScore / totalVolume) : null;
+    return ema;
   };
 
-  const recentAvg = calculateWeightedAvg(recentWindow);
-  const previousAvg = calculateWeightedAvg(previousWindow);
+  const recentAvg = calculateEMA(recentWindow);
+  const previousAvg = calculateEMA(previousWindow);
 
   if (recentAvg === null || previousAvg === null) return null;
 

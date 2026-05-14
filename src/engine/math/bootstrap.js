@@ -1,3 +1,5 @@
+import { makeNormalRng } from '../random.js';
+
 /**
  * Percentile bootstrap CI for robust uncertainty estimation.
  * Useful when normality assumptions are weak.
@@ -26,10 +28,31 @@ export function bootstrapCI(samples, statFn, {
   const n = clean.length;
   const bootstrapFallback = Number.isFinite(safeEstimate) ? safeEstimate : 0;
   
+  // BUG-03 FIX: Prevenção de Colapso de Variância para N < 5 (Smoothed Bootstrap).
+  // Injetamos ruído Gaussiano proporcional ao erro padrão para evitar subestimar a incerteza
+  // em amostras esparsas, alargando artificialmente o intervalo de confiança.
+  let sampleVariance = 0;
+  if (n > 1) {
+    const m = clean.reduce((acc, val) => acc + val, 0) / n;
+    sampleVariance = clean.reduce((acc, val) => acc + Math.pow(val - m, 2), 0) / (n - 1);
+  }
+  
+  // Criamos o gerador de ruído apenas se houver variância e N for pequeno.
+  const noiseStdDev = (n < 5 && sampleVariance > 0) ? Math.sqrt(sampleVariance / n) : 0;
+  const normalRng = noiseStdDev > 0 ? makeNormalRng(rand) : null;
+
   for (let i = 0; i < iters; i++) {
     const bag = new Array(n);
     for (let j = 0; j < n; j++) {
-      bag[j] = clean[Math.floor(rand() * n)];
+      let val = clean[Math.floor(rand() * n)];
+      
+      // Aplicação do Smoothed Bootstrap via Transformada de Box-Muller
+      if (normalRng) {
+        val += normalRng() * noiseStdDev;
+        val = Math.max(0, Math.min(100, val)); // Clamping defensivo
+      }
+      
+      bag[j] = val;
     }
     const v = Number(statFn(bag));
     dist[i] = Number.isFinite(v) ? v : bootstrapFallback;

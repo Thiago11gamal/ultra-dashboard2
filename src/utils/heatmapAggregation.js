@@ -63,24 +63,20 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
 export const calculateSubjectMastery = (subtopics) => {
     if (!subtopics || subtopics.length === 0) return 0;
 
-    let totalAcertosPonderados = 0;
-    let totalQuestoesPonderadas = 0;
-    let baseIgnorancia = 0; // Para Tópicos não estudados
+    // BUG-01 FIX: Cálculo Agregado Bruto para eliminar o Paradoxo de Simpson.
+    // Nunca tire média de porcentagens ou aplique shrinkage por tópico na agregação macro.
+    // Agregamos os valores brutos (acertos/total) para garantir precisão real.
+    let totalAcertos = 0;
+    let totalQuestoes = 0;
 
     subtopics.forEach(topic => {
-        // Usa o K Bayesiano para não deixar tópicos com 1 questão dominarem
-        const K = 5; 
-        const pesoRelevancia = topic.pesoEdital || 1;
-
-        // Se nunca estudou, injetamos um peso negativo invisível
-        if (topic.total === 0) {
-            baseIgnorancia += (K * pesoRelevancia * 0.25); // Chute
-            totalQuestoesPonderadas += (K * pesoRelevancia);
-        } else {
-            totalAcertosPonderados += (topic.acertos + K * 0.5) * pesoRelevancia;
-            totalQuestoesPonderadas += (topic.total + K) * pesoRelevancia;
-        }
+        // Suporte polimórfico para diferentes chaves de dados
+        const hits = Number(topic.acertos ?? topic.hits ?? 0);
+        const total = Number(topic.total ?? topic.questoes ?? 0);
+        
+        totalAcertos += hits;
+        totalQuestoes += total;
     });
 
-    return (totalAcertosPonderados + baseIgnorancia) / Math.max(1, totalQuestoesPonderadas);
+    return totalQuestoes > 0 ? (totalAcertos / totalQuestoes) : 0;
 };
