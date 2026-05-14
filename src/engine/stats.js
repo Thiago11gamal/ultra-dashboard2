@@ -368,9 +368,9 @@ export function computeBayesianLevel(
 
     const marginOfError = Z_95 * effectiveSd * safeMaxScore;
 
-    // Adição de Correção de Continuidade (útil quando N é pequeno e o traço é discreto)
-    const continuityCorrection = effectiveN > 0 ? safeMaxScore / (2 * effectiveN) : 0;
-    const adjustedMarginOfError = marginOfError + continuityCorrection;
+    // CORREÇÃO: Removida a continuityCorrection de Yates (Bug 1.3 Fix)
+    // Agresti-Coull + Epistemic/Aleatoric Var já resolvem o intervalo para N pequeno.
+    const adjustedMarginOfError = marginOfError;
 
     const centerForCI = p_tilde * safeMaxScore;
     let ciLow = centerForCI - adjustedMarginOfError;
