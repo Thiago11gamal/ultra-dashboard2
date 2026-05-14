@@ -897,11 +897,21 @@ export function analisarDesempenhoHistorico(historico) {
     }
     
     // Converte o formato do teste para o formato esperado pelo computeForgettingRisk
-    const formattedHistory = historico.map((h, i) => ({
-        score: h.acertos,
-        total: h.total || 100,
-        date: new Date(Date.now() - (h.diasRevisao || i) * 86400000).toISOString()
-    }));
+    const formattedHistory = historico.map((h, i) => {
+        // CORREÇÃO FATAL: Impedir o RangeError sanitizando a string ou caindo para o índice (i)
+        let rawDias = h.diasRevisao;
+        if (typeof rawDias === 'string') rawDias = rawDias.replace(',', '.');
+        const diasValidos = Number.isFinite(Number(rawDias)) ? Number(rawDias) : i;
+        
+        const timestamp = Date.now() - (diasValidos * 86400000);
+        const safeDate = Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
+
+        return {
+            score: h.acertos,
+            total: h.total || 100,
+            date: safeDate.toISOString()
+        };
+    });
 
     const risk = computeForgettingRisk(formattedHistory);
     
@@ -953,7 +963,13 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     }
 
     // Adicione uma soma de controlo (checksum) das notas reais ao hash para invalidar o cache sempre que uma pontuação for alterada internamente.
-    const scoreChecksum = simulados.reduce((acc, s) => acc + (Number(s.score) || 0) + (Number(s.correct) || 0), 0);
+    // CORREÇÃO: Utilizar o extrator resiliente (getSafeScore) para o Checksum, 
+    // garantindo que a entropia numérica varia corretamente a cada edição do utilizador.
+    const scoreChecksum = simulados.reduce((acc, s) => {
+        const parsed = getSafeScore(s, maxScore);
+        const validVal = Number.isNaN(parsed) ? 0 : parsed;
+        return acc + validVal;
+    }, 0);
 
     // Injeção do volume histórico atua como 'salt' criptográfico para o cache, 
     // garantindo que concursos distintos ou novos dados invalidem o estado corretamente.

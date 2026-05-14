@@ -71,11 +71,15 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
 export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore = 0, maxScore = 100) {
     if (!allScores || allScores.length === 0) return [];
 
+    // CORREÇÃO: Blindar o desvio padrão e a média ANTES de calcular as fronteiras físicas do gráfico
+    const safeMean = Number.isFinite(projectedMean) ? projectedMean : (maxScore / 2);
+    const safeSD = (Number.isFinite(projectedSD) && projectedSD > 0) ? projectedSD : (maxScore * 0.1);
+
     // FIX VISUAL: Margem dinâmica inteligente que respeita tanto a amplitude
     // do gráfico quanto o desvio padrão, com um piso mínimo (1.0).
-    const slack = Math.max(maxScore * 0.05, projectedSD * 0.5, 1.0);
-    let plotMin = Math.max(minScore - slack, projectedMean - 3.5 * projectedSD);
-    let plotMax = Math.min(maxScore + slack, projectedMean + 3.5 * projectedSD);
+    const slack = Math.max(maxScore * 0.05, safeSD * 0.5, 1.0);
+    let plotMin = Math.max(minScore - slack, safeMean - 3.5 * safeSD);
+    let plotMax = Math.min(maxScore + slack, safeMean + 3.5 * safeSD);
 
     const vMin = minScore - slack;
     const vMax = maxScore + slack;
