@@ -678,7 +678,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             ? `Você estudou ${recentHours.toFixed(1)}h esta semana (seu normal é ~${baselineHoursPerWeek.toFixed(1)}h), mas a nota estagnou.` 
             : '';
 
-        const isBurnoutRisk = (isHighVolume || isHighFrequency) && isStagnant && recentStudyDays >= 3;
+        const isBurnoutRisk = (isHighVolume || (isHighFrequency && recentHours > 5.0)) && isStagnant && recentStudyDays >= 3;
 
         if (mcHasData && mcRiskLabel === 'critical') {
             const burnoutNote = isBurnoutRisk ? ` (⚠️ ${burnoutMsg || 'Sinais de estafa — mude o método.'})` : '';
@@ -867,9 +867,12 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
         historyVolume = simulados.length;
     }
 
+    // Adicione uma soma de controlo (checksum) das notas reais ao hash para invalidar o cache sempre que uma pontuação for alterada internamente.
+    const scoreChecksum = simulados.reduce((acc, s) => acc + (Number(s.score) || 0) + (Number(s.correct) || 0), 0);
+
     // Injeção do volume histórico atua como 'salt' criptográfico para o cache, 
     // garantindo que concursos distintos ou novos dados invalidem o estado corretamente.
-    const hash = `${lastSimTimestamp}-${openTasks}-${maxScore}-${historyVolume}`; 
+    const hash = `${lastSimTimestamp}-${openTasks}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}`; 
     const cacheKey = `isolate_${catId}_${hash}`;
 
     if (_topicsCache.has(cacheKey)) {

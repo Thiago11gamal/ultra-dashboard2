@@ -169,7 +169,9 @@ export function simuladosToHistory(simulados, maxScore = 100) {
             const parsed = Date.parse(rawDate);
             return {
                 score: getSafeScore(s, maxScore),
-                date: Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : null,
+                date: Number.isFinite(parsed) 
+                    ? new Date(parsed).toLocaleDateString('en-CA') // Retorna de forma segura o formato YYYY-MM-DD no fuso local
+                    : null,
                 _idx: idx
             };
         })
