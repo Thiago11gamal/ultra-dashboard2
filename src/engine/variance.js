@@ -156,9 +156,8 @@ export function estimateInterSubjectCorrelation(
             const varX = kahanSum(varXArr);
             const varY = kahanSum(varYArr);
 
-            const denom = Math.sqrt(varX * varY);
-            if (denom <= 0) continue;
-
+            const epsilon = 1e-15;
+            const denom = Math.sqrt((varX + epsilon) * (varY + epsilon));
             const corr = cov / denom;
             pairwise.push({ corr, n });
         }

@@ -276,7 +276,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             ? empiricalProbability 
             : ((clampedPhiTarget - phiMax) / truncNormFactor) * 100; 
     }
-    const finalAnalyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
+    const finalAnalyticalProbability = analyticalProbability;
 
     const finiteEmpiricalProbability = Number.isFinite(bayesEmpiricalProbability) ? bayesEmpiricalProbability : 0;
     const finiteAnalyticalProbability = Number.isFinite(finalAnalyticalProbability) ? finalAnalyticalProbability : 0;
@@ -303,7 +303,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     const blendedProbability = (finiteAnalyticalProbability * analyticalWeight)
         + (finiteEmpiricalProbability * (1 - analyticalWeight));
-    const recommendedProbability = Math.min(100, Math.max(0, blendedProbability));
+    const recommendedProbability = blendedProbability;
 
     return {
         simulationCount: safeSimulations,

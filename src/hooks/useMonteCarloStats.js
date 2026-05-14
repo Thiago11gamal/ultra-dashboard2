@@ -17,7 +17,7 @@ import {
     winsorizeSeries, 
     computeAdaptiveSignal 
 } from '../utils/adaptiveMath.js';
-import { shrinkProbabilityToNeutral } from '../utils/calibration.js';
+import { shrinkProbabilityToNeutral, computeLogLoss } from '../utils/calibration.js';
 import { 
     getConfidenceTier, 
     buildHumanExplanation, 
@@ -84,7 +84,8 @@ function computeCalibrationPenalty(mcHistory, globalHistory, maxScore) {
         const target = Number(snapshot.target) || 0;
         if (target > 0) {
             const observed = actual.score >= target ? 1 : 0;
-            brierSum += ((p - observed) ** 2) * weight;
+            // MATH FIX: Usar Log Loss para capturar "Falsa Sensação de Domínio" (Entropia)
+            brierSum += computeLogLoss(p, observed === 1) * weight;
             brierWeightSum += weight;
         }
     });

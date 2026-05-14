@@ -397,8 +397,8 @@ export function computeBayesianLevel(
     return {
         mean: Number(centerForCI.toFixed(2)), // 🎯 FIX: Média de Shrinkage (Center) para alinhar com CI
         sd: Number((effectiveSd * safeMaxScore).toFixed(2)),
-        ciLow: Number(strictLow.toFixed(2)),
-        ciHigh: Number(strictHigh.toFixed(2)),
+        ciLow: Number(ciLow.toFixed(2)),
+        ciHigh: Number(ciHigh.toFixed(2)),
         unclampedLow: ciLow,
         unclampedHigh: ciHigh,
         alpha: alphaOut,

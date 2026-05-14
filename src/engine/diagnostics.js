@@ -138,8 +138,8 @@ export function generateMathDiagnostic(history, maxScore = 100) {
 }
 
 export function computeKLDivergenceNormal(mu1, sd1, mu2, sd2) {
-  const s1 = Math.max(1e-9, Number(sd1) || 1e-9);
-  const s2 = Math.max(1e-9, Number(sd2) || 1e-9);
+  const s1 = Math.max(1e-15, Number(sd1) || 1e-15);
+  const s2 = Math.max(1e-15, Number(sd2) || 1e-15);
   const m1 = Number(mu1) || 0;
   const m2 = Number(mu2) || 0;
 
@@ -329,7 +329,7 @@ export function computeLearningVelocity(history, maxScore = 100) {
 
   const Sty = ts.reduce((s, t, i) => s + t * ys[i], 0);
   const Stt = ts.reduce((s, t) => s + t * t, 0);
-  const k = Stt > 1e-9 ? Math.max(1e-4, -Sty / Stt) : 1e-3;
+  const k = Stt > 1e-15 ? Math.max(1e-4, -Sty / Stt) : 1e-3;
 
   const tNow = data[data.length - 1].t;
   const velocity = plateauEst * k * Math.exp(-k * tNow);
@@ -540,8 +540,9 @@ export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {
       const Sxy = xs.reduce((s, x, k) => s + (x - muX) * (ys[k] - muY), 0);
       const Sxx = xs.reduce((s, x) => s + (x - muX) ** 2, 0);
       const Syy = ys.reduce((s, y) => s + (y - muY) ** 2, 0);
-      const denom = Math.sqrt(Sxx * Syy);
-      const r = denom > 1e-10 ? Sxy / denom : 0;
+      const epsilon = 1e-15;
+      const denom = Math.sqrt((Sxx + epsilon) * (Syy + epsilon));
+      const r = Sxy / denom; // O epsilon garante denom > 0
       const clampedR = Math.max(-1, Math.min(1, r));
 
       let strength;

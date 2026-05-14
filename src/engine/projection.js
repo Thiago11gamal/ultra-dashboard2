@@ -82,14 +82,14 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     // Regularização de Tikhonov (Ridge) para estabilizar a matriz inversa da Regressão WLS
     // Adicionamos um lambda epsilon baseado na escala dos dias. (Bug 4 Fix)
     const RIDGE_PENALTY = 0.0001; 
-    const safeSumW = Math.max(1e-8, sumW);
+    const safeSumW = Math.max(1e-15, sumW);
     const varianceX = sumWXX - (sumWX * sumWX) / safeSumW;
     const covXY = sumWXY - (sumWX * sumWY) / safeSumW;
 
     const regularizedDenominator = varianceX + RIDGE_PENALTY;
     
     // Na hora da divisão final da regressão, adicione proteção contra pesos nulos (Bug 2 Fix)
-    if (safeSumW < 1e-9 || regularizedDenominator < 1e-12) {
+    if (safeSumW < 1e-15 || regularizedDenominator < 1e-15) {
         return { slope: 0, intercept: getSafeScore(sorted[sorted.length-1], maxScore), slopeStdError: 1.5 };
     }
     
@@ -136,7 +136,7 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
     // FIX: Usar o Tamanho Efetivo da Amostra de Kish para o divisor em WLS (Bug 16 / Lint Fix)
     // CORREÇÃO: Prevenir Underflow letal. Se os pesos desapareceram no esquecimento,
     // garantimos a exportação da incerteza base em vez de dividir por ZERO.
-    if (sumW2 <= 1e-12) return 1.5 * (maxScore / 100);
+    if (sumW2 <= 1e-15) return 1.5 * (maxScore / 100);
     
     const effectiveN = (sumW * sumW) / sumW2;
     const scaleFactorFallback = maxScore / 100;
@@ -187,18 +187,20 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
 
     // CORREÇÃO: Prevenir o colapso por "amnésia temporal". Se os pesos decaírem para zero absoluto,
     // evitamos a divisão por zero para que o aluno mantenha um cone de projeção conservador.
-    const safeWeights = sumWeights > 1e-9 ? sumWeights : 1;
-    const expectedResidual = sumWeights > 1e-9 ? (sumResidualsWeighted / safeWeights) : 0;
+    // CORREÇÃO: Prevenir o colapso por "amnésia temporal". Se os pesos decaírem para zero absoluto,
+    // evitamos a divisão por zero para que o aluno mantenha um cone de projeção conservador.
+    const safeWeights = sumWeights > 1e-15 ? sumWeights : 1;
+    const expectedResidual = sumWeights > 1e-15 ? (sumResidualsWeighted / safeWeights) : 0;
     
     const n_res = sorted.length - 1;
     const bessel = n_res > 1 ? n_res / (n_res - 1) : 1;
-    const mssdVariance = sumWeights > 1e-9 ? ((sumSw / safeWeights) - (expectedResidual * expectedResidual)) * bessel : 0;
+    const mssdVariance = sumWeights > 1e-15 ? ((sumSw / safeWeights) - (expectedResidual * expectedResidual)) * bessel : 0;
 
     const weightedMedian = (arr) => {
         if (!arr.length) return 0;
         const sortedArr = [...arr].sort((a, b) => a.value - b.value);
         const totalW = sortedArr.reduce((acc, it) => acc + it.weight, 0);
-        if (totalW < 1e-9) return sortedArr[Math.floor(sortedArr.length / 2)].value;
+        if (totalW < 1e-15) return sortedArr[Math.floor(sortedArr.length / 2)].value;
         let accW = 0;
         for (const it of sortedArr) {
             accW += it.weight;
@@ -647,7 +649,9 @@ export function monteCarloSimulation(
         }
 
         // Aplica os limites físicos da prova APENAS no resultado assintótico final
-        results.push(Math.max(minScore, Math.min(maxScore, currentSimScore)));
+        // Preservação de sinal estrito: O backend mantém o valor bruto. 
+        // O clamping ocorre apenas na camada de UI (MonteCarloGauge.jsx).
+        results.push(currentSimScore);
     }
 
     // 4. Agregação Estatística

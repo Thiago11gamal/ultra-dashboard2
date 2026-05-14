@@ -4,6 +4,17 @@ export function computeBrierScore(probability01, observedBinary) {
     return (p - y) ** 2;
 }
 
+/**
+ * Neutraliza NaN poisoning em cálculos de Log Loss (Entropia Cruzada).
+ * Implementa epsilon clamping (1e-15) conforme exigência técnica.
+ */
+export function computeLogLoss(probability01, observedBinary) {
+    const epsilon = 1e-15;
+    const p = Math.max(epsilon, Math.min(1 - epsilon, Number(probability01) || 0.5));
+    const y = observedBinary ? 1 : 0;
+    return -(y * Math.log(p) + (1 - y) * Math.log(1 - p));
+}
+
 export function summarizeCalibration(scores = [], options = {}) {
     const maxPenalty = Math.max(0, Math.min(1, Number(options.maxPenalty) || 0.25));
     const baseline = Number.isFinite(options.baseline) ? options.baseline : 0.18;
@@ -18,7 +29,11 @@ export function summarizeCalibration(scores = [], options = {}) {
     const trim = sorted.length >= 8 ? Math.floor(sorted.length * 0.1) : 0;
     const core = trim > 0 ? sorted.slice(trim, sorted.length - trim) : sorted;
     const avgBrier = core.reduce((a, b) => a + b, 0) / core.length;
+    
+    // A penalidade agora é baseada no Brier Score, mas o motor deve monitorar Log Loss
+    // para diagnósticos de "falsa sensação de domínio" (Entropia).
     const calibrationPenalty = Math.min(maxPenalty, Math.max(0, avgBrier - baseline));
+    
     return { avgBrier, calibrationPenalty, sampleSize: finiteScores.length };
 }
 
@@ -229,25 +244,26 @@ export function computeStackingWeights(candidateProbs = [], observed = []) {
   const n = Array.isArray(observed) ? observed.length : 0;
   if (n === 0) return new Array(k).fill(1 / k);
 
-  const losses = candidateProbs.map(series => {
-    if (!Array.isArray(series) || series.length !== n) return 1e6;
-    let acc = 0;
-    for (let i = 0; i < n; i++) {
-      const p = Math.max(0, Math.min(1, Number(series[i]) || 0));
-      const y = Math.max(0, Math.min(1, Number(observed[i]) || 0));
-      acc += (p - y) ** 2;
-    }
-    return acc / n;
-  });
-  const temp = 0.08;
-  const minLoss = Math.min(...losses); // Shift Trick
-  const scores = losses.map(l => Math.exp(-(l - minLoss) / temp));
-  const z = scores.reduce((a, b) => a + b, 0);
+        // BUG-LOGLOSS FIX: Usar Cross-Entropy (Log Loss) para o Stacking Weight.
+        // O MSE (Brier) é menos punitivo com "falsas certezas" que a Log Loss.
+        const logLoss = candidateProbs.map(series => {
+            if (!Array.isArray(series) || series.length !== n) return 1e6;
+            let acc = 0;
+            for (let i = 0; i < n; i++) {
+                const p = Math.max(0, Math.min(1, Number(series[i]) || 0));
+                const y = Math.max(0, Math.min(1, Number(observed[i]) || 0));
+                acc += computeLogLoss(p, y);
+            }
+            return acc / n;
+        });
 
-  // Fallback robusto se z ainda for 0 (devido a imprecisão de float)
-  if (z === 0) return new Array(k).fill(1 / k);
-  return scores.map(s => s / z);
-}
+        // Peso inversamente proporcional à entropia
+        const minLoss = Math.min(...logLoss);
+        const scores = logLoss.map(l => Math.exp(-(l - minLoss) / 0.08));
+        const z = scores.reduce((a, b) => a + b, 0);
+        if (z === 0) return new Array(k).fill(1 / k);
+        return scores.map(s => s / z);
+    };
 
 export function buildCalibrationDashboardSeries(events = []) {
   const clean = (events || [])
