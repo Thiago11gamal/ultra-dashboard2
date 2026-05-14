@@ -588,26 +588,29 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const dynamicBurnoutThreshold = Math.max(15.0, baselineHoursPerWeek * 1.8);
 
         // E2. Balance Bridge (equilíbrio entre matérias do Meu Painel -> Coach)
-        const activeCategories = (options.allCategories || []).filter(c => (c?.tasks || []).length > 0);
-        const activeCount = activeCategories.length > 0 ? activeCategories.length : 1;
-        const MS_PER_DAY = 24 * 60 * 60 * 1000;
+        // CORREÇÃO: O peso do edital é soberano e independente de existirem tarefas criadas.
+        const allCategoriesSafe = options.allCategories || [];
+        const activeCount = allCategoriesSafe.length > 0 ? allCategoriesSafe.length : 1;
+        const MS_PER_DAY_CONST = 24 * 60 * 60 * 1000;
         
         const currentLambda = mcAdaptive?.decayK || 0.03; 
         const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
 
-        const windowStart = normalizeDate(new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY);
+        const windowStart = normalizeDate(new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY_CONST);
         const recentAllLogs = (studyLogs || []).filter(log => normalizeDate(log?.date).getTime() >= windowStart);
         const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const totalRecentMinutesCat = recentAllLogs
             .filter(log => log?.categoryId === categoryId)
             .reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
-        const totalActiveWeight = activeCategories.reduce((acc, c) => {
+        
+        const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
             const parsedW = Number(c.weight);
             const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
             return acc + w;
         }, 0);
-        const idealShare = totalActiveWeight > 0 ? rawWeight / totalActiveWeight : (1 / activeCount);
+        
+        const idealShare = totalSyllabusWeight > 0 ? rawWeight / totalSyllabusWeight : (1 / activeCount);
         
         // OTIMIZAÇÃO: Tolerância de 5% para evitar micro-correções e multiplicador exponencial 
         // para não punir severamente matérias de peso muito baixo.
@@ -639,18 +642,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // G. Rotation Penalty (Dinâmico)
         let rotationPenalty = 0;
         if (daysSinceLastStudy < 1) {
-            const normalizedVolatility = mssdVolatility / maxScore; 
-            const dynamicPenalty = Math.min(25, (averageScore / maxScore) * 15 * (1 + (normalizedVolatility * 2)));
+            // CORREÇÃO: A penalidade diária atua com base no excesso de confiança e volume, 
+            // e não é cancelada pela consistência (volatilidade).
+            const fatigueRatio = Math.max(0, Math.min(1, averageScore / maxScore)); 
+            const dynamicPenalty = Math.min(25, 15 * fatigueRatio * (1 + (mssdVolatility / maxScore)));
             
-            // CORREÇÃO MATH: Substituir o degrau (if-else abrupto) por uma transição 
-            // linear/logística suave. Penalidade começa a escalar a partir dos 40%.
-            // FIX MATH-04: Penalidade de Rotação guiada por INSTABILIDADE (Risco Estocástico),
-            // não por Punição de Excelência. Alunos de elite constantes não devem ser fadigados.
-            // Normalizamos a MSSD pelo limite crítico (10% da prova)
-            const volatileRatio = mssdVolatility / Math.max(1, maxScore * 0.10); 
-            const smoothingFactor = Math.max(0, Math.min(1, volatileRatio)); // Escala de 0 a 1
-            
-            rotationPenalty = dynamicPenalty * smoothingFactor;
+            rotationPenalty = dynamicPenalty;
 
         } else if (daysSinceLastStudy === 1 && !srsLabel) {
             rotationPenalty = mssdVolatility > (maxScore * 0.05) ? 8 : 2; 
@@ -713,7 +710,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         
         const isHighVolume = recentHours > dynamicBurnoutThreshold;
         const isHighFrequency = recentStudyDays >= 5;
-        const isStagnant = trend <= trendThreshold;
+        // CORREÇÃO: Alunos acima de 95% do teto não podem ser dados como estagnados por não crescerem mais.
+        // A matemática física impede-os de ultrapassar os 100%.
+        const isEliteMaintenance = averageScore >= (maxScore * 0.95);
+        const isStagnant = !isEliteMaintenance && trend <= trendThreshold;
 
         const burnoutMsg = isHighVolume && isStagnant 
             ? `Você estudou ${recentHours.toFixed(1)}h esta semana (seu normal é ~${baselineHoursPerWeek.toFixed(1)}h), mas a nota estagnou.` 
