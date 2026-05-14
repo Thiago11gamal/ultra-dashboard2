@@ -213,61 +213,60 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
             <div className="flex flex-col gap-6">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                            <Compass size={18} className="text-indigo-400" />
+                    <div className="flex items-center gap-4">
+                        <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shadow-lg shadow-indigo-500/5">
+                            <Compass size={20} className="text-indigo-400" />
                         </div>
-                        <div>
-                            <h2 className="text-sm font-black tracking-tight text-white">Painel Coach AI</h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Navegação tática</p>
+                        <div className="py-1">
+                            <h2 className="text-base font-black tracking-tight text-white">Painel Coach AI</h2>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black opacity-70">Navegação tática</p>
                         </div>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                        <div className="flex items-center p-1.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-inner">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center p-1 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-inner">
                             <button
                                 type="button"
                                 onClick={() => setViewMode('planner')}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
+                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                             >
-                                <LayoutGrid size={12} className="shrink-0" />
+                                <LayoutGrid size={13} className="shrink-0" />
                                 Planner
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setViewMode('cards')}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
+                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                             >
-                                <Sparkles size={12} className="shrink-0" />
+                                <Sparkles size={13} className="shrink-0" />
                                 Cards
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setViewMode('list')}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
+                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                             >
-                                <List size={12} className="shrink-0" />
+                                <List size={13} className="shrink-0" />
                                 Lista
                             </button>
                         </div>
                         
-                        <div className="w-px h-6 bg-white/10 hidden sm:block mx-1" />
-
-                        <button
-                            onClick={handleExport}
-                            disabled={isExporting}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] transition-all disabled:opacity-50"
-                        >
-                            {isExporting ? <Loader2 size={13} className="animate-spin shrink-0" /> : <Download size={13} className="shrink-0" />}
-                            Exportar
-                        </button>
-                        <button
-                            onClick={onClearHistory}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all"
-                        >
-                            <Trash2 size={13} className="shrink-0" />
-                            Limpar
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleExport}
+                                disabled={isExporting}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] hover:border-white/20 transition-all disabled:opacity-50"
+                            >
+                                {isExporting ? <Loader2 size={13} className="animate-spin shrink-0" /> : <Download size={13} className="shrink-0" />}
+                                Exportar
+                            </button>
+                            <button
+                                onClick={onClearHistory}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all"
+                            >
+                                <Trash2 size={13} className="shrink-0" />
+                                Limpar
+                            </button>
+                        </div>
                     </div>
                 </div>
 

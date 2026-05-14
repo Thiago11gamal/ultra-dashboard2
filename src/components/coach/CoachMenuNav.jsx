@@ -93,8 +93,8 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
 
     return (
         <div className="mb-8 p-1 sm:p-2 rounded-3xl border border-violet-500/20 bg-gradient-to-b from-slate-950/95 to-slate-900/90 shadow-[0_18px_42px_rgba(2,6,23,0.45)]">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                <div className="min-w-0 pb-2 lg:pb-0 px-2">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 px-2">
+                <div className="min-w-0 py-3 sm:py-4">
                     <p className="text-[10px] text-cyan-400/80 font-black uppercase tracking-[0.25em] mb-1.5">Navegação</p>
                     <h3 className="text-xl font-black text-white tracking-tight">Central de Estratégia</h3>
                 </div>

@@ -109,27 +109,27 @@ function MonteCarloGauge({ mc }) {
         <Motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-6 p-4 rounded-2xl bg-black/30 border border-white/10 relative overflow-hidden"
+            className="mt-3 p-4 rounded-2xl bg-black/40 border border-white/10 relative overflow-hidden"
         >
             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                 <BrainCircuit size={64} />
             </div>
             
-            <div className="relative z-10 flex justify-between items-end mb-3">
-                <div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-1">
-                        Projeção Estocástica (Monte Carlo)
+            <div className="relative z-10 flex justify-between items-center mb-3">
+                <div className="min-w-0 flex-1">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-1 truncate">
+                        Projeção (Monte Carlo)
                     </span>
-                    <span className="text-xl font-black text-white">{Math.round(prob)}% <span className="text-sm text-slate-500 font-medium">de chance</span></span>
+                    <span className="text-xl font-black text-white">{Math.round(prob)}%</span>
                 </div>
-                <div className="text-right">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">Volatilidade (MSSD)</span>
+                <div className="text-right shrink-0">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">Volatilidade</span>
                     <span className="text-xs font-mono font-bold text-amber-400">±{Math.round(mc.volatility)} pts</span>
                 </div>
             </div>
 
             {/* Intervalo de Confiança Visual */}
-            <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05]">
+            <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05] my-4">
                 {/* Background Track Padrão */}
                 <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,white_4px,white_8px)]" />
                 
@@ -150,9 +150,15 @@ function MonteCarloGauge({ mc }) {
                 />
             </div>
             
-            <div className="flex justify-between mt-2 px-1">
-                <span className="text-[9px] font-mono text-slate-500">Pior Cenário: {Math.round(low)}%</span>
-                <span className="text-[9px] font-mono text-slate-500">Teto: {Math.round(high)}%</span>
+            <div className="flex justify-between mt-3 px-0.5">
+                <div className="flex flex-col">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">Pior Cenário</span>
+                    <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(low)}%</span>
+                </div>
+                <div className="flex flex-col text-right">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">Teto Probabilístico</span>
+                    <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(high)}%</span>
+                </div>
             </div>
         </Motion.div>
     );
