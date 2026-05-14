@@ -11,8 +11,7 @@ export function bootstrapCI(samples, statFn, {
   if (clean.length === 0) return { estimate: 0, low: 0, high: 0, n: 0 };
 
   const estimate = Number(statFn(clean));
-  // CORREÇÃO: Proteger o fallback base contra a própria propagação do NaN.
-  const safeEstimate = Number.isFinite(estimate) ? estimate : 0;
+  const safeEstimate = estimate; // Preserve NaN if that's what statFn returns (Bug-Fix for regression tests)
   
   const iters = Math.max(200, Math.floor(iterations));
   const a = Math.min(0.49, Math.max(0.001, alpha / 2));
@@ -25,13 +24,15 @@ export function bootstrapCI(samples, statFn, {
 
   const dist = new Array(iters);
   const n = clean.length;
+  const bootstrapFallback = Number.isFinite(safeEstimate) ? safeEstimate : 0;
+  
   for (let i = 0; i < iters; i++) {
     const bag = new Array(n);
     for (let j = 0; j < n; j++) {
       bag[j] = clean[Math.floor(rand() * n)];
     }
     const v = Number(statFn(bag));
-    dist[i] = Number.isFinite(v) ? v : safeEstimate;
+    dist[i] = Number.isFinite(v) ? v : bootstrapFallback;
   }
 
   // CORREÇÃO: Limpeza obrigatória ANTES do algoritmo de Sorting, pois o motor V8 do JS

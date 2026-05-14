@@ -202,8 +202,6 @@ export function computeBayesianLevel(
         : 1;
     const questionsPerDay = totalQuestionsHist / historyDays;
 
-    // Capacidade base (Tempo) vs Capacidade de Volume (30 dias de memória ativa)
-    const baseCapacity = 250 / avgGap;
     const volumeCapacity = questionsPerDay * 30;
     
     // O teto adapta-se à realidade hiperativa do aluno
