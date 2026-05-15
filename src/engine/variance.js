@@ -4,7 +4,7 @@
  * Implements weighted variance calculation and time uncertainty
  * All formulas are statistically correct and auditable
  */
-import { kahanSum } from './math/kahan.js';
+import { kahanMean, kahanSum } from './math/kahan.js';
 
 /**
  * Compute weighted variance from category statistics

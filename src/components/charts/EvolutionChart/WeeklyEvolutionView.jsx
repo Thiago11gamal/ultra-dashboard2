@@ -117,6 +117,7 @@ export const WeeklyEvolutionView = ({
         const scoreRange = Math.max(1e-9, upperBound - lowerBound);
         const toRatio = (score) => (Math.max(lowerBound, Math.min(upperBound, Number(score) || lowerBound)) - lowerBound) / scoreRange;
         const fromRatio = (ratio) => lowerBound + (Math.max(0, Math.min(1, Number(ratio) || 0)) * scoreRange);
+        const weeksTemp = {};
 
         const processHistory = (historyArray, itemId) => {
             if (!Array.isArray(historyArray) || !itemId) return;
