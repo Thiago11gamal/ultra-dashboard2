@@ -7,7 +7,6 @@ describe('Monte Carlo Bugfixes Validation', () => {
     it('Bug 1: Bayesian Floor deve funcionar para histórico zero', () => {
         const res = simulateNormalDistribution({
             mean: 50,
-            sd: 0,
             simulations: 100,
             historyLength: 0,
             maxScore: 100,

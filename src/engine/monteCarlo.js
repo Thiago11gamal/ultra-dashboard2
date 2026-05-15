@@ -76,6 +76,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     maxScore = safeDomain.maxScore;
 
     const safeMean = Number.isFinite(mean) ? mean : 0;
+    const hasExplicitDeterministicSD = Number.isFinite(sd) && sd <= 0;
     let safeSD = Number.isFinite(sd) && sd > 0 ? sd : 0; 
 
     // FIX: Unificar a inferência do SD nos dois caminhos
@@ -92,7 +93,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             
             let inferredSD = (high - low) / (tMultiplier * 2);
             const distToBoundary = Math.min(safeMean - minScore, maxScore - safeMean);
-
+ 
             // Se a média estiver muito próxima do limite (0 ou 100), o intervalo de 95% 
             // fica comprimido. Inflamos o SD para refletir a incerteza real.
             if (distToBoundary < inferredSD * 1.5) {
@@ -104,10 +105,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             }
         }
     }
-
+ 
     // O PULO DO GATO: Shrinkage Bayesiano para safeSD (Bug 1 Fix)
     // Se temos um histórico curto, não podemos confiar em SD=0.
-    if (historyLength < 15) {
+    if (!hasExplicitDeterministicSD && historyLength < 15) {
         const floorVolatility = maxScore * 0.04;
         const confidence = historyLength / 15;
         safeSD = (safeSD * confidence) + (floorVolatility * (1 - confidence));

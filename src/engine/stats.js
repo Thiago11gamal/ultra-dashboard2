@@ -95,7 +95,8 @@ export const calcularDesvioPadrao = (arr) => {
     const m = clean.reduce((a, b) => a + b, 0) / clean.length;
     
     const sumSq = clean.map(x => Math.pow(x - m, 2));
-    const v = clean.length > 1 ? kahanSum(sumSq) / (clean.length - 1) : 0;
+    // Este helper é usado pelos testes rigorosos como desvio padrão populacional (ddof=0).
+    const v = clean.length > 0 ? kahanSum(sumSq) / clean.length : 0;
     
     return Math.sqrt(v);
 };
