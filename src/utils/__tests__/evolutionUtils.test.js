@@ -13,6 +13,14 @@ describe('evolution utils', () => {
     expect(mid.mean).toBeLessThanOrEqual(opt.mean);
   });
 
+  it('respects non-zero minimum score when adjusting scenarios', () => {
+    const base = [{ mean: 56, probability: 52, ciRange: [54, 58] }];
+    const adjusted = applyScenarioAdjustments(base, 'conservative', 80, 55)[0];
+    expect(adjusted.mean).toBeGreaterThanOrEqual(55);
+    expect(adjusted.ciRange[0]).toBeGreaterThanOrEqual(55);
+    expect(adjusted.ciRange[1]).toBeGreaterThanOrEqual(55);
+  });
+
   it('aggregates heatmap weekly and monthly', () => {
     expect(getMondayKey('2026-05-10')).toBe('2026-05-04');
     const filtered = {
