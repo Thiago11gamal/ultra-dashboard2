@@ -322,7 +322,7 @@ export const MonteCarloEvolutionChart = ({
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
                     A área sombreada representa o IC 95% da projeção ao longo do tempo (P2.5 ~ P97.5).
                 </p>
-                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-none border border-white/5">N = {scenarioAdjustedData.length} dias</span>
+                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-none border border-white/5">N = {scenarioAdjustedData.length} registros</span>
             </div>
         </div>
     );

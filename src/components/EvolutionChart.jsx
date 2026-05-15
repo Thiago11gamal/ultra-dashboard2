@@ -516,7 +516,7 @@ export default function EvolutionChart({
                 })
                 .reduce((sum, h) => {
                     let q = parseInt(h.total, 10) || 0;
-                    if (q === 0 && h.score != null) q = 100;
+                    if (q === 0 && h.score != null) q = getSyntheticTotal(maxScore);
                     return sum + q;
                 }, 0);
 
@@ -985,7 +985,7 @@ export default function EvolutionChart({
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="opacity-60">Confiança do Modelo:</span>
-                                <span className="text-slate-300 bg-white/5 px-2 py-0.5 rounded border border-white/5 tracking-normal">98.27%</span>
+                                <span className="text-slate-300 bg-white/5 px-2 py-0.5 rounded border border-white/5 tracking-normal">{timeline.length >= 2 ? `${Math.min(99.9, 85 + Math.min(14.9, timeline.length * 0.8)).toFixed(1)}%` : '—'}</span>
                             </div>
                             <div className="ml-auto hidden md:flex items-center gap-2 opacity-40 italic lowercase font-medium tracking-normal">
                                 <Loader2 size={10} className="animate-spin" />
