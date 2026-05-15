@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { 
     computeAdaptiveSignal, 
-    deriveAdaptiveConfig, 
     getConfidenceMultiplier, 
     winsorizeSeries,
     calcSlopeWithSignificance,

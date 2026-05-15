@@ -5,7 +5,7 @@ import {
     ResponsiveContainer, LabelList
 } from "recharts";
 
-export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit = '%', maxScore = 100 }) {
+export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit: _unit = '%', maxScore: _maxScore = 100 }) {
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;

@@ -2,8 +2,8 @@ import { mulberry32 } from './random.js';
 import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math/gaussian.js';
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
-import { getPercentile, quickSelect, calculateInterpolatedPercentile } from './math/percentile.js';
-import { kahanSum, kahanMean } from './math/kahan.js';
+import { getPercentile, quickSelect } from './math/percentile.js';
+import { kahanMean } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 

@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { 
     monteCarloSimulation, 
-    calculateRobustVolatility,
-    weightedRegression
+    calculateRobustVolatility
 } from '../src/engine/projection.js';
 import { computeStackingWeights } from '../src/utils/calibration.js';
 

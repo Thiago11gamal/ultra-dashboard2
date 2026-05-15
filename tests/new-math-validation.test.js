@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { calculateUrgency } from '../src/utils/coachLogic.js';
 import { simuladosToHistory } from '../src/utils/coachAdaptive.js';
 

@@ -165,7 +165,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
 
     const lambda = options.lambda || 0.08;
     const now = options.referenceDate || Date.now();
-    const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
+    const _scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
     const { slope, intercept } = weightedRegression(sorted, lambda, maxScore, options);
     const t0_vol = safeDateParse(sorted[0].date || sorted[0].createdAt).getTime();

@@ -4,7 +4,7 @@
  * advenha de um banco de dados legado sem o campo "score" calculado (Bug 5).
  */
 
-export function getSyntheticTotal(maxScore = 100) {
+export function getSyntheticTotal(_maxScore = 100) {
     // CORREÇÃO: Uma entrada puramente percentual tem peso estatístico fixo e 
     // equivalente a uma prova curta/média (ex: 20 tentativas de Bernoulli).
     return 20; 

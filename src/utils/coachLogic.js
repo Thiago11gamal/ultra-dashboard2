@@ -2,7 +2,7 @@
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
-import { safeDateParse } from './dateHelper.js';
+import { safeDateParse as _safeDateParse } from './dateHelper.js';
 import { normalize } from './normalization.js';
 import { computeRollingCalibrationParams } from './calibration.js';
 import { 
@@ -117,7 +117,7 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null) {
     return Number(Math.min(2.0, urgency).toFixed(4));
 }
 
-function getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null) {
+function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null) {
     // CORREÇÃO: Transmitir a recência real (dias desde a última interação teórica ou prática)
     const forgettingData = computeForgettingRisk(history, maxScore, daysSince, mssdVolatility, effectiveN);
     
@@ -546,7 +546,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const effectiveRiskDays = daysSinceLastStudy; 
         
         // Encontre a data do simulado ou estudo mais antigo (a raiz da jornada)
-        const firstActivityDate = (relevantSimulados.length > 0) 
+        const _firstActivityDate = (relevantSimulados.length > 0) 
             ? normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) 
             : normalizeDate(new Date());
 

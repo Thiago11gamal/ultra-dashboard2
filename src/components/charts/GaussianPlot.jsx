@@ -210,7 +210,6 @@ export const GaussianPlot = ({
     const isCurrentVisible = currentMean != null && currentPos >= 2 && currentPos <= 98;
 
     const saturation = range > 0 ? Math.max(0, Math.min(1, (ciHighBound - ciLowBound) / range)) : 1;
-    const ciLabel = saturation > 0.8 ? "ALTA INCERTEZA" : saturation > 0.4 ? "ESTIMATIVA" : "CONFIÁVEL";
 
     const resolvedLabels = useMemo(() => {
         const items = [];

@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Play, BrainCircuit, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';

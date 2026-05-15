@@ -59,7 +59,7 @@ export function useMonteCarloWorker() {
             
             // CORREÇÃO: Limpa TODOS os pendentes deste hook, independentemente 
             // de qual reencarnação do worker os estava a processar.
-            for (const [id, pending] of pendingRequestsRef.current) {
+            for (const [_id, pending] of pendingRequestsRef.current) {
                 if (pending.timeoutId) clearTimeout(pending.timeoutId);
                 pending.reject(new Error('Worker foi encerrado (component unmounted).'));
             }
@@ -172,7 +172,7 @@ export function useMonteCarloWorker() {
             
             try {
                 worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
-            } catch (postErr) {
+            } catch {
                 clearTimeout(timeoutId);
                 pendingRequestsRef.current.delete(id);
                 reject(new Error(`Falha ao enviar dados para o Worker (DataCloneError). Estrutura inválida.`));

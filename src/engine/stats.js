@@ -331,9 +331,9 @@ export function computeBayesianLevel(
             const nBeforeDecay = alpha + beta;
             const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
             
-            const minN = retentionFloor;
+            const _minN = retentionFloor;
             const HARD_FLOOR = 3.0;
-            const safeFloor = Math.min(HARD_FLOOR, nBeforeDecay);
+            const _safeFloor = Math.min(HARD_FLOOR, nBeforeDecay);
             
             // O decaimento atinge severamente o acerto (P), mas a confiança (N) sofre atrito menor.
             const epistemicDecay = Math.pow(finalDecay, 0.35); // A inércia da confiança resiste mais
@@ -359,7 +359,7 @@ export function computeBayesianLevel(
     const effectiveN = Math.min(n, dynamicEffectiveN);
 
     const p = alpha / n;
-    const bayesianMean = p * safeMaxScore;
+    const _bayesianMean = p * safeMaxScore;
     const effectiveAlpha = p * effectiveN;
 
     const z2 = Z_95 * Z_95;
