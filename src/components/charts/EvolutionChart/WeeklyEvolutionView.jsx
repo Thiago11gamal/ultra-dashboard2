@@ -41,6 +41,7 @@ export const WeeklyEvolutionView = ({
     showOnlyFocus,
     focusSubjectId,
     maxScore = 100,
+    minScore = 0,
     unit = '%'
 }) => {
     const [viewMode, setViewMode] = useState('performance');
@@ -109,7 +110,13 @@ export const WeeklyEvolutionView = ({
         const validIds = Object.keys(itemsMap);
         if (validIds.length === 0) return { chartData: [], activeKeys: {} };
 
-        const weeksTemp = {};
+        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const safeMaxScore = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+        const lowerBound = Math.min(safeMinScore, safeMaxScore);
+        const upperBound = Math.max(safeMinScore, safeMaxScore);
+        const scoreRange = Math.max(1e-9, upperBound - lowerBound);
+        const toRatio = (score) => (Math.max(lowerBound, Math.min(upperBound, Number(score) || lowerBound)) - lowerBound) / scoreRange;
+        const fromRatio = (ratio) => lowerBound + (Math.max(0, Math.min(1, Number(ratio) || 0)) * scoreRange);
 
         const processHistory = (historyArray, itemId) => {
             if (!Array.isArray(historyArray) || !itemId) return;
@@ -121,14 +128,14 @@ export const WeeklyEvolutionView = ({
                 if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
 
                 let totalQ = Number(h.total) || 0;
-                let score = getSafeScore(h, maxScore);
+                const score = getSafeScore(h, upperBound);
 
                 if (totalQ === 0 && h.score != null) {
                     totalQ = getSyntheticTotal(maxScore);
                 }
 
                 weeksTemp[weekStr][itemId].total += totalQ;
-                weeksTemp[weekStr][itemId].correct += (score / maxScore) * totalQ;
+                weeksTemp[weekStr][itemId].correct += toRatio(score) * totalQ;
             });
         };
 
@@ -149,12 +156,12 @@ export const WeeklyEvolutionView = ({
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
 
                             let totalQ = Number(t.total) || 0;
-                            const topicScore = getSafeScore(t, maxScore);
+                            const topicScore = getSafeScore(t, upperBound);
                             if (totalQ === 0 && t.score != null) {
                                 totalQ = getSyntheticTotal(maxScore);
                             }
                             weeksTemp[weekStr][tId].total += totalQ;
-                            weeksTemp[weekStr][tId].correct += (topicScore / maxScore) * totalQ;
+                            weeksTemp[weekStr][tId].correct += toRatio(topicScore) * totalQ;
                         });
                     } else if (h.taskId) {
                         const tId = String(cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto').toLowerCase().trim();
@@ -179,8 +186,9 @@ export const WeeklyEvolutionView = ({
                 const currentData = weekObj[id];
 
                 if (currentData && currentData.total > 0) {
-                    const rawPct = (currentData.correct / currentData.total) * maxScore;
-                    const currentPct = Number(Math.max(0, Math.min(maxScore, rawPct)).toFixed(2));
+                    const ratio = currentData.correct / currentData.total;
+                    const currentScore = fromRatio(ratio);
+                    const currentPct = Number(Math.max(lowerBound, Math.min(upperBound, currentScore)).toFixed(2));
                     dataPoint[id] = currentPct;
 
                     if (memoryByItem[id] !== undefined) {
@@ -225,7 +233,7 @@ export const WeeklyEvolutionView = ({
 
         return { chartData: finalData, activeKeys: itemsMap, rankedKeys };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categories, showOnlyFocus, focusSubjectId, maxScore, categoriesSignature]);
+    }, [categories, showOnlyFocus, focusSubjectId, maxScore, minScore, categoriesSignature]);
 
     const keys = Object.keys(activeKeys);
 
