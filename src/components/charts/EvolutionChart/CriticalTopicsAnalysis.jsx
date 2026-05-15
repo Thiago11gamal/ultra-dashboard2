@@ -70,8 +70,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
-                        ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
-                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t, maxScore) / maxScore) * total));
+                        ? (Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total
+                        : (t.correct != null ? Number(t.correct) : (getSafeScore(t, maxScore) / maxScore) * total);
 
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
@@ -123,8 +123,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 const t = parseInt(h.total, 10) || 0;
                 if (t === 0) continue;
                 const correctCount = (h.isPercentage && h.score != null && t > 0)
-                    ? Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * t)
-                    : (h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h, maxScore) / maxScore) * t));
+                    ? (Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * t
+                    : (h.correct != null ? Number(h.correct) : (getSafeScore(h, maxScore) / maxScore) * t);
                 
                 total += t;
                 correct += correctCount;

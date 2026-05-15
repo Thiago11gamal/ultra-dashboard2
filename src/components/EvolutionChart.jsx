@@ -143,19 +143,22 @@ export default function EvolutionChart({
         const lastPoint = timeline.length > 0 ? timeline[timeline.length - 1] : null;
 
         categories.forEach(cat => {
-            const fromTimeline = lastPoint?.[`bay_${cat.id}`];
+            const prefix = activeEngine === 'raw' ? 'raw_' : activeEngine === 'stats' ? 'stats_' : 'bay_';
+            const fromTimeline = lastPoint?.[`${prefix}${cat.id}`];
+            
             if (fromTimeline != null) {
                 map[cat.id] = fromTimeline;
                 return;
             }
+            
+            // Fallback para quando não há dados no timeline (ex: primeiro simulado do dia ainda não processado no acumulado)
             const history = cat.simuladoStats?.history || [];
             if (!history.length) { map[cat.id] = 0; return; }
             const stats = computeCategoryStats(history, 100, 60, maxScore);
-            if (!stats) { map[cat.id] = 0; return; }
-            map[cat.id] = stats.mean;
+            map[cat.id] = stats?.mean || 0;
         });
         return map;
-    }, [categories, timeline, maxScore]);
+    }, [categories, timeline, activeEngine, maxScore]);
 
     // PREMIUM INTEGRATION - Monte Carlo Data State
     const [mcResult, setMcResult] = useState(null);

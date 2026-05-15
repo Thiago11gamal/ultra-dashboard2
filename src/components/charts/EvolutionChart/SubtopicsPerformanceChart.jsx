@@ -4,7 +4,7 @@ import {
     ResponsiveContainer, LabelList, Cell, ReferenceLine,
     LineChart, Line, Legend
 } from "recharts";
-import { normalizeDate } from "../../../utils/dateHelper";
+import { normalizeDate, getDateKey, formatDisplayDate } from "../../../utils/dateHelper";
 import { getSafeScore, formatValue } from "../../../utils/scoreHelper";
 
 const CustomTooltipStyle = {
@@ -105,7 +105,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                 return {
                     name: d.name.length > 25 ? d.name.substring(0, 23) + '...' : d.name,
                     fullName: d.name,
-                    correct: Math.round(d.correct),
+                    correct: d.correct,
                     total: d.total,
                     accuracy: Number(acc.toFixed(2)),
                 };
@@ -131,8 +131,9 @@ export const SubtopicsPerformanceChart = React.memo(({
             for (const h of recentHistory) {
                 const d = normalizeDate(h.date);
                 if (!d) continue;
-                const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                const dateLabel = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+                const dateKey = getDateKey(d);
+                if (!dateKey) continue;
+                const dateLabel = formatDisplayDate(dateKey);
 
                 if (!dateMap[dateKey]) {
                     dateMap[dateKey] = { dateLabel, originalDate: d.getTime() };
@@ -250,7 +251,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 500 }}
                                 axisLine={false}
                                 tickLine={false}
-                                width={110}
+                                width={140}
                             />
 
                             <Tooltip

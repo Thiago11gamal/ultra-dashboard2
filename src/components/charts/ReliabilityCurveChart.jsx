@@ -58,7 +58,7 @@ export default function ReliabilityCurveChart({ buckets }) {
                 obs: Math.round((Number(b.observedRate) || 0) * 100),
                 gap: Math.round((Number(b.gap) || 0) * 100),
                 count: Number(b.count) || 0,
-                binStart: Math.round((Number(b.bin) - 0.1) * 100),
+                binStart: Math.round((Number(b.bin) - (b.binWidth || 0.1)) * 100),
                 binEnd: Math.round(Number(b.bin) * 100)
             }))
             .sort((a, b) => a.pred - b.pred);

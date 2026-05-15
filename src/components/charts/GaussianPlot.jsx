@@ -57,8 +57,10 @@ export const GaussianPlot = ({
         // Clamp do Alvo contra corrupções nos bounds visuais
         const targetVal = Math.max(domainMin, Math.min(domainMax, rawTargetVal));
 
-        let vizSdLeft = Math.max(1, propSdLeft ?? sd);
-        let vizSdRight = Math.max(1, propSdRight ?? sd);
+        const safeRange = Math.max(1e-9, range);
+        const sdFloor = safeRange * 0.001;
+        let vizSdLeft = Math.max(sdFloor, propSdLeft ?? sd ?? sdFloor);
+        let vizSdRight = Math.max(sdFloor, propSdRight ?? sd ?? sdFloor);
 
         const hasValidKDE = kdeData && kdeData.length > 5;
 

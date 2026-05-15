@@ -225,9 +225,19 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 dataByDate[date][`trend_${cat.id}`] = stats ? (Number(stats.trendValue) || 0) : 0;
                 dataByDate[date][`trend_status_${cat.id}`] = stats ? stats.trend : 'stable';
 
-                dataByDate[date].global_correct = (Number(dataByDate[date].global_correct) || 0) + correct;
                 dataByDate[date].global_total = (Number(dataByDate[date].global_total) || 0) + total;
             });
+
+            // 🎯 FIX: Decorar a categoria com os últimos níveis calculados para exibição nos cards
+            const lastDate = dates[dates.length - 1];
+            if (lastDate && cumulativeByDate[lastDate]) {
+                const snap = cumulativeByDate[lastDate];
+                cat.currentLevels = {
+                    bayesian: snap.bayesian?.mean || 0,
+                    stats: snap.stats?.mean || 0,
+                    raw: dataByDate[lastDate][`raw_${cat.id}`] ?? 0
+                };
+            }
         });
         dates.forEach(date => {
             const d = dataByDate[date];

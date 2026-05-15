@@ -37,7 +37,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
     const totals = filteredRows
         .flatMap((row) => (Array.isArray(row?.cells) ? row.cells : []))
         .map((cell) => Number(cell?.total) || 0);
-    const maxCellTotal = Math.max(1, ...totals);
+    const maxCellTotal = totals.length > 0 ? totals.reduce((m, v) => Math.max(m, v), 1) : 1;
 
     const cellColor = (pct, total = 0) => {
         if (pct == null) return { bg: 'rgba(255,255,255,0.02)', text: '#64748b', border: '#1e293b', density: 0 };

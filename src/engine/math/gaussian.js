@@ -130,7 +130,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // CORREÇÃO EXTREMA: A banda não pode implodir perante a falta de variância ou o cálculo
     // exponencial da densidade (KDE) entra em underflow maciço (Zero-Out visual).
     // O raio mínimo obriga a expansão de, pelo menos, 1.5 unidades relativas na grelha SVG.
-    const minPhysicalBandwidth = Math.max(1.5, (plotMax - plotMin) / (BIN_COUNT / 3)); 
+    const minPhysicalBandwidth = Math.max(1e-9, (plotMax - plotMin) * 0.015); 
     
     const bandwidth = Math.max(minPhysicalBandwidth, finiteH, binWidth * 2, safeSD * 0.15);
     const bins = new Float32Array(BIN_COUNT);

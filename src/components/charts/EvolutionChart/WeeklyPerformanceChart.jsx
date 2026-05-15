@@ -84,7 +84,7 @@ const WeeklyPerformanceChart = ({
             days.push({
                 data: i === 0 ? "HOJE" : dow,
                 fullDate: dateKey,
-                minutos, // 🎯 FIX: Enviamos 'minutos' brutos em vez da variável 'horas'
+                minutos: minutos / 60, // 🎯 FIX: Convertemos para horas decimais para o formatDuration funcionar corretamente
                 acertos
             });
         }
