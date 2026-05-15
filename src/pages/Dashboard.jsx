@@ -45,9 +45,7 @@ export default function Dashboard() {
         categories, simuladoRows, studyLogs, user, pomodorosCompleted
     }), [categories, simuladoRows, studyLogs, user, pomodorosCompleted]);
 
-    const setGoalDate = React.useCallback((d) => setData(draft => {
-        const activeId = draft.appState.activeId;
-        const contest = draft.appState.contests?.[activeId];
+    const setGoalDate = React.useCallback((d) => setData(contest => {
         if (contest) {
             if (!contest.user) contest.user = {};
             contest.user.goalDate = d || null;
@@ -69,10 +67,7 @@ export default function Dashboard() {
             });
 
             // Set studying status garantindo que opera apenas no concurso ativo
-            setData(draft => {
-                const activeId = draft.appState.activeId;
-                const activeContest = draft.appState.contests?.[activeId];
-
+            setData(activeContest => {
                 if (activeContest && activeContest.categories) {
                     const category = activeContest.categories.find(c => c.id === cat.id);
                     if (category) {
