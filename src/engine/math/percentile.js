@@ -49,7 +49,17 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
  * Algoritmo Quickselect In-place (Média O(N), Memória O(1))
  * Encontra o k-ésimo menor elemento sem ordenar o array inteiro.
  */
-export const quickSelect = (arr, k, left = 0, right = arr.length - 1) => {
+// BUG-AUDIT-09 FIX: Cria cópia defensiva para não corromper o array original.
+// O particionamento in-place reordenava o Float64Array do chamador, fazendo
+// chamadas subsequentes (ex: iLow, iMedian, iHigh) retornarem valores incorretos.
+export const quickSelect = (arr, k) => {
+    const copy = arr instanceof Float64Array || arr instanceof Float32Array
+        ? new arr.constructor(arr)
+        : [...arr];
+    return _quickSelectInPlace(copy, k, 0, copy.length - 1);
+};
+
+const _quickSelectInPlace = (arr, k, left = 0, right = arr.length - 1) => {
     while (left < right) {
         let pivotIndex = partition(arr, left, right);
         if (pivotIndex === k) return arr[k];

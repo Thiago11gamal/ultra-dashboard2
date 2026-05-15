@@ -498,7 +498,8 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const effectiveN = sumW2 > 0 ? (sumW * sumW) / sumW2 : historyToUse.length;
         const n_eff = Number.isFinite(effectiveN) ? Math.max(1, effectiveN) : 1;
 
-        const kishDenomTerm = Number.isFinite(n_eff) ? Math.max(0.001, (n_eff - 1)) : 0.001;
+        // BUG-AUDIT-06 FIX: Threshold unificado (1.5) com projection.js para evitar discrepância 4x.
+        const kishDenomTerm = Number.isFinite(n_eff) && n_eff > 1.5 ? (n_eff - 1) : 1;
         variance = (kishDenomTerm * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) / (kishDenomTerm + KAPPA);
     } else {
         // Para N=1, assuma a ignorância máxima usando o Prior Populacional fixado na média

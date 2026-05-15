@@ -450,13 +450,16 @@ function EmptyPredictionState() {
 
 function AnimatedProbability({ value }) {
     const [display, setDisplay] = useState(value);
-    const lastValue = useRef(value);
+    // BUG-AUDIT-05 FIX: Ref que rastreia o valor corrente da animação para evitar stale closure.
+    // Sem isso, transições rápidas (60→70 durante animação 50→60) começariam de 50, não de ~58.
+    const displayRef = useRef(value);
 
     useEffect(() => {
-        const start = display;
+        const start = displayRef.current; // Sempre pega o valor visual corrente, não o state stale
         const end = value;
         if (Math.abs(start - end) < 0.1) {
             setDisplay(end);
+            displayRef.current = end;
             return;
         }
 
@@ -470,6 +473,7 @@ function AnimatedProbability({ value }) {
             const easeOut = 1 - Math.pow(1 - progress, 5);
             const current = start + (end - start) * easeOut;
 
+            displayRef.current = current;
             setDisplay(current);
 
             if (progress < 1) {
@@ -478,7 +482,7 @@ function AnimatedProbability({ value }) {
         }
         frameId = requestAnimationFrame(animate);
         return () => cancelAnimationFrame(frameId);
-    }, [value]); // REMOVIDO 'display' para evitar loop infinito e explosão de frames
+    }, [value]);
 
     return <span>{display.toFixed(0)}%</span>;
 }

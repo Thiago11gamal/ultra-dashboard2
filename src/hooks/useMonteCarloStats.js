@@ -224,7 +224,8 @@ function generateAnalyticsStats({
     const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory);
     const confidenceMultiplier = getConfidenceMultiplier(adaptiveSignal.effectiveN) * adaptiveSignal.ciInflation;
     const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
-    const weightedHigh = Math.max(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
+    // BUG-AUDIT-01 FIX: Era Math.max → sempre retornava maxScore, destruindo o CI superior.
+    const weightedHigh = Math.min(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
 
     const globalHistory = rawGlobalHistory;
 

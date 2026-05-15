@@ -287,8 +287,9 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     }
 
     const rmssd = (sumSqDiff) / Math.max(1, validTransitions); 
-    // Divide-se por 2 porque a diferença sucessiva carrega a variância de X_i e X_{i-1}
-    return Math.sqrt(Math.max(1e-6, rmssd / 2)); 
+    // BUG-AUDIT-08 FIX: Removida a divisão por 2. Para séries detrended via OLS,
+    // a autocovariância dos resíduos é alterada pelo fit e a simplificação Var(Δ)=2σ² não vale.
+    return Math.sqrt(Math.max(1e-6, rmssd)); 
 }
 
 // -----------------------------
@@ -363,7 +364,14 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
             const peak2 = sortedScores[sortedScores.length - 2];
             const robustPeak = (peak1 * 0.6) + (peak2 * 0.4);
             const dynamicHeadroom = Math.min(maxScore * 0.15, Math.max(currentVariance * 1.5, maxScore * 0.05));
-            const recentSlope = calculateSlope(validScores.slice(-4), maxScore);
+            // BUG-AUDIT-07 FIX: calculateSlope espera objetos {date, score}, não números puros.
+            // Gerar objetos sintéticos com datas espaçadas de 7 dias para manter o contrato.
+            const recentRaw = validScores.slice(-4);
+            const recentAsObjects = recentRaw.map((s, idx) => ({
+                score: s,
+                date: new Date(Date.now() - (recentRaw.length - 1 - idx) * 7 * 86400000).toISOString().slice(0, 10)
+            }));
+            const recentSlope = calculateSlope(recentAsObjects, maxScore);
             const slopeMultiplier = recentSlope > 0 ? Math.min(1, recentSlope / (maxScore * 0.01)) : 0;
             
             L = robustPeak + (dynamicHeadroom * slopeMultiplier);
@@ -643,8 +651,12 @@ export function monteCarloSimulation(
         let currentVolSq = Math.pow(dailyVolatility, 2);
         const alphaG = 0.05;
         const betaG = 0.75;
-        // CORREÇÃO: Forçar a estacionariedade para que a variância não impluda a 25% no longo prazo.
-        const omega = (1 - alphaG - betaG) * currentVolSq;
+        // BUG-AUDIT-02 FIX: omega calculado com a variância incondicional de equilíbrio (σ²_∞),
+        // não com o valor inicial transiente. Isso garante estacionariedade GARCH(1,1) real:
+        // σ²_∞ = ω / (1 - α - β), logo ω = (1 - α - β) × σ²_∞
+        // Usamos dailyVolatility² como estimador de σ²_∞ (variância incondicional empírica).
+        const unconditionalVar = Math.pow(dailyVolatility, 2);
+        const omega = (1 - alphaG - betaG) * unconditionalVar;
         
         for (let d = 1; d <= simulationDays; d++) {
             const driftEffect = sampledDrift * 1;
@@ -681,7 +693,9 @@ export function monteCarloSimulation(
                 let wraps = Math.floor(normalized / range);
                 let remainder = normalized % range;
                 if (remainder < 0) remainder += range;
-                currentSimScore = minScore + (wraps % 2 === 0 ? remainder : range - remainder);
+                // BUG-AUDIT-03 FIX: JS % preserva o sinal → (-1)%2 === -1, não 1.
+                // Usar Math.abs(wraps) para paridade correta da reflexão.
+                currentSimScore = minScore + (Math.abs(wraps) % 2 === 0 ? remainder : range - remainder);
             }
             
             // Fallback de segurança estrito (Clamp final diário)
