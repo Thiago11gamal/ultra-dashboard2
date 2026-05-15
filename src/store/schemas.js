@@ -134,7 +134,7 @@ const sanitizeContest = (data) => {
       ...(source.user && typeof source.user === 'object' ? source.user : {}),
       name: source.user?.name || "Estudante",
       avatar: source.user?.avatar || "👤",
-      startDate: source.user?.startDate || new Date().toISOString().split('T')[0],
+      startDate: source.user?.startDate || getDateKey(new Date()),
       goalDate: source.user?.goalDate || null,
       targetScore: (source.user?.targetScore != null) ? Number(source.user.targetScore) : DEFAULT_TARGET_SCORE,
       xp: Number(source.user?.xp) || 0,

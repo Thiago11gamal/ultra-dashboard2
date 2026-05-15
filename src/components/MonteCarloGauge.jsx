@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { formatValue } from '../utils/scoreHelper';
-import { getDateKey } from '../utils/dateHelper';
+import { getDateKey, formatDatePtBR } from '../utils/dateHelper';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 
 /**
@@ -331,7 +331,7 @@ export default function MonteCarloGauge({
                     <div className="flex justify-between items-center mb-4">
                         <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Máquina do Tempo</span>
                         <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
-                            {clampedTimeIndex === -1 ? 'Hoje' : new Date(timelineDates[clampedTimeIndex] + 'T12:00:00').toLocaleDateString()}
+                            {clampedTimeIndex === -1 ? 'Hoje' : formatDatePtBR(`${timelineDates[clampedTimeIndex]}T12:00:00`)}
                         </span>
                     </div>
                     <input

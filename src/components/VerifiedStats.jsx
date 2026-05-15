@@ -482,7 +482,10 @@ export default function VerifiedStats({ categories = [], user }) {
                         const dateMin = new Date(nowTime + (daysMin * 24 * 60 * 60 * 1000));
                         const dateMax = new Date(nowTime + (daysMax * 24 * 60 * 60 * 1000));
 
-                        const fmt = (d) => isNaN(d.getTime()) ? "--/--" : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                        const fmt = (d) => {
+                            if (isNaN(d.getTime())) return "--/--";
+                            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Manaus' });
+                        };
 
                         prediction = `${fmt(dateMin)} - ${fmt(dateMax)}`;
                         predictionSubtext = `Previsão de alcance (${target}%)`;

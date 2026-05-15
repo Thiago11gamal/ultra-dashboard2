@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BookOpen, Zap, Activity } from 'lucide-react';
-import { normalizeDate, formatDuration } from '../utils/dateHelper';
+import { normalizeDate, formatDuration, getDateKey, formatDatePtBR } from '../utils/dateHelper';
 
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
@@ -30,25 +30,17 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         const grouped = {};
 
         sortedLogs.forEach(log => {
-            // CORREÇÃO: Forçar SEMPRE as 12:00 do dia apontado, esmagando qualquer Timezone Drift (Bug 3.1 Fix)
-            let dateObj;
-            const safeLogDate = typeof log.date === 'string' && log.date.includes('T') ? log.date.split('T')[0] : log.date;
-
-            if (typeof safeLogDate === 'string' && safeLogDate.length >= 10) {
-                dateObj = new Date(`${safeLogDate.substring(0, 10)}T12:00:00`);
-            } else {
-                dateObj = new Date(log.date);
-            }
-
-            if (Number.isNaN(dateObj.getTime())) return;
-            const dateStr = dateObj.toLocaleDateString('pt-BR');
+            const dateObj = normalizeDate(log.date);
+            
+            if (!dateObj || Number.isNaN(dateObj.getTime())) return;
+            const dateStr = formatDatePtBR(dateObj);
 
             // Determine friendly day label
             const now = new Date();
-            const today = now.toLocaleDateString('pt-BR');
+            const today = formatDatePtBR(now);
             const y = new Date(now);
             y.setDate(y.getDate() - 1);
-            const yesterday = y.toLocaleDateString('pt-BR');
+            const yesterday = formatDatePtBR(y);
             let dayLabel = dateStr;
             const weekDays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
             const weekDayName = weekDays[dateObj.getDay()];
@@ -66,7 +58,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 dayLabel = dateStr;
             }
 
-            const uniqueDayKey = dateStr; // Use full date as key for sorting correctness
+            const uniqueDayKey = getDateKey(dateObj) || dateStr;
 
             if (!grouped[uniqueDayKey]) grouped[uniqueDayKey] = {
                 label: dayLabel,
