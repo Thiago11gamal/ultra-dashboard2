@@ -209,7 +209,6 @@ export const GaussianPlot = ({
     const isTargetVisible = targetPos >= 2 && targetPos <= 98;
     const isCurrentVisible = currentMean != null && currentPos >= 2 && currentPos <= 98;
 
-    const saturation = range > 0 ? Math.max(0, Math.min(1, (ciHighBound - ciLowBound) / range)) : 1;
 
     const resolvedLabels = useMemo(() => {
         const items = [];
