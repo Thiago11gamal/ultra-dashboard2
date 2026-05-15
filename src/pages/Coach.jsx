@@ -684,25 +684,25 @@ function RaioXDashboard({ data }) {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-white/5">
-                                <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Data</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Categoria</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier (erro)</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">ECE (calib.)</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Ajuste</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Prob Final</th>
+                                <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
+                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
+                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
+                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
+                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
+                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Prob Final</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {filteredLogs.map((log, idx) => (
                                 <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
-                                    <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
-                                    <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{Number.isFinite(Number(log?.avgBrier)) ? Number(log.avgBrier).toFixed(3) : '-'}</td>
-                                    <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number.isFinite(Number(log?.ece)) ? Number(log.ece).toFixed(3) : '-'}</td>
-                                    <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">
+                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
+                                    <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">{displaySubject(log.categoryName)}</td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{Number.isFinite(Number(log?.avgBrier)) ? Number(log.avgBrier).toFixed(3) : '-'}</td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number.isFinite(Number(log?.ece)) ? Number(log.ece).toFixed(3) : '-'}</td>
+                                    <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
                                         {toFiniteNumber(log?.calibrationPenalty) > 0 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (shrink)` : '-'}
                                     </td>
-                                    <td className="py-3 px-2 text-[10px] text-white font-black">{toPercentLabel(log?.probability)}</td>
+                                    <td className="py-3 px-4 text-[10px] text-white font-black whitespace-nowrap">{toPercentLabel(log?.probability)}</td>
                                 </tr>
                             ))}
                         </tbody>

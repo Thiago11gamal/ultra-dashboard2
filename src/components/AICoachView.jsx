@@ -222,12 +222,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black opacity-70">Navegação tática</p>
                         </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3 ml-auto lg:ml-0">
                         <div className="flex items-center p-1 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-inner">
                             <button
                                 type="button"
                                 onClick={() => setViewMode('planner')}
-                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                             >
                                 <LayoutGrid size={13} className="shrink-0" />
                                 Planner
@@ -235,7 +235,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             <button
                                 type="button"
                                 onClick={() => setViewMode('cards')}
-                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                             >
                                 <Sparkles size={13} className="shrink-0" />
                                 Cards
@@ -243,7 +243,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             <button
                                 type="button"
                                 onClick={() => setViewMode('list')}
-                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                             >
                                 <List size={13} className="shrink-0" />
                                 Lista
@@ -254,14 +254,14 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             <button
                                 onClick={handleExport}
                                 disabled={isExporting}
-                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] hover:border-white/20 transition-all disabled:opacity-50"
+                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] hover:border-white/20 transition-all disabled:opacity-50"
                             >
                                 {isExporting ? <Loader2 size={13} className="animate-spin shrink-0" /> : <Download size={13} className="shrink-0" />}
                                 Exportar
                             </button>
                             <button
                                 onClick={onClearHistory}
-                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all"
+                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all"
                             >
                                 <Trash2 size={13} className="shrink-0" />
                                 Limpar
@@ -270,11 +270,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     </div>
                 </div>
 
-                <div className="flex justify-center w-full">
+                <div className="flex justify-center w-full mt-2">
                     <button
                         onClick={onGenerateGoals}
                         disabled={loading}
-                        className="group relative w-full md:w-auto px-12 py-5 rounded-[2rem] font-black text-xs sm:text-sm tracking-[0.25em] uppercase transition-all duration-500 overflow-hidden bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 text-white shadow-[0_0_40px_rgba(99,102,241,0.3)] hover:shadow-[0_0_60px_rgba(99,102,241,0.5)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 border border-white/20"
+                        className="group relative w-full md:w-auto px-10 py-3.5 rounded-2xl font-black text-xs tracking-[0.2em] uppercase transition-all duration-500 overflow-hidden bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 text-white shadow-[0_0_40px_rgba(99,102,241,0.25)] hover:shadow-[0_0_60px_rgba(99,102,241,0.4)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 border border-white/20"
                         style={{ backgroundSize: '200% auto' }}
                     >
                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>

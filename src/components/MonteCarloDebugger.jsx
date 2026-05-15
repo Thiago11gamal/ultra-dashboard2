@@ -16,7 +16,7 @@ export default function MonteCarloDebugger({ stats }) {
     const isOverconfident = (calibrationPenalty || 0) > 0.05;
 
     return (
-        <div className="fixed bottom-4 left-4 z-50 font-mono text-[11px]">
+        <div className="fixed bottom-4 right-4 z-50 font-mono text-[11px]">
             <button 
                 onClick={() => setIsOpen(!isOpen)}
                 className="bg-slate-900 text-emerald-400 px-3 py-2 rounded-t-lg border border-slate-700 shadow-xl flex items-center gap-2 hover:bg-slate-800 transition-colors w-full justify-between"
