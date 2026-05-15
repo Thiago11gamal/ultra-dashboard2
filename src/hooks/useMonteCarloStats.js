@@ -74,7 +74,9 @@ function computeCalibrationPenalty(mcHistory, globalHistory, maxScore) {
         const snapTime = new Date(snapshot.date).getTime();
         if (isNaN(snapTime)) return;
         
-        const actual = globalHistory.find(h => new Date(h.date).getTime() >= snapTime);
+        // BUG-AUDIT-11 FIX: Usar estritamente > (e não >=) para não validar uma previsão
+        // contra a própria observação que a gerou (validação autorreferencial).
+        const actual = globalHistory.find(h => new Date(h.date).getTime() > snapTime);
         if (!actual) return;
         
         const age = Math.max(0, now - snapTime);

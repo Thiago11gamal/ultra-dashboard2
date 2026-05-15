@@ -249,8 +249,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     // BUGFIX M3: Sync the exported 'sd' with the visual clamp to avoid mathematical inconsistency
     // for external consumers of the statistical JSON.
+    // BUG-AUDIT-10 FIX: Usar o T-multiplier dinâmico em vez do hardcode 3.92 (=2×1.96).
+    // Para N pequeno o CI usa T(df) >> 1.96, e dividir por 3.92 inflava o SD visual ~3x.
+    const effectiveNForSD = Math.max(1, historyLength || 1);
+    const tMultiplierForSD = getConfidenceMultiplier(effectiveNForSD, { allowFractional: true });
     const visualSD = wasVisualCIClamped
-        ? (rawHigh - rawLow) / 3.92 
+        ? (rawHigh - rawLow) / (tMultiplierForSD * 2) 
         : projectedSD;
 
     const phiMin    = normalCDF_complement((minScore - muParam) / safeSD); 

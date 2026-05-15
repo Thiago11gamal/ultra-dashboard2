@@ -41,6 +41,18 @@ export function bootstrapCI(samples, statFn, {
   const noiseStdDev = (n < 5 && sampleVariance > 0) ? Math.sqrt(sampleVariance / n) : 0;
   const normalRng = noiseStdDev > 0 ? makeNormalRng(rand) : null;
 
+  // BUG-AUDIT-12: Pré-computar limites fora do loop (evita O(N²) e stack overflow com spread operator)
+  let maxObserved = -Infinity;
+  let minObserved = Infinity;
+  if (noiseStdDev > 0) {
+    for (let i = 0; i < n; i++) {
+      if (clean[i] > maxObserved) maxObserved = clean[i];
+      if (clean[i] < minObserved) minObserved = clean[i];
+    }
+    maxObserved += noiseStdDev * 3;
+    minObserved = Math.max(0, minObserved - noiseStdDev * 3);
+  }
+
   for (let i = 0; i < iters; i++) {
     const bag = new Array(n);
     for (let j = 0; j < n; j++) {
@@ -52,8 +64,7 @@ export function bootstrapCI(samples, statFn, {
         // CORREÇÃO: Remover o hardcode destrutivo de (0, 100).
         // Usamos limites dinâmicos relaxados baseados na própria amostra empírica 
         // para não corromper domínios diferentes (ex: escalas de 0-1000 ou negativas).
-        const maxObserved = Math.max(...clean) + (noiseStdDev * 3);
-        const minObserved = Math.max(0, Math.min(...clean) - (noiseStdDev * 3));
+        // BUG-AUDIT-12 FIX: Limites pré-computados fora do loop para evitar O(N²) e stack overflow.
         val = Math.max(minObserved, Math.min(maxObserved, val));
       }
       

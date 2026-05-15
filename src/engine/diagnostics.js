@@ -105,7 +105,7 @@ export function computeHurstExponent(scores) {
   
   let interpretation = 'Passeio Aleatório (Random Walk)';
   if (clampedH > 0.65) interpretation = 'Série Persistente (Tendência Robusta)';
-  else if (clampedH < 0.4) interpretation = 'Reversão à Médio (Alta Instabilidade / Efeito Ioiô)';
+  else if (clampedH < 0.4) interpretation = 'Reversão à Média (Alta Instabilidade / Efeito Ioiô)';
 
   // DIAGNÓSTICO AVANÇADO: Confiança do cálculo baseada no Erro Padrão da Regressão (R²)
   const SSR = logRS.reduce((s, y, i) => s + (y - (muY + H * (logN[i] - muX))) ** 2, 0);

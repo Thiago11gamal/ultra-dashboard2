@@ -659,7 +659,8 @@ export function monteCarloSimulation(
         const omega = (1 - alphaG - betaG) * unconditionalVar;
         
         for (let d = 1; d <= simulationDays; d++) {
-            const driftEffect = sampledDrift * 1;
+            // BUG-AUDIT-13: Drift por dia (passo temporal = 1 dia implícito)
+            const driftEffect = sampledDrift;
             // [AUDIT-FIX-02] A reversão puxa para o Baseline Histórico (consolidação)
             const meanReversion = thetaOU * (baselineScore - currentSimScore);
             const adaptiveVol = Math.sqrt(Math.max(1e-6, currentVolSq));
