@@ -129,7 +129,7 @@ function MonteCarloGauge({ mc }) {
             </div>
 
             {/* Intervalo de Confiança Visual */}
-            <div className="relative h-2.5 bg-white/[0.03] rounded-none overflow-hidden border border-white/[0.05] my-4">>
+            <div className="relative h-2.5 bg-white/[0.03] rounded-none overflow-hidden border border-white/[0.05] my-4">
                 {/* Background Track Padrão */}
                 <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,white_4px,white_8px)]" />
                 
