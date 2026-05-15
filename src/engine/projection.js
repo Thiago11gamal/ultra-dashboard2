@@ -641,6 +641,26 @@ export function monteCarloSimulation(
     }
     const dailyVolatility = volatility / Math.sqrt(Math.max(1, medianGap));
 
+    // [BUG-1 FIX] Usar o damping adaptativo em vez do hardcode de 45.
+    // Com poucos dados/alta vol, dampingBase ≈ 30 (amortece rápido).
+    // Com muitos dados/tendência clara, dampingBase ≈ 60 (preserva mais).
+    // Movido para fora do loop: inputs invariantes por simulação.
+    const dampingBase = computeAdaptiveDampingBase({
+        sampleSize: sortedHistory.length,
+        drift,
+        driftUncertainty,
+        scaleFactor,
+        normalizedVol: normalizedVolOU
+    });
+
+    // Constantes GARCH(1,1) invariantes por simulação
+    const alphaG = 0.05;
+    const betaG = 0.75;
+    // BUG-AUDIT-02 FIX: omega calculado com a variância incondicional de equilíbrio (σ²_∞),
+    // σ²_∞ = ω / (1 - α - β), logo ω = (1 - α - β) × σ²_∞
+    const unconditionalVar = Math.pow(dailyVolatility, 2);
+    const omega = (1 - alphaG - betaG) * unconditionalVar;
+
     for (let i = 0; i < safeSimulations; i++) {
         // CORREÇÃO: O truncamento normal tem de respeitar o driftLimit dinâmico e não hardcodes de 1%.
         const sampledDrift = sampleTruncatedNormal(
@@ -651,26 +671,7 @@ export function monteCarloSimulation(
             rng
         );
         let currentSimScore = baselineScore;
-        let currentVolSq = Math.pow(dailyVolatility, 2);
-        const alphaG = 0.05;
-        const betaG = 0.75;
-        // BUG-AUDIT-02 FIX: omega calculado com a variância incondicional de equilíbrio (σ²_∞),
-        // não com o valor inicial transiente. Isso garante estacionariedade GARCH(1,1) real:
-        // σ²_∞ = ω / (1 - α - β), logo ω = (1 - α - β) × σ²_∞
-        // Usamos dailyVolatility² como estimador de σ²_∞ (variância incondicional empírica).
-        const unconditionalVar = Math.pow(dailyVolatility, 2);
-        const omega = (1 - alphaG - betaG) * unconditionalVar;
-        
-        // [BUG-1 FIX] Usar o damping adaptativo em vez do hardcode de 45.
-        // Com poucos dados/alta vol, dampingBase ≈ 30 (amortece rápido).
-        // Com muitos dados/tendência clara, dampingBase ≈ 60 (preserva mais).
-        const dampingBase = computeAdaptiveDampingBase({
-            sampleSize: sortedHistory.length,
-            drift,
-            driftUncertainty,
-            scaleFactor,
-            normalizedVol: normalizedVolOU
-        });
+        let currentVolSq = unconditionalVar;
 
         for (let d = 1; d <= simulationDays; d++) {
             // [RIGOR-FIX] Drift Damping Adaptativo: O impacto da tendência diminui com o tempo (Log-decay)
