@@ -659,10 +659,14 @@ export function monteCarloSimulation(
         const omega = (1 - alphaG - betaG) * unconditionalVar;
         
         for (let d = 1; d <= simulationDays; d++) {
-            // BUG-AUDIT-13: Drift por dia (passo temporal = 1 dia implícito)
-            const driftEffect = sampledDrift;
+            // [RIGOR-FIX] Drift Damping: O impacto da tendência diminui com o tempo (Log-decay)
+            // Isso impede que erros de amostragem no slope destruam a projeção em 200+ dias.
+            const driftDamping = 1 / (1 + d / 45); 
+            const driftEffect = sampledDrift * driftDamping;
+
             // [AUDIT-FIX-02] A reversão puxa para o Baseline Histórico (consolidação)
-            const meanReversion = thetaOU * (baselineScore - currentSimScore);
+            // Aumentamos o piso de thetaOU de 0.001 para 0.005 para evitar "morte térmica" da nota.
+            const meanReversion = Math.max(0.005, thetaOU) * (baselineScore - currentSimScore);
             const adaptiveVol = Math.sqrt(Math.max(1e-6, currentVolSq));
             
             // CORREÇÃO: Padrão Ouro de Filtered Historical Simulation (FHS)
@@ -729,6 +733,7 @@ export function monteCarloSimulation(
         probability: empiricalProb,
         analyticalProbability: Number(analyticalProb.toFixed(4)),
         mean: Number(meanResult.toFixed(2)),
+        projectedMean: Number(meanResult.toFixed(2)), // Standardized for EvolutionChart
         sd: Number(finalSD.toFixed(2)),
         // BUG-GLOBAL-01 FIX: getPercentile espera p em [0,1], não [0,100].
         // Antes: 2.5 e 97.5 → p>=1 retornava último elemento → CI = [minScore, maxScore] sempre.

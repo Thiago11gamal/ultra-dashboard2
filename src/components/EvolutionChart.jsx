@@ -207,9 +207,9 @@ export default function EvolutionChart({
                 const nextDate = new Date(lastDate);
                 nextDate.setDate(nextDate.getDate() + (projectDays || 30));
 
-                const p50 = result.projectedMean;
-                const lo = result.ci95Low;
-                const hi = result.ci95High;
+                const p50 = result.projectedMean ?? result.mean ?? 0;
+                const lo = result.ci95Low ?? result.ci95StatLow ?? 0;
+                const hi = result.ci95High ?? result.ci95StatHigh ?? 100;
 
                 setMcProjectionSeries({
                     // FIX: Usar getDateKey (hora local) em vez de toISOString (UTC)
