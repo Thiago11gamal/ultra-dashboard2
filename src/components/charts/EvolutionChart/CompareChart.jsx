@@ -140,10 +140,19 @@ export function CompareChart({
     };
 
     let gainBase = 'dataMin';
+    let showGainArea = true;
     if (todayIdx >= 0) {
         const todayPt = filteredChartData[todayIdx];
         const baseCandidate = todayPt["Nível Bayesiano"] != null ? todayPt["Nível Bayesiano"] : todayPt["Nota Bruta"];
-        if (Number.isFinite(Number(baseCandidate))) gainBase = Number(baseCandidate);
+        if (Number.isFinite(Number(baseCandidate))) {
+            gainBase = Number(baseCandidate);
+            // BUG-3 FIX: Não exibir área verde de "ganho" se a projeção final está ABAIXO do nível atual
+            const lastPt = filteredChartData[filteredChartData.length - 1];
+            const lastProjection = lastPt?.["Futuro Provável"];
+            if (Number.isFinite(Number(lastProjection)) && Number(lastProjection) < gainBase) {
+                showGainArea = false;
+            }
+        }
     }
 
     return (
@@ -200,7 +209,7 @@ export function CompareChart({
                     <Area type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill={`url(#${CC.bayBandGradient})`} legendType="none" connectNulls isAnimationActive={false} />
                     <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill={`url(#${CC.projectionPurpleGradient})`} stroke="none" legendType="none" connectNulls isAnimationActive={false} />
                     
-                    <Area type="monotoneX" dataKey="Futuro Provável" name="Ganho Estimado" fill="#10b981" fillOpacity={0.08} stroke="#10b981" strokeWidth={1} strokeOpacity={0.2} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
+                    {showGainArea && <Area type="monotoneX" dataKey="Futuro Provável" name="Ganho Estimado" fill="#10b981" fillOpacity={0.08} stroke="#10b981" strokeWidth={1} strokeOpacity={0.2} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />}
                     <Area type="monotoneX" dataKey="Cenário Range" name="Intervalo de Confiança MC" fill={`url(#${CC.cloudGradient})`} stroke="none" legendType="none" />
                     
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={4}

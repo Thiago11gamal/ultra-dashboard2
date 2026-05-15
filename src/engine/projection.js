@@ -579,8 +579,10 @@ export function monteCarloSimulation(
     const scoreRangeOU = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
     const normalizedVolOU = (volatility / scoreRangeOU) * 100;
     
-    // [AUDIT-FIX-02] Reduzimos a força magnética da Reversão à Média (thetaOU)
-    const thetaOU = Math.max(0.001, 0.02 / (1 + normalizedVolOU * 0.05));
+    // [BUG-2 FIX] Mean Reversion PROPORCIONAL à volatilidade:
+    // Séries voláteis precisam de reversão mais forte para não divergirem.
+    // Base: 0.02. Bonus proporcional à vol normalizada (até +0.08 para vol extrema).
+    const thetaOU = Math.min(0.15, 0.02 + 0.002 * Math.min(40, normalizedVolOU));
 
     let residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
         if (i === 0) return 0;
@@ -659,10 +661,21 @@ export function monteCarloSimulation(
         const unconditionalVar = Math.pow(dailyVolatility, 2);
         const omega = (1 - alphaG - betaG) * unconditionalVar;
         
+        // [BUG-1 FIX] Usar o damping adaptativo em vez do hardcode de 45.
+        // Com poucos dados/alta vol, dampingBase ≈ 30 (amortece rápido).
+        // Com muitos dados/tendência clara, dampingBase ≈ 60 (preserva mais).
+        const dampingBase = computeAdaptiveDampingBase({
+            sampleSize: sortedHistory.length,
+            drift,
+            driftUncertainty,
+            scaleFactor,
+            normalizedVol: normalizedVolOU
+        });
+
         for (let d = 1; d <= simulationDays; d++) {
-            // [RIGOR-FIX] Drift Damping: O impacto da tendência diminui com o tempo (Log-decay)
-            // Isso impede que erros de amostragem no slope destruam a projeção em 200+ dias.
-            const driftDamping = 1 / (1 + d / 45); 
+            // [RIGOR-FIX] Drift Damping Adaptativo: O impacto da tendência diminui com o tempo (Log-decay)
+            // dampingBase varia de 30 (conservador) a 60 (confiante) conforme qualidade do sinal.
+            const driftDamping = 1 / (1 + d / dampingBase); 
             const driftEffect = sampledDrift * driftDamping;
 
             // [AUDIT-FIX-02] A reversão puxa para o Baseline Histórico (consolidação)
