@@ -82,4 +82,13 @@ describe('evolution utils', () => {
     const signal = classifyScenarioSignal([{ ciRange: [70, 73] }, { ciRange: [70, 74] }, { ciRange: [70, 72] }, { ciRange: [70, 72] }], 100);
     expect(signal).not.toBeNull();
   });
+
+  it('falls back safely when maxScore is invalid in signal classification', () => {
+    const signal = classifyScenarioSignal(
+      [{ ciRange: [70, 73] }, { ciRange: [71, 74] }, { ciRange: [72, 75] }, { ciRange: [73, Number.NaN] }],
+      Number.NaN
+    );
+    expect(signal?.label).toBe('Sinal Fraco');
+  });
+
 });
