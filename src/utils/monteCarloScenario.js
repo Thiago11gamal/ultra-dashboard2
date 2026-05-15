@@ -6,18 +6,21 @@ export const SCENARIO_CONFIG = {
   optimistic: { meanBiasFactor: 0.025, ciMult: 0.85, probMultFactor: 0.045 },
 };
 
-export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore = 100) {
+export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore = 100, minScore = 0) {
   const cfg = SCENARIO_CONFIG[scenario] || SCENARIO_CONFIG.base;
   const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const lowerBound = Math.min(safeMinScore, safeMaxScore);
+  const upperBound = Math.max(safeMinScore, safeMaxScore);
   // BUG-5 FIX: Bias proporcional à escala da prova
   const meanBias = (cfg.meanBiasFactor || 0) * safeMaxScore;
   // BUG-GLOBAL-09 FIX: Ajuste de probabilidade deve ser baseado em 100 (%), não no maxScore.
   // Antes: 0.045 * 200 = 9pp (errado). Agora: 0.045 * 100 = 4.5pp (correto).
   const probMult = (cfg.probMultFactor || 0) * 100;
   return (data || []).map((d) => {
-    const mean = Math.max(0, Math.min(maxScore, (Number(d.mean) || 0) + meanBias));
-    const low = Math.max(0, Math.min(maxScore, mean - ((mean - (d?.ciRange?.[0] ?? mean)) * cfg.ciMult)));
-    const high = Math.max(0, Math.min(maxScore, mean + (((d?.ciRange?.[1] ?? mean) - mean) * cfg.ciMult)));
+    const mean = Math.max(lowerBound, Math.min(upperBound, (Number(d.mean) || 0) + meanBias));
+    const low = Math.max(lowerBound, Math.min(upperBound, mean - ((mean - (d?.ciRange?.[0] ?? mean)) * cfg.ciMult)));
+    const high = Math.max(lowerBound, Math.min(upperBound, mean + (((d?.ciRange?.[1] ?? mean) - mean) * cfg.ciMult)));
     const probBase = Number.isFinite(Number(d?.probability)) ? Number(d.probability) : 0;
     const probAdj = Math.max(0, Math.min(100, probBase + (meanBias > 0 ? probMult : meanBias < 0 ? -probMult : 0)));
     return { ...d, mean, probability: probAdj, ciRange: [Math.min(low, high), Math.max(low, high)] };

@@ -70,7 +70,10 @@ export const MonteCarloEvolutionChart = ({
     }, [data, minScore, maxScore]);
 
 
-    const scenarioAdjustedData = useMemo(() => applyScenarioAdjustments(formattedData, scenario, maxScore), [formattedData, scenario, maxScore]);
+    const scenarioAdjustedData = useMemo(
+        () => applyScenarioAdjustments(formattedData, scenario, maxScore, minScore),
+        [formattedData, scenario, maxScore, minScore]
+    );
     const qualitySignal = useMemo(() => classifyScenarioSignal(scenarioAdjustedData, maxScore), [scenarioAdjustedData, maxScore]);
 
     const mcAssumptions = useMemo(() => {
