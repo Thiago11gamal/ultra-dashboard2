@@ -450,12 +450,19 @@ function EmptyPredictionState() {
 
 function AnimatedProbability({ value }) {
     const [display, setDisplay] = useState(value);
+    const lastValue = React.useRef(value);
 
     useEffect(() => {
         const start = display;
         const end = value;
+        if (Math.abs(start - end) < 0.1) {
+            setDisplay(end);
+            return;
+        }
+
         const duration = 700;
         const startTime = performance.now();
+        let frameId;
 
         function animate(now) {
             const progress = Math.min((now - startTime) / duration, 1);
@@ -466,11 +473,12 @@ function AnimatedProbability({ value }) {
             setDisplay(current);
 
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                frameId = requestAnimationFrame(animate);
             }
         }
-        requestAnimationFrame(animate);
-    }, [value, display]);
+        frameId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(frameId);
+    }, [value]); // REMOVIDO 'display' para evitar loop infinito e explosão de frames
 
     return <span>{display.toFixed(0)}%</span>;
 }

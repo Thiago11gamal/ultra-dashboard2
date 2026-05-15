@@ -63,7 +63,14 @@ function computeCalibrationPenalty(mcHistory, globalHistory, maxScore) {
     let residualWeightSum = 0;
     let residualSum = 0;
 
+    const todayKey = getDateKey(new Date());
+
     mcHistory.forEach(snapshot => {
+        // BUG-185 FIX: Ignorar snapshots de "hoje" no cálculo da penalidade.
+        // Isso evita o loop infinito onde a projeção de hoje afeta sua própria calibração, 
+        // que por sua vez altera a projeção, disparando novo salvamento.
+        if (snapshot.date === todayKey) return;
+
         const snapTime = new Date(snapshot.date).getTime();
         if (isNaN(snapTime)) return;
         
@@ -647,37 +654,47 @@ function useMonteCarloHistoryRecorder({
     debouncedTarget, currentMean, projectedMean, probability, pAdjusted, ci95Low, ci95High,
     recordMonteCarloSnapshot 
 }) {
+    const lastRecordTime = React.useRef(0);
+
     useEffect(() => {
         const prob = Number.isFinite(pAdjusted) ? pAdjusted : 0;
         const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
 
         if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling && activeId) {
+            const now = Date.now();
+            // THROTTLE: Máximo 1 gravação a cada 5 segundos para evitar spam de re-renders
+            if (now - lastRecordTime.current < 5000) return;
+
             const today = getDateKey(new Date());
-            const currentProb = Number(prob.toFixed(2));
+            const currentProb = Number(prob.toFixed(1)); // Reduzimos precisão para 0.1 para estabilizar
             const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
             const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
-            const currentTarget = Number(debouncedTarget.toFixed(2));
-            const existingProb = existing?.probability ?? existing?.prob ?? 0;
-            const targetChanged = !existing || existing.target !== currentTarget;
+            const currentTarget = Number(debouncedTarget.toFixed(1));
+            
+            const existingProb = Number((existing?.probability ?? existing?.prob ?? 0).toFixed(1));
+            const existingTarget = Number((existing?.target ?? 0).toFixed(1));
+
+            const targetChanged = !existing || Math.abs(existingTarget - currentTarget) > 0.05;
             
             // 🎯 VERIFICAÇÃO CUIDADOSA: Só atualizar se o dado for NOVO ou se as notas no banco de dados estiverem colapsadas (iguais)
             const needsUpdate = !existing || existing.ci95Low === undefined || Math.abs(existing.mean - (existing.ci95Low || 0)) < 0.01;
-            const probChanged = existing && Math.abs(existingProb - currentProb) > 0.05;
+            const probChanged = existing && Math.abs(existingProb - currentProb) > 0.3; // Threshold maior para evitar micro-oscilações
 
             if (probChanged || targetChanged || needsUpdate) {
+                lastRecordTime.current = now;
                 // SALVANDO SNAPSHOT COMPLETO: HOJE, FUTURO E INCERTEZA
-                recordMonteCarloSnapshot(today, currentProb, { 
+                recordMonteCarloSnapshot(today, prob, { 
                     mean: Number(currentMean.toFixed(2)), 
                     projectedMean: Number(projectedMean.toFixed(2)),
                     ci95Low: Number(ci95Low.toFixed(2)),
                     ci95High: Number(ci95High.toFixed(2)),
-                    target: currentTarget 
+                    target: Number(debouncedTarget.toFixed(2))
                 });
             }
         }
     }, [
-        simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, 
+        simulationData?.status, effectiveSimulateToday, 
         recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, projectedMean, 
-        debouncedTarget, activeId, ci95Low, ci95High, probability, pAdjusted
+        debouncedTarget, activeId, ci95Low, ci95High, pAdjusted
     ]);
 }
