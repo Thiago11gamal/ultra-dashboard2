@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { 
@@ -654,7 +654,7 @@ function useMonteCarloHistoryRecorder({
     debouncedTarget, currentMean, projectedMean, probability, pAdjusted, ci95Low, ci95High,
     recordMonteCarloSnapshot 
 }) {
-    const lastRecordTime = React.useRef(0);
+    const lastRecordTime = useRef(0);
 
     useEffect(() => {
         const prob = Number.isFinite(pAdjusted) ? pAdjusted : 0;

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
@@ -450,7 +450,7 @@ function EmptyPredictionState() {
 
 function AnimatedProbability({ value }) {
     const [display, setDisplay] = useState(value);
-    const lastValue = React.useRef(value);
+    const lastValue = useRef(value);
 
     useEffect(() => {
         const start = display;
