@@ -1,0 +1,35 @@
+{
+  "startedAt": "2026-05-15T23:47:11.020Z",
+  "finishedAt": "2026-05-15T23:47:11.387Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13524637714004617  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.21858606332762    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 42.625               │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.51..85.56'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.08873469387755101 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬─────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                             │\n├─────────┼────────────────────────────────────┼──────┼─────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '46.35..58.3..70.25'                │\n│ 1       │ 'mc output bounded'                │ true │ 100                                 │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 66                                  │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'            │\n└─────────┴────────────────────────────────────┴──────┴─────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}

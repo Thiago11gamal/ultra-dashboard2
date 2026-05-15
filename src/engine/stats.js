@@ -1,6 +1,7 @@
 
 export const BAYESIAN_DECAY_FACTOR = 0.985;
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
+import { normalizeDate } from '../utils/dateHelper.js';
 // BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
 import { calculateSlope } from './projection.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
@@ -8,6 +9,15 @@ import { kahanSum, kahanMean } from './math/kahan.js';
 
 import { computeAdaptiveLambda } from './diagnostics.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
+
+function getHistoryDateValue(entry) {
+    return entry?.date || entry?.createdAt || null;
+}
+
+function getHistoryTime(entry) {
+    const parsed = normalizeDate(getHistoryDateValue(entry));
+    return parsed ? parsed.getTime() : NaN;
+}
 
 function getDynamicTrendThreshold(currentScore, maxScore) {
     const currentPct = currentScore / maxScore;
@@ -179,17 +189,16 @@ export function computeBayesianLevel(
     // CORREÇÃO: Fallback absoluto para (0) na ordenação temporal caso a data 
     // esteja ilegível, protegendo a cronologia matemática da V8 engine
     const historySortedForGaps = history ? history
-        .map(h => ({ original: h, time: new Date(h.date).getTime() || 0 }))
+        .map(h => ({ original: h, time: getHistoryTime(h) }))
+        .filter(item => Number.isFinite(item.time))
         .sort((a, b) => a.time - b.time)
         .map(item => item.original) : [];
     if (historySortedForGaps.length > 1) {
         for (let i = 1; i < historySortedForGaps.length; i++) {
-            const time1 = new Date(historySortedForGaps[i].date).getTime();
-            const time0 = new Date(historySortedForGaps[i - 1].date).getTime();
-            if (!isNaN(time1) && !isNaN(time0)) {
-                const gap = (time1 - time0) / 86400000;
-                if (gap > 0) gaps.push(gap);
-            }
+            const time1 = getHistoryTime(historySortedForGaps[i]);
+            const time0 = getHistoryTime(historySortedForGaps[i - 1]);
+            const gap = (time1 - time0) / 86400000;
+            if (Number.isFinite(gap) && gap > 0) gaps.push(gap);
         }
     }
     // CORREÇÃO: Impedir que a micro-frequência crie inércia infinita (Assuma mínimo de meio dia) (Bug 1.2 Fix)
@@ -200,7 +209,7 @@ export function computeBayesianLevel(
     // CORREÇÃO: Usar obrigatoriamente a linha do tempo previamente ordenada (historySortedForGaps) 
     // para não distorcer o fluxo de tempo e explodir a memória ativa.
     const historyDays = historySortedForGaps && historySortedForGaps.length > 1 
-        ? Math.max(1, (new Date(historySortedForGaps[historySortedForGaps.length - 1].date).getTime() - new Date(historySortedForGaps[0].date).getTime()) / 86400000) 
+        ? Math.max(1, (getHistoryTime(historySortedForGaps[historySortedForGaps.length - 1]) - getHistoryTime(historySortedForGaps[0])) / 86400000) 
         : 1;
     const questionsPerDay = totalQuestionsHist / historyDays;
 
@@ -216,10 +225,14 @@ export function computeBayesianLevel(
         // OTIMIZAÇÃO: Pré-calcular tempos para evitar vazamento de memória no sort
         const historyWithTime = history.map(h => ({
             ...h,
-            _parsedTime: new Date(h.date).getTime() || 0
+            _parsedTime: getHistoryTime(h)
         }));
         
-        const sortedHistory = historyWithTime.sort((a, b) => a._parsedTime - b._parsedTime);
+        const sortedHistory = historyWithTime.sort((a, b) => {
+            const timeA = Number.isFinite(a._parsedTime) ? a._parsedTime : 0;
+            const timeB = Number.isFinite(b._parsedTime) ? b._parsedTime : 0;
+            return timeA - timeB;
+        });
         
         for (let i = 0; i < sortedHistory.length; i++) {
             const h = sortedHistory[i];
@@ -245,13 +258,13 @@ export function computeBayesianLevel(
             // 1. O cálculo de tempo (gap) e esquecimento tem de ocorrer ANTES de injetar o novo simulado
             // CORREÇÃO: Impedir que Invalid Dates gerem NaNs. Se a data for corrompida, 
             // assumimos gap zero para não destruir os alphas e betas em cadeia.
-            const entryDate = new Date(h.date);
-            const prevDate = i > 0 ? new Date(sortedHistory[i - 1].date) : entryDate;
+            const entryDate = normalizeDate(getHistoryDateValue(h));
+            const prevDate = i > 0 ? normalizeDate(getHistoryDateValue(sortedHistory[i - 1])) : entryDate;
             
             // CORREÇÃO: Impedir que Invalid Dates gerem NaNs.
-            const timeEntry = entryDate.getTime();
-            const timePrev = prevDate.getTime();
-            const gapDays = (!isNaN(timeEntry) && !isNaN(timePrev)) 
+            const timeEntry = entryDate?.getTime();
+            const timePrev = prevDate?.getTime();
+            const gapDays = (Number.isFinite(timeEntry) && Number.isFinite(timePrev)) 
                 ? Math.max(0, Math.floor((timeEntry - timePrev) / 86400000)) 
                 : 0;
 

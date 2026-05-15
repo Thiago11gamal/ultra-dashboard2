@@ -10,7 +10,9 @@ export function computeBrierScore(probability01, observedBinary) {
  */
 export function computeLogLoss(probability01, observedBinary) {
     const epsilon = 1e-15;
-    const p = Math.max(epsilon, Math.min(1 - epsilon, Number(probability01) || 0.5));
+    const rawP = Number(probability01);
+    const safeP = Number.isFinite(rawP) ? rawP : 0.5;
+    const p = Math.max(epsilon, Math.min(1 - epsilon, safeP));
     const y = observedBinary ? 1 : 0;
     return -(y * Math.log(p) + (1 - y) * Math.log(1 - p));
 }

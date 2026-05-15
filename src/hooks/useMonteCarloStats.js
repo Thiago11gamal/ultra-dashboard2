@@ -41,6 +41,8 @@ const sanitizeWeightUnit = (value) => {
     return Math.max(0, Math.min(999, numeric));
 };
 
+const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
+
 function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
     const informativeSD = VOLATILITY_REGULARIZATION_FACTOR * domain / Math.sqrt(Math.max(1, projectionDays));
     const priorStrength = Math.max(1.0, INFORMATIVE_PRIOR_MAX_STRENGTH - Math.log2(historyLength + 1));
@@ -141,10 +143,11 @@ function generateAnalyticsStats({
             const history = [...cat.simuladoStats.history]
                 .filter(h => {
                     if (!cutoffDate) return true;
-                    const dateString = h.date?.includes('T') ? h.date.split('T')[0] : h.date;
+                    const dateString = getDateKey(getHistoryDate(h));
+                    if (!dateString) return false;
                     return dateString <= cutoffDate;
                 })
-                .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
+                .sort((a, b) => (normalizeDate(getHistoryDate(a))?.getTime() ?? 0) - (normalizeDate(getHistoryDate(b))?.getTime() ?? 0));
 
             if (history.length === 0) return;
 
@@ -167,7 +170,7 @@ function generateAnalyticsStats({
                 maxScoreByKey[weightKey] = catMaxScore;
 
                 history.forEach(h => {
-                    const dk = getDateKey(h.date);
+                    const dk = getDateKey(getHistoryDate(h));
                     if (dk) {
                         if (!scoresByDate[dk]) scoresByDate[dk] = {};
                         const existing = scoresByDate[dk][weightKey];
@@ -186,7 +189,7 @@ function generateAnalyticsStats({
                     }
                 });
 
-                categoryStats.push({ name: cat.name, ...stats, bayesianMean: baye.mean, bayesianSd: baye.sd, volatility: vol, weight });
+                categoryStats.push({ key: weightKey, name: cat.name, ...stats, maxScore: catMaxScore, bayesianMean: baye.mean, bayesianSd: baye.sd, volatility: vol, weight });
                 bayesianStats.push({ sd: baye.sd, weight, n: history.length });
             }
         }
@@ -196,7 +199,7 @@ function generateAnalyticsStats({
 
     const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
     const scoreRows = sortedDates.map(date => scoresByDate[date] || {});
-    const subjectNames = categoryStats.map(cat => cat.name);
+    const subjectNames = categoryStats.map(cat => cat.key || cat.name);
     const estimatedRho = estimateInterSubjectCorrelation(scoreRows, subjectNames);
 
     const pooledVariance = computeWeightedVariance(categoryStats.map(cat => ({ sd: cat.volatility, weight: cat.weight })), totalWeight, estimatedRho);

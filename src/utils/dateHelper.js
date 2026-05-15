@@ -175,8 +175,8 @@ export const formatDuration = (decimalHours) => {
 export const formatDatePtBR = (date) => {
     try {
         if (!date) return '--/--/----';
-        const parsed = new Date(date);
-        if (Number.isNaN(parsed.getTime())) return '--/--/----';
+        const parsed = normalizeDate(date);
+        if (!parsed || Number.isNaN(parsed.getTime())) return '--/--/----';
         return new Intl.DateTimeFormat('pt-BR', {
             timeZone: APP_TIMEZONE,
             day: '2-digit',
@@ -191,8 +191,8 @@ export const formatDatePtBR = (date) => {
 export const formatDateTimePtBR = (date) => {
     try {
         if (!date) return '--/--/---- --:--:--';
-        const parsed = new Date(date);
-        if (Number.isNaN(parsed.getTime())) return '--/--/---- --:--:--';
+        const parsed = normalizeDate(date);
+        if (!parsed || Number.isNaN(parsed.getTime())) return '--/--/---- --:--:--';
         return new Intl.DateTimeFormat('pt-BR', {
             timeZone: APP_TIMEZONE,
             day: '2-digit',
@@ -210,8 +210,8 @@ export const formatDateTimePtBR = (date) => {
 export const formatWeekdayShortPtBR = (date) => {
     try {
         if (!date) return '';
-        const parsed = new Date(date);
-        if (Number.isNaN(parsed.getTime())) return '';
+        const parsed = normalizeDate(date);
+        if (!parsed || Number.isNaN(parsed.getTime())) return '';
         return new Intl.DateTimeFormat('pt-BR', {
             timeZone: APP_TIMEZONE,
             weekday: 'short'

@@ -52,7 +52,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         const h = sorted[i];
         const hDate = h.date || h.createdAt;
         const y = getSafeScore(h, maxScore);
-        if (Number.isNaN(y)) continue;
+        if (!Number.isFinite(y)) continue;
 
         const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
         
@@ -91,7 +91,8 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     
     // Na hora da divisão final da regressão, adicione proteção contra pesos nulos (Bug 2 Fix)
     if (safeSumW < 1e-15 || regularizedDenominator < 1e-15) {
-        return { slope: 0, intercept: getSafeScore(sorted[sorted.length-1], maxScore), slopeStdError: 1.5 };
+        const fallbackScore = getSafeScore(sorted[sorted.length - 1], maxScore);
+        return { slope: 0, intercept: Number.isFinite(fallbackScore) ? fallbackScore : 0, slopeStdError: 1.5 };
     }
     
     let slope = covXY / regularizedDenominator;
@@ -118,6 +119,7 @@ function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, opti
         const hDate = h.date || h.createdAt;
         const x = (safeDateParse(hDate).getTime() - t0) / (1000 * 60 * 60 * 24);
         const y = getSafeScore(h, maxScore);
+        if (!Number.isFinite(y)) return;
         // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
         const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
         
@@ -162,18 +164,23 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
     }
+    const validSorted = sorted.filter(h => Number.isFinite(getSafeScore(h, maxScore)));
+    if (validSorted.length < 2) {
+        const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+        return 0.05 * range;
+    }
 
     const lambda = options.lambda || 0.08;
     const now = options.referenceDate || Date.now();
     const _scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
-    const { slope, intercept } = weightedRegression(sorted, lambda, maxScore, options);
-    const t0_vol = safeDateParse(sorted[0].date || sorted[0].createdAt).getTime();
+    const { slope, intercept } = weightedRegression(validSorted, lambda, maxScore, options);
+    const t0_vol = safeDateParse(validSorted[0].date || validSorted[0].createdAt).getTime();
     
     // OTIMIZAÇÃO DE PERFORMANCE: Fusão de loops O(5N) para O(N)
     let sumWeights = 0, sumResidualsWeighted = 0, sumSw = 0, sumSw2 = 0;
 
-    const residualSamples = sorted.map(h => {
+    const residualSamples = validSorted.map(h => {
         const hDate = h.date || h.createdAt;
         const x = (safeDateParse(hDate).getTime() - t0_vol) / 86400000;
         const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
@@ -229,7 +236,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const floorVariance = Math.pow(floorVolatility, 2);
     
     // Quanto menor a amostra, mais puxamos para o piso natural.
-    const confidence = Math.min(1, sorted.length / 15);
+    const confidence = Math.min(1, validSorted.length / 15);
     const trueVariance = (blendedVariance * confidence) + (floorVariance * (1 - confidence));
 
     return Math.sqrt(Math.max(1e-6, trueVariance));
@@ -240,7 +247,7 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
     }
-    const scores = history.map(h => getSafeScore(h, maxScore));
+    const scores = history.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
     const n = scores.length;
     if (n < 2) return 0;
     const meanVal = kahanMean(scores);
