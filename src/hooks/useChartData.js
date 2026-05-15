@@ -228,16 +228,10 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 dataByDate[date].global_total = (Number(dataByDate[date].global_total) || 0) + total;
             });
 
-            // 🎯 FIX: Decorar a categoria com os últimos níveis calculados para exibição nos cards
-            const lastDate = dates[dates.length - 1];
-            if (lastDate && cumulativeByDate[lastDate]) {
-                const snap = cumulativeByDate[lastDate];
-                cat.currentLevels = {
-                    bayesian: snap.bayesian?.mean || 0,
-                    stats: snap.stats?.mean || 0,
-                    raw: dataByDate[lastDate][`raw_${cat.id}`] ?? 0
-                };
-            }
+            // 🎯 RIGOR-10 FIX: Removed direct object mutation that caused "object is not extensible" errors.
+            // Component-level decoration should happen in the UI layer or via useMemo to preserve immutability.
+            // (Decoration logic for currentLevels removed as it was unused and violating prop immutability)
+
         });
         dates.forEach(date => {
             const d = dataByDate[date];
