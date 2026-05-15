@@ -9,6 +9,20 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;
+
+    const sanitizeCount = (value) => {
+        const n = Number(value);
+        if (!Number.isFinite(n) || n < 0) return 0;
+        return Math.round(n);
+    };
+
+    const chartData = subjectAggData.map((d) => {
+        const questoes = sanitizeCount(d.questoes);
+        const acertosBrutos = sanitizeCount(d.acertos);
+        const acertos = Math.min(questoes, acertosBrutos);
+        const erros = Math.max(0, questoes - acertos);
+        return { ...d, questoes, acertos, erros };
+    });
     
     return (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0">
@@ -30,12 +44,12 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                     </div>
                 </div>
             </div>
-
+ 
             <div className="h-[320px] sm:h-[380px] w-full">
-                {subjectAggData.length > 0 ? (
+                {chartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%" minHeight={320}>
                         <BarChart
-                            data={subjectAggData.map(d => ({ ...d, erros: Math.max(0, d.questoes - d.acertos) }))}
+                            data={chartData}
                             margin={{ top: 20, right: 20, left: 10, bottom: showOnlyFocus ? 20 : 60 }}
                             barCategoryGap="25%"
                         >
