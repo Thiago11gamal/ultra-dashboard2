@@ -223,8 +223,9 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const blendedVariance = (0.75 * mssdVariance) + (0.25 * robustVariance);
 
     // O PULO DO GATO: Shrinkage Bayesiano para Volatilidade (Bug 1 Fix)
-    // Assumimos que o piso natural de flutuação de qualquer aluno é de ~4% do MaxScore
-    const floorVolatility = maxScore * 0.04; 
+    // Assumimos que o piso natural de flutuação de qualquer aluno é de ~4% do Range
+    const rangeOU = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+    const floorVolatility = rangeOU * 0.04; 
     const floorVariance = Math.pow(floorVolatility, 2);
     
     // Quanto menor a amostra, mais puxamos para o piso natural.
