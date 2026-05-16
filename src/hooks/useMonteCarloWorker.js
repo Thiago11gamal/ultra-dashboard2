@@ -50,13 +50,13 @@ export function useMonteCarloWorker() {
             console.warn('[MC Worker] Not available, using main thread:', e.message);
         }
 
+        const currentPending = pendingRequestsRef.current;
         return () => {
             const currentWorker = workerRef.current;
             if (currentWorker) {
                 currentWorker.terminate();
                 workerRef.current = null;
             }
-            const currentPending = pendingRequestsRef.current;
             for (const [_id, pending] of currentPending) {
                 if (pending.timeoutId) clearTimeout(pending.timeoutId);
                 pending.reject(new Error('Worker foi encerrado (component unmounted).'));
