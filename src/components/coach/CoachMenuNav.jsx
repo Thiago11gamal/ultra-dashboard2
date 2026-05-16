@@ -56,8 +56,6 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         const isRight = event.key === 'ArrowRight';
         const isHome = event.key === 'Home';
         const isEnd = event.key === 'End';
-        const isEnter = event.key === 'Enter';
-        const isSpace = event.key === ' ' || event.key === 'Spacebar';
         // Só previne padrão para teclas de navegação do ARIA (não Enter/Space que são do botão)
         if (!isLeft && !isRight && !isHome && !isEnd) return;
 

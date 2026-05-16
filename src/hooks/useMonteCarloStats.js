@@ -720,6 +720,7 @@ function useMonteCarloHistoryRecorder({
     }, [
         simulationData?.status, effectiveSimulateToday, 
         recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, projectedMean, 
-        debouncedTarget, activeId, ci95Low, ci95High, pAdjusted
+        debouncedTarget, activeId, ci95Low, ci95High, pAdjusted,
+        goalDate, projectDays
     ]);
 }
