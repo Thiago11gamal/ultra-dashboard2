@@ -13,6 +13,7 @@ import { sampleTruncatedNormal } from './math/gaussian.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
 import { weightedRegression, calculateSlopeStdError, getSortedHistory } from './stats.js';
+export { weightedRegression, calculateSlopeStdError, getSortedHistory };
 
 import { computeAdaptiveLambda } from './diagnostics.js'; // Note: stats.js might already have this
 
