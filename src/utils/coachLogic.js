@@ -848,6 +848,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     volatility: Number(mcResult.volatility.toFixed(2)),
                     meanProjected: Number(mcResult.mean.toFixed(2)),
                     effectiveMCTarget: Number(effectiveMCTarget.toFixed(2)),
+                    effectiveMCDays: Number(effectiveMCDays),
                     ci95Low: Number(mcResult.ci95Low.toFixed(2)),
                     ci95High: Number(mcResult.ci95High.toFixed(2)),
                     urgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
