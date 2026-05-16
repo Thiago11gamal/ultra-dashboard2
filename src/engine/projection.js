@@ -10,150 +10,11 @@ import { getPercentile } from './math/percentile.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
 import { sampleTruncatedNormal } from './math/gaussian.js';
-import { Z_95 } from './math/constants.js';
+import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
+import { weightedRegression, calculateSlopeStdError, getSortedHistory } from './stats.js';
 
-// Helper: Ensure history is sorted by date and filter out invalid dates
-export function getSortedHistory(history) {
-    if (!Array.isArray(history)) return [];
-    
-    // OTIMIZAÇÃO DE MEMÓRIA (Schwartzian Transform): 
-    // Evita instanciar objetos Date O(N log N) vezes dentro do .sort()
-    return history
-        .map(h => ({ 
-            original: h, 
-            time: h && (h.date || h.createdAt) ? safeDateParse(h.date || h.createdAt).getTime() : NaN 
-        }))
-        .filter(item => !Number.isNaN(item.time))
-        .sort((a, b) => {
-            if (a.time !== b.time) return a.time - b.time;
-            // Desempate determinístico
-            return (a.original.id || "").localeCompare(b.original.id || "");
-        })
-        .map(item => item.original);
-}
-
-// -----------------------------
-// Regressão ponderada temporal
-// -----------------------------
-export function weightedRegression(history, lambda = 0.08, maxScore = 100, options = {}) {
-    const sorted = getSortedHistory(history);
-    if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
-
-    const now = options.referenceDate || Date.now();
-    // Kahan summation imperativo (Inline Performance Pura) - [BUG-MEMORY-01 FIX]
-    let sumW = 0, cW = 0;
-    let sumWX = 0, cWX = 0;
-    let sumWY = 0, cWY = 0;
-    let sumWXX = 0, cWXX = 0;
-    let sumWXY = 0, cWXY = 0;
-
-    for(let i = 0; i < sorted.length; i++) {
-        const h = sorted[i];
-        const hDate = h.date || h.createdAt;
-        const y = getSafeScore(h, maxScore);
-        if (!Number.isFinite(y)) continue;
-
-        const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
-        
-        // Calcula o peso exponencial, mas NUNCA deixa zerar completamente (Bug 2 Fix)
-        const EPSILON_WEIGHT = 1e-10;
-        const rawWeight = Math.exp(-lambda * t);
-        const w = Math.max(EPSILON_WEIGHT, rawWeight);
-
-        const x = ((safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000) + (i * 1e-5);
-
-        // Kahan summation imperativo para evitar O(N) alocações de map
-        const yW = w - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
-        
-        const valWX = w * x;
-        const yWX = valWX - cWX; const tWX = sumWX + yWX; cWX = (tWX - sumWX) - yWX; sumWX = tWX;
-        
-        const valWY = w * y;
-        const yWY = valWY - cWY; const tWY = sumWY + yWY; cWY = (tWY - sumWY) - yWY; sumWY = tWY;
-        
-        const valWXX = w * x * x;
-        const yWXX = valWXX - cWXX; const tWXX = sumWXX + yWXX; cWXX = (tWXX - sumWXX) - yWXX; sumWXX = tWXX;
-        
-        const valWXY = w * x * y;
-        const yWXY = valWXY - cWXY; const tWXY = sumWXY + yWXY; cWXY = (tWXY - sumWXY) - yWXY; sumWXY = tWXY;
-    }
-
-    // Regularização de Tikhonov (Ridge) para estabilizar a matriz inversa da Regressão WLS
-    // Adicionamos um lambda epsilon baseado na escala dos dias. (Bug 4 Fix)
-    const RIDGE_PENALTY = 0.0001; 
-    const safeSumW = Math.max(1e-15, sumW);
-    // CORREÇÃO: Impedir o underflow de precisão (IEEE 754) que gera variâncias X negativas
-    const varianceX = Math.max(0, sumWXX - (sumWX * sumWX) / safeSumW);
-    const covXY = sumWXY - (sumWX * sumWY) / safeSumW;
-
-    const regularizedDenominator = varianceX + RIDGE_PENALTY;
-    
-    // Na hora da divisão final da regressão, adicione proteção contra pesos nulos (Bug 2 Fix)
-    if (safeSumW < 1e-15 || regularizedDenominator < 1e-15) {
-        const fallbackScore = getSafeScore(sorted[sorted.length - 1], maxScore);
-        return { slope: 0, intercept: Number.isFinite(fallbackScore) ? fallbackScore : 0, slopeStdError: 1.5 };
-    }
-    
-    let slope = covXY / regularizedDenominator;
-
-    // Clamp de segurança: um aluno não consegue aprender (nem desaprender) mais do 
-    // que 5% ao dia sustentadamente.
-    const maxSlopeLimit = maxScore * 0.05;
-    slope = Math.max(-maxSlopeLimit, Math.min(maxSlopeLimit, slope));
-
-    const intercept = (sumWY - slope * sumWX) / safeSumW;
-
-    // Erro padrão robusto (ajustado para small samples)
-    const slopeStdError = calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options);
-
-    return { slope, intercept, slopeStdError };
-}
-
-function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options = {}) {
-    const now = options.referenceDate || Date.now();
-    const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt).getTime();
-    let rss = 0, sumW = 0, sumWXX = 0, sumWX = 0, sumW2 = 0;
-
-    sorted.forEach(h => {
-        const hDate = h.date || h.createdAt;
-        const x = (safeDateParse(hDate).getTime() - t0) / (1000 * 60 * 60 * 24);
-        const y = getSafeScore(h, maxScore);
-        if (!Number.isFinite(y)) return;
-        // CORREÇÃO: Impedir que datas futuras originem deltas de tempo negativos
-        const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
-        
-        // Calcula o peso exponencial, mas NUNCA deixa zerar completamente (Bug 2 Fix)
-        const EPSILON_WEIGHT = 1e-10;
-        const rawWeight = Math.exp(-lambda * t);
-        const w = Math.max(EPSILON_WEIGHT, rawWeight);
-
-        const pred = intercept + slope * x;
-        rss += w * Math.pow(y - pred, 2);
-        sumW += w;
-        sumW2 += w * w;
-        sumWX += w * x;
-        sumWXX += w * x * x;
-    });
-
-    // FIX: Usar o Tamanho Efetivo da Amostra de Kish para o divisor em WLS (Bug 16 / Lint Fix)
-    // CORREÇÃO: Prevenir Underflow letal. Se os pesos desapareceram no esquecimento,
-    // garantimos a exportação da incerteza base em vez de dividir por ZERO.
-    if (sumW2 <= 1e-15) return 1.5 * (maxScore / 100);
-    
-    const effectiveN = (sumW * sumW) / sumW2;
-    const scaleFactorFallback = maxScore / 100;
-
-    // Garantir que não há divisão por zero ou variância negativa com N insuficiente
-    if (effectiveN <= 2.1) return 1.5 * scaleFactorFallback; // Retorna incerteza base
-
-    // Normaliza pela soma dos pesos e aplica o fator de correção para amostras pequenas
-    const variance = (rss / sumW) * (effectiveN / Math.max(0.1, effectiveN - 2));
-    const det = sumW * sumWXX - sumWX * sumWX;
-
-    if (Math.abs(det) < 1e-6) return 1.5;
-    return Math.sqrt(Math.max(0, (variance * sumW) / det));
-}
+import { computeAdaptiveLambda } from './diagnostics.js'; // Note: stats.js might already have this
 
 // -----------------------------
 // Volatilidade Robusta (MSSD + MAD Blended)
@@ -758,7 +619,7 @@ export function monteCarloSimulation(
         projectedMean: Number(meanResult.toFixed(2)), // Standardized for EvolutionChart
         sd: Number(finalSD.toFixed(2)),
         // BUG-GLOBAL-01 FIX: getPercentile espera p em [0,1], não [0,100].
-        // Antes: 2.5 e 97.5 → p>=1 retornava último elemento → CI = [minScore, maxScore] sempre.
+        // Antes: 2.5 e 97.5 → p>=1 retornava último elemento → CI = [minScore, maxScore] always.
         ci95Low: Number(getPercentile(results, 0.025, true).toFixed(2)),
         ci95High: Number(getPercentile(results, 0.975, true).toFixed(2)),
         currentMean: Number(baselineScore.toFixed(2)),
