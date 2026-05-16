@@ -15,7 +15,7 @@ import { kahanSum, kahanMean } from './math/kahan.js';
 import { weightedRegression, calculateSlopeStdError, getSortedHistory } from './stats.js';
 export { weightedRegression, calculateSlopeStdError, getSortedHistory };
 
-import { computeAdaptiveLambda } from './diagnostics.js'; // Note: stats.js might already have this
+
 
 // -----------------------------
 // Volatilidade Robusta (MSSD + MAD Blended)

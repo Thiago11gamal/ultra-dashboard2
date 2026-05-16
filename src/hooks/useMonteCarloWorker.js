@@ -56,14 +56,12 @@ export function useMonteCarloWorker() {
                 currentWorker.terminate();
                 workerRef.current = null;
             }
-            
-            // CORREÇÃO: Limpa TODOS os pendentes deste hook, independentemente 
-            // de qual reencarnação do worker os estava a processar.
-            for (const [_id, pending] of pendingRequestsRef.current) {
+            const currentPending = pendingRequestsRef.current;
+            for (const [_id, pending] of currentPending) {
                 if (pending.timeoutId) clearTimeout(pending.timeoutId);
                 pending.reject(new Error('Worker foi encerrado (component unmounted).'));
             }
-            pendingRequestsRef.current.clear();
+            currentPending.clear();
         };
     }, []);
 
