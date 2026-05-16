@@ -481,39 +481,34 @@ export function computeBayesianLevel(
                 maxNEver = Math.min(currentN, dynamicAlphaCap);
             }
         }
+    }
+    
+    // Decaimento final até o dia de hoje (ou data de referência do gráfico)
+    const sortedHistory = getSortedHistory(history);
+    const lastEntry = (sortedHistory && sortedHistory.length > 0) ? sortedHistory[sortedHistory.length - 1] : null;
+    const lastDateStr = lastEntry ? getHistoryDateValue(lastEntry) : options.lastEventDate;
+
+    if (lastDateStr) {
+        const lastDate = normalizeDate(lastDateStr);
+        const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         
-        // Decaimento final até o dia de hoje
-        const lastEntry = (sortedHistory && sortedHistory.length > 0) ? sortedHistory[sortedHistory.length - 1] : null;
-        const lastDateStr = lastEntry ? getHistoryDateValue(lastEntry) : options.lastEventDate;
-        if (lastDateStr) {
-            const lastDate = normalizeDate(lastDateStr);
-            const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
             const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
             const macroDecay = Math.max(0.1, Math.exp(-0.005 * (gapToToday || 0))); 
             const retentionFloor = (cappedMaxN * 0.3) * macroDecay;
             
-            const finalLambdaBase = computeAdaptiveLambda(sortedHistory);
-            const rawFinalLambda = finalLambdaBase * Math.exp(-0.15 * sortedHistory.length);
+            const finalLambdaBase = (sortedHistory && sortedHistory.length > 0) ? computeAdaptiveLambda(sortedHistory) : 0.08;
+            const rawFinalLambda = finalLambdaBase * Math.exp(-0.15 * ((sortedHistory ? sortedHistory.length : 0) || 1));
             const finalLambda = Math.max(0.005, rawFinalLambda);
             
             const finalDecay = Math.exp(-finalLambda * gapToToday);
             const nBeforeDecay = alpha + beta;
             const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
             
-            const _minN = retentionFloor;
-            const HARD_FLOOR = 3.0;
-            const _safeFloor = Math.min(HARD_FLOOR, nBeforeDecay);
-            
-            // O decaimento atinge severamente o acerto (P), mas a confiança (N) sofre atrito menor.
-            const epistemicDecay = Math.pow(finalDecay, 0.35); // A inércia da confiança resiste mais
-
-            // CORREÇÃO: O piso da memória latente deve ceder drasticamente a longo prazo (cap max: 10 questões de peso).
+            const epistemicDecay = Math.pow(finalDecay, 0.35); 
             const epistemicFloor = Math.max(3.0, Math.min(10.0, maxNEver * 0.05));
-
             const nAfterDecay = Math.max(epistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
-
-            // Regressão à média severa (0.5) proporcional ao esquecimento da memória de fato
+            
             const regressedP = (currentP * finalDecay) + (0.5 * (1 - finalDecay));
 
             alpha = nAfterDecay * regressedP;
