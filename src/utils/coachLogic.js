@@ -465,17 +465,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             // Garantia para nunca ultrapassar a meta final
             effectiveMCTarget = Math.min(effectiveMCTarget, targetScore); 
             
-        if (daysToExam !== null && daysToExam !== undefined) {
-            // Proporção correta: baseada na lacuna de score proximal vs total
-            const totalGap = Math.max(1, targetScore - averageScore);
-            const proximalGap = effectiveMCTarget - averageScore;
-            const gapRatio = Math.min(1, Math.max(0, proximalGap / totalGap));
-            effectiveMCDays = daysToExam > 0
-                ? Math.max(14, Math.floor(gapRatio * daysToExam))
-                : 0;  // prazo expirado → 0 dias
         } else {
             effectiveMCDays = 21; // fallback sem data
         }
+    }
 
         // 🎯 ADAPT-NEUTRAL: O "Neutro" do aluno é a média global dele em todas as matérias combinadas.
         let globalBaselinePct = 50;
