@@ -147,7 +147,9 @@ function generateAnalyticsStats({
                     if (!dateString) return false;
                     return dateString <= cutoffDate;
                 })
-                .sort((a, b) => (normalizeDate(getHistoryDate(a))?.getTime() ?? 0) - (normalizeDate(getHistoryDate(b))?.getTime() ?? 0));
+                .map(h => ({ h, t: normalizeDate(getHistoryDate(h))?.getTime() ?? 0 }))
+                .sort((a, b) => a.t - b.t)
+                .map(item => item.h);
 
             if (history.length === 0) return;
 
@@ -331,17 +333,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
         let goal;
         if (typeof goalDate === 'string') {
-            if (goalDate.includes('T')) {
-                const g = new Date(goalDate);
-                goal = new Date(g.getFullYear(), g.getMonth(), g.getDate());
-            } else {
-                const p = goalDate.split('-');
-                if (p.length === 3) {
-                    goal = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
-                } else {
-                    goal = new Date(goalDate);
-                }
-            }
+            goal = normalizeDate(goalDate);
         } else {
             goal = new Date(goalDate);
         }

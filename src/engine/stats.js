@@ -695,8 +695,8 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const validHistoryForTrend = historyToUse.filter(h => !Number.isNaN(getSafeScore(h, safeMaxScore)));
     
     const sortedForTrendCap = [...validHistoryForTrend].sort((a, b) => {
-        const timeA = new Date(a.date).getTime();
-        const timeB = new Date(b.date).getTime();
+        const timeA = safeDateParse(a.date).getTime();
+        const timeB = safeDateParse(b.date).getTime();
         return (timeA || 0) - (timeB || 0);
     });
     
