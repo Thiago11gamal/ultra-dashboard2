@@ -373,7 +373,7 @@ export function computeBayesianLevel(
     const dynamicAlphaCap = Math.max(250, Math.floor(Math.min(baseCapacity, volumeCapacity)));
     const dynamicEffectiveN = dynamicAlphaCap;
     
-    const now = Date.now();
+    const now = options.referenceDate ? normalizeDate(options.referenceDate).getTime() : Date.now();
 
     if (history && history.length > 0) {
         // OTIMIZAÇÃO: Pré-calcular tempos para evitar vazamento de memória no sort

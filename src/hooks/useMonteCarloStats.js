@@ -76,9 +76,31 @@ function computeCalibrationPenalty(mcHistory, globalHistory, maxScore) {
         const snapTime = new Date(snapshot.date).getTime();
         if (isNaN(snapTime)) return;
         
-        // BUG-AUDIT-11 FIX: Usar estritamente > (e não >=) para não validar uma previsão
-        // contra a própria observação que a gerou (validação autorreferencial).
-        const actual = globalHistory.find(h => new Date(h.date).getTime() > snapTime);
+        // BUG-AUDIT-11 & CALIBRATION-HORIZON FIX: 
+        // A validação (actual) não pode ser o dia seguinte. Tem de ser o score alcançado na data alvo (targetDate), 
+        // ou a nota mais próxima do fim do horizonte de projeção disponível.
+        const targetTime = snapshot.targetDate ? new Date(snapshot.targetDate).getTime() : null;
+        
+        let actual = null;
+        if (targetTime && !isNaN(targetTime)) {
+            // Busca a nota mais próxima do horizonte (targetDate) para validar a previsão de longo prazo
+            let minDiff = Infinity;
+            globalHistory.forEach(h => {
+                const hTime = new Date(h.date).getTime();
+                if (hTime > snapTime) {
+                    const diff = Math.abs(hTime - targetTime);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        actual = h;
+                    }
+                }
+            });
+        } else {
+            // Fallback: Se não há targetDate, usamos a nota mais RECENTE do histórico (último dado disponível)
+            // em vez da primeira nota após o snapshot, para respeitar o conceito de horizonte de proficiência.
+            actual = [...globalHistory].reverse().find(h => new Date(h.date).getTime() > snapTime);
+        }
+
         if (!actual) return;
         
         const age = Math.max(0, now - snapTime);
@@ -617,6 +639,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         timeIndex,
         timelineDates,
         effectiveSimulateToday,
+        projectDays,
+        goalDate,
         debouncedTarget,
         currentMean,
         projectedMean,
@@ -648,7 +672,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
 // 🎯 EFFECT: Persistência de Histórico de Projeção (Snapshots)
 function useMonteCarloHistoryRecorder({ 
-    activeId, simulationData, timeIndex, timelineDates, effectiveSimulateToday, 
+    activeId, simulationData, timeIndex, timelineDates, effectiveSimulateToday, projectDays, goalDate,
     debouncedTarget, currentMean, projectedMean, probability: _probability, pAdjusted, ci95Low, ci95High,
     recordMonteCarloSnapshot 
 }) {
@@ -674,8 +698,10 @@ function useMonteCarloHistoryRecorder({
 
             const targetChanged = !existing || Math.abs(existingTarget - currentTarget) > 0.05;
             
-            // 🎯 VERIFICAÇÃO CUIDADOSA: Só atualizar se o dado for NOVO ou se as notas no banco de dados estiverem colapsadas (iguais)
-            const needsUpdate = !existing || existing.ci95Low === undefined || Math.abs(existing.mean - (existing.ci95Low || 0)) < 0.01;
+            // 🎯 CI-COLLAPSE FIX: Desativar needsUpdate por colapso de CI se projectDays === 0.
+            // No dia do exame, o cone de incerteza colapsa para zero por definição matemática.
+            const isCICollapsed = Math.abs(existing?.mean - (existing?.ci95Low || 0)) < 0.01;
+            const needsUpdate = !existing || existing.ci95Low === undefined || (isCICollapsed && projectDays > 0);
             const probChanged = existing && Math.abs(existingProb - currentProb) > 0.3; // Threshold maior para evitar micro-oscilações
 
             if (probChanged || targetChanged || needsUpdate) {
@@ -686,7 +712,8 @@ function useMonteCarloHistoryRecorder({
                     projectedMean: Number(projectedMean.toFixed(2)),
                     ci95Low: Number(ci95Low.toFixed(2)),
                     ci95High: Number(ci95High.toFixed(2)),
-                    target: Number(debouncedTarget.toFixed(2))
+                    target: Number(debouncedTarget.toFixed(2)),
+                    targetDate: goalDate
                 });
             }
         }
