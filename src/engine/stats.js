@@ -635,7 +635,8 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
  * Mede a acurácia das previsões probabilísticas: (P - Y)^2.
  */
 export function computeBrierScore(probability01, observedBinary) {
-    const p = Math.max(0, Math.min(1, Number(probability01) || 0));
+    const rawP = Number(probability01);
+    const p = Math.max(0, Math.min(1, Number.isFinite(rawP) ? rawP : 0));
     const y = observedBinary ? 1 : 0;
     return (p - y) ** 2;
 }
