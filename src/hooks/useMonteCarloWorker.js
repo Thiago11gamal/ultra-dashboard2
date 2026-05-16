@@ -88,6 +88,10 @@ export function useMonteCarloWorker() {
         }
 
         return new Promise((resolve, reject) => {
+            // Timeout adaptativo baseado no número de simulações
+            const simCount = payload?.input?.simulations ?? payload?.options?.simulations ?? 5000;
+            const timeoutMs = Math.min(30000, Math.max(10000, simCount * 3)); // 3ms/sim, cap 30s
+
             const timeoutId = setTimeout(() => {
                 if (pendingRequestsRef.current.has(id)) {
                     pendingRequestsRef.current.delete(id);
@@ -151,7 +155,7 @@ export function useMonteCarloWorker() {
                     
                     reject(new Error("A análise demorou muito tempo e foi interrompida para proteger a performance do sistema."));
                 }
-            }, 10000);
+            }, timeoutMs);
 
             pendingRequestsRef.current.set(id, { 
                 worker, // Track request owner worker instance

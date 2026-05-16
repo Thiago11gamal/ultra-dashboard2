@@ -376,6 +376,10 @@ export default function Coach() {
 
 
 
+    const handleChangeTab = useCallback((tab) => {
+        setActiveTab(tab === 'analytics' ? 'analytics' : 'insights');
+    }, []);
+
     const handleGenerateGoals = useCallback(() => {
         if (!data?.categories || coachLoading) return;
         setCoachLoading(true);
@@ -473,7 +477,7 @@ export default function Coach() {
 
                 <div className="space-y-10">
                     <div className="w-full">
-                        <CoachMenuNav activeTab={safeActiveTab} onChangeTab={(tab) => setActiveTab(tab === 'analytics' ? 'analytics' : 'insights')} isPremium={isPremium} />
+                        <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} />
 
                         <div className="animate-fade-in">
                             <div

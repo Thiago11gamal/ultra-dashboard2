@@ -58,17 +58,11 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         const isEnd = event.key === 'End';
         const isEnter = event.key === 'Enter';
         const isSpace = event.key === ' ' || event.key === 'Spacebar';
-        if (!isLeft && !isRight && !isHome && !isEnd && !isEnter && !isSpace) return;
+        // Só previne padrão para teclas de navegação do ARIA (não Enter/Space que são do botão)
+        if (!isLeft && !isRight && !isHome && !isEnd) return;
 
         event.preventDefault();
         const currentIndex = availableTabs.indexOf(activeTab);
-
-        if (isEnter || isSpace) {
-            const focused = typeof document !== 'undefined' ? (document.activeElement?.id || '') : '';
-            const focusedTab = focused.replace('coach-tab-', '');
-            if (availableTabs.includes(focusedTab)) activateTab(focusedTab);
-            return;
-        }
 
         if (isHome) {
             activateTab(availableTabs[0]);
