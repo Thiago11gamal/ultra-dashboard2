@@ -485,7 +485,9 @@ export function computeBayesianLevel(
         // Decaimento final até o dia de hoje
         const lastEntry = (sortedHistory && sortedHistory.length > 0) ? sortedHistory[sortedHistory.length - 1] : null;
         const lastDateStr = lastEntry ? getHistoryDateValue(lastEntry) : options.lastEventDate;
-        const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
+        if (lastDateStr) {
+            const lastDate = normalizeDate(lastDateStr);
+            const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
             const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
             const macroDecay = Math.max(0.1, Math.exp(-0.005 * (gapToToday || 0))); 
