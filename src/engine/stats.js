@@ -439,9 +439,13 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const syntheticTotal = Number.isFinite(rawSynthetic) ? rawSynthetic : 20;
     
     const historyWithSynthetics = history.map(h => {
-        // CORREÇÃO: Avaliar se possui uma pontuação válida via getSafeScore, 
-        // em vez de confiar cegamente que a chave 'score' não é nula.
-        if ((Number(h.total) || 0) === 0 && !Number.isNaN(getSafeScore(h, safeMaxScore))) {
+        const score = getSafeScore(h, safeMaxScore);
+        // CORREÇÃO: Se não há volume (total=0) mas a nota é válida, injetamos o volume sintético.
+        // Protegemos contra a perda do valor caso 'h' seja um número puro (polimorfismo).
+        if ((Number(h?.total) || 0) === 0 && !Number.isNaN(score)) {
+            if (typeof h === 'number') {
+                return { score: h, total: syntheticTotal };
+            }
             return { ...h, total: syntheticTotal };
         }
         return h;
