@@ -1,5 +1,6 @@
 export function computeBrierScore(probability01, observedBinary) {
-    const p = Math.max(0, Math.min(1, Number(probability01) || 0));
+    const rawP = Number(probability01);
+    const p = Math.max(0, Math.min(1, Number.isFinite(rawP) ? rawP : 0));
     const y = observedBinary ? 1 : 0;
     return (p - y) ** 2;
 }
@@ -11,6 +12,7 @@ export function computeBrierScore(probability01, observedBinary) {
 export function computeLogLoss(probability01, observedBinary) {
     const epsilon = 1e-15;
     const rawP = Number(probability01);
+    // BUG-LOGLOSS FIX: Number.isFinite impede que probabilidade 0 vire 0.5
     const safeP = Number.isFinite(rawP) ? rawP : 0.5;
     const p = Math.max(epsilon, Math.min(1 - epsilon, safeP));
     const y = observedBinary ? 1 : 0;

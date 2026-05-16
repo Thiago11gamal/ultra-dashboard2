@@ -629,3 +629,120 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
     
     return ema;
 };
+
+/**
+ * Calcula o Brier Score (Erro Quadrático Médio das Probabilidades).
+ * Mede a acurácia das previsões probabilísticas: (P - Y)^2.
+ */
+export function computeBrierScore(probability01, observedBinary) {
+    const p = Math.max(0, Math.min(1, Number(probability01) || 0));
+    const y = observedBinary ? 1 : 0;
+    return (p - y) ** 2;
+}
+
+/**
+ * Neutraliza NaN poisoning em cálculos de Log Loss (Entropia Cruzada).
+ * Implementa epsilon clamping (1e-15) conforme exigência técnica.
+ */
+export function computeLogLoss(probability01, observedBinary) {
+    const epsilon = 1e-15;
+    const rawP = Number(probability01);
+    const safeP = Number.isFinite(rawP) ? rawP : 0.5;
+    const p = Math.max(epsilon, Math.min(1 - epsilon, safeP));
+    const y = observedBinary ? 1 : 0;
+    return -(y * Math.log(p) + (1 - y) * Math.log(1 - p));
+}
+
+/**
+ * Resume a calibração de um conjunto de previsões.
+ * Retorna o Brier Score médio e a penalidade de calibração sugerida.
+ */
+export function summarizeCalibration(scores = [], options = {}) {
+    const maxPenalty = Math.max(0, Math.min(1, Number(options.maxPenalty) || 0.25));
+    const baseline = Number.isFinite(options.baseline) ? options.baseline : 0.18;
+
+    if (!Array.isArray(scores) || scores.length === 0) {
+        return { avgBrier: 0, calibrationPenalty: 0 };
+    }
+
+    const finiteScores = scores.map(v => Number(v)).filter(Number.isFinite);
+    if (finiteScores.length === 0) return { avgBrier: 0, calibrationPenalty: 0 };
+    const sorted = [...finiteScores].sort((a, b) => a - b);
+    const trim = sorted.length >= 8 ? Math.floor(sorted.length * 0.1) : 0;
+    const core = trim > 0 ? sorted.slice(trim, sorted.length - trim) : sorted;
+    const avgBrier = core.reduce((a, b) => a + b, 0) / core.length;
+    
+    // A penalidade agora é baseada no Brier Score, mas o motor deve monitorar Log Loss
+    // para diagnósticos de "falsa sensação de domínio" (Entropia).
+    const calibrationPenalty = Math.min(maxPenalty, Math.max(0, avgBrier - baseline));
+    
+    return { avgBrier, calibrationPenalty, sampleSize: finiteScores.length };
+}
+
+/**
+ * Diagnóstico de Calibração Avançado (Reliability Diagram).
+ * Calcula ECE (Expected Calibration Error) e decomposição do Brier Score.
+ */
+export function computeCalibrationDiagnostics(pairs = [], options = {}) {
+  const bins = Math.max(2, Number(options.bins) || 5);
+  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
+
+  const cleanPairs = pairs
+    .map((p) => ({
+      probability: Math.max(0, Math.min(1, Number(p?.probability))),
+      observed: Math.max(0, Math.min(1, Number(p?.observed)))
+    }))
+    .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
+  if (cleanPairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
+
+  const sorted = [...cleanPairs].sort((a, b) => a.probability - b.probability);
+  let ece = 0;
+  let mce = 0;
+  const reliability = [];
+  const overallObserved = cleanPairs.reduce((a, b) => a + b.observed, 0) / cleanPairs.length;
+  let relTerm = 0;
+  let resTerm = 0;
+  
+  // [FIX 3] Usar bins de largura fixa (Equal Width) para evitar aglomeração visual
+  for (let i = 0; i < bins; i++) {
+    const binMin = i / bins;
+    const binMax = (i + 1) / bins;
+    
+    // Filtra pares que caem dentro deste intervalo de probabilidade
+    const slice = sorted.filter(p => p.probability >= binMin && p.probability < (i === bins - 1 ? 1.01 : binMax));
+    
+    if (slice.length === 0) continue;
+    
+    const meanPred = slice.reduce((a, b) => a + b.probability, 0) / slice.length;
+    const observedRate = slice.reduce((a, b) => a + b.observed, 0) / slice.length;
+    const gap = Math.abs(meanPred - observedRate);
+    const weight = slice.length / cleanPairs.length;
+    ece += weight * gap;
+    mce = Math.max(mce, gap);
+    relTerm += weight * ((meanPred - observedRate) ** 2);
+    resTerm += weight * ((observedRate - overallObserved) ** 2);
+    reliability.push({ bin: i + 1, count: slice.length, meanPred, observedRate, gap });
+  }
+  const uncertainty = overallObserved * (1 - overallObserved);
+  return {
+    ece,
+    mce,
+    reliability,
+    brierDecomposition: {
+      reliability: relTerm,
+      resolution: resTerm,
+      uncertainty
+    }
+  };
+}
+
+/**
+ * Encolhe a probabilidade em direção ao valor neutro (50%) com base na penalidade.
+ */
+export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct = 50, maxAppliedPenalty = 0.5) {
+    const p = Math.max(0, Math.min(100, Number(probabilityPct) || 0));
+    const limit = Math.max(0, Math.min(1, Number(maxAppliedPenalty) || 0.5));
+    const k = Math.max(0, Math.min(limit, Number(penalty) || 0));
+    const neutral = Math.max(0, Math.min(100, Number(neutralPct) || 50));
+    return p * (1 - k) + neutral * k;
+}
