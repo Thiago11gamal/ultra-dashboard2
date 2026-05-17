@@ -136,7 +136,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                                             {totalQuestions > 0 ? (
                                                 <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
                                                     {(() => {
-                                                        const safeMax = Math.max(1, Number(maxScore) || 1);
+                                                        const safeMax = Math.max(1, Number(item.catMaxScore) || 1);
                                                         const scorePct = Math.max(0, Math.min(100, (Number(percentCorrect) / safeMax) * 100));
                                                         return (
                                                             <>
@@ -166,9 +166,9 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                                         </div>
                                     </td>
                                     <td className="p-5 text-center align-middle">
-                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= (maxScore * 0.8) ? 'text-green-400' :
-                                            percentCorrect >= (maxScore * 0.6) ? 'text-yellow-400' : percentCorrect > 0 ? 'text-red-500' : 'text-slate-500'}`}>
-                                            <span className="text-sm tracking-tight">{maxScore === 100 ? formatPercent(percentCorrect) : formatValue(percentCorrect)}</span>
+                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= (item.catMaxScore * 0.8) ? 'text-green-400' :
+                                            percentCorrect >= (item.catMaxScore * 0.6) ? 'text-yellow-400' : percentCorrect > 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                                            <span className="text-sm tracking-tight">{item.catMaxScore === 100 ? formatPercent(percentCorrect) : formatValue(percentCorrect)}</span>
                                         </div>
                                     </td>
                                     <td className="p-5 text-center align-middle border-l border-white/5">
