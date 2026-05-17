@@ -272,21 +272,25 @@ export const calcularDesvioPadrao = (arr) => {
 export function calcularAssimetria(arr) {
     if (!arr || arr.length < 3) return 0;
     const clean = arr.map(Number).filter(Number.isFinite);
-    if (clean.length < 3) return 0;
+    const n = clean.length;
+    if (n < 3) return 0;
     
     const m = mean(clean);
-    const sd = calcularDesvioPadrao(clean);
     
-    // CORREÇÃO MÁXIMA: Tolerância de underflow. Se o desvio for inferior a 0.00001,
+    // CORREÇÃO: Utilizar a variância amostral (N-1) para o cálculo do Fisher-Pearson G1
+    const sumSq = kahanSum(clean.map(val => Math.pow(val - m, 2)));
+    const sampleVar = sumSq / (n - 1);
+    const s = Math.sqrt(sampleVar);
+    
+    // Tolerância de underflow. Se o desvio for inferior a 0.00001,
     // a assimetria é considerada estatisticamente nula.
-    if (sd < 1e-5) return 0;
+    if (s < 1e-5) return 0;
 
-    const n = clean.length;
     const cubeDiffs = clean.map(val => Math.pow(val - m, 3));
     const sumCube = kahanSum(cubeDiffs);
     
-    // Fator de correção de viés estatístico
-    const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.pow(sd, 3));
+    // Fator de correção de viés estatístico para amostra (Fisher-Pearson G1)
+    const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.pow(s, 3));
     
     // Fallback absoluto: Se a divisão gerar valores indefinidos, exporta 0 (Simetria perfeita)
     if (Number.isNaN(skewness) || !Number.isFinite(skewness)) return 0;
