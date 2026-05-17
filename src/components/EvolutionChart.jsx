@@ -201,7 +201,8 @@ export default function EvolutionChart({
 
                 setMcResult({ ...result, categoryId: focusCategory?.id });
 
-                const lastDate = new Date(hist[hist.length - 1].date);
+                const lastDateStr = hist[hist.length - 1].date;
+                const lastDate = new Date(`${lastDateStr}T12:00:00`);
                 if (Number.isNaN(lastDate.getTime())) return;
 
                 const nextDate = new Date(lastDate);
@@ -255,16 +256,16 @@ export default function EvolutionChart({
             const currentLevel = Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 0;
             const futurePoints = [];
             const steps = 6;
+            const bounded = (v) => Math.max(minScore, Math.min(maxScore, v));
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
                 const weight = Math.sqrt(t);
-                const val = currentLevel + (activeMcProjectionSeries.mc_p50 - currentLevel) * t;
-                const bandLow = currentLevel + (activeMcProjectionSeries.mc_band[0] - currentLevel) * weight;
-                const bandHigh = currentLevel + (activeMcProjectionSeries.mc_band[1] - currentLevel) * weight;
+                const val = bounded(currentLevel + (activeMcProjectionSeries.mc_p50 - currentLevel) * t);
+                const bandLow = bounded(currentLevel + (activeMcProjectionSeries.mc_band[0] - currentLevel) * weight);
+                const bandHigh = bounded(currentLevel + (activeMcProjectionSeries.mc_band[1] - currentLevel) * weight);
 
                 const rawDate = String(pts[lastIdx].date || '');
-                const [year, month, day] = rawDate.split('-');
-                const dt = new Date(Number(year), Number(month) - 1, Number(day));
+                const dt = new Date(`${rawDate}T12:00:00`);
                 dt.setDate(dt.getDate() + Math.round((i / steps) * (projectDays || 30)));
                 const iso = getDateKey(dt);
 
