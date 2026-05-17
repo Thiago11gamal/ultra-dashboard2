@@ -5,6 +5,7 @@ import NextGoalCard from '../components/NextGoalCard';
 import PriorityProgress from '../components/PriorityProgress';
 import Checklist from '../components/Checklist';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 
@@ -25,8 +26,17 @@ export default function Dashboard() {
     const isHydrated = useAppStore(state => state.appState.isHydrated); // <- ADICIONAR ISTO
     const activeId = useAppStore(state => state.appState.activeId);
     
-    // Otimização: Agrupar as extrações de estado para reduzir re-renders desnecessários
-    const { categories, simuladoRows, studyLogs, user, pomodorosCompleted } = useAppStore(state => state.appState.contests?.[activeId] || {});
+    // Otimização: Agrupar as extrações de estado para reduzir re-renders desnecessários usando useShallow
+    const { categories, simuladoRows, studyLogs, user, pomodorosCompleted } = useAppStore(useShallow(state => {
+        const contest = state.appState.contests?.[activeId] || {};
+        return {
+            categories: contest.categories,
+            simuladoRows: contest.simuladoRows,
+            studyLogs: contest.studyLogs,
+            user: contest.user,
+            pomodorosCompleted: contest.pomodorosCompleted
+        };
+    }));
 
     // Filtro centralizado aplicado a todos os componentes relevantes
     const filteredCategories = React.useMemo(() => {
