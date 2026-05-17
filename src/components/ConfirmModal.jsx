@@ -7,7 +7,12 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
     const modalContent = (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
+                <Motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6"
+                >
                     {/* Backdrop with extreme blur */}
                     <Motion.div
                         initial={{ opacity: 0 }}
@@ -81,7 +86,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
                         {/* Bottom Decoration */}
                         <div className={`h-1.5 w-full bg-gradient-to-r ${type === 'danger' ? 'from-red-600 via-rose-500 to-orange-500' : 'from-purple-600 via-blue-500 to-emerald-500'} opacity-50`} />
                     </Motion.div>
-                </div>
+                </Motion.div>
             )}
         </AnimatePresence>
     );
