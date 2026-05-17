@@ -15,6 +15,7 @@ export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Determine weight for this category
                 const catWeight = Number(cat.weight || cat.rawWeight || 1.0);
+                const catMaxScore = cat.maxScore ?? 100;
 
                 // Flatten history
                 cat.simuladoStats.history.forEach((h, hIdx, hArr) => {
@@ -25,14 +26,14 @@ export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
                     topics.forEach(t => {
                         const total = parseInt(t.total, 10) || 0;
                         const correctCount = (total > 0)
-                            ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
+                            ? Math.round((getSafeScore(t, catMaxScore) / catMaxScore) * total)
                             : (parseInt(t.correct, 10) || 0);
                         const missed = Math.max(0, total - correctCount);
 
                         if (total > 0) {
                             allTopics.push({
                                 category: cat.name,
-                                topic: t.name,
+                                topic: (typeof t.name === 'string' ? t.name : 'Sem Nome').trim(),
                                 total,
                                 correct: correctCount,
                                 missed,
