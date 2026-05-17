@@ -8,6 +8,80 @@ import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/sco
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
 
+const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-none shadow-2xl backdrop-blur-md min-w-[220px]">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-1">
+                    Semana de {label}
+                </p>
+                <div className="space-y-3">
+                    {payload.map((entry, idx) => {
+                        const dataKey = String(entry.dataKey || '');
+                        const isDelta = dataKey.startsWith('delta_');
+                        const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
+
+                        if (hiddenKeys[baseKey]) return null;
+
+                        const val = entry.value;
+                        if (val == null) return null;
+
+                        const meta = entry.payload[`meta_${baseKey}`];
+
+                        if (isDelta) {
+                            const color = entry.payload[`deltaColor_${baseKey}`] || (val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
+                            const prefix = val > 0 ? '+' : '';
+                            const currentPct = Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey];
+
+                            return (
+                                <div key={idx} className="flex flex-col gap-0.5">
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-none" style={{ backgroundColor: entry.color }}></span>
+                                            {entry.name.replace(' (Var.)', '')}
+                                        </span>
+                                        <span style={{ color }} className="font-mono font-black text-xs">
+                                            {prefix}{formatValue(val)}{unit}
+                                        </span>
+                                    </div>
+                                    {meta && meta.prevPct != null && Number.isFinite(Number(currentPct)) && (
+                                        <div className="flex justify-between text-[8px] text-slate-500 pl-3">
+                                            <span>De {formatValue(meta.prevPct)}{unit}</span>
+                                            <span>
+                                                Para {formatValue(currentPct)}{unit} <strong style={{ color }}>(Δ {prefix}{formatValue(val)}{unit})</strong>
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        } else {
+                            return (
+                                <div key={idx} className="flex flex-col gap-0.5">
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-none" style={{ backgroundColor: entry.color }}></span>
+                                            {entry.name}
+                                        </span>
+                                        <span className="font-mono font-bold text-white text-xs">
+                                            {formatValue(val)}{unit}
+                                        </span>
+                                    </div>
+                                    {meta && meta.currTot > 0 && (
+                                        <span className="text-[8px] text-slate-500 pl-3.5 italic">
+                                            Volume: {meta.currTot} questões
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        }
+                    })}
+                </div>
+            </div>
+        );
+    }
+    return null;
+});
+
 const getMondayStr = (dateStr) => {
     const dt = typeof dateStr === 'string' && dateStr.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
         ? new Date(`${dateStr}T12:00:00`)
@@ -264,79 +338,7 @@ export const WeeklyEvolutionView = ({
         }));
     }, [hiddenKeys]);
 
-    const renderCustomTooltip = useCallback(({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-none shadow-2xl backdrop-blur-md min-w-[220px]">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-1">
-                        Semana de {label}
-                    </p>
-                    <div className="space-y-3">
-                        {payload.map((entry, idx) => {
-                            const dataKey = String(entry.dataKey || '');
-                            const isDelta = dataKey.startsWith('delta_');
-                            const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
 
-                            if (hiddenKeys[baseKey]) return null;
-
-                            const val = entry.value;
-                            if (val == null) return null;
-
-                            const meta = entry.payload[`meta_${baseKey}`];
-
-                            if (isDelta) {
-                                const color = entry.payload[`deltaColor_${baseKey}`] || (val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
-                                const prefix = val > 0 ? '+' : '';
-                                const currentPct = Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey];
-
-                                return (
-                                    <div key={idx} className="flex flex-col gap-0.5">
-                                        <div className="flex justify-between items-center text-[10px]">
-                                            <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 rounded-none" style={{ backgroundColor: entry.color }}></span>
-                                                {entry.name.replace(' (Var.)', '')}
-                                            </span>
-                                            <span style={{ color }} className="font-mono font-black text-xs">
-                                                {prefix}{formatValue(val)}{unit}
-                                            </span>
-                                        </div>
-                                        {meta && meta.prevPct != null && Number.isFinite(Number(currentPct)) && (
-                                            <div className="flex justify-between text-[8px] text-slate-500 pl-3">
-                                                <span>De {formatValue(meta.prevPct)}{unit}</span>
-                                                <span>
-                                                    Para {formatValue(currentPct)}{unit} <strong style={{ color }}>(Δ {prefix}{formatValue(val)}{unit})</strong>
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            } else {
-                                return (
-                                    <div key={idx} className="flex flex-col gap-0.5">
-                                        <div className="flex justify-between items-center text-[10px]">
-                                            <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-none" style={{ backgroundColor: entry.color }}></span>
-                                                {entry.name}
-                                            </span>
-                                            <span className="font-mono font-bold text-white text-xs">
-                                                {formatValue(val)}{unit}
-                                            </span>
-                                        </div>
-                                        {meta && meta.currTot > 0 && (
-                                            <span className="text-[8px] text-slate-500 pl-3.5 italic">
-                                                Volume: {meta.currTot} questões
-                                            </span>
-                                        )}
-                                    </div>
-                                );
-                            }
-                        })}
-                    </div>
-                </div>
-            );
-        }
-        return null;
-    }, [hiddenKeys, unit]);
 
     const renderLegendText = useCallback((value, entry) => {
         const keyID = String(entry.dataKey || '').replace('delta_', '');
@@ -421,8 +423,8 @@ export const WeeklyEvolutionView = ({
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                <YAxis domain={[0, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={true} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
-                                <Tooltip content={renderCustomTooltip} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={true} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
+                                <Tooltip content={<WeeklyTooltip hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {keys.map(key => (
@@ -469,7 +471,7 @@ export const WeeklyEvolutionView = ({
                                         return `${v > 0 ? '+' : ''}${formatValue(v)}${unit}`;
                                     }} 
                                 />
-                                <Tooltip content={renderCustomTooltip} cursor={{ fill: '#ffffff08' }} />
+                                <Tooltip content={<WeeklyTooltip hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ fill: '#ffffff08' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="square" formatter={renderLegendText} onClick={handleLegendClick} wrapperStyle={{ paddingTop: '20px' }} />
                                 <ReferenceLine y={0} stroke="#ffffff22" />
 
