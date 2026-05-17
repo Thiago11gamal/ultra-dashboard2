@@ -39,13 +39,14 @@ const StudyHistory = React.memo(function StudyHistory({
 
         // Find the earliest session
         const earliestTimeArr = studySessions.map(s => {
-            const t = new Date(s.startTime).getTime();
+            const d = normalizeDate(s.startTime);
+            const t = d ? d.getTime() : currentTime;
             return isNaN(t) ? currentTime : t;
         });
 
         // FIX: Removido useMemo aninhado que causava erro #300. 
         // Hooks devem ser chamados apenas no nível superior.
-        const earliestTime = Math.min(...earliestTimeArr, currentTime);
+        const earliestTime = earliestTimeArr.reduce((min, cur) => Math.min(min, cur), currentTime);
 
         const firstSession = new Date(earliestTime);
 
@@ -60,7 +61,7 @@ const StudyHistory = React.memo(function StudyHistory({
 
         // Count weeks between Sundays
         const diffTime = Math.abs(todaySunday - firstSunday);
-        const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7)) + 1;
+        const diffWeeks = Math.round(diffTime / (1000 * 60 * 60 * 24 * 7)) + 1;
 
         return Math.max(diffWeeks, 1);
     }, [studySessions, currentTime]); // BUG-23 FIX: currentTime adicionado
@@ -82,9 +83,10 @@ const StudyHistory = React.memo(function StudyHistory({
         refWeekEnd.setDate(startOfWeek.getDate() + 7);
 
         // Today's sessions (always actual today)
-        const todaySessions = studySessions.filter(s =>
-            new Date(s.startTime).toDateString() === today
-        );
+        const todaySessions = studySessions.filter(s => {
+            const d = normalizeDate(s.startTime);
+            return d && d.toDateString() === today;
+        });
         const todayMinutes = todaySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
 
         // Selected week's data (group by day)
@@ -94,9 +96,10 @@ const StudyHistory = React.memo(function StudyHistory({
             date.setDate(startOfWeek.getDate() + i);
             const dateStr = date.toDateString();
 
-            const daySessions = studySessions.filter(s =>
-                new Date(s.startTime).toDateString() === dateStr
-            );
+            const daySessions = studySessions.filter(s => {
+                const d = normalizeDate(s.startTime);
+                return d && d.toDateString() === dateStr;
+            });
             const dayMinutes = daySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
 
             weekData.push({
@@ -297,7 +300,7 @@ const StudyHistory = React.memo(function StudyHistory({
                                                     {getCategoryName(session.categoryId)}
                                                 </div>
                                                 <div className="text-[10px] text-slate-500">
-                                                    {new Date(session.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {(normalizeDate(session.startTime) || new Date()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                             </div>
                                         </div>
