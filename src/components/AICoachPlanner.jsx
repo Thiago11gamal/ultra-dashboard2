@@ -194,14 +194,23 @@ export default function AICoachPlanner() {
         setIsDragging(false);
     };
 
-    // BUG-02 FIX: Integrando o dayId para permitir que o Pomodoro saiba de onde a tarefa veio
     const handleStartTask = (task, dayId) => {
         if (!task) return;
         
-        // FIX: Clonar a task injetando o contexto do dia para a Store conseguir ler
-        const taskWithContext = { ...task, sourceContext: dayId };
+        let sessionTasks = [];
+        if (dayId === 'backlog') {
+            sessionTasks = columns.backlog || [];
+        } else {
+            sessionTasks = columns[dayId] || [];
+        }
+
+        let startIndex = sessionTasks.findIndex(t => getSafeId(t) === getSafeId(task));
+        if (startIndex === -1) startIndex = 0;
+
+        // FIX: Injetar o contexto do dia para a Store conseguir ler, mantendo toda a fila
+        const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext: dayId }));
         
-        startNeuralSession([taskWithContext], 0); 
+        startNeuralSession(sessionWithContext, startIndex); 
         navigate('/pomodoro');
     };
 
