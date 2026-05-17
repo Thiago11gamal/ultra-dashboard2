@@ -117,12 +117,12 @@ export default function ReliabilityCurveChart({ buckets }) {
             
             <div className="absolute top-4 left-16 flex items-center gap-4">
                 <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-0.5 bg-cyan-500 rounded-full" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Motor</span>
+                    <div className="w-2 h-0.5 bg-white/20 rounded-full border-t border-dashed border-white/40" />
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Motor</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-0.5 bg-white/20 rounded-full border-t border-dashed border-white/40" />
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Realidade</span>
+                    <div className="w-2 h-0.5 bg-cyan-500 rounded-full" />
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Realidade</span>
                 </div>
             </div>
         </div>
