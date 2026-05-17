@@ -323,8 +323,10 @@ export default function EvolutionChart({
                 const totalCorrect = Math.round(history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
                     if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
-                    // BUG 4b FIX: Use maxScore instead of hardcoded 100
-                    return s + (getSafeScore(h, maxScore) / maxScore * tot);
+                    const range = Math.max(1e-9, maxScore - minScore);
+                    const score = getSafeScore(h, maxScore);
+                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+                    return s + ((normalizedScore - minScore) / range * tot);
                 }, 0));
 
                 const safeName = String(cat.name || 'Sem nome');
