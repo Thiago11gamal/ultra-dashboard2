@@ -631,7 +631,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // [CORREÇÃO] Calcular as semanas ativas reais do utilizador (máximo 4) em vez de dividir cegamente por 4 (Bug 1.1 Fix)
         // Evita subestimar o burnout de novos utilizadores que estão cá há apenas poucos dias.
         const firstLogTime = sortedLogsForBurnout.length > 0 
-            ? new Date(sortedLogsForBurnout[0].date).getTime() 
+            ? (normalizeDate(sortedLogsForBurnout[0].date) || new Date(nowMs)).getTime() 
             : nowMs;
         const daysSinceFirstLog = Math.max(1, (nowMs - firstLogTime) / MS_PER_DAY);
         const activeWeeks = Math.max(1, Math.min(4, daysSinceFirstLog / 7));
@@ -698,7 +698,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let exactLastTime = 0;
         if (relevantSimulados.length > 0) exactLastTime = new Date(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime();
         if (validStudyLogs.length > 0) {
-            const logTime = new Date(validStudyLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date).getTime();
+            const logsOrdenados = [...validStudyLogs].sort((a, b) => 
+                (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime()
+            );
+            const logTime = (normalizeDate(logsOrdenados[0].date) || new Date(0)).getTime();
             if (logTime > exactLastTime) exactLastTime = logTime;
         }
 

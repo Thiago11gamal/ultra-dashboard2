@@ -135,6 +135,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const calibrationAuditLog = activeContest?.calibrationAuditLog || [];
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();
+    const [now] = useState(() => Date.now());
 
     const handleStartNeural = (task) => {
         const allAssignedIds = new Set();
@@ -186,7 +187,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             const rows = Array.isArray(history) ? history : [];
             if (rows.length === 0) return null;
  
-            const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+            const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
             const recent = rows.filter(h => toFinite(h?.timestamp) >= sevenDaysAgo);
             const base = recent.length > 0 ? recent : rows;
  
@@ -205,8 +206,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             return { categoryId, label, count: validCount, avgBrier, avgPenalty };
         })
         .filter(Boolean)
-        .sort((a, b) => b.avgPenalty - a.avgPenalty)
-        .slice(0, 6), [calibrationHistoryByCategory]);
+        .slice(0, 6), [calibrationHistoryByCategory, now]);
 
     return (
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>

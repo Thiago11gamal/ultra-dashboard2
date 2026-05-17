@@ -534,9 +534,12 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
         const results = new Float64Array(simulacoes);
         const rng = mulberry32(123456789); 
 
+        const maxScore = metricas.maxScore || 100;
+        const minScore = metricas.minScore || 0;
+
         for (let i = 0; i < simulacoes; i++) {
             // SUBSTITUIÇÃO: Remoção do while loop amador. Uso da matemática correta para Normal Truncada.
-            results[i] = sampleTruncatedNormal(avgVal, sd, 0, 100, rng);
+            results[i] = sampleTruncatedNormal(avgVal, sd, minScore, maxScore, rng);
         }
         
         const i10 = Math.floor(simulacoes * 0.1);

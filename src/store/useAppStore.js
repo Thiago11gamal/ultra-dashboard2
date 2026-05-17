@@ -35,8 +35,10 @@ const flushPendingIDBSaves = () => {
             
             // Remove matrizes matemáticas não essenciais antes de estrangular a CPU
             if (slimState.contests) {
+                slimState.contests = { ...slimState.contests };
                 Object.keys(slimState.contests).forEach(id => {
                     if (slimState.contests[id]) {
+                        slimState.contests[id] = { ...slimState.contests[id] };
                         delete slimState.contests[id].monteCarloHistory;
                         delete slimState.contests[id].simuladoRows; // Se recarregável via IDB
                     }
