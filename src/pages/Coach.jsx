@@ -340,7 +340,9 @@ export default function Coach() {
             // PERSISTENCE BATCHING: Só persiste se houver métricas relevantes e evita loop imediato
             if (collectedMetrics.length > 0) {
                 metricsTimer = setTimeout(() => {
-                    collectedMetrics.forEach(metric => persistCalibrationMetric(metric));
+                    collectedMetrics.forEach((metric, i) => {
+                        setTimeout(() => persistCalibrationMetric(metric), i * 600);
+                    });
                 }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
             }
         }, 0);
@@ -411,7 +413,9 @@ export default function Coach() {
                 showToast('Nenhuma sugestão necessária.', 'info');
             }
 
-            collectedMetrics.forEach(metric => persistCalibrationMetric(metric));
+            collectedMetrics.forEach((metric, i) => {
+                setTimeout(() => persistCalibrationMetric(metric), i * 600);
+            });
             setCoachLoading(false);
             // LOGIC-TIMEOUT-NULL FIX: zerar a ref após a execução para não manter
             // um ID de timeout expirado que mascararia novos agendamentos.
@@ -541,7 +545,7 @@ function StatRow({ label, value, trend, color }) {
     );
 }
 
-function GovernanceBanner({ data }) {
+const GovernanceBanner = React.memo(function GovernanceBanner({ data }) {
     const ops = data?.calibrationOps || {};
     const degradedCount = Object.values(ops).filter(o => o.degraded).length;
 
@@ -573,7 +577,7 @@ function GovernanceBanner({ data }) {
             </div>
         </Motion.div>
     );
-}
+});
 
 function RaioXDashboard({ data }) {
     const ops = data?.calibrationOps || {};

@@ -186,8 +186,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             const rows = Array.isArray(history) ? history : [];
             if (rows.length === 0) return null;
  
-            const latestTimestamp = rows.reduce((mx, h) => Math.max(mx, toFinite(h?.timestamp)), 0);
-            const sevenDaysAgo = latestTimestamp - 7 * 24 * 60 * 60 * 1000;
+            const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
             const recent = rows.filter(h => toFinite(h?.timestamp) >= sevenDaysAgo);
             const base = recent.length > 0 ? recent : rows;
  

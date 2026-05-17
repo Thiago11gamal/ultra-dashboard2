@@ -97,7 +97,17 @@ export const normalizeDate = (raw) => {
     let d;
     const isDateOnly = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw);
 
-    if (typeof raw === 'string') {
+    if (typeof raw === 'object' && (raw.seconds != null || raw._seconds != null)) {
+        const secs = raw.seconds != null ? raw.seconds : raw._seconds;
+        d = new Date(secs * 1000);
+    } else if (typeof raw === 'string' && raw.includes('/')) {
+        const parts = raw.split(/[/-]/);
+        if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
+            d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00Z`);
+        } else {
+            d = new Date(raw);
+        }
+    } else if (typeof raw === 'string') {
         d = isDateOnly ? new Date(`${raw}T12:00:00`) : new Date(raw);
     } else {
         d = new Date(raw);

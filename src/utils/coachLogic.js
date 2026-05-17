@@ -2,7 +2,7 @@
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
-import { safeDateParse as _safeDateParse } from './dateHelper.js';
+import { safeDateParse as _safeDateParse, normalizeDate } from './dateHelper.js';
 import { normalize } from './normalization.js';
 import { computeRollingCalibrationParams } from './calibration.js';
 import { 
@@ -76,22 +76,11 @@ function getDynamicTrendThreshold(currentScore, maxScore) {
 
 // ==================== FUNÇÕES AUXILIARES ====================
 
-const normalizeDate = (dateInput) => {
-    if (!dateInput) return new Date(0);
-    try {
-        const d = new Date(dateInput);
-        if (isNaN(d.getTime())) return new Date(0);
-        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    } catch {
-        return new Date(0);
-    }
-};
-
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const getDaysDiff = (newer, older) => {
-    const newerDate = normalizeDate(newer);
-    const olderDate = normalizeDate(older);
+    const newerDate = normalizeDate(newer) || new Date(0);
+    const olderDate = normalizeDate(older) || new Date(0);
     return Math.max(0, Math.floor((newerDate.getTime() - olderDate.getTime()) / MS_PER_DAY));
 };
 
@@ -107,7 +96,7 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null) {
     // CORREÇÃO: A urgência (Crunch) adapta-se ao tamanho da jornada do aluno.
     let timeDivisor = 21; // Padrão
     if (firstActivityDate && firstActivityDate.getTime() > 0) {
-        const totalJourneyDays = Math.max(1, (normalizeDate(new Date()).getTime() - firstActivityDate.getTime()) / 86400000) + daysToExam;
+        const totalJourneyDays = Math.max(1, ((normalizeDate(new Date()) || new Date()).getTime() - firstActivityDate.getTime()) / 86400000) + daysToExam;
         // Se a jornada é longa (ex: 300 dias), a rampa começa mais cedo.
         timeDivisor = Math.max(14, totalJourneyDays * 0.15); 
     }
@@ -274,7 +263,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             const examDate = normalizeDate(options.user.goalDate);
             // FIX: Proteger contra datas inválidas na string
             if (examDate && !isNaN(examDate.getTime())) {
-                const today = normalizeDate(new Date());
+                const today = normalizeDate(new Date()) || new Date();
                 daysToExam = Math.round((examDate.getTime() - today.getTime()) / MS_PER_DAY);
             }
         } catch {
@@ -294,9 +283,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         });
 
         // [CORREÇÃO] 1. Extrair a data raiz (firstActivityDate) ANTES da poda da matriz (Bug 1.1 Fix)
-        const rootActivityDate = relevantSimulados.length > 0 
+        const rootActivityDate = (relevantSimulados.length > 0 
             ? normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) 
-            : normalizeDate(new Date());
+            : null) || normalizeDate(new Date()) || new Date();
 
         // 2. Aplicar Limite de Retenção Ativa (Poda de Avalanche)
         if (relevantSimulados.length > 50) {
@@ -308,7 +297,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let averageScore = 0;
         if (relevantSimulados.length > 0) {
             const coachAdaptive = deriveCoachAdaptiveParams(simuladosToHistory(relevantSimulados, maxScore), maxScore, cfg);
-            const today = normalizeDate(new Date());
+            const today = normalizeDate(new Date()) || new Date();
             const K = coachAdaptive.decayK;
             const PESO_MIN = coachAdaptive.minWeight;
             const DELTA = coachAdaptive.scoreClampDelta;
@@ -318,7 +307,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 let totalWeight = 0;
                 dataset.forEach(s => {
                     const sScore = getSafeScore(s, maxScore);
-                    const simDate = normalizeDate(s.date || s.createdAt);
+                    const simDate = normalizeDate(s.date || s.createdAt) || new Date(0);
                     const days = getDaysDiff(today, simDate);
                     let timeWeight = Math.exp(-K * days);
                     if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
@@ -382,16 +371,16 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // 2. Days Since Last Study
         let daysSinceLastStudy = 0;
         let recencyUnknown = true;
-        let lastDate = normalizeDate(new Date(0));
+        let lastDate = normalizeDate(new Date(0)) || new Date(0);
 
         if (simuladosWithMaxScore.length > 0) {
-            const simDate = normalizeDate(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt);
+            const simDate = normalizeDate(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt) || new Date(0);
             if (simDate > lastDate) lastDate = simDate;
         }
 
         const categoryStudyLogs = (studyLogs || []).filter(log =>
             log?.categoryId === categoryId &&
-            normalizeDate(log.date).getTime() > 0
+            (normalizeDate(log.date) || new Date(0)).getTime() > 0
         );
         // FIX LOGIC-03: Fricção de Carga. Apenas considerar que houve "estudo real" capaz 
         // de reiniciar a curva de recência se o utilizador estudou pelo menos 15 minutos.
@@ -400,13 +389,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // Usamos os logs válidos para atualizar a lastDate (para o cálculo de urgência)
         if (validStudyLogs.length > 0) {
-            const sortedLogs = [...validStudyLogs].sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
-            const logDate = normalizeDate(sortedLogs[0].date);
+            const sortedLogs = [...validStudyLogs].sort((a, b) => (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime());
+            const logDate = normalizeDate(sortedLogs[0].date) || new Date(0);
             if (logDate > lastDate) lastDate = logDate;
         }
 
         if (lastDate.getTime() > 0) {
-            const today = normalizeDate(new Date());
+            const today = normalizeDate(new Date()) || new Date();
             daysSinceLastStudy = getDaysDiff(today, lastDate);
             recencyUnknown = false;
         }
@@ -555,8 +544,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         
         // Encontre a data do simulado ou estudo mais antigo (a raiz da jornada)
         const _firstActivityDate = (relevantSimulados.length > 0) 
-            ? normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) 
-            : normalizeDate(new Date());
+            ? (normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) || new Date(0))
+            : (normalizeDate(new Date()) || new Date());
 
         const crunchMultiplier = getCrunchMultiplier(daysToExam, rootActivityDate);
         let recencyComponent = 0; // Calculado abaixo no bloco Efficiency Bridge
@@ -630,12 +619,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
         
         // CORREÇÃO: Ordenar o array para garantir a busca correta pela data raiz
-        const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => normalizeDate(a.date).getTime() - normalizeDate(b.date).getTime());
+        const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(b.date) || new Date(0)).getTime());
         
         // CORREÇÃO: Janela Rolante de 28 dias para capturar o ritmo real, ignorando fantasmas do passado
         const rollingWindowMs = 28 * MS_PER_DAY;
         const nowMs = Date.now();
-        const recentBaselineLogs = sortedLogsForBurnout.filter(log => (nowMs - normalizeDate(log.date).getTime()) <= rollingWindowMs);
+        const recentBaselineLogs = sortedLogsForBurnout.filter(log => (nowMs - (normalizeDate(log.date) || new Date(0)).getTime()) <= rollingWindowMs);
         
         const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
         
@@ -662,8 +651,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const currentLambda = mcAdaptive?.decayK || 0.03; 
         const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
 
-        const windowStart = normalizeDate(new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY_CONST);
-        const recentAllLogs = (studyLogs || []).filter(log => normalizeDate(log?.date).getTime() >= windowStart);
+        const windowStart = (normalizeDate(new Date()) || new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY_CONST);
+        const recentAllLogs = (studyLogs || []).filter(log => (normalizeDate(log?.date) || new Date(0)).getTime() >= windowStart);
         const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const totalRecentMinutesCat = recentAllLogs
             .filter(log => log?.categoryId === categoryId)
@@ -772,20 +761,20 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // --- RECOMMENDATION ---
         let recommendation = "";
-        const oneWeekAgo = normalizeDate(new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
+        const oneWeekAgo = (normalizeDate(new Date()) || new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
         const recentLogs = categoryStudyLogs.filter(log => {
-            const d = normalizeDate(log.date);
+            const d = normalizeDate(log.date) || new Date(0);
             return d && d.getTime() >= oneWeekAgo;
         });
         const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
-        const recentStudyDays = new Set(recentLogs.map(log => normalizeDate(log.date).getTime())).size;
+        const recentStudyDays = new Set(recentLogs.map(log => (normalizeDate(log.date) || new Date(0)).getTime())).size;
         
         const isHighVolume = recentHours > dynamicBurnoutThreshold;
         const isHighFrequency = recentStudyDays >= 5;
         // CORREÇÃO: Alunos acima de 95% do teto não podem ser dados como estagnados por não crescerem mais.
         // A matemática física impede-os de ultrapassar os 100%.
         const isEliteMaintenance = averageScore >= (maxScore * 0.95);
-        const isStagnant = !isEliteMaintenance && trend <= trendThreshold;
+        const isStagnant = !isEliteMaintenance && trend <= trendThreshold && lastNScores.length >= 2;
 
         const burnoutMsg = isHighVolume && isStagnant 
             ? `Você estudou ${recentHours.toFixed(1)}h esta semana (seu normal é ~${baselineHoursPerWeek.toFixed(1)}h), mas a nota estagnou.` 
