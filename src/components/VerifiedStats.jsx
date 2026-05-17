@@ -185,7 +185,7 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
             <div className="grid grid-cols-[1fr_auto_80px] md:grid-cols-12 gap-2 px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-normal border-b border-white/5 mb-1 overflow-hidden">
                 <div className="md:col-span-3">Matéria</div>
                 <div className="text-center md:col-span-2">Status</div>
-                <div className="text-center md:col-span-4">Desvio Padrão (SD)</div>
+                <div className="text-center md:col-span-4">Estabilidade (SD inverso)</div>
                 <div className="hidden md:block md:col-span-1 text-center">Δ</div>
                 <div className="hidden md:block md:col-span-2 text-center">Vilões</div>
             </div>
@@ -561,8 +561,9 @@ export default function VerifiedStats({ categories = [], user }) {
                     .filter(h => h.date && normalizeDate(h.date) !== null)
                     .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
 
+                const catMaxScore = Number(cat.maxScore) || maxScore;
                 const analysisHistory = sortedHistory.slice(-5).map(h => ({
-                    score: getSafeScore(h, maxScore),
+                    score: (getSafeScore(h, catMaxScore) / catMaxScore) * maxScore,
                     date: h.date
                 }));
 
@@ -657,13 +658,14 @@ export default function VerifiedStats({ categories = [], user }) {
             const medianValue = stateValues[Math.floor((stateValues.length - 1) / 2)];
             const medianState = Object.entries(stateScores).find(([, v]) => v === medianValue)?.[0] || 'unstable';
             const uiState = stateMap[medianState] || stateMap.insufficient_data;
+            const medianCat = categoryBreakdown.find(c => c.state === medianState) ?? categoryBreakdown[0];
 
             consistency = {
                 status: uiState.status,
                 color: uiState.color,
                 bgBorder: uiState.bgBorder,
                 icon: uiState.icon,
-                message: categoryBreakdown[0].message,
+                message: medianCat.message,
                 delta: avgDelta.toFixed(2),
                 sd: avgSD.toFixed(2)
             };

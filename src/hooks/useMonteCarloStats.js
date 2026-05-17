@@ -585,7 +585,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / Math.max(1, sd)) * 100;
 
         // Historico para tamanho da amostra
-        const nHistory = Array.isArray(statsData?.history) ? statsData.history.length : (timelineDates?.length || 0);
+        const nHistory = Array.isArray(statsData?.globalHistory) ? statsData.globalHistory.length : (timelineDates?.length || 0);
 
         // Tier Dinâmico
         const confidenceObj = getConfidenceTier({

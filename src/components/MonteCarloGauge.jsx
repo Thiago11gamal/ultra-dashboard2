@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { formatValue } from '../utils/scoreHelper';
-import { getDateKey, formatDatePtBR } from '../utils/dateHelper';
+import { getDateKey, formatDatePtBR, normalizeDate } from '../utils/dateHelper';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 
 /**
@@ -52,7 +52,8 @@ export default function MonteCarloGauge({
         categories.forEach(cat => {
             if (cat.simuladoStats?.history) {
                 cat.simuladoStats.history.forEach(h => {
-                    const dk = getDateKey(h.date);
+                    const normalized = normalizeDate(h.date);
+                    const dk = normalized ? getDateKey(normalized) : null;
                     if (dk) dates.add(dk);
                 });
             }
