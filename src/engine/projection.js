@@ -131,8 +131,16 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     const scores = safeHistory.map(h => getSafeScore(h, maxScore));
     const n = scores.length;
     
-    const t0 = safeDateParse(safeHistory[0].date || safeHistory[0].createdAt).getTime();
-    const timeX = safeHistory.map(h => (safeDateParse(h.date || h.createdAt).getTime() - t0) / 86400000);
+    // CORREÇÃO: Blindagem contra corrupção de base de dados (TypeError nulo/undefined)
+    const firstDateObj = safeDateParse(safeHistory[0].date || safeHistory[0].createdAt);
+    const t0 = firstDateObj ? firstDateObj.getTime() : Date.now();
+    
+    const timeX = safeHistory.map(h => {
+        const dateObj = safeDateParse(h.date || h.createdAt);
+        const t = dateObj ? dateObj.getTime() : NaN;
+        // Se a data for inválida (NaN), assume delta de tempo 0 em vez de explodir a matemática
+        return (Number.isFinite(t) ? t - t0 : 0) / 86400000;
+    });
     
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     for(let i = 0; i < n; i++) {

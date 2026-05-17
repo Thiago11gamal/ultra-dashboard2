@@ -423,17 +423,18 @@ export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificulda
     const baseline = 0.2; // Limiar mínimo de retenção
     const tempoDias = Math.max(0, horasDesdeEstudo / 24);
     
-    // Conversão de Proficiência em Estabilidade (Stability) do FSRS
-    // S = exp(forcaMemoria * fator_escala). Valores entre 0.5 e 100 dias.
-    const stability = Math.max(0.5, Math.exp(forcaMemoria * 0.45));
+    // CORREÇÃO CIENTÍFICA (FSRS): A dificuldade afeta a construção da Estabilidade (S), 
+    // não deve aplicar um corte instantâneo de penalização na hora t=0.
+    const difficultyFactor = 1 - (Math.max(0.1, Math.min(1.0, dificuldade)) * 0.15); 
+    
+    // S = exp(forcaMemoria * fator_escala) modulado pela dificuldade do item.
+    // Tópicos difíceis geram consolidações mais frágeis (menor Estabilidade).
+    const stability = Math.max(0.5, Math.exp(forcaMemoria * 0.45) * difficultyFactor);
     
     // Retrievability (R) = 0.9^(t / S)
-    // Este é o padrão ouro para prever a probabilidade de recordação.
+    // Se o tempo decorrido for 0, R = 1 (100% retido), conforme as leis da memória.
     const retrievability = Math.pow(0.9, tempoDias / stability);
-    
-    // Ajuste por dificuldade: Itens difíceis decaem mais rápido
-    const difficultyFactor = 1 - (Math.max(0.1, dificuldade) * 0.1);
-    const finalRetention = retrievability * difficultyFactor;
+    const finalRetention = retrievability; 
     
     return Math.max(baseline, finalRetention);
 };

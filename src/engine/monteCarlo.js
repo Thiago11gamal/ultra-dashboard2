@@ -170,10 +170,21 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     const allScores = new Float64Array(safeSimulations);
 
-    // FIX BUG 2: Remover a heurística de shift artificial.
-    // A Normal Truncada já acumula densidade fisicamente correta nas bordas.
-    // Forçar o muParam corrompe a amostragem de Monte Carlo e a CDF analítica.
+    // CORREÇÃO: Compensação analítica para a Média da Normal Truncada
+    // Se não deslocarmos o muParam, a assimetria do corte fará com que o
+    // valor esperado (E[X]) se afaste da média real do aluno perto das bordas.
     let muParam = safeMean; 
+    const distToMin = safeMean - minScore;
+    const distToMax = maxScore - safeMean;
+    
+    if (safeSD > 0) {
+        // Compensação exponencial apenas quando a média está sob pressão das bordas
+        if (distToMin < safeSD * 1.5) {
+            muParam = safeMean + (safeSD * 0.4 * Math.exp(-distToMin / safeSD));
+        } else if (distToMax < safeSD * 1.5) {
+            muParam = safeMean - (safeSD * 0.4 * Math.exp(-distToMax / safeSD));
+        }
+    } 
 
     for (let i = 0; i < safeSimulations; i++) {
         let score = sampleTruncatedNormal(muParam, safeSD, minScore, maxScore, rng);
@@ -492,7 +503,11 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
             const z0 = generateGaussian(rng);
             
             // 1. Inércia Cognitiva (Processo AR-1 Verdadeiro)
-            const pureNoise = z0 * volatilidadeAdaptativa;
+            // CORREÇÃO: Escalar o ruído de inovação para preservar a variância incondicional.
+            // Sem isto, a variância final seria inflacionada em (1 / (1 - PHI^2)).
+            const ar1Correction = Math.sqrt(1 - Math.pow(PHI_AR1, 2));
+            const pureNoise = (z0 * volatilidadeAdaptativa) * ar1Correction;
+            
             // O choque efetivo soma o ruído de hoje com a inércia de ontem
             const effectiveShock = pureNoise + (PHI_AR1 * previousShock);
             
