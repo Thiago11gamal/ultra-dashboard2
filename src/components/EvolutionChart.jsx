@@ -1020,6 +1020,7 @@ export default function EvolutionChart({
                     <CriticalTopicsAnalysis
                         categories={categories}
                         maxScore={maxScore}
+                        minScore={minScore}
                     />
                 </div>
             </div>
