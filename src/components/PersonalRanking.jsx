@@ -105,7 +105,7 @@ function PersonalRanking({ categories = [] }) {
                 return acc + Math.max(0, fallback);
             }, 0);
             const ms = cat.maxScore ?? 100;
-            const correct = history.reduce((acc, h) => {
+            const correctRaw = history.reduce((acc, h) => {
                 const parsedTotal = Number(h.total);
                 const t = (Number.isFinite(parsedTotal) && parsedTotal > 0)
                     ? parsedTotal
@@ -113,7 +113,8 @@ function PersonalRanking({ categories = [] }) {
                 const c = t > 0 ? (getSafeScore(h, ms) / ms) * t : 0;
                 return acc + c;
             }, 0);
-            const wrong = total - correct;
+            const correct = Math.max(0, Math.round(correctRaw));
+            const wrong = Math.max(0, total - correct);
             const balance = correct - wrong;
 
             return { ...cat, total, correct, wrong, balance };
