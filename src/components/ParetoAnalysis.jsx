@@ -3,7 +3,7 @@ import { Target, CheckCircle2, Zap } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
 
 // Pareto Analysis Component - Patched Version (Logic + UI)
-export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
+export default function ParetoAnalysis({ categories = [] }) {
 
     // Calculate Pareto Data
     const { topEnemies, totalLostPoints } = useMemo(() => {
@@ -94,7 +94,7 @@ export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
             hiddenOpportunities: others.length 
         };
 
-    }, [categories, maxScore]);
+    }, [categories]);
 
     return (
         <div className="glass p-6 h-full flex flex-col border-l border-white/5 bg-gradient-to-br from-slate-900/50 to-red-900/10">
