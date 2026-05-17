@@ -81,8 +81,7 @@ const normalizeDate = (dateInput) => {
     try {
         const d = new Date(dateInput);
         if (isNaN(d.getTime())) return new Date(0);
-        // 🎯 FIX: Isola a data UTC explicitamente para evitar drift de fuso horário
-        return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     } catch {
         return new Date(0);
     }

@@ -29,7 +29,7 @@ export const getXpRemainingToNextLevel = (currentXP) => {
 
 // Recebe NÍVEL atual → retorna XP TOTAL do próximo nível (threshold)
 export const getXpThresholdForLevel = (level) => {
-    return Math.pow(level, 2) * 100;
+    return Math.pow(Math.max(0, level - 1), 2) * 100;
 };
 
 export const getXPProgress = (xpInput) => {

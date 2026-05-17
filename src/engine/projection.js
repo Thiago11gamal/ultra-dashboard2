@@ -482,7 +482,8 @@ export function monteCarloSimulation(
     const safeResiduals = centeredResiduals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
 
     // Adicionar esta linha após criar o safeResiduals:
-    const empResidualSD = Math.sqrt(safeResiduals.reduce((a, b) => a + b*b, 0) / Math.max(1, safeResiduals.length));
+    const empMean = safeResiduals.reduce((a, b) => a + b, 0) / Math.max(1, safeResiduals.length);
+    const empResidualSD = Math.sqrt(safeResiduals.reduce((a, b) => a + Math.pow(b - empMean, 2), 0) / Math.max(1, safeResiduals.length));
     const standardizer = empResidualSD > 0 ? empResidualSD : 1;
 
     const results = [];
