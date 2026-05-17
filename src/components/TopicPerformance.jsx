@@ -31,9 +31,10 @@ export default function TopicPerformance({ categories = [] }) {
                 if (!topicMap[name]) {
                     topicMap[name] = { total: 0, correct: 0 };
                 }
-                topicMap[name].total += (parseInt(t.total, 10) || 0);
-                const correctCount = (t.isPercentage && t.score != null && (parseInt(t.total, 10) || 0) > 0)
-                    ? Math.round((getSafeScore(t, maxScore) / maxScore) * (parseInt(t.total, 10) || 0))
+                const total = parseInt(t.total, 10) || 0;
+                topicMap[name].total += total;
+                const correctCount = total > 0
+                    ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
                     : (parseInt(t.correct, 10) || 0);
                 topicMap[name].correct += correctCount;
             });

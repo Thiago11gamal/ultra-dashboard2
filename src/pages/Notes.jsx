@@ -45,7 +45,9 @@ export default function Notes() {
                 rowsByDate[dateKey].push({
                     name: r.topic || 'Geral',
                     correct: parseInt(r.correct, 10) || 0,
-                    total: parseInt(r.total, 10) || 0
+                    total: parseInt(r.total, 10) || 0,
+                    score: r.score,
+                    isPercentage: r.isPercentage
                 });
             });
 
@@ -96,7 +98,9 @@ export default function Notes() {
                     h.topics = [{
                         name: 'Geral',
                         correct: h.correct,
-                        total: h.total
+                        total: h.total,
+                        score: h.score,
+                        isPercentage: h.isPercentage
                     }];
                 }
             });
