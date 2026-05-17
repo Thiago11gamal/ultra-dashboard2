@@ -402,6 +402,14 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
         return monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
     }
 
+    if (Array.isArray(inputOrMean)) {
+        // EvolutionChart sends: runAnalysis(hist, targetScore, projectDays, options)
+        const hist = inputOrMean;
+        const actualTargetScore = pooledSD;
+        const projectDays = targetScore;
+        return monteCarloSimulation(hist, actualTargetScore, projectDays, options.simulations || 5000, options);
+    }
+
     const safeDomain = sanitizeDomain(options.minScore, options.maxScore);
 
     return simulateNormalDistribution({
