@@ -644,7 +644,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         debouncedTarget,
         currentMean,
         projectedMean,
-        probability,
         pAdjusted: derivedMetrics.pAdjusted,
         ci95Low: derivedMetrics.ci95Low,
         ci95High: derivedMetrics.ci95High,
@@ -673,7 +672,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 // 🎯 EFFECT: Persistência de Histórico de Projeção (Snapshots)
 function useMonteCarloHistoryRecorder({ 
     activeId, simulationData, timeIndex, timelineDates, effectiveSimulateToday, projectDays, goalDate,
-    debouncedTarget, currentMean, projectedMean, probability: _probability, pAdjusted, ci95Low, ci95High,
+    debouncedTarget, currentMean, projectedMean, pAdjusted, ci95Low, ci95High,
     recordMonteCarloSnapshot 
 }) {
     const lastRecordTime = useRef(0);
