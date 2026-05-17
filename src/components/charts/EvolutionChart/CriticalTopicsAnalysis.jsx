@@ -15,7 +15,7 @@ const CustomTooltipStyle = {
     boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
 };
 
-export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100 }) => {
+export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100, minScore = 0 }) => {
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
 
     // Calc time window
@@ -58,6 +58,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 return d && d >= startDate && d <= endDate;
             });
 
+            const range = Math.max(1e-9, maxScore - minScore);
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
 
@@ -69,9 +70,13 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
+                    
+                    const score = t.score != null ? Number(t.score) : getSafeScore(t, maxScore);
+                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+                    
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
-                        ? (Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total
-                        : (t.correct != null ? Number(t.correct) : (getSafeScore(t, maxScore) / maxScore) * total);
+                        ? ((normalizedScore - minScore) / range) * total
+                        : (t.correct != null ? Number(t.correct) : ((normalizedScore - minScore) / range) * total);
 
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
@@ -119,12 +124,17 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 const d = normalizeDate(h.date);
                 return d && d >= startDate && d <= endDate;
             });
+            const range = Math.max(1e-9, maxScore - minScore);
             for (const h of recentHistory) {
                 const t = parseInt(h.total, 10) || 0;
                 if (t === 0) continue;
+                
+                const score = h.score != null ? Number(h.score) : getSafeScore(h, maxScore);
+                const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+                
                 const correctCount = (h.isPercentage && h.score != null && t > 0)
-                    ? (Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * t
-                    : (h.correct != null ? Number(h.correct) : (getSafeScore(h, maxScore) / maxScore) * t);
+                    ? ((normalizedScore - minScore) / range) * t
+                    : (h.correct != null ? Number(h.correct) : ((normalizedScore - minScore) / range) * t);
                 
                 total += t;
                 correct += correctCount;
