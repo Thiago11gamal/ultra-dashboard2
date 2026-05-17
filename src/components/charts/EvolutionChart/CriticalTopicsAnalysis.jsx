@@ -108,7 +108,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
             };
         });
-    }, [categories, startDate, endDate, maxScore]);
+    }, [categories, startDate, endDate, maxScore, minScore]);
 
     const pointLeakageData = useMemo(() => {
         if (!categories || !categories.length) return [];
@@ -161,7 +161,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 displayValue: Math.round(item.value * 10) / 10
             };
         });
-    }, [categories, startDate, endDate, maxScore]);
+    }, [categories, startDate, endDate, maxScore, minScore]);
 
     const weekTitle = WEEKS.find(w => w.offset === selectedWeekOffset)?.label || "SEMANA";
 

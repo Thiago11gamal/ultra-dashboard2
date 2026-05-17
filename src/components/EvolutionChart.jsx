@@ -281,7 +281,7 @@ export default function EvolutionChart({
             pts = [...pts, ...futurePoints];
         }
         return pts;
-    }, [timeline, focusCategory, activeMcProjectionSeries, categoryLevels, projectDays]);
+    }, [timeline, focusCategory, activeMcProjectionSeries, categoryLevels, projectDays, minScore, maxScore]);
 
     const chartData = activeEngine === "compare" ? compareData : timeline;
 
@@ -335,7 +335,7 @@ export default function EvolutionChart({
             })
             .filter(d => d.questoes > 0)
             .sort((a, b) => b.questoes - a.questoes);
-    }, [categories, showOnlyFocus, focusCategory?.id, maxScore]);
+    }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore]);
 
     const getInsight = () => {
         const defaultTitle = "Análise do Sistema";
