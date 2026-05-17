@@ -34,7 +34,7 @@ export function HorasDisciplinaChart({ data }) {
                         type="number"
                         stroke="#94a3b8"
                         fontSize={10}
-                        domain={[0, dataMax => Math.ceil(dataMax * 1.1)]}
+                        domain={[0, dataMax => Math.max(1, Math.ceil(dataMax * 1.1))]}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(val) => formatDuration(val)}

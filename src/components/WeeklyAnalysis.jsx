@@ -42,8 +42,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             y.setDate(y.getDate() - 1);
             const yesterday = formatDatePtBR(y);
             let dayLabel = dateStr;
-            const weekDays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-            const weekDayName = weekDays[dateObj.getDay()];
+            const rawWeekday = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Manaus', weekday: 'long' }).format(dateObj);
+            const weekDayName = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1).split('-')[0];
 
             let isToday = false;
             let isYesterday = false;
