@@ -451,14 +451,16 @@ export default function Coach() {
     return (
         <PageErrorBoundary pageName="Coach">
             <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <PageHeader 
                         title="Análise do Coach" 
                         description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
                     />
                     
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-6 bg-slate-900/40 border border-white/5 p-3 sm:p-4 rounded-3xl backdrop-blur-md w-full md:w-auto">
+                    <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-6 bg-slate-900/40 border border-white/5 p-3 sm:p-4 rounded-3xl backdrop-blur-md w-full md:w-auto">
                         <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-rose-400" icon={<Zap size={14} />} />
+                        <div className="w-px h-10 bg-white/5" />
+                        <MonteCarloDebugger stats={mcStats} />
                         <div className="w-px h-10 bg-white/5" />
                         <QuickStat
                             label="Tendência"
@@ -510,7 +512,6 @@ export default function Coach() {
                     </div>
                 </div>
             </div>
-            <MonteCarloDebugger stats={mcStats} />
         </PageErrorBoundary>
     );
 }
