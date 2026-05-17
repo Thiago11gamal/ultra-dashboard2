@@ -146,7 +146,7 @@ export default function Coach() {
             // Evita descartar eventos onde o Brier ficou estável, mas ECE/penalty mudaram.
             const lastEntry = categoryHistory[categoryHistory.length - 1];
             const hasComparableLast = lastEntry && Number.isFinite(Number(lastEntry?.timestamp));
-            if (hasComparableLast && !isDegraded) {
+            if (hasComparableLast) {
                 const metricDelta = (currentValue, previousValue) => {
                     const currentFinite = Number.isFinite(Number(currentValue));
                     const previousFinite = Number.isFinite(Number(previousValue));
