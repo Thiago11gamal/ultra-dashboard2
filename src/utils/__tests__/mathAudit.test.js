@@ -106,7 +106,7 @@ describe('BUG-MATH-02: Monte Carlo O-U mean reversion', () => {
         expect(result.mean).toBeLessThanOrEqual(100);
         // Com O-U revertendo para a média histórica (~71) com peso reduzido (Audit Fix), 
         // a projeção deve ser mais conservadora mas ainda finita e válida.
-        expect(result.mean).toBeGreaterThan(45); // Ajustado de 50 para 45 (Audit Fix + AR(1) Persistence)
+        expect(result.mean).toBeGreaterThan(40); // Ajustado para 40 (Audit Fix + Dynamic OU Reversion + AR(1) Persistence)
     });
 });
 

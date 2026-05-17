@@ -41,13 +41,15 @@ function sanitizeSimulations(simulations) {
 
 // CORREÇÃO VISUAL E MATEMÁTICA: Geração de semente estável (FNV-1a Hash)
 // Ancoramos a semente na volumetria e topologia do histórico, não na flutuação da média.
-function generateStableSeed(historyCount, categoryName, targetScore) {
-    let h = 2166136261; // Offset base FNV
-    const seedStr = `${historyCount}-${String(categoryName || 'global')}-${Math.floor(targetScore || 0)}`;
+function generateStableSeed(historyCount, categoryName, _targetScore) {
+    let h = 2166136261;
+    // CORREÇÃO: Remoção do targetScore da entropia. O cone de projeção deve ser 
+    // um "universo físico paralelo" estável, e a meta é apenas uma linha sobre ele.
+    const seedStr = `${historyCount}-${String(categoryName || 'global')}`;
     
     for(let i = 0; i < seedStr.length; i++) {
         h ^= seedStr.charCodeAt(i);
-        h = Math.imul(h, 16777619); // Primo FNV
+        h = Math.imul(h, 16777619);
     }
     return h >>> 0;
 }

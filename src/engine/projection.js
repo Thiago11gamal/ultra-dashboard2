@@ -184,8 +184,10 @@ export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast 
     // ao tempo decorrido desde o último registro, compensando o "esquecimento".
     const alphaDinamico = 1 - Math.pow(1 - alphaBase, deltaT);
     
-    // Clamping de segurança para evitar que uma única nota de baixo volume destrua o histórico.
-    const safeAlpha = Math.min(0.95, alphaDinamico);
+    // CORREÇÃO: O teto cognitivo desce de 0.95 para 0.40.
+    // Garante que, independentemente do gap temporal, um teste único nunca
+    // substitui mais de 40% da inércia da memória de longo prazo consolidada.
+    const safeAlpha = Math.min(0.40, alphaDinamico);
     
     return (currentScore * safeAlpha) + (previousEMA * (1 - safeAlpha));
 }
@@ -557,9 +559,10 @@ export function monteCarloSimulation(
             const driftDamping = 1 / (1 + d / dampingBase); 
             const driftEffect = sampledDrift * driftDamping;
 
-            // [AUDIT-FIX-02] A reversão puxa para o Baseline Histórico (consolidação)
-            // Aumentamos o piso de thetaOU de 0.001 para 0.005 para evitar "morte térmica" da nota.
-            const meanReversion = Math.max(0.005, thetaOU) * (baselineScore - currentSimScore);
+            // CORREÇÃO: O centro gravitacional do aluno evolui com o seu Drift natural.
+            // Impede o colapso artificial do crescimento em projeções longas (>45 dias).
+            const dynamicBaseline = Math.min(maxScore, baselineScore + (drift * d));
+            const meanReversion = Math.max(0.005, thetaOU) * (dynamicBaseline - currentSimScore);
             const adaptiveVol = Math.sqrt(Math.max(1e-6, currentVolSq));
             
             // CORREÇÃO: Padrão Ouro de Filtered Historical Simulation (FHS)

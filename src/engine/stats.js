@@ -612,12 +612,22 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     // CORREÇÃO: Filtrar notas corrompidas ANTES de aplicar o peso de Kish na média,
     // garantindo que não dividimos por um denominador fantasma.
     const validHistoryForMean = historyToUse.filter(h => !Number.isNaN(getSafeScore(h, safeMaxScore)));
-    const actualTotalQ = validHistoryForMean.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
     
-    const weightedScores = validHistoryForMean.map(h => getSafeScore(h, safeMaxScore) * (Number(h.total) || 0));
-    const m = actualTotalQ > 0
-        ? kahanSum(weightedScores) / actualTotalQ
-        : mean(scores);
+    let sumWeightMean = 0;
+    let sumScoreMean = 0;
+
+    validHistoryForMean.forEach(h => {
+        const w = Number(h.total) || 0;
+        if (w > 0) {
+            // A média agora respeita o mesmo tensor geométrico da variância
+            const diffWeight = Number(h.weight || h.difficulty || 1.0);
+            const effW = w * diffWeight;
+            sumWeightMean += effW;
+            sumScoreMean += getSafeScore(h, safeMaxScore) * effW;
+        }
+    });
+
+    const m = sumWeightMean > 0 ? sumScoreMean / sumWeightMean : mean(scores);
 
     let variance = 0;
     if (historyToUse.length > 1) {

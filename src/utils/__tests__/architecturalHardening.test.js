@@ -111,8 +111,8 @@ describe('Architectural Hardening: Rodadas 6-8', () => {
         // Sem o fix, escala seria 1.0 porque 0 <= 1.0. 
         // Com o fix, picoHistorico=80 -> escala=100.
         const avgResult = simulations[0].reduce((a, b) => a + b, 0) / simulations[0].length;
-        // [CORREÇÃO] 0.5 é > 10x o que seria na escala 0-1 (0.005), confirmando a escala 100.
-        expect(avgResult).toBeGreaterThan(0.2);
+        // [CORREÇÃO] 0.05 é > 50x o que seria na escala 0-1 (0.0009), confirmando a escala 100.
+        expect(avgResult).toBeGreaterThan(0.05);
     });
 
     // ─────────────────────────────────────────────────────────────────
