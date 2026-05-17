@@ -22,6 +22,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                         parentCategory: cat.name,
                         categoryColor: cat.color,
                         categoryIcon: cat.icon,
+                        catMaxScore: cat.maxScore ?? maxScore,
                         correct: 0,
                         wrong: 0,
                         total: 0,
@@ -45,6 +46,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                             parentCategory: cat.name,
                             categoryColor: cat.color,
                             categoryIcon: cat.icon,
+                            catMaxScore: cat.maxScore ?? maxScore,
                             correct: 0,
                             wrong: 0,
                             total: 0,
@@ -74,10 +76,10 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
         return Object.values(topicMap)
             .map(t => {
                 const balance = t.correct - t.wrong;
-                const percent = t.total > 0 ? Math.round((t.correct / t.total) * maxScore) : 0;
+                const percent = t.total > 0 ? Math.round((t.correct / t.total) * t.catMaxScore) : 0;
                 const sortedTrend = getSortedHistory(t.trendHistory || []).slice(-10);
-                const trendValue = sortedTrend.length >= 3 ? calculateSlope(sortedTrend, maxScore) : 0;
-                const trendTolerance = 0.0167 * (maxScore / 100);
+                const trendValue = sortedTrend.length >= 3 ? calculateSlope(sortedTrend, t.catMaxScore) : 0;
+                const trendTolerance = 0.0167 * (t.catMaxScore / 100);
                 const trend = trendValue > trendTolerance ? 'up' : trendValue < -trendTolerance ? 'down' : 'stable';
                 return { ...t, balance, percent, trendValue, trend };
             })
