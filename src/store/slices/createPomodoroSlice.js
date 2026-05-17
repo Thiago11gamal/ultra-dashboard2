@@ -129,7 +129,9 @@ export const createPomodoroSlice = (set, get) => ({
                 }
             } else {
                 // Fim da Pausa -> Próxima Sessão de Trabalho
-                if (p.sessions >= targetCycles) {
+                // BUG FIX: Se a pausa era de uma transição de fila neural (completedCycles zerado),
+                // a próxima sessão de trabalho DEVE ser a sessão 1 (e não a 2).
+                if (p.sessions >= targetCycles || p.completedCycles === 0) {
                     p.sessions = 1;
                     p.completedCycles = 0;
                     p.accumulatedMinutes = 0;

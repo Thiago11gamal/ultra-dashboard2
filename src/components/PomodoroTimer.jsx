@@ -18,7 +18,7 @@
  * ============================================================================
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Play, Pause, RotateCcw, Lock, Unlock, AlertCircle, Zap, SkipForward } from 'lucide-react';
+import { Play, Pause, RotateCcw, Lock, Unlock, AlertCircle, Zap, SkipForward, VolumeX, Volume2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { motion as Motion } from 'framer-motion';
 import { useToast } from '../hooks/useToast';
@@ -521,7 +521,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
         const isManual = source !== 'natural';
 
-        if (source === 'natural' && safeSettings.soundEnabled) {
+        if (source === 'natural' && safeSettings.soundEnabled && !isMuted) {
             try { alarmAudioRef.current?.play().catch((error) => {
                 console.error('Failed to play alarm audio:', error);
             }); } catch (error) {
@@ -800,13 +800,13 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                     </div>
                 </div>
 
-                <div className="w-full flex justify-end px-4 -mb-8">
+                <div className="w-full flex justify-end px-4 -mb-8 relative z-50">
                      <button 
                         onClick={toggleMute}
                         className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-slate-400 hover:text-white transition-all shadow-xl backdrop-blur-md group"
                         title={isMuted ? "Ativar Áudio" : "Mudar para Silencioso"}
                     >
-                        {isMuted ? <Lock size={18} className="text-red-400" /> : <Unlock size={18} className="text-emerald-400" />}
+                        {isMuted ? <VolumeX size={18} className="text-red-400" /> : <Volume2 size={18} className="text-emerald-400" />}
                     </button>
                 </div>
 
