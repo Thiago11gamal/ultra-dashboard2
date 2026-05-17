@@ -42,8 +42,6 @@ export default function Simulados() {
         }
     });
 
-    let autoIdCounter = 0;
-
     // Auto-populate from categories (PERFECT MIRROR)
     (data.categories || []).forEach(cat => {
         const tasks = cat.tasks || [];
@@ -58,7 +56,7 @@ export default function Simulados() {
                 displayRows.push(savedAutoRows[key]);
             } else {
                 displayRows.push({
-                    id: `auto-${cat.id}-fallback-${autoIdCounter++}`,
+                    id: `auto-${cat.id}-fallback`,
                     subject: cat.name,
                     topic: 'nenhum',
                     correct: 0,
@@ -80,7 +78,7 @@ export default function Simulados() {
                     displayRows.push(savedAutoRows[key]);
                 } else {
                     displayRows.push({
-                        id: `auto-${cat.id}-${task.id}-${autoIdCounter++}`,
+                        id: `auto-${cat.id}-${task.id}`,
                         subject: cat.name,
                         topic: title,
                         correct: 0,
@@ -152,7 +150,8 @@ export default function Simulados() {
                     }
 
                     const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history.filter(Boolean) : [];
-                    const historyWithCurrent = history.slice(-49);
+                    const historyWithoutToday = history.filter(h => h.date !== todayKey);
+                    const historyWithCurrent = historyWithoutToday.slice(-49);
                     
                     const finalC = Math.max(0, Number(stats.totalCorrect || 0));
                     const finalQ = Math.max(0, Number(stats.totalQuestions || 0));
@@ -218,7 +217,7 @@ export default function Simulados() {
                         validated: true,
                         subject: String(r.subject || '').trim(),
                         topic: String(r.topic || '').trim(),
-                        correct: Math.max(0, Number(r.correct) || 0),
+                        correct: Math.min(Math.max(0, Number(r.total) || 0), Math.max(0, Number(r.correct) || 0)),
                         total: Math.max(0, Number(r.total) || 0)
                     }))
             ].slice(-300);
