@@ -52,10 +52,11 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                         };
                     }
 
+                    const catMaxScore = cat.maxScore ?? maxScore;
                     const totalParsed = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 0;
                     const total = totalParsed > 0 ? totalParsed : Math.max(0, (Number(t.correct) || 0) + (Number(t.wrong) || 0));
                     const correctCount = total > 0
-                        ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
+                        ? Math.round((getSafeScore(t, catMaxScore) / catMaxScore) * total)
                         : (Number(t.correct) || 0);
 
                     const wrongCount = Math.max(0, total - correctCount);
@@ -63,8 +64,8 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                     topicMap[key].correct += correctCount;
                     topicMap[key].wrong += wrongCount;
                     topicMap[key].total += total;
-                    if (h.date && Number.isFinite(Number(getSafeScore(t, maxScore)))) {
-                        topicMap[key].trendHistory.push({ date: h.date, score: getSafeScore(t, maxScore) });
+                    if (h.date && Number.isFinite(Number(getSafeScore(t, catMaxScore)))) {
+                        topicMap[key].trendHistory.push({ date: h.date, score: getSafeScore(t, catMaxScore) });
                     }
                 });
             });
