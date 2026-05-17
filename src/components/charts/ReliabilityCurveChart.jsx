@@ -27,7 +27,7 @@ const CustomTooltip = ({ active, payload }) => {
                     <div className="pt-1 mt-1 border-t border-white/5 flex justify-between items-center gap-6">
                         <span className="text-[10px] font-bold text-slate-500 uppercase">Gap / Viés</span>
                         <span className={`text-[11px] font-black ${isOverconfident ? 'text-rose-400' : 'text-emerald-400'}`}>
-                            {isOverconfident ? 'Overconfident' : 'Underconfident'} ({Math.abs(dataPoint.gap)}%)
+                            {isOverconfident ? 'Superconfiante' : 'Subconfiante'} ({Math.abs(dataPoint.gap)}%)
                         </span>
                     </div>
                     <div className="flex justify-between items-center gap-6 pt-1">

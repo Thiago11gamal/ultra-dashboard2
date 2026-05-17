@@ -31,30 +31,30 @@ export default function MonteCarloDebugger({ stats }) {
             {isOpen && (
                 <div className="bg-slate-950 text-slate-300 p-4 rounded-b-lg rounded-tr-lg border border-slate-700 shadow-2xl w-64 space-y-2">
                     <div className="grid grid-cols-2 gap-x-2 gap-y-2 items-center">
-                        <span className="text-slate-500">Raw Probability</span>
+                        <span className="text-slate-500">Probabilidade Bruta</span>
                         <span className="text-right font-medium text-emerald-400">{Number(rawProbability).toFixed(2)}%</span>
                         
-                        <span className="text-slate-500">Calibrated Prob</span>
+                        <span className="text-slate-500">Probabilidade Calibrada</span>
                         <span className="text-right font-medium text-amber-400">{Number(probability).toFixed(2)}%</span>
                         
                         <span className="col-span-2 border-t border-slate-800 my-1"></span>
 
-                        <span className="text-slate-500">Calib. Penalty</span>
+                        <span className="text-slate-500">Penalidade Calibração</span>
                         <span className="text-right font-medium text-rose-400">{((calibrationPenalty || 0) * 100).toFixed(1)}%</span>
                         
                         <span className="col-span-2 border-t border-slate-800 my-1"></span>
 
-                        <span className="text-slate-500">Current SD</span>
+                        <span className="text-slate-500">Desvio Padrão Atual</span>
                         <span className="text-right font-medium">{Number(statsData?.rawPooledSD || 0).toFixed(2)}</span>
                         
-                        <span className="text-slate-500">Inflated SD</span>
+                        <span className="text-slate-500">Desvio Padrão Inflado</span>
                         <span className="text-right font-medium text-amber-400">{Number(statsData?.pooledSD || 0).toFixed(2)}</span>
                         
                         <span className="col-span-2 border-t border-slate-800 my-1"></span>
 
-                        <span className="text-slate-500">Reliability State</span>
+                        <span className="text-slate-500">Estado Confiabilidade</span>
                         <span className={`text-right font-bold ${isOverconfident ? 'text-rose-400' : 'text-emerald-400'}`}>
-                            {isOverconfident ? 'Overconfident' : 'Stable'}
+                            {isOverconfident ? 'Superconfiante' : 'Estável'}
                         </span>
                     </div>
                 </div>
