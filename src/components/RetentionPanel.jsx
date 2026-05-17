@@ -1,18 +1,16 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play } from 'lucide-react';
-import { normalizeDate } from '../utils/dateHelper';
+import { formatTimeAgo, toDateMs } from '../utils/dateHelper';
 import { formatValue } from '../utils/scoreHelper';
 
 // Calculate retention based on Ebbinghaus Forgetting Curve
 const calculateRetention = (lastStudiedAt) => {
     if (!lastStudiedAt) return { val: 0, status: 'never', label: 'Nunca estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
 
-    // FIX: Usar normalizeDate para evitar que datas YYYY-MM-DD sejam interpretadas como UTC midnight
-    const parsed = normalizeDate(lastStudiedAt);
-    const last = parsed ? parsed.getTime() : new Date(lastStudiedAt).getTime();
+    const last = toDateMs(lastStudiedAt);
 
     // Fallback if date parsing results in NaN
-    if (isNaN(last)) return { val: 0, status: 'never', label: 'Não Estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
+    if (Number.isNaN(last)) return { val: 0, status: 'never', label: 'Não Estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
 
     const diffHours = (Date.now() - last) / (1000 * 60 * 60);
     const days = diffHours / 24;
@@ -27,25 +25,7 @@ const calculateRetention = (lastStudiedAt) => {
     return { val, status: 'critical', label: 'Urgente!', color: 'text-red-400', bg: 'bg-red-500', border: 'border-red-500/30' };
 };
 
-// Format time ago with correct Portuguese pluralization
-const formatTimeAgo = (date) => {
-    if (!date) return 'Nunca';
-    // FIX: normalizeDate evita que YYYY-MM-DD seja UTC midnight
-    const parsed = normalizeDate(date);
-    const diff = Date.now() - (parsed ? parsed.getTime() : new Date(date).getTime());
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (!Number.isFinite(hours) || hours < 0) return 'Agora há pouco';
-    const days = Math.floor(hours / 24);
-    const weeks = Math.floor(days / 7);
-    const months = Math.floor(days / 30);
-
-    if (hours < 1) return 'Agora há pouco';
-    if (hours < 24) return `${hours}h atrás`;
-    if (days === 1) return 'Ontem';
-    if (days < 7) return `${days} ${days === 1 ? 'dia' : 'dias'} atrás`;
-    if (days < 30) return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
-    return `${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
-};
+// Format time ago removido porque já existe no dateHelper
 
 // Retention Ring Component
 const RetentionRing = ({ value, size = 48, strokeWidth = 3, color }) => {
@@ -180,10 +160,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
     // Stats summary
     const stats = useMemo(() => {
         // Count all tasks across all categories
-        let allTasks = [];
-        retentionData.forEach(cat => {
-            allTasks = [...allTasks, ...cat.tasksWithRetention];
-        });
+        const allTasks = retentionData.reduce((acc, cat) => acc.concat(cat.tasksWithRetention), []);
 
         const critical = allTasks.filter(t => t.retention.val < 40 && t.retention.status !== 'never').length;
         const warning = allTasks.filter(t => t.retention.val >= 40 && t.retention.val < 60 && t.retention.status !== 'never').length;
@@ -199,14 +176,12 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     // Get priority items (need review)
     const needsReview = useMemo(() => {
-        let urgent = [];
-        retentionData.forEach(cat => {
-            cat.tasksWithRetention.forEach(task => {
-                if (task.retention.val < 60 && task.retention.status !== 'never') {
-                    urgent.push({ ...task, categoryName: cat.name, categoryIcon: cat.icon, categoryColor: cat.color, catReference: cat });
-                }
-            });
-        });
+        const urgent = retentionData.reduce((acc, cat) => {
+            const urgentTasks = cat.tasksWithRetention
+                .filter(task => task.retention.val < 60 && task.retention.status !== 'never')
+                .map(task => ({ ...task, categoryName: cat.name, categoryIcon: cat.icon, categoryColor: cat.color, catReference: cat }));
+            return acc.concat(urgentTasks);
+        }, []);
         return urgent.sort((a, b) => a.retention.val - b.retention.val);
     }, [retentionData]);
 

@@ -12,6 +12,13 @@ const toFiniteNumber = (value, fallback = 0) => {
 
 const toSafeDate = (value) => {
     if (!value) return null;
+    
+    // Suporte a Firebase Timestamp
+    if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
+        const secs = value.seconds != null ? value.seconds : value._seconds;
+        return new Date(secs * 1000);
+    }
+    
     const parsed = normalizeDate(value);
     const date = parsed || new Date(value);
     return Number.isFinite(date?.getTime()) ? date : null;
