@@ -519,9 +519,14 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
             
             const driftDiario = driftsDiarios[dia];
             
-            // 2. Absorção Fria (Piso e Teto Físicos)
+            // 2. Absorção Fria (Piso e Teto Físicos) e Gravidade
             let effectiveDrift = driftDiario;
             let currentVolatility = volatilidadeAdaptativa;
+            
+            // CORREÇÃO: Âncora de estabilização estocástica (Ornstein-Uhlenbeck simplificado).
+            // Impede que o desvio padrão cresça indefinidamente sob a raiz do tempo.
+            const forcaGravitacional = 0.05 * (limiteAssintotico - notaAtual);
+            effectiveDrift += forcaGravitacional;
 
             if (notaAtual <= (0.05 * escala) && driftDiario < 0) {
                 effectiveDrift = driftDiario * 0.1; // O Drift afunda contra o chão

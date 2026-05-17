@@ -233,10 +233,13 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
             if (i === j) {
                 matrix[i][j] = sdI * sdJ; // Variância pura na diagonal
             } else {
-                const currentRho = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) 
-                                   ? rhoMatrix[i][j] 
-                                   : defaultRho;
-                matrix[i][j] = currentRho * sdI * sdJ; // Covariância
+                    // CORREÇÃO: Impor Simetria Perfeita na Matriz.
+                    // Previne a destruição de tensores estatísticos caso haja injeção de matrizes defeituosas.
+                    const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : defaultRho;
+                    const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : defaultRho;
+                    
+                    const currentRho = Math.max(rhoIJ, rhoJI);
+                    matrix[i][j] = currentRho * sdI * sdJ; // Covariância
             }
         }
     }

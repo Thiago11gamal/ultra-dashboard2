@@ -335,7 +335,15 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
 
         const safeProjectDays = Math.max(0, projectDays);
         const effectiveDaysForDrift = 45 * Math.log(1 + safeProjectDays / 45);
-        projectedScore = ema + slope * effectiveDaysForDrift;
+        
+        // CORREÇÃO: Driftar a EMA da data do último teste até o dia de HOJE, 
+        // para alinhar a origem do vetor temporal com a realidade atual.
+        const lastHistoryDate = safeDateParse(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt).getTime();
+        const daysToToday = Math.max(0, (now - lastHistoryDate) / 86400000);
+        const driftToToday = slope * (45 * Math.log(1 + daysToToday / 45));
+        const currentScoreEstimate = ema + driftToToday;
+
+        projectedScore = currentScoreEstimate + slope * effectiveDaysForDrift;
     }
 
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };

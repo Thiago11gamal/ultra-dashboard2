@@ -443,8 +443,20 @@ export function computeBayesianLevel(
                 const safeFloor = Math.min(HARD_FLOOR, nBeforeDecay);
                 const nAfterDecay = Math.max(safeFloor, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * entryDecay)));
                 
-                // CORREÇÃO: Regressão à média (0.5) proporcional ao esquecimento (Bug 1.1 Fix)
-                const priorP = 0.5;
+                // CORREÇÃO: A regressão à média em tempos de inatividade deve ancorar-se 
+                // no patamar consolidado do aluno, não num lançamento de moeda (0.5).
+                const empiricalPrior = historySortedForGaps.length > 0 
+                    ? kahanMean(historySortedForGaps.map(x => {
+                        let rawPct = getSafeScore(x, safeMaxScore) / safeMaxScore;
+                        if (options.isPenalizedFormat) {
+                            rawPct = Math.max(0.05, (rawPct + 1) / 2);
+                        } else {
+                            rawPct = Math.max(0, rawPct);
+                        }
+                        return Math.min(1, rawPct);
+                    }))
+                    : 0.5;
+                const priorP = Number.isFinite(empiricalPrior) ? empiricalPrior : 0.5;
                 const regressedP = (currentP * entryDecay) + (priorP * (1 - entryDecay));
 
                 alpha = nAfterDecay * regressedP;
@@ -509,7 +521,19 @@ export function computeBayesianLevel(
             const epistemicFloor = Math.max(3.0, Math.min(10.0, maxNEver * 0.05));
             const nAfterDecay = Math.max(epistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
             
-            const regressedP = (currentP * finalDecay) + (0.5 * (1 - finalDecay));
+            // O mesmo tratamento de patamar empírico para o gap final (Hoje)
+            const empiricalPriorFinal = sortedHistory.length > 0 
+                ? kahanMean(sortedHistory.map(x => {
+                    let rawPct = getSafeScore(x, safeMaxScore) / safeMaxScore;
+                    if (options.isPenalizedFormat) {
+                        rawPct = Math.max(0.05, (rawPct + 1) / 2);
+                    } else {
+                        rawPct = Math.max(0, rawPct);
+                    }
+                    return Math.min(1, rawPct);
+                }))
+                : 0.5;
+            const regressedP = (currentP * finalDecay) + ((Number.isFinite(empiricalPriorFinal) ? empiricalPriorFinal : 0.5) * (1 - finalDecay));
 
             alpha = nAfterDecay * regressedP;
             beta = nAfterDecay * (1 - regressedP);
