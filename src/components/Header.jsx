@@ -70,7 +70,7 @@ const Header = React.memo(function Header({
                             onClick={onToggleSidebar}
                             className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/[0.05] border border-white/[0.1] text-slate-400 hover:text-white transition-all active:scale-95"
                         >
-                            <LayoutDashboard size={18} />
+                            <Menu size={18} />
                         </button>
                         <MobileClockDisplay clockTime={clockTime} />
                     </div>
