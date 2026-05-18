@@ -25,9 +25,14 @@ export function normalCDF_complement(z) {
  */
 export const generateGaussian = (rng = Math.random) => {
     let u1 = 0, u2 = 0;
+    let attempts = 0;
     
     // O u1 não pode NUNCA ser zero estatístico absoluto
-    while (u1 === 0) u1 = rng(); 
+    while (u1 === 0 && attempts < 100) {
+        u1 = rng(); 
+        attempts++;
+    }
+    if (u1 === 0) u1 = 1e-15;
     u2 = rng();
     
     return Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);

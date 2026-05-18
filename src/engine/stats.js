@@ -322,16 +322,18 @@ export function computeBayesianLevel(
     if (Array.isArray(historyOrScore)) {
         // Modo A: Histórico de Simulados (history, alpha0, beta0, maxScore, options)
         history = historyOrScore;
-        alpha = Number(arg1) || 1;
-        beta = Number(arg2) || 1;
-        safeMaxScore = Number(arg3) || 100;
+        alpha = Math.max(0, Number(arg1) || 1);
+        beta = Math.max(0, Number(arg2) || 1);
+        const rawMax = Number(arg3);
+        safeMaxScore = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
         options = arg4 || {};
     } else {
         // Modo B: Score Direto (score, n, maxScore, options)
         history = [];
-        const score = Number(historyOrScore) || 0;
-        const n_eff = Number(arg1) || 1;
-        safeMaxScore = Number(arg2) || 100;
+        const score = Math.max(0, Number(historyOrScore) || 0);
+        const n_eff = Math.max(0, Number(arg1) || 1);
+        const rawMax = Number(arg2);
+        safeMaxScore = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
         options = arg3 || {};
         
         const pct = Math.max(0, Math.min(1, score / safeMaxScore));
@@ -466,18 +468,18 @@ export function computeBayesianLevel(
             // 2. Agora injetamos a nota na matemática (SEM usar `continue`)
             // [TRI FIX]: Se houver um peso/dificuldade no item, escalamos a confiança bayesiana.
             // Acertos em questões difíceis pesam mais na subida do nível.
-            const itemWeight = Number(h.weight || h.difficulty || 1.0);
+            const itemWeight = Math.max(0.001, Number(h.weight || h.difficulty || 1.0));
             
             if (isPurePercentage) {
-                const syntheticN = getSyntheticTotal(safeMaxScore) * itemWeight;
+                const syntheticN = Math.max(0, getSyntheticTotal(safeMaxScore) * itemWeight);
                 alpha += pct * syntheticN;
                 beta += (1 - pct) * syntheticN;
             } else {
-                let correct = Math.round(pct * total);
+                let correct = Math.max(0, Math.round(pct * total));
                 if (total >= 1) {
                     const safeCorrect = Math.max(0, Math.min(total, correct));
-                    const acertosHoje = safeCorrect * itemWeight;
-                    const errosHoje = (total - safeCorrect) * itemWeight;
+                    const acertosHoje = Math.max(0, safeCorrect * itemWeight);
+                    const errosHoje = Math.max(0, (total - safeCorrect) * itemWeight);
                     alpha += acertosHoje;
                     beta += errosHoje;
                 }
@@ -660,6 +662,20 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         let wVarSum = 0;
         let sumW = 0;
         let sumW2 = 0; // Somatório dos pesos ao quadrado
+
+        // Mecanismo de robustez contra outliers: cálculo de desvio absoluto mediano (MAD) para Winsorização
+        const sortedScores = [...scores].sort((a, b) => a - b);
+        const median = sortedScores.length % 2 === 0
+            ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
+            : sortedScores[Math.floor(sortedScores.length / 2)];
+        
+        const absoluteDeviations = scores.map(s => Math.abs(s - median)).sort((a, b) => a - b);
+        const rawMad = absoluteDeviations.length % 2 === 0
+            ? (absoluteDeviations[absoluteDeviations.length / 2 - 1] + absoluteDeviations[absoluteDeviations.length / 2]) / 2
+            : absoluteDeviations[Math.floor(absoluteDeviations.length / 2)];
+        const mad = rawMad > 0 ? rawMad * 1.4826 : 0.001 * safeMaxScore; 
+        const clampLimit = 3.5 * mad;
+
         // CORREÇÃO: Usar estritamente o validHistoryForMean para que os pesos (w) 
         // e a variância ponderada (wVarSum) sejam calculados numa amostra matematicamente pura.
         validHistoryForMean.forEach(h => {
@@ -667,11 +683,14 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             const w = Number(h.total) || 0; 
             if (w > 0) {
                 const safeScore = getSafeScore(h, safeMaxScore);
+                // Winsorização robusta a outliers baseado no desvio absoluto mediano (MAD)
+                const robustScore = Math.max(median - clampLimit, Math.min(median + clampLimit, safeScore));
+                
                 // [TRI] Peso adicional de dificuldade se disponível
                 const difficultyWeight = Number(h.weight || h.difficulty || 1.0);
                 const effectiveWeight = w * difficultyWeight;
                 
-                wVarSum += effectiveWeight * Math.pow(safeScore - m, 2);
+                wVarSum += effectiveWeight * Math.pow(robustScore - m, 2);
                 sumW += effectiveWeight;
                 sumW2 += Math.pow(effectiveWeight, 2);
             }

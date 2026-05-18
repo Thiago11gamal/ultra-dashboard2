@@ -159,7 +159,13 @@ export function estimateInterSubjectCorrelation(
             const epsilon = 1e-15;
             const denom = Math.sqrt((varX + epsilon) * (varY + epsilon));
             const corr = cov / denom;
-            pairwise.push({ corr, n });
+
+            // Mecanismo de Controlo de Effective Sample Size (ESS) para regular o encolhimento de pares com sobreposição fraca (n < 8)
+            const essFloor = 8;
+            const pairShrink = n / (n + essFloor);
+            const robustCorr = (corr * pairShrink) + (fallback * (1 - pairShrink));
+
+            pairwise.push({ corr: robustCorr, n });
         }
     }
 

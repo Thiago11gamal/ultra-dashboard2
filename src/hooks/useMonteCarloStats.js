@@ -421,7 +421,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         let cancelled = false;
         const isFuture = projectDays > 0;
  
-        (async () => {
+        // Mecanismo de Throttling/Debouncing (150ms) para proteger contra re-execuções excessivas em tempo real
+        const timerId = setTimeout(async () => {
             try {
                 let result;
                 if (isFuture && pureStatsData.globalHistory?.length > 0) {
@@ -486,9 +487,12 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     setIsFlashing(true);
                 }
             }
-        })();
+        }, 150);
  
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+            clearTimeout(timerId);
+        };
     }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, pureStatsData]);
  
     const effectiveSimulationData = useMemo(() => {

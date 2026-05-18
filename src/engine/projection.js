@@ -340,6 +340,12 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         // para alinhar a origem do vetor temporal com a realidade atual.
         const lastHistoryDate = safeDateParse(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt).getTime();
         const daysToToday = Math.max(0, (now - lastHistoryDate) / 86400000);
+
+        if (options.currentMean !== undefined) {
+            const daysToNow = Math.max(1, daysToToday);
+            ema = calculateDynamicEMA(options.currentMean, ema, sortedHistory.length + 1, daysToNow);
+        }
+
         const driftToToday = slope * (45 * Math.log(1 + daysToToday / 45));
         const currentScoreEstimate = ema + driftToToday;
 
@@ -428,7 +434,7 @@ export function monteCarloSimulation(
             }
         }
         if (forcedBaseline === undefined) {
-            baselineScore = ema;
+            baselineScore = optionsCurrentMean !== undefined ? optionsCurrentMean : ema;
         }
     }
 

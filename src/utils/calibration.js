@@ -117,7 +117,7 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   
   const minSamples = Number(cfg.minSamples) || 4;
   if (recent.length < minSamples) {
-      return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3 };
+      return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3, confidenceFactor: 0 };
   }
   
   // BUG-CALIB-01 FIX: ponderação exponencial pelo tempo (λ ≈ meia-vida 14 dias)
@@ -134,7 +134,11 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
     sumCalibWeights += w;
   });
   const avgBrier = sumCalibWeights > 0 ? sumWeightedBrier / sumCalibWeights : 0;
-  const confidenceFactor = Math.min(1, recent.length / Math.max(minSamples, 1));
+
+  // ESTABILIZADOR DE ESCASSEZ DE DADOS: O fator de confiança varia suavemente em direção ao target de 12 amostras
+  const targetSamples = Number(cfg.targetSamples) || 12;
+  const confidenceFactor = Math.min(1, recent.length / targetSamples);
+  
   // Dynamic baseline with confidence-gating to avoid overreacting on short windows
   const dynamicBaseline = Math.max(0.12, Math.min(0.25, avgBrier));
   const defaultBaseline = cfg.baseline ?? 0.2;
