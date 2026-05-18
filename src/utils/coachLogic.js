@@ -273,8 +273,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const catNormalized = normalize(safeCategory?.name || "Sem Nome");
     const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject || "") === catNormalized);
     relevantSimulados.sort((a, b) => {
-        const timeA = new Date(a.date || a.createdAt || 0).getTime();
-        const timeB = new Date(b.date || b.createdAt || 0).getTime();
+        const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
+        const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
         return timeB - timeA;
     });
 
@@ -318,12 +318,12 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         };
 
         const mostRecentSimDate = relevantSimulados.length > 0 
-            ? new Date(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime() 
+            ? (normalizeDate(relevantSimulados[0].date || relevantSimulados[0].createdAt) || new Date(0)).getTime() 
             : referenceNow;
         const SESSION_GAP_MS = 60 * 60 * 1000; // 1 Hora
 
         let pastSimulados = relevantSimulados.filter(s => {
-            const sTime = new Date(s.date || s.createdAt).getTime();
+            const sTime = (normalizeDate(s.date || s.createdAt) || new Date(0)).getTime();
             return sTime < (mostRecentSimDate - SESSION_GAP_MS);
         });
         
@@ -627,6 +627,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
     
     const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
+        if (!c) return acc; // Blindagem contra categorias apagadas/fantasmas no estado
         let rawW = c.weight;
         if (typeof rawW === 'string') rawW = rawW.replace(',', '.');
         const parsedW = Number(rawW);
@@ -1505,9 +1506,10 @@ export function getBestTask(categories, excludeTaskId = null) {
             else if (task.priority === 'medium') score += 20;
 
             const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
-            const parsedTime = new Date(studiedAt).getTime();
+            const normalizedStudyDate = normalizeDate(studiedAt);
+            const parsedTime = normalizedStudyDate ? normalizedStudyDate.getTime() : NaN;
             
-            if (studiedAt && !isNaN(parsedTime)) {
+            if (studiedAt && !isNaN(parsedTime) && parsedTime > 0) {
                 const days = Math.max(0, (Date.now() - parsedTime) / (1000 * 60 * 60 * 24));
                 const urgenciaPorEsquecimento = 40 * (1 - Math.exp(-0.05 * days));
                 score += urgenciaPorEsquecimento;
