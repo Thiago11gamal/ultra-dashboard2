@@ -562,7 +562,7 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
         const avgVal = kahanMean(history);
         const sd = metricas.focoMedio ? (1 - metricas.focoMedio) * avgVal : avgVal * 0.1;
         const results = new Float64Array(simulacoes);
-        const rng = mulberry32(123456789); 
+        const rng = mulberry32(generateStableSeed(history.length, "simularMC", Date.now())); 
 
         const maxScore = metricas.maxScore || 100;
         const minScore = metricas.minScore || 0;

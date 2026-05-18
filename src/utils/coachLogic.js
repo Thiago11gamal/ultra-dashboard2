@@ -88,7 +88,7 @@ const getDaysDiff = (newer, older) => {
  * Calcula o multiplicador de urgência baseado nos dias restantes para a prova.
  * Substituição da escada em degraus por uma curva Exponencial Contínua.
  */
-export function getCrunchMultiplier(daysToExam, firstActivityDate = null) {
+export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
     if (daysToExam === null || daysToExam === undefined) return 1.0; 
     if (daysToExam < 0) return 1.0; 
     if (daysToExam === 0) return 2.0; 
@@ -96,7 +96,8 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null) {
     // CORREÇÃO: A urgência (Crunch) adapta-se ao tamanho da jornada do aluno.
     let timeDivisor = 21; // Padrão
     if (firstActivityDate && firstActivityDate.getTime() > 0) {
-        const totalJourneyDays = Math.max(1, ((normalizeDate(new Date()) || new Date()).getTime() - firstActivityDate.getTime()) / 86400000) + daysToExam;
+        const referenceDate = now ? new Date(now) : new Date();
+        const totalJourneyDays = Math.max(1, ((normalizeDate(referenceDate) || referenceDate).getTime() - firstActivityDate.getTime()) / 86400000) + daysToExam;
         // Se a jornada é longa (ex: 300 dias), a rampa começa mais cedo.
         timeDivisor = Math.max(14, totalJourneyDays * 0.15); 
     }
@@ -221,9 +222,8 @@ export const getCoachPriorities = (topicsData) => {
 
 // ==================== FUNÇÃO PRINCIPAL ====================
 
-export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {
+export const extractMetrics = (category, simulados = [], studyLogs = [], options = {}) => {
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
-    const logger = options.logger;
     const safeCategory = category || {};
     const categoryId = safeCategory.id;
     const calibrationHistory = options.calibrationHistoryByCategory?.[categoryId] || [];
@@ -235,6 +235,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         maxSamples: cfg.MC_CALIB_MAX_SAMPLES
     });
 
+    const referenceDate = options.now ? new Date(options.now) : new Date();
+    const referenceNow = referenceDate.getTime();
 
     const rawMaxScore = Number(options.maxScore ?? 100);
     const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
@@ -244,16 +246,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
-    // CORREÇÃO: Proteger as intenções estratégicas do aluno contra separadores decimais locais
+    
     let rawWeightVal = safeCategory.weight;
     if (typeof rawWeightVal === 'string') rawWeightVal = rawWeightVal.replace(',', '.');
     const parsedWeight = Number(rawWeightVal);
     
     const rawWeight = Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 5;
     const boundedWeight = Math.min(10, Math.max(1, rawWeight));
-    // MATH-WEIGHT-ASYMMETRY FIX: era rawWeight * 10, cujo teto (rawWeight=10 → weight=100 → deviation=0)
-    // nunca produzia multiplier > 1.0 — nem a matéria mais importante recebia bônus de recência.
-    // Com * 20: rawWeight=5 (médio) = ponto neutro (mult=1.0), rawWeight=10 = mult=1.5, rawWeight=1 = mult=0.6.
     const weight = boundedWeight * 20;
     const weightLabel = boundedWeight <= 3 ? '1 — Baixa' : boundedWeight <= 7 ? '2 — Média' : '3 — Alta';
 
@@ -261,9 +260,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     if (options && options.user && options.user.goalDate) {
         try {
             const examDate = normalizeDate(options.user.goalDate);
-            // FIX: Proteger contra datas inválidas na string
             if (examDate && !isNaN(examDate.getTime())) {
-                const today = normalizeDate(new Date()) || new Date();
+                const today = normalizeDate(referenceDate) || referenceDate;
                 daysToExam = Math.round((examDate.getTime() - today.getTime()) / MS_PER_DAY);
             }
         } catch {
@@ -271,625 +269,653 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }
     }
 
-    try {
-        // 1. Weighted Average Score
-        const catNormalized = normalize(safeCategory?.name || "Sem Nome");
-        const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject || "") === catNormalized);
-        // Preserva os timestamps brutos para garantir a ordem exata ao nível do segundo
-        relevantSimulados.sort((a, b) => {
-            const timeA = new Date(a.date || a.createdAt || 0).getTime();
-            const timeB = new Date(b.date || b.createdAt || 0).getTime();
-            return timeB - timeA;
-        });
+    const catNormalized = normalize(safeCategory?.name || "Sem Nome");
+    const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject || "") === catNormalized);
+    relevantSimulados.sort((a, b) => {
+        const timeA = new Date(a.date || a.createdAt || 0).getTime();
+        const timeB = new Date(b.date || b.createdAt || 0).getTime();
+        return timeB - timeA;
+    });
 
-        // [CORREÇÃO] 1. Extrair a data raiz (firstActivityDate) ANTES da poda da matriz (Bug 1.1 Fix)
-        const rootActivityDate = (relevantSimulados.length > 0 
-            ? normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) 
-            : null) || normalizeDate(new Date()) || new Date();
+    const rootActivityDate = (relevantSimulados.length > 0 
+        ? normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) 
+        : null) || normalizeDate(referenceDate) || referenceDate;
 
-        // 2. Aplicar Limite de Retenção Ativa (Poda de Avalanche)
-        if (relevantSimulados.length > 50) {
-            relevantSimulados.length = 50; 
-        }
+    if (relevantSimulados.length > 50) {
+        relevantSimulados.length = 50; 
+    }
 
-        const simuladosWithMaxScore = relevantSimulados;
+    const simuladosWithMaxScore = relevantSimulados;
 
-        let averageScore = 0;
-        if (relevantSimulados.length > 0) {
-            const coachAdaptive = deriveCoachAdaptiveParams(simuladosToHistory(relevantSimulados, maxScore), maxScore, cfg);
-            const today = normalizeDate(new Date()) || new Date();
-            const K = coachAdaptive.decayK;
-            const PESO_MIN = coachAdaptive.minWeight;
-            const DELTA = coachAdaptive.scoreClampDelta;
+    let averageScore = 0;
+    if (relevantSimulados.length > 0) {
+        const coachAdaptive = deriveCoachAdaptiveParams(simuladosToHistory(relevantSimulados, maxScore), maxScore, cfg);
+        const today = normalizeDate(referenceDate) || referenceDate;
+        const K = coachAdaptive.decayK;
+        const PESO_MIN = coachAdaptive.minWeight;
+        const DELTA = coachAdaptive.scoreClampDelta;
 
-            const calculateExponentialScore = (dataset) => {
-                let weightedSum = 0;
-                let totalWeight = 0;
-                dataset.forEach(s => {
-                    const sScore = getSafeScore(s, maxScore);
-                    const simDate = normalizeDate(s.date || s.createdAt) || new Date(0);
-                    const days = getDaysDiff(today, simDate);
-                    let timeWeight = Math.exp(-K * days);
-                    if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
-                    
-                    const rawTotal = Math.max(1, Number(s.total) || getSyntheticTotal(maxScore));
-                    const volumeWeight = Math.sqrt(Math.min(rawTotal, maxScore * 2));
-                    const peso = timeWeight * volumeWeight;
-                    
-                    weightedSum += sScore * peso;
-                    totalWeight += peso;
-                });
-                return totalWeight > 0 ? weightedSum / totalWeight : (maxScore / 2);
-            };
-
-            // CORREÇÃO LÓGICA: Removido 'normalizeDate(new Date())' para prevenir o 
-            // "Bug da Meia-Noite" e ignorar lotes importados subitamente.
-            // Consideramos "sessão anterior" qualquer nota gerada pelo menos 1 hora antes do teste mais recente.
-            // CORREÇÃO LÓGICA: Não utilize normalizeDate aqui, pois zera as horas e quebra a precisão de 1h.
-            // Usamos datas brutas (timestamps) para garantir a separação real das sessões.
-            const mostRecentSimDate = relevantSimulados.length > 0 
-                ? new Date(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime() 
-                : Date.now();
-            const SESSION_GAP_MS = 60 * 60 * 1000; // 1 Hora
-
-            let pastSimulados = relevantSimulados.filter(s => {
-                const sTime = new Date(s.date || s.createdAt).getTime();
-                return sTime < (mostRecentSimDate - SESSION_GAP_MS);
-            });
-            
-            // [FIX 6] Se o gap de 1h isolou tudo (ex: maratona importada),
-            // garantimos que há um baseline recuando para o simulado anterior.
-            if (pastSimulados.length === 0 && relevantSimulados.length > 1) {
-                pastSimulados = relevantSimulados.slice(1);
-            }
-            
-            const notaBruta = calculateExponentialScore(relevantSimulados);
-
-            if (pastSimulados.length > 0) {
-                const notaAnterior = calculateExponentialScore(pastSimulados);
-                const diff = notaBruta - notaAnterior;
-                let clampedDiff = diff;
-                if (diff > DELTA) clampedDiff = DELTA;
-                else if (diff < -DELTA) clampedDiff = -DELTA;
+        const calculateExponentialScore = (dataset) => {
+            let weightedSum = 0;
+            let totalWeight = 0;
+            dataset.forEach(s => {
+                const sScore = getSafeScore(s, maxScore);
+                const simDate = normalizeDate(s.date || s.createdAt) || new Date(0);
+                const days = getDaysDiff(today, simDate);
+                let timeWeight = Math.exp(-K * days);
+                if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
                 
-                // CORREÇÃO: Dissipação temporal do choque.
-                // Se a última sessão já tem mais de 24 horas, o salto foi consolidado.
-                const hoursSinceLastSim = (Date.now() - mostRecentSimDate) / (1000 * 60 * 60);
-                if (hoursSinceLastSim < 24) {
-                    averageScore = notaAnterior + clampedDiff;
-                } else {
-                    averageScore = notaBruta; // Assume a realidade matemática
-                }
+                const rawTotal = Math.max(1, Number(s.total) || getSyntheticTotal(maxScore));
+                const volumeWeight = Math.sqrt(Math.min(rawTotal, maxScore * 2));
+                const peso = timeWeight * volumeWeight;
+                
+                weightedSum += sScore * peso;
+                totalWeight += peso;
+            });
+            return totalWeight > 0 ? weightedSum / totalWeight : (maxScore / 2);
+        };
+
+        const mostRecentSimDate = relevantSimulados.length > 0 
+            ? new Date(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime() 
+            : referenceNow;
+        const SESSION_GAP_MS = 60 * 60 * 1000; // 1 Hora
+
+        let pastSimulados = relevantSimulados.filter(s => {
+            const sTime = new Date(s.date || s.createdAt).getTime();
+            return sTime < (mostRecentSimDate - SESSION_GAP_MS);
+        });
+        
+        if (pastSimulados.length === 0 && relevantSimulados.length > 1) {
+            pastSimulados = relevantSimulados.slice(1);
+        }
+        
+        const notaBruta = calculateExponentialScore(relevantSimulados);
+
+        if (pastSimulados.length > 0) {
+            const notaAnterior = calculateExponentialScore(pastSimulados);
+            const diff = notaBruta - notaAnterior;
+            let clampedDiff = diff;
+            if (diff > DELTA) clampedDiff = DELTA;
+            else if (diff < -DELTA) clampedDiff = -DELTA;
+            
+            const hoursSinceLastSim = (referenceNow - mostRecentSimDate) / (1000 * 60 * 60);
+            if (hoursSinceLastSim < 24) {
+                averageScore = notaAnterior + clampedDiff;
             } else {
                 averageScore = notaBruta;
             }
         } else {
-            // BUG-19 FIX: Fallback deve respeitar a escala da prova (50% do maxScore)
-            averageScore = maxScore / 2;
+            averageScore = notaBruta;
         }
+    } else {
+        averageScore = maxScore / 2;
+    }
 
-        // 2. Days Since Last Study
-        let daysSinceLastStudy = 0;
-        let recencyUnknown = true;
-        let lastDate = normalizeDate(new Date(0)) || new Date(0);
+    let daysSinceLastStudy = 0;
+    let recencyUnknown = true;
+    let lastDate = normalizeDate(new Date(0)) || new Date(0);
 
-        if (simuladosWithMaxScore.length > 0) {
-            const simDate = normalizeDate(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt) || new Date(0);
-            if (simDate > lastDate) lastDate = simDate;
-        }
+    if (simuladosWithMaxScore.length > 0) {
+        const simDate = normalizeDate(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt) || new Date(0);
+        if (simDate > lastDate) lastDate = simDate;
+    }
 
-        const categoryStudyLogs = (studyLogs || []).filter(log =>
-            log?.categoryId === categoryId &&
-            (normalizeDate(log.date) || new Date(0)).getTime() > 0
-        );
-        // FIX LOGIC-03: Fricção de Carga. Apenas considerar que houve "estudo real" capaz 
-        // de reiniciar a curva de recência se o utilizador estudou pelo menos 15 minutos.
-        const MIN_MINUTES_VALID_STUDY = 15; 
-        const validStudyLogs = categoryStudyLogs.filter(log => (Number(log.minutes) || 0) >= MIN_MINUTES_VALID_STUDY);
+    const categoryStudyLogs = (studyLogs || []).filter(log =>
+        log?.categoryId === categoryId &&
+        (normalizeDate(log.date) || new Date(0)).getTime() > 0
+    );
+    const MIN_MINUTES_VALID_STUDY = 15; 
+    const validStudyLogs = categoryStudyLogs.filter(log => (Number(log.minutes) || 0) >= MIN_MINUTES_VALID_STUDY);
 
-        // Usamos os logs válidos para atualizar a lastDate (para o cálculo de urgência)
-        if (validStudyLogs.length > 0) {
-            const sortedLogs = [...validStudyLogs].sort((a, b) => (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime());
-            const logDate = normalizeDate(sortedLogs[0].date) || new Date(0);
-            if (logDate > lastDate) lastDate = logDate;
-        }
+    if (validStudyLogs.length > 0) {
+        const sortedLogs = [...validStudyLogs].sort((a, b) => (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime());
+        const logDate = normalizeDate(sortedLogs[0].date) || new Date(0);
+        if (logDate > lastDate) lastDate = logDate;
+    }
 
-        if (lastDate.getTime() > 0) {
-            const today = normalizeDate(new Date()) || new Date();
-            daysSinceLastStudy = getDaysDiff(today, lastDate);
-            recencyUnknown = false;
-        }
+    if (lastDate.getTime() > 0) {
+        const today = normalizeDate(referenceDate) || referenceDate;
+        daysSinceLastStudy = getDaysDiff(today, lastDate);
+        recencyUnknown = false;
+    }
 
-        // 3. Trend (Garantir 10 mais recentes para cálculo de tendência)
-        const trendHistory = [...simuladosWithMaxScore]
-            .sort((a, b) => {
-                const timeA = new Date(a.date || a.createdAt || 0).getTime();
-                const timeB = new Date(b.date || b.createdAt || 0).getTime();
-                return timeB - timeA;
-            })
-            .slice(0, 10)
-            .map(s => ({
-                score: getSafeScore(s, maxScore),
-                date: s.date || s.createdAt
-            })).reverse();
-        const lastNScores = trendHistory.map(t => t.score);
-        const backtestWeights = deriveBacktestWeights(lastNScores, maxScore);
-        // CORREÇÃO (Fix Matemático Final - Invariância de Escala):
+    const trendHistory = [...simuladosWithMaxScore]
+        .sort((a, b) => {
+            const timeA = new Date(a.date || a.createdAt || 0).getTime();
+            const timeB = new Date(b.date || b.createdAt || 0).getTime();
+            return timeB - timeA;
+        })
+        .slice(0, 10)
+        .map(s => ({
+            score: getSafeScore(s, maxScore),
+            date: s.date || s.createdAt
+        })).reverse();
+    const lastNScores = trendHistory.map(t => t.score);
+    const backtestWeights = deriveBacktestWeights(lastNScores, maxScore);
 
-        // Garantir que a derivada (slope) e a variância (MSSD) operam no mesmo espaço vetorial 
-        // absoluto (maxScore) que a média e os percentis.
-        const rawTrend = calculateSlope(trendHistory, maxScore) * 30;
-        const limiteSuperior = maxScore - averageScore;
-        const limiteInferior = -averageScore;
-        const trend = Math.max(limiteInferior, Math.min(limiteSuperior, rawTrend));
+    const rawTrend = calculateSlope(trendHistory, maxScore) * 30;
+    const limiteSuperior = maxScore - averageScore;
+    const limiteInferior = -averageScore;
+    const trend = Math.max(limiteInferior, Math.min(limiteSuperior, rawTrend));
 
-        // ─────────────────────────────────────────────────────────
-        // MC-03: MSSD Volatility — BUG-MATH-01 FIX: usa calculateMSSD real
-        // Não castiga crescimento legítimo (50→60→70).
-        // ─────────────────────────────────────────────────────────
-        const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
-        const mssdVolatility = mcHistory.length >= 3
-            ? calculateMSSD(mcHistory, maxScore)
-            : computeRobustVolatilityForCoach(mcHistory, maxScore);
+    const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
+    const mssdVolatility = mcHistory.length >= 3
+        ? calculateMSSD(mcHistory, maxScore)
+        : computeRobustVolatilityForCoach(mcHistory, maxScore);
 
-        // ─────────────────────────────────────────────────────────
-        // MC-04: Monte Carlo leve — probabilidade real de bater a meta
-        // ─────────────────────────────────────────────────────────
-        const mcAdaptive = {
-            ...deriveCoachAdaptiveParams(mcHistory, maxScore, cfg),
-            calibrationBaseline: rollingCalibration.baseline,
-            calibrationMaxPenalty: rollingCalibration.maxPenalty
-        };
-        const adaptiveSimCount = lastNScores.length <= 5 ? Math.max(cfg.MC_SIMULATIONS, 1200) : cfg.MC_SIMULATIONS;
+    const mcAdaptive = {
+        ...deriveCoachAdaptiveParams(mcHistory, maxScore, cfg),
+        calibrationBaseline: rollingCalibration.baseline,
+        calibrationMaxPenalty: rollingCalibration.maxPenalty
+    };
+    const adaptiveSimCount = lastNScores.length <= 5 ? Math.max(cfg.MC_SIMULATIONS, 1200) : cfg.MC_SIMULATIONS;
 
-        // Lógica de Meta Proximal Dinâmica (ZDP)
-        const DISTANCE_THRESHOLD = 0.15 * maxScore; // Se a meta está a mais de 15% de distância
-        let effectiveMCTarget = targetScore;
-        let effectiveMCDays = 90; 
+    const DISTANCE_THRESHOLD = 0.15 * maxScore;
+    let effectiveMCTarget = targetScore;
+    let effectiveMCDays = 90; 
 
-        if (targetScore - averageScore > DISTANCE_THRESHOLD) {
-            // O alvo passa a ser a média atual + 1 salto equivalente à volatilidade da pessoa + margem empírica (2%)
-            effectiveMCTarget = averageScore + Math.max(mssdVolatility, maxScore * 0.05) + (maxScore * 0.02);
-            // Garantia para nunca ultrapassar a meta final
-            effectiveMCTarget = Math.min(effectiveMCTarget, targetScore); 
-            
-            if (daysToExam !== null && daysToExam !== undefined) {
-                // Proporção correta: baseada na lacuna de score proximal vs total
-                const totalGap = Math.max(1, targetScore - averageScore);
-                const proximalGap = effectiveMCTarget - averageScore;
-                const gapRatio = Math.min(1, Math.max(0, proximalGap / totalGap));
-                effectiveMCDays = daysToExam > 0
-                    ? Math.max(14, Math.floor(gapRatio * daysToExam))
-                    : 0;  // prazo expirado → 0 dias
-            } else {
-                effectiveMCDays = 21; // fallback sem data
-            }
-        }
-
-        // 🎯 ADAPT-NEUTRAL: O "Neutro" do aluno é a média global dele em todas as matérias combinadas.
-        let globalBaselinePct = 50;
-        const validCatNorms = new Set((options.allCategories || []).map(c => normalize(c.name || "")));
+    if (targetScore - averageScore > DISTANCE_THRESHOLD) {
+        effectiveMCTarget = averageScore + Math.max(mssdVolatility, maxScore * 0.05) + (maxScore * 0.02);
+        effectiveMCTarget = Math.min(effectiveMCTarget, targetScore); 
         
-        // Filtramos os simulados apenas uma vez numa única passagem!
-        const allSimsForBaseline = (simulados || []).filter(s => s && validCatNorms.has(normalize(s.subject || "")));
-        if (allSimsForBaseline.length > 0) {
-            // CORREÇÃO: Purgar resíduos NaN antes da redução transversal, caso contrário, 
-            // 1 único simulado arruinado destrói o piso do Monte Carlo em todas as matérias.
-            const validGlobalSims = allSimsForBaseline
-                .map(s => getSafeScore(s, maxScore))
-                .filter(s => !Number.isNaN(s));
-                
-            if (validGlobalSims.length > 0) {
-                const totalPoints = validGlobalSims.reduce((acc, s) => acc + s, 0);
-                globalBaselinePct = (totalPoints / (validGlobalSims.length * maxScore)) * 100;
-            }
+        if (daysToExam !== null && daysToExam !== undefined) {
+            const totalGap = Math.max(1, targetScore - averageScore);
+            const proximalGap = effectiveMCTarget - averageScore;
+            const gapRatio = Math.min(1, Math.max(0, proximalGap / totalGap));
+            effectiveMCDays = daysToExam > 0
+                ? Math.max(14, Math.floor(gapRatio * daysToExam))
+                : 0;
+        } else {
+            effectiveMCDays = 21;
         }
+    }
 
-        const effectiveCfg = { 
-            ...cfg, 
-            MC_SIMULATIONS: adaptiveSimCount,
-            MC_CALIBRATION_NEUTRAL_PCT: globalBaselinePct 
-        };
+    let globalBaselinePct = 50;
+    const validCatNorms = new Set((options.allCategories || []).map(c => normalize(c.name || "")));
+    const allSimsForBaseline = (simulados || []).filter(s => s && validCatNorms.has(normalize(s.subject || "")));
+    if (allSimsForBaseline.length > 0) {
+        const validGlobalSims = allSimsForBaseline
+            .map(s => getSafeScore(s, maxScore))
+            .filter(s => !Number.isNaN(s));
+            
+        if (validGlobalSims.length > 0) {
+            const totalPoints = validGlobalSims.reduce((acc, s) => acc + s, 0);
+            globalBaselinePct = (totalPoints / (validGlobalSims.length * maxScore)) * 100;
+        }
+    }
 
-        // Passamos o 'effectiveMCTarget' como alvo do motor estocástico
-        const mcResult = runCoachMonteCarlo(
-            simuladosWithMaxScore, 
-            effectiveMCTarget, // <-- Novo Alvo Dinâmico
-            effectiveCfg, 
-            categoryId, 
-            maxScore, 
-            mcAdaptive,
-            effectiveMCDays
+    const effectiveCfg = { 
+        ...cfg, 
+        MC_SIMULATIONS: adaptiveSimCount,
+        MC_CALIBRATION_NEUTRAL_PCT: globalBaselinePct 
+    };
+
+    const mcResult = runCoachMonteCarlo(
+        simuladosWithMaxScore, 
+        effectiveMCTarget, 
+        effectiveCfg, 
+        categoryId, 
+        maxScore, 
+        mcAdaptive,
+        effectiveMCDays
+    );
+    const mcProbability = mcResult ? mcResult.probability : null;
+    const mcHasData = mcResult !== null;
+
+    return {
+        cfg,
+        safeCategory,
+        categoryId,
+        rollingCalibration,
+        referenceDate,
+        referenceNow,
+        maxScore,
+        minScore,
+        targetScore,
+        rawWeight,
+        boundedWeight,
+        weight,
+        weightLabel,
+        daysToExam,
+        relevantSimulados,
+        rootActivityDate,
+        simuladosWithMaxScore,
+        averageScore,
+        daysSinceLastStudy,
+        recencyUnknown,
+        studyLogs,
+        categoryStudyLogs,
+        validStudyLogs,
+        trendHistory,
+        lastNScores,
+        backtestWeights,
+        trend,
+        mssdVolatility,
+        mcAdaptive,
+        effectiveMCTarget,
+        effectiveMCDays,
+        globalBaselinePct,
+        effectiveCfg,
+        mcResult,
+        mcProbability,
+        mcHasData
+    };
+};
+
+export const calculateUrgencyScore = (metrics, options = {}) => {
+    const {
+        cfg,
+        safeCategory,
+        boundedWeight,
+        daysToExam,
+        rootActivityDate,
+        simuladosWithMaxScore,
+        averageScore,
+        daysSinceLastStudy,
+        recencyUnknown,
+        studyLogs,
+        categoryStudyLogs,
+        validStudyLogs,
+        lastNScores,
+        backtestWeights,
+        trend,
+        mssdVolatility,
+        mcProbability,
+        mcHasData,
+        maxScore
+    } = metrics;
+
+    const forgetting = computeForgettingRisk(simuladosWithMaxScore, maxScore);
+    const performanceDeficit = Math.max(0, metrics.targetScore - averageScore);
+    const memoryRisk = forgetting.risk === 'critical' ? 40 : (forgetting.risk === 'high' ? 20 : 5);
+    const volatilityRisk = mssdVolatility;
+
+    const totalPain = performanceDeficit + memoryRisk + volatilityRisk || 1;
+
+    const dynamicScoreMax = Math.max(20, (performanceDeficit / totalPain) * 110);
+    const dynamicRecencyMax = Math.max(15, (memoryRisk / totalPain) * 110);
+    const dynamicInstabilityMax = Math.max(10, (volatilityRisk / totalPain) * 110);
+
+    const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.40; 
+    
+    const normalizedAvg = (averageScore / maxScore) * 100;
+    const scoreComponent = Math.max(0, Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100)));
+
+    const effectiveRiskDays = daysSinceLastStudy; 
+    const crunchMultiplier = getCrunchMultiplier(daysToExam, rootActivityDate, metrics.referenceDate);
+    
+    let instabilityComponent = mssdVolatility * (dynamicInstabilityMax / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
+    const trendThreshold = getDynamicTrendThreshold(averageScore, maxScore);
+
+    if (trend > trendThreshold) {
+        instabilityComponent *= 0.5;
+    } else if (trend < -trendThreshold) {
+        instabilityComponent *= 1.3;
+    }
+    instabilityComponent = Math.min(dynamicInstabilityMax, instabilityComponent * backtestWeights.instabilityWeight);
+
+    let mcUrgencyBoost = 0;
+    let mcRiskLabel = null;
+    const adaptiveRisk = deriveAdaptiveRiskThresholds(lastNScores, mssdVolatility, cfg, maxScore);
+
+    if (mcHasData && mcProbability !== null) {
+        const continuous = computeContinuousMcBoost(
+            mcProbability,
+            adaptiveRisk.danger,
+            adaptiveRisk.safe,
+            mssdVolatility,
+            maxScore,
+            cfg
         );
-        const mcProbability = mcResult ? mcResult.probability : null;
-        const mcHasData = mcResult !== null;
+        mcUrgencyBoost = continuous.boost;
+        mcRiskLabel = continuous.riskLabel;
+    }
 
-        if (mcHasData && typeof options.onCalibrationMetric === 'function') {
-            options.onCalibrationMetric({
-                categoryId,
-                categoryName: safeCategory?.name,
+    const hasHighPriorityTasks = safeCategory.tasks?.some(t => !t.completed && t.priority === 'high') || false;
+    const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
+
+    const allTasks = Array.isArray(safeCategory.tasks) ? safeCategory.tasks : [];
+    const totalTasks = allTasks.length;
+    const completedTasks = allTasks.filter(t => t?.completed).length;
+    const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 1.0;
+    const inefficiency = Math.max(0, 1 - completionRate);
+    
+    let empiricalTrust = 1.0;
+    const hasData = simuladosWithMaxScore.length > 0 || categoryStudyLogs.length > 0;
+    if (!hasData) {
+        const globalSignal = computeAdaptiveCoachWeight(metrics.trendHistory); 
+        empiricalTrust = Math.max(0.2, globalSignal.confidenceWeight);
+    }
+
+    const efficiencyBridgeBoost = 0; 
+    const inefficiencyPenaltyMultiplier = 1.0 + (inefficiency * 0.3 * empiricalTrust); 
+    const recencyComponent = (dynamicRecencyMax * 0.8) * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight * inefficiencyPenaltyMultiplier;
+
+    const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+    const totalHours = totalMinutes / 60;
+
+    const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(b.date) || new Date(0)).getTime());
+    const rollingWindowMs = 28 * MS_PER_DAY;
+    const nowMs = metrics.referenceNow;
+    const recentBaselineLogs = sortedLogsForBurnout.filter(log => (nowMs - (normalizeDate(log.date) || new Date(0)).getTime()) <= rollingWindowMs);
+    const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
+    
+    const firstLogTime = sortedLogsForBurnout.length > 0 
+        ? (normalizeDate(sortedLogsForBurnout[0].date) || new Date(nowMs)).getTime() 
+        : nowMs;
+    const daysSinceFirstLog = Math.max(1, (nowMs - firstLogTime) / MS_PER_DAY);
+    const activeWeeks = Math.max(1, Math.min(4, daysSinceFirstLog / 7));
+    
+    const baselineHoursPerWeek = recentBaselineLogs.length > 0 ? (recentBaselineHours / activeWeeks) : 5.0;
+    const dynamicBurnoutThreshold = Math.max(15.0, baselineHoursPerWeek * 1.8);
+
+    const allCategoriesSafe = options.allCategories || [];
+    const activeCount = allCategoriesSafe.length > 0 ? allCategoriesSafe.length : 1;
+    const MS_PER_DAY_CONST = 24 * 60 * 60 * 1000;
+    
+    const currentLambda = metrics.mcAdaptive?.decayK || 0.03; 
+    const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
+
+    const windowStart = (normalizeDate(metrics.referenceDate) || metrics.referenceDate).getTime() - (dynamicWindowDays * MS_PER_DAY_CONST);
+    const recentAllLogs = (options.studyLogs || studyLogs || []).filter(log => (normalizeDate(log?.date) || new Date(0)).getTime() >= windowStart);
+    const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+    const totalRecentMinutesCat = recentAllLogs
+        .filter(log => log?.categoryId === metrics.categoryId)
+        .reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+    const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
+    
+    const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
+        let rawW = c.weight;
+        if (typeof rawW === 'string') rawW = rawW.replace(',', '.');
+        const parsedW = Number(rawW);
+        const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
+        return acc + w;
+    }, 0);
+    
+    const idealShare = totalSyllabusWeight > 0 ? metrics.rawWeight / totalSyllabusWeight : (1 / activeCount);
+    const tolerance = 0.05; 
+    const underAllocation = Math.max(0, idealShare - observedShare - tolerance);
+    const balanceBridgeBoost = Math.min(cfg.EFFICIENCY_MAX, Math.pow(underAllocation * 10, 1.5));
+
+    let srsBoost = 0;
+    let srsLabel = null;
+
+    if (hasData && !recencyUnknown) {
+        const CONSTANTE_ESQUECIMENTO = 0.03; 
+        const retencao = Math.exp(-CONSTANTE_ESQUECIMENTO * daysSinceLastStudy);
+        srsBoost = (1 - retencao) * cfg.SRS_BOOST;
+        srsLabel = srsBoost > (cfg.SRS_BOOST * 0.7) ? "⚠️ Memória Crítica" : (srsBoost > (cfg.SRS_BOOST * 0.3) ? "🧠 Revisão Necessária" : "🔄 Revisão de Reforço");
+    }
+
+    let exactLastTime = 0;
+    if (simuladosWithMaxScore.length > 0) exactLastTime = new Date(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt).getTime();
+    if (validStudyLogs.length > 0) {
+        const logsOrdenados = [...validStudyLogs].sort((a, b) => 
+            (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime()
+        );
+        const logTime = (normalizeDate(logsOrdenados[0].date) || new Date(0)).getTime();
+        if (logTime > exactLastTime) exactLastTime = logTime;
+    }
+
+    const exactHoursSinceLast = exactLastTime > 0 ? (nowMs - exactLastTime) / (1000 * 60 * 60) : 48;
+    let rotationPenalty = 0;
+    
+    if (exactHoursSinceLast < 24) {
+        const fatigueRatio = Math.max(0, Math.min(1, averageScore / maxScore)); 
+        const dynamicPenalty = Math.min(25, 15 * fatigueRatio * (1 + (mssdVolatility / maxScore)));
+        rotationPenalty = dynamicPenalty;
+    } else if (exactHoursSinceLast >= 24 && exactHoursSinceLast < 48 && !srsLabel) {
+        rotationPenalty = mssdVolatility > (maxScore * 0.05) ? 8 : 2; 
+    }
+    if (srsBoost > 0) rotationPenalty *= 0.1;
+
+    const RAW_MAX_ACTUAL = dynamicScoreMax
+        + dynamicRecencyMax * 0.8 * crunchMultiplier * inefficiencyPenaltyMultiplier
+        + dynamicInstabilityMax
+        + (cfg.PRIORITY_BOOST + (cfg.SRS_BOOST * 2.0)) * crunchMultiplier
+        + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE)
+        + cfg.EFFICIENCY_MAX;
+
+    const currentPriorityBoost = priorityBoost * crunchMultiplier;
+    const currentSrsBoost = srsBoost * crunchMultiplier;
+    const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty;
+
+    const weightedRaw = rawScore * weightMultiplier; 
+
+    let normalized;
+    const CRITICAL_THRESHOLD = RAW_MAX_ACTUAL * 0.8; 
+    
+    if (weightedRaw <= 0) {
+        normalized = 0;
+    } else if (weightedRaw <= CRITICAL_THRESHOLD) {
+        normalized = (weightedRaw / CRITICAL_THRESHOLD) * 80;
+    } else {
+        const excess = weightedRaw - CRITICAL_THRESHOLD;
+        const safeMaxActual = Math.max(1, RAW_MAX_ACTUAL);
+        const excessNormalized = 20 * (1 - Math.exp(-excess / (safeMaxActual * 0.4)));
+        normalized = 80 + excessNormalized;
+    }
+
+    normalized = Number.isFinite(normalized) ? Math.max(0, Math.min(100, Math.round(normalized))) : 0;
+
+    return {
+        weightedRaw,
+        normalized,
+        scoreComponent,
+        recencyComponent,
+        instabilityComponent,
+        priorityBoost,
+        srsBoost,
+        mcUrgencyBoost,
+        efficiencyBridgeBoost,
+        balanceBridgeBoost,
+        rotationPenalty,
+        weightMultiplier,
+        crunchMultiplier,
+        forgetting,
+        performanceDeficit,
+        memoryRisk,
+        volatilityRisk,
+        totalPain,
+        dynamicScoreMax,
+        dynamicRecencyMax,
+        dynamicInstabilityMax,
+        completionRate,
+        inefficiencyPenaltyMultiplier,
+        totalHours,
+        baselineHoursPerWeek,
+        dynamicBurnoutThreshold,
+        observedShare,
+        idealShare,
+        srsLabel,
+        exactHoursSinceLast,
+        adaptiveRisk,
+        mcRiskLabel,
+        hasHighPriorityTasks
+    };
+};
+
+export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo, options = {}) => {
+    const {
+        cfg,
+        maxScore,
+        targetScore,
+        weight,
+        weightLabel,
+        daysToExam,
+        relevantSimulados,
+        averageScore,
+        daysSinceLastStudy,
+        categoryStudyLogs,
+        trend,
+        mssdVolatility,
+        effectiveMCTarget,
+        effectiveMCDays,
+        mcResult,
+        mcProbability,
+        mcHasData
+    } = metrics;
+
+    const {
+        scoreComponent,
+        recencyComponent,
+        instabilityComponent,
+        priorityBoost,
+        srsBoost,
+        mcUrgencyBoost,
+        efficiencyBridgeBoost,
+        balanceBridgeBoost,
+        rotationPenalty,
+        weightMultiplier,
+        crunchMultiplier,
+        totalHours,
+        baselineHoursPerWeek,
+        dynamicBurnoutThreshold,
+        srsLabel,
+        adaptiveRisk,
+        mcRiskLabel,
+        hasHighPriorityTasks,
+        completionRate
+    } = scoreInfo;
+
+    let recommendation = "";
+    const oneWeekAgo = (normalizeDate(metrics.referenceDate) || metrics.referenceDate).getTime() - (7 * 24 * 60 * 60 * 1000);
+    const recentLogs = categoryStudyLogs.filter(log => {
+        const d = normalizeDate(log.date) || new Date(0);
+        return d && d.getTime() >= oneWeekAgo;
+    });
+    const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
+    const recentStudyDays = new Set(recentLogs.map(log => (normalizeDate(log.date) || new Date(0)).getTime())).size;
+    
+    const isHighVolume = recentHours > dynamicBurnoutThreshold;
+    const isHighFrequency = recentStudyDays >= 5;
+    const isEliteMaintenance = averageScore >= (maxScore * 0.95);
+    const trendThreshold = getDynamicTrendThreshold(averageScore, maxScore);
+    const lastNScores = metrics.lastNScores;
+    const isStagnant = !isEliteMaintenance && trend <= trendThreshold && lastNScores.length >= 2;
+
+    const burnoutMsg = isHighVolume && isStagnant 
+        ? `Você estudou ${recentHours.toFixed(1)}h esta semana (seu normal é ~${baselineHoursPerWeek.toFixed(1)}h), mas a nota estagnou.` 
+        : '';
+
+    const isBurnoutRisk = (isHighVolume || (isHighFrequency && recentHours > 5.0)) && isStagnant && recentStudyDays >= 3;
+
+    if (mcHasData && mcRiskLabel === 'critical') {
+        const burnoutNote = isBurnoutRisk ? ` (⚠️ ${burnoutMsg || 'Sinais de estafa — mude o método.'})` : '';
+        const targetInfo = effectiveMCTarget < targetScore ? ` (Meta ZDP: ${formatValue(effectiveMCTarget)})` : '';
+        recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${targetInfo}${burnoutNote}`;
+    } else if (isBurnoutRisk) {
+        recommendation = `🛑 Risco de Estafa: ${burnoutMsg || 'Você estudou muito mas a nota não reagiu.'} Considere descansar.`;
+    } else if (mcHasData && mcRiskLabel === 'safe') {
+        recommendation = `🏆 Cruzeiro Seguro (${formatPercent(mcProbability)} nas projeções). Modo de manutenção ativado.`;
+    } else if (srsBoost > 0) {
+        recommendation = `${srsLabel} - Não pule essa revisão!`;
+    } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && trend > 0) {
+        recommendation = "Desempenho Oscilante: Foque em preencher lacunas de base";
+    } else if (trend < -trendThreshold) {
+        recommendation = `Nota caindo (${formatValue(trend)} pts) - Atenção urgente`;
+    } else if (averageScore < targetScore - (0.2 * maxScore)) {
+        recommendation = `Nota Crítica: ${formatPercent((averageScore / maxScore) * 100)} (Meta ${formatPercent((targetScore / maxScore) * 100)})`;
+    } else if (averageScore >= targetScore) {
+        recommendation = "No caminho certo! Continue consolidando";
+    } else {
+        recommendation = "Pratique com regularidade";
+    }
+
+    const hasData = relevantSimulados.length > 0 || categoryStudyLogs.length > 0;
+
+    const result = {
+        score: weightedRaw,
+        normalizedScore: normalized,
+        recommendation,
+        details: {
+            averageScore: Number(averageScore.toFixed(2)),
+            daysSinceLastStudy,
+            standardDeviation: Number(mssdVolatility.toFixed(2)),
+            mssdVolatility: Number(mssdVolatility.toFixed(2)),
+            trend: Number(trend.toFixed(2)),
+            totalHours: Number(totalHours.toFixed(2)),
+            hasData,
+            hasSimulados: relevantSimulados.length > 0,
+            hasHighPriorityTasks,
+            completionRate: Number((completionRate * 100).toFixed(1)),
+            efficiencyBridgeBoost: Number(efficiencyBridgeBoost.toFixed(2)),
+            balanceBridgeBoost: Number(balanceBridgeBoost.toFixed(2)),
+            weight,
+            srsLabel,
+            isBurnoutRisk,
+            crunchMultiplier: Number(crunchMultiplier.toFixed(2)),
+            monteCarlo: mcHasData ? {
+                probability: Number(mcProbability.toFixed(2)),
+                probabilityRaw: mcProbability,
+                thresholds: {
+                    danger: Number(adaptiveRisk.danger.toFixed(2)),
+                    safe: Number(adaptiveRisk.safe.toFixed(2))
+                },
+                riskLabel: mcRiskLabel,
+                volatility: Number(mcResult.volatility.toFixed(2)),
+                meanProjected: Number(mcResult.mean.toFixed(2)),
+                effectiveMCTarget: Number(effectiveMCTarget.toFixed(2)),
+                effectiveMCDays: Number(effectiveMCDays),
+                ci95Low: Number(mcResult.ci95Low.toFixed(2)),
+                ci95High: Number(mcResult.ci95High.toFixed(2)),
+                urgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
+                calibrationPenalty: Number((mcResult.calibrationPenalty || 0).toFixed(4)),
                 avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
                 ece: Number((mcResult.ece || 0).toFixed(4)),
                 reliability: Array.isArray(mcResult.reliability) ? mcResult.reliability : [],
-                calibrationPenalty: Number((mcResult.calibrationPenalty || 0).toFixed(4)),
-                probability: Number((mcResult.probability || 0).toFixed(2)),
-                timestamp: Date.now()
-            });
-        }
-
-        // --- COMPONENTS ---
-        
-        // 🎯 1. Diagnóstico do "Perfil de Dor" (Pain Profile) do aluno
-        const forgetting = computeForgettingRisk(simuladosWithMaxScore, maxScore);
-        const performanceDeficit = Math.max(0, targetScore - averageScore); // Falta de Conhecimento
-        const memoryRisk = forgetting.risk === 'critical' ? 40 : (forgetting.risk === 'high' ? 20 : 5); // Risco de Esquecimento
-        const volatilityRisk = mssdVolatility; // Instabilidade Estatística
-
-        const totalPain = performanceDeficit + memoryRisk + volatilityRisk || 1; // Evita div/0
-
-        // 🎯 2. Alocação Dinâmica de Pesos (O Total Base é sempre 110, mas a distribuição muda)
-        const dynamicScoreMax = Math.max(20, (performanceDeficit / totalPain) * 110);
-        const dynamicRecencyMax = Math.max(15, (memoryRisk / totalPain) * 110);
-        const dynamicInstabilityMax = Math.max(10, (volatilityRisk / totalPain) * 110);
-
-        // FIX: Aumentar a amplitude do multiplicador de importância (0.6x a 1.4x)
-        const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.40; 
-        
-        // A. Performance Score (Unweighted raw component)
-        const normalizedAvg = (averageScore / maxScore) * 100;
-        const scoreComponent = Math.max(0, Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100)));
-
-        // B. Recency (Unweighted raw component)
-        const effectiveRiskDays = daysSinceLastStudy; 
-        
-        // Encontre a data do simulado ou estudo mais antigo (a raiz da jornada)
-        const _firstActivityDate = (relevantSimulados.length > 0) 
-            ? (normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) || new Date(0))
-            : (normalizeDate(new Date()) || new Date());
-
-        const crunchMultiplier = getCrunchMultiplier(daysToExam, rootActivityDate);
-        let recencyComponent = 0; // Calculado abaixo no bloco Efficiency Bridge
-
-        // ─────────────────────────────────────────────────────────
-        let instabilityComponent = mssdVolatility * (dynamicInstabilityMax / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
-        const trendThreshold = getDynamicTrendThreshold(averageScore, maxScore);
-
-        if (trend > trendThreshold) {
-            instabilityComponent *= 0.5;
-        } else if (trend < -trendThreshold) {
-            instabilityComponent *= 1.3;
-        }
-        instabilityComponent = Math.min(dynamicInstabilityMax, instabilityComponent * backtestWeights.instabilityWeight);
-
-
-        // ─────────────────────────────────────────────────────────
-        // MC-05: Probability Urgency Boost
-        // ─────────────────────────────────────────────────────────
-        let mcUrgencyBoost = 0;
-        let mcRiskLabel = null;
-        const adaptiveRisk = deriveAdaptiveRiskThresholds(lastNScores, mssdVolatility, cfg, maxScore);
-
-        if (mcHasData && mcProbability !== null) {
-            const continuous = computeContinuousMcBoost(
-                mcProbability,
-                adaptiveRisk.danger,
-                adaptiveRisk.safe,
-                mssdVolatility,
-                maxScore,
-                cfg
-            );
-            mcUrgencyBoost = continuous.boost;
-            mcRiskLabel = continuous.riskLabel;
-        }
-
-
-        const hasData = relevantSimulados.length > 0 || categoryStudyLogs.length > 0;
-
-        // D. Priority Boost
-        const hasHighPriorityTasks = safeCategory.tasks?.some(t => !t.completed && t.priority === 'high') || false;
-        const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
-
-        // D2. Execution Efficiency Bridge (Meu Painel -> Coach/Monte Carlo)
-        const allTasks = Array.isArray(safeCategory.tasks) ? safeCategory.tasks : [];
-        const totalTasks = allTasks.length;
-        const completedTasks = allTasks.filter(t => t?.completed).length;
-        const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 1.0; // 1.0 = Neutro (sem penalidade)
-        const inefficiency = Math.max(0, 1 - completionRate);
-        
-        let empiricalTrust = 1.0;
-        if (!hasData) {
-            // Avalia o histórico global de disciplina do utilizador
-            const globalSignal = computeAdaptiveCoachWeight(trendHistory); 
-            // Garante um piso de 20% e um teto de 100% consoante a estabilidade real do aluno
-            empiricalTrust = Math.max(0.2, globalSignal.confidenceWeight);
-        }
-
-        // [DEPOIS] Anulamos a ponte aditiva (que maquiava a dor):
-        const efficiencyBridgeBoost = 0; 
-        
-        // Aplicamos a ineficiência como um agravante na "Recência" (quem não faz micro-tarefas esquece mais rápido)
-        const inefficiencyPenaltyMultiplier = 1.0 + (inefficiency * 0.3 * empiricalTrust); 
-        recencyComponent = (dynamicRecencyMax * 0.8) * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight * inefficiencyPenaltyMultiplier;
-
-        // E. Burnout detection
-        const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
-        const totalHours = totalMinutes / 60;
-
-        // 1. Descobrir a capacidade semanal base do aluno (ignorar semanas fantasma)
-        const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
-        
-        // CORREÇÃO: Ordenar o array para garantir a busca correta pela data raiz
-        const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(b.date) || new Date(0)).getTime());
-        
-        // CORREÇÃO: Janela Rolante de 28 dias para capturar o ritmo real, ignorando fantasmas do passado
-        const rollingWindowMs = 28 * MS_PER_DAY;
-        const nowMs = Date.now();
-        const recentBaselineLogs = sortedLogsForBurnout.filter(log => (nowMs - (normalizeDate(log.date) || new Date(0)).getTime()) <= rollingWindowMs);
-        
-        const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
-        
-        // [CORREÇÃO] Calcular as semanas ativas reais do utilizador (máximo 4) em vez de dividir cegamente por 4 (Bug 1.1 Fix)
-        // Evita subestimar o burnout de novos utilizadores que estão cá há apenas poucos dias.
-        const firstLogTime = sortedLogsForBurnout.length > 0 
-            ? (normalizeDate(sortedLogsForBurnout[0].date) || new Date(nowMs)).getTime() 
-            : nowMs;
-        const daysSinceFirstLog = Math.max(1, (nowMs - firstLogTime) / MS_PER_DAY);
-        const activeWeeks = Math.max(1, Math.min(4, daysSinceFirstLog / 7));
-        
-        const baselineHoursPerWeek = recentBaselineLogs.length > 0 ? (recentBaselineHours / activeWeeks) : 5.0;
-
-        // 2. Definir o limiar dinâmico: Burnout acontece se ele exceder 1.8x o que está acostumado
-        // [FIX 5] Elevar o piso para evitar falsos positivos alarmistas em volumes baixos
-        const dynamicBurnoutThreshold = Math.max(15.0, baselineHoursPerWeek * 1.8);
-
-        // E2. Balance Bridge (equilíbrio entre matérias do Meu Painel -> Coach)
-        // CORREÇÃO: O peso do edital é soberano e independente de existirem tarefas criadas.
-        const allCategoriesSafe = options.allCategories || [];
-        const activeCount = allCategoriesSafe.length > 0 ? allCategoriesSafe.length : 1;
-        const MS_PER_DAY_CONST = 24 * 60 * 60 * 1000;
-        
-        const currentLambda = mcAdaptive?.decayK || 0.03; 
-        const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
-
-        const windowStart = (normalizeDate(new Date()) || new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY_CONST);
-        const recentAllLogs = (studyLogs || []).filter(log => (normalizeDate(log?.date) || new Date(0)).getTime() >= windowStart);
-        const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
-        const totalRecentMinutesCat = recentAllLogs
-            .filter(log => log?.categoryId === categoryId)
-            .reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
-        const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
-        
-        const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
-            // CORREÇÃO COMPLEMENTAR: Garantir que o peso total reflete o que o aluno
-            // introduziu com precisão decimal em todas as parcelas do Edital
-            let rawW = c.weight;
-            if (typeof rawW === 'string') rawW = rawW.replace(',', '.');
-            const parsedW = Number(rawW);
-            const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
-            return acc + w;
-        }, 0);
-        
-        const idealShare = totalSyllabusWeight > 0 ? rawWeight / totalSyllabusWeight : (1 / activeCount);
-        
-        // OTIMIZAÇÃO: Tolerância de 5% para evitar micro-correções e multiplicador exponencial 
-        // para não punir severamente matérias de peso muito baixo.
-        const tolerancia = 0.05; 
-        const underAllocation = Math.max(0, idealShare - observedShare - tolerancia);
-        const balanceBridgeBoost = Math.min(cfg.EFFICIENCY_MAX, Math.pow(underAllocation * 10, 1.5));
-
-        // F. SRS Boost com Integração de Volatilidade e Confiança Bayesiana
-        let srsBoost = 0;
-        let srsLabel = null;
-
-        if (hasData && !recencyUnknown) {
-            // A urgência de repetição (SRS) DEVE saturar. O aluno não desaprende ao infinito.
-            // Em vez de exponencial puro e destrutivo, usamos o Complemento da Retenção.
-            const CONSTANTE_ESQUECIMENTO = 0.03; 
-            const retencao = Math.exp(-CONSTANTE_ESQUECIMENTO * daysSinceLastStudy);
-            
-            // O Desespero do Coach (Dor de SRS) é o oposto da Retenção.
-            // A dor máxima NUNCA ultrapassará o teto configurado (cfg.SRS_BOOST)
-            srsBoost = (1 - retencao) * cfg.SRS_BOOST;
-            srsLabel = srsBoost > (cfg.SRS_BOOST * 0.7) ? "⚠️ Memória Crítica" : (srsBoost > (cfg.SRS_BOOST * 0.3) ? "🧠 Revisão Necessária" : "🔄 Revisão de Reforço");
-        }
-
-        // [CORREÇÃO] Fuga à Penalidade de Rotação (Bug da Fronteira da Meia-Noite - Bug 2.1 Fix)
-        // Calcular as horas exatas desde a última atividade usando o tempo real para evitar resets arbitrários à meia-noite.
-        let exactLastTime = 0;
-        if (relevantSimulados.length > 0) exactLastTime = new Date(relevantSimulados[0].date || relevantSimulados[0].createdAt).getTime();
-        if (validStudyLogs.length > 0) {
-            const logsOrdenados = [...validStudyLogs].sort((a, b) => 
-                (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime()
-            );
-            const logTime = (normalizeDate(logsOrdenados[0].date) || new Date(0)).getTime();
-            if (logTime > exactLastTime) exactLastTime = logTime;
-        }
-
-        const exactHoursSinceLast = exactLastTime > 0 ? (Date.now() - exactLastTime) / (1000 * 60 * 60) : 48;
-
-        // G. Rotation Penalty (Dinâmico)
-        let rotationPenalty = 0;
-        
-        // Aplica a penalidade rigorosamente se passaram menos de 24 horas reais
-        if (exactHoursSinceLast < 24) {
-            const fatigueRatio = Math.max(0, Math.min(1, averageScore / maxScore)); 
-            const dynamicPenalty = Math.min(25, 15 * fatigueRatio * (1 + (mssdVolatility / maxScore)));
-            
-            rotationPenalty = dynamicPenalty;
-
-        } else if (exactHoursSinceLast >= 24 && exactHoursSinceLast < 48 && !srsLabel) {
-            rotationPenalty = mssdVolatility > (maxScore * 0.05) ? 8 : 2; 
-        }
-        if (srsBoost > 0) rotationPenalty *= 0.1;
-
-        // --- RAW MAX ---
-        // 1. Teto Fixo de Esforço (Baseado apenas nos riscos reais, sem inflação de peso)
-        const RAW_MAX_ACTUAL = dynamicScoreMax
-            + dynamicRecencyMax * 0.8 * crunchMultiplier * inefficiencyPenaltyMultiplier
-            + dynamicInstabilityMax
-            + (cfg.PRIORITY_BOOST + (cfg.SRS_BOOST * 2.0)) * crunchMultiplier
-            + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE)
-            + cfg.EFFICIENCY_MAX;
-
-        // 2. Cálculo do Raw Score
-        const currentPriorityBoost = priorityBoost * crunchMultiplier;
-        const currentSrsBoost = srsBoost * crunchMultiplier;
-        const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty;
-
-        // 3. APLICAÇÃO REAL DO PESO: O peso é um amplificador de DOR sobre o rawScore,
-        // não uma mudança na escala do universo.
-        const weightedRaw = rawScore * weightMultiplier; 
-
-        // 4. Normalização
-        let normalized;
-        const CRITICAL_THRESHOLD = RAW_MAX_ACTUAL * 0.8; 
-        
-        if (weightedRaw <= 0) {
-            normalized = 0;
-        } else if (weightedRaw <= CRITICAL_THRESHOLD) {
-            // Zona Normal: Escala linear até 80% do dashboard
-            normalized = (weightedRaw / CRITICAL_THRESHOLD) * 80;
-        } else {
-            // Zona Crítica (80-100%): Compressão assintótica suave (evita empate técnico)
-            const excess = weightedRaw - CRITICAL_THRESHOLD;
-            const safeMaxActual = Math.max(1, RAW_MAX_ACTUAL);
-            const excessNormalized = 20 * (1 - Math.exp(-excess / (safeMaxActual * 0.4)));
-            normalized = 80 + excessNormalized;
-        }
-
-
-
-        // Sanitização rigorosa de Not-a-Number (NaN) antes da injeção na UI ou Sort
-        normalized = Number.isFinite(normalized) ? Math.max(0, Math.min(100, Math.round(normalized))) : 0;
-
-        // --- RECOMMENDATION ---
-        let recommendation = "";
-        const oneWeekAgo = (normalizeDate(new Date()) || new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
-        const recentLogs = categoryStudyLogs.filter(log => {
-            const d = normalizeDate(log.date) || new Date(0);
-            return d && d.getTime() >= oneWeekAgo;
-        });
-        const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
-        const recentStudyDays = new Set(recentLogs.map(log => (normalizeDate(log.date) || new Date(0)).getTime())).size;
-        
-        const isHighVolume = recentHours > dynamicBurnoutThreshold;
-        const isHighFrequency = recentStudyDays >= 5;
-        // CORREÇÃO: Alunos acima de 95% do teto não podem ser dados como estagnados por não crescerem mais.
-        // A matemática física impede-os de ultrapassar os 100%.
-        const isEliteMaintenance = averageScore >= (maxScore * 0.95);
-        const isStagnant = !isEliteMaintenance && trend <= trendThreshold && lastNScores.length >= 2;
-
-        const burnoutMsg = isHighVolume && isStagnant 
-            ? `Você estudou ${recentHours.toFixed(1)}h esta semana (seu normal é ~${baselineHoursPerWeek.toFixed(1)}h), mas a nota estagnou.` 
-            : '';
-
-        const isBurnoutRisk = (isHighVolume || (isHighFrequency && recentHours > 5.0)) && isStagnant && recentStudyDays >= 3;
-
-        if (mcHasData && mcRiskLabel === 'critical') {
-            const burnoutNote = isBurnoutRisk ? ` (⚠️ ${burnoutMsg || 'Sinais de estafa — mude o método.'})` : '';
-            const targetInfo = effectiveMCTarget < targetScore ? ` (Meta ZDP: ${formatValue(effectiveMCTarget)})` : '';
-            recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${targetInfo}${burnoutNote}`;
-        } else if (isBurnoutRisk) {
-            recommendation = `🛑 Risco de Estafa: ${burnoutMsg || 'Você estudou muito mas a nota não reagiu.'} Considere descansar.`;
-        } else if (mcHasData && mcRiskLabel === 'safe') {
-            recommendation = `🏆 Cruzeiro Seguro (${formatPercent(mcProbability)} nas projeções). Modo de manutenção ativado.`;
-        } else if (srsBoost > 0) {
-            recommendation = `${srsLabel} - Não pule essa revisão!`;
-        } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && trend > 0) {
-            recommendation = "Desempenho Oscilante: Foque em preencher lacunas de base";
-        } else if (trend < -trendThreshold) {
-            recommendation = `Nota caindo (${formatValue(trend)} pts) - Atenção urgente`;
-        } else if (averageScore < targetScore - (0.2 * maxScore)) {
-            recommendation = `Nota Crítica: ${formatPercent((averageScore / maxScore) * 100)} (Meta ${formatPercent((targetScore / maxScore) * 100)})`;
-        } else if (averageScore >= targetScore) {
-            recommendation = "No caminho certo! Continue consolidando";
-        } else {
-            recommendation = "Pratique com regularidade";
-        }
-
-        const result = {
-            score: weightedRaw,
-            normalizedScore: normalized,
-            recommendation,
-            details: {
-                averageScore: Number(averageScore.toFixed(2)),
-                daysSinceLastStudy,
-                standardDeviation: Number(mssdVolatility.toFixed(2)),
-                mssdVolatility: Number(mssdVolatility.toFixed(2)),
-                trend: Number(trend.toFixed(2)),
-                totalHours: Number(totalHours.toFixed(2)),
-                hasData,
-                hasSimulados: relevantSimulados.length > 0,
-                hasHighPriorityTasks,
-                completionRate: Number((completionRate * 100).toFixed(1)),
-                efficiencyBridgeBoost: Number(efficiencyBridgeBoost.toFixed(2)),
-                balanceBridgeBoost: Number(balanceBridgeBoost.toFixed(2)),
-                weight,
-                srsLabel,
-                isBurnoutRisk,
-                crunchMultiplier: Number(crunchMultiplier.toFixed(2)),
-                monteCarlo: mcHasData ? {
-                    probability: Number(mcProbability.toFixed(2)),
-                    probabilityRaw: mcProbability,
-                    thresholds: {
-                        danger: Number(adaptiveRisk.danger.toFixed(2)),
-                        safe: Number(adaptiveRisk.safe.toFixed(2))
-                    },
-                    riskLabel: mcRiskLabel,
-                    volatility: Number(mcResult.volatility.toFixed(2)),
-                    meanProjected: Number(mcResult.mean.toFixed(2)),
-                    effectiveMCTarget: Number(effectiveMCTarget.toFixed(2)),
-                    effectiveMCDays: Number(effectiveMCDays),
-                    ci95Low: Number(mcResult.ci95Low.toFixed(2)),
-                    ci95High: Number(mcResult.ci95High.toFixed(2)),
-                    urgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
-                    calibrationPenalty: Number((mcResult.calibrationPenalty || 0).toFixed(4)),
-                    avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
-                    ece: Number((mcResult.ece || 0).toFixed(4)),
-                    reliability: Array.isArray(mcResult.reliability) ? mcResult.reliability : [],
-                    explainability: {
-                        confidenceAdjusted: (mcResult.calibrationPenalty || 0) > 0,
-                        confidenceAdjustmentPct: Number(((mcResult.calibrationPenalty || 0) * 100).toFixed(2)),
-                        calibrationQuality: (mcResult.avgBrier || 0) <= cfg.MC_CALIBRATION_BRIER_BASELINE
-                            ? 'good'
-                            : (mcResult.avgBrier || 0) <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07) ? 'moderate' : 'low',
-                        note: (mcResult.calibrationPenalty || 0) > 0
-                            ? 'Probabilidade ajustada para reduzir overconfidence após backtest interno.'
-                            : 'Sem ajuste de calibração significativo.'
-                    }
-                } : null,
-                backtest: {
-                    rankQuality: Number(backtestWeights.rankQuality.toFixed(4)),
-                    uplift: Number(backtestWeights.uplift.toFixed(4)),
-                    scoreWeight: Number(backtestWeights.scoreWeight.toFixed(3)),
-                    recencyWeight: Number(backtestWeights.recencyWeight.toFixed(3)),
-                    instabilityWeight: Number(backtestWeights.instabilityWeight.toFixed(3))
-                },
-                humanReadable: {
-                    "Média": formatPercent((averageScore / maxScore) * 100),
-                    "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
-                    "Tendência": trend > 0.5 ? `↑ +${formatValue(trend)}` : trend < -0.5 ? `↓ ${formatValue(trend)}` : "→ Estável",
-                    "Instabilidade": `±${formatValue(mssdVolatility)} pts`,
-                    "Probabilidade (MC)": mcHasData ? formatPercent(mcProbability) : "Dados insuf.",
-                    "Peso da Matéria": weightLabel,
-                    "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
-                },
-                components: {
-                    scoreComponent: Number((scoreComponent * weightMultiplier).toFixed(2)),
-                    recencyComponent: Number((recencyComponent * weightMultiplier).toFixed(2)),
-                    instabilityComponent: Number((instabilityComponent * weightMultiplier).toFixed(2)),
-                    priorityBoost: Number((priorityBoost * weightMultiplier).toFixed(2)),
-                    srsBoost: Number((srsBoost * weightMultiplier).toFixed(2)),
-                    rotationPenalty: Number((rotationPenalty * weightMultiplier).toFixed(2)),
-                    mcUrgencyBoost: Number((mcUrgencyBoost * weightMultiplier).toFixed(2)),
-                    efficiencyBridgeBoost: Number((efficiencyBridgeBoost * weightMultiplier).toFixed(2)),
-                    balanceBridgeBoost: Number((balanceBridgeBoost * weightMultiplier).toFixed(2)),
+                explainability: {
+                    confidenceAdjusted: (mcResult.calibrationPenalty || 0) > 0,
+                    confidenceAdjustmentPct: Number(((mcResult.calibrationPenalty || 0) * 100).toFixed(2)),
+                    calibrationQuality: (mcResult.avgBrier || 0) <= cfg.MC_CALIBRATION_BRIER_BASELINE
+                        ? 'good'
+                        : (mcResult.avgBrier || 0) <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07) ? 'moderate' : 'low',
+                    note: (mcResult.calibrationPenalty || 0) > 0
+                        ? 'Probabilidade ajustada para reduzir overconfidence após backtest interno.'
+                        : 'Sem ajuste de calibração significativo.'
                 }
+            } : null,
+            backtest: {
+                rankQuality: Number(metrics.backtestWeights.rankQuality.toFixed(4)),
+                uplift: Number(metrics.backtestWeights.uplift.toFixed(4)),
+                scoreWeight: Number(metrics.backtestWeights.scoreWeight.toFixed(3)),
+                recencyWeight: Number(metrics.backtestWeights.recencyWeight.toFixed(3)),
+                instabilityWeight: Number(metrics.backtestWeights.instabilityWeight.toFixed(3))
+            },
+            humanReadable: {
+                "Média": formatPercent((averageScore / maxScore) * 100),
+                "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
+                "Tendência": trend > 0.5 ? `↑ +${formatValue(trend)}` : trend < -0.5 ? `↓ ${formatValue(trend)}` : "→ Estável",
+                "Instabilidade": `±${formatValue(mssdVolatility)} pts`,
+                "Probabilidade (MC)": mcHasData ? formatPercent(mcProbability) : "Dados insuf.",
+                "Peso da Matéria": weightLabel,
+                "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
+            },
+            components: {
+                scoreComponent: Number((scoreComponent * weightMultiplier).toFixed(2)),
+                recencyComponent: Number((recencyComponent * weightMultiplier).toFixed(2)),
+                instabilityComponent: Number((instabilityComponent * weightMultiplier).toFixed(2)),
+                priorityBoost: Number((priorityBoost * weightMultiplier).toFixed(2)),
+                srsBoost: Number((srsBoost * weightMultiplier).toFixed(2)),
+                rotationPenalty: Number((rotationPenalty * weightMultiplier).toFixed(2)),
+                mcUrgencyBoost: Number((mcUrgencyBoost * weightMultiplier).toFixed(2)),
+                efficiencyBridgeBoost: Number((efficiencyBridgeBoost * weightMultiplier).toFixed(2)),
+                balanceBridgeBoost: Number((balanceBridgeBoost * weightMultiplier).toFixed(2)),
             }
-        };
+        }
+    };
 
-        if (typeof logger === 'function') {
-            try { logger({ categoryId, name: safeCategory?.name, urgency: result }); } catch { /* ignore */ }
+    return result;
+};
+
+export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {
+    try {
+        const metrics = extractMetrics(category, simulados, studyLogs, options);
+        const scoreInfo = calculateUrgencyScore(metrics, options);
+        const result = generateCoachStrings(scoreInfo.weightedRaw, scoreInfo.normalized, metrics, scoreInfo, options);
+
+        if (typeof options.logger === 'function') {
+            try { options.logger({ categoryId: metrics.categoryId, name: metrics.safeCategory?.name, urgency: result }); } catch { /* ignore */ }
         }
 
         return result;
