@@ -43,9 +43,12 @@ function sanitizeSimulations(simulations) {
 // Ancoramos a semente na volumetria e topologia do histórico, não na flutuação da média.
 function generateStableSeed(historyCount, categoryName, _targetScore) {
     let h = 2166136261;
-    // CORREÇÃO: Remoção do targetScore da entropia. O cone de projeção deve ser 
-    // um "universo físico paralelo" estável, e a meta é apenas uma linha sobre ele.
-    const seedStr = `${historyCount}-${String(categoryName || 'global')}`;
+    // Extração defensiva para evitar "[object Object]" que colapsa a entropia da semente
+    const safeCatId = typeof categoryName === 'object' && categoryName !== null 
+        ? String(categoryName.id || categoryName.name || 'global') 
+        : String(categoryName || 'global');
+    
+    const seedStr = `${historyCount}-${safeCatId}`;
     
     for(let i = 0; i < seedStr.length; i++) {
         h ^= seedStr.charCodeAt(i);
@@ -282,8 +285,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     
     let truncNormFactor = rawTruncNormFactor;
     if (isUnderflowStress) {
-        const zScoreMin = (minScore - muParam) / safeSD;
-        truncNormFactor = Math.max(1e-15, Math.exp(-0.5 * zScoreMin * zScoreMin) / (Math.abs(zScoreMin) + 1e-6));
+        // Adiciona escape empírico absoluto: se a variância convergir para zero na borda,
+        // força um fator nominal e delega a decisão para o motor empírico de Monte Carlo
+        const zScoreMin = safeSD > 0 ? (minScore - muParam) / safeSD : 0;
+        const extremeFactor = Math.exp(-0.5 * zScoreMin * zScoreMin) / (Math.abs(zScoreMin) + 1e-6);
+        truncNormFactor = Number.isFinite(extremeFactor) && extremeFactor > 1e-15 ? extremeFactor : 1e-6;
     }
     const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
 

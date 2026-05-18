@@ -99,8 +99,8 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     // [FIX 4] Jamais force um 0 em domínios não triviais. Deixe o filtro NaN tratar jusante.
     if (finiteValues.length === 0) return values;
     if (finiteValues.length < 5) {
-        // [DEPOIS] Nunca injete a média em micro-amostras acadêmicas. Retorna a série "limpa".
-        return values.map(v => Number.isFinite(v) ? v : NaN);
+        // Retorna a série intacta. A injeção forçada de NaN colapsa motores a jusante.
+        return values; 
     }
 
     const sorted = [...finiteValues].sort((a, b) => a - b);
@@ -194,9 +194,10 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     // Extrai scores e datas
     const parsedData = historyOrScores.map((item, i) => {
         if (isObjectHistory) {
+            const rawTime = new Date(item.date || item.createdAt).getTime();
             return {
                 score: Number(item.score || item.value || 0),
-                time: new Date(item.date || item.createdAt || Date.now() - (historyOrScores.length - i) * 86400000).getTime()
+                time: Number.isFinite(rawTime) ? rawTime : Date.now() - (historyOrScores.length - i) * 86400000
             };
         }
         // Fallback legado se enviarem apenas o array de números

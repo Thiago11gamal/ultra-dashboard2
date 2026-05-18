@@ -95,9 +95,10 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
     
     // CORREÇÃO: A urgência (Crunch) adapta-se ao tamanho da jornada do aluno.
     let timeDivisor = 21; // Padrão
-    if (firstActivityDate && firstActivityDate.getTime() > 0) {
+    const safeFirstActivity = normalizeDate(firstActivityDate);
+    if (safeFirstActivity && !isNaN(safeFirstActivity.getTime()) && safeFirstActivity.getTime() > 0) {
         const referenceDate = now ? new Date(now) : new Date();
-        const totalJourneyDays = Math.max(1, ((normalizeDate(referenceDate) || referenceDate).getTime() - firstActivityDate.getTime()) / 86400000) + daysToExam;
+        const totalJourneyDays = Math.max(1, ((normalizeDate(referenceDate) || referenceDate).getTime() - safeFirstActivity.getTime()) / 86400000) + daysToExam;
         // Se a jornada é longa (ex: 300 dias), a rampa começa mais cedo.
         timeDivisor = Math.max(14, totalJourneyDays * 0.15); 
     }
@@ -300,6 +301,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             let totalWeight = 0;
             dataset.forEach(s => {
                 const sScore = getSafeScore(s, maxScore);
+                if (Number.isNaN(sScore)) return; // Previne corrupção do acumulador matemático
                 const simDate = normalizeDate(s.date || s.createdAt) || new Date(0);
                 const days = getDaysDiff(today, simDate);
                 let timeWeight = Math.exp(-K * days);
@@ -1074,7 +1076,8 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         
         // CORREÇÃO: Se a data não fizer sentido estatístico, assume-se tempo presente (0 dias)
         // para que a nota seja contabilizada de forma neutra em vez de ser aniquilada por NaNs.
-        const safeEntryTime = Number.isFinite(entryTime) ? entryTime : todayForTopics.getTime();
+        // Se a data for inválida, assume um tempo nulo (passado distante) para não falsificar recência
+        const safeEntryTime = Number.isFinite(entryTime) && entryTime > 0 ? entryTime : 0;
         
         const daysOld = Math.max(0, (todayForTopics.getTime() - safeEntryTime) / (1000 * 60 * 60 * 24));
         const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));
