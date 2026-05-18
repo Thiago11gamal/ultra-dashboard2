@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateUrgency } from '../src/utils/coachLogic.js';
+import { calculateUrgency, getCrunchMultiplier } from '../src/utils/coachLogic.js';
 import { simuladosToHistory } from '../src/utils/coachAdaptive.js';
 
 const baseCategory = { id: 'test-cat', name: 'Matemática', weight: 8 };
@@ -97,6 +97,21 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         // Se a simetria funcionar, o normalizedScore deve estar em 100% (ou próximo) se as notas forem 0,
         // mas NÃO deve estourar para 120% ou algo assim devido ao desalinhamento do crunchMultiplier.
         expect(res.normalizedScore).toBeLessThanOrEqual(100);
+    });
+
+    it('📅 getCrunchMultiplier deve adaptar a rampa de urgência ao tamanho da jornada do aluno', () => {
+        const now = new Date('2026-05-18');
+        
+        // Jornada curta: primeira atividade há 10 dias, exame em 20 dias
+        const firstActivityShort = new Date('2026-05-08');
+        const crunchShort = getCrunchMultiplier(20, firstActivityShort, now);
+        
+        // Jornada longa: primeira atividade há 200 dias, exame em 20 dias
+        const firstActivityLong = new Date('2025-10-30');
+        const crunchLong = getCrunchMultiplier(20, firstActivityLong, now);
+        
+        // Com jornada mais longa, a urgência se adapta (timeDivisor é maior, logo a rampa de crunch inicia mais cedo/é maior no mesmo delta)
+        expect(crunchLong).toBeGreaterThan(crunchShort);
     });
 
 });

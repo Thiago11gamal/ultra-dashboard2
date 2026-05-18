@@ -5,7 +5,8 @@ import {
     winsorizeSeries,
     calcSlopeWithSignificance,
     adaptiveConfidenceShrinkage,
-    calculateSafeRetention
+    calculateSafeRetention,
+    computeAdaptiveCoachWeight
 } from '../src/utils/adaptiveMath.js';
 
 describe('Adaptive Math Utilities - High Precision Audit', () => {
@@ -44,6 +45,12 @@ describe('Adaptive Math Utilities - High Precision Audit', () => {
             const trash = [NaN, NaN, NaN, 10];
             const result = winsorizeSeries(trash);
             expect(result).toEqual(trash);
+        });
+
+        it('deve retornar a série intacta se houver menos de 5 valores finitos (micro-amostras)', () => {
+            const small = [10, 20, NaN, 40];
+            const result = winsorizeSeries(small);
+            expect(result).toEqual(small);
         });
 
         it('deve clampear extremos baseado nos percentis reais', () => {
@@ -115,6 +122,22 @@ describe('Adaptive Math Utilities - High Precision Audit', () => {
         it('deve respeitar o baseline mínimo de retenção (0.2)', () => {
             const deepForget = calculateSafeRetention(10000, 0); 
             expect(deepForget).toBeGreaterThanOrEqual(0.2);
+        });
+    });
+
+    describe('computeAdaptiveCoachWeight (Math Confidence & Collapse)', () => {
+        it('deve colapsar o peso de confiança para zero se N efetivo for irrisório (< 1.5)', () => {
+            const scores = [80]; // n = 1, effectiveN will be close to 1
+            const weightInfo = computeAdaptiveCoachWeight(scores);
+            expect(weightInfo.confidenceWeight).toBe(0);
+            expect(weightInfo.effectiveN).toBeLessThan(1.5);
+        });
+
+        it('deve retornar um peso de confiança positivo e maior para amostras robustas', () => {
+            const scores = [80, 82, 85, 87, 90, 88, 89, 91, 90, 92];
+            const weightInfo = computeAdaptiveCoachWeight(scores);
+            expect(weightInfo.confidenceWeight).toBeGreaterThan(0.5);
+            expect(weightInfo.effectiveN).toBeGreaterThanOrEqual(1.5);
         });
     });
 });

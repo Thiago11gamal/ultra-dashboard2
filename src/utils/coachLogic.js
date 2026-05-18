@@ -737,14 +737,13 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     };
 };
 
-export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo, options = {}) => {
+export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo, _options = {}) => {
     const {
         cfg,
         maxScore,
         targetScore,
         weight,
         weightLabel,
-        daysToExam,
         relevantSimulados,
         averageScore,
         daysSinceLastStudy,
@@ -947,6 +946,8 @@ export function analisarDesempenhoHistorico(historico) {
     
     // Converte o formato do teste para o formato esperado pelo computeForgettingRisk
     const formattedHistory = historico.map((h, i) => {
+        // Blindagem contra instâncias nulas fantasma no DB
+        if (!h) return { score: 0, total: 100, date: new Date().toISOString() };
         // CORREÇÃO FATAL: Impedir o RangeError sanitizando a string ou caindo para o índice (i)
         let rawDias = h.diasRevisao;
         if (typeof rawDias === 'string') rawDias = rawDias.replace(',', '.');

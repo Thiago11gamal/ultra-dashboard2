@@ -183,12 +183,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const distToMax = maxScore - safeMean;
     
     if (safeSD > 0) {
-        // Compensação exponencial apenas quando a média está sob pressão das bordas
+        // Compensação vetorial líquida: resolve a pressão matemática calculando 
+        // a força repulsiva de ambos os limites em simultâneo (anulam-se se simétricos).
+        let repulsaoPiso = 0;
+        let repulsaoTeto = 0;
+        
         if (distToMin < safeSD * 1.5) {
-            muParam = safeMean + (safeSD * 0.4 * Math.exp(-distToMin / safeSD));
-        } else if (distToMax < safeSD * 1.5) {
-            muParam = safeMean - (safeSD * 0.4 * Math.exp(-distToMax / safeSD));
+            repulsaoPiso = safeSD * 0.4 * Math.exp(-distToMin / safeSD);
         }
+        if (distToMax < safeSD * 1.5) {
+            repulsaoTeto = safeSD * 0.4 * Math.exp(-distToMax / safeSD);
+        }
+        
+        muParam = safeMean + repulsaoPiso - repulsaoTeto;
     } 
 
     for (let i = 0; i < safeSimulations; i++) {
@@ -412,10 +419,14 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
         const safeValues = values || [];
 
         const history = safeValues
-            .map((score, index) => ({
-                score: Number(score),
-                date: safeDates[index] || new Date().toISOString().slice(0, 10)
-            }))
+            .map((score, index) => {
+                // Impede que null, arrays vazios ou strings vazias se transformem no número 0
+                const isNuloOuVazio = score === null || score === undefined || String(score).trim() === '';
+                return {
+                    score: isNuloOuVazio ? NaN : Number(score),
+                    date: safeDates[index] || new Date().toISOString().slice(0, 10)
+                };
+            })
             .filter((row) => Number.isFinite(row.score));
 
         return monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
@@ -588,5 +599,14 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
             p90: quickSelect(results, i90)
         };
     }
-    return runMonteCarloSimulation(metricas, 7, 100);
+    // FALLBACK SEGURO: Preservar o contrato de interface (Object com Quantis) em vez de devolver Array bruto.
+    const caminhos = runMonteCarloSimulation(metricas, 7, 100);
+    const finais = new Float64Array(caminhos.length);
+    for(let c = 0; c < caminhos.length; c++) finais[c] = caminhos[c][caminhos[c].length - 1];
+    
+    return {
+        p50: quickSelect(finais, Math.floor(finais.length * 0.5)),
+        p10: quickSelect(finais, Math.floor(finais.length * 0.1)),
+        p90: quickSelect(finais, Math.floor(finais.length * 0.9))
+    };
 }

@@ -35,11 +35,11 @@ describe('evolution utils', () => {
 
   it('computes weekly insights', () => {
     const chartData = [
-      { displayDate: '01/01', a: 60, b: 55, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: null, delta_b: null },
-      { displayDate: '08/01', a: 62, b: 54, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: 2, delta_b: -1 },
-      { displayDate: '15/01', a: 59, b: 50, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -3, delta_b: -4 },
-      { displayDate: '22/01', a: 58, b: 52, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: 2 },
-      { displayDate: '29/01', a: 57, b: 48, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: -4 },
+      { week: '2026-01-01', displayDate: '01/01', a: 60, b: 55, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: null, delta_b: null },
+      { week: '2026-01-08', displayDate: '08/01', a: 62, b: 54, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: 2, delta_b: -1 },
+      { week: '2026-01-15', displayDate: '15/01', a: 59, b: 50, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -3, delta_b: -4 },
+      { week: '2026-01-22', displayDate: '22/01', a: 58, b: 52, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: 2 },
+      { week: '2026-01-29', displayDate: '29/01', a: 57, b: 48, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: -4 },
     ];
     const keys = ['a', 'b'];
     const activeKeys = { a: { name: 'A' }, b: { name: 'B' } };
@@ -52,7 +52,28 @@ describe('evolution utils', () => {
     expect(Number.isFinite(trend.delta)).toBe(true);
   });
 
-
+  it('evaluates T-EMA (Time-Weighted Moving Average) weekly evolution trend correctly', () => {
+    // Cenário: Uma semana recente (2026-02-15) com nota muito alta deve influenciar
+    // o T-EMA de forma mais forte do que semanas anteriores (relação decrescente).
+    const chartData = [
+      { week: '2026-01-01', displayDate: '01/01', a: 50, meta_a: { currTot: 10 } },
+      { week: '2026-01-08', displayDate: '08/01', a: 50, meta_a: { currTot: 10 } },
+      { week: '2026-01-15', displayDate: '15/01', a: 50, meta_a: { currTot: 10 } },
+      { week: '2026-01-22', displayDate: '22/01', a: 50, meta_a: { currTot: 10 } },
+      { week: '2026-01-29', displayDate: '29/01', a: 50, meta_a: { currTot: 10 } },
+      { week: '2026-02-05', displayDate: '05/02', a: 50, meta_a: { currTot: 10 } },
+      { week: '2026-02-12', displayDate: '12/02', a: 50, meta_a: { currTot: 10 } },
+      { week: '2026-02-19', displayDate: '19/02', a: 80, meta_a: { currTot: 10 } }, // Salto na última semana
+    ];
+    const trend = computeTrendKpi({ chartData, keys: ['a'], hiddenKeys: { a: false } });
+    
+    expect(trend).not.toBeNull();
+    // A média recente (EMA dos últimos 4 pontos, incluindo o 80) deve ser sensivelmente superior a 50.
+    expect(trend.recentAvg).toBeGreaterThan(50);
+    // A média prévia (EMA dos 4 pontos anteriores, todos 50) deve ser exatamente 50.
+    expect(trend.previousAvg).toBeCloseTo(50, 5);
+    expect(trend.delta).toBeGreaterThan(0);
+  });
 
   it('handles invalid heatmap date keys without breaking aggregation', () => {
     const filtered = {
@@ -68,10 +89,10 @@ describe('evolution utils', () => {
 
   it('returns null trend KPI when there are not enough prior windows', () => {
     const chartData = [
-      { displayDate: '01/01', a: 60, meta_a: { currTot: 10 } },
-      { displayDate: '08/01', a: 62, meta_a: { currTot: 10 } },
-      { displayDate: '15/01', a: 63, meta_a: { currTot: 10 } },
-      { displayDate: '22/01', a: 64, meta_a: { currTot: 10 } },
+      { week: '2026-01-01', displayDate: '01/01', a: 60, meta_a: { currTot: 10 } },
+      { week: '2026-01-08', displayDate: '08/01', a: 62, meta_a: { currTot: 10 } },
+      { week: '2026-01-15', displayDate: '15/01', a: 63, meta_a: { currTot: 10 } },
+      { week: '2026-01-22', displayDate: '22/01', a: 64, meta_a: { currTot: 10 } },
     ];
 
     const trend = computeTrendKpi({ chartData, keys: ['a'], hiddenKeys: { a: false } });
