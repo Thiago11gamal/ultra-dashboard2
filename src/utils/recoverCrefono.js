@@ -41,7 +41,7 @@ async function recoverCrefonoContest() {
 
         if (!targetData) {
             // Procurar por nome nos concursos ativos
-            const foundActive = Object.entries(contests).find(([id, c]) => 
+            const foundActive = Object.entries(contests).find(([_, c]) => 
                 c.contestName === 'Concurso do CREFONO' || 
                 c.user?.name === 'Concurso do CREFONO'
             );
