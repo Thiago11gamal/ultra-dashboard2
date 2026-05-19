@@ -35,13 +35,20 @@ describe('Hardening Audit: Erros 37-48', () => {
         ];
         const result = getCoachPriorities(topicsData);
         expect(result).toHaveLength(2);
-        // Sem o fix, globalCorrect seria "0105" (string)
-        // Com o fix, deve ser numérico e a realProficiency deve estar entre 0 e 1
         result.forEach(t => {
             expect(typeof t.realProficiency).toBe('number');
             expect(t.realProficiency).toBeGreaterThanOrEqual(0);
             expect(t.realProficiency).toBeLessThanOrEqual(1);
         });
+    });
+
+    test('Erro 37b: getCoachPriorities deve tratar separadores de milhar brasileiros como "1.000,50"', () => {
+        const topicsData = [
+            { id: 't1', acertos: '1.000,50', total: '2.000,00' }, // ~50%
+        ];
+        const result = getCoachPriorities(topicsData);
+        expect(result).toHaveLength(1);
+        expect(result[0].realProficiency).toBeCloseTo(0.5, 2);
     });
 
     // ─────────────────────────────────────────────────────────────────

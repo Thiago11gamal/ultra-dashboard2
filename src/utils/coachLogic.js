@@ -74,6 +74,22 @@ function getDynamicTrendThreshold(currentScore, maxScore) {
     const dynamicPct = (baseRequirement * Math.pow(damping, 1.5)) + 0.002; 
     
     return dynamicPct * maxScore;
+}
+
+// ==================== FUNÇÕES AUXILIARES ====================
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const getDaysDiff = (newer, older) => {
+    const d1 = normalizeDate(newer) || new Date(0);
+    const d2 = normalizeDate(older) || new Date(0);
+    // Math.round absorve variações de +/- 1 hora causadas pelo DST
+    return Math.max(0, Math.round((d1.getTime() - d2.getTime()) / MS_PER_DAY));
+};
+
+/**
+ * Calcula o multiplicador de urgência baseado nos dias restantes para a prova.
+ * Substituição da escada em degraus por uma curva Exponencial Contínua.
  */
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
     if (daysToExam === null || daysToExam === undefined) return 1.0; 
@@ -107,10 +123,6 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
     return { boost: 0, label: null };
 }
 
-/**
- * Média Bayesiana para Proficiência Real
- * Ancorada na média global do aluno para evitar penalização artificial de pequenas amostras.
- */
 /**
  * Calcula a proficiência bayesiana de um tópico, tratando o Prior de forma adaptativa.
  * [AUDIT-FIX-01] Resolve o "Efeito Halo": Tópicos nunca estudados assumem 25% de ignorância,
@@ -157,13 +169,15 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
     return (empiricalVol * 0.7) + (fallbackVol * 0.3 * nPenalty);
 }
 
-// Substitua a função atual getCoachPriorities:
 export const getCoachPriorities = (topicsData) => {
     if (!Array.isArray(topicsData)) return [];
     
     // [CORREÇÃO] Função de sanitização robusta para lidar com strings e separadores vírgula (Bug 4.1 Fix)
     const sanitizeNum = (val) => {
-        if (typeof val === 'string') return Number(val.replace(',', '.'));
+        if (typeof val === 'string') {
+            const cleanStr = val.replace(/\./g, '').replace(',', '.');
+            return Number(cleanStr);
+        }
         return Number(val);
     };
     

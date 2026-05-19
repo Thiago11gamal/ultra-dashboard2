@@ -188,7 +188,7 @@ function MainLayout() {
         } finally {
           importTimeoutRef.current = null;
         }
-      }, 50); // Delay mínimo de 50ms resolve o congelamento da UI
+      }, 350); // Delay de 350ms permite que a animação de entrada do Toast complete suavemente
     };
 
     reader.readAsText(file);
