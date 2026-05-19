@@ -74,21 +74,6 @@ function getDynamicTrendThreshold(currentScore, maxScore) {
     const dynamicPct = (baseRequirement * Math.pow(damping, 1.5)) + 0.002; 
     
     return dynamicPct * maxScore;
-}
-
-// ==================== FUNÇÕES AUXILIARES ====================
-
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
-const getDaysDiff = (newer, older) => {
-    const newerDate = normalizeDate(newer) || new Date(0);
-    const olderDate = normalizeDate(older) || new Date(0);
-    return Math.max(0, Math.floor((newerDate.getTime() - olderDate.getTime()) / MS_PER_DAY));
-};
-
-/**
- * Calcula o multiplicador de urgência baseado nos dias restantes para a prova.
- * Substituição da escada em degraus por uma curva Exponencial Contínua.
  */
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
     if (daysToExam === null || daysToExam === undefined) return 1.0; 

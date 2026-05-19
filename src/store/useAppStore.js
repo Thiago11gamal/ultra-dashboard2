@@ -271,22 +271,30 @@ export const useAppStore = create(
                     const appState = state.appState || {};
                     const contestsList = Object.keys(appState.contests || {});
                     let targetId = appState.activeId;
+                    let targetContests = appState.contests;
                     
-                    if ((!targetId || !appState.contests?.[targetId]) && contestsList.length > 0) {
-                        targetId = contestsList[0];
+                    try {
+                        if ((!targetId || !targetContests?.[targetId]) && contestsList.length > 0) {
+                            targetId = contestsList[0];
+                        } else if (contestsList.length === 0) {
+                            targetId = 'default';
+                            targetContests = { 'default': safeClone(INITIAL_DATA) };
+                        }
+                    } catch (e) {
+                        console.error("[Zustand] Falha na reconstrução do estado base.", e);
+                        // Recuperação de emergência estática sem invocar funções externas
+                        targetId = 'default';
+                        targetContests = { 'default': { simulados: [], tasks: [] } };
                     }
 
                     // Atualização Atômica: ID e Hidratação juntos, sem mutação direta do estado persistido
                     useAppStore.setState((prev) => {
                         const currentAppState = prev.appState || {};
-                        const currentContestsList = Object.keys(currentAppState.contests || {});
-                        const isCorrupted = currentContestsList.length === 0;
-                        
                         return {
                             appState: {
                                 ...currentAppState,
-                                contests: isCorrupted ? { 'default': safeClone(INITIAL_DATA) } : currentAppState.contests,
-                                activeId: isCorrupted ? 'default' : targetId,
+                                contests: targetContests || currentAppState.contests || { 'default': { simulados: [], tasks: [] } },
+                                activeId: targetId,
                                 isHydrated: true
                             }
                         };
