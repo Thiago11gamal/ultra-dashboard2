@@ -160,9 +160,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             ...stateRefs.current,
             mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes
         };
-        // CORREÇÃO: O React State nunca deve sobrescrever a Ref do tempo. A Ref é a fonte da verdade absoluta.
-        // O bloco 'if (!isRunning) { stateRefs.current.timeLeft = timeLeft; }' foi removido para evitar time-leaks.
-    }, [mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes, timeLeft]);
+        // CORREÇÃO: Removido o bloco "if (!isRunning) { stateRefs.current.timeLeft = timeLeft; }".
+        // A Ref (stateRefs) é a fonte de verdade absoluta e de alta precisão. O React State (timeLeft)
+        // é visual e desfasado, JAMAIS deve sobrescrever a Ref sob o risco de Time Leaks.
+    }, [mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes]);
 
 
     const [syncChannel] = useState(() => typeof window !== 'undefined' ? new BroadcastChannel('pomodoro_sync') : null);
