@@ -160,12 +160,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             ...stateRefs.current,
             mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes
         };
-        // BUG-04 FIX (Corrigido): Só deixamos o estado do React atualizar a Ref
-        // se o cronómetro estiver PARADO (ex: trocou de tarefa, pausou ou resetou).
-        // Se estiver rodando, a Ref é soberana e não pode ser tocada pelo React!
-        if (!isRunning) {
-            stateRefs.current.timeLeft = timeLeft;
-        }
+        // CORREÇÃO: O React State nunca deve sobrescrever a Ref do tempo. A Ref é a fonte da verdade absoluta.
+        // O bloco 'if (!isRunning) { stateRefs.current.timeLeft = timeLeft; }' foi removido para evitar time-leaks.
     }, [mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes, timeLeft]);
 
 
@@ -255,14 +251,16 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
     useEffect(() => {
         const prev = prevTaskStateRef.current;
-        // Se a tarefa mudou, injetamos imediatamente os minutos pendentes da tarefa antiga no banco de dados
+        // Se a tarefa mudou, injetamos imediatamente os minutos pendentes da tarefa antiga
         if (prev.subject && activeSubject?.taskId !== prev.subject.taskId) {
             let lostMinutes = prev.accum;
             if (prev.mode === 'work') {
                 const totalWorkSeconds = safeSettings.pomodoroWork * 60;
-                lostMinutes += Number((Math.max(0, totalWorkSeconds - prev.time) / 60).toFixed(2));
+                // CORREÇÃO: Prevenir a aniquilação do histórico do utilizador com NaN Posioning
+                const safePrevTime = Number.isFinite(Number(prev.time)) ? Number(prev.time) : totalWorkSeconds;
+                lostMinutes += Number((Math.max(0, totalWorkSeconds - safePrevTime) / 60).toFixed(2));
             }
-            if (lostMinutes > 0) {
+            if (lostMinutes > 0 && !Number.isNaN(lostMinutes)) {
                 safeOnUpdateStudyTime(prev.subject.categoryId, lostMinutes, prev.subject.taskId);
             }
         }

@@ -26,7 +26,8 @@ export function AuthProvider({ children }) {
                 displayName: name || 'Usuário Local',
                 emailVerified: true
             };
-            sessionStorage.setItem('ultra_local_session', JSON.stringify(fakeUser));
+            // CORREÇÃO: Utilizar localStorage para garantir que as sessões offline (Local Mode) sobrevivem a navegação Multi-Aba
+            localStorage.setItem('ultra_local_session', JSON.stringify(fakeUser));
             setCurrentUser(fakeUser);
             return Promise.resolve(fakeUser);
         }
@@ -46,7 +47,8 @@ export function AuthProvider({ children }) {
                 }
                 // BUG 4 FIX: A race condition do onAuthStateChanged exige o set manual aqui
                 // após o profile update e reload para garantir displayName imediato.
-                setCurrentUser({ ...auth.currentUser });
+                // CORREÇÃO: Passar a referência original intacta para não destruir o prototype do Firebase
+                setCurrentUser(auth.currentUser);
                 return auth.currentUser;
             });
     }, []);
@@ -59,7 +61,8 @@ export function AuthProvider({ children }) {
                 displayName: 'Usuário Local',
                 emailVerified: true
             };
-            sessionStorage.setItem('ultra_local_session', JSON.stringify(fakeUser));
+            // CORREÇÃO: Utilizar localStorage para garantir que as sessões offline (Local Mode) sobrevivem a navegação Multi-Aba
+            localStorage.setItem('ultra_local_session', JSON.stringify(fakeUser));
             setCurrentUser(fakeUser);
             return Promise.resolve(fakeUser);
         }
@@ -69,7 +72,7 @@ export function AuthProvider({ children }) {
 
     const logout = useCallback(async () => {
         if (isLocalMode) {
-            sessionStorage.removeItem('ultra_local_session');
+            localStorage.removeItem('ultra_local_session');
         }
         if (auth && !isLocalMode) {
             await signOut(auth);
@@ -99,15 +102,15 @@ export function AuthProvider({ children }) {
 
         if (!auth || isLocalMode) {
             console.warn('[Auth] Auth service is missing or in Local Mode. Bypassing state listener.');
-            const savedLocalSession = sessionStorage.getItem('ultra_local_session');
+            const savedLocalSession = localStorage.getItem('ultra_local_session');
             if (savedLocalSession) {
                 try {
+                    // eslint-disable-next-line react-hooks/set-state-in-effect
                     setCurrentUser(JSON.parse(savedLocalSession));
                 } catch (e) {
                     console.error("[Auth] Erro ao recuperar sessão local:", e);
                 }
             }
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(false);
             hasResolvedAuth = true;
             clearTimeout(loadingTimeout);

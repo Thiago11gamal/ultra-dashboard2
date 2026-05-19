@@ -29,9 +29,8 @@ const cleanUndefined = (obj, seen = new WeakSet()) => {
 
     let result;
     if (Array.isArray(obj)) {
-        result = obj
-            .map(v => cleanUndefined(v, seen))
-            .filter(v => v !== undefined);
+        // CORREÇÃO: Converter undefined em null em vez de usar .filter(), para preservar a integridade dos índices
+        result = obj.map(v => v === undefined ? null : cleanUndefined(v, seen));
     } else {
         result = Object.fromEntries(
             Object.entries(obj)
@@ -64,6 +63,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const [cloudError, setCloudError] = useState(null);
     const [isInternalSyncing, setIsInternalSyncing] = useState(false);
     const isInternalSyncingRef = useRef(false);
+    const syncReentryCountRef = useRef(0); // CORREÇÃO: Ref global para travar spam de rede
     const setInternalSyncing = useCallback((val) => {
         setIsInternalSyncing(val);
         isInternalSyncingRef.current = val;
@@ -127,7 +127,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 const mergedHistory = [...(winner.simuladoStats?.history || []), ...(loser.simuladoStats?.history || [])];
                 
                 // Remover duplicados por ID e Data (para não dobrar dados legítimos)
-                winner.tasks = Array.from(new Map(mergedTasks.map(t => [t.id, t])).values());
+                // CORREÇÃO: Evitar aniquilação de tarefas "draft" que ainda não possuam ID injetado
+                winner.tasks = Array.from(new Map(
+                    mergedTasks.map(t => [t.id || JSON.stringify(t), t])
+                ).values());
                 
                 if (winner.simuladoStats) {
                     winner.simuladoStats.history = Array.from(new Map(mergedHistory.map(h => [h.date, h])).values())
@@ -685,7 +688,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         setHasConflict(false);
 
         // BUG-07 FIX: Track re-entry depth to prevent infinite recursion
-        let syncReentryCount = 0;
         const MAX_SYNC_REENTRY = 3;
 
         const syncToCloud = async () => {
@@ -771,12 +773,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             if (isMountedRef.current) {
                 setInternalSyncing(false);
-                // BUG-07 FIX: Guard recursive re-entry with a counter to prevent infinite loops
-                if (needsSyncRef.current && syncReentryCount < MAX_SYNC_REENTRY) {
-                    syncReentryCount++;
+                // CORREÇÃO: Usar a ref persistente para que o bloqueio funcione entre renders independentes
+                if (needsSyncRef.current && syncReentryCountRef.current < MAX_SYNC_REENTRY) {
+                    syncReentryCountRef.current++;
                     syncToCloud();
                 } else {
-                    syncReentryCount = 0; // Reset for next trigger cycle
+                    syncReentryCountRef.current = 0; // Reset for next trigger cycle
                 }
             }
         };

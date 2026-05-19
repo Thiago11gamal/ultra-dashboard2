@@ -30,7 +30,8 @@ const flushPendingIDBSaves = () => {
             const stateToRescue = useAppStore.getState();
             
             // FILTRO SÍNCRONO RÁPIDO O(1) antes da serialização
-            const slimState = { ...stateToRescue.appState, trash: [] };
+            // CORREÇÃO: Injetar flag de segurança para avisar o bootloader que este estado está castrado
+            const slimState = { ...stateToRescue.appState, trash: [], _isTruncatedFallback: true };
             
             // Remove matrizes matemáticas não essenciais antes de estrangular a CPU
             if (slimState.contests) {
@@ -90,6 +91,12 @@ const idbStorage = {
             const localVer = localParsed?.state?.appState?.version || 0;
             const idbTime = new Date(idbParsed?.state?.appState?.lastUpdated || 0).getTime();
             const localTime = new Date(localParsed?.state?.appState?.lastUpdated || 0).getTime();
+
+            // CORREÇÃO: Se o LocalStorage é um fallback truncado de emergência, JAMAIS pode sobrescrever o IDB
+            if (localParsed?.state?.appState?._isTruncatedFallback && idbValue) {
+                console.warn("[Storage] LocalStorage contém um estado truncado. Protegendo a integridade do IDB.");
+                return idbValue;
+            }
 
             // Prioridade: Versão > Timestamp
             if (localVer > idbVer || (localVer === idbVer && localTime > idbTime)) {
@@ -243,16 +250,18 @@ export const useAppStore = create(
             {
                 // Zundo Options: Limit history to 20 states
                 limit: 20,
-                // BUG 1 FIX: Restringe o histórico do Zundo omitindo arrays massivos (simulados, studyLogs)
-                // dos concursos para poupar RAM e prevenir vazamentos de memória.
+                // BUG 1 FIX: Restringe o histórico do Zundo omitindo arrays massivos
+                // CORREÇÃO: Limpar também a Lixeira (trash) e o Histórico de Monte Carlo para evitar Memory Leak nas 20 instâncias de Undo
                 partialize: (state) => ({
                     appState: {
                         ...state.appState,
+                        trash: [], 
                         contests: Object.keys(state.appState.contests || {}).reduce((acc, id) => {
                             acc[id] = {
                                 ...state.appState.contests[id],
                                 simulados: [],
-                                studyLogs: []
+                                studyLogs: [],
+                                monteCarloHistory: []
                             };
                             return acc;
                         }, {})
