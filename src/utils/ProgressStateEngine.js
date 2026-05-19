@@ -54,13 +54,11 @@ export function analyzeProgressState(scores, config = {}) {
     }
 
     // 4. Extract window
-    // CORREÇÃO: Gerar âncora de tempo sintético ANTES da ordenação para preservar a topologia temporal
+    // CORREÇÃO: Gerar a âncora sintética ANTES de ordenar para preservar o eixo cronológico verdadeiro
     const syntheticNow = Date.now();
-    
     const sortedScores = [...scores].map((d, index) => {
         let time = typeof d === 'object' ? new Date(d.date).getTime() : NaN;
-        // Puxa as datas inválidas de forma consistente baseada no seu índice original
-        if (isNaN(time)) time = syntheticNow - ((scores.length - index) * 86400000);
+        if (Number.isNaN(time)) time = syntheticNow - ((scores.length - index) * 86400000);
         return { original: d, safeTime: time };
     }).sort((a, b) => a.safeTime - b.safeTime)
       .map(item => item.original);

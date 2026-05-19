@@ -37,7 +37,9 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const _scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
     const { slope, intercept } = weightedRegression(validSorted, lambda, maxScore, options);
-    const t0_vol = safeDateParse(validSorted[0].date || validSorted[0].createdAt).getTime();
+    // CORREÇÃO: Defesa estrita contra null/undefined que disparam TypeError no getTime()
+    const d0 = safeDateParse(validSorted[0].date || validSorted[0].createdAt);
+    const t0_vol = (d0 && !Number.isNaN(d0.getTime())) ? d0.getTime() : Date.now();
     
     // OTIMIZAÇÃO DE PERFORMANCE: Fusão de loops O(5N) para O(N)
     let sumWeights = 0, sumResidualsWeighted = 0, sumSw = 0, sumSw2 = 0;
@@ -525,7 +527,12 @@ export function monteCarloSimulation(
     if (sortedHistory.length >= 2) {
         const gaps = [];
         for (let j = 1; j < sortedHistory.length; j++) {
-            const g = (safeDateParse(sortedHistory[j].date || sortedHistory[j].createdAt) - safeDateParse(sortedHistory[j - 1].date || sortedHistory[j - 1].createdAt)) / 86400000;
+            const d1 = safeDateParse(sortedHistory[j].date || sortedHistory[j].createdAt);
+            const d0 = safeDateParse(sortedHistory[j - 1].date || sortedHistory[j - 1].createdAt);
+            // CORREÇÃO: Impedir que a subtração de Invalid Dates injete NaN na distribuição GARCH
+            const g = (d1 && d0 && !Number.isNaN(d1.getTime()) && !Number.isNaN(d0.getTime())) 
+                ? (d1.getTime() - d0.getTime()) / 86400000 
+                : 7; // Fallback seguro
             gaps.push(Math.max(0.5, g));
         }
         gaps.sort((a, b) => a - b);
