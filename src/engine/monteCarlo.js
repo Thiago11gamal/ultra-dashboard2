@@ -231,12 +231,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const i84 = Math.floor(nAll * 0.84);
 
     // [BUG-SORT-FIX] Encontramos os pontos críticos usando QuickSelect (O(N))
-    // CORREÇÃO: Passar uma cópia isolada para o QuickSelect, pois ele permuta os itens in-place
-    const statisticalCi95Low = quickSelect([...allScores], iLow);
-    const statisticalCi95High = quickSelect([...allScores], iHigh);
-    const empMedian = quickSelect([...allScores], iMedian);
-    const rawLeft = quickSelect([...allScores], i16);
-    const rawRight = quickSelect([...allScores], i84);
+    // CORREÇÃO: Utilizar .slice() para clonagem nativa sem alocação abusiva de memória
+    const statisticalCi95Low = quickSelect(allScores.slice(), iLow);
+    const statisticalCi95High = quickSelect(allScores.slice(), iHigh);
+    const empMedian = quickSelect(allScores.slice(), iMedian);
+    const rawLeft = quickSelect(allScores.slice(), i16);
+    const rawRight = quickSelect(allScores.slice(), i84);
 
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;
@@ -605,10 +605,11 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
         const i50 = Math.floor(simulacoes * 0.5);
         const i90 = Math.floor(simulacoes * 0.9);
 
+        // CORREÇÃO: Proteger a matriz de resultados contra mutação sequencial
         return {
-            p50: quickSelect(results, i50),
-            p10: quickSelect(results, i10),
-            p90: quickSelect(results, i90)
+            p50: quickSelect(results.slice(), i50),
+            p10: quickSelect(results.slice(), i10),
+            p90: quickSelect(results.slice(), i90)
         };
     }
     // FALLBACK SEGURO: Preservar o contrato de interface (Object com Quantis) em vez de devolver Array bruto.
@@ -616,9 +617,14 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
     const finais = new Float64Array(caminhos.length);
     for(let c = 0; c < caminhos.length; c++) finais[c] = caminhos[c][caminhos[c].length - 1];
     
+    const i10 = Math.floor(finais.length * 0.1);
+    const i50 = Math.floor(finais.length * 0.5);
+    const i90 = Math.floor(finais.length * 0.9);
+
+    // CORREÇÃO: Proteger a matriz de resultados contra mutação sequencial
     return {
-        p50: quickSelect(finais, Math.floor(finais.length * 0.5)),
-        p10: quickSelect(finais, Math.floor(finais.length * 0.1)),
-        p90: quickSelect(finais, Math.floor(finais.length * 0.9))
+        p50: quickSelect(finais.slice(), i50),
+        p10: quickSelect(finais.slice(), i10),
+        p90: quickSelect(finais.slice(), i90)
     };
 }

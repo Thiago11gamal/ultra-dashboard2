@@ -217,12 +217,12 @@ export function computeAdaptiveSignal(historyOrScores = []) {
 
     const weighted = [];
     for (let i = 0; i < parsedData.length; i++) {
-        // FIX BUG 5: Idade baseada no delta real de dias (Entropia do Tempo), não em índices
-        const ageInDays = Math.max(0, (referenceNow - parsedData[i].time) / (1000 * 60 * 60 * 24));
+        // FIX BUG: Idade baseada no delta real de dias (Entropia do Tempo), não em índices
+        let ageInDays = Math.max(0, (referenceNow - parsedData[i].time) / (1000 * 60 * 60 * 24));
         
-        // Conversão de lambda (pensado para index) numa constante de tempo diária (λ ≈ exp(-k * dias))
-        // Assumindo um espaçamento médio de 2 dias no design original do índice
-        // [DEPOIS] O lambda já é a taxa de decaimento diária! Não extraia a raiz quadrada.
+        // CORREÇÃO: Blindagem contra envenenamento matemático por datas ausentes
+        if (Number.isNaN(ageInDays)) ageInDays = 0; 
+        
         const dailyDecay = cfg.lambda; 
         weighted.push(Math.pow(dailyDecay, ageInDays));
     }
@@ -242,7 +242,7 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     const mad = absDev.length % 2 === 0
         ? (absDev[absDev.length / 2 - 1] + absDev[absDev.length / 2]) / 2
         : absDev[Math.floor(absDev.length / 2)];
-    const robustSigma = Math.max(1e-6, 1.4826 * mad);
+    const robustSigma = Math.max(0.5, 1.4826 * mad);
     const huberK = 2.5 * robustSigma;
 
     const weightedVariance = kahanSum(finiteScores.map((s, i) => {
