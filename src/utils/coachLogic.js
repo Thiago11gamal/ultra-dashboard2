@@ -92,7 +92,8 @@ const getDaysDiff = (newer, older) => {
  * Substituição da escada em degraus por uma curva Exponencial Contínua.
  */
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
-    if (daysToExam === null || daysToExam === undefined) return 1.0; 
+    // CORREÇÃO: Proteção vitalícia contra NaN para evitar aniquilação multiplicativa da matriz de prioridades
+    if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0; 
     if (daysToExam < 0) return 1.0; 
     if (daysToExam === 0) return 2.0; 
     
@@ -1029,7 +1030,10 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
 
     // Injeção do volume histórico atua como 'salt' criptográfico para o cache, 
     // garantindo que concursos distintos ou novos dados invalidem o estado corretamente.
-    const hash = `${lastSimTimestamp}-${openTasks}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}`; 
+    // CORREÇÃO: Injetar entropia temporal (Data Atual ISO) na chave de cache para garantir 
+    // que o decaimento por repetição espaçada (SRS) é atualizado dia após dia.
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const hash = `${lastSimTimestamp}-${openTasks}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}`; 
     const cacheKey = `isolate_${catId}_${hash}`;
 
     if (_topicsCache.has(cacheKey)) {
@@ -1250,7 +1254,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     // Adicione a averageScore como argumento na verificação profunda
     const performDeepCheck = (category, averageScore) => {
-        const thirtyDaysAgo = new Date();
+        // CORREÇÃO: Respeitar a âncora temporal da engine (options.now) para suportar Backtesting 
+        const baseDate = options.now ? new Date(options.now) : new Date();
+        const thirtyDaysAgo = new Date(baseDate);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const cutoffTime = thirtyDaysAgo.getTime();
 

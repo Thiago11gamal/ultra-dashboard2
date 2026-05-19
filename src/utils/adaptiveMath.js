@@ -153,9 +153,12 @@ export const calcSlopeWithSignificance = (dados) => {
     // N < 3 não tem graus de liberdade (df = n-2) para calcular erro padrão
     if (n < 3) return { slope: 0, se: 0, tStat: 0 };
     
-    // Extrai X (tempo) e Y (nota). Se for array de números antigos, usa o índice como fallback.
+    // CORREÇÃO: Blindagem estrita de tipo para evitar concatenação destrutiva de strings no somatório
     const Xs = dados.map((d, i) => (typeof d === 'number' ? i : (d.x !== undefined ? d.x : i)));
-    const Ys = dados.map(d => (typeof d === 'number' ? d : d.y));
+    const Ys = dados.map(d => {
+        const val = typeof d === 'number' ? d : d.y;
+        return Number.isFinite(Number(val)) ? Number(val) : 0;
+    });
     
     for (let i = 0; i < n; i++) {
         const x = Xs[i];
