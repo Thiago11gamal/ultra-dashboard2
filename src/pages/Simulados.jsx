@@ -106,7 +106,8 @@ export default function Simulados() {
             // BUG FIX: preserve the 'validated' field
             const validRowsToSave = updatedTodayRows.filter(r => {
                 const hasScore = parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0;
-                return hasScore;
+                const hasCustomDifficulty = r.difficulty !== undefined && parseFloat(r.difficulty) !== 1.0;
+                return hasScore || hasCustomDifficulty;
             }).map(row => ({
                 ...row,
                 createdAt: row.createdAt || new Date().toISOString()

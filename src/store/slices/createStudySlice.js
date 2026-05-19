@@ -14,21 +14,28 @@ export const createStudySlice = (set, get) => ({
 
             const logId = generateId('log');
             const sessionId = generateId('session');
-            
-            const newLog = { id: logId, date: now, categoryId, taskId, minutes };
+
+            const category = activeData?.categories?.find(c => c.id === categoryId);
+            let taskTitle = '';
+            if (category && taskId) {
+                const task = category.tasks?.find(t => t.id === taskId || t.text === taskId || t.title === taskId);
+                taskTitle = task?.title || task?.text || (String(taskId).startsWith('task') ? '' : taskId);
+            }
+
+            const newLog = { id: logId, date: now, categoryId, taskId, minutes, taskTitle };
             const newSession = { 
                 id: sessionId, 
                 startTime: now, 
                 duration: minutes, 
                 categoryId, 
                 taskId, 
+                taskTitle,
                 logReferenceId: logId 
             };
 
             activeData.studyLogs = [...(activeData.studyLogs || []), newLog].slice(-LOG_CAP);
             activeData.studySessions = [...(activeData.studySessions || []), newSession].slice(-SESSION_CAP);
 
-            const category = activeData.categories.find(c => c.id === categoryId);
             if (category) {
                 category.totalMinutes = (category.totalMinutes || 0) + minutes;
                 category.lastStudiedAt = now;

@@ -128,7 +128,8 @@ const StudyHistory = React.memo(function StudyHistory({
     };
 
     // Get subject name by ID or fallback
-    const getSubjectName = (categoryId, taskId) => {
+    const getSubjectName = (categoryId, taskId, taskTitle = '') => {
+        if (taskTitle) return taskTitle;
         if (!taskId) return '';
         const cat = categories.find(c => c.id === categoryId);
         if (!cat || !cat.tasks) return (String(taskId).startsWith('task') ? '' : taskId);
@@ -308,9 +309,9 @@ const StudyHistory = React.memo(function StudyHistory({
                                                 <div className="text-sm font-medium text-white">
                                                     {getCategoryName(session.categoryId)}
                                                 </div>
-                                                {getSubjectName(session.categoryId, session.taskId) && (
+                                                {getSubjectName(session.categoryId, session.taskId, session.taskTitle) && (
                                                     <div className="text-xs text-slate-400 mt-0.5 font-medium">
-                                                        {getSubjectName(session.categoryId, session.taskId)}
+                                                        {getSubjectName(session.categoryId, session.taskId, session.taskTitle)}
                                                     </div>
                                                 )}
                                                 <div className="text-[10px] text-slate-500 mt-0.5">
