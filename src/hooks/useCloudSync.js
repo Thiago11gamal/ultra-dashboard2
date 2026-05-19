@@ -29,7 +29,8 @@ const cleanUndefined = (obj, seen = new WeakSet()) => {
 
     let result;
     if (Array.isArray(obj)) {
-        // CORREÇÃO: Converter undefined em null em vez de usar .filter(), para preservar a integridade dos índices
+        // CORREÇÃO CRÍTICA: Manter "null" em vez de remover a posição (filter),
+        // preservando a integridade dos índices posicionalmente vitais para o Firebase.
         result = obj.map(v => v === undefined ? null : cleanUndefined(v, seen));
     } else {
         result = Object.fromEntries(
