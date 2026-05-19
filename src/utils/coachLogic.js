@@ -1282,10 +1282,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
 
-    const safeUUID = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-
     topCategories.forEach((cat) => {
         const weakTopics = getWeakestTopicsList(cat, simulados, maxScore, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
@@ -1299,6 +1295,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         for (let i = 0; i < iterations; i++) {
             const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
             const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
+            const mcProbKey = mc ? Math.round(mc.probabilityRaw * 100) : '0';
+            const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
             const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
 
             // 1. Alertas Críticos (Prioridade Máxima, não consomem tópicos)
@@ -1306,7 +1304,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 alertEmitted = true;
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-mc-danger-${safeUUID}-${i}`,
+                    id: `${cat.id}-mc-danger-${mcProbKey}-${i}`,
                     text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
                     completed: false,
                     categoryId: cat.id,
@@ -1325,7 +1323,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 alertEmitted = true;
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-mc-chaos-${safeUUID}-${i}`,
+                    id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}-${i}`,
                     text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
                     completed: false,
                     categoryId: cat.id,
@@ -1344,7 +1342,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 alertEmitted = true;
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-mc-safe-${safeUUID}-${i}`,
+                    id: `${cat.id}-mc-safe-${mcProbKey}-${i}`,
                     text: `${cat.name}: ${priorityLabel}[STATUS] 🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%.`,
                     completed: false,
                     categoryId: cat.id,
@@ -1361,8 +1359,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             if (cat.urgency?.details?.srsLabel && !alertEmitted) {
                 alertEmitted = true;
+                const srsKey = cat.urgency.details.srsLabel.replace(/\s/g, '').substring(0, 15);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-srs-${safeUUID}-${i}`,
+                    id: `${cat.id}-srs-${srsKey}-${i}`,
                     text: `${cat.name}: ${priorityLabel}[REVISÃO] 🧠 ${cat.urgency.details.srsLabel}.`,
                     completed: false,
                     categoryId: cat.id,
@@ -1380,7 +1379,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap && !alertEmitted) {
                 alertEmitted = true;
                 allGeneratedTasks.push({
-                    id: `${cat.id}-trap-${safeUUID}-${i}`,
+                    id: `${cat.id}-trap-trap-${i}`,
                     text: `${cat.name}: ${priorityLabel}[MÉTODO] ⚠️ ANOMALIA: Teoria excedente detectada.`,
                     completed: false,
                     categoryId: cat.id,
@@ -1444,7 +1443,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             } else {
                 // Fallback se não houver tópicos fracos ou se todos estiverem bons
                 allGeneratedTasks.push({
-                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${safeUUID}-it${i}`,
+                    id: `${cat.id}-general-review-${uniqueIdSuffix}-it${i}`,
                     text: `${cat.name}: ${topicLabel}Revisão Geral Complementar (Volume ${i + 1})`,
                     completed: false,
                     categoryId: cat.id,

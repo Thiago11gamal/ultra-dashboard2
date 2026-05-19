@@ -217,6 +217,16 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         return () => { isMountedRef.current = false; };
     }, []);
 
+    // 🛡️ [FIX-MEMORYLEAK] Trunca explicitamente os arrays de referências para evitar acúmulo de nós mortos
+    useEffect(() => {
+        if (workFillsRef.current) {
+            workFillsRef.current = workFillsRef.current.slice(0, targetCycles || 1);
+        }
+        if (breakBallsRef.current) {
+            breakBallsRef.current = breakBallsRef.current.slice(0, (targetCycles || 1) - 1);
+        }
+    }, [targetCycles]);
+
     // 🛡️ [FIX-STALE-SUBJECT] Ref para evitar closure stale do activeSubject no handler do BroadcastChannel
     const activeSubjectRef = useRef(activeSubject);
     useEffect(() => { activeSubjectRef.current = activeSubject; }, [activeSubject]);
@@ -358,13 +368,21 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
 
     // Sincronização Multi-Aba Robusta (Protocolo V2)
+    // Criamos um canal persistente que só se fecha quando o componente desmontar
+    useEffect(() => {
+        if (!syncChannel) return;
+        return () => {
+            syncChannel.close();
+        };
+    }, [syncChannel]);
+
     useEffect(() => {
         if (!syncChannel) return;
 
         const handleMessage = (event) => {
             const { type, tabId, timeLeft: incomingTime, speed: incomingSpeed, targetCycles: incomingTarget } = event.data || {};
 
-            // Ignorar mensagens da própria aba ou se o tabId não coincidir (se estivéssemos a filtrar por isso)
+            // Ignorar mensagens da própria aba
             if (tabId === STABLE_TAB_ID) return;
 
             switch (type) {
@@ -454,7 +472,6 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
         return () => {
             syncChannel.removeEventListener('message', handleMessage);
-            syncChannel.close();
         };
     }, [syncChannel, showToast, syncPomodoroState]);
 
@@ -602,74 +619,95 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         }, 50);
     }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, activeSubject, safeOnFullCycleComplete, onSessionComplete, syncChannel, isTransitioning, isMuted]);
 
-    // Motor de Animação Blindado e Otimizado
+    // Motor de Animação Blindado e Otimizado (Resiliente a Abas em Segundo Plano)
     // O loop só roda quando isRunning é true, poupando CPU/GPU significativamente.
+    // Usa âncora absoluta e alterna para setTimeout quando a aba está oculta para evitar congelamento.
     useEffect(() => {
         if (!isRunning) return;
 
         let rafId;
-        let lastTickTime = performance.now();
+        let timeoutId;
+        const startTime = performance.now();
+        const startLeft = stateRefs.current.timeLeft;
 
-        const tick = (now) => {
-            const deltaMs = now - lastTickTime;
-            lastTickTime = now;
+        const tick = () => {
+            const now = performance.now();
+            // Cálculo de tempo decorrido com base na âncora absoluta, imune a congelamentos de rAF
+            const elapsedSeconds = ((now - startTime) / 1000) * (speedRef.current || 1);
+            const newTime = Math.max(0, startLeft - elapsedSeconds);
+            stateRefs.current.timeLeft = newTime;
 
-            if (stateRefs.current.isRunning && stateRefs.current.timeLeft > 0) {
-                const currentTotalTime = stateRefs.current.mode === 'work'
-                    ? (safeSettings.pomodoroWork || 25) * 60
-                    : stateRefs.current.mode === 'long_break'
-                        // 🛡️ [FIX-LONGBREAK] Era pomodoroBreak * 60, causando ring sem progresso
-                        // por 2/3 da pausa longa (fraction > 1 durante esse período).
-                        ? (safeSettings.pomodoroLongBreak || 15) * 60
-                        : (safeSettings.pomodoroBreak || 5) * 60;
+            const currentTotalTime = stateRefs.current.mode === 'work'
+                ? (safeSettings.pomodoroWork || 25) * 60
+                : stateRefs.current.mode === 'long_break'
+                    ? (safeSettings.pomodoroLongBreak || 15) * 60
+                    : (safeSettings.pomodoroBreak || 5) * 60;
 
-                const deltaSeconds = (deltaMs / 1000) * (speedRef.current || 1);
-                const newTime = Math.max(0, stateRefs.current.timeLeft - deltaSeconds);
-                stateRefs.current.timeLeft = newTime;
-
-                const fraction = newTime / (currentTotalTime || 1);
-                const displaySecond = Math.ceil(newTime);
+            const fraction = newTime / (currentTotalTime || 1);
+            const displaySecond = Math.ceil(newTime);
  
-                // 🛡️ [SHIELD-DESYNC-FIX] Sincroniza o estado do React apenas na mudança de segundo inteiro
-                // para manter o Virtual DOM "quente" sem sacrificar a performance do RAF loop.
-                if (Math.floor(stateRefs.current.timeLeft) !== Math.floor(newTime)) {
-                    setTimeLeft(newTime); 
+            // 🛡️ [SHIELD-DESYNC-FIX] Sincroniza o estado do React apenas na mudança de segundo inteiro
+            if (Math.floor(stateRefs.current.timeLeft) !== Math.floor(newTime)) {
+                setTimeLeft(newTime); 
+            }
+
+            if (clockRef.current) {
+                const mins = Math.floor(displaySecond / 60);
+                const secs = displaySecond % 60;
+                const timeString = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                if (clockRef.current.textContent !== timeString) {
+                    clockRef.current.textContent = timeString;
                 }
+            }
 
-                if (clockRef.current) {
-                    const mins = Math.floor(displaySecond / 60);
-                    const secs = displaySecond % 60;
-                    const timeString = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                    if (clockRef.current.textContent !== timeString) {
-                        clockRef.current.textContent = timeString;
-                    }
-                }
+            if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE * fraction;
 
-                if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE * fraction;
+            const s = stateRefs.current.sessions;
+            if (stateRefs.current.mode === 'work') {
+                const workEl = workFillsRef.current[s - 1];
+                if (workEl) workEl.style.width = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
+            } else {
+                const breakEl = breakBallsRef.current[s - 1];
+                if (breakEl) breakEl.style.height = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
+            }
 
-                const s = stateRefs.current.sessions;
-                // BUG-13 FIX: Guard both refs — breakBallsRef[last] doesn't exist for the final cycle
-                if (stateRefs.current.mode === 'work') {
-                    const workEl = workFillsRef.current[s - 1];
-                    if (workEl) workEl.style.width = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
-                } else {
-                    // BUG-13/15 FIX: breakBallsRef tem targetCycles-1 elementos.
-                    // Para s === targetCycles (última sessão), índice s-1 não existe — guarded abaixo.
-                    // Inclui long_break: a última pausa longa também não tem bola DOM.
-                    const breakEl = breakBallsRef.current[s - 1];
-                    if (breakEl) breakEl.style.height = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
-                }
-
-                if (newTime <= 0) {
-                    transitionSession(stateRefs.current.mode, 'natural');
+            if (newTime <= 0) {
+                transitionSession(stateRefs.current.mode, 'natural');
+            } else {
+                if (document.hidden) {
+                    // Quando a aba está oculta, agenda via setTimeout para evitar suspensão
+                    timeoutId = setTimeout(tick, 1000 / (speedRef.current || 1));
                 } else {
                     rafId = requestAnimationFrame(tick);
                 }
             }
         };
-        rafId = requestAnimationFrame(tick);
-        return () => { if (rafId) cancelAnimationFrame(rafId); };
-    }, [isRunning, safeSettings, transitionSession]);
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                if (rafId) cancelAnimationFrame(rafId);
+                timeoutId = setTimeout(tick, 1000 / (speedRef.current || 1));
+            } else {
+                if (timeoutId) clearTimeout(timeoutId);
+                rafId = requestAnimationFrame(tick);
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        // Inicia a execução do loop
+        if (document.hidden) {
+            timeoutId = setTimeout(tick, 1000 / (speedRef.current || 1));
+        } else {
+            rafId = requestAnimationFrame(tick);
+        }
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            if (rafId) cancelAnimationFrame(rafId);
+            if (timeoutId) clearTimeout(timeoutId);
+        };
+    }, [isRunning, safeSettings, transitionSession, speed]);
 
     const reset = () => {
         if (isTransitioning) return;

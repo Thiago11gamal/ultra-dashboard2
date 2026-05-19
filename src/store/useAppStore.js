@@ -21,6 +21,7 @@ import { clearMcCache } from '../utils/coachAdaptive';
 // --- Otimização de Persistência: Debounced IndexedDB Adapter ---
 const saveTimeouts = {}; 
 const DEBOUNCE_TIME = 100; // ms
+const activeWrites = new Set(); // Gestor de concorrência para evitar ressuscitar estado zombie
 
 const flushPendingIDBSaves = () => {
     Object.entries(saveTimeouts).forEach(([name, timeoutId]) => {
@@ -122,10 +123,13 @@ const idbStorage = {
         
         saveTimeouts[name] = setTimeout(async () => {
             try {
+                activeWrites.add(name);
                 await idbSet(name, value);
-                saveTimeouts[name] = null;
             } catch (err) {
                 console.error("[Storage] Critical IDB save failure.", err);
+            } finally {
+                activeWrites.delete(name);
+                saveTimeouts[name] = null;
             }
         }, DEBOUNCE_TIME); 
 
@@ -136,6 +140,12 @@ const idbStorage = {
             clearTimeout(saveTimeouts[name]);
             delete saveTimeouts[name];
         }
+        
+        // Espera que operações de gravação em curso terminem antes de apagar
+        while (activeWrites.has(name)) {
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+
         try {
             localStorage.removeItem(name);
         } catch {
