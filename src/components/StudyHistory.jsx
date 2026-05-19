@@ -127,6 +127,15 @@ const StudyHistory = React.memo(function StudyHistory({
         return cat?.name || 'Estudo Geral';
     };
 
+    // Get subject name by ID or fallback
+    const getSubjectName = (categoryId, taskId) => {
+        if (!taskId) return '';
+        const cat = categories.find(c => c.id === categoryId);
+        if (!cat || !cat.tasks) return (String(taskId).startsWith('task') ? '' : taskId);
+        const task = cat.tasks.find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
+        return task?.text || task?.title || (String(taskId).startsWith('task') ? '' : taskId);
+    };
+
     const getCategoryIcon = (categoryId) => {
         const cat = categories.find(c => c.id === categoryId);
         return cat?.icon || '📚';
@@ -299,7 +308,12 @@ const StudyHistory = React.memo(function StudyHistory({
                                                 <div className="text-sm font-medium text-white">
                                                     {getCategoryName(session.categoryId)}
                                                 </div>
-                                                <div className="text-[10px] text-slate-500">
+                                                {getSubjectName(session.categoryId, session.taskId) && (
+                                                    <div className="text-xs text-slate-400 mt-0.5 font-medium">
+                                                        {getSubjectName(session.categoryId, session.taskId)}
+                                                    </div>
+                                                )}
+                                                <div className="text-[10px] text-slate-500 mt-0.5">
                                                     {(normalizeDate(session.startTime) || new Date()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                             </div>
