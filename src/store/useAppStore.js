@@ -275,7 +275,6 @@ export const useAppStore = create(
             // Don't persist the history/temporal state itself, just the app state
             partialize: (state) => ({ appState: state.appState }),
 
-            // NOVO: Roda nos bastidores antes do App.jsx montar
             onRehydrateStorage: () => {
                 return (state, error) => {
                     // Em caso de erro, libera a UI para mostrar estado vazio/erro em vez de travar
@@ -287,28 +286,31 @@ export const useAppStore = create(
                     }
  
                     // Resolução Síncrona do ActiveId para evitar Flash of Empty State (FOES)
-                    const appState = state.appState;
+                    const appState = state.appState || {};
                     const contestsList = Object.keys(appState.contests || {});
                     let targetId = appState.activeId;
                     
-                    if ((!targetId || !appState.contests[targetId]) && contestsList.length > 0) {
+                    if ((!targetId || !appState.contests?.[targetId]) && contestsList.length > 0) {
                         targetId = contestsList[0];
-                    } else if (contestsList.length === 0) {
-                        // FIX: Se não há concursos (erro crítico de estado), reconstrói o default
-                        targetId = 'default';
-                        appState.contests = { 'default': safeClone(INITIAL_DATA) };
                     }
 
-                    // Atualização Atômica: ID e Hidratação juntos
-                    useAppStore.setState((prev) => ({
-                        appState: {
-                            ...prev.appState,
-                            activeId: targetId,
-                            isHydrated: true
-                        }
-                    }));
+                    // Atualização Atômica: ID e Hidratação juntos, sem mutação direta do estado persistido
+                    useAppStore.setState((prev) => {
+                        const currentAppState = prev.appState || {};
+                        const currentContestsList = Object.keys(currentAppState.contests || {});
+                        const isCorrupted = currentContestsList.length === 0;
+                        
+                        return {
+                            appState: {
+                                ...currentAppState,
+                                contests: isCorrupted ? { 'default': safeClone(INITIAL_DATA) } : currentAppState.contests,
+                                activeId: isCorrupted ? 'default' : targetId,
+                                isHydrated: true
+                            }
+                        };
+                    });
                 };
-            },
+            }
         }
     )
 );

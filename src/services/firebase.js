@@ -70,6 +70,10 @@ if (isLocalMode) {
             // Permite que o SDK modular acesse certas propriedades sem quebrar
             if (prop === 'INTERNAL') return {};
             if (prop === 'app') return { name: '[MOCK]' };
+            if (prop === 'then') return undefined;
+            // Devolve Array vazio para iteradores típicos do Firestore
+            if (prop === 'docs' || prop === 'map' || prop === 'forEach') return []; 
+            if (prop === 'data') return () => ({});
             
             console.debug(`[Local Mode] Chamada ignorada no serviço ${name}.${String(prop)}.`);
             return () => createMock(name); // Retorna uma função que retorna outro mock

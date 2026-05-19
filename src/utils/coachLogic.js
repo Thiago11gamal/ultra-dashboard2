@@ -17,6 +17,8 @@ import {
 import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
 export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights, clearMcCache, runCoachMonteCarlo };
 
+const sanitizeMinutes = (mins) => Math.min(720, Math.max(0, Number(mins) || 0));
+
 
 export const DEFAULT_CONFIG = {
     SCORE_MAX: 50,
@@ -367,7 +369,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         (normalizeDate(log.date) || new Date(0)).getTime() > 0
     );
     const MIN_MINUTES_VALID_STUDY = 15; 
-    const validStudyLogs = categoryStudyLogs.filter(log => (Number(log.minutes) || 0) >= MIN_MINUTES_VALID_STUDY);
+    const validStudyLogs = categoryStudyLogs.filter(log => sanitizeMinutes(log.minutes) >= MIN_MINUTES_VALID_STUDY);
 
     if (validStudyLogs.length > 0) {
         const sortedLogs = [...validStudyLogs].sort((a, b) => (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime());
@@ -593,14 +595,14 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const inefficiencyPenaltyMultiplier = 1.0 + (inefficiency * 0.3 * empiricalTrust); 
     const recencyComponent = (dynamicRecencyMax * 0.8) * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight * inefficiencyPenaltyMultiplier;
 
-    const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+    const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
     const totalHours = totalMinutes / 60;
 
     const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(b.date) || new Date(0)).getTime());
     const rollingWindowMs = 28 * MS_PER_DAY;
     const nowMs = metrics.referenceNow;
     const recentBaselineLogs = sortedLogsForBurnout.filter(log => (nowMs - (normalizeDate(log.date) || new Date(0)).getTime()) <= rollingWindowMs);
-    const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
+    const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0) / 60;
     
     const firstLogTime = sortedLogsForBurnout.length > 0 
         ? (normalizeDate(sortedLogsForBurnout[0].date) || new Date(nowMs)).getTime() 
@@ -620,10 +622,10 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
 
     const windowStart = (normalizeDate(metrics.referenceDate) || metrics.referenceDate).getTime() - (dynamicWindowDays * MS_PER_DAY_CONST);
     const recentAllLogs = (options.studyLogs || studyLogs || []).filter(log => (normalizeDate(log?.date) || new Date(0)).getTime() >= windowStart);
-    const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+    const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
     const totalRecentMinutesCat = recentAllLogs
         .filter(log => log?.categoryId === metrics.categoryId)
-        .reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+        .reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
     const observedShare = totalRecentMinutesAll > 0 ? totalRecentMinutesCat / totalRecentMinutesAll : (1 / activeCount);
     
     const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
@@ -786,7 +788,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         const d = normalizeDate(log.date) || new Date(0);
         return d && d.getTime() >= oneWeekAgo;
     });
-    const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
+    const recentHours = recentLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0) / 60;
     const recentStudyDays = new Set(recentLogs.map(log => (normalizeDate(log.date) || new Date(0)).getTime())).size;
     
     const isHighVolume = recentHours > dynamicBurnoutThreshold;
@@ -1257,7 +1259,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const catNormalized = normalize(category.name);
         const recentSims = simulados.filter(s => normalize(s.subject) === catNormalized && new Date(s.date || s.createdAt || 0).getTime() >= cutoffTime);
 
-        const totalHours = recentLogs.reduce((acc, l) => acc + (Number(l.minutes) || 0), 0) / 60;
+        const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l.minutes), 0) / 60;
         const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || getSyntheticTotal(maxScore)), 0);
 
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;

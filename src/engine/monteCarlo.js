@@ -183,10 +183,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // Se não deslocarmos o muParam, a assimetria do corte fará com que o
     // valor esperado (E[X]) se afaste da média real do aluno perto das bordas.
     let muParam = safeMean; 
-    const distToMin = safeMean - minScore;
-    const distToMax = maxScore - safeMean;
     
     if (safeSD > 0) {
+        // No monteCarlo.js, antes de calcular a repulsão:
+        const clampedMeanForMath = Math.max(minScore, Math.min(maxScore, safeMean));
+        const distToMin = clampedMeanForMath - minScore;
+        const distToMax = maxScore - clampedMeanForMath;
+
         // Compensação vetorial líquida: resolve a pressão matemática calculando 
         // a força repulsiva de ambos os limites em simultâneo (anulam-se se simétricos).
         let repulsaoPiso = 0;

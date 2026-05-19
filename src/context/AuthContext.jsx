@@ -33,12 +33,17 @@ export function AuthProvider({ children }) {
         if (!auth) return Promise.reject(new Error("Auth service is not available. Please check environment variables."));
         return createUserWithEmailAndPassword(auth, email, password)
             .then(async (userCredential) => {
-                // BUG-FIX: A atualização de perfil é assíncrona no Firebase
-                await updateProfile(userCredential.user, {
-                    displayName: name
-                });
-                // Força o reload para que o token reflita o displayName
-                await userCredential.user.reload();
+                try {
+                    // BUG-FIX: A atualização de perfil é assíncrona no Firebase
+                    await updateProfile(userCredential.user, {
+                        displayName: name
+                    });
+                    // Força o reload para que o token reflita o displayName
+                    await userCredential.user.reload();
+                } catch (profileError) {
+                    console.warn("[Auth] Registo bem-sucedido, mas falha ao atualizar nome:", profileError);
+                    // Continua o fluxo, não quebra a promessa de registo
+                }
                 // BUG 4 FIX: A race condition do onAuthStateChanged exige o set manual aqui
                 // após o profile update e reload para garantir displayName imediato.
                 setCurrentUser({ ...auth.currentUser });
