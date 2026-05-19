@@ -54,24 +54,22 @@ export function analyzeProgressState(scores, config = {}) {
     }
 
     // 4. Extract window
-    // --- PATCH: Prevenir contaminação matemática por datas inválidas no Array.sort ---
-    const sortedScores = [...scores].sort((a, b) => {
-        let tA = typeof a === 'object' ? new Date(a.date).getTime() : 0;
-        let tB = typeof b === 'object' ? new Date(b.date).getTime() : 0;
-        if (isNaN(tA)) tA = 0;
-        if (isNaN(tB)) tB = 0;
-        return tA - tB;
-    });
+    // CORREÇÃO: Gerar âncora de tempo sintético ANTES da ordenação para preservar a topologia temporal
+    const syntheticNow = Date.now();
+    
+    const sortedScores = [...scores].map((d, index) => {
+        let time = typeof d === 'object' ? new Date(d.date).getTime() : NaN;
+        // Puxa as datas inválidas de forma consistente baseada no seu índice original
+        if (isNaN(time)) time = syntheticNow - ((scores.length - index) * 86400000);
+        return { original: d, safeTime: time };
+    }).sort((a, b) => a.safeTime - b.safeTime)
+      .map(item => item.original);
 
     const recentData = sortedScores.slice(-safeWindowSize);
     const recentScores = recentData.map(d => typeof d === 'object' ? d.score : d);
 
     // FIX MATH-2026-05-05: Sanitizar score para manter mean/variance/slope estáveis com entradas inválidas.
     const finiteRecentScores = recentScores.map(v => Number.isFinite(v) ? v : 0);
-
-    // FIX LOGIC-2026-05-05: Evitar Date.now() múltiplo (não determinístico) dentro do mesmo cálculo.
-    // Captura uma âncora temporal única para estabilidade reprodutível.
-    const syntheticNow = Date.now();
 
     // FIX: Prevenir a contaminação matemática por 'NaN' se a data for inválida ou inexistente.
     const recentDates = recentData.map((d, index) => {

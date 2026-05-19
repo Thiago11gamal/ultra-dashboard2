@@ -230,12 +230,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const i16 = Math.floor(nAll * 0.16);
     const i84 = Math.floor(nAll * 0.84);
 
-    // Encontramos os pontos críticos usando QuickSelect (O(N))
-    const statisticalCi95Low = quickSelect(allScores, iLow);
-    const statisticalCi95High = quickSelect(allScores, iHigh);
-    const empMedian = quickSelect(allScores, iMedian);
-    const rawLeft = quickSelect(allScores, i16);
-    const rawRight = quickSelect(allScores, i84);
+    // [BUG-SORT-FIX] Encontramos os pontos críticos usando QuickSelect (O(N))
+    // CORREÇÃO: Passar uma cópia isolada para o QuickSelect, pois ele permuta os itens in-place
+    const statisticalCi95Low = quickSelect([...allScores], iLow);
+    const statisticalCi95High = quickSelect([...allScores], iHigh);
+    const empMedian = quickSelect([...allScores], iMedian);
+    const rawLeft = quickSelect([...allScores], i16);
+    const rawRight = quickSelect([...allScores], i84);
 
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;
@@ -584,7 +585,11 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
         if (!history || history.length === 0) return { p50: 0, p10: 0, p90: 0 };
         
         const avgVal = kahanMean(history);
-        const sd = metricas.focoMedio ? (1 - metricas.focoMedio) * avgVal : avgVal * 0.1;
+        // CORREÇÃO: Impedir SD = 0 que corrompe o gerador de Monte Carlo
+        const sd = metricas.focoMedio 
+            ? Math.max(1e-5, (1 - metricas.focoMedio) * avgVal) 
+            : avgVal * 0.1;
+        
         const results = new Float64Array(simulacoes);
         const rng = mulberry32(generateStableSeed(history.length, "simularMC", Date.now())); 
 

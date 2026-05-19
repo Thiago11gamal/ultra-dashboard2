@@ -645,10 +645,10 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     let srsLabel = null;
 
     if (hasData && !recencyUnknown) {
-        const CONSTANTE_ESQUECIMENTO = 0.03; 
-        const retencao = Math.exp(-CONSTANTE_ESQUECIMENTO * daysSinceLastStudy);
-        srsBoost = (1 - retencao) * cfg.SRS_BOOST;
-        srsLabel = srsBoost > (cfg.SRS_BOOST * 0.7) ? "⚠️ Memória Crítica" : (srsBoost > (cfg.SRS_BOOST * 0.3) ? "🧠 Revisão Necessária" : "🔄 Revisão de Reforço");
+        // CORREÇÃO: Utilizar a engine científica oficial com suporte a MSSD e N efetivo
+        const srsData = _getSRSBoost(simuladosWithMaxScore, daysSinceLastStudy, maxScore, cfg, mssdVolatility, backtestWeights?.effectiveN || simuladosWithMaxScore.length);
+        srsBoost = srsData.boost;
+        srsLabel = srsData.label;
     }
 
     let exactLastTime = 0;
@@ -1109,12 +1109,12 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
                 topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;
             } else if (topicTotal > 0) {
                 // Cenário: Tem volume de questões
+                // Cenário: Tem volume de questões
                 if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
-                // CORREÇÃO: Sanitização estrita contra separadores decimais legados
-                // que causavam a aniquilação total da nota do subtópico.
-                let rawC = t.correct;
-                if (typeof rawC === 'string') rawC = rawC.replace(',', '.');
-                topicCorrect = Math.min(topicTotal, Number.isFinite(Number(rawC)) ? Number(rawC) : 0);
+                    // CORREÇÃO: Sanitização estrita e resiliente a milhares
+                    let rawC = String(t.correct);
+                    rawC = rawC.replace(/\./g, '').replace(',', '.');
+                    topicCorrect = Math.min(topicTotal, Number.isFinite(Number(rawC)) ? Number(rawC) : 0);
                 } else {
                     // Fallback seguro em caso de notas penalizadas ao nível do subtópico
                     topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;
