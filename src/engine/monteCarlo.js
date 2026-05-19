@@ -14,6 +14,9 @@ const MAX_SIMULATIONS = 50000;
 const DEFAULT_DOMAIN_MIN = 0;
 const DEFAULT_DOMAIN_MAX = 100;
 
+// Pool de Memória: Buffer global reutilizável para evitar alocações de Float64Array síncronas na Main Thread
+const globalScoreBuffer = new Float64Array(MAX_SIMULATIONS);
+
 function toFiniteNumber(value, fallback = 0) {
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
@@ -173,7 +176,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let welfordM2 = 0;
     let welfordCount = 0;
 
-    const allScores = new Float64Array(safeSimulations);
+    // Reaproveita o buffer de memória pré-alocado (zero-allocation pattern)
+    const allScores = globalScoreBuffer.subarray(0, safeSimulations);
 
     // CORREÇÃO: Compensação analítica para a Média da Normal Truncada
     // Se não deslocarmos o muParam, a assimetria do corte fará com que o

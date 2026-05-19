@@ -155,11 +155,11 @@ describe('Coach Logic Integration', () => {
         ];
         
         // Mocking options with user.goalDate = today (daysToExam = 0)
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toISOString();
         const res = calculateUrgency(baseCategory, simulados, [], { 
             maxScore: 100, 
             targetScore: 90, // Higher target to trigger DISTANCE_THRESHOLD
-            user: { goalDate: todayStr } 
+            user: { goalDate: todayStr }
         });
 
         expect(res.details?.monteCarlo?.effectiveMCTarget).toBeDefined();

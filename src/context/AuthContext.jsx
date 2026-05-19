@@ -19,7 +19,18 @@ export function AuthProvider({ children }) {
 
     // BUG-04 FIX: Wrap auth functions in useCallback to stabilize context value
     const signup = useCallback((email, password, name) => {
-        if (!auth || isLocalMode) return Promise.reject(new Error("Auth service is not available. Please check environment variables."));
+        if (isLocalMode) {
+            const fakeUser = {
+                uid: 'local-user',
+                email: email || 'local@example.com',
+                displayName: name || 'Usuário Local',
+                emailVerified: true
+            };
+            sessionStorage.setItem('ultra_local_session', JSON.stringify(fakeUser));
+            setCurrentUser(fakeUser);
+            return Promise.resolve(fakeUser);
+        }
+        if (!auth) return Promise.reject(new Error("Auth service is not available. Please check environment variables."));
         return createUserWithEmailAndPassword(auth, email, password)
             .then(async (userCredential) => {
                 // BUG-FIX: A atualização de perfil é assíncrona no Firebase
@@ -43,6 +54,7 @@ export function AuthProvider({ children }) {
                 displayName: 'Usuário Local',
                 emailVerified: true
             };
+            sessionStorage.setItem('ultra_local_session', JSON.stringify(fakeUser));
             setCurrentUser(fakeUser);
             return Promise.resolve(fakeUser);
         }
@@ -51,6 +63,9 @@ export function AuthProvider({ children }) {
     }, []);
 
     const logout = useCallback(async () => {
+        if (isLocalMode) {
+            sessionStorage.removeItem('ultra_local_session');
+        }
         if (auth && !isLocalMode) {
             await signOut(auth);
         }
@@ -79,6 +94,14 @@ export function AuthProvider({ children }) {
 
         if (!auth || isLocalMode) {
             console.warn('[Auth] Auth service is missing or in Local Mode. Bypassing state listener.');
+            const savedLocalSession = sessionStorage.getItem('ultra_local_session');
+            if (savedLocalSession) {
+                try {
+                    setCurrentUser(JSON.parse(savedLocalSession));
+                } catch (e) {
+                    console.error("[Auth] Erro ao recuperar sessão local:", e);
+                }
+            }
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(false);
             hasResolvedAuth = true;

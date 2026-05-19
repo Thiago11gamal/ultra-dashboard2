@@ -45,10 +45,31 @@ const flushPendingIDBSaves = () => {
                 });
             }
 
+            const serializedFull = JSON.stringify({ state: { appState: stateToRescue.appState } });
+
+            // Flush imediato e assíncrono para o IDB (máxima chance de persistência real)
             try {
-                localStorage.setItem(name, JSON.stringify({ state: { appState: slimState } }));
+                idbSet(name, serializedFull).catch(err => {
+                    console.error("[Storage] Falha no flush atômico para o IDB.", err);
+                });
+            } catch (idbErr) {
+                console.error("[Storage] Falha síncrona ao invocar idbSet:", idbErr);
+            }
+
+            try {
+                const serializedSlim = JSON.stringify({ state: { appState: slimState } });
+                if (serializedSlim.length < 4000000) { // Margem de segurança de 4MB
+                    localStorage.setItem(name, serializedSlim);
+                } else {
+                    console.warn("[Storage] Estado muito grande para LocalStorage (>4MB). Salvamento delegado exclusivamente ao IDB.");
+                }
             } catch (err) {
-                console.error("[Storage] OOM ou Quota falhou no teardown.", err);
+                console.error("[Storage] OOM ou Quota falhou no teardown síncrono do LocalStorage.", err);
+                try {
+                    localStorage.removeItem(name);
+                } catch (rmErr) {
+                    console.error("[Storage] Falha ao remover item do LocalStorage:", rmErr);
+                }
             }
         }
     });
@@ -230,9 +251,20 @@ export const useAppStore = create(
             {
                 // Zundo Options: Limit history to 20 states
                 limit: 20,
-                // BUG 1 FIX: Partialize must include the entire appState tree.
+                // BUG 1 FIX: Restringe o histórico do Zundo omitindo arrays massivos (simulados, studyLogs)
+                // dos concursos para poupar RAM e prevenir vazamentos de memória.
                 partialize: (state) => ({
-                    appState: state.appState
+                    appState: {
+                        ...state.appState,
+                        contests: Object.keys(state.appState.contests || {}).reduce((acc, id) => {
+                            acc[id] = {
+                                ...state.appState.contests[id],
+                                simulados: [],
+                                studyLogs: []
+                            };
+                            return acc;
+                        }, {})
+                    }
                 }),
             }
         ),

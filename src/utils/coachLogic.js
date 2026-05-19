@@ -1397,7 +1397,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             // 2. Consumo de Tópicos (Só acontece se não houver alerta pendente nesta iteração)
             const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
             const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[OTIMIZAÇÃO DE BASE] `;
-            const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '') + weakTopic.total) : `geral-${i}`;
+            const uniqueIdSuffix = weakTopic 
+                ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total}-${i}`) 
+                : `geral-${i}`;
 
             if (weakTopic) {
                 let taskTitle = "";

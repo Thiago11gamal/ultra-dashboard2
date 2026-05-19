@@ -136,7 +136,7 @@ function MainLayout() {
       if (keys.length > 0) {
         console.warn('[Rescue] Concurso ativo inválido. Selecionando fallback:', keys[0]);
         rescueAttemptsRef.current += 1;
-        switchContest(keys[0]);
+        setTimeout(() => switchContest(keys[0]), 0); // Empurra para o fim da event loop para dar tempo ao Zustand de propagar o estado
       }
     }
   }, [showToast, isStoreHydrated, headerData.exists, contestsMetaList, switchContest]);
