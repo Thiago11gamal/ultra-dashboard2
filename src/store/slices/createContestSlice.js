@@ -70,6 +70,11 @@ export const createContestSlice = (set) => ({
         if (remainingIds.length === 0) {
             state.appState.contests['default'] = safeClone(INITIAL_DATA);
             state.appState.activeId = 'default';
+            // CORREÇÃO: Impedir que um Pomodoro ativo continue a rodar em background num painel que acabou de ser aniquilado
+            if (state.appState.pomodoro?.activeSubject) {
+                state.appState.pomodoro = { ...RESET_POMODORO };
+                localStorage.removeItem('pomodoroState');
+            }
         } else if (contestId === state.appState.activeId) {
             state.appState.activeId = remainingIds[0];
             if (state.appState.pomodoro.activeSubject) {
