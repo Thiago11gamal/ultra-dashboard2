@@ -22,12 +22,10 @@ import { clearMcCache } from '../utils/coachAdaptive';
 const saveTimeouts = {}; 
 const DEBOUNCE_TIME = 100; // ms
 
-// CORREÇÃO TÉCNICA E QA: Gestor de Flush Atómico
-// Garante o esvaziamento síncrono da fila de escrita antes de a thread ser morta.
 const flushPendingIDBSaves = () => {
     Object.entries(saveTimeouts).forEach(([name, timeoutId]) => {
         if (timeoutId) {
-            clearTimeout(timeoutId);
+            // REMOVIDO: clearTimeout(timeoutId); Não estrangule o IDB! Deixa a Promise do IndexedDB correr
             const stateToRescue = useAppStore.getState();
             
             // FILTRO SÍNCRONO RÁPIDO O(1) antes da serialização
@@ -45,31 +43,15 @@ const flushPendingIDBSaves = () => {
                 });
             }
 
-            const serializedFull = JSON.stringify({ state: { appState: stateToRescue.appState } });
-
-            // Flush imediato e assíncrono para o IDB (máxima chance de persistência real)
-            try {
-                idbSet(name, serializedFull).catch(err => {
-                    console.error("[Storage] Falha no flush atômico para o IDB.", err);
-                });
-            } catch (idbErr) {
-                console.error("[Storage] Falha síncrona ao invocar idbSet:", idbErr);
-            }
-
             try {
                 const serializedSlim = JSON.stringify({ state: { appState: slimState } });
-                if (serializedSlim.length < 4000000) { // Margem de segurança de 4MB
+                if (serializedSlim.length < 4000000) { // Limite de segurança de 4MB
                     localStorage.setItem(name, serializedSlim);
                 } else {
                     console.warn("[Storage] Estado muito grande para LocalStorage (>4MB). Salvamento delegado exclusivamente ao IDB.");
                 }
             } catch (err) {
-                console.error("[Storage] OOM ou Quota falhou no teardown síncrono do LocalStorage.", err);
-                try {
-                    localStorage.removeItem(name);
-                } catch (rmErr) {
-                    console.error("[Storage] Falha ao remover item do LocalStorage:", rmErr);
-                }
+                console.error("[Storage] Quota excedida no fallback.", err);
             }
         }
     });
