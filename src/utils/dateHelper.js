@@ -29,7 +29,7 @@ export const getDateKey = (rawDate) => {
         // Suporte ao padrão DD/MM/YYYY (importação/CSV)
         const parts = rawDate.split(/[/-]/);
         if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-            date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00Z`);
+            date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
         } else {
             date = new Date(rawDate);
         }
@@ -103,7 +103,7 @@ export const normalizeDate = (raw) => {
     } else if (typeof raw === 'string' && raw.includes('/')) {
         const parts = raw.split(/[/-]/);
         if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-            d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00Z`);
+            d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
         } else {
             d = new Date(raw);
         }

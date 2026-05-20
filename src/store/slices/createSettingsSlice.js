@@ -83,7 +83,7 @@ export const createSettingsSlice = (set) => ({
             ? newDataCallback(currentData)
             : newDataCallback;
 
-        if (nextData !== undefined) {
+        if (nextData !== undefined && nextData !== null && typeof nextData === 'object') {
             state.appState.contests[contestId] = nextData;
         }
 

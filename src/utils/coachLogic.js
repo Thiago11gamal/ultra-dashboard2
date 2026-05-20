@@ -64,7 +64,8 @@ export const DEFAULT_CONFIG = {
 };
 
 function getDynamicTrendThreshold(currentScore, maxScore) {
-    const currentPct = currentScore / maxScore;
+    const safeMax = maxScore > 0 ? maxScore : 100;
+    const currentPct = currentScore / safeMax;
     
     // Fator de amortecimento: se o aluno tirou 40%, damping = 0.6. Se tirou 95%, damping = 0.05.
     const damping = Math.max(0, 1 - currentPct);
@@ -176,7 +177,10 @@ export const getCoachPriorities = (topicsData) => {
     // [CORREÇÃO] Função de sanitização robusta para lidar com strings e separadores vírgula (Bug 4.1 Fix)
     const sanitizeNum = (val) => {
         if (typeof val === 'string') {
-            const cleanStr = val.replace(/\./g, '').replace(',', '.');
+            const hasComma = val.includes(',');
+            const cleanStr = hasComma
+                ? val.replace(/\./g, '').replace(',', '.')
+                : val;
             return Number(cleanStr);
         }
         return Number(val);
@@ -385,8 +389,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const trendHistory = [...simuladosWithMaxScore]
         .sort((a, b) => {
-            const timeA = new Date(a.date || a.createdAt || 0).getTime();
-            const timeB = new Date(b.date || b.createdAt || 0).getTime();
+            const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
+            const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
             return timeB - timeA;
         })
         .slice(0, 10)
@@ -534,7 +538,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const memoryRisk = forgetting.risk === 'critical' ? 40 : (forgetting.risk === 'high' ? 20 : 5);
     const volatilityRisk = mssdVolatility;
 
-    const totalPain = performanceDeficit + memoryRisk + volatilityRisk || 1;
+    const rawPain = performanceDeficit + memoryRisk + volatilityRisk;
+    const totalPain = Number.isFinite(rawPain) ? Math.max(1, rawPain) : 1;
 
     const dynamicScoreMax = Math.max(20, (performanceDeficit / totalPain) * 110);
     const dynamicRecencyMax = Math.max(15, (memoryRisk / totalPain) * 110);
@@ -653,7 +658,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     }
 
     let exactLastTime = 0;
-    if (simuladosWithMaxScore.length > 0) exactLastTime = new Date(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt).getTime();
+    if (simuladosWithMaxScore.length > 0) exactLastTime = (normalizeDate(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt) || new Date(0)).getTime();
     if (validStudyLogs.length > 0) {
         const logsOrdenados = [...validStudyLogs].sort((a, b) => 
             (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime()

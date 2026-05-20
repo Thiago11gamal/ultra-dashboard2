@@ -325,7 +325,8 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         projectedScore = safeMin + ((L - safeMin) / (1 + Math.exp(safeExponent)));
     } else {
         const slope = calculateSlope(sortedHistory, maxScore, options);
-        let ema = getSafeScore(sortedHistory[0], maxScore) || 0; 
+        const rawScore = getSafeScore(sortedHistory[0], maxScore);
+        let ema = Number.isFinite(rawScore) ? rawScore : 0;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
             const currentPoint = getSafeScore(sortedHistory[i], maxScore);
@@ -426,7 +427,8 @@ export function monteCarloSimulation(
     let baselineScore = forcedBaseline !== undefined ? forcedBaseline : fallbackScore;
 
     if (sortedHistory.length > 0) {
-        let ema = getSafeScore(sortedHistory[0], maxScore) || 0;
+        const rawScore = getSafeScore(sortedHistory[0], maxScore);
+        let ema = Number.isFinite(rawScore) ? rawScore : 0;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
             const currentPoint = getSafeScore(sortedHistory[i], maxScore);

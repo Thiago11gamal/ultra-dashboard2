@@ -40,7 +40,7 @@ export function compareStrategyRuns(runA = {}, runB = {}, metrics = ['ndcg']) {
     const ndcgA = computeNDCGAtK(predictedA, actualA, 5);
     const ndcgB = computeNDCGAtK(predictedB, actualB, 5);
     results.delta.ndcg = ndcgB - ndcgA;
-    results.winner = ndcgB > ndcgA ? 'B' : 'A';
+    results.winner = ndcgB > ndcgA ? 'B' : (ndcgA > ndcgB ? 'A' : 'tie');
   }
   return results;
 }

@@ -224,7 +224,7 @@ export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
     const lo = isFirstBin ? -0.01 : sorted[start].probability;
     const hi = isLastBin ? 1.01 : sorted[end - 1].probability;
 
-    if (p < lo || p >= hi && !isLastBin) continue;
+    if (!(p >= lo && (p < hi || isLastBin))) continue;
     const succ = slice.reduce((a, b) => a + b.observed, 0);
     const n = slice.length;
     return (succ + alpha0) / (n + alpha0 + beta0);
@@ -241,7 +241,7 @@ export function conformalizedCalibrationInterval(probability01, pairs = [], alph
     return { low: Math.max(0, p - 0.15), high: Math.min(1, p + 0.15), qHat: 0.15 };
   }
   const residuals = clean.map(x => Math.abs(Math.max(0, Math.min(1, x.probability)) - Math.max(0, Math.min(1, x.observed)))).sort((a,b)=>a-b);
-  const qIdx = Math.min(residuals.length - 1, Math.ceil((1 - Math.max(0.01, Math.min(0.4, alpha))) * (residuals.length + 1)) - 1);
+  const qIdx = Math.min(residuals.length - 1, Math.floor((1 - Math.max(0.01, Math.min(0.4, alpha))) * (residuals.length + 1)) - 1);
   const qHat = residuals[Math.max(0, qIdx)] || 0;
   return { low: Math.max(0, p - qHat), high: Math.min(1, p + qHat), qHat };
 }

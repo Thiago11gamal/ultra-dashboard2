@@ -613,6 +613,7 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
         };
     }
     // FALLBACK SEGURO: Preservar o contrato de interface (Object com Quantis) em vez de devolver Array bruto.
+    if (!Array.isArray(metricas)) return { p50: 0, p10: 0, p90: 0 };
     const caminhos = runMonteCarloSimulation(metricas, 7, 100);
     const finais = new Float64Array(caminhos.length);
     for(let c = 0; c < caminhos.length; c++) finais[c] = caminhos[c][caminhos[c].length - 1];

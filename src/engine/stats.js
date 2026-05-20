@@ -46,6 +46,8 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     let sumWXX = 0, cWXX = 0;
     let sumWXY = 0, cWXY = 0;
 
+    let processedIdx = 0;
+
     for(let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
         const hDate = h.date || h.createdAt;
@@ -59,7 +61,8 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         const rawWeight = Math.exp(-lambda * t);
         const w = Math.max(EPSILON_WEIGHT, rawWeight);
 
-        const x = ((safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000) + (i * 1e-5);
+        const x = ((safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000) + (processedIdx * 1e-5);
+        processedIdx++;
 
         // Kahan summation imperativo para evitar O(N) alocações de map
         const yW = w - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
@@ -160,7 +163,7 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     const variance = (rss / sumW) * (effectiveN / (effectiveN - 2));
     const det = sumW * sumWXX - sumWX * sumWX;
 
-    if (Math.abs(det) < 1e-6) return 1.5;
+    if (Math.abs(det) < 1e-6) return 1.5 * (maxScore / 100);
     return Math.sqrt(Math.max(0, (variance * sumW) / det));
 }
 
@@ -748,7 +751,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const sortedForTrendCap = [...validHistoryForTrend].sort((a, b) => {
         const timeA = safeDateParse(a.date || a.createdAt).getTime();
         const timeB = safeDateParse(b.date || b.createdAt).getTime();
-        return (timeA || 0) - (timeB || 0);
+        return (Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0);
     });
     
     const lastScore = sortedForTrendCap.length > 0

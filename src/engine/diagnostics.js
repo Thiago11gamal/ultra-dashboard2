@@ -284,7 +284,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   if (sorted.length === 0) return noData;
 
   const daysSinceLast = Math.max(0, (Date.now() - new Date(sorted[0].date).getTime()) / 86400000);
-  const stability = estimateMemoryStability(sorted.reverse(), maxScore, baselineScore);
+  const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore);
   const retention = computeEbbinghausRetention(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));
   
@@ -371,7 +371,8 @@ export function computeConsistencyIndex(history, maxScore = 100) {
   const scores = sorted.map((h) => Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore))));
   const mu = _mean(scores);
 
-  const mad = _median(scores.map((s) => Math.abs(s - mu)));
+  const med = _median(scores);
+  const mad = _median(scores.map((s) => Math.abs(s - med)));
   const robustSD = 1.4826 * mad;
 
   const referenceScale = Math.max(1, mu);

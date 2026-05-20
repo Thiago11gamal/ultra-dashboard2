@@ -246,6 +246,7 @@ export const createCategorySlice = (set) => ({
                 const validKeys = new Set();
                 newCategories.forEach(c => {
                     validKeys.add(c.id);
+                    validKeys.add(c.name);
                     validKeys.add(normalize(c.name));
                 });
                 Object.keys(activeData.mcWeights).forEach(key => {

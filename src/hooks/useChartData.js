@@ -24,6 +24,8 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
         if (existing) {
             if (existing.total + total > 0) {
                 existing.score = ((existing.correct + correct) / (existing.total + total)) * maxScore;
+            } else {
+                existing.score = (existing.score + getSafeScore(h, maxScore)) / 2;
             }
             existing.correct += correct;
             existing.total += total;
@@ -308,7 +310,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                     // BUG 4 FIX: No heatmap, não injetamos volume sintético para não sujar o visual
                     // de questões totais, mas mostramos a cor/porcentagem calculada.
                     tot = 1; // Volume mínimo para exibir a cor
-                    corrNorm = (score / maxScore);
+                    corrNorm = Math.round((score / maxScore) * tot);
                 } else {
                     corrNorm = tot > 0 ? Math.round((score / maxScore) * tot) : raw;
                 }

@@ -24,71 +24,69 @@ export default function Simulados() {
         );
     }
 
-    // C-01 FIX: usar data local em vez de toISOString (UTC).
-    // Em UTC-4 às 21h, toISOString retornava o dia seguinte.
-    const todayKey = getDateKey(normalizeDate(new Date()));
-    const rawTodayRows = (data.simuladoRows || []).filter(
-        r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
-    );
+    const displayRows = React.useMemo(() => {
+        const todayKey = getDateKey(normalizeDate(new Date()));
+        const rawTodayRows = (data.simuladoRows || []).filter(
+            r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
+        );
 
-    // 1. Build the auto-synced rows combined with saved data
-    const displayRows = [];
-    const savedAutoRows = {};
+        const rows = [];
+        const savedAutoRows = {};
 
-    rawTodayRows.forEach(r => {
-        if (r.isAuto) {
-            const key = `${normalize(r.subject)}-${normalize(r.topic)}`;
-            savedAutoRows[key] = r;
-        }
-    });
-
-    // Auto-populate from categories (PERFECT MIRROR)
-    (data.categories || []).forEach(cat => {
-        const tasks = cat.tasks || [];
-
-        if (tasks.length === 0) {
-            // Handle subjects without tasks (like ETI) by adding a "Geral" row
-            const subjNorm = normalize(cat.name);
-            const topicNorm = normalize('nenhum');
-            const key = `${subjNorm}-${topicNorm}`;
-
-            if (savedAutoRows[key]) {
-                displayRows.push(savedAutoRows[key]);
-            } else {
-                displayRows.push({
-                    id: `auto-${cat.id}-fallback`,
-                    subject: cat.name,
-                    topic: 'nenhum',
-                    correct: 0,
-                    total: 0,
-                    isAuto: true
-                });
+        rawTodayRows.forEach(r => {
+            if (r.isAuto) {
+                const key = `${normalize(r.subject)}-${normalize(r.topic)}`;
+                savedAutoRows[key] = r;
             }
-        } else {
-            tasks.forEach(task => {
+        });
+
+        (data.categories || []).forEach(cat => {
+            const tasks = cat.tasks || [];
+
+            if (tasks.length === 0) {
                 const subjNorm = normalize(cat.name);
-                const title = String(task.title || task.text || '').trim();
-                const topicNorm = normalize(title);
-
-                if (!title) return;
-
+                const topicNorm = normalize('nenhum');
                 const key = `${subjNorm}-${topicNorm}`;
 
                 if (savedAutoRows[key]) {
-                    displayRows.push(savedAutoRows[key]);
+                    rows.push(savedAutoRows[key]);
                 } else {
-                    displayRows.push({
-                        id: `auto-${cat.id}-${task.id}`,
+                    rows.push({
+                        id: `auto-${cat.id}-fallback`,
                         subject: cat.name,
-                        topic: title,
+                        topic: 'nenhum',
                         correct: 0,
                         total: 0,
                         isAuto: true
                     });
                 }
-            });
-        }
-    });
+            } else {
+                tasks.forEach(task => {
+                    const subjNorm = normalize(cat.name);
+                    const title = String(task.title || task.text || '').trim();
+                    const topicNorm = normalize(title);
+
+                    if (!title) return;
+
+                    const key = `${subjNorm}-${topicNorm}`;
+
+                    if (savedAutoRows[key]) {
+                        rows.push(savedAutoRows[key]);
+                    } else {
+                        rows.push({
+                            id: `auto-${cat.id}-${task.id}`,
+                            subject: cat.name,
+                            topic: title,
+                            correct: 0,
+                            total: 0,
+                            isAuto: true
+                        });
+                    }
+                });
+            }
+        });
+        return rows;
+    }, [data.categories, data.simuladoRows]);
 
     // manual rows are no longer supported
 

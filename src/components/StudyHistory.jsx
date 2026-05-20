@@ -82,12 +82,21 @@ const StudyHistory = React.memo(function StudyHistory({
         const refWeekEnd = new Date(startOfWeek);
         refWeekEnd.setDate(startOfWeek.getDate() + 7);
 
-        // Today's sessions (always actual today)
-        const todaySessions = studySessions.filter(s => {
+        const sessionsByDateStr = {};
+        studySessions.forEach(s => {
             const d = normalizeDate(s.startTime);
-            return d && d.toDateString() === today;
+            if (!d) return;
+            const dStr = d.toDateString();
+            if (!sessionsByDateStr[dStr]) {
+                sessionsByDateStr[dStr] = { minutes: 0, sessions: [] };
+            }
+            sessionsByDateStr[dStr].minutes += (Number(s.duration) || 0);
+            sessionsByDateStr[dStr].sessions.push(s);
         });
-        const todayMinutes = todaySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
+
+        // Today's sessions (always actual today)
+        const todaySessions = sessionsByDateStr[today]?.sessions || [];
+        const todayMinutes = sessionsByDateStr[today]?.minutes || 0;
 
         // Selected week's data (group by day)
         const weekData = [];
@@ -96,16 +105,10 @@ const StudyHistory = React.memo(function StudyHistory({
             date.setDate(startOfWeek.getDate() + i);
             const dateStr = date.toDateString();
 
-            const daySessions = studySessions.filter(s => {
-                const d = normalizeDate(s.startTime);
-                return d && d.toDateString() === dateStr;
-            });
-            const dayMinutes = daySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
-
             weekData.push({
                 day: getDayName(date),
                 date: date.getDate(),
-                minutes: dayMinutes,
+                minutes: sessionsByDateStr[dateStr]?.minutes || 0,
                 isToday: dateStr === today
             });
         }

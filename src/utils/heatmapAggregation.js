@@ -78,5 +78,5 @@ export const calculateSubjectMastery = (subtopics) => {
         totalQuestoes += total;
     });
 
-    return totalQuestoes > 0 ? (totalAcertos / totalQuestoes) : 0;
+    return totalQuestoes > 0 ? (totalAcertos / totalQuestoes) * 100 : 0;
 };
