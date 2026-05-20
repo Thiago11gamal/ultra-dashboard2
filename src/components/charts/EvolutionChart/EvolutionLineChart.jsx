@@ -100,21 +100,13 @@ export function EvolutionLineChart({
             yPositions.forEach(p => p.yPos += shift);
         }
 
-        // 🎯 FIX MATEMÁTICO: Pass 3 (Top overflow cascade fix)
-        // O loop original reverso destruía a escala. Devemos iterar do maior valor (0) para o menor
+        // 🎯 FIX MATEMÁTICO: Pass 3 (Top overflow recovery fix)
+        // O loop original re-empurrava as labels para baixo, destruindo o Pass 2 e as tirando do gráfico.
+        // Como o effectiveDistance garante que todas cabem, um simples shift global garante o bounding box.
         const topLimit = maxScore - (range * 0.02);
-        for (let i = 0; i < yPositions.length; i++) {
-            if (i === 0) {
-                // O primeiro (maior valor) é impedido de estourar o limite superior
-                if (yPositions[i].yPos > topLimit) {
-                    yPositions[i].yPos = topLimit;
-                }
-            } else {
-                // Os itens abaixo dele são empurrados para manter a distância mínima
-                if (yPositions[i - 1].yPos - yPositions[i].yPos < effectiveDistance) {
-                    yPositions[i].yPos = yPositions[i - 1].yPos - effectiveDistance;
-                }
-            }
+        if (yPositions.length > 0 && yPositions[0].yPos > topLimit) {
+            const shift = yPositions[0].yPos - topLimit;
+            yPositions.forEach(p => p.yPos -= shift);
         }
 
         const map = {};

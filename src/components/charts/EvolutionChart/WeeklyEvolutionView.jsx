@@ -345,7 +345,7 @@ export const WeeklyEvolutionView = ({
         const isHidden = hiddenKeys[keyID];
         return (
             <span className={`text-[10px] font-black uppercase tracking-widest transition-opacity cursor-pointer ${isHidden ? 'opacity-20' : 'opacity-100'}`}>
-                {value.replace(' (Var.)', '')}
+                {String(value || '').replace(' (Var.)', '')}
             </span>
         );
     }, [hiddenKeys]);

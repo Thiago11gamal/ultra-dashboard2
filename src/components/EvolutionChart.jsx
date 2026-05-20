@@ -167,10 +167,6 @@ export default function EvolutionChart({
     const historyArray = Array.isArray(focusCategory?.simuladoStats?.history)
         ? focusCategory.simuladoStats.history
         : EMPTY_ARRAY;
-    const historyHash = useMemo(() =>
-        historyArray.map(h => `${h?.date || 'nodate'}:${h?.score ?? h?.correct ?? 0}`).join('|'),
-        [historyArray]
-    );
 
     useEffect(() => {
         if (!Array.isArray(historyArray) || historyArray.length === 0) {
@@ -231,7 +227,7 @@ export default function EvolutionChart({
             cancelled = true; 
             clearTimeout(workerDebounceTimeout);
         };
-    }, [focusCategory?.id, historyArray, historyHash, targetScore, projectDays, runAnalysis, minScore, maxScore]);
+    }, [focusCategory?.id, historyArray, targetScore, projectDays, runAnalysis, minScore, maxScore]);
 
     const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;
     const activeMcProjectionSeries = mcProjectionSeries?.categoryId === focusCategory?.id ? mcProjectionSeries : null;
