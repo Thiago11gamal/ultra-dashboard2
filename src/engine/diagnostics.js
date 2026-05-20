@@ -284,7 +284,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   if (sorted.length === 0) return noData;
 
   const daysSinceLast = Math.max(0, (Date.now() - new Date(sorted[0].date).getTime()) / 86400000);
-  const stability = estimateMemoryStability(sorted.reverse(), maxScore, baselineScore);
+  const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore);
   const retention = computeEbbinghausRetention(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));
   

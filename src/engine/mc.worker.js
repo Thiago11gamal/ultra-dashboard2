@@ -25,7 +25,7 @@ function sanitizeHistory(history) {
         }
         const parsed = Number(h);
         return Number.isFinite(parsed) ? parsed : 0;
-    }).filter(Boolean);
+    }).filter(v => v !== null && v !== undefined && !Number.isNaN(v));
 }
 
 function sanitizeOptions(options) {

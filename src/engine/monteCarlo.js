@@ -14,8 +14,8 @@ const MAX_SIMULATIONS = 50000;
 const DEFAULT_DOMAIN_MIN = 0;
 const DEFAULT_DOMAIN_MAX = 100;
 
-// Pool de Memória: Buffer global reutilizável para evitar alocações de Float64Array síncronas na Main Thread
-const globalScoreBuffer = new Float64Array(MAX_SIMULATIONS);
+// Removido Pool de Memória global estático para garantir thread-safety 
+// e concorrência segura em múltiplos workers/chamadas simultâneas.
 
 function toFiniteNumber(value, fallback = 0) {
     const num = Number(value);
@@ -176,8 +176,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let welfordM2 = 0;
     let welfordCount = 0;
 
-    // Reaproveita o buffer de memória pré-alocado (zero-allocation pattern)
-    const allScores = globalScoreBuffer.subarray(0, safeSimulations);
+    // Instanciação local para garantir thread-safety e evitar data races
+    const allScores = new Float64Array(safeSimulations);
 
     // CORREÇÃO: Compensação analítica para a Média da Normal Truncada
     // Se não deslocarmos o muParam, a assimetria do corte fará com que o
@@ -613,7 +613,8 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
         };
     }
     // FALLBACK SEGURO: Preservar o contrato de interface (Object com Quantis) em vez de devolver Array bruto.
-    const caminhos = runMonteCarloSimulation(metricas, 7, 100);
+    const historyArray = Array.isArray(metricas) ? metricas : [metricas];
+    const caminhos = runMonteCarloSimulation(historyArray, 7, 100);
     const finais = new Float64Array(caminhos.length);
     for(let c = 0; c < caminhos.length; c++) finais[c] = caminhos[c][caminhos[c].length - 1];
     

@@ -122,7 +122,7 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     for (let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
         const hDate = h.date || h.createdAt;
-        const x = (safeDateParse(hDate).getTime() - t0) / 86400000;
+        const x = ((safeDateParse(hDate).getTime() - t0) / 86400000) + (i * 1e-5);
         const y = getSafeScore(h, maxScore);
         if (!Number.isFinite(y)) continue;
 
@@ -379,7 +379,8 @@ export function computeBayesianLevel(
     const dynamicAlphaCap = Math.max(250, Math.floor(Math.min(baseCapacity, volumeCapacity)));
     const dynamicEffectiveN = dynamicAlphaCap;
     
-    const now = options.referenceDate ? normalizeDate(options.referenceDate).getTime() : Date.now();
+    const refDateObj = options.referenceDate ? normalizeDate(options.referenceDate) : null;
+    const now = refDateObj ? refDateObj.getTime() : Date.now();
 
     if (history && history.length > 0) {
         // OTIMIZAÇÃO: Pré-calcular tempos para evitar vazamento de memória no sort
@@ -508,7 +509,7 @@ export function computeBayesianLevel(
 
     if (lastDateStr) {
         const lastDate = normalizeDate(lastDateStr);
-        const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
+        const gapToToday = Math.max(0, Math.floor((now - (lastDate ? lastDate.getTime() : now)) / (1000 * 60 * 60 * 24)));
         
         if (gapToToday > 0) {
             const finalLambdaBase = (sortedHistory && sortedHistory.length > 0) ? computeAdaptiveLambda(sortedHistory) : 0.08;
@@ -748,7 +749,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const sortedForTrendCap = [...validHistoryForTrend].sort((a, b) => {
         const timeA = safeDateParse(a.date || a.createdAt).getTime();
         const timeB = safeDateParse(b.date || b.createdAt).getTime();
-        return (timeA || 0) - (timeB || 0);
+        const aVal = Number.isFinite(timeA) ? timeA : 0;
+        const bVal = Number.isFinite(timeB) ? timeB : 0;
+        return aVal - bVal;
     });
     
     const lastScore = sortedForTrendCap.length > 0
