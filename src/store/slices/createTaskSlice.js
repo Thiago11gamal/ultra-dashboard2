@@ -67,7 +67,7 @@ export const createTaskSlice = (set, get) => ({
             if (category) {
                 const task = category.tasks.find(t => t.id === taskId);
                 if (task && task.completed) {
-                    pendingXpDeduction = task.awardedXP || 150;
+                    pendingXpDeduction = task.awardedXP || Math.abs(getTaskXP(task, true));
                 }
                 category.tasks = category.tasks.filter(t => t.id !== taskId);
             }

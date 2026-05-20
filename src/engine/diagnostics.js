@@ -371,7 +371,8 @@ export function computeConsistencyIndex(history, maxScore = 100) {
   const scores = sorted.map((h) => Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore))));
   const mu = _mean(scores);
 
-  const mad = _median(scores.map((s) => Math.abs(s - mu)));
+  const med = _median(scores);
+  const mad = _median(scores.map((s) => Math.abs(s - med)));
   const robustSD = 1.4826 * mad;
 
   const referenceScale = Math.max(1, mu);

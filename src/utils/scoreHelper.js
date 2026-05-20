@@ -25,7 +25,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
     
     // Suporte para entrada direta de números (utilitários matemáticos)
     if (typeof historyRow === 'number') {
-        return Math.max(-safeMaxScore, Math.min(safeMaxScore, historyRow));
+        return Math.max(0, Math.min(safeMaxScore, historyRow));
     }
 
     if (!historyRow) return NaN;
@@ -64,7 +64,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
             s = (normalizePercentInput(s) / 100) * safeMaxScore;
         }
 
-        return Number.isFinite(s) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, s)) : NaN;
+        return Number.isFinite(s) ? Math.max(0, Math.min(safeMaxScore, s)) : NaN;
     }
 
     // CORREÇÃO: Tratar campos vazios como Inválidos (NaN) e não como Zeros absolutos.
@@ -92,12 +92,12 @@ export function getSafeScore(historyRow, maxScore = 100) {
         // FIX: score já foi verificado como null, então usamos `correct` como valor percentual direto.
         const pValue = normalizePercentInput(correct);
         const scoreFromPercentage = (pValue / 100) * safeMaxScore;
-        return Number.isFinite(scoreFromPercentage) ? Math.max(-safeMaxScore, Math.min(safeMaxScore, scoreFromPercentage)) : NaN;
+        return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(safeMaxScore, scoreFromPercentage)) : NaN;
     }
 
     // Fallback de retrocompatibilidade para provas clássicas (correct / total)
     if (total > 0) {
-        return Math.max(-safeMaxScore, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
+        return Math.max(0, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
     }
 
     return NaN; // Prevenção de NaN (antigo fallback 0 removido para evitar bias de volatilidade)

@@ -292,23 +292,8 @@ export default function Coach() {
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore), [combinedHistory, currentMaxScore]);
     const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
 
-    const analysisHash = useMemo(() => {
-        // HASH-GUARD: Evita loop infinito se a análise persistir métricas que alteram o 'data'.
-        // Cria uma soma de verificação rápida baseada nas pontuações reais
-        // Se a pessoa editar um score de 50 para 60, o hash muda e o Coach recalcula.
-        const scoreSum = history.reduce((acc, curr) => acc + (Number(curr.score) || 0), 0);
-        const studyFingerprint = (data?.studyLogs || []).length;
-        const updatedAt = data?.updatedAt || 0;
-        
-        return `${history.length}-${Math.round(scoreSum)}-${studyFingerprint}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}-${updatedAt}`;
-    }, [history, data?.studyLogs, categories.length, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore, data?.updatedAt]);
-
-    const lastHashRef = useRef('');
-
     useEffect(() => {
         if (!data?.categories || !isHydrated) return;
-        if (analysisHash === lastHashRef.current) return;
-        lastHashRef.current = analysisHash;
 
         let metricsTimer = null;
         // UX-FLUIDITY FIX: agenda o cálculo pesado para o próximo ciclo.
@@ -352,7 +337,6 @@ export default function Coach() {
             if (metricsTimer) clearTimeout(metricsTimer);
         };
     }, [
-        analysisHash,
         isHydrated,
         data?.categories, 
         data?.simuladoRows, 

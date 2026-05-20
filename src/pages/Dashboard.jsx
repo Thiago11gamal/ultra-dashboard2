@@ -56,10 +56,14 @@ export default function Dashboard() {
     }), [categories, simuladoRows, studyLogs, user, pomodorosCompleted]);
 
     const setGoalDate = React.useCallback((d) => setData(contest => {
-        if (contest) {
-            if (!contest.user) contest.user = {};
-            contest.user.goalDate = d || null;
-        }
+        if (!contest) return contest;
+        return {
+            ...contest,
+            user: {
+                ...(contest.user || {}),
+                goalDate: d || null
+            }
+        };
     }), [setData]);
 
     const handleStartStudying = React.useCallback((categoryId, taskId) => {
@@ -76,22 +80,25 @@ export default function Dashboard() {
                 source: 'dashboard'
             });
 
-            // Set studying status garantindo que opera apenas no concurso ativo
             setData(activeContest => {
-                if (activeContest && activeContest.categories) {
-                    const category = activeContest.categories.find(c => c.id === cat.id);
-                    if (category) {
-                        const task = category.tasks?.find(t => t.id === tsk.id);
-                        if (task) {
-                            activeContest.categories.forEach(c => {
-                                (c.tasks || []).forEach(t => {
-                                    if (t.status === 'studying') t.status = undefined;
-                                });
-                            });
-                            task.status = 'studying';
-                        }
-                    }
-                }
+                if (!activeContest || !activeContest.categories) return activeContest;
+                return {
+                    ...activeContest,
+                    categories: activeContest.categories.map(c => {
+                        return {
+                            ...c,
+                            tasks: (c.tasks || []).map(t => {
+                                if (c.id === cat.id && t.id === tsk.id) {
+                                    return { ...t, status: 'studying' };
+                                }
+                                if (t.status === 'studying') {
+                                    return { ...t, status: undefined };
+                                }
+                                return t;
+                            })
+                        };
+                    })
+                };
             });
             const taskLabel = tsk.title || tsk.text || 'Estudo';
             showToast(`Iniciando estudos: ${cat.name} - ${taskLabel}`, 'success');

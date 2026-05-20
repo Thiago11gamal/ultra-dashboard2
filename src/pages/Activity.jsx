@@ -75,15 +75,24 @@ export default function Activity() {
         <div className="space-y-8 animate-fade-in pb-10">
             {/* Modal de Reset Premium */}
             {showResetModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                <div 
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="reset-modal-title"
+                >
                     <div
-                        className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity"
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Fechar modal"
+                        className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity cursor-pointer"
                         onClick={() => setShowResetModal(false)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowResetModal(false); }}
                     />
                     <div className="relative bg-slate-900 border border-red-500/20 rounded-3xl p-8 w-full max-w-md shadow-2xl shadow-red-900/20 animate-fade-in">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500 rounded-t-3xl" />
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                            <h3 id="reset-modal-title" className="text-xl font-bold text-white flex items-center gap-2">
                                 <RotateCcw size={20} className="text-red-400" />
                                 Resetar Dados Gamificados
                             </h3>

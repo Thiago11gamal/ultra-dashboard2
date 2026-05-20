@@ -44,10 +44,11 @@ const sanitizeWeightUnit = (value) => {
 const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
 
 function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
+    const safeSD = Number.isFinite(dailySD) ? dailySD : 0;
     const informativeSD = VOLATILITY_REGULARIZATION_FACTOR * domain / Math.sqrt(Math.max(1, projectionDays));
     const priorStrength = Math.max(1.0, INFORMATIVE_PRIOR_MAX_STRENGTH - Math.log2(historyLength + 1));
     const n = Math.max(1, historyLength);
-    const regularizedVariance = (dailySD * dailySD * n + informativeSD * informativeSD * priorStrength) / (n + priorStrength);
+    const regularizedVariance = (safeSD * safeSD * n + informativeSD * informativeSD * priorStrength) / (n + priorStrength);
     return Math.sqrt(regularizedVariance);
 }
 
@@ -125,7 +126,7 @@ function computeCalibrationPenalty(mcHistory, globalHistory, maxScore) {
 
     let calibrationPenalty = 0;
     if (brierWeightSum > 0 || residualWeightSum > 0) {
-        const avgBrier = brierWeightSum > 0 ? brierSum / brierWeightSum : 0.18;
+        const avgBrier = brierWeightSum > 0 ? brierSum / brierWeightSum : 0; // 0.18 fallback produced 0 penalty anyway
         const avgResidual = residualWeightSum > 0 ? residualSum / residualWeightSum : 0;
         
         const rawBrierPenalty = Math.max(0, avgBrier - 0.18);
@@ -586,7 +587,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const projectionConfidence = Math.max(0, 1 - Math.pow(saturation, 1.5));
         const pBaseline = (domainWidth > 0) ? Math.max(0, (maxScore - debouncedTarget) / domainWidth) * 100 : 0;
         const pAdjusted = probability * projectionConfidence + pBaseline * (1 - projectionConfidence);
-        const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / Math.max(1, sd)) * 100;
+        const safeSdForTrend = Number.isFinite(sd) && sd > 0 ? sd : 1;
+        const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / safeSdForTrend) * 100;
 
         // Historico para tamanho da amostra
         const nHistory = Array.isArray(statsData?.globalHistory) ? statsData.globalHistory.length : (timelineDates?.length || 0);
@@ -703,7 +705,7 @@ function useMonteCarloHistoryRecorder({
             
             // 🎯 CI-COLLAPSE FIX: Desativar needsUpdate por colapso de CI se projectDays === 0.
             // No dia do exame, o cone de incerteza colapsa para zero por definição matemática.
-            const isCICollapsed = Math.abs(existing?.mean - (existing?.ci95Low || 0)) < 0.01;
+            const isCICollapsed = existing && Number.isFinite(existing.mean) && Number.isFinite(existing.ci95Low) ? Math.abs(existing.mean - existing.ci95Low) < 0.01 : false;
             const needsUpdate = !existing || existing.ci95Low === undefined || (isCICollapsed && projectDays > 0);
             const probChanged = existing && Math.abs(existingProb - currentProb) > 0.3; // Threshold maior para evitar micro-oscilações
 

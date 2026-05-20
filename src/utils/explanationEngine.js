@@ -137,11 +137,11 @@ export function normalizeAlertSeverity(severity, confidenceTier) {
     };
 }
 
-export function smoothConfidenceTier({ previousTier, currentTier, stabilityCounter }) {
+export function smoothConfidenceTier({ previousTier, currentTier, stabilityCounter = 0 }) {
     if (previousTier && previousTier !== currentTier && stabilityCounter < 3) {
-        return previousTier;
+        return { tier: previousTier, stabilityCounter: stabilityCounter + 1 };
     }
-    return currentTier;
+    return { tier: currentTier, stabilityCounter: 0 };
 }
 
 export function humanizeVolatility(sd) {

@@ -264,7 +264,7 @@ export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
 
     // Produtividade (tarefas por hora - apenas display numérico)
     const tasksPerHour = totalMinutes > 0 ?
-        (completedTasks / (totalMinutes / 60)).toFixed(2) : 0;
+        parseFloat((completedTasks / (totalMinutes / 60)).toFixed(2)) : 0;
 
     // Análise de tarefas de alta prioridade
     const highPriorityTasks = safeCategories.flatMap(c =>

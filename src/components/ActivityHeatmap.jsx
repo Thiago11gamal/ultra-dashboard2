@@ -7,11 +7,12 @@ import { normalizeDate, formatDuration } from '../utils/dateHelper';
 function ActivityHeatmap({ studyLogs = [] }) {
     const [monthOffset, setMonthOffset] = React.useState(0);
 
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     const currentMonth = useMemo(() => {
         const base = new Date();
         return monthOffset < 0 ? subMonths(base, Math.abs(monthOffset)) :
             monthOffset > 0 ? addMonths(base, monthOffset) : base;
-    }, [monthOffset]);
+    }, [monthOffset, todayStr]);
 
     const calendarData = useMemo(() => {
         const start = startOfMonth(currentMonth);

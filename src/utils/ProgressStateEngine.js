@@ -63,11 +63,12 @@ export function analyzeProgressState(scores, config = {}) {
     }).sort((a, b) => a.safeTime - b.safeTime)
       .map(item => item.original);
 
-    const recentData = sortedScores.slice(-safeWindowSize);
-    const recentScores = recentData.map(d => typeof d === 'object' ? d.score : d);
-
-    // FIX MATH-2026-05-05: Sanitizar score para manter mean/variance/slope estáveis com entradas inválidas.
-    const finiteRecentScores = recentScores.map(v => Number.isFinite(v) ? v : 0);
+    const validSortedScores = sortedScores.filter(d => {
+        const score = typeof d === 'object' ? d.score : d;
+        return Number.isFinite(score);
+    });
+    const recentData = validSortedScores.slice(-safeWindowSize);
+    const finiteRecentScores = recentData.map(d => typeof d === 'object' ? d.score : d);
 
     // FIX: Prevenir a contaminação matemática por 'NaN' se a data for inválida ou inexistente.
     const recentDates = recentData.map((d, index) => {

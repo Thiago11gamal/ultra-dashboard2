@@ -52,6 +52,9 @@ const flushPendingIDBSaves = () => {
                 } else {
                     console.warn("[Storage] Estado muito grande para LocalStorage (>4MB). Salvamento delegado exclusivamente ao IDB.");
                 }
+                
+                // Also flush to IDB immediately
+                try { idbSet(name, serializedSlim); } catch(e) { /* best-effort */ }
             } catch (err) {
                 console.error("[Storage] Quota excedida no fallback.", err);
             }

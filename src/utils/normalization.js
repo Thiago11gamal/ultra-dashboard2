@@ -58,6 +58,6 @@ export const safeNormalize = (val, max, min) => {
  * Divisão segura global para evitar Infinity ou NaN.
  */
 export const safeDivide = (numerator, denominator, fallback = 0) => {
-    if (denominator === 0 || isNaN(denominator)) return fallback;
+    if (Number.isNaN(numerator) || denominator === 0 || Number.isNaN(denominator)) return fallback;
     return numerator / denominator;
 };

@@ -155,13 +155,7 @@ export default function AICoachPlanner() {
         const updatedPlanner = { ...coachPlanner };
         if (source.droppableId !== 'backlog') updatedPlanner[source.droppableId] = startList;
         if (destination.droppableId !== 'backlog') updatedPlanner[destination.droppableId] = finishList;
-        updateCoachPlanner(updatedPlanner);
         
-        // NOVA CORREÇÃO: Limpar o array mestre quando arrasta FORA do backlog
-        // CORREÇÃO: Não deletamos do array mestre (coachPlan). 
-        // Apenas atualizamos a fonte de dados do planejador. 
-        // Se deletarmos daqui, a tarefa evapora se o usuário sair da página sem salvar ou se houver re-render.
-
         if (destination.droppableId === 'backlog') {
             const assignedIds = new Set();
             Object.entries(updatedPlanner).forEach(([key, dayTasks]) => { 
@@ -173,15 +167,23 @@ export default function AICoachPlanner() {
                 }
             });
             
-            // CORREÇÃO DE DADOS E VISUAL: 
-            // 1. O spread de `finishList` preserva a ordem exata do drag (acaba com o rubber-banding).
-            // 2. O filtro recupera TODAS as tarefas agendadas nos outros dias (evita o apagamento silencioso).
             const newCoachPlan = [
                 ...finishList,
                 ...(coachPlan || []).filter(t => assignedIds.has(getSafeId(t))) 
             ];
             
-            setData(prev => ({ ...prev, coachPlan: newCoachPlan }));
+            setData(prev => {
+                if (prev) {
+                    prev.coachPlanner = updatedPlanner;
+                    prev.coachPlan = newCoachPlan;
+                }
+            });
+        } else {
+            setData(prev => {
+                if (prev) {
+                    prev.coachPlanner = updatedPlanner;
+                }
+            });
         }
         setIsDragging(false);
     };

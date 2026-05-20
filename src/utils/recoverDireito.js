@@ -70,6 +70,14 @@ async function recoverDireitoContest() {
         // Salvar de volta
         localStorage.setItem('ultra-dashboard-storage', JSON.stringify(localWrapped));
         
+        // CORREÇÃO: Apagar IndexedDB para garantir que Zustand hidrate do LocalStorage
+        try {
+            const { del } = await import('idb-keyval');
+            await del('ultra-dashboard-storage');
+        } catch (e) {
+            console.warn('[Rescue] Não foi possível limpar IndexedDB. O resgate pode ser sobrescrito.');
+        }
+        
         console.log("%c[Rescue] Injeção concluída! Reiniciando o app...", "color: #22c55e; font-weight: bold;");
         
         setTimeout(() => {

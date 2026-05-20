@@ -417,15 +417,18 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         <div className="flex gap-1.5 w-full md:contents items-center justify-end md:justify-center mt-1 md:mt-0 pt-1 md:pt-0 border-t border-white/5 md:border-t-0">
                                             <div className="md:hidden text-[10px] font-bold text-slate-500 uppercase mr-auto">Acertos / Total</div>
                                             <input type="number" min="0" value={row.correct}
+                                                disabled={loading}
                                                 onChange={(e) => updateRow(index, 'correct', e.target.value)}
-                                                className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-green-400 font-mono text-center w-14 md:w-full focus:border-green-500/50 focus:bg-slate-900 transition-colors py-0.5" />
+                                                className={`bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-green-400 font-mono text-center w-14 md:w-full focus:border-green-500/50 focus:bg-slate-900 transition-colors py-0.5 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`} />
                                             <input type="number" min="0" value={row.total}
+                                                disabled={loading}
                                                 onChange={(e) => updateRow(index, 'total', e.target.value)}
-                                                className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-14 md:w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5" />
+                                                className={`bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-14 md:w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`} />
                                             <select 
                                                 value={row.difficulty || 1.0}
+                                                disabled={loading}
                                                 onChange={(e) => updateRow(index, 'difficulty', e.target.value)}
-                                                className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-[10px] text-purple-400 font-bold text-center w-14 md:w-full focus:border-purple-500/50 focus:bg-slate-900 transition-colors py-1"
+                                                className={`bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-[10px] text-purple-400 font-bold text-center w-14 md:w-full focus:border-purple-500/50 focus:bg-slate-900 transition-colors py-1 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             >
                                                 <option value={0.7}>0.7 (F)</option>
                                                 <option value={1.0}>1.0 (M)</option>
