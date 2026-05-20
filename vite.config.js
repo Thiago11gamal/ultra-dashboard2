@@ -2,8 +2,37 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+import { VitePWA } from 'vite-plugin-pwa'
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(), 
+    tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      devOptions: { enabled: false },
+      manifest: {
+        name: 'Ultra Dashboard 2',
+        short_name: 'Ultra',
+        description: 'Plataforma inteligente de estudos e simulados',
+        theme_color: '#0f172a',
+        background_color: '#020617',
+        display: 'standalone',
+        icons: [
+          {
+            src: 'https://cdn-icons-png.flaticon.com/512/1157/1157077.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: 'https://cdn-icons-png.flaticon.com/512/1157/1157077.png',
+            sizes: '512x512',
+            type: 'image/png',
+          }
+        ]
+      }
+    })
+  ],
   envPrefix: ['VITE_', 'ID_', 'BALDE_', 'CHAVE_', 'TOKEN_'],
   server: {
     port: 5173,
