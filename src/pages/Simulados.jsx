@@ -14,17 +14,8 @@ export default function Simulados() {
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
 
-    // BUG-11/20 FIX: Guarda de segurança contra estado vazio
-    if (!data || !data.categories) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
-            </div>
-        );
-    }
-
     const displayRows = React.useMemo(() => {
+        if (!data || !data.categories) return [];
         const todayKey = getDateKey(normalizeDate(new Date()));
         const rawTodayRows = (data.simuladoRows || []).filter(
             r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
@@ -86,7 +77,18 @@ export default function Simulados() {
             }
         });
         return rows;
-    }, [data.categories, data.simuladoRows]);
+    }, [data]);
+
+    // BUG-11/20 FIX: Guarda de segurança contra estado vazio
+    if (!data || !data.categories) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
+            </div>
+        );
+    }
+
 
     // manual rows are no longer supported
 

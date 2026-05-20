@@ -74,7 +74,7 @@ async function recoverDireitoContest() {
         try {
             const { del } = await import('idb-keyval');
             await del('ultra-dashboard-storage');
-        } catch (e) {
+        } catch {
             console.warn('[Rescue] Não foi possível limpar IndexedDB. O resgate pode ser sobrescrito.');
         }
         

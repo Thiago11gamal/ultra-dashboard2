@@ -54,7 +54,7 @@ const flushPendingIDBSaves = () => {
                 }
                 
                 // Also flush to IDB immediately
-                try { idbSet(name, serializedSlim); } catch(e) { /* best-effort */ }
+                try { idbSet(name, serializedSlim); } catch { /* best-effort */ }
             } catch (err) {
                 console.error("[Storage] Quota excedida no fallback.", err);
             }

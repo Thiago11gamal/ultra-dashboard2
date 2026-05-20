@@ -112,7 +112,7 @@ export default function AICoachPlanner() {
     const activeContest  = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const coachPlanner   = activeContest?.coachPlanner || DEFAULT_PLANNER;
     const coachPlan      = useMemo(() => activeContest?.coachPlan || [], [activeContest?.coachPlan]);
-    const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
+
     const setData        = useAppStore(state => state.setData);
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();
