@@ -130,7 +130,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const sdBarGlow = safeColor.replace('text-', 'shadow-') + '/30';
 
     return (
-        <div className={`grid grid-cols-[1fr_auto_80px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] overflow-hidden ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
+        <div className={`grid grid-cols-[1fr_auto_100px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] overflow-hidden ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
             <div className="col-span-1 md:col-span-3 flex items-center gap-2 min-w-0">
                 <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${safeBgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
                 <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
@@ -160,9 +160,9 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
             <div className="hidden md:flex md:col-span-2 flex-col justify-center gap-0.5 min-w-0 pr-1">
                 {cat.villains && cat.villains.length > 0 ? (
                     cat.villains.slice(0, 2).map((v) => (
-                        <div key={v.name} className="relative flex items-center justify-center text-[12px] leading-tight min-h-[14px]">
-                            <span className="text-slate-400 truncate max-w-[70px] font-semibold text-center" title={v.name}>{v.name.length > 15 ? v.name.substring(0, 14) + '…' : v.name}</span>
-                            <span className="absolute right-0 text-red-400 font-mono font-black text-[12px]">±{v.sd.toFixed(0)}</span>
+                        <div key={v.name} className="flex items-center justify-between gap-1 text-[12px] leading-tight min-h-[14px] w-full px-1">
+                            <span className="text-slate-400 truncate font-semibold" title={v.name}>{v.name}</span>
+                            <span className="text-red-400 font-mono font-black shrink-0">±{v.sd.toFixed(0)}</span>
                         </div>
                     ))
                 ) : (
@@ -182,10 +182,10 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
 
     return (
         <div className="flex flex-col gap-1">
-            <div className="grid grid-cols-[1fr_auto_80px] md:grid-cols-12 gap-2 px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-normal border-b border-white/5 mb-1 overflow-hidden">
+            <div className="grid grid-cols-[1fr_auto_100px] md:grid-cols-12 gap-2 px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-normal border-b border-white/5 mb-1 overflow-hidden">
                 <div className="md:col-span-3">Matéria</div>
                 <div className="text-center md:col-span-2">Status</div>
-                <div className="text-center md:col-span-4">Estabilidade (SD inverso)</div>
+                <div className="text-center md:col-span-4" title="Estabilidade (SD inverso)">Estabilidade</div>
                 <div className="hidden md:block md:col-span-1 text-center">Δ</div>
                 <div className="hidden md:block md:col-span-2 text-center">Vilões</div>
             </div>
@@ -386,9 +386,11 @@ export default function VerifiedStats({ categories = [], user }) {
         // D-02 FIX: Unificar unidades. PSE retorna pp/sessão. Multiplicamos por 30 (pp/30d) 
         // para alinhar com o Coach e threshold de 0.5.
         const trend30d = globalAnalysis.trend_slope * 30;
+        // Threshold relativo: 0.5% do teto por 30 dias, mínimo 0.5 absoluto para maxScore=100
+        const trendThreshold = Math.max(0.5, 0.005 * maxScore);
         const trend = !hasEnoughData ? 'insufficient' :
-            (trend30d > 0.5 ? 'up' :
-                trend30d < -0.5 ? 'down' : 'stable');
+            (trend30d > trendThreshold ? 'up' :
+                trend30d < -trendThreshold ? 'down' : 'stable');
         const trendValue = trend30d;
 
         // 2. Linear Regression & Contextual Prediction

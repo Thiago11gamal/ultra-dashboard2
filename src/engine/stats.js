@@ -385,18 +385,24 @@ export function computeBayesianLevel(
     const refDateObj = options.referenceDate ? normalizeDate(options.referenceDate) : null;
     const now = refDateObj ? refDateObj.getTime() : Date.now();
 
-    if (history && history.length > 0) {
-        // OTIMIZAÇÃO: Pré-calcular tempos para evitar vazamento de memória no sort
-        const historyWithTime = history.map(h => ({
-            ...h,
-            _parsedTime: getHistoryTime(h)
+    const _computeEmpiricalPrior = (histSlice, safeMaxScore, options) => {
+        if (!histSlice || histSlice.length === 0) return 0.5;
+        const val = kahanMean(histSlice.map(x => {
+            let rawPct = getSafeScore(x, safeMaxScore) / safeMaxScore;
+            if (options.isPenalizedFormat) {
+                rawPct = Math.max(0.05, (rawPct + 1) / 2);
+            } else {
+                rawPct = Math.max(0, rawPct);
+            }
+            return Math.min(1, rawPct);
         }));
-        
-        const sortedHistory = historyWithTime.sort((a, b) => {
-            const timeA = Number.isFinite(a._parsedTime) ? a._parsedTime : 0;
-            const timeB = Number.isFinite(b._parsedTime) ? b._parsedTime : 0;
-            return timeA - timeB;
-        });
+        return Number.isFinite(val) ? val : 0.5;
+    };
+
+    const globalEmpiricalPrior = _computeEmpiricalPrior(historySortedForGaps, safeMaxScore, options);
+
+    if (history && history.length > 0) {
+        const sortedHistory = historySortedForGaps;
         
         for (let i = 0; i < sortedHistory.length; i++) {
             const h = sortedHistory[i];
@@ -451,18 +457,7 @@ export function computeBayesianLevel(
                 
                 // CORREÇÃO: A regressão à média em tempos de inatividade deve ancorar-se 
                 // no patamar consolidado do aluno, não num lançamento de moeda (0.5).
-                const empiricalPrior = historySortedForGaps.length > 0 
-                    ? kahanMean(historySortedForGaps.map(x => {
-                        let rawPct = getSafeScore(x, safeMaxScore) / safeMaxScore;
-                        if (options.isPenalizedFormat) {
-                            rawPct = Math.max(0.05, (rawPct + 1) / 2);
-                        } else {
-                            rawPct = Math.max(0, rawPct);
-                        }
-                        return Math.min(1, rawPct);
-                    }))
-                    : 0.5;
-                const priorP = Number.isFinite(empiricalPrior) ? empiricalPrior : 0.5;
+                const priorP = globalEmpiricalPrior;
                 const regressedP = (currentP * entryDecay) + (priorP * (1 - entryDecay));
 
                 alpha = nAfterDecay * regressedP;
@@ -528,18 +523,8 @@ export function computeBayesianLevel(
             const nAfterDecay = Math.max(epistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
             
             // O mesmo tratamento de patamar empírico para o gap final (Hoje)
-            const empiricalPriorFinal = sortedHistory.length > 0 
-                ? kahanMean(sortedHistory.map(x => {
-                    let rawPct = getSafeScore(x, safeMaxScore) / safeMaxScore;
-                    if (options.isPenalizedFormat) {
-                        rawPct = Math.max(0.05, (rawPct + 1) / 2);
-                    } else {
-                        rawPct = Math.max(0, rawPct);
-                    }
-                    return Math.min(1, rawPct);
-                }))
-                : 0.5;
-            const regressedP = (currentP * finalDecay) + ((Number.isFinite(empiricalPriorFinal) ? empiricalPriorFinal : 0.5) * (1 - finalDecay));
+            const empiricalPriorFinal = globalEmpiricalPrior;
+            const regressedP = (currentP * finalDecay) + (empiricalPriorFinal * (1 - finalDecay));
 
             alpha = nAfterDecay * regressedP;
             beta = nAfterDecay * (1 - regressedP);
@@ -799,7 +784,9 @@ export const calculateEMA = (scores, alpha = 0.25) => {
     for (let i = 1; i < scores.length; i++) {
         // Dinamismo: O alpha deve ser maior se a nota subiu muito (absorvemos o sucesso rápido,
         // mas resistimos à queda brusca - Princípio do Benefício da Dúvida).
-        const trendBonus = scores[i] > ema ? 0.05 : 0;
+        const deviation = Math.abs(scores[i] - ema);
+        const range = Math.max(1, scores[0]); // âncora na escala do primeiro score
+        const trendBonus = Math.min(0.1, 0.05 * (deviation / range));
         const currentAlpha = Math.min(1, alpha + trendBonus);
         
         ema = (scores[i] * currentAlpha) + (ema * (1 - currentAlpha));

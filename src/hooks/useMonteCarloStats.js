@@ -118,8 +118,9 @@ function computeCalibrationPenalty(mcHistory, globalHistory, maxScore) {
         const target = Number(snapshot.target) || 0;
         if (target > 0) {
             const observed = actual.score >= target ? 1 : 0;
-            // MATH FIX: Usar Log Loss para capturar "Falsa Sensação de Domínio" (Entropia)
-            brierSum += computeLogLoss(p, observed === 1) * weight;
+            // BUG C FIX: Brier Score (escala 0-1) coerente com baseline 0.18
+            const brierScore = (p - observed) ** 2;
+            brierSum += brierScore * weight;
             brierWeightSum += weight;
         }
     });
@@ -186,8 +187,13 @@ function generateAnalyticsStats({
             if (stats && weight > 0) {
                 totalWeight += weight;
                 const strength = baye.alpha + baye.beta;
-                const normAlpha = (baye.alpha / strength) * 10; // Força constante de 10 questões
-                const normBeta = (baye.beta / strength) * 10;
+                // Teto de 50 para evitar que uma matéria com 1000 simulados domine o pool,
+                // mas mantém a diferença entre 5 e 50 simulados (informação relevante)
+                const CONFIDENCE_CAP = 50;
+                const cappedStrength = Math.min(strength, CONFIDENCE_CAP);
+                const capFactor = cappedStrength / Math.max(1e-9, strength);
+                const normAlpha = baye.alpha * capFactor;   // proporcional à certeza real
+                const normBeta  = baye.beta  * capFactor;
 
                 weightedBayesianAlpha += normAlpha * weight;
                 weightedBayesianBeta += normBeta * weight;

@@ -180,11 +180,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             )}
 
             {/* Timeline Content */}
-            <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[54px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
+            <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[34px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
                 {groups.map((dayGroup) => (
                     <div key={dayGroup.dateObj.toISOString()} className="relative z-10">
                         {/* Day Marker */}
-                        <div className="absolute -left-[14px] sm:-left-[54px] top-0 flex flex-col items-center w-7 sm:w-14">
+                        <div className="absolute -left-[47px] sm:-left-[73px] top-0 flex flex-col items-center w-7 sm:w-14">
                             <div className={`w-7 h-7 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl flex flex-col items-center justify-center shadow-xl border-2 sm:border-4 ${dayGroup.isToday
                                 ? 'bg-purple-600 border-slate-900 text-white scale-110'
                                 : 'bg-slate-800 border-slate-900 text-slate-400'
