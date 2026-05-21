@@ -17,7 +17,7 @@ import {
     winsorizeSeries, 
     computeAdaptiveSignal 
 } from '../utils/adaptiveMath.js';
-import { shrinkProbabilityToNeutral, computeLogLoss } from '../utils/calibration.js';
+import { shrinkProbabilityToNeutral } from '../utils/calibration.js';
 import { 
     getConfidenceTier, 
     buildHumanExplanation, 

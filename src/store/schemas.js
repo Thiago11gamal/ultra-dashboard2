@@ -25,10 +25,6 @@ const repairContestHistory = (data) => {
 
   // DIAGNOSTIC CORE: Log summary of what we are dealing with
   const rawSubjects = [...new Set(rows.map(r => normalize(r.subject)).filter(Boolean))];
-  if (import.meta.env.DEV) {
-    console.log("%c[Schema-Diag] Matérias brutas na nuvem:", "color: #3b82f6; font-weight: bold;", rawSubjects);
-    console.log("%c[Schema-Diag] Categorias no Dashboard:", "color: #a855f7; font-weight: bold;", data.categories.map(c => normalize(c.name)));
-  }
 
   data.categories.forEach(cat => {
     const catNorm = normalize(cat.name);
@@ -47,7 +43,6 @@ const repairContestHistory = (data) => {
     });
 
     if (myRows.length === 0) {
-      console.warn(`[Schema-Diag] Nenhuma correspondência para: ${cat.name}`);
       return;
     }
 
@@ -68,7 +63,6 @@ const repairContestHistory = (data) => {
     const repairThreshold = Math.ceil(currentHistory.length * 1.2);
 
     if (hasCorruptedHistory || dateCompressionBug || currentHistory.length === 0 || uniqueDaysInLogs > repairThreshold) {
-      console.log(`%c[Schema-Diag] REPARANDO ${cat.name}: ${uniqueDaysInLogs} dias vs ${currentHistory.length} no histórico.`, "color: #f59e0b;");
       hasRepaired = true;
 
       const dailyStats = {};
@@ -105,15 +99,10 @@ const repairContestHistory = (data) => {
         lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
         level: statsResult.level || (statsResult.mean > 0.7 * maxScore ? 'ALTO' : statsResult.mean > 0.4 * maxScore ? 'MÉDIO' : 'BAIXO')
       };
-    } else {
-      if (import.meta.env.DEV) {
-        console.log(`[Schema-Diag] ${cat.name} está íntegro (${currentHistory.length} pontos).`);
-      }
     }
   });
 
   if (hasRepaired) {
-    console.log(`%c[Schema-Repair] Cura letal concluída em ${rows.length} registros.`, "color: #10b981; font-weight: bold; font-size: 1.1em;");
     data.lastUpdated = new Date().toISOString();
   }
 
