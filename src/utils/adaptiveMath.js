@@ -266,17 +266,6 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     
     // MATEMÁTICA COMPLEXA: Em vez de linear trend clampada, usamos Bootstrapping 
     // para medir se o momento positivo é estatisticamente significativo ou só sorte.
-    
-    // Função para extrair a inclinação
-    const calcSlope = (amostra) => {
-        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        const n = amostra.length;
-        for (let i = 0; i < n; i++) {
-            sumX += i; sumY += amostra[i]; sumXY += i * amostra[i]; sumXX += i * i;
-        }
-        const det = n * sumXX - sumX * sumX;
-        return det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
-    };
 
     let trueTrendStrength = 0;
     let isPlateau = false;
@@ -304,7 +293,8 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         }
     } else {
        // Fallback matemático rigoroso para micro-amostras (N<5)
-       const shortSlope = calcSlope(finiteScores);
+       const slopeData = finiteScores.map((score, i) => ({ x: parsedData[i].time / 86400000, y: score }));
+       const { slope: shortSlope } = calcSlopeWithSignificance(slopeData);
        trueTrendStrength = sd > 1e-9 ? Math.min(3.0, Math.abs(shortSlope) / sd) : 0;
     }
 

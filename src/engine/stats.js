@@ -779,13 +779,14 @@ export const calculateEMA = (scores, alpha = 0.25) => {
     
     // O Marco Zero da EMA é estritamente o valor empírico mais antigo, NÃO ZERO. (Bug 4 Fix)
     let ema = scores[0]; 
+    const maxObserved = Math.max(1, ...scores);
     
     // Começa a iteração a partir do 1 (segundo simulado)
     for (let i = 1; i < scores.length; i++) {
         // Dinamismo: O alpha deve ser maior se a nota subiu muito (absorvemos o sucesso rápido,
         // mas resistimos à queda brusca - Princípio do Benefício da Dúvida).
         const deviation = Math.abs(scores[i] - ema);
-        const range = Math.max(1, scores[0]); // âncora na escala do primeiro score
+        const range = maxObserved; // âncora na escala máxima observada e não no primeiro score
         const trendBonus = Math.min(0.1, 0.05 * (deviation / range));
         const currentAlpha = Math.min(1, alpha + trendBonus);
         

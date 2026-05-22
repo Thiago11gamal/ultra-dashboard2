@@ -24,7 +24,6 @@ const repairContestHistory = (data) => {
   let hasRepaired = false;
 
   // DIAGNOSTIC CORE: Log summary of what we are dealing with
-  const rawSubjects = [...new Set(rows.map(r => normalize(r.subject)).filter(Boolean))];
 
   data.categories.forEach(cat => {
     const catNorm = normalize(cat.name);
