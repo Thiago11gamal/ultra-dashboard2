@@ -1,6 +1,7 @@
 import { generateId } from '../../utils/idGenerator';
 import { INITIAL_DATA } from '../../data/initialData';
 import { safeClone } from '../safeClone.js';
+import { current } from 'immer';
 
 // BUG-FIX: Pomodoro reset shape estava incompleto (mode/neuralQueue/neuralMode ausentes),
 // causando crash silencioso no timer quando o concurso era trocado/deletado.
@@ -21,7 +22,7 @@ export const createContestSlice = (set) => ({
 
         state.appState.activeId = targetId;
 
-        if (state.appState.pomodoro.activeSubject) {
+        if (state.appState.pomodoro?.activeSubject) {
             state.appState.pomodoro = { ...RESET_POMODORO };
             localStorage.removeItem('pomodoroState');
         }
@@ -60,7 +61,7 @@ export const createContestSlice = (set) => ({
                 id: generateId('trash'),
                 type: 'contest',
                 contestId: contestId,
-                data: safeClone(contestData),
+                data: safeClone(current(contestData)),
                 deletedAt: new Date().toISOString()
             });
         }
@@ -77,7 +78,7 @@ export const createContestSlice = (set) => ({
             }
         } else if (contestId === state.appState.activeId) {
             state.appState.activeId = remainingIds[0];
-            if (state.appState.pomodoro.activeSubject) {
+            if (state.appState.pomodoro?.activeSubject) {
                 state.appState.pomodoro = { ...RESET_POMODORO };
                 localStorage.removeItem('pomodoroState');
             }

@@ -61,10 +61,12 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             }
 
             const uniqueDayKey = getDateKey(dateObj) || dateStr;
+            const manausDayStr = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Manaus', day: 'numeric' }).format(dateObj);
 
             if (!grouped[uniqueDayKey]) grouped[uniqueDayKey] = {
                 label: dayLabel,
                 subLabel: weekDayName,
+                manausDayStr,
                 isToday,
                 isYesterday,
                 dateObj,
@@ -193,7 +195,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                 }`}>
                                 <span className="text-[7px] sm:text-[10px] font-bold uppercase">{dayGroup.subLabel.substring(0, 3)}</span>
                                 <span className={`text-[10px] sm:text-base font-black ${dayGroup.isToday ? 'text-white' : 'text-slate-200'}`}>
-                                     {dayGroup.dateObj.getDate()}
+                                     {dayGroup.manausDayStr}
                                  </span>
                             </div>
                         </div>

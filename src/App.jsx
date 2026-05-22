@@ -257,7 +257,7 @@ function MainLayout() {
   }
 
   return (
-    <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative overflow-x-hidden w-full max-w-[100vw]">
+    <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative overflow-x-hidden w-full">
       {(loading || subLoading) ? (
         <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
@@ -275,7 +275,7 @@ function MainLayout() {
               </Suspense>
             </div>
           ) : (
-            <div className="flex flex-col lg:grid lg:grid-cols-[auto_1fr] w-full h-screen overflow-hidden">
+            <div className="flex flex-col lg:grid lg:grid-cols-[auto_1fr] w-full h-dvh overflow-hidden">
               <Sidebar
                 onOpenHelp={() => setShowHelpGuide(true)}
                 isOpen={isSidebarOpen}
@@ -291,7 +291,7 @@ function MainLayout() {
                 onCloseMobile={() => setIsSidebarOpen(false)}
               />
 
-              <div className="flex flex-col h-screen w-full min-w-0 relative">
+              <div className="flex flex-col h-dvh w-full min-w-0 relative">
                 <Header
                   user={headerData.user}
                   settings={headerData.settings}
@@ -316,7 +316,7 @@ function MainLayout() {
 
                 <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
 
-                <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-0 pt-[65px] lg:pt-0 overflow-y-auto overflow-x-auto custom-scrollbar relative z-0">
+                <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-0 pt-[65px] lg:pt-0 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
                   {routesContent}
                 </main>
                 <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />

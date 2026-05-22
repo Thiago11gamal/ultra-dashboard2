@@ -29,18 +29,20 @@ export const createTrashSlice = (set) => ({
                 );
 
                 if (item.data.studyLogs) {
-                    contest.studyLogs = [...(contest.studyLogs || []), ...fixRef(item.data.studyLogs)];
+                    const safeLogs = Array.isArray(contest.studyLogs) ? contest.studyLogs : Object.values(contest.studyLogs || {});
+                    contest.studyLogs = [...safeLogs, ...fixRef(item.data.studyLogs)];
                 }
                 if (item.data.studySessions) {
-                    contest.studySessions = [...(contest.studySessions || []), ...fixRef(item.data.studySessions)];
+                    const safeSessions = Array.isArray(contest.studySessions) ? contest.studySessions : Object.values(contest.studySessions || {});
+                    contest.studySessions = [...safeSessions, ...fixRef(item.data.studySessions)];
                 }
-                // BUG-FIX: simuladoRows e simulados não eram restaurados na categoria,
-                // causando perda permanente dos resultados de simulados da categoria deletada.
                 if (item.data.simuladoRows?.length) {
-                    contest.simuladoRows = [...(contest.simuladoRows || []), ...fixRef(item.data.simuladoRows)];
+                    const safeRows = Array.isArray(contest.simuladoRows) ? contest.simuladoRows : Object.values(contest.simuladoRows || {});
+                    contest.simuladoRows = [...safeRows, ...fixRef(item.data.simuladoRows)];
                 }
                 if (item.data.simulados?.length) {
-                    contest.simulados = [...(contest.simulados || []), ...fixRef(item.data.simulados)];
+                    const safeSimulados = Array.isArray(contest.simulados) ? contest.simulados : Object.values(contest.simulados || {});
+                    contest.simulados = [...safeSimulados, ...fixRef(item.data.simulados)];
                 }
                 if (item.data.mcWeight !== undefined) {
                     if (!contest.mcWeights) contest.mcWeights = {};

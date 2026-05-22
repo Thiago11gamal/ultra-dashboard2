@@ -16,7 +16,7 @@ export default function Evolution() {
             const contest = contests[activeId] || {};
             return {
                 categories: contest.categories ?? EMPTY_ARRAY,
-                studyLogs: contest.studyLogs ?? EMPTY_ARRAY,
+                studyLogs: Array.isArray(contest.studyLogs) ? contest.studyLogs : Object.values(contest.studyLogs || {}),
                 monteCarloHistory: contest.monteCarloHistory ?? EMPTY_ARRAY,
                 user: contest.user,
                 unit: contest.unit || '%',

@@ -16,7 +16,7 @@ export default function Activity() {
     const achievementStats = React.useMemo(() => {
         if (!data) return null;
         
-        const studyLogs = data.studyLogs || [];
+        const studyLogs = Array.isArray(data.studyLogs) ? data.studyLogs : Object.values(data.studyLogs || {});
         const validSimulados = (data.simuladoRows || []).filter(r => r?.validated && Number(r?.total) > 0 && r?.correct !== undefined);
         const totalQuestions = validSimulados.reduce((acc, r) => acc + Number(r.total), 0);
         const totalCorrect = validSimulados.reduce((acc, r) => acc + Number(r.correct), 0);

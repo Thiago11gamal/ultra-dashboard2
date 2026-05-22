@@ -38,13 +38,14 @@ const distributeRoundingRemainder = (items, targetSum = 100) => {
 };
 
 export const calculateStudyStreak = (studyLogs) => {
-    if (!studyLogs || studyLogs.length === 0) {
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    if (!logsArray || logsArray.length === 0) {
         return { current: 0, best: 0, longest: 0, isActive: false };
     }
 
     // 1. Agrupar por dia único (YYYY-MM-DD local) para ignorar horas/minutos
     const daySet = new Set(
-        studyLogs.map(log => getDateKey(log.date)).filter(Boolean)
+        logsArray.map(log => getDateKey(log.date)).filter(Boolean)
     );
     const sortedDays = Array.from(daySet).sort((a, b) =>
         new Date(b) - new Date(a)
@@ -341,7 +342,8 @@ export const detectProcrastination = (categories, studyLogs) => {
     // Fix 3: Pre-index logs by taskId and categoryId to avoid O(logs) filter inside each loop
     const logsByTaskId = {};
     const logsByCategoryId = {};
-    (studyLogs || []).forEach(log => {
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    logsArray.forEach(log => {
         if (log.taskId) {
             if (!logsByTaskId[log.taskId]) logsByTaskId[log.taskId] = [];
             logsByTaskId[log.taskId].push(log);
@@ -420,8 +422,8 @@ export const detectProcrastination = (categories, studyLogs) => {
     // 3. Padrão de estudo irregular (< 3 dias na última semana)
     // BUGFIX: Removemos a trava de '.length >= 7' para permitir que o Coach detecte 
     // procrastinadores severos (justamente os que têm pouquíssimos logs).
-    if (studyLogs) {
-        const last7Days = (studyLogs || []).filter(log => {
+    if (logsArray.length > 0) {
+        const last7Days = logsArray.filter(log => {
             const logDate7 = normalizeDate(log.date);
             const daysDiff = logDate7 ? (normalizedNow - logDate7.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
             return daysDiff <= 7;

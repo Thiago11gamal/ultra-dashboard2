@@ -16,7 +16,7 @@ export default function Stats() {
         const contest = contests[activeId] || {};
         return {
             categories: contest.categories ?? EMPTY_ARRAY,
-            studyLogs: contest.studyLogs ?? EMPTY_ARRAY,
+            studyLogs: Array.isArray(contest.studyLogs) ? contest.studyLogs : Object.values(contest.studyLogs || {}),
             user: contest.user || null
         };
     }));

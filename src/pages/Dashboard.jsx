@@ -32,7 +32,7 @@ export default function Dashboard() {
         return {
             categories: contest.categories,
             simuladoRows: contest.simuladoRows,
-            studyLogs: contest.studyLogs,
+            studyLogs: Array.isArray(contest.studyLogs) ? contest.studyLogs : Object.values(contest.studyLogs || {}),
             user: contest.user,
             pomodorosCompleted: contest.pomodorosCompleted
         };

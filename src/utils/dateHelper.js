@@ -29,15 +29,15 @@ export const getDateKey = (rawDate) => {
         // Suporte ao padrão DD/MM/YYYY (importação/CSV)
         const parts = rawDate.split(/[/-]/);
         if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-            date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+            date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
         } else {
             date = new Date(rawDate);
         }
     } else if (typeof rawDate === 'string' && rawDate.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
         // FIX CRÍTICO: Strings YYYY-MM-DD interpretadas por new Date() como meia-noite UTC,
         // o que recua 1 dia em fusos negativos (ex: UTC-4, 00:00 UTC = 20:00 do dia anterior).
-        // Ao forçar T12:00:00 (meio-dia local), o dia do calendário fica estável em qualquer fuso.
-        date = new Date(`${rawDate}T12:00:00`);
+        // Ao forçar T12:00:00-04:00 (meio-dia de Manaus), o dia do calendário fica 100% ancorado ao fuso alvo.
+        date = new Date(`${rawDate}T12:00:00-04:00`);
     } else {
         date = new Date(rawDate);
     }
@@ -103,12 +103,12 @@ export const normalizeDate = (raw) => {
     } else if (typeof raw === 'string' && raw.includes('/')) {
         const parts = raw.split(/[/-]/);
         if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-            d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+            d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
         } else {
             d = new Date(raw);
         }
     } else if (typeof raw === 'string') {
-        d = isDateOnly ? new Date(`${raw}T12:00:00`) : new Date(raw);
+        d = isDateOnly ? new Date(`${raw}T12:00:00-04:00`) : new Date(raw);
     } else {
         d = new Date(raw);
     }

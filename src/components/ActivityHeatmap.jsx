@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { normalizeDate, formatDuration } from '../utils/dateHelper';
+import { normalizeDate, formatDuration, getDateKey } from '../utils/dateHelper';
 
 function ActivityHeatmap({ studyLogs = [] }) {
     const [monthOffset, setMonthOffset] = React.useState(0);
@@ -20,10 +20,11 @@ function ActivityHeatmap({ studyLogs = [] }) {
         const days = eachDayOfInterval({ start, end });
 
         const studyMap = {};
-        studyLogs.forEach(log => {
+        const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+        logsArray.forEach(log => {
             const rawDate = normalizeDate(log?.date);
             if (!rawDate) return;
-            const dateKey = format(rawDate, 'yyyy-MM-dd');
+            const dateKey = getDateKey(rawDate) || format(rawDate, 'yyyy-MM-dd');
             const minutes = Math.max(0, Number(log?.minutes) || 0);
             studyMap[dateKey] = (studyMap[dateKey] || 0) + minutes;
         });

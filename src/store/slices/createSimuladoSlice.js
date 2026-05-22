@@ -27,11 +27,13 @@ export const createSimuladoSlice = (set) => ({
         };
 
         if (activeData.simuladoRows) {
-            activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.date || r.createdAt));
+            const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
+            activeData.simuladoRows = safeRows.filter(r => !matchesDate(r.date || r.createdAt));
         }
 
         if (activeData.simulados) {
-            activeData.simulados = activeData.simulados.filter(s => !matchesDate(s.date || s.createdAt));
+            const safeSimulados = Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {});
+            activeData.simulados = safeSimulados.filter(s => !matchesDate(s.date || s.createdAt));
         }
 
         if (activeData.categories) {
@@ -41,7 +43,8 @@ export const createSimuladoSlice = (set) => ({
 
                 if (c.simuladoStats?.history) {
                     // Filtra o simulado excluído
-                    c.simuladoStats.history = c.simuladoStats.history.filter(h => !matchesDate(h.date));
+                    const safeHistory = Array.isArray(c.simuladoStats.history) ? c.simuladoStats.history : Object.values(c.simuladoStats.history || {});
+                    c.simuladoStats.history = safeHistory.filter(h => !matchesDate(h.date));
                     
                     // 🎯 RECOMPUTAÇÃO IMEDIATA PÓS-EXCLUSÃO
                     if (c.simuladoStats.history.length > 0) {

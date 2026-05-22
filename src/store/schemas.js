@@ -136,18 +136,18 @@ const sanitizeContest = (data) => {
         ? Number(source.user.targetProbability)
         : 70
     },
-    coachPlan: Array.isArray(source.coachPlan) ? source.coachPlan : [],
+    coachPlan: Array.isArray(source.coachPlan) ? source.coachPlan : Object.values(source.coachPlan || {}),
     calibrationMetrics: (source.calibrationMetrics && typeof source.calibrationMetrics === 'object') ? source.calibrationMetrics : {},
     coachScore: (source.coachScore && typeof source.coachScore === 'object') ? source.coachScore : null,
     coachPlanner: (source.coachPlanner && typeof source.coachPlanner === 'object')
       ? source.coachPlanner
       : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
-    categories: (Array.isArray(source.categories) ? source.categories : []).map(cat => ({
+    categories: (Array.isArray(source.categories) ? source.categories : Object.values(source.categories || {})).map(cat => ({
       id: cat.id || generateId('cat'),
       name: cat.name || "Sem Nome",
       color: cat.color || "#3b82f6",
       icon: cat.icon || "📚",
-      tasks: (Array.isArray(cat.tasks) ? cat.tasks : []).map(t => ({
+      tasks: (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).map(t => ({
         id: t.id || generateId('task'),
         text: t.text || t.title || "Nova Tarefa",
         title: t.title || t.text || "Nova Tarefa",
@@ -176,10 +176,10 @@ const sanitizeContest = (data) => {
         level: cat.simuladoStats?.level || "BAIXO"
       }
     })),
-    simuladoRows: (Array.isArray(source.simuladoRows) ? source.simuladoRows : []).filter(r => r && r.id),
-    simulados: (Array.isArray(source.simulados) ? source.simulados : []).filter(s => s && s.id),
-    studyLogs: (Array.isArray(source.studyLogs) ? source.studyLogs : []).filter(l => l && l.id),
-    studySessions: (Array.isArray(source.studySessions) ? source.studySessions : []).filter(s => s && s.id),
+    simuladoRows: (Array.isArray(source.simuladoRows) ? source.simuladoRows : Object.values(source.simuladoRows || {})).filter(r => r && r.id),
+    simulados: (Array.isArray(source.simulados) ? source.simulados : Object.values(source.simulados || {})).filter(s => s && s.id),
+    studyLogs: (Array.isArray(source.studyLogs) ? source.studyLogs : Object.values(source.studyLogs || {})).filter(l => l && l.id),
+    studySessions: (Array.isArray(source.studySessions) ? source.studySessions : Object.values(source.studySessions || {})).filter(s => s && s.id),
     notes: typeof source.notes === 'string' ? source.notes : "",
     settings: {
       darkMode: true,
