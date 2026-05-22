@@ -10,16 +10,18 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
 
         // 1. Calculate Stats
-        // BUG FIX: log.minutes might be undefined/null → guard with || 0 to avoid NaN
-        const totalMinutes = logsArray.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+        // BUGFIX: Alguns logs antigos/sincronizados usam `duration` em vez de `minutes`.
+        // Sem fallback, cards e timeline subcontabilizam tempo no menu de Estatísticas.
+        const getLogMinutes = (log) => Number(log?.minutes ?? log?.duration) || 0;
+        const totalMinutes = logsArray.reduce((acc, log) => acc + getLogMinutes(log), 0);
         const totalSessions = logsArray.length;
 
         // Find top category
         const catCounts = {};
         logsArray.forEach(log => {
             const catId = log.categoryId;
-            // Bug fix: guard log.minutes with Number() to prevent string concatenation
-            catCounts[catId] = (catCounts[catId] || 0) + (Number(log.minutes) || 0);
+            // Usa fallback minutes/duration para manter consistência com outros módulos.
+            catCounts[catId] = (catCounts[catId] || 0) + getLogMinutes(log);
         });
         const topCatId = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0];
         const topCategory = categories.find(c => String(c.id) === String(topCatId))?.name || '-';
@@ -99,18 +101,18 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             );
 
             if (existingLogIndex >= 0) {
-                targetGroup.logs[existingLogIndex].minutes += (Number(log.minutes) || 0);
+                targetGroup.logs[existingLogIndex].minutes += getLogMinutes(log);
             } else {
                 targetGroup.logs.push({
                     id: log.id,
                     taskId: log.taskId,
                     taskTitle,
-                    minutes: (Number(log.minutes) || 0),
+                    minutes: getLogMinutes(log),
                     date: log.date
                 });
             }
 
-            targetGroup.totalMinutes += (Number(log.minutes) || 0); // BUG FIX: guard undefined minutes
+            targetGroup.totalMinutes += getLogMinutes(log);
         });
 
         // Convert Objects to Arrays for rendering
