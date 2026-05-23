@@ -59,10 +59,14 @@ export const MonteCarloConfig = ({
     const [localTarget, setLocalTarget] = React.useState(clampedTarget);
     const isDragging = useRef(false);
     const debounceTimeout = useRef(null);
+    const sliderRef = useRef(null);
 
     React.useEffect(() => {
         if (!isDragging.current) {
             setLocalTarget(clampedTarget);
+            if (sliderRef.current && sliderRef.current.value !== String(clampedTarget)) {
+                sliderRef.current.value = clampedTarget;
+            }
         }
     }, [clampedTarget]);
 
@@ -139,14 +143,20 @@ export const MonteCarloConfig = ({
                         </div>
                         <div className="relative h-6 flex items-center mb-4">
                             <input
+                                ref={sliderRef}
                                 type="range"
                                 min={sliderMin}
                                 max={safeMaxScore}
                                 step="1"
-                                value={displayTarget}
+                                defaultValue={clampedTarget}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
                                     setLocalTarget(val);
+                                    
+                                    isDragging.current = true;
+                                    if (window.mcConfigDragTimeout) clearTimeout(window.mcConfigDragTimeout);
+                                    window.mcConfigDragTimeout = setTimeout(() => { isDragging.current = false; }, 500);
+
                                     if (setTargetScore) {
                                         if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
                                         debounceTimeout.current = setTimeout(() => {
@@ -165,6 +175,12 @@ export const MonteCarloConfig = ({
                                 }}
                                 onPointerUp={() => {
                                     isDragging.current = false;
+                                    if (window.mcConfigDragTimeout) clearTimeout(window.mcConfigDragTimeout);
+                                }}
+                                onTouchStart={() => { isDragging.current = true; }}
+                                onTouchEnd={() => {
+                                    isDragging.current = false;
+                                    if (window.mcConfigDragTimeout) clearTimeout(window.mcConfigDragTimeout);
                                 }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
                                 style={{

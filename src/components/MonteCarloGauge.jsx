@@ -34,12 +34,19 @@ export default function MonteCarloGauge({
     const [localTimeIndex, setLocalTimeIndex] = useState(-1);
     const isDraggingTime = useRef(false);
     const debounceTimeoutTime = useRef(null);
+    const timeSliderRef = useRef(null);
 
     useEffect(() => {
         if (!isDraggingTime.current) {
             setLocalTimeIndex(timeIndex);
+            if (timeSliderRef.current) {
+                const effectiveValue = timeIndex === -1 || timeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : timeIndex;
+                if (timeSliderRef.current.value !== String(effectiveValue)) {
+                    timeSliderRef.current.value = effectiveValue;
+                }
+            }
         }
-    }, [timeIndex]);
+    }, [timeIndex, timelineDates.length]);
 
     useEffect(() => {
         return () => {
@@ -351,14 +358,20 @@ export default function MonteCarloGauge({
                         </span>
                     </div>
                     <input
+                        ref={timeSliderRef}
                         type="range"
                         min="0"
                         max={Math.max(1, timelineDates.length - 1)}
-                        value={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
+                        defaultValue={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
                         onChange={(e) => {
                             const val = Number(e.target.value);
                             const newTimeIndex = val === timelineDates.length - 1 ? -1 : val;
                             setLocalTimeIndex(newTimeIndex);
+                            
+                            isDraggingTime.current = true;
+                            if (window.mcGaugeDragTimeout) clearTimeout(window.mcGaugeDragTimeout);
+                            window.mcGaugeDragTimeout = setTimeout(() => { isDraggingTime.current = false; }, 500);
+
                             if (debounceTimeoutTime.current) clearTimeout(debounceTimeoutTime.current);
                             debounceTimeoutTime.current = setTimeout(() => {
                                 if (React.startTransition) {
@@ -375,6 +388,12 @@ export default function MonteCarloGauge({
                         }}
                         onPointerUp={() => {
                             isDraggingTime.current = false;
+                            if (window.mcGaugeDragTimeout) clearTimeout(window.mcGaugeDragTimeout);
+                        }}
+                        onTouchStart={() => { isDraggingTime.current = true; }}
+                        onTouchEnd={() => {
+                            isDraggingTime.current = false;
+                            if (window.mcGaugeDragTimeout) clearTimeout(window.mcGaugeDragTimeout);
                         }}
                         className="custom-slider w-full h-1.5 rounded-full outline-none"
                         style={{
