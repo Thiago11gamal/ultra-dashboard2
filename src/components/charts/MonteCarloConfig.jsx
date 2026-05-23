@@ -14,10 +14,10 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
             </div>
             <div className="hidden sm:block flex-1 min-w-0">
                 <p className="text-[11px] font-black text-slate-200 uppercase tracking-tight mb-1.5 truncate">{cat.name || 'Matéria'}</p>
-                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-slate-950/50 rounded-full overflow-hidden shadow-inner border border-black/20">
                     <div className="h-full rounded-full transition-all duration-500" style={{ width: `${normalizedShare}%`, backgroundColor: cat.color || '#3b82f6' }} />
                 </div>
-                <div className="flex items-center justify-between mt-1">
+                <div className="flex items-center justify-between mt-1.5">
                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Share</p>
                     <p className="text-[9px] font-black text-slate-400">{normalizedShare}%</p>
                 </div>
@@ -161,10 +161,21 @@ export const MonteCarloConfig = ({
                                 }}
                             />
                         </div>
-                        <div className="flex justify-between px-1">
-                            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Baseline ({Math.round(maxScore * 0.6)})</span>
-                            <span className="text-[8px] font-black text-blue-500/40 uppercase tracking-widest">Optimized ({Math.round(maxScore * 0.75)})</span>
-                            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Elite ({Math.round(maxScore * 0.9)})</span>
+                        <div className="relative h-6 mt-2 w-full px-1">
+                            {[
+                                { ratio: 0.6, label: 'Baseline', color: 'text-slate-600' },
+                                { ratio: 0.75, label: 'Optimized', color: 'text-blue-500/60' },
+                                { ratio: 0.9, label: 'Elite', color: 'text-slate-600' }
+                            ].map(({ ratio, label, color }, i) => {
+                                const val = Math.round(maxScore * ratio);
+                                const percent = Math.max(0, Math.min(100, ((val - sliderMin) / sliderRange) * 100));
+                                return (
+                                    <div key={i} className="absolute flex flex-col items-center" style={{ left: `calc(${percent}% + ${8 - percent * 0.16}px)`, transform: 'translateX(-50%)' }}>
+                                        <div className="w-0.5 h-1.5 bg-slate-600/50 mb-1 rounded-full"></div>
+                                        <span className={`text-[8px] font-black uppercase tracking-widest ${color}`}>{label} ({val})</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
