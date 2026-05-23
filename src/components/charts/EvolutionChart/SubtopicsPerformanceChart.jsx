@@ -278,13 +278,19 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                 <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/50 p-1 rounded-xl shadow-inner shrink-0 w-full sm:w-auto">
                     <button
+                        type="button"
                         onClick={() => setViewMode('bars')}
+                        aria-label="Alternar para ranking de tópicos"
+                        aria-pressed={viewMode === 'bars'}
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-lg transition-all ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}
                     >
                         Ranking (Barras)
                     </button>
                     <button
+                        type="button"
                         onClick={() => setViewMode('lines')}
+                        aria-label="Alternar para evolução temporal de tópicos"
+                        aria-pressed={viewMode === 'lines'}
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-lg transition-all ${viewMode === 'lines' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}
                     >
                         Tempo (Linhas)

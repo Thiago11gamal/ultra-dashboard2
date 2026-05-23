@@ -580,7 +580,7 @@ export default function EvolutionChart({
 
     if (categories.length === 0) {
         return (
-            <div className="glass p-12 text-center rounded-none animate-fade-in-down border border-slate-800">
+            <div className="glass p-12 text-center rounded-2xl animate-fade-in-down border border-slate-800">
                 <div className="text-6xl mb-4">📊</div>
                 <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">Gráficos de Evolução</h2>
                 <p className="text-slate-400">Realize simulados para desbloquear a sua Máquina do Tempo Estatística.</p>
@@ -595,7 +595,7 @@ export default function EvolutionChart({
                     type="button"
                     onClick={handleExport}
                     disabled={isExporting}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-none bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50"
                 >
                     {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                     <span className="hidden sm:inline">{isExporting ? 'Gerando PDF...' : 'Baixar PDF'}</span>
@@ -605,7 +605,8 @@ export default function EvolutionChart({
 
             <style dangerouslySetInnerHTML={{
                 __html: `
-                .recharts-wrapper:focus, .recharts-surface:focus, svg:focus { outline: none !important; border: none !important; box-shadow: none !important; }
+                 .recharts-wrapper:focus, .recharts-surface:focus { outline: none !important; border: none !important; box-shadow: none !important; }
+                #evolution-chart-container button:focus-visible { outline: 2px solid rgba(129, 140, 248, 0.8); outline-offset: 2px; }
                 .recharts-wrapper { outline: none !important; }
             ` }} />
 
@@ -634,6 +635,7 @@ export default function EvolutionChart({
                             target={targetScore}
                             isFocused={showOnlyFocus ? focusCategory?.id === cat.id : false}
                             onClick={() => setFocusSubjectId(cat.id)}
+                            
                             unit={unit}
                             maxScore={maxScore}
                         />
@@ -644,7 +646,7 @@ export default function EvolutionChart({
             <div className="relative z-[50] rounded-2xl border border-slate-800/70 bg-slate-900/90 backdrop-blur p-4 sm:p-6 shadow-xl w-full min-w-0 transition-all duration-500">
                 <div className="relative w-full">
                     {/* Fade indicators for hidden tabs */}
-                    <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-slate-900/90 to-transparent z-10 sm:hidden" />
+                    <div className="pointer-events-none absolute right-0 inset-y-0 w-8 bg-gradient-to-l from-slate-900/90 to-transparent z-10 sm:hidden" />
                     <div className="flex overflow-x-auto pb-4 gap-3.5 w-full px-1 no-scrollbar scroll-smooth"
                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                         {ENGINES.map((eng) => {
@@ -685,12 +687,12 @@ export default function EvolutionChart({
                         {engine.emoji} {engine.explain.titulo}
                     </p>
                     <p className="text-slate-400 text-[10px] sm:text-xs leading-relaxed">{engine.explain.simples}</p>
-                    <p className="text-slate-500 text-[9px] sm:text-xs mt-1 sm:mt-1.5 italic">💡 {engine.explain.dica}</p>
+                    <p className="text-slate-400 text-[10px] sm:text-xs mt-1 sm:mt-1.5 italic">💡 {engine.explain.dica}</p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-5 w-full">
                     <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto">
-                        <span className="text-[9px] sm:text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2 shrink-0">Período</span>
+                        <span className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider px-2 shrink-0">Período</span>
                         {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
                             <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
                                 className={`shrink-0 flex-1 sm:flex-none px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
@@ -745,7 +747,7 @@ export default function EvolutionChart({
                         unit={unit}
                     />
                 ) : !accountHasData ? (
-                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-none border border-slate-800 bg-slate-950/30">
+                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>
@@ -753,14 +755,15 @@ export default function EvolutionChart({
                         </div>
                     </div>
                 ) : !filterHasData ? (
-                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-none border border-slate-800 bg-slate-950/30">
+                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">📅</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Nenhuma atividade recente</p>
                             <p className="text-slate-500 text-sm max-w-xs">Não registrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.</p>
                             <button 
+                                type="button"
                                 onClick={() => setTimeWindow("all")} 
-                                className="mt-4 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-600/40 font-bold text-xs hover:bg-indigo-600/30 transition-colors"
+                                className="mt-4 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-600/40 rounded-lg font-bold text-xs hover:bg-indigo-600/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
                             >
                                 Ver Todo o Histórico
                             </button>
@@ -769,7 +772,7 @@ export default function EvolutionChart({
                 ) : activeEngine === "compare" ? (
                     <div className="relative">
                         {mcLoading && (
-                            <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-none transition-all duration-300">
+                            <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-xl transition-all duration-300">
                                 <div className="flex flex-col items-center gap-3">
                                     <Loader2 size={32} className="animate-spin text-indigo-400" />
                                     <span className="text-[9px] font-black uppercase text-indigo-300 tracking-[0.2em] animate-pulse">Sincronizando Monte Carlo...</span>
