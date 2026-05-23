@@ -41,6 +41,12 @@ export default function MonteCarloGauge({
         }
     }, [timeIndex]);
 
+    useEffect(() => {
+        return () => {
+            if (debounceTimeoutTime.current) clearTimeout(debounceTimeoutTime.current);
+        };
+    }, []);
+
     const [localSimulateToday, setLocalSimulateToday] = useState(Boolean(simulateToday));
 
     React.useEffect(() => {

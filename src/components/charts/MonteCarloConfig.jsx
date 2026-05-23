@@ -66,6 +66,18 @@ export const MonteCarloConfig = ({
         }
     }, [clampedTarget]);
 
+    React.useEffect(() => {
+        if (show) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+            document.body.style.overflow = '';
+        };
+    }, [show]);
+
     const displayTarget = localTarget;
     const sliderPercent = ((displayTarget - sliderMin) / sliderRange) * 100;
 
