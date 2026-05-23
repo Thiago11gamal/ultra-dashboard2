@@ -74,6 +74,7 @@ export default function Sidebar({
 }) {
     const location = useLocation();
     const { logout } = useAuth();
+    const sidebarRef = React.useRef(null);
     const [contestsExpanded, setContestsExpanded] = React.useState(false);
     const [settingsExpanded, setSettingsExpanded] = React.useState(false);
     const [contestToDelete, setContestToDelete] = React.useState(null);
@@ -106,6 +107,27 @@ export default function Sidebar({
             setCollapsed(false);
         }
     }, [collapsed, isOpen, setCollapsed]);
+
+    React.useEffect(() => {
+        if (collapsed) return undefined;
+        if (typeof window === 'undefined') return undefined;
+
+        const handleClickOutside = (event) => {
+            if (window.innerWidth < 1024) return;
+            if (!sidebarRef.current) return;
+
+            if (!sidebarRef.current.contains(event.target)) {
+                setCollapsed(true);
+                setContestsExpanded(false);
+                setSettingsExpanded(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [collapsed, setCollapsed]);
 
     const closeMobileSidebar = () => {
         if (typeof window === 'undefined') return;
@@ -140,7 +162,7 @@ export default function Sidebar({
                 />
             )}
 
-            <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}>
+            <aside ref={sidebarRef} className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}>
                 {/* Logo Area */}
                 <div className="flex items-center justify-between mb-2 px-1">
                     <div className="sidebar-logo">
