@@ -606,7 +606,7 @@ export default function EvolutionChart({
             <style dangerouslySetInnerHTML={{
                 __html: `
                  .recharts-wrapper:focus, .recharts-surface:focus { outline: none !important; border: none !important; box-shadow: none !important; }
-                #evolution-chart-container button:focus-visible { outline: 2px solid rgba(129, 140, 248, 0.8); outline-offset: 2px; }
+                button:focus-visible { outline: 2px solid rgba(129, 140, 248, 0.8); outline-offset: 2px; }
                 .recharts-wrapper { outline: none !important; }
             ` }} />
 
@@ -635,7 +635,6 @@ export default function EvolutionChart({
                             target={targetScore}
                             isFocused={showOnlyFocus ? focusCategory?.id === cat.id : false}
                             onClick={() => setFocusSubjectId(cat.id)}
-                            
                             unit={unit}
                             maxScore={maxScore}
                         />
@@ -761,7 +760,6 @@ export default function EvolutionChart({
                             <p className="text-slate-300 font-bold text-base mb-1">Nenhuma atividade recente</p>
                             <p className="text-slate-500 text-sm max-w-xs">Não registrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.</p>
                             <button 
-                                type="button"
                                 onClick={() => setTimeWindow("all")} 
                                 className="mt-4 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-600/40 rounded-lg font-bold text-xs hover:bg-indigo-600/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
                             >

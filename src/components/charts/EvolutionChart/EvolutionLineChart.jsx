@@ -79,13 +79,17 @@ export function EvolutionLineChart({
 
         const range = maxScore - minScore;
         const yPositions = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
+        
+        const topLimit = maxScore - (range * 0.02);
+        const bottomLimit = minScore + (range * 0.05);
+        const safeSpace = Math.max(0.1, topLimit - bottomLimit);
+        
         const MIN_PCT_DISTANCE = range * 0.075; // 7.5% distance threshold
-        const maxAvailableSpace = range * 0.96;
-        const requiredSpace = yPositions.length * MIN_PCT_DISTANCE;
+        const requiredSpace = (yPositions.length - 1) * MIN_PCT_DISTANCE;
         
         // Dynamic compression if too many labels for the space
-        const effectiveDistance = requiredSpace > maxAvailableSpace 
-            ? maxAvailableSpace / Math.max(1, yPositions.length) 
+        const effectiveDistance = requiredSpace > safeSpace 
+            ? safeSpace / Math.max(1, yPositions.length - 1) 
             : MIN_PCT_DISTANCE;
 
         // Pass 1: Push down to separate colliding labels
@@ -96,16 +100,12 @@ export function EvolutionLineChart({
         }
 
         // Pass 2: Bottom recovery (avoid falling off the bottom boundary)
-        const bottomLimit = minScore + (range * 0.05);
         if (yPositions.length > 0 && yPositions[yPositions.length - 1].yPos < bottomLimit) {
             const shift = bottomLimit - yPositions[yPositions.length - 1].yPos;
             yPositions.forEach(p => p.yPos += shift);
         }
 
-        // 🎯 FIX MATEMÁTICO: Pass 3 (Top overflow recovery fix)
-        // O loop original re-empurrava as labels para baixo, destruindo o Pass 2 e as tirando do gráfico.
-        // Como o effectiveDistance garante que todas cabem, um simples shift global garante o bounding box.
-        const topLimit = maxScore - (range * 0.02);
+        // Pass 3: Top recovery (avoid cutting the top of the chart)
         if (yPositions.length > 0 && yPositions[0].yPos > topLimit) {
             const shift = yPositions[0].yPos - topLimit;
             yPositions.forEach(p => p.yPos -= shift);

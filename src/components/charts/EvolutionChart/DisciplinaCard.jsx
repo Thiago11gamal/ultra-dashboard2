@@ -10,12 +10,10 @@ export function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick
     const rawVal = metrics ? metrics[`raw_${cat.id}`] : null;
     const statsVal = metrics ? metrics[`stats_${cat.id}`] : null;
     const bayVal = metrics ? metrics[`bay_${cat.id}`] : null;
-    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-    const progressPct = Math.max(0, Math.min(100, (Number(val) / safeMaxScore) * 100));
 
     return (
-        <button type="button" onClick={onClick} aria-label={`Focar disciplina ${cat.name}`} title={`Focar ${cat.name}`}
-            className={`relative text-left w-full rounded-lg border p-3 sm:p-4 transition-all duration-500 group min-h-[82px] sm:min-h-[105px] overflow-hidden flex flex-col justify-between ${isFocused ? 'shadow-[0_0_30px_-5px_rgba(0,0,0,0.6)] z-20 border-transparent bg-white/[0.03]' : 'border-slate-800/40 hover:border-slate-700/60 hover:bg-slate-800/30 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70'}`}
+        <button onClick={onClick}
+            className={`relative text-left w-full rounded-lg border p-3 sm:p-4 transition-all duration-500 group min-h-[82px] sm:min-h-[105px] overflow-hidden flex flex-col justify-between ${isFocused ? 'shadow-[0_0_30px_-5px_rgba(0,0,0,0.6)] z-20 border-transparent bg-white/[0.03]' : 'border-slate-800/40 hover:border-slate-700/60 hover:bg-slate-800/30 active:scale-95'}`}
             style={{
                 backgroundColor: isFocused ? `${cat.color}35` : 'rgba(15,23,42,0.4)',
             }}>
@@ -45,7 +43,7 @@ export function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick
             <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-800/50 overflow-hidden">
                 <div className="h-full transition-all duration-1000 ease-out"
                     style={{
-                        width: `${progressPct}%`,
+                        width: `${(val / maxScore) * 100}%`,
                         backgroundColor: statusColor,
                         boxShadow: `0 0 10px ${statusColor}80`
                     }} />

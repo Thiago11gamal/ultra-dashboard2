@@ -37,7 +37,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
                                 <div key={idx} className="flex flex-col gap-0.5">
                                     <div className="flex justify-between items-center text-[10px]">
                                         <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                                            <span className="w-1.5 h-1.5 rounded-sm" style={{ backgroundColor: entry.color }}></span>
                                             {entry.name.replace(' (Var.)', '')}
                                         </span>
                                         <span style={{ color }} className="font-mono font-black text-xs">
@@ -59,7 +59,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
                                 <div key={idx} className="flex flex-col gap-0.5">
                                     <div className="flex justify-between items-center text-[10px]">
                                         <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                                            <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
                                             {entry.name}
                                         </span>
                                         <span className="font-mono font-bold text-white text-xs">
@@ -363,7 +363,7 @@ export const WeeklyEvolutionView = ({
 
     if (chartData.length < 2) {
         return (
-            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-lg border border-slate-800 p-6">
+            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-xl border border-slate-800 p-6">
                 <HelpCircle size={40} className="text-slate-600 mb-3" />
                 <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
                 <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
@@ -389,31 +389,28 @@ export const WeeklyEvolutionView = ({
                     )}
                 </div>
 
-                <div className="flex items-center flex-wrap bg-slate-900/60 border border-slate-800 rounded-lg p-1">
+                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-1">
                     <button
-                        type="button"
                         onClick={() => setViewMode('performance')}
                         aria-label="Alternar para visão de desempenho semanal"
                         aria-pressed={viewMode === 'performance'}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <Zap size={14} /> Desempenho (7 dias)
                     </button>
                     <button
-                        type="button"
                         onClick={() => setViewMode('evolution')}
                         aria-label="Alternar para visão de evolução semanal"
                         aria-pressed={viewMode === 'evolution'}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <TrendingUp size={14} /> Evolução
                     </button>
                     <button
-                        type="button"
                         onClick={() => setViewMode('variation')}
                         aria-label="Alternar para visão de variação semanal"
                         aria-pressed={viewMode === 'variation'}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <BarChart3 size={14} /> Delta
                     </button>
@@ -488,7 +485,7 @@ export const WeeklyEvolutionView = ({
                                     tickLine={false} 
                                     axisLine={false} 
                                     tickFormatter={(v) => {
-                                        if (v === 0) return `0${unit}`;
+                                        if (v === 0) return `${formatValue(v)}${unit}`;
                                         return `${v > 0 ? '+' : ''}${formatValue(v)}${unit}`;
                                     }} 
                                 />
@@ -535,7 +532,7 @@ export const WeeklyEvolutionView = ({
             </div>
 
             {viewMode === 'variation' && (
-                <div className="mt-3 rounded-lg border border-rose-900/40 bg-rose-950/20 p-3">
+                <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3">
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">
                         Top Regressões {topRegressions[0]?.week ? `· Semana ${topRegressions[0].week}` : ''}
                     </p>
@@ -556,7 +553,7 @@ export const WeeklyEvolutionView = ({
 
             {viewMode !== 'performance' && (
                 <div className="flex justify-center mt-3 opacity-60">
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-lg border border-slate-800 shrink-0 select-none">
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-md border border-slate-800 shrink-0 select-none">
                         💡 Dica: Clique nos itens da Legenda para ocultar/isolar o gráfico.
                     </p>
                 </div>
