@@ -58,6 +58,7 @@ export const MonteCarloConfig = ({
     
     const [localTarget, setLocalTarget] = React.useState(clampedTarget);
     const isDragging = useRef(false);
+    const debounceTimeout = useRef(null);
 
     React.useEffect(() => {
         if (!isDragging.current) {
@@ -135,13 +136,16 @@ export const MonteCarloConfig = ({
                                     const val = parseInt(e.target.value, 10);
                                     setLocalTarget(val);
                                     if (setTargetScore) {
-                                        if (React.startTransition) {
-                                            React.startTransition(() => {
+                                        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+                                        debounceTimeout.current = setTimeout(() => {
+                                            if (React.startTransition) {
+                                                React.startTransition(() => {
+                                                    setTargetScore(val);
+                                                });
+                                            } else {
                                                 setTargetScore(val);
-                                            });
-                                        } else {
-                                            setTargetScore(val);
-                                        }
+                                            }
+                                        }, 40);
                                     }
                                 }}
                                 onPointerDown={() => {
@@ -149,7 +153,6 @@ export const MonteCarloConfig = ({
                                 }}
                                 onPointerUp={() => {
                                     isDragging.current = false;
-                                    // Lógica de salvamento e trava agora reside no pai (VerifiedStats)
                                 }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
                                 style={{

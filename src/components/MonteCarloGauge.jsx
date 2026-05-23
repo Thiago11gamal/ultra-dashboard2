@@ -33,6 +33,7 @@ export default function MonteCarloGauge({
     const [timeIndex, setTimeIndex] = useState(-1);
     const [localTimeIndex, setLocalTimeIndex] = useState(-1);
     const isDraggingTime = useRef(false);
+    const debounceTimeoutTime = useRef(null);
 
     useEffect(() => {
         if (!isDraggingTime.current) {
@@ -352,13 +353,16 @@ export default function MonteCarloGauge({
                             const val = Number(e.target.value);
                             const newTimeIndex = val === timelineDates.length - 1 ? -1 : val;
                             setLocalTimeIndex(newTimeIndex);
-                            if (React.startTransition) {
-                                React.startTransition(() => {
+                            if (debounceTimeoutTime.current) clearTimeout(debounceTimeoutTime.current);
+                            debounceTimeoutTime.current = setTimeout(() => {
+                                if (React.startTransition) {
+                                    React.startTransition(() => {
+                                        setTimeIndex(newTimeIndex);
+                                    });
+                                } else {
                                     setTimeIndex(newTimeIndex);
-                                });
-                            } else {
-                                setTimeIndex(newTimeIndex);
-                            }
+                                }
+                            }, 40);
                         }}
                         onPointerDown={() => {
                             isDraggingTime.current = true;
