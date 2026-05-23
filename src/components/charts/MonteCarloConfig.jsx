@@ -55,7 +55,14 @@ export const MonteCarloConfig = ({
     const sliderMin = Math.max(safeMinScore, Math.round(safeMaxScore * 0.1));
     const sliderRange = Math.max(1, safeMaxScore - sliderMin);
     const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number(targetScore) || sliderMin));
-    const sliderPercent = ((clampedTarget - sliderMin) / sliderRange) * 100;
+    
+    const [localTarget, setLocalTarget] = React.useState(clampedTarget);
+    React.useEffect(() => {
+        setLocalTarget(clampedTarget);
+    }, [clampedTarget]);
+
+    const displayTarget = localTarget;
+    const sliderPercent = ((displayTarget - sliderMin) / sliderRange) * 100;
 
     const manualTotal = categories.reduce((acc, cat) => {
         const val = weights?.[cat.id || cat.name];
@@ -104,7 +111,7 @@ export const MonteCarloConfig = ({
                             <div>
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-1">Target Achievement</span>
                                 <span className="text-3xl font-black text-white tracking-tighter italic">
-                                    <span>{clampedTarget}</span>
+                                    <span>{displayTarget}</span>
                                     <span className="text-blue-500">%</span>
                                 </span>
                             </div>
@@ -119,10 +126,19 @@ export const MonteCarloConfig = ({
                                 min={sliderMin}
                                 max={safeMaxScore}
                                 step="1"
-                                value={clampedTarget}
+                                value={displayTarget}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
-                                    if (setTargetScore) setTargetScore(val);
+                                    setLocalTarget(val);
+                                    if (setTargetScore) {
+                                        if (React.startTransition) {
+                                            React.startTransition(() => {
+                                                setTargetScore(val);
+                                            });
+                                        } else {
+                                            setTargetScore(val);
+                                        }
+                                    }
                                 }}
                                 onPointerUp={() => {
                                     // Lógica de salvamento e trava agora reside no pai (VerifiedStats)

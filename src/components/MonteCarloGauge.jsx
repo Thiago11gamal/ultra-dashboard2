@@ -31,6 +31,11 @@ export default function MonteCarloGauge({
     const [showConfig, setShowConfig] = useState(false);
     const [localShowPerSubject, setLocalShowPerSubject] = useState(false);
     const [timeIndex, setTimeIndex] = useState(-1);
+    const [localTimeIndex, setLocalTimeIndex] = useState(-1);
+
+    useEffect(() => {
+        setLocalTimeIndex(timeIndex);
+    }, [timeIndex]);
 
     const [localSimulateToday, setLocalSimulateToday] = useState(Boolean(simulateToday));
 
@@ -339,14 +344,22 @@ export default function MonteCarloGauge({
                         type="range"
                         min="0"
                         max={Math.max(1, timelineDates.length - 1)}
-                        value={clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex}
+                        value={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
                         onChange={(e) => {
                             const val = Number(e.target.value);
-                            setTimeIndex(val === timelineDates.length - 1 ? -1 : val);
+                            const newTimeIndex = val === timelineDates.length - 1 ? -1 : val;
+                            setLocalTimeIndex(newTimeIndex);
+                            if (React.startTransition) {
+                                React.startTransition(() => {
+                                    setTimeIndex(newTimeIndex);
+                                });
+                            } else {
+                                setTimeIndex(newTimeIndex);
+                            }
                         }}
                         className="custom-slider w-full h-1.5 rounded-full outline-none"
                         style={{
-                            background: `linear-gradient(to right, #6366f1 ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
+                            background: `linear-gradient(to right, #6366f1 ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
                             touchAction: 'none'
                         }}
                     />
