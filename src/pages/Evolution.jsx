@@ -26,20 +26,30 @@ export default function Evolution() {
         })
     );
 
+    const hasEvolutionData = Array.isArray(categories) && categories.some(category => Array.isArray(category?.simuladoStats?.history) && category.simuladoStats.history.length > 0);
 
     return (
         <ErrorBoundary>
             <div className="animate-fade-in">
-                <EvolutionChart
-                    categories={categories}
-                    studyLogs={studyLogs}
-                    targetScore={user?.targetProbability ?? 70}
-                    goalDate={user?.goalDate}
-                    monteCarloHistory={monteCarloHistory}
-                    unit={unit}
-                    minScore={minScore}
-                    maxScore={maxScore}
-                />
+                {!hasEvolutionData ? (
+                    <div className="flex items-center justify-center min-h-[30vh]">
+                        <div className="text-center text-slate-400">
+                            <p className="font-bold uppercase tracking-wider text-xs">Sem histórico de simulados</p>
+                            <p className="text-[11px] text-slate-500 mt-1">Registre simulados nas disciplinas para visualizar a evolução.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <EvolutionChart
+                        categories={categories}
+                        studyLogs={studyLogs}
+                        targetScore={user?.targetProbability ?? 70}
+                        goalDate={user?.goalDate}
+                        monteCarloHistory={monteCarloHistory}
+                        unit={unit}
+                        minScore={minScore}
+                        maxScore={maxScore}
+                    />
+                )}
             </div>
         </ErrorBoundary>
     );

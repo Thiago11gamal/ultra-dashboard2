@@ -16,7 +16,9 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
         return Math.round(n);
     };
 
-    const chartData = subjectAggData.map((d) => {
+    const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
+
+    const chartData = safeSubjectAggData.map((d) => {
         const questoes = sanitizeCount(d.questoes);
         const acertosBrutos = sanitizeCount(d.acertos);
         const acertos = Math.min(questoes, acertosBrutos);

@@ -641,7 +641,7 @@ export default function EvolutionChart({
                 </div>
             </div>
 
-            <div className="relative z-[50] rounded-none border border-slate-800/70 bg-slate-900/90 backdrop-blur p-4 sm:p-6 shadow-xl w-full min-w-0 transition-all duration-500">
+            <div className="relative z-[50] rounded-2xl border border-slate-800/70 bg-slate-900/90 backdrop-blur p-4 sm:p-6 shadow-xl w-full min-w-0 transition-all duration-500">
                 <div className="relative w-full">
                     {/* Fade indicators for hidden tabs */}
                     <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-slate-900/90 to-transparent z-10 sm:hidden" />
@@ -654,7 +654,7 @@ export default function EvolutionChart({
                                     type="button"
                                     key={eng.id}
                                     onClick={() => setActiveEngine(eng.id)}
-                                    className={`shrink-0 group flex items-center justify-center gap-2 px-5 py-3 rounded-none text-[10px] sm:text-[12px] font-black tracking-tight transition-all duration-300 border ${active
+                                    className={`shrink-0 group flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[10px] sm:text-[12px] font-black tracking-tight transition-all duration-300 border ${active
                                         ? 'shadow-[0_8px_20px_-6px_rgba(0,0,0,0.5)] scale-[1.02]'
                                         : 'bg-white/[0.03] border-white/[0.08] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/20'
                                         }`}
@@ -679,7 +679,7 @@ export default function EvolutionChart({
                     </div>
                 </div>
 
-                <div className="rounded-none border border-slate-800/60 bg-slate-950/50 p-3 sm:p-4 mb-3 sm:mb-5 relative overflow-hidden">
+                <div className="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3 sm:p-4 mb-3 sm:mb-5 relative overflow-hidden">
                     <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full blur-3xl opacity-15 pointer-events-none transition-colors duration-500" style={{ backgroundColor: engine.color }} />
                     <p className="font-bold text-xs sm:text-sm mb-0.5 sm:mb-1 transition-colors duration-300" style={{ color: engine.color }}>
                         {engine.emoji} {engine.explain.titulo}
@@ -689,11 +689,11 @@ export default function EvolutionChart({
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-5 w-full">
-                    <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-none p-1 shrink-0 overflow-x-auto w-full sm:w-auto">
+                    <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto">
                         <span className="text-[9px] sm:text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2 shrink-0">Período</span>
                         {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
                             <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
-                                className={`shrink-0 flex-1 sm:flex-none px-2 sm:px-3 py-1 sm:py-1.5 rounded-none text-[10px] sm:text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
+                                className={`shrink-0 flex-1 sm:flex-none px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
                                 {w.label}
                             </button>
                         ))}
@@ -702,7 +702,7 @@ export default function EvolutionChart({
                     {/* 🎯 BUG FIX: Ocultar toggle em engines que não suportam múltiplas matérias simultâneas */}
                     {activeEngine !== 'compare' && activeEngine !== 'mc_density' && (
                         <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
-                            className={`shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-none text-[10px] sm:text-xs font-bold border transition-all w-full sm:w-auto min-w-0 ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
+                            className={`shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold border transition-all w-full sm:w-auto min-w-0 ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
                             <span>{showOnlyFocus ? '🔍' : '👁'}</span>
                             <span className="truncate block max-w-[200px] sm:max-w-full">
                                 {showOnlyFocus ? `Apenas ${focusCategory?.name || 'Foco'}` : 'Todas as Matérias'}

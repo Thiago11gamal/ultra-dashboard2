@@ -298,7 +298,7 @@ export default function MonteCarloGauge({
                 ))}
             </div>
 
-            <div className="w-full bg-black/40 rounded-2xl p-6 mb-4 border border-white/5 flex-1 flex flex-col">
+            <div className="w-full bg-black/40 rounded-2xl p-6 mb-4 border border-white/5 flex flex-col shrink-0">
                 <div className="flex justify-between items-center mb-4">
                     <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Projeção de Desempenho</span>
                     <div className="flex gap-3">
@@ -307,7 +307,7 @@ export default function MonteCarloGauge({
                         <span className="text-[9px] text-slate-400 flex items-center gap-1"><div className="w-2 h-0.5 bg-red-500"></div>Meta</span>
                     </div>
                 </div>
-                <div className="w-full">
+                <div className="w-full pb-16">
                     <GaussianPlot
                         mean={projectedSafe}
                         sd={safe(sd)}
@@ -328,7 +328,7 @@ export default function MonteCarloGauge({
             </div>
 
             {timelineDates.length > 1 && (
-                <div className="w-full mt-4 px-3 py-4 bg-black/40 rounded-xl border border-white/5">
+                <div className="w-full mt-16 px-3 py-4 bg-black/40 rounded-xl border border-white/5 relative z-10">
                     <div className="flex justify-between items-center mb-4">
                         <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Máquina do Tempo</span>
                         <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">

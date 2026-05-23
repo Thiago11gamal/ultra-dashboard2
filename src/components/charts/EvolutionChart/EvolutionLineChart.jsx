@@ -58,20 +58,20 @@ export function EvolutionLineChart({
 
     // Gather final points for label positioning
     const finalPoints = React.useMemo(() => {
-        if (!filteredChartData || !filteredChartData.length) return [];
+        if (!enhancedChartData.length) return [];
         const pts = [];
-        const lastIndex = filteredChartData.length - 1;
+        const lastIndex = enhancedChartData.length - 1;
         
         activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
             const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
-            const lastVal = filteredChartData[lastIndex]?.[dataKey];
+            const lastVal = enhancedChartData[lastIndex]?.[dataKey];
             if (lastVal != null && Number.isFinite(Number(lastVal))) {
                 pts.push({ id: cat.id, name: cat.name, value: Number(lastVal), color: cat.color });
             }
         });
         // Sort by value descending (highest values first)
         return pts.sort((a, b) => b.value - a.value);
-    }, [filteredChartData, activeCategories, showOnlyFocus, focusSubjectId, engine]);
+    }, [enhancedChartData, activeCategories, showOnlyFocus, focusSubjectId, engine]);
 
     // Adaptive label collision logic (Hardened for variable score scales)
     const yAdjustedMap = React.useMemo(() => {

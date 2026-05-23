@@ -187,7 +187,7 @@ export const WeeklyEvolutionView = ({
         }
 
         const validIds = Object.keys(itemsMap);
-        if (validIds.length === 0) return { chartData: [], activeKeys: {} };
+        if (validIds.length === 0) return { chartData: [], activeKeys: {}, rankedKeys: [] };
 
         const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
         const safeMaxScore = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;

@@ -23,6 +23,8 @@ export function CompareChart({
         glow: `cc_glow-${baseId}`
     }), [baseId]);
 
+    const chartData = Array.isArray(filteredChartData) ? filteredChartData : [];
+
     const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore
         ? Number(maxScore)
@@ -30,8 +32,8 @@ export function CompareChart({
 
     const lastValidIdx = React.useMemo(() => {
         const last = { bay: -1, raw: -1, stats: -1, mc: -1 };
-        for (let i = filteredChartData.length - 1; i >= 0; i--) {
-            const d = filteredChartData[i];
+        for (let i = chartData.length - 1; i >= 0; i--) {
+            const d = chartData[i];
             if (last.bay < 0 && d["Nível Bayesiano"] != null) last.bay = i;
             if (last.raw < 0 && d["Nota Bruta"] != null) last.raw = i;
             if (last.stats < 0 && d["Média Histórica"] != null) last.stats = i;
@@ -39,7 +41,7 @@ export function CompareChart({
             if (last.bay >= 0 && last.raw >= 0 && last.stats >= 0 && last.mc >= 0) break;
         }
         return last;
-    }, [filteredChartData]);
+    }, [chartData]);
 
     // 🎯 FIX: Algoritmo de Colisão Adaptativo baseado no Range Real
     const solveCollisions = (points) => {
@@ -82,14 +84,14 @@ export function CompareChart({
         return yPos;
     };
 
-    const todayIdx = filteredChartData.reduce((acc, curr, i) => {
+    const todayIdx = chartData.reduce((acc, curr, i) => {
         const hasObserved = curr["Nota Bruta"] != null || curr["Nível Bayesiano"] != null || curr["Média Histórica"] != null;
         return hasObserved ? i : acc;
     }, -1);
     
     const todayPoints = [];
     if (todayIdx >= 0) {
-        const d = filteredChartData[todayIdx];
+        const d = chartData[todayIdx];
         if (d["Nível Bayesiano"] != null) todayPoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
         if (d["Nota Bruta"] != null) todayPoints.push({ name: 'raw', value: d["Nota Bruta"] });
         if (d["Média Histórica"] != null) todayPoints.push({ name: 'stats', value: d["Média Histórica"] });
@@ -97,11 +99,11 @@ export function CompareChart({
     }
     const todayY = solveCollisions(todayPoints);
 
-    const futureIdx = filteredChartData.length - 1;
+    const futureIdx = chartData.length - 1;
     const isFuturePoint = futureIdx > todayIdx;
     const lastPoints = [];
     if (isFuturePoint && futureIdx >= 0) {
-        const d = filteredChartData[futureIdx];
+        const d = chartData[futureIdx];
         if (d["Futuro Provável"] != null) lastPoints.push({ name: 'mc', value: d["Futuro Provável"] });
     }
     const lastY = solveCollisions(lastPoints);
@@ -167,12 +169,12 @@ export function CompareChart({
     let gainBase = 'dataMin';
     let showGainArea = true;
     if (todayIdx >= 0) {
-        const todayPt = filteredChartData[todayIdx];
+        const todayPt = chartData[todayIdx];
         const baseCandidate = todayPt["Nível Bayesiano"] != null ? todayPt["Nível Bayesiano"] : todayPt["Nota Bruta"];
         if (Number.isFinite(Number(baseCandidate))) {
             gainBase = Number(baseCandidate);
             // BUG-3 FIX: Não exibir área verde de "ganho" se a projeção final está ABAIXO do nível atual
-            const lastPt = filteredChartData[filteredChartData.length - 1];
+            const lastPt = filteredChartData[chartData.length - 1];
             const lastProjection = lastPt?.["Futuro Provável"];
             if (Number.isFinite(Number(lastProjection)) && Number(lastProjection) < gainBase) {
                 showGainArea = false;
@@ -184,7 +186,7 @@ export function CompareChart({
         <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
             <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0">
                 {/* 🎯 FIX: right: 85 impede que as Labels cortem a borda direita na renderização do MC */}
-                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 85, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
+                <ComposedChart data={chartData} margin={{ top: 20, right: 85, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
                         <linearGradient id={CC.projectionPurpleGradient} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.2} />
@@ -260,7 +262,7 @@ export function CompareChart({
                         strokeLinecap="round" strokeDasharray="6 4"
                         dot={(props) => {
                             const { cx, cy, index } = props;
-                            if (index !== filteredChartData.length - 1) return null;
+                            if (index !== chartData.length - 1) return null;
                             return (
                                 <g>
                                     <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2} style={{ filter: `url(#${CC.glow})` }}>

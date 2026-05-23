@@ -373,7 +373,13 @@ export const SubtopicsPerformanceChart = React.memo(({
                                                 <text x={x + width + 8} y={y + height / 2 + 4} fill="#ffffff" fontSize={12} fontWeight="black">
                                                     {formatValue(value)}%
                                                 </text>
-                                                <text x={x + width + 45} y={y + height / 2 + 3} fill="#64748b" fontSize={10} fontWeight="bold">
+                                                <text
+                                                    x={x + width + 8 + (String(formatValue(value)).length * 7) + 16}
+                                                    y={y + height / 2 + 3}
+                                                    fill="#64748b"
+                                                    fontSize={10}
+                                                    fontWeight="bold"
+                                                >
                                                     ({entry.correct}/{entry.total})
                                                 </text>
                                             </g>

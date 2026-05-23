@@ -53,11 +53,11 @@ export const GaussianPlot = ({
         const domainMax = rawMax;
         const xMin = domainMin;
         const range = domainMax - domainMin;
+        const safeRange = Math.max(1e-9, range);
         
         // Clamp do Alvo contra corrupções nos bounds visuais
         const targetVal = Math.max(domainMin, Math.min(domainMax, rawTargetVal));
 
-        const safeRange = Math.max(1e-9, range);
         const sdFloor = safeRange * 0.001;
         let vizSdLeft = Math.max(sdFloor, propSdLeft ?? sd ?? sdFloor);
         let vizSdRight = Math.max(sdFloor, propSdRight ?? sd ?? sdFloor);
@@ -112,7 +112,7 @@ export const GaussianPlot = ({
         }
 
         const baseHeightFactor = 0.65;
-        const xp = (v) => 2 + ((v - xMin) / range * 96);
+        const xp = (v) => 2 + (((v - xMin) / safeRange) * 96);
         const yp = (yVal) => 100 - (yVal * 90);
 
         let path;
@@ -246,13 +246,13 @@ export const GaussianPlot = ({
     };
 
     return (
-        <div className="relative w-full h-[220px] mt-28 mb-6 cursor-crosshair group/chart"
+        <div className="relative w-full h-[220px] mt-28 mb-16 pb-6 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const percentage = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
                 // 🎯 FIX: Proteção contra Divisão por Zero em Arrays estáticos
-                const safeRange = Math.max(1e-6, range);
-                const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * safeRange));
+                const hoverRange = Math.max(1e-6, range);
+                const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * hoverRange));
                 setHover({ x: xp(val), val });
             }}
             onMouseLeave={() => setHover(null)}
@@ -376,7 +376,7 @@ export const GaussianPlot = ({
                 </div>
             )}
 
-            <div className="absolute -bottom-5 inset-x-0 h-4 pointer-events-none">
+            <div className="absolute bottom-0 inset-x-0 h-4 pointer-events-none">
                 {[0, 0.25, 0.5, 0.75, 1.0].map(f => {
                     const tickVal = domainMin + f * (domainMax - domainMin);
                     const pct = 2 + f * 96;
