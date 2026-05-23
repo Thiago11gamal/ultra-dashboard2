@@ -23,7 +23,7 @@ export function CompareChart({
         glow: `cc_glow-${baseId}`
     }), [baseId]);
 
-    const chartData = Array.isArray(filteredChartData) ? filteredChartData : [];
+    const chartData = React.useMemo(() => Array.isArray(filteredChartData) ? filteredChartData : [], [filteredChartData]);
 
     const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore
@@ -116,9 +116,7 @@ export function CompareChart({
         if (!pt) return 0;
         const range = safeMaxScore - safeMinScore;
         const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / (range || 1) : 4.6;
-        const animateSeries = chartData.length <= 90;
-
-    return (value - pt.yPos) * pxPerPct;
+        return (value - pt.yPos) * pxPerPct;
     };
 
     const renderLabel = (props, type, color) => {
@@ -141,9 +139,7 @@ export function CompareChart({
         const offset = getOffset(type, value, index, viewBox);
         const xOff = isMc ? 12 : 10;
         const formatted = (Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2) + unit;
-        const animateSeries = chartData.length <= 90;
-
-    return (
+        return (
             <g style={{ zIndex: 100 }}>
                 <rect
                     x={x + xOff - 2}
@@ -269,9 +265,7 @@ export function CompareChart({
                         dot={(props) => {
                             const { cx, cy, index } = props;
                             if (index !== chartData.length - 1) return null;
-                            const animateSeries = chartData.length <= 90;
-
-    return (
+                            return (
                                 <g>
                                     <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2} style={{ filter: `url(#${CC.glow})` }}>
                                         <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
