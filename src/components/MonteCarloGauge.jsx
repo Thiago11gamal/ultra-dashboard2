@@ -32,9 +32,12 @@ export default function MonteCarloGauge({
     const [localShowPerSubject, setLocalShowPerSubject] = useState(false);
     const [timeIndex, setTimeIndex] = useState(-1);
     const [localTimeIndex, setLocalTimeIndex] = useState(-1);
+    const isDraggingTime = useRef(false);
 
     useEffect(() => {
-        setLocalTimeIndex(timeIndex);
+        if (!isDraggingTime.current) {
+            setLocalTimeIndex(timeIndex);
+        }
     }, [timeIndex]);
 
     const [localSimulateToday, setLocalSimulateToday] = useState(Boolean(simulateToday));
@@ -356,6 +359,12 @@ export default function MonteCarloGauge({
                             } else {
                                 setTimeIndex(newTimeIndex);
                             }
+                        }}
+                        onPointerDown={() => {
+                            isDraggingTime.current = true;
+                        }}
+                        onPointerUp={() => {
+                            isDraggingTime.current = false;
                         }}
                         className="custom-slider w-full h-1.5 rounded-full outline-none"
                         style={{

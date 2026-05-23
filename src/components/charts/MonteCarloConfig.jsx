@@ -57,8 +57,12 @@ export const MonteCarloConfig = ({
     const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number(targetScore) || sliderMin));
     
     const [localTarget, setLocalTarget] = React.useState(clampedTarget);
+    const isDragging = useRef(false);
+
     React.useEffect(() => {
-        setLocalTarget(clampedTarget);
+        if (!isDragging.current) {
+            setLocalTarget(clampedTarget);
+        }
     }, [clampedTarget]);
 
     const displayTarget = localTarget;
@@ -140,7 +144,11 @@ export const MonteCarloConfig = ({
                                         }
                                     }
                                 }}
+                                onPointerDown={() => {
+                                    isDragging.current = true;
+                                }}
                                 onPointerUp={() => {
+                                    isDragging.current = false;
                                     // Lógica de salvamento e trava agora reside no pai (VerifiedStats)
                                 }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
