@@ -120,7 +120,7 @@ export const MonteCarloConfig = ({
                                 max={safeMaxScore}
                                 step="1"
                                 value={clampedTarget}
-                                onChange={(e) => {
+                                onInput={(e) => {
                                     const val = parseInt(e.target.value, 10);
                                     if (setTargetScore) setTargetScore(val);
                                 }}
@@ -129,8 +129,7 @@ export const MonteCarloConfig = ({
                                 }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
                                 style={{
-                                    background: `linear-gradient(to right, #3b82f6 ${sliderPercent}%, rgba(255,255,255,0.1) ${sliderPercent}%)`,
-                                    touchAction: 'none'
+                                    background: `linear-gradient(to right, #3b82f6 ${sliderPercent}%, rgba(255,255,255,0.1) ${sliderPercent}%)`
                                 }}
                             />
                         </div>

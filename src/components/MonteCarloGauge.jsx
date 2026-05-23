@@ -340,14 +340,13 @@ export default function MonteCarloGauge({
                         min="0"
                         max={Math.max(1, timelineDates.length - 1)}
                         value={clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex}
-                        onChange={(e) => {
+                        onInput={(e) => {
                             const val = Number(e.target.value);
                             setTimeIndex(val === timelineDates.length - 1 ? -1 : val);
                         }}
                         className="custom-slider w-full h-1.5 rounded-full outline-none"
                         style={{
-                            background: `linear-gradient(to right, #6366f1 ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
-                            touchAction: 'none'
+                            background: `linear-gradient(to right, #6366f1 ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`
                         }}
                     />
                 </div>
