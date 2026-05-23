@@ -63,7 +63,7 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                     <stop offset="100%" stopColor="#059669" stopOpacity={0.75} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
+                            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
                             
                             <XAxis
                                 dataKey="name"
@@ -93,7 +93,7 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                         const rendPctRaw = d.questoes > 0 ? ((d.acertos / d.questoes) * 100) : 0;
                                         const rendPct = formatValue(rendPctRaw);
                                         return (
-                                            <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl min-w-[180px]">
+                                            <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px]">
                                                 <p className="font-black text-slate-200 mb-2 border-b border-white/5 pb-1.5 text-xs">{d.fullName}</p>
                                                 <div className="space-y-1.5">
                                                     <div className="flex justify-between items-center gap-4">

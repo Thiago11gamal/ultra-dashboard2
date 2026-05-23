@@ -8,12 +8,13 @@ import { normalizeDate, getDateKey, formatDisplayDate } from "../../../utils/dat
 import { getSafeScore, formatValue } from "../../../utils/scoreHelper";
 
 const CustomTooltipStyle = {
-    backgroundColor: '#0a0f1e',
-    border: '1px solid rgba(99,102,241,0.25)',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    backdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '12px',
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontSize: '12px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
 };
 
 const MEGA_PALETTE = [
@@ -231,7 +232,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                 <div className="w-full relative" style={{ height: Math.max(400, chartData.length * 50) }}>
                     <ResponsiveContainer width="100%" height="100%" minHeight={400}>
                         <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: -5, bottom: 0 }}>
-                            <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" horizontal={false} />
 
                             <XAxis
                                 type="number"
@@ -267,7 +268,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                             <ReferenceLine x={targetScorePct} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="3 3" />
 
-                            <Bar dataKey="accuracy" radius={[0, 4, 4, 0]} barSize={26}>
+                            <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={26}>
                                 {chartData.map((entry, index) => {
                                     let barColor = "#ef4444";
                                     if (entry.accuracy >= targetScorePct) barColor = "#10b981";
@@ -293,7 +294,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     {timeSeriesData.length > 1 ? (
                         <ResponsiveContainer width="100%" height={750}>
                             <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: -20, bottom: 50 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
 
                                 <XAxis
                                     dataKey="dateLabel"

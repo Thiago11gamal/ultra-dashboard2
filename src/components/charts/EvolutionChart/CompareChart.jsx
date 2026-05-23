@@ -136,8 +136,33 @@ export function CompareChart({
 
         const offset = getOffset(type, value, index, viewBox);
         const xOff = isMc ? 12 : 10;
-        return <text x={x + xOff} y={y + 4 + offset} fill={color} fontSize={11} fontWeight="black" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{(Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2)}{unit}</text>;
-    };
+        const formatted = (Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2) + unit;
+        return (
+            <g style={{ zIndex: 100 }}>
+                <rect
+                    x={x + xOff - 2}
+                    y={y - 10 + offset}
+                    width={42}
+                    height={20}
+                    rx={10}
+                    fill={color}
+                    fillOpacity={0.15}
+                    stroke={color}
+                    strokeOpacity={0.4}
+                />
+                <text 
+                    x={x + xOff + 19} 
+                    y={y + 4 + offset} 
+                    fill={color} 
+                    fontSize={11} 
+                    fontWeight="black" 
+                    textAnchor="middle"
+                    style={{ textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}
+                >
+                    {formatted}
+                </text>
+            </g>
+        );    };
 
     let gainBase = 'dataMin';
     let showGainArea = true;
@@ -193,7 +218,7 @@ export function CompareChart({
                             </feMerge>
                         </filter>
                     </defs>
-                    <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dy={12} axisLine={false} tickLine={false} minTickGap={35} />
                     
                     <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[safeMinScore, safeMaxScore]} allowDataOverflow={true} tickFormatter={(v) => `${v}${unit}`} width={50} />

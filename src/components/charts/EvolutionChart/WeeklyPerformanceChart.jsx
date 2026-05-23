@@ -223,7 +223,7 @@ const WeeklyPerformanceChart = ({
                             activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }}
                             strokeLinecap="round"
                             filter={`url(#${neonShadowId})`}
-                            animationDuration={2000}
+                            animationDuration={1500}
                             connectNulls={true} // FIX: Preservação de linha contínua se não houver acertos em 1 dia
                         />
                     </ComposedChart>

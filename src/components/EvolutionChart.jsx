@@ -630,6 +630,7 @@ export default function EvolutionChart({
                             key={cat.id}
                             cat={cat}
                             level={categoryLevels[cat.id] || 0}
+                            metrics={timeline.length > 0 ? timeline[timeline.length - 1] : null}
                             target={targetScore}
                             isFocused={focusCategory?.id === cat.id}
                             onClick={() => setFocusSubjectId(cat.id)}
@@ -637,8 +638,6 @@ export default function EvolutionChart({
                             maxScore={maxScore}
                         />
                     ))}
-
-
                 </div>
             </div>
 

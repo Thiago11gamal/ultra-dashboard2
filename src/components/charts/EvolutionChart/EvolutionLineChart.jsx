@@ -135,13 +135,25 @@ export function EvolutionLineChart({
 
             return (
                 <g style={{ zIndex: 100 }}>
+                    <rect
+                        x={x + 6}
+                        y={y - 10 + offsetPx}
+                        width={42}
+                        height={20}
+                        rx={10}
+                        fill={catColor}
+                        fillOpacity={0.15}
+                        stroke={catColor}
+                        strokeOpacity={0.4}
+                    />
                     <text 
-                        x={x + 8} 
+                        x={x + 27} 
                         y={y + 4 + offsetPx} 
                         fill={catColor} 
                         fontSize={11} 
-                        fontWeight="bold" 
-                        style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.8)' }}
+                        fontWeight="black" 
+                        textAnchor="middle"
+                        style={{ textShadow: '0px 2px 6px rgba(0,0,0,0.9)' }}
                     >
                         {formatValue(value)}{unit}
                     </text>
@@ -185,7 +197,7 @@ export function EvolutionLineChart({
                         </filter>
                     </defs>
                     
-                    <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
 
                     <XAxis
                         dataKey="displayDate"
