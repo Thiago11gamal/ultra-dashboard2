@@ -176,7 +176,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             <div key={w.label} className="flex items-center">
                                 {!isActive && idx !== 0 && idx !== WEEKS.findIndex(ww => ww.offset === selectedWeekOffset) - 1 && <span className="mx-1.5 text-slate-600 font-bold opacity-60">•</span>}
                                 <button
+                                    type="button"
                                     onClick={() => setSelectedWeekOffset(w.offset)}
+                                    aria-label={`Filtrar semana ${w.label}`}
+                                    aria-pressed={isActive}
                                     className={`
                                         relative px-3.5 py-1.5 text-[10px] sm:text-xs font-black tracking-widest rounded-full transition-all shrink-0
                                         ${isActive
