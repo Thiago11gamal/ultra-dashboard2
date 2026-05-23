@@ -53,32 +53,34 @@ export function CompareChart({
         }));
         
         const range = safeMaxScore - safeMinScore;
-        const MIN_PCT_DISTANCE = range * 0.085; // 8.5% do escopo visual (Flexível)
+        const topLimit = safeMaxScore - (range * 0.02);
+        const bottomLimit = safeMinScore + (range * 0.05);
+        const safeSpace = Math.max(0.1, topLimit - bottomLimit);
+
+        const MIN_PCT_DISTANCE = range * 0.085; // 8.5% do escopo visual
+        const requiredSpace = (yPos.length - 1) * MIN_PCT_DISTANCE;
+
+        const effectiveDistance = requiredSpace > safeSpace 
+            ? safeSpace / Math.max(1, yPos.length - 1) 
+            : MIN_PCT_DISTANCE;
 
         // Pass 1: Espaçamento de cima para baixo
         for (let i = 1; i < yPos.length; i++) {
-            if (yPos[i - 1].yPos - yPos[i].yPos < MIN_PCT_DISTANCE) {
-                yPos[i].yPos = yPos[i - 1].yPos - MIN_PCT_DISTANCE;
+            if (yPos[i - 1].yPos - yPos[i].yPos < effectiveDistance) {
+                yPos[i].yPos = yPos[i - 1].yPos - effectiveDistance;
             }
         }
 
-        // Pass 2: Teto - Previne estourar o gráfico pra cima
-        const topLimit = safeMaxScore - (range * 0.02);
-        for (let i = 0; i < yPos.length; i++) {
-            if (i === 0) {
-                if (yPos[i].yPos > topLimit) yPos[i].yPos = topLimit;
-            } else {
-                if (yPos[i - 1].yPos - yPos[i].yPos < MIN_PCT_DISTANCE) {
-                    yPos[i].yPos = yPos[i - 1].yPos - MIN_PCT_DISTANCE;
-                }
-            }
-        }
-
-        // Pass 3: Chão - Recupera caso tenha vazado pelo fundo
-        const bottomLimit = safeMinScore + (range * 0.05);
+        // Pass 2: Chão - Recupera caso tenha vazado pelo fundo
         if (yPos.length > 0 && yPos[yPos.length - 1].yPos < bottomLimit) {
             const shift = bottomLimit - yPos[yPos.length - 1].yPos;
             yPos.forEach(p => p.yPos += shift);
+        }
+
+        // Pass 3: Teto - Previne estourar o gráfico pra cima e cortar label
+        if (yPos.length > 0 && yPos[0].yPos > topLimit) {
+            const shift = yPos[0].yPos - topLimit;
+            yPos.forEach(p => p.yPos -= shift);
         }
 
         return yPos;
