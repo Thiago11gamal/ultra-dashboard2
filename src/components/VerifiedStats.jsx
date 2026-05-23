@@ -250,6 +250,14 @@ export default function VerifiedStats({ categories = [], user }) {
     }, [storeTarget, targetScore]);
     const [showConfig, setShowConfig] = React.useState(false);
     const [showSubjects, setShowSubjects] = React.useState(false);
+    const handleTargetScoreChange = React.useCallback((nextValue) => {
+        const parsed = Number(nextValue);
+        if (!Number.isFinite(parsed)) return;
+
+        // Marca alteração local antes do setState para evitar rollback pelo efeito de sync
+        pendingLocalSave.current = true;
+        setTargetScore(parsed);
+    }, []);
 
     // Performance Fix: Debounce targetScore for the heavy 'stats' calculation
     const [statsTarget, setStatsTarget] = React.useState(targetScore);
@@ -716,7 +724,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         categories={categories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
-                        onTargetScoreChange={setTargetScore}
+                        onTargetScoreChange={handleTargetScoreChange}
                         forcedMode="today"
                         forcedTitle="Status Atual"
                         maxScore={maxScore}
@@ -727,7 +735,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         categories={categories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
-                        onTargetScoreChange={setTargetScore}
+                        onTargetScoreChange={handleTargetScoreChange}
                         forcedMode="future"
                         forcedTitle="Projeção Futura"
                         maxScore={maxScore}
@@ -741,7 +749,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 show={showConfig}
                 onClose={() => setShowConfig(false)}
                 targetScore={targetScore}
-                setTargetScore={setTargetScore}
+                setTargetScore={handleTargetScoreChange}
                 equalWeightsMode={equalWeightsMode}
                 setEqualWeightsMode={setEqualWeightsMode}
                 getEqualWeights={getEqualWeights}
