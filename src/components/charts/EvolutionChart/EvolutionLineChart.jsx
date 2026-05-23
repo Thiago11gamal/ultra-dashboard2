@@ -173,7 +173,7 @@ export function EvolutionLineChart({
                     tabIndex="-1"
                 >
                     <defs>
-                        {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat, index) => {
+                        {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
                             const displayColor = cat.color || '#3b82f6';
                             return (
                             <React.Fragment key={`defs_${cat.id}`}>
@@ -244,7 +244,7 @@ export function EvolutionLineChart({
 
                     <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px', paddingBottom: '0' }} />
 
-                    {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat, index) => {
+                    {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                         const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : false;
                         const hasFocus = showOnlyFocus ? !!focusSubjectId : false;
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;

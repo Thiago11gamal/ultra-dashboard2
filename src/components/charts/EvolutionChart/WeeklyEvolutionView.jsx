@@ -505,7 +505,6 @@ export const WeeklyEvolutionView = ({
                                 )}
 
                                 {keys.map(key => {
-                                    const isHovered = hoveredLine === key;
                                     const isOtherHovered = hoveredLine && hoveredLine !== key;
 
                                     return (

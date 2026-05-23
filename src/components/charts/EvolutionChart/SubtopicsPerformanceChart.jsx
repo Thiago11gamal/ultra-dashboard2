@@ -24,6 +24,70 @@ const MEGA_PALETTE = [
     "#f43f5e", "#fb7185", "#34d399", "#fbbf24", "#a3e635"
 ];
 
+const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }) => {
+    if (active && payload && payload.length) {
+        const sortedPayload = [...payload].sort((a, b) => b.value - a.value);
+
+        return (
+            <div className="bg-slate-950/95 border border-white/10 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
+                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
+                    <span>📅 {label}</span>
+                    <span className="text-slate-500 font-bold bg-slate-900/50 px-2 py-0.5 rounded">META: {targetScorePct?.toFixed(0)}%</span>
+                </p>
+                <div className="space-y-4">
+                    {sortedPayload.map((entry, index) => {
+                        const pct = Math.max(0, Math.min(100, entry.value));
+                        const topicKey = entry.dataKey;
+                        const total = entry.payload[`${topicKey}_total`];
+                        const correct = entry.payload[`${topicKey}_correct`];
+                        const delta = entry.payload[`${topicKey}_delta`];
+                        
+                        const isTargetMet = pct >= targetScorePct;
+                        const gap = isTargetMet ? 0 : Number((targetScorePct - pct).toFixed(1));
+                        
+                        return (
+                            <div key={`item-${index}`} className="flex flex-col gap-1.5">
+                                <div className="flex justify-between items-end">
+                                    <div className="flex flex-col gap-0.5">
+                                        <span style={{ color: entry.color }} className="font-bold flex items-center gap-2 truncate max-w-[200px]" title={entry.name}>
+                                            <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: entry.color, boxShadow: `0 0 8px ${entry.color}88` }}></span>
+                                            <span className="truncate">{entry.name}</span>
+                                            {isTargetMet && <span title="Meta atingida" className="text-[10px] shrink-0 drop-shadow-md">🔥</span>}
+                                        </span>
+                                        <span className="text-[9px] text-slate-400 font-mono ml-4 flex items-center gap-1.5">
+                                            <span className="bg-slate-900 px-1 rounded border border-white/5">Vol: {correct}/{total}</span>
+                                            {gap > 0 && <span className="text-rose-400/70">Falta {gap}%</span>}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-0.5 shrink-0">
+                                        <span className="font-mono font-black text-white text-[13px] drop-shadow-md leading-none">
+                                            {formatValue(entry.value)}%
+                                        </span>
+                                        {delta !== undefined && delta !== null && (
+                                            <span className={`text-[9px] font-black font-mono leading-none ${delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-slate-500'}`}>
+                                                {delta > 0 ? '▲ +' : delta < 0 ? '▼ ' : '■ '}{formatValue(delta)}%
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="w-full h-1.5 bg-slate-900/80 rounded-full overflow-hidden border border-white/5 shadow-inner mt-0.5">
+                                    <div 
+                                        className="h-full rounded-full transition-all duration-500 ease-out relative" 
+                                        style={{ width: `${pct}%`, backgroundColor: entry.color, boxShadow: `0 0 10px ${entry.color}88` }}
+                                    >
+                                        <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white/30 to-transparent"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+    return null;
+});
+
 export const SubtopicsPerformanceChart = React.memo(({ 
     categories = [], 
     focusSubjectId, 
@@ -34,7 +98,7 @@ export const SubtopicsPerformanceChart = React.memo(({
     maxScore = 100 
 }) => {
     const instanceId = useId().replace(/:/g, "");
-    const [viewMode, setViewMode] = useState('lines');
+    const [viewMode, setViewMode] = useState('bars');
     const accuracyUnit = '%';
     
     const range = maxScore - minScore;
@@ -170,18 +234,26 @@ export const SubtopicsPerformanceChart = React.memo(({
 
         const topTopics = Object.entries(topicVolumeMap)
             .sort((a, b) => b[1] - a[1])
-            .slice(0, 10)
             .map(entry => entry[0]);
 
         let series = Object.values(dateMap).sort((a, b) => a.originalDate - b.originalDate);
 
+        let prevAccMap = {};
         series.forEach(entry => {
             topTopics.forEach(topic => {
                 const tot = entry[`${topic}_total`];
                 const cor = entry[`${topic}_correct`];
                 if (tot !== undefined && tot > 0) {
                     const accRaw = (cor / tot) * 100;
-                    entry[topic] = Number(Math.max(0, Math.min(100, accRaw)).toFixed(2));
+                    const acc = Number(Math.max(0, Math.min(100, accRaw)).toFixed(2));
+                    entry[topic] = acc;
+                    
+                    if (prevAccMap[topic] !== undefined) {
+                        entry[`${topic}_delta`] = Number((acc - prevAccMap[topic]).toFixed(2));
+                    } else {
+                        entry[`${topic}_delta`] = null;
+                    }
+                    prevAccMap[topic] = acc;
                 }
             });
         });
@@ -199,7 +271,7 @@ export const SubtopicsPerformanceChart = React.memo(({
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-2 gap-3">
                 <div>
                     <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-amber-500 mb-0.5">
-                        🔬 Raio-X de Tópicos {viewMode === 'lines' && <span className="text-slate-400 text-sm ml-1">(Evolução Temporal)</span>}
+                        🔬 Raio-X de Tópicos {viewMode === 'lines' ? <span className="text-slate-400 text-sm ml-1">(Evolução Temporal)</span> : <span className="text-amber-400/60 text-sm ml-1">(Ranking de Desempenho)</span>}
                     </h3>
                     <p className="text-slate-500 text-xs mt-1">Percentual de precisão real de cada pilar da sua disciplina.</p>
                 </div>
@@ -229,16 +301,30 @@ export const SubtopicsPerformanceChart = React.memo(({
                     </div>
                 </div>
             ) : viewMode === 'bars' ? (
-                <div className="w-full relative" style={{ height: Math.max(400, chartData.length * 50) }}>
-                    <ResponsiveContainer width="100%" height="100%" minHeight={400}>
-                        <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: -5, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" horizontal={false} />
+                <div className="w-full relative" style={{ height: Math.max(450, chartData.length * 60) }}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={450}>
+                        <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 110, left: -5, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.6}/>
+                                    <stop offset="100%" stopColor="#34d399" stopOpacity={1}/>
+                                </linearGradient>
+                                <linearGradient id={`gradWarn_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.6}/>
+                                    <stop offset="100%" stopColor="#fbbf24" stopOpacity={1}/>
+                                </linearGradient>
+                                <linearGradient id={`gradBad_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#ef4444" stopOpacity={0.6}/>
+                                    <stop offset="100%" stopColor="#f87171" stopOpacity={1}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" horizontal={false} />
 
                             <XAxis
                                 type="number"
                                 domain={[0, 100]}
                                 stroke="#ffffff"
-                                tick={{ fontSize: 10, fill: '#64748b' }}
+                                tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }}
                                 axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                 tickLine={false}
                                 tickFormatter={(v) => `${v}${accuracyUnit}`}
@@ -249,39 +335,50 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 type="category"
                                 dataKey="name"
                                 stroke="#ffffff"
-                                tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 500 }}
+                                tick={{ fontSize: 11, fill: '#cbd5e1', fontWeight: 600 }}
                                 axisLine={false}
                                 tickLine={false}
-                                width={140}
+                                width={150}
                             />
 
                             <Tooltip
                                 offset={200}
-                                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
                                 contentStyle={CustomTooltipStyle}
-                                itemStyle={{ color: '#e2e8f0' }}
+                                itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
                                 formatter={(value, name, props) => {
                                     const entry = props.payload;
                                     return [`${formatValue(value)}% (${entry.correct}/${entry.total} acertos)`, 'Precisão'];
                                 }}
-                                labelFormatter={(label) => <span className="font-bold text-amber-400">{label}</span>}
+                                labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
                             />
 
-                            <ReferenceLine x={targetScorePct} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="3 3" />
+                            <ReferenceLine x={targetScorePct} stroke="rgba(52, 211, 153, 0.6)" strokeDasharray="4 4" strokeWidth={2} />
 
-                            <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={26}>
+                            <Bar dataKey="accuracy" radius={[0, 12, 12, 0]} barSize={32} background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 12, 12, 0] }} isAnimationActive={true} animationDuration={1000}>
                                 {chartData.map((entry, index) => {
-                                    let barColor = "#ef4444";
-                                    if (entry.accuracy >= targetScorePct) barColor = "#10b981";
-                                    else if (entry.accuracy >= 60) barColor = "#f59e0b";
+                                    let barColor = `url(#gradBad_${instanceId})`;
+                                    if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;
+                                    else if (entry.accuracy >= 60) barColor = `url(#gradWarn_${instanceId})`;
                                     return <Cell key={`cell-${index}`} fill={barColor} />;
                                 })}
                                 <LabelList
                                     dataKey="accuracy"
                                     position="right"
-                                    formatter={(val) => `${formatValue(val)}%`}
-                                    style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }}
-                                    offset={8}
+                                    content={(props) => {
+                                        const { x, y, width, height, value, index } = props;
+                                        const entry = chartData[index];
+                                        return (
+                                            <g>
+                                                <text x={x + width + 8} y={y + height / 2 + 4} fill="#ffffff" fontSize={12} fontWeight="black">
+                                                    {formatValue(value)}%
+                                                </text>
+                                                <text x={x + width + 45} y={y + height / 2 + 3} fill="#64748b" fontSize={10} fontWeight="bold">
+                                                    ({entry.correct}/{entry.total})
+                                                </text>
+                                            </g>
+                                        );
+                                    }}
                                 />
                             </Bar>
                         </BarChart>
@@ -289,8 +386,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                 </div>
             ) : (
                 <div className="w-full relative min-h-[750px]">
-                    <div className="absolute top-0 right-4 text-[10px] text-indigo-400/60 font-mono">
-                        {uniqueTopics.length} tópicos mais relevantes sendo plotados.
+                    <div className="absolute top-0 right-4 text-[10px] text-indigo-400/60 font-mono z-10">
+                        {uniqueTopics.length} tópicos plotados simultaneamente.
                     </div>
                     {timeSeriesData.length > 1 ? (
                         <ResponsiveContainer width="100%" height={750}>
@@ -316,10 +413,9 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 />
 
                                 <Tooltip
-                                    offset={200}
-                                    contentStyle={CustomTooltipStyle}
-                                    formatter={(value, name) => [`${formatValue(value)}%`, name]}
-                                    labelFormatter={(label) => <span className="text-amber-400 font-bold">{label}</span>}
+                                    offset={40}
+                                    content={<CustomLineTooltip targetScorePct={targetScorePct} />}
+                                    cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
                                 />
 
                                 <ReferenceLine y={targetScorePct} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="4 4" label={{ position: 'top', value: 'META', fill: '#6ee7b7', fontSize: 10 }} />

@@ -367,13 +367,21 @@ export default function MonteCarloGauge({
                         {perSubjectProbs.map(s => {
                             const probColor = s.prob < 40 ? 'text-rose-400' : s.prob < 60 ? 'text-amber-400' : s.prob < 80 ? 'text-blue-400' : 'text-emerald-400';
                             return (
-                                <div key={s.name} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
-                                    <div className="flex items-center gap-2 truncate">
-                                        {s.trend === 'up' && <TrendingUp size={10} className="text-emerald-400" />}
-                                        {s.trend === 'down' && <TrendingDown size={10} className="text-rose-400" />}
-                                        <span className="text-[10px] text-slate-300 truncate">{s.name}</span>
+                                <div key={s.name} className="flex flex-col gap-1.5 py-2 border-b border-white/5 last:border-0">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 truncate">
+                                            {s.trend === 'up' && <TrendingUp size={10} className="text-emerald-400" />}
+                                            {s.trend === 'down' && <TrendingDown size={10} className="text-rose-400" />}
+                                            <span className="text-[10px] text-slate-300 truncate">{s.name}</span>
+                                        </div>
+                                        <span className={`text-[10px] font-black ${probColor}`}>{formatValue(s.prob)}%</span>
                                     </div>
-                                    <span className={`text-[10px] font-black ${probColor}`}>{formatValue(s.prob)}%</span>
+                                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full rounded-full ${s.prob < 40 ? 'bg-rose-400' : s.prob < 60 ? 'bg-amber-400' : s.prob < 80 ? 'bg-blue-400' : 'bg-emerald-400'}`}
+                                            style={{ width: `${Math.min(100, Math.max(0, s.prob))}%`, transition: 'width 1s ease-out' }}
+                                        />
+                                    </div>
                                 </div>
                             );
                         })}
