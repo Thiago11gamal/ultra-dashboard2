@@ -107,6 +107,28 @@ export default function Sidebar({
         }
     }, [collapsed, isOpen, setCollapsed]);
 
+    React.useEffect(() => {
+        const handleClickOutside = (e) => {
+            // Se for desktop (lg: >= 1024px) e estiver expandido (!collapsed)
+            if (window.innerWidth >= 1024 && !collapsed) {
+                const sidebar = document.querySelector('.sidebar');
+                // Se o clique foi fora da sidebar
+                if (sidebar && !sidebar.contains(e.target)) {
+                    // Verifica se o clique não foi no botão de toggle do header
+                    const toggleBtn = e.target.closest('[aria-label="Expandir Menu"], [aria-label="Recolher Menu"]');
+                    if (!toggleBtn) {
+                        setCollapsed(true);
+                    }
+                }
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [collapsed, setCollapsed]);
+
     const closeMobileSidebar = () => {
         if (typeof window === 'undefined') return;
         if (window.innerWidth >= 1024) return;
