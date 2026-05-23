@@ -13,14 +13,14 @@ export function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick
 
     return (
         <button onClick={onClick}
-            className={`relative text-left w-full rounded-none border p-3 sm:p-4 transition-all duration-500 group min-h-[82px] sm:min-h-[105px] overflow-hidden flex flex-col justify-between ${isFocused ? 'shadow-[0_0_30px_-5px_rgba(0,0,0,0.6)] z-20 border-transparent bg-white/[0.03]' : 'border-slate-800/40 hover:border-slate-700/60 hover:bg-slate-800/30 active:scale-95'}`}
+            className={`relative text-left w-full rounded-lg border p-3 sm:p-4 transition-all duration-500 group min-h-[82px] sm:min-h-[105px] overflow-hidden flex flex-col justify-between ${isFocused ? 'shadow-[0_0_30px_-5px_rgba(0,0,0,0.6)] z-20 border-transparent bg-white/[0.03]' : 'border-slate-800/40 hover:border-slate-700/60 hover:bg-slate-800/30 active:scale-95'}`}
             style={{
                 backgroundColor: isFocused ? `${cat.color}35` : 'rgba(15,23,42,0.4)',
             }}>
 
             {/* Neon Border Glow (Focused State) */}
             {isFocused && (
-                <div className="absolute inset-0 rounded-none pointer-events-none" style={{
+                <div className="absolute inset-0 rounded-lg pointer-events-none" style={{
                     border: `2px solid ${cat.color}`,
                     boxShadow: `inset 0 0 15px ${cat.color}40, 0 0 15px ${cat.color}60`,
                     filter: 'brightness(1.2)'
@@ -51,13 +51,13 @@ export function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick
 
             {/* Glass Reflection Effect */}
             {isFocused && (
-                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-none">
+                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg">
                     <div className="absolute top-[-100%] left-[-100%] w-[300%] h-[300%] bg-gradient-to-br from-white/10 via-transparent to-transparent rotate-12 transition-transform duration-1000" />
                 </div>
             )}
 
             <div className="relative z-10 flex items-center justify-end mb-2 w-full">
-                <div className={`w-2.5 h-2.5 rounded-none transition-all duration-500 ${isFocused ? 'scale-125' : ''}`}
+                <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${isFocused ? 'scale-125' : ''}`}
                     style={{
                         backgroundColor: statusColor,
                         boxShadow: `0 0 12px ${statusColor}`
