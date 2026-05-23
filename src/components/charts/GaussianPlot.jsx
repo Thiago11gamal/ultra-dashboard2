@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useId } from 'react';
+import React, { useMemo, useState, useId, useRef } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian';
 import { formatDuration } from '../../utils/dateHelper';
 import { formatValue } from '../../utils/scoreHelper';
@@ -27,6 +27,8 @@ export const GaussianPlot = ({
     unit = '%' 
 }) => {
     const [hover, setHover] = useState(null);
+    const hoverRafRef = useRef(null);
+    const pendingHoverRef = useRef(null);
 
     const instanceId = useId().replace(/:/g, '');
     const ID = {
@@ -253,9 +255,21 @@ export const GaussianPlot = ({
                 // 🎯 FIX: Proteção contra Divisão por Zero em Arrays estáticos
                 const hoverRange = Math.max(1e-6, range);
                 const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * hoverRange));
-                setHover({ x: xp(val), val });
+                pendingHoverRef.current = { x: xp(val), val };
+                if (hoverRafRef.current != null) return;
+                hoverRafRef.current = requestAnimationFrame(() => {
+                    hoverRafRef.current = null;
+                    setHover(pendingHoverRef.current);
+                });
             }}
-            onMouseLeave={() => setHover(null)}
+            onMouseLeave={() => {
+                if (hoverRafRef.current != null) {
+                    cancelAnimationFrame(hoverRafRef.current);
+                    hoverRafRef.current = null;
+                }
+                pendingHoverRef.current = null;
+                setHover(null);
+            }}
         >
             {/* ... Gradientes laterais e SVG defs continuam iguais ... */}
             <div style={{

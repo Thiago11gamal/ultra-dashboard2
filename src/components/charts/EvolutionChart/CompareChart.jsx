@@ -116,7 +116,9 @@ export function CompareChart({
         if (!pt) return 0;
         const range = safeMaxScore - safeMinScore;
         const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / (range || 1) : 4.6;
-        return (value - pt.yPos) * pxPerPct;
+        const animateSeries = chartData.length <= 90;
+
+    return (value - pt.yPos) * pxPerPct;
     };
 
     const renderLabel = (props, type, color) => {
@@ -139,7 +141,9 @@ export function CompareChart({
         const offset = getOffset(type, value, index, viewBox);
         const xOff = isMc ? 12 : 10;
         const formatted = (Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2) + unit;
-        return (
+        const animateSeries = chartData.length <= 90;
+
+    return (
             <g style={{ zIndex: 100 }}>
                 <rect
                     x={x + xOff - 2}
@@ -181,6 +185,8 @@ export function CompareChart({
             }
         }
     }
+
+    const animateSeries = chartData.length <= 90;
 
     return (
         <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
@@ -244,17 +250,17 @@ export function CompareChart({
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={4}
                         strokeLinecap="round" strokeLinejoin="round"
                         fill={`url(#${CC.greenGradient})`} dot={{ r: 3, fill: '#0f172a', stroke: '#34d399', strokeWidth: 1.5 }}
-                        activeDot={false} connectNulls style={{ filter: `url(#${CC.lineShadow})` }} isAnimationActive={true}>
+                        activeDot={false} connectNulls style={{ filter: `url(#${CC.lineShadow})` }} isAnimationActive={animateSeries}>
                         <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
                     </Area>
                     
                     <Line type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={3}
                         strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 5" 
-                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={false} connectNulls strokeOpacity={1} isAnimationActive={true}>
+                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={false} connectNulls strokeOpacity={1} isAnimationActive={animateSeries}>
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
                     </Line>
                     
-                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.4} isAnimationActive={true}>
+                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.4} isAnimationActive={animateSeries}>
                         <LabelList content={(props) => renderLabel(props, 'stats', '#818cf8')} />
                     </Line>
                     
@@ -263,7 +269,9 @@ export function CompareChart({
                         dot={(props) => {
                             const { cx, cy, index } = props;
                             if (index !== chartData.length - 1) return null;
-                            return (
+                            const animateSeries = chartData.length <= 90;
+
+    return (
                                 <g>
                                     <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2} style={{ filter: `url(#${CC.glow})` }}>
                                         <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
