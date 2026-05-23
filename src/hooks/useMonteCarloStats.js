@@ -580,7 +580,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         if (calibrationPenalty > 0) {
             const ciMid = (ci95Low + ci95High) / 2;
             const ciExpand = 1 + (calibrationPenalty * 2.5);
-            ci95Low = Math.max(0, ciMid - ((ciMid - ci95Low) * ciExpand));
+            ci95Low = Math.max(minScore, ciMid - ((ciMid - ci95Low) * ciExpand));
             ci95High = Math.min(maxScore, ciMid + ((ci95High - ciMid) * ciExpand));
             sd = sd * (1 + calibrationPenalty * 2.5);
             sdLeft = sdLeft * (1 + calibrationPenalty * 2.5);
@@ -694,38 +694,42 @@ function useMonteCarloHistoryRecorder({
         const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
 
         if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling && activeId) {
+            const doRecord = () => {
+                const today = getDateKey(new Date());
+                const currentProb = Number(prob.toFixed(1)); 
+                const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
+                const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
+                const currentTarget = Number(debouncedTarget.toFixed(1));
+                
+                const existingProb = Number((existing?.probability ?? existing?.prob ?? 0).toFixed(1));
+                const existingTarget = Number((existing?.target ?? 0).toFixed(1));
+
+                const targetChanged = !existing || Math.abs(existingTarget - currentTarget) > 0.05;
+                const isCICollapsed = existing && Number.isFinite(existing.mean) && Number.isFinite(existing.ci95Low) ? Math.abs(existing.mean - existing.ci95Low) < 0.01 : false;
+                const needsUpdate = !existing || existing.ci95Low === undefined || (isCICollapsed && projectDays > 0);
+                const probChanged = existing && Math.abs(existingProb - currentProb) > 0.3;
+
+                if (probChanged || targetChanged || needsUpdate) {
+                    lastRecordTime.current = Date.now();
+                    recordMonteCarloSnapshot(today, prob, { 
+                        mean: Number(currentMean.toFixed(2)), 
+                        projectedMean: Number(projectedMean.toFixed(2)),
+                        ci95Low: Number(ci95Low.toFixed(2)),
+                        ci95High: Number(ci95High.toFixed(2)),
+                        target: Number(debouncedTarget.toFixed(2)),
+                        targetDate: goalDate
+                    });
+                }
+            };
+
             const now = Date.now();
-            // THROTTLE: Máximo 1 gravação a cada 5 segundos para evitar spam de re-renders
-            if (now - lastRecordTime.current < 5000) return;
-
-            const today = getDateKey(new Date());
-            const currentProb = Number(prob.toFixed(1)); // Reduzimos precisão para 0.1 para estabilizar
-            const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
-            const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
-            const currentTarget = Number(debouncedTarget.toFixed(1));
+            const timeSinceLast = now - lastRecordTime.current;
             
-            const existingProb = Number((existing?.probability ?? existing?.prob ?? 0).toFixed(1));
-            const existingTarget = Number((existing?.target ?? 0).toFixed(1));
-
-            const targetChanged = !existing || Math.abs(existingTarget - currentTarget) > 0.05;
-            
-            // 🎯 CI-COLLAPSE FIX: Desativar needsUpdate por colapso de CI se projectDays === 0.
-            // No dia do exame, o cone de incerteza colapsa para zero por definição matemática.
-            const isCICollapsed = existing && Number.isFinite(existing.mean) && Number.isFinite(existing.ci95Low) ? Math.abs(existing.mean - existing.ci95Low) < 0.01 : false;
-            const needsUpdate = !existing || existing.ci95Low === undefined || (isCICollapsed && projectDays > 0);
-            const probChanged = existing && Math.abs(existingProb - currentProb) > 0.3; // Threshold maior para evitar micro-oscilações
-
-            if (probChanged || targetChanged || needsUpdate) {
-                lastRecordTime.current = now;
-                // SALVANDO SNAPSHOT COMPLETO: HOJE, FUTURO E INCERTEZA
-                recordMonteCarloSnapshot(today, prob, { 
-                    mean: Number(currentMean.toFixed(2)), 
-                    projectedMean: Number(projectedMean.toFixed(2)),
-                    ci95Low: Number(ci95Low.toFixed(2)),
-                    ci95High: Number(ci95High.toFixed(2)),
-                    target: Number(debouncedTarget.toFixed(2)),
-                    targetDate: goalDate
-                });
+            if (timeSinceLast < 5000) {
+                const timerId = setTimeout(doRecord, 5000 - timeSinceLast);
+                return () => clearTimeout(timerId);
+            } else {
+                doRecord();
             }
         }
     }, [
