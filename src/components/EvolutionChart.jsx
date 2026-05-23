@@ -632,7 +632,7 @@ export default function EvolutionChart({
                             level={categoryLevels[cat.id] || 0}
                             metrics={timeline.length > 0 ? timeline[timeline.length - 1] : null}
                             target={targetScore}
-                            isFocused={focusCategory?.id === cat.id}
+                            isFocused={showOnlyFocus ? focusCategory?.id === cat.id : false}
                             onClick={() => setFocusSubjectId(cat.id)}
                             unit={unit}
                             maxScore={maxScore}

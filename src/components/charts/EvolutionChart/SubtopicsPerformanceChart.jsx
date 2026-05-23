@@ -256,6 +256,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                             />
 
                             <Tooltip
+                                offset={200}
                                 cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                                 contentStyle={CustomTooltipStyle}
                                 itemStyle={{ color: '#e2e8f0' }}
@@ -315,6 +316,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 />
 
                                 <Tooltip
+                                    offset={200}
                                     contentStyle={CustomTooltipStyle}
                                     formatter={(value, name) => [`${formatValue(value)}%`, name]}
                                     labelFormatter={(label) => <span className="text-amber-400 font-bold">{label}</span>}
@@ -337,8 +339,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                                             name={topicName}
                                             stroke={color}
                                             strokeWidth={3}
-                                            dot={{ r: 4, fill: '#0f172a', strokeWidth: 2, stroke: color }}
-                                            activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
+                                            dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}
+                                            activeDot={{ r: 5, fill: color, stroke: '#ffffff', strokeWidth: 2 }}
                                             connectNulls={true} // FIX: Preserva continuidade temporal
                                             animationDuration={1500}
                                         />

@@ -28,6 +28,8 @@ export function EvolutionLineChart({
     const instanceId = useId().replace(/:/g, "");
     const shadowId = `el_lineShadow_${instanceId}`;
 
+
+
     // Refined chart data with defensive sorting and date normalization
     const enhancedChartData = React.useMemo(() => {
         if (!filteredChartData || !filteredChartData.length) return [];
@@ -114,12 +116,10 @@ export function EvolutionLineChart({
         return map;
     }, [finalPoints, maxScore, minScore]);
 
-    /**
-     * Custom Label Renderer
-     * Handles dynamic offsets to prevent label overlapping at the end of lines
-     */
-    const renderCustomLabel = (props, catId, catColor) => {
+    const renderCustomLabel = (props, catId, displayColor, isFocused, hasFocus) => {
         const { x, y, index, value, viewBox } = props;
+
+        if (hasFocus && !isFocused) return null;
 
         if (index === filteredChartData.length - 1 && value != null) {
             let offsetPx = 0;
@@ -128,32 +128,31 @@ export function EvolutionLineChart({
             if (adjustedY !== undefined && adjustedY !== value) {
                 const range = maxScore - minScore;
                 const pxPerPct = (viewBox?.height > 0) ? viewBox.height / (range || 1) : 2.5;
-                // In SVG Y grows down, so if adjustedY is lower than value (numerically),
-                // it needs a positive offset to move DOWN.
                 offsetPx = (value - adjustedY) * pxPerPct;
             }
 
             return (
-                <g style={{ zIndex: 100 }}>
+                <g style={{ zIndex: 100, transition: 'all 0.3s ease' }}>
                     <rect
-                        x={x + 6}
-                        y={y - 10 + offsetPx}
-                        width={42}
-                        height={20}
-                        rx={10}
-                        fill={catColor}
-                        fillOpacity={0.15}
-                        stroke={catColor}
-                        strokeOpacity={0.4}
+                        x={x + 8}
+                        y={y - 11 + offsetPx}
+                        width={46}
+                        height={22}
+                        rx={6}
+                        fill="#020617"
+                        fillOpacity={0.7}
+                        stroke={displayColor}
+                        strokeOpacity={0.9}
+                        strokeWidth={1.5}
                     />
                     <text 
-                        x={x + 27} 
+                        x={x + 31} 
                         y={y + 4 + offsetPx} 
-                        fill={catColor} 
+                        fill="#ffffff" 
                         fontSize={11} 
                         fontWeight="black" 
                         textAnchor="middle"
-                        style={{ textShadow: '0px 2px 6px rgba(0,0,0,0.9)' }}
+                        style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.8)' }}
                     >
                         {formatValue(value)}{unit}
                     </text>
@@ -174,22 +173,24 @@ export function EvolutionLineChart({
                     tabIndex="-1"
                 >
                     <defs>
-                        {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map(cat => (
+                        {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat, index) => {
+                            const displayColor = cat.color || '#3b82f6';
+                            return (
                             <React.Fragment key={`defs_${cat.id}`}>
-                                {/* Unique IDs with instanceId to prevent SVG collisions */}
                                 <linearGradient id={`grad_${cat.id}_${instanceId}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={cat.color} stopOpacity={0.25} />
-                                    <stop offset="100%" stopColor={cat.color} stopOpacity={0.01} />
+                                    <stop offset="0%" stopColor={displayColor} stopOpacity={0.3} />
+                                    <stop offset="100%" stopColor={displayColor} stopOpacity={0.01} />
                                 </linearGradient>
                                 <linearGradient id={`bayBand_${cat.id}_${instanceId}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={cat.color} stopOpacity={0.18} />
-                                    <stop offset="100%" stopColor={cat.color} stopOpacity={0.04} />
+                                    <stop offset="0%" stopColor={displayColor} stopOpacity={0.15} />
+                                    <stop offset="100%" stopColor={displayColor} stopOpacity={0.02} />
                                 </linearGradient>
                             </React.Fragment>
-                        ))}
+                            );
+                        })}
                         <filter id={shadowId} height="200%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
-                            <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
+                            <feOffset in="blur" dx="0" dy="0" result="offsetBlur" />
                             <feMerge>
                                 <feMergeNode in="offsetBlur" />
                                 <feMergeNode in="SourceGraphic" />
@@ -236,17 +237,22 @@ export function EvolutionLineChart({
                     />
 
                     <Tooltip 
+                        offset={200}
                         cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
                         content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} />} 
                     />
 
                     <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px', paddingBottom: '0' }} />
 
-                    {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
-                        const isFocused = focusSubjectId === cat.id;
+                    {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat, index) => {
+                        const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : false;
+                        const hasFocus = showOnlyFocus ? !!focusSubjectId : false;
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
-                        // FIX: Default to monotoneX for smoother horizontal transitions
                         const lineType = engine?.style || 'monotoneX';
+                        const displayColor = cat.color || '#3b82f6';
+
+                        const lineOpacity = hasFocus ? (isFocused ? 1 : 0.4) : 0.8;
+                        const lineWidth = hasFocus ? (isFocused ? 3.5 : 1.5) : 2;
 
                         return [
                             // Bayesian Confidence Interval Band
@@ -270,19 +276,19 @@ export function EvolutionLineChart({
                                 type={lineType} 
                                 dataKey={dataKey} 
                                 name={cat.name}
-                                stroke={cat.color} 
-                                strokeWidth={isFocused ? 3.5 : 2}
+                                stroke={displayColor} 
+                                strokeWidth={lineWidth}
                                 strokeLinecap="round" 
                                 strokeLinejoin="round"
-                                strokeOpacity={isFocused ? 1 : 0.75}
-                                dot={{ r: 3, strokeWidth: 1, fill: cat.color, stroke: '#ffffff' }}
-                                activeDot={{ r: 5, strokeWidth: 0 }}
+                                strokeOpacity={lineOpacity}
+                                dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
+                                activeDot={{ r: 5, fill: displayColor, stroke: '#ffffff', strokeWidth: 2, strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
                                 connectNulls
-                                style={{ filter: isFocused ? `url(#${shadowId})` : 'none' }}
+                                style={{ filter: (isFocused || !hasFocus) ? `url(#${shadowId})` : 'none', transition: 'all 0.5s ease' }}
                                 isAnimationActive={true}
                                 animationDuration={1500}
                             >
-                                <LabelList content={(props) => renderCustomLabel(props, cat.id, cat.color)} />
+                                <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />
                             </Line>
                         ];
                     })}

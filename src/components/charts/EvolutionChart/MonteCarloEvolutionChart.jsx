@@ -1,6 +1,6 @@
 import React, { useMemo, useId, useState } from 'react';
 import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine
 } from 'recharts';
 import { Target, TrendingUp, AlertCircle } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
@@ -24,7 +24,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
         const isGood = pointMean >= pointTarget;
 
         return (
-            <div className="bg-slate-900 border border-white/10 p-4 rounded-none shadow-2xl backdrop-blur-xl min-w-[200px]">
+            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[210px]">
                 <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-3 border-b border-white/10 pb-2">{fullDate}</p>
 
                 <div className="flex flex-col gap-2">
@@ -90,6 +90,13 @@ export const MonteCarloEvolutionChart = ({
     const gradientId = `colorMonteCarlo-${rawId.replace(/:/g, '')}`;
     const [scenario, setScenario] = useState('base');
     const scenarioLabels = useMemo(() => Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel])), []);
+
+    const targetOffset = useMemo(() => {
+        const range = maxScore - minScore;
+        if (range <= 0) return 0;
+        const pct = 1 - (targetScore - minScore) / range;
+        return Math.max(0, Math.min(1, pct));
+    }, [targetScore, maxScore, minScore]);
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
@@ -183,7 +190,7 @@ export const MonteCarloEvolutionChart = ({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-800 rounded-none p-1">
+                <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md border border-white/10 rounded-lg p-1 shadow-inner">
                     {SCENARIO_OPTIONS.map(opt => (
                         <button
                             key={opt.id}
@@ -191,9 +198,12 @@ export const MonteCarloEvolutionChart = ({
                             onClick={() => setScenario(opt.id)}
                             aria-label={`Selecionar cenário ${opt.fullLabel}`}
                             aria-pressed={scenario === opt.id}
-                            className={`px-2 py-1 rounded-none text-[9px] font-bold ${scenario === opt.id ? 'bg-indigo-600/25 text-indigo-300' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`relative px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-300 rounded-md ${scenario === opt.id ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
                         >
-                            {opt.label}
+                            {scenario === opt.id && (
+                                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/40 to-blue-600/40 border border-indigo-400/50 rounded-md shadow-[0_0_12px_rgba(99,102,241,0.4)]"></div>
+                            )}
+                            <span className="relative z-10">{opt.label}</span>
                         </button>
                     ))}
                 </div>
@@ -245,11 +255,21 @@ export const MonteCarloEvolutionChart = ({
                         >
                             <defs>
                                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.4} />
-                                    <stop offset="95%" stopColor="#60a5fa" stopOpacity={0.05} />
+                                    <stop offset={0} stopColor="#10b981" stopOpacity={0.35} />
+                                    <stop offset={targetOffset} stopColor="#10b981" stopOpacity={0.05} />
+                                    <stop offset={targetOffset} stopColor="#60a5fa" stopOpacity={0.25} />
+                                    <stop offset={1} stopColor="#60a5fa" stopOpacity={0.02} />
+                                </linearGradient>
+                                <linearGradient id={`targetGlow-${rawId}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset={0} stopColor="#10b981" stopOpacity={0.12} />
+                                    <stop offset={1} stopColor="#10b981" stopOpacity={0.0} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                            
+                            {/* Glowing Target Zone */}
+                            <ReferenceArea y1={targetScore} y2={maxScore} fill={`url(#targetGlow-${rawId})`} />
+                            <ReferenceLine y={targetScore} stroke="#10b981" strokeDasharray="4 4" strokeWidth={2} style={{ filter: 'drop-shadow(0px 0px 4px rgba(16,185,129,0.8))' }} />
                             <XAxis
                                 dataKey="displayDate"
                                 stroke="#64748b"
@@ -272,6 +292,7 @@ export const MonteCarloEvolutionChart = ({
                                 tickFormatter={(v) => unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit}`}
                             />
                             <Tooltip
+                                offset={200}
                                 content={<MonteCarloTooltip unit={unit} targetScore={targetScore} maxScore={maxScore} minScore={minScore} />}
                                 cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
                             />
@@ -291,10 +312,10 @@ export const MonteCarloEvolutionChart = ({
                                 stroke="#60a5fa"
                                 strokeWidth={3}
                                 fill="none"
-                                activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa', className: "animate-pulse shadow-lg" }}
+                                activeDot={{ r: 5, strokeWidth: 2, fill: '#60a5fa', stroke: '#ffffff', className: "animate-pulse shadow-lg" }}
                                 dot={scenarioAdjustedData.length < 40 ? { 
-                                    r: Math.max(1, 4 - (scenarioAdjustedData.length / 12)), 
-                                    strokeWidth: 1, 
+                                    r: Math.max(1.5, 4 - (scenarioAdjustedData.length / 12)), 
+                                    strokeWidth: 1.5, 
                                     fill: '#0f172a', 
                                     stroke: '#60a5fa' 
                                 } : false}

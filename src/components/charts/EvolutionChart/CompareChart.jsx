@@ -226,8 +226,10 @@ export function CompareChart({
                     <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
                         label={{ value: `META ${targetScore}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideBottomLeft', dy: -6, dx: 5 }} />
                     
-                    <Tooltip cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
-                        content={(props) => <ChartTooltip {...props} isCompare={true} chartData={filteredChartData} unit={unit} />} />
+                    <Tooltip 
+                        offset={200}
+                        cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
+                        content={(props) => <ChartTooltip {...props} chartData={filteredChartData} isCompare={true} unit={unit} />} />
                     
                     <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                     
@@ -239,14 +241,14 @@ export function CompareChart({
                     
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={4}
                         strokeLinecap="round" strokeLinejoin="round"
-                        fill={`url(#${CC.greenGradient})`} dot={{ r: 4, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 2 }}
+                        fill={`url(#${CC.greenGradient})`} dot={{ r: 3, fill: '#0f172a', stroke: '#34d399', strokeWidth: 1.5 }}
                         activeDot={false} connectNulls style={{ filter: `url(#${CC.lineShadow})` }} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
                     </Area>
                     
                     <Line type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={3}
-                        strokeLinecap="round" strokeLinejoin="round"
-                        dot={{ r: 3.5, fill: '#fb923c', stroke: '#0a0f1e', strokeWidth: 2 }} activeDot={false} connectNulls strokeOpacity={1} isAnimationActive={true}>
+                        strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 5" 
+                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={false} connectNulls strokeOpacity={1} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
                     </Line>
                     

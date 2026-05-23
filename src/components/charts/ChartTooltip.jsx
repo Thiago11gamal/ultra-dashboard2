@@ -8,7 +8,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
     const currentData = chartData.find(d => d.displayDate === label || d.date === label);
 
     return (
-        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm min-w-[280px] z-50 backdrop-blur-xl">
+        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm min-w-[380px] z-50 backdrop-blur-xl">
             <p className="text-slate-300 mb-3 font-bold border-b border-white/10 pb-2 flex items-center justify-between">
                 <span>📅 {label}</span>
             </p>
@@ -54,25 +54,34 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                 </span>
                             </div>
                             <div className="grid grid-cols-4 gap-2 text-center">
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5">
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
                                     <span className="text-[9px] text-slate-400 font-bold uppercase">Bruta</span>
                                     <span className="text-xs font-mono text-orange-400 font-bold">
                                         {rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}
                                     </span>
+                                    <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
+                                        <div className="h-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, rawVal)) : 0}%` }} />
+                                    </div>
                                 </div>
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5">
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
                                     <span className="text-[9px] text-slate-400 font-bold uppercase">Histórica</span>
                                     <span className="text-xs font-mono text-blue-400 font-bold">
                                         {statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}{unit}
                                     </span>
+                                    <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
+                                        <div className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, statsVal)) : 0}%` }} />
+                                    </div>
                                 </div>
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5">
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
                                     <span className="text-[9px] text-slate-400 font-bold uppercase">Nível Real</span>
                                     <span className="text-xs font-mono text-emerald-400 font-bold">
                                         {bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}{unit}
                                     </span>
+                                    <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
+                                        <div className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, bayVal)) : 0}%` }} />
+                                    </div>
                                 </div>
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5">
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
                                     <span className="text-[9px] text-slate-400 font-bold uppercase">Tendência</span>
                                     <span className={`text-xs font-mono font-bold flex items-center justify-center gap-0.5 ${trendStatus === 'up' ? 'text-emerald-400' : trendStatus === 'down' ? 'text-rose-400' : 'text-slate-400'}`}>
                                         {trendVal != null && Number.isFinite(Number(trendVal)) ? (
@@ -82,6 +91,9 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                             </>
                                         ) : '—'}
                                     </span>
+                                    <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
+                                        <div className={`h-full ${trendStatus === 'up' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] w-full' : trendStatus === 'down' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)] w-full' : 'bg-slate-500 w-full'}`} style={{ opacity: trendVal != null && Number.isFinite(Number(trendVal)) ? 1 : 0 }} />
+                                    </div>
                                 </div>
                             </div>
                             {rawTotal > 0 && (() => {

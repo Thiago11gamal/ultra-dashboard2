@@ -11,8 +11,8 @@ import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvo
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-none shadow-2xl backdrop-blur-md min-w-[220px]">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-1">
+            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px]">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
                     Semana de {label}
                 </p>
                 <div className="space-y-3">
@@ -120,6 +120,7 @@ export const WeeklyEvolutionView = ({
 }) => {
     const [viewMode, setViewMode] = useState('performance');
     const [userToggles, setUserToggles] = useState({});
+    const [hoveredLine, setHoveredLine] = useState(null);
 
     React.useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -154,7 +155,7 @@ export const WeeklyEvolutionView = ({
                 if (!cat?.id) return;
                 const fullName = String(cat.name || 'Matéria').replace(/Direito /gi, 'D. ');
                 const safeName = shortenLabel(fullName, 18);
-                const safeColor = typeof cat.color === 'string' ? cat.color : '#64748b';
+                const safeColor = typeof cat.color === 'string' ? cat.color : '#3b82f6';
                 itemsMap[cat.id] = { name: safeName, fullName: fullName, color: safeColor };
             });
         } else {
@@ -163,7 +164,7 @@ export const WeeklyEvolutionView = ({
                 (cat.tasks || []).forEach(task => {
                     const tName = String(task?.text || '').trim();
                     if (!tName) return;
-                    itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color, fullName: tName };
+                    itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                 });
 
                 (cat.simuladoStats?.history || []).forEach(h => {
@@ -171,11 +172,15 @@ export const WeeklyEvolutionView = ({
                         h.topics.forEach(t => {
                             const tName = String(t.name || '').trim();
                             if (!tName) return;
-                            itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color, fullName: tName };
+                            if (!itemsMap[tName.toLowerCase()]) {
+                                itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                            }
                         });
                     } else if (h.taskId) {
                         const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
-                        itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color, fullName: tName };
+                        if (!itemsMap[tName.toLowerCase()]) {
+                            itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                        }
                     }
                 });
             }
@@ -338,7 +343,13 @@ export const WeeklyEvolutionView = ({
         }));
     }, [hiddenKeys]);
 
+    const handleLegendHover = useCallback((e) => {
+        if (e && e.dataKey) setHoveredLine(String(e.dataKey).replace('delta_', ''));
+    }, []);
 
+    const handleLegendLeave = useCallback(() => {
+        setHoveredLine(null);
+    }, []);
 
     const renderLegendText = useCallback((value, entry) => {
         const keyID = String(entry.dataKey || '').replace('delta_', '');
@@ -424,24 +435,31 @@ export const WeeklyEvolutionView = ({
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
                                 <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={true} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
-                                <Tooltip content={<WeeklyTooltip hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                                <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} wrapperStyle={{ paddingTop: '20px' }} />
+                                <Tooltip offset={200} content={<WeeklyTooltip hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
 
-                                {keys.map(key => (
-                                    <Line
-                                        key={key}
-                                        type="monotoneX" // FIX: Evita overshoot indesejado
-                                        dataKey={key}
-                                        name={activeKeys[key].name}
-                                        stroke={activeKeys[key].color}
-                                        strokeWidth={2.5}
-                                        dot={{ r: 3, strokeWidth: 1, fill: '#0f172a' }}
-                                        activeDot={{ r: 6, strokeWidth: 0 }}
-                                        hide={hiddenKeys[key]}
-                                        isAnimationActive={true}
-                                        connectNulls={true} // FIX: Preserva integridade temporal na falta de dados entre as semanas
-                                    />
-                                ))}
+                                {keys.map(key => {
+                                    const isHovered = hoveredLine === key;
+                                    const isOtherHovered = hoveredLine && hoveredLine !== key;
+                                    
+                                    return (
+                                        <Line
+                                            key={key}
+                                            type="monotoneX"
+                                            dataKey={key}
+                                            name={activeKeys[key].name}
+                                            stroke={activeKeys[key].color}
+                                            strokeWidth={isHovered ? 3.5 : (isOtherHovered ? 1.5 : 2)}
+                                            strokeOpacity={isOtherHovered ? 0.4 : 1}
+                                            dot={{ r: 3, strokeWidth: 1.5, stroke: activeKeys[key].color, fill: '#0f172a', strokeOpacity: isOtherHovered ? 0.4 : 1, fillOpacity: isOtherHovered ? 0.4 : 1 }}
+                                            activeDot={{ r: 5, strokeWidth: 2, stroke: '#ffffff', fill: activeKeys[key].color, className: 'shadow-lg', opacity: isOtherHovered ? 0.4 : 1 }}
+                                            hide={hiddenKeys[key]}
+                                            isAnimationActive={true}
+                                            connectNulls={true}
+                                            style={{ transition: 'all 0.3s ease' }}
+                                        />
+                                    );
+                                })}
 
                                 {chartData.length > 8 && (
                                     <Brush
@@ -471,8 +489,7 @@ export const WeeklyEvolutionView = ({
                                         return `${v > 0 ? '+' : ''}${formatValue(v)}${unit}`;
                                     }} 
                                 />
-                                <Tooltip content={<WeeklyTooltip hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ fill: '#ffffff08' }} />
-                                <Legend verticalAlign="bottom" height={40} iconType="square" formatter={renderLegendText} onClick={handleLegendClick} wrapperStyle={{ paddingTop: '20px' }} />
+                                <Legend verticalAlign="bottom" height={40} iconType="square" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
                                 <ReferenceLine y={0} stroke="#ffffff22" />
 
                                 {chartData.length > 8 && (
@@ -487,21 +504,28 @@ export const WeeklyEvolutionView = ({
                                     />
                                 )}
 
-                                {keys.map(key => (
-                                    <Bar
-                                        key={`delta_${key}`}
-                                        dataKey={`delta_${key}`}
-                                        name={`${activeKeys[key].name} (Var.)`}
-                                        fill={activeKeys[key].color}
-                                        radius={[0, 0, 0, 0]}
-                                        hide={hiddenKeys[key]}
-                                    >
-                                        {chartData.map((entry, index) => {
-                                            const barColor = entry[`deltaColor_${key}`] || '#94a3b8';
-                                            return <Cell key={`cell-${index}`} fill={barColor} fillOpacity={0.85} />;
-                                        })}
-                                    </Bar>
-                                ))}
+                                {keys.map(key => {
+                                    const isHovered = hoveredLine === key;
+                                    const isOtherHovered = hoveredLine && hoveredLine !== key;
+
+                                    return (
+                                        <Bar
+                                            key={`delta_${key}`}
+                                            dataKey={`delta_${key}`}
+                                            name={`${activeKeys[key].name} (Var.)`}
+                                            fill={activeKeys[key].color}
+                                            radius={[0, 0, 0, 0]}
+                                            hide={hiddenKeys[key]}
+                                            fillOpacity={isOtherHovered ? 0.4 : 1}
+                                            style={{ transition: 'all 0.3s ease' }}
+                                        >
+                                            {chartData.map((entry, index) => {
+                                                const barColor = entry[`deltaColor_${key}`] || '#94a3b8';
+                                                return <Cell key={`cell-${index}`} fill={barColor} fillOpacity={isOtherHovered ? 0.4 : 0.85} />;
+                                            })}
+                                        </Bar>
+                                    );
+                                })}
                             </BarChart>
                         )}
                     </ResponsiveContainer>

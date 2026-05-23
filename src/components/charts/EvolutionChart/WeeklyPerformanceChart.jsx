@@ -3,6 +3,7 @@ import {
     ComposedChart,
     Bar,
     Line,
+    Area,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -94,26 +95,32 @@ const WeeklyPerformanceChart = ({
 
     const renderTooltip = useCallback(({ active, payload, label }) => {
         if (!(active && payload && payload.length)) return null;
+
+        // Dedup para evitar que Line e Area sobrepostos com o mesmo dataKey apareçam duas vezes
+        const uniquePayload = payload.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+
         return (
-            <div className="glass border border-white/10 p-3 rounded-2xl shadow-2xl backdrop-blur-xl bg-slate-900/90">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-1">
-                    {label}
+            <div className="bg-slate-950/80 border border-white/10 p-3 sm:p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
+                    {label === "HOJE" ? "Hoje" : label}
                 </p>
-                {payload.map((entry, index) => (
-                    <div key={index} className="flex items-center justify-between gap-4 py-1">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                            <span className="text-xs font-bold text-slate-300 capitalize">
-                                {entry.name}:
+                <div className="flex flex-col gap-2">
+                    {uniquePayload.map((entry, index) => (
+                        <div key={index} className="flex items-center justify-between gap-6 py-0.5">
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${entry.name === 'acertos' ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-indigo-400 shadow-[0_0_8px_#818cf8]'}`} />
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    {entry.name === 'acertos' ? 'Acertos' : 'Horas'}
+                                </span>
+                            </div>
+                            <span className={`text-sm sm:text-base font-black ${entry.name === 'acertos' ? 'text-emerald-400' : 'text-indigo-300'}`}>
+                                {entry.value != null && Number.isFinite(Number(entry.value))
+                                    ? (entry.name === 'acertos' ? `${entry.value}${safeUnit}` : formatDuration(entry.value))
+                                    : 'N/A'}
                             </span>
                         </div>
-                        <span className="text-xs font-black text-white">
-                            {entry.value != null && Number.isFinite(Number(entry.value))
-                                ? (entry.name === 'acertos' ? `${entry.value}${safeUnit}` : formatDuration(entry.value))
-                                : 'N/A'}
-                        </span>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         );
     }, [safeUnit]);
@@ -149,8 +156,12 @@ const WeeklyPerformanceChart = ({
                     >
                         <defs>
                             <linearGradient id={barGradId} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
-                                <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.3} />
+                                <stop offset="0%" stopColor="#818cf8" stopOpacity={0.9} />
+                                <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.2} />
+                            </linearGradient>
+                            <linearGradient id={`areaGrad_${instanceId}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
+                                <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                             </linearGradient>
                             <filter id={neonShadowId}>
                                 <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
@@ -198,33 +209,43 @@ const WeeklyPerformanceChart = ({
                         />
 
                         <Tooltip
-                            cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                            cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
                             content={renderTooltip}
                         />
 
                         <Bar
                             yAxisId="left"
-                            dataKey="minutos" // 🎯 FIX: Atualizado de "horas" para "minutos"
+                            dataKey="minutos"
                             name="Tempo de Estudo"
                             fill={`url(#${barGradId})`}
                             radius={[6, 6, 0, 0]}
-                            barSize={32}
+                            barSize={28}
                             animationDuration={1500}
+                        />
+
+                        <Area
+                            yAxisId="right"
+                            type="monotoneX"
+                            dataKey="acertos"
+                            stroke="none"
+                            fill={`url(#areaGrad_${instanceId})`}
+                            animationDuration={1500}
+                            connectNulls={true}
                         />
 
                         <Line
                             yAxisId="right"
-                            type="monotoneX" // FIX: Prevenção de Overshoot Matemático em gráficos híbridos
+                            type="monotoneX"
                             dataKey="acertos"
                             name="acertos"
                             stroke="#34d399"
-                            strokeWidth={4}
+                            strokeWidth={3}
                             dot={{ r: 4, fill: '#34d399', strokeWidth: 2, stroke: '#0f172a' }}
-                            activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }}
+                            activeDot={{ r: 7, strokeWidth: 0, fill: '#10b981', className: "animate-pulse shadow-lg" }}
                             strokeLinecap="round"
                             filter={`url(#${neonShadowId})`}
                             animationDuration={1500}
-                            connectNulls={true} // FIX: Preservação de linha contínua se não houver acertos em 1 dia
+                            connectNulls={true}
                         />
                     </ComposedChart>
                 </ResponsiveContainer>
