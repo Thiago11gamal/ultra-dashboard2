@@ -115,7 +115,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     }, [user.goalDate]);
 
     return (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 auto-rows-auto gap-3 sm:gap-4 animate-fade-in-down">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 auto-rows-auto gap-3 sm:gap-4 animate-fade-in-down">
             {/* ── Sequência ─────────────────────────────────────────────────── */}
             <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700" />
@@ -234,7 +234,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* ── Data da Prova ───────────────────────────────────────────── */}
-            <div className={`col-span-2 md:col-span-2 xl:col-span-1 relative bg-[#151720]/95 border rounded-2xl p-6 sm:p-6 transition-all duration-700 flex flex-col sm:flex-row items-center justify-between h-full group shadow-2xl ${!user.goalDate
+            <div className={`sm:col-span-2 md:col-span-2 xl:col-span-1 relative bg-[#151720]/95 border rounded-2xl p-6 sm:p-6 transition-all duration-700 flex flex-col sm:flex-row items-center justify-between h-full group shadow-2xl ${!user.goalDate
                 ? 'border-slate-500/30'
                 : 'border-white/10 hover:border-rose-500/30'
                 }`}>
