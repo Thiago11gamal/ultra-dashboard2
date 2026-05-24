@@ -445,7 +445,7 @@ export const WeeklyEvolutionView = ({
                                     return (
                                         <Line
                                             key={key}
-                                            type="monotoneX"
+                                            type="linear"
                                             dataKey={key}
                                             name={activeKeys[key].name}
                                             stroke={activeKeys[key].color}
@@ -456,6 +456,8 @@ export const WeeklyEvolutionView = ({
                                             hide={hiddenKeys[key]}
                                             isAnimationActive={true}
                                             connectNulls={true}
+                                            animationDuration={800}
+                                            animationEasing="ease-out"
                                             style={{ transition: 'all 0.3s ease' }}
                                         />
                                     );

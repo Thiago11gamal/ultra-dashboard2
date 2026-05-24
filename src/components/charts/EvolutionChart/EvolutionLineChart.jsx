@@ -248,7 +248,7 @@ export function EvolutionLineChart({
                         const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : false;
                         const hasFocus = showOnlyFocus ? !!focusSubjectId : false;
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
-                        const lineType = engine?.style || 'monotoneX';
+                        const lineType = engine?.style || 'linear'; // FIX: Mudado de monotoneX para linear como padrão para evitar o bug do Recharts (spaghetti/zig-zag effect) com connectNulls
                         const displayColor = cat.color || '#3b82f6';
 
                         const lineOpacity = hasFocus ? (isFocused ? 1 : 0.4) : 0.8;
@@ -286,7 +286,9 @@ export function EvolutionLineChart({
                                 connectNulls
                                 style={{ filter: (isFocused || !hasFocus) ? `url(#${shadowId})` : 'none', transition: 'all 0.5s ease' }}
                                 isAnimationActive={true}
-                                animationDuration={1500}
+                                animationDuration={800}
+                                animationEasing="ease-out"
+                                animationBegin={0}
                             >
                                 <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />
                             </Line>

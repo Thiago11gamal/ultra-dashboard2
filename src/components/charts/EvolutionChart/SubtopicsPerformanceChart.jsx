@@ -436,15 +436,16 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     return (
                                         <Line
                                             key={topicName}
-                                            type="monotoneX" // FIX: Evita overshoot (barriga matemática) em séries temporais
+                                            type="linear" // FIX: Mudado de monotoneX para linear para evitar spaghetti/zig-zag com connectNulls durante as animações do Recharts
                                             dataKey={topicName}
                                             name={topicName}
                                             stroke={color}
                                             strokeWidth={3}
                                             dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}
                                             activeDot={{ r: 5, fill: color, stroke: '#ffffff', strokeWidth: 2 }}
-                                            connectNulls={true} // FIX: Preserva continuidade temporal
-                                            animationDuration={1500}
+                                            connectNulls={true} // FIX: Preserva continuidade temporal sem quebrar animação
+                                            animationDuration={800}
+                                            animationEasing="ease-out"
                                         />
                                     );
                                 })}
