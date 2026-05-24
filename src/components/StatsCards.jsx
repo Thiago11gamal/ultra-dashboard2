@@ -84,10 +84,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             // CORREÇÃO: Injeção de suporte a números inteiros nativos (Unix Epoch)
             if (typeof raw === 'number') {
                 const d = new Date(raw);
-                raw = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-            } else if (typeof raw === 'object' && raw.seconds) {
+                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            } else if (typeof raw === 'object' && raw !== null && Number.isFinite(raw.seconds)) {
                 const d = new Date(raw.seconds * 1000);
-                raw = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             } else {
                 raw = String(raw).trim().split('T')[0];
             }
