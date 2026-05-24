@@ -72,6 +72,32 @@ export default function EvolutionChart({
     minScore = 0,
     maxScore = 100
 }) {
+    const parseGoalDateLocal = (input) => {
+        if (!input) return null;
+        try {
+            let raw = input;
+            if (typeof raw === 'number' && Number.isFinite(raw)) {
+                const d = new Date(raw);
+                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            } else if (typeof raw === 'object' && raw !== null && Number.isFinite(raw.seconds)) {
+                const d = new Date(raw.seconds * 1000);
+                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            } else {
+                raw = String(raw).trim().split('T')[0];
+            }
+
+            const p = String(raw).split('-');
+            const date = p.length === 3
+                ? new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10), 12, 0, 0, 0)
+                : new Date(raw);
+            if (Number.isNaN(date.getTime())) return null;
+            date.setHours(12, 0, 0, 0);
+            return date;
+        } catch {
+            return null;
+        }
+    };
+
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
     
@@ -91,29 +117,9 @@ export default function EvolutionChart({
         if (!goalDate) return 30;
         const now = new Date();
         now.setHours(0, 0, 0, 0);
-        let goal;
-
-        if (typeof goalDate === 'string') {
-            // FIX: Standardize all dates to Local Time to prevent "Timezone Drift".
-            if (goalDate.includes('T')) {
-                const dateString = goalDate.split('T')[0];
-                const p = dateString.split('-');
-                goal = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
-            } else {
-                const p = goalDate.split('-');
-                if (p.length === 3) {
-                    goal = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
-                } else {
-                    goal = new Date(goalDate);
-                }
-            }
-        } else if (typeof goalDate === 'object' && goalDate.seconds) {
-            goal = new Date(goalDate.seconds * 1000);
-        } else {
-            goal = new Date(goalDate);
-        }
+        const goal = parseGoalDateLocal(goalDate);
+        if (!goal) return 30;
         goal.setHours(0, 0, 0, 0);
-        if (isNaN(goal.getTime())) return 30;
         const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
         const safeDays = diffDays > 0 ? diffDays : 1;
         return Math.min(3650, safeDays);
@@ -262,7 +268,8 @@ export default function EvolutionChart({
 
                 const rawDate = String(pts[lastIdx].date || '');
                 const dt = new Date(`${rawDate}T12:00:00`);
-                dt.setDate(dt.getDate() + Math.round((i / steps) * (projectDays || 30)));
+                const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
+                dt.setDate(dt.getDate() + forwardDays);
                 const iso = getDateKey(dt);
 
                 futurePoints.push({
@@ -285,7 +292,11 @@ export default function EvolutionChart({
         if (timeWindow === "all") return chartData;
         const days = Number.parseInt(timeWindow, 10);
         if (!Number.isFinite(days) || days <= 0 || chartData.length === 0) return chartData;
-        const getDateMs = (item) => { if (!item?.date) return Number.NaN; const ms = new Date(item.date).getTime(); return Number.isNaN(ms) ? Number.NaN : ms; };
+        const getDateMs = (item) => {
+            if (!item?.date) return Number.NaN;
+            const ms = toDateMs(item.date);
+            return Number.isNaN(ms) ? Number.NaN : ms;
+        };
         const lastValid = [...chartData].reverse().find(d => Number.isFinite(getDateMs(d)));
         if (!lastValid) return chartData;
         const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
