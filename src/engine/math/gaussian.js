@@ -109,8 +109,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         plotMax = Math.min(vMax, projectedMean + 0.5);
 
         // Correct asymmetric squeeze at boundaries respeitando a folga visual
-        if (plotMax >= maxScore && maxScore - minScore >= 1) plotMin = Math.max(vMin, vMax - 1);
-        if (plotMin <= minScore && maxScore - minScore >= 1) plotMax = Math.min(vMax, vMin + 1);
+        if (plotMax >= maxScore && maxScore - minScore >= 1) plotMin = Math.max(vMin, plotMax - 1);
+        if (plotMin <= minScore && maxScore - minScore >= 1) plotMax = Math.min(vMax, plotMin + 1);
     }
 
     const plotSteps = 200; // Aumento de resolução visual
