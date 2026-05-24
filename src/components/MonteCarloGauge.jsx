@@ -36,6 +36,20 @@ export default function MonteCarloGauge({
     const debounceTimeoutTime = useRef(null);
     const timeSliderRef = useRef(null);
 
+    const timelineDates = useMemo(() => {
+        const dates = new Set();
+        categories.forEach(cat => {
+            if (cat.simuladoStats?.history) {
+                cat.simuladoStats.history.forEach(h => {
+                    const normalized = normalizeDate(h.date);
+                    const dk = normalized ? getDateKey(normalized) : null;
+                    if (dk) dates.add(dk);
+                });
+            }
+        });
+        return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
+    }, [categories]);
+
     useEffect(() => {
         if (!isDraggingTime.current) {
             setLocalTimeIndex(timeIndex);
@@ -69,19 +83,7 @@ export default function MonteCarloGauge({
     const showPerSubject = syncShowSubjects !== undefined ? syncShowSubjects : localShowPerSubject;
     const setShowPerSubject = onSyncShowSubjects !== undefined ? onSyncShowSubjects : setLocalShowPerSubject;
 
-    const timelineDates = useMemo(() => {
-        const dates = new Set();
-        categories.forEach(cat => {
-            if (cat.simuladoStats?.history) {
-                cat.simuladoStats.history.forEach(h => {
-                    const normalized = normalizeDate(h.date);
-                    const dk = normalized ? getDateKey(normalized) : null;
-                    if (dk) dates.add(dk);
-                });
-            }
-        });
-        return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
-    }, [categories]);
+
 
     const clampedTimeIndex = timeIndex >= timelineDates.length ? -1 : timeIndex;
     const resolvedSimulateToday = typeof onSimulateTodayChange === 'function' ? Boolean(simulateToday) : localSimulateToday;
