@@ -99,14 +99,14 @@ export const MonteCarloConfig = ({
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); onClose(false); }} />
 
             <div className="relative w-full max-w-2xl h-full max-h-[90vh] bg-slate-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md flex items-center justify-between p-6 border-b border-white/5">
-                    <div className="flex items-center gap-3">
+                <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-white/5">
+                    <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
                             <Settings2 size={20} className="text-blue-400" />
                         </div>
-                        <div>
-                            <h3 className="text-base font-bold text-white">Configuração</h3>
-                            <p className="text-[10px] text-slate-400">Monte Carlo & Pesos das Matérias</p>
+                        <div className="min-w-0">
+                            <h3 className="text-base font-bold text-white truncate">Configuração</h3>
+                            <p className="text-[10px] text-slate-400 truncate">Monte Carlo & Pesos das Matérias</p>
                         </div>
                     </div>
                     <button
@@ -115,11 +115,11 @@ export const MonteCarloConfig = ({
                             e.stopPropagation();
                             onClose(false);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 group/close"
+                        className="shrink-0 flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 group/close focus:outline-none focus:ring-2 focus:ring-emerald-300/70"
                         title="Salvar e Fechar"
                     >
                         <Check size={18} className="text-white group-hover/close:scale-110 transition-transform" />
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Salvar</span>
+                        <span className="hidden sm:inline text-[10px] font-black text-white uppercase tracking-wider">Salvar</span>
                     </button>
                 </div>
 
@@ -218,7 +218,7 @@ export const MonteCarloConfig = ({
                                 }
                                 setEqualWeightsMode(true);
                             }}
-                            className={`flex-1 py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-2 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`flex-1 py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-300/60 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             <div className={`w-2 h-2 rounded-full ${equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
                             Pesos Iguais
@@ -231,7 +231,7 @@ export const MonteCarloConfig = ({
                                 }
                                 setEqualWeightsMode(false);
                             }}
-                            className={`flex-1 py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-2 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`flex-1 py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-purple-300/60 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             <div className={`w-2 h-2 rounded-full ${!equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
                             Manual (1, 2, 3...)
