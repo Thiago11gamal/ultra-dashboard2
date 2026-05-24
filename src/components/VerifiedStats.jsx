@@ -225,6 +225,13 @@ export default function VerifiedStats({ categories = [], user }) {
     // B-06 FIX: Adicionar trava de round-trip para evitar resets durante sincronização assíncrona
     const pendingLocalSave = React.useRef(false);
 
+    // FIX: Wrapper para setTargetScore que trava a sincronização IMEDIATAMENTE ao interagir,
+    // evitando que o useEffect de leitura atropele o estado local antes do debounce salvar.
+    const handleSetTargetScore = React.useCallback((newScore) => {
+        pendingLocalSave.current = true;
+        setTargetScore(newScore);
+    }, []);
+
     // B-06 FIX: Sincronização Robusta com Trava de Round-trip
     const storeTarget = user?.targetProbability;
     
@@ -716,7 +723,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         categories={categories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
-                        onTargetScoreChange={setTargetScore}
+                        onTargetScoreChange={handleSetTargetScore}
                         forcedMode="today"
                         forcedTitle="Status Atual"
                         maxScore={maxScore}
@@ -727,7 +734,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         categories={categories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
-                        onTargetScoreChange={setTargetScore}
+                        onTargetScoreChange={handleSetTargetScore}
                         forcedMode="future"
                         forcedTitle="Projeção Futura"
                         maxScore={maxScore}
@@ -741,7 +748,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 show={showConfig}
                 onClose={() => setShowConfig(false)}
                 targetScore={targetScore}
-                setTargetScore={setTargetScore}
+                setTargetScore={handleSetTargetScore}
                 equalWeightsMode={equalWeightsMode}
                 setEqualWeightsMode={setEqualWeightsMode}
                 getEqualWeights={getEqualWeights}
