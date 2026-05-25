@@ -674,8 +674,7 @@ export default function EvolutionChart({
             <div className="relative z-[50] rounded-2xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-md p-4 sm:p-6 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
                  style={{ boxShadow: `0 0 60px -15px ${engine.color}20` }}>
                  
-                 {/* Intense Ambient Glow */}
-                 <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-[80px] opacity-20 pointer-events-none transition-colors duration-1000" style={{ backgroundColor: engine.color }} />
+                 {/* Intense Ambient Glow Removido a pedido do usuário */}
 
                  {/* Top Toolbar: Engine Header + Filters */}
                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/50">
