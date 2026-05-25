@@ -573,7 +573,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 const catMaxScore = Number(cat.maxScore) || maxScore;
                 const analysisHistory = sortedHistory.slice(-5).map(h => ({
                     score: (getSafeScore(h, catMaxScore) / catMaxScore) * maxScore,
-                    date: h.date
+                    date: normalizeDate(h.date)?.getTime() ?? Date.now()
                 }));
 
                 const analysis = analyzeProgressState(analysisHistory, {

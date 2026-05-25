@@ -63,7 +63,7 @@ const ENGINES = [
 
 
 export default function EvolutionChart({
-    categories = [],
+    categories: rawCategories = [],
     targetScore = 80,
     goalDate,
     monteCarloHistory = [],
@@ -72,6 +72,23 @@ export default function EvolutionChart({
     minScore = 0,
     maxScore = 100
 }) {
+    const categories = useMemo(() => {
+        const DEFAULT_PALETTE = [
+            "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", 
+            "#ec4899", "#14b8a6", "#f43f5e", "#84cc16", "#a855f7",
+            "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
+        ];
+        let defaultColorCount = 0;
+        return rawCategories.map((cat) => {
+            let color = cat.color;
+            if (!color || color.toLowerCase() === '#3b82f6') {
+                color = DEFAULT_PALETTE[defaultColorCount % DEFAULT_PALETTE.length];
+                defaultColorCount++;
+            }
+            return { ...cat, color };
+        });
+    }, [rawCategories]);
+
     const parseGoalDateLocal = (input) => {
         if (!input) return null;
         try {
