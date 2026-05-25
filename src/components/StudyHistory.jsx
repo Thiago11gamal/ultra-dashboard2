@@ -427,23 +427,30 @@ const StudyHistory = React.memo(function StudyHistory({
 
                                 const subjectMap = {};
                                 validRows.forEach(row => {
-                                    const subj = row.subject.trim();
+                                    const subj = String(row.subject || '').trim();
+                                    const top = String(row.topic || '').trim();
                                     if (!subjectMap[subj]) {
-                                        subjectMap[subj] = { name: subj, correct: 0, total: 0, topics: [] };
+                                        subjectMap[subj] = { name: subj, correct: 0, total: 0, topicMap: {} };
                                     }
                                     const correct = parseInt(row.correct, 10) || 0;
                                     const total = parseInt(row.total, 10) || 0;
                                     subjectMap[subj].correct += correct;
                                     subjectMap[subj].total += total;
-                                    subjectMap[subj].topics.push({
-                                        name: row.topic,
-                                        correct,
-                                        total,
-                                        pct: total > 0 ? Math.round((correct / total) * 100) : 0
-                                    });
+                                    
+                                    if (!subjectMap[subj].topicMap[top]) {
+                                        subjectMap[subj].topicMap[top] = { name: top, correct: 0, total: 0 };
+                                    }
+                                    subjectMap[subj].topicMap[top].correct += correct;
+                                    subjectMap[subj].topicMap[top].total += total;
                                 });
 
-                                const subjects = Object.values(subjectMap).sort((a, b) => {
+                                const subjects = Object.values(subjectMap).map(subj => ({
+                                    ...subj,
+                                    topics: Object.values(subj.topicMap).map(t => ({
+                                        ...t,
+                                        pct: t.total > 0 ? Math.round((t.correct / t.total) * 100) : 0
+                                    }))
+                                })).sort((a, b) => {
                                     const pctA = a.total > 0 ? (a.correct / a.total) * 100 : 0;
                                     const pctB = b.total > 0 ? (b.correct / b.total) * 100 : 0;
                                     return pctA - pctB;

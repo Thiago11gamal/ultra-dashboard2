@@ -293,7 +293,7 @@ export const MonteCarloEvolutionChart = ({
                             />
                             <Tooltip
                                 offset={200}
-                                content={<MonteCarloTooltip unit={unit} targetScore={targetScore} maxScore={maxScore} minScore={minScore} />}
+                                content={(props) => <MonteCarloTooltip {...props} unit={unit} targetScore={targetScore} maxScore={maxScore} minScore={minScore} />}
                                 cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
                             />
 

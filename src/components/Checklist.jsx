@@ -222,7 +222,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                             </h3>
                             {category.totalMinutes > 0 && (
                                 <span className="text-yellow-400/80 text-[9px] sm:text-[10px] font-black whitespace-nowrap border border-yellow-400/20 px-1 sm:px-1.5 py-0.5 rounded-sm leading-normal">
-                                    {Math.floor(category.totalMinutes / 60)}h{category.totalMinutes % 60}m
+                                    {Math.floor(category.totalMinutes / 60)}h{String(category.totalMinutes % 60).padStart(2, '0')}m
                                 </span>
                             )}
                         </div>

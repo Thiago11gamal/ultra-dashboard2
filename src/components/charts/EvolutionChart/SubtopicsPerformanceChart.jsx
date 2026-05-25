@@ -420,7 +420,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                                 <Tooltip
                                     offset={40}
-                                    content={<CustomLineTooltip targetScorePct={targetScorePct} />}
+                                    content={(props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />}
                                     cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
                                 />
 

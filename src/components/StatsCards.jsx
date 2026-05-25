@@ -369,12 +369,13 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     let g;
                                     if (parts.length === 3) {
                                         g = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+                                        if (isNaN(g.getTime())) return 'INVÁLIDA';
+                                        return `${String(g.getDate()).padStart(2, '0')}/${String(g.getMonth() + 1).padStart(2, '0')}/${g.getFullYear()}`;
                                     } else {
                                         g = new Date(raw);
+                                        if (isNaN(g.getTime())) return 'INVÁLIDA';
+                                        return `${String(g.getUTCDate()).padStart(2, '0')}/${String(g.getUTCMonth() + 1).padStart(2, '0')}/${g.getUTCFullYear()}`;
                                     }
-                                    if (isNaN(g.getTime())) return 'INVÁLIDA';
-                                    // CORREÇÃO: Renderização UTC para evitar drift de fuso no Card
-                                    return `${String(g.getUTCDate()).padStart(2, '0')}/${String(g.getUTCMonth() + 1).padStart(2, '0')}/${g.getUTCFullYear()}`;
                                     } catch (error) {
                                         console.error('Failed to format goalDate for display:', error);
                                         return 'INVÁLIDA';

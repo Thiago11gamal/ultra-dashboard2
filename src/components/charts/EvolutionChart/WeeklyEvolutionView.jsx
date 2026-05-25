@@ -435,7 +435,7 @@ export const WeeklyEvolutionView = ({
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
                                 <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={true} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
-                                <Tooltip offset={200} content={<WeeklyTooltip hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <Tooltip offset={200} content={(props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {keys.map(key => {
@@ -487,10 +487,12 @@ export const WeeklyEvolutionView = ({
                                     tickLine={false} 
                                     axisLine={false} 
                                     tickFormatter={(v) => {
-                                        if (v === 0) return `${formatValue(v)}${unit}`;
-                                        return `${v > 0 ? '+' : ''}${formatValue(v)}${unit}`;
+                                        const formatted = formatValue(v);
+                                        if (formatted === "0.00" || formatted === "0") return `${formatted}${unit}`;
+                                        return `${v > 0 ? '+' : ''}${formatted}${unit}`;
                                     }} 
                                 />
+                                <Tooltip offset={200} content={(props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ fill: '#ffffff11' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="square" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
                                 <ReferenceLine y={0} stroke="#ffffff22" />
 

@@ -657,7 +657,7 @@ export default function EvolutionChart({
                 <div className="relative w-full">
                     {/* Fade indicators for hidden tabs */}
                     <div className="pointer-events-none absolute right-0 inset-y-0 w-8 bg-gradient-to-l from-slate-900/90 to-transparent z-10 sm:hidden" />
-                    <div className="flex overflow-x-auto pb-4 gap-3.5 w-full px-1 no-scrollbar scroll-smooth"
+                    <div className="flex overflow-x-auto pb-4 gap-3.5 w-full pl-1 pr-8 no-scrollbar scroll-smooth"
                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                         {ENGINES.map((eng) => {
                             const active = activeEngine === eng.id;
