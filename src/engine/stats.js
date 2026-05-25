@@ -122,12 +122,16 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     let sumWXX = 0, cWXX = 0;
     let rss = 0, cRSS = 0;
 
+    let processedIdx = 0; // ← ADICIONADO
+
     for (let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
         const hDate = h.date || h.createdAt;
-        const x = ((safeDateParse(hDate).getTime() - t0) / 86400000) + (i * 1e-5);
         const y = getSafeScore(h, maxScore);
-        if (!Number.isFinite(y)) continue;
+        if (!Number.isFinite(y)) continue; // ← MOVIDO para antes de calcular x
+
+        const x = ((safeDateParse(hDate).getTime() - t0) / 86400000) + (processedIdx * 1e-5); // ← CORRIGIDO
+        processedIdx++; // ← ADICIONADO
 
         const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
         const EPSILON_WEIGHT = 1e-10;
@@ -501,8 +505,7 @@ export function computeBayesianLevel(
     }
     
     // Decaimento final até o dia de hoje (ou data de referência do gráfico)
-    const sortedHistory = getSortedHistory(history);
-    const lastEntry = (sortedHistory && sortedHistory.length > 0) ? sortedHistory[sortedHistory.length - 1] : null;
+    const lastEntry = (historySortedForGaps && historySortedForGaps.length > 0) ? historySortedForGaps[historySortedForGaps.length - 1] : null;
     const lastDateStr = lastEntry ? getHistoryDateValue(lastEntry) : options.lastEventDate;
 
     if (lastDateStr) {
@@ -510,8 +513,8 @@ export function computeBayesianLevel(
         const gapToToday = Math.max(0, Math.floor((now - (lastDate ? lastDate.getTime() : now)) / (1000 * 60 * 60 * 24)));
         
         if (gapToToday > 0) {
-            const finalLambdaBase = (sortedHistory && sortedHistory.length > 0) ? computeAdaptiveLambda(sortedHistory) : 0.08;
-            const rawFinalLambda = finalLambdaBase * Math.exp(-0.15 * ((sortedHistory ? sortedHistory.length : 0) || 1));
+            const finalLambdaBase = (historySortedForGaps && historySortedForGaps.length > 0) ? computeAdaptiveLambda(historySortedForGaps) : 0.08;
+            const rawFinalLambda = finalLambdaBase * Math.exp(-0.15 * ((historySortedForGaps ? historySortedForGaps.length : 0) || 1));
             const finalLambda = Math.max(0.005, rawFinalLambda);
             
             const finalDecay = Math.exp(-finalLambda * gapToToday);

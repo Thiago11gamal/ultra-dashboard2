@@ -607,7 +607,7 @@ export function monteCarloSimulation(
             // Clamp de sanidade para evitar divergência explosiva em projeções longas
             currentVolSq = Math.min(currentVolSq, Math.pow(maxScore * 0.2, 2));
             
-            currentSimScore += driftEffect + meanReversion + shock;
+            currentSimScore += driftEffect + meanReversion + clampedShock; // consistente com GARCH
             
             // CORREÇÃO MATEMÁTICA: Reflected Brownian Motion (RBM) Contínuo
             // Utiliza um espelhamento absoluto contínuo para evitar o efeito "serrote" do módulo simples

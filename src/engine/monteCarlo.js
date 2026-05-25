@@ -3,7 +3,7 @@ import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
 import { getPercentile, quickSelect } from './math/percentile.js';
-import { kahanMean } from './math/kahan.js';
+import { kahanMean, kahanSum } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 
@@ -538,10 +538,6 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
             // O choque efetivo soma o ruído de hoje com a inércia de ontem
             const effectiveShock = pureNoise + (PHI_AR1 * previousShock);
             
-            // CORREÇÃO: A memória para amanhã tem de ser o choque efetivo total,
-            // não apenas o ruído isolado de hoje. Isso garante decaimento exponencial correto.
-            previousShock = effectiveShock; 
-            
             const driftDiario = driftsDiarios[dia];
             
             // 2. Absorção Fria (Piso e Teto Físicos) e Gravidade
@@ -565,6 +561,8 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
             const margemTeto = Math.max(0, limiteAssintotico - notaAtual); 
             const compressaoRuido = 1 - Math.exp(-5 * (margemTeto / escala));
             const ruidoAjustado = effectiveShock * Math.max(0.1, compressaoRuido) * (currentVolatility / volatilidadeAdaptativa);
+            
+            previousShock = ruidoAjustado; // ← memória do choque realmente aplicado
             
             notaAtual = Math.max(0, Math.min(limiteAssintotico, notaAtual + effectiveDrift + ruidoAjustado));
             caminho.push(notaAtual);
@@ -591,7 +589,10 @@ export function simularMonteCarlo(metricas, simulacoes = 1000) {
             : avgVal * 0.1;
         
         const results = new Float64Array(simulacoes);
-        const rng = mulberry32(generateStableSeed(history.length, "simularMC", Date.now())); 
+        const histHash = metricas.volumeSemanasAnteriores
+            ? kahanSum(metricas.volumeSemanasAnteriores.map((v, i) => v * (i + 1)))
+            : 0;
+        const rng = mulberry32(generateStableSeed(history.length, "simularMC", histHash)); 
 
         const maxScore = metricas.maxScore || 100;
         const minScore = metricas.minScore || 0;
