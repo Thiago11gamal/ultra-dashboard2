@@ -147,6 +147,8 @@ export function deriveAdaptiveConfig(scores = []) {
  * Atualizado para suportar deltas de tempo reais (x) em vez de assumir índices estáticos.
  */
 export const calcSlopeWithSignificance = (dados) => {
+    if (!Array.isArray(dados)) return { slope: 0, se: 0, tStat: 0 };
+
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     const n = dados.length;
     
@@ -154,9 +156,13 @@ export const calcSlopeWithSignificance = (dados) => {
     if (n < 3) return { slope: 0, se: 0, tStat: 0 };
     
     // CORREÇÃO: Blindagem estrita de tipo para evitar concatenação destrutiva de strings no somatório
-    const Xs = dados.map((d, i) => (typeof d === 'number' ? i : (d.x !== undefined ? d.x : i)));
+    const Xs = dados.map((d, i) => {
+        const rawX = (d && typeof d === 'object' && d.x !== undefined) ? d.x : i;
+        const x = Number(rawX);
+        return Number.isFinite(x) ? x : i;
+    });
     const Ys = dados.map(d => {
-        const val = typeof d === 'number' ? d : d.y;
+        const val = typeof d === 'number' ? d : (d && typeof d === 'object' ? d.y : 0);
         return Number.isFinite(Number(val)) ? Number(val) : 0;
     });
     

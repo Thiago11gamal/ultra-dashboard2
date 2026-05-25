@@ -79,6 +79,15 @@ describe('Adaptive Math Utilities - High Precision Audit', () => {
             expect(res.slope).toBe(0);
             expect(res.se).toBe(0);
         });
+
+        it('deve converter X/Y numericos em string sem distorcer a inclinacao', () => {
+            const res = calcSlopeWithSignificance([
+                { x: '0', y: '10' },
+                { x: '1', y: '20' },
+                { x: '2', y: '30' }
+            ]);
+            expect(res.slope).toBeCloseTo(10, 10);
+        });
     });
 
     describe('computeAdaptiveSignal (Entropy & Plateau)', () => {

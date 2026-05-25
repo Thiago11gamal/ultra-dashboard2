@@ -275,7 +275,9 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
         throw new Error('STRICT_DETERMINISM: Deterministic RNG required. Fallback to Math.random() is forbidden.');
     }
     const sampledU = rng();
-    const u = Number.isFinite(sampledU) ? sampledU : rng();
+    const u = Number.isFinite(sampledU)
+        ? Math.max(0, Math.min(1, sampledU))
+        : 0.5;
     const p = cdfMin + u * diff;
 
     const zScore = inverseNormalCDF(p);

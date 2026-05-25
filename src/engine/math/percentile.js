@@ -53,10 +53,35 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
 // O particionamento in-place reordenava o Float64Array do chamador, fazendo
 // chamadas subsequentes (ex: iLow, iMedian, iHigh) retornarem valores incorretos.
 export const quickSelect = (arr, k) => {
-    const copy = arr instanceof Float64Array || arr instanceof Float32Array
-        ? new arr.constructor(arr)
-        : [...arr];
-    return _quickSelectInPlace(copy, k, 0, copy.length - 1);
+    if (!arr || arr.length === 0) return 0;
+
+    let copy;
+    if (arr instanceof Float64Array || arr instanceof Float32Array) {
+        let allFinite = true;
+        const finite = [];
+        for (let i = 0; i < arr.length; i++) {
+            if (Number.isFinite(arr[i])) {
+                finite.push(arr[i]);
+            } else {
+                allFinite = false;
+            }
+        }
+        if (finite.length === 0) return 0;
+        copy = allFinite ? new arr.constructor(arr) : new arr.constructor(finite);
+    } else {
+        copy = [];
+        for (const value of arr) {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric)) copy.push(numeric);
+        }
+        if (copy.length === 0) return 0;
+    }
+
+    const rawK = Math.floor(Number(k));
+    const safeK = Number.isFinite(rawK)
+        ? Math.max(0, Math.min(copy.length - 1, rawK))
+        : 0;
+    return _quickSelectInPlace(copy, safeK, 0, copy.length - 1);
 };
 
 const _quickSelectInPlace = (arr, k, left = 0, right = arr.length - 1) => {
@@ -70,17 +95,26 @@ const _quickSelectInPlace = (arr, k, left = 0, right = arr.length - 1) => {
 };
 
 function partition(arr, left, right) {
-    const pivot = arr[Math.floor((left + right) / 2)];
-    let i = left, j = right;
-    while (i <= j) {
-        while (arr[i] < pivot) i++;
-        while (arr[j] > pivot) j--;
-        if (i <= j) {
-            const temp = arr[i]; arr[i] = arr[j]; arr[j] = temp;
-            i++; j--;
+    const pivotIndex = Math.floor((left + right) / 2);
+    const pivot = arr[pivotIndex];
+    let temp = arr[pivotIndex];
+    arr[pivotIndex] = arr[right];
+    arr[right] = temp;
+
+    let storeIndex = left;
+    for (let i = left; i < right; i++) {
+        if (arr[i] < pivot) {
+            temp = arr[storeIndex];
+            arr[storeIndex] = arr[i];
+            arr[i] = temp;
+            storeIndex++;
         }
     }
-    return i;
+
+    temp = arr[storeIndex];
+    arr[storeIndex] = arr[right];
+    arr[right] = temp;
+    return storeIndex;
 }
 
 /**

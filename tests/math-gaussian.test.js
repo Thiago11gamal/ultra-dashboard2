@@ -160,4 +160,11 @@ describe('Motor Matemático: Distribuição Gaussiana', () => {
             expect(points[0]).toContain(',');
         });
     });
+
+    it('sampleTruncatedNormal blinda RNG que retorna valor nao finito', () => {
+        const val = sampleTruncatedNormal(50, 10, 0, 100, () => NaN);
+        expect(Number.isFinite(val)).toBe(true);
+        expect(val).toBeGreaterThanOrEqual(0);
+        expect(val).toBeLessThanOrEqual(100);
+    });
 });

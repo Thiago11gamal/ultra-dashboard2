@@ -177,7 +177,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         }
 
         // BUG FIX: Separation of row validation for Analytics vs Storage/Audit
-        const rowsToProcess = rows.filter(r => r?.subject && (parseInt(r?.total, 10) > 0 || r?.score != null));
+        // Somente processar linhas onde o TOTAL foi explicitamente digitado e é maior que zero.
+        const rowsToProcess = rows.filter(r => r?.subject && parseInt(r?.total, 10) > 0);
         const validRowsForAnalysis = rowsToProcess.filter(r => String(r.topic || '').trim());
 
         if (rowsToProcess.length === 0) {
@@ -338,19 +339,24 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     return (
         <div className="w-full mx-auto space-y-6 animate-fade-in pb-20">
 
-            {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <header className="flex items-center gap-3">
-                <div className="p-2 sm:p-3 bg-purple-500/20 rounded-xl sm:rounded-2xl border border-purple-500/30 shrink-0">
-                    <BrainCircuit size={24} className="text-purple-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-lg sm:text-2xl font-bold neon-text">IA Analyzer Pro</h2>
-                        <span className="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded-full text-purple-300 border border-purple-500/20 font-bold uppercase tracking-wider">
-                            Offline
-                        </span>
+            {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+            <header className="relative flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-slate-900/60 border border-slate-700/50 backdrop-blur-xl shadow-2xl overflow-hidden group">
+                {/* Glow Background */}
+                <div className="absolute -left-20 -top-20 w-64 h-64 bg-purple-600/20 blur-[80px] rounded-full pointer-events-none group-hover:bg-purple-500/30 transition-colors duration-700" />
+                
+                <div className="relative z-10 flex items-center gap-4 w-full">
+                    <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-500/20 to-indigo-600/20 rounded-xl border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.2)] shrink-0">
+                        <BrainCircuit size={28} className="text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
                     </div>
-                    <p className="text-slate-400 text-xs sm:text-sm">Identifica fraquezas e gera um plano de revisão.</p>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex items-center gap-3 flex-wrap mb-1">
+                            <h2 className="text-xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-300 to-indigo-400 tracking-tight drop-shadow-sm">IA Analyzer Pro</h2>
+                            <span className="text-[10px] bg-purple-500/10 px-2.5 py-1 rounded-md text-purple-300 border border-purple-500/30 font-black uppercase tracking-widest shadow-inner">
+                                Offline
+                            </span>
+                        </div>
+                        <p className="text-slate-400 text-xs sm:text-sm font-medium">Motor estocástico de identificação de fraquezas e geração de revisão.</p>
+                    </div>
                 </div>
             </header>
 
@@ -401,41 +407,41 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         </div>
                                     )}
                                     <div
-                                        className="group flex flex-col md:grid md:grid-cols-[1fr_1fr_52px_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-2 md:py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
+                                        className="group flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr_48px_48px_48px_10px] gap-2 items-center bg-slate-800/30 hover:bg-slate-800/80 rounded-xl px-3 py-2.5 transition-all border border-transparent hover:border-slate-700 hover:shadow-lg">
 
-                                        <div className="flex gap-1.5 w-full md:contents">
+                                        <div className="flex gap-2 w-full md:contents">
                                             <input type="text" value={row.subject}
                                                 disabled={true}
-                                                className={`bg-transparent outline-none text-sm w-full min-w-0 h-full px-1 flex items-center ${errorIndices.subjects.has(index) ? 'text-red-400 font-bold border-b border-red-500/50' : 'text-slate-400'} cursor-not-allowed`}
+                                                className={`bg-slate-900/40 rounded-md outline-none text-xs sm:text-sm w-full min-w-0 h-8 px-2 flex items-center ${errorIndices.subjects.has(index) ? 'text-red-400 font-bold border border-red-500/50' : 'text-slate-400 border border-transparent'} cursor-not-allowed`}
                                                 placeholder="Matéria" />
                                             <input type="text" value={row.topic}
                                                 disabled={true}
-                                                className={`bg-transparent outline-none text-sm w-full min-w-0 h-full px-1 flex items-center ${errorIndices.topics.has(index) ? 'text-red-400 font-bold border-b border-red-500/50' : 'text-slate-400'} cursor-not-allowed`}
+                                                className={`bg-slate-900/40 rounded-md outline-none text-xs sm:text-sm w-full min-w-0 h-8 px-2 flex items-center ${errorIndices.topics.has(index) ? 'text-red-400 font-bold border border-red-500/50' : 'text-slate-400 border border-transparent'} cursor-not-allowed`}
                                                 placeholder="Assunto" />
                                         </div>
 
-                                        <div className="flex gap-1.5 w-full md:contents items-center justify-end md:justify-center mt-1 md:mt-0 pt-1 md:pt-0 border-t border-white/5 md:border-t-0">
-                                            <div className="md:hidden text-[10px] font-bold text-slate-500 uppercase mr-auto">Acertos / Total</div>
+                                        <div className="flex gap-2 w-full md:contents items-center justify-between md:justify-center mt-2 md:mt-0 pt-2 md:pt-0 border-t border-slate-700/50 md:border-t-0">
+                                            <div className="md:hidden text-[10px] font-black text-slate-500 uppercase tracking-widest mr-auto">Acertos / Total / Peso</div>
                                             <input type="number" min="0" value={row.correct}
                                                 disabled={loading}
                                                 onChange={(e) => updateRow(index, 'correct', e.target.value)}
-                                                className={`bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-green-400 font-mono text-center w-14 md:w-full focus:border-green-500/50 focus:bg-slate-900 transition-colors py-0.5 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`} />
+                                                className={`bg-slate-950 border border-slate-700/80 rounded-md outline-none text-xs sm:text-sm text-green-400 font-mono font-bold text-center w-14 md:w-full h-8 focus:border-green-500 focus:ring-1 focus:ring-green-500/50 focus:bg-slate-900 transition-all shadow-inner ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-600'}`} />
                                             <input type="number" min="0" value={row.total}
                                                 disabled={loading}
                                                 onChange={(e) => updateRow(index, 'total', e.target.value)}
-                                                className={`bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-14 md:w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`} />
+                                                className={`bg-slate-950 border border-slate-700/80 rounded-md outline-none text-xs sm:text-sm text-slate-200 font-mono font-bold text-center w-14 md:w-full h-8 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 focus:bg-slate-900 transition-all shadow-inner ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-600'}`} />
                                             <select 
                                                 value={row.difficulty || 1.0}
                                                 disabled={loading}
                                                 onChange={(e) => updateRow(index, 'difficulty', e.target.value)}
-                                                className={`bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-[10px] text-purple-400 font-bold text-center w-14 md:w-full focus:border-purple-500/50 focus:bg-slate-900 transition-colors py-1 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className={`bg-slate-950 border border-slate-700/80 rounded-md outline-none text-[10px] sm:text-xs text-purple-400 font-bold text-center w-16 md:w-full h-8 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:bg-slate-900 transition-all shadow-inner cursor-pointer ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-600'}`}
                                             >
-                                                <option value={0.7}>0.7 (F)</option>
-                                                <option value={1.0}>1.0 (M)</option>
-                                                <option value={1.3}>1.3 (D)</option>
-                                                <option value={1.6}>1.6 (E)</option>
+                                                <option value={0.7}>0.7</option>
+                                                <option value={1.0}>1.0</option>
+                                                <option value={1.3}>1.3</option>
+                                                <option value={1.6}>1.6</option>
                                             </select>
-                                            <div className="w-[12px]"></div>
+                                            <div className="w-2 hidden md:block"></div>
                                         </div>
                                     </div>
                                 </React.Fragment>
@@ -443,21 +449,21 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         })}
                     </div>
 
-                    {/* BotÃµes de aÃ§Ã£o */}
-                    <div className="flex gap-2 pt-1 border-t border-slate-800 mt-auto">
+                    {/* Botões de ação */}
+                    <div className="flex gap-3 pt-3 border-t border-slate-700/50 mt-auto">
                         <button onClick={handleAnalyze} disabled={loading}
-                            className={`flex-1 rounded-xl font-bold flex items-center justify-center gap-2 py-2.5 text-sm transition-all ${loading
-                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30'}`}>
+                            className={`flex-1 rounded-xl font-black flex items-center justify-center gap-2 py-3 text-sm transition-all duration-300 ${loading
+                                ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30'
+                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-[0_0_20px_rgba(79,70,229,0.4)] hover:shadow-[0_0_30px_rgba(79,70,229,0.6)] hover:-translate-y-0.5 border border-indigo-400/50'}`}>
                             {loading ? (
                                 <span className="flex items-center justify-center gap-2">
-                                    <span className="animate-spin text-base">⌛</span>
-                                    <span>Analisando...</span>
+                                    <span className="animate-spin text-lg">⌛</span>
+                                    <span>Processando...</span>
                                 </span>
                             ) : (
                                 <span className="flex items-center justify-center gap-2">
-                                    <Play size={16} />
-                                    <span>Gerar Plano de Revisão</span>
+                                    <Play size={18} className="fill-current" />
+                                    <span className="tracking-wide">GERAR PLANO DE REVISÃO</span>
                                 </span>
                             )}
                         </button>
@@ -465,59 +471,71 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 </div>
 
                 {/* â•â•â•â• PAINEL DIREITO: Resultado â•â•â•â• */}
-                <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 min-h-[500px] shadow-lg flex flex-col">
+                <div className="relative lg:col-span-7 bg-slate-900/80 border border-slate-700/50 rounded-2xl p-5 sm:p-6 min-h-[500px] shadow-2xl flex flex-col backdrop-blur-xl overflow-hidden">
 
-                    <div className="flex items-center gap-2 mb-5">
-                        <CheckCircle2 size={16} className="text-green-400" />
-                        <h3 className="text-base font-bold text-slate-100">Relatório de Performance</h3>
+                    {/* Background Ambient Glow for Results */}
+                    {analysisData && (
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
+                    )}
+
+                    <div className="relative z-10 flex items-center gap-3 mb-6 pb-4 border-b border-slate-700/50">
+                        <div className="p-1.5 bg-green-500/20 rounded-lg border border-green-500/30">
+                            <CheckCircle2 size={18} className="text-green-400 drop-shadow-[0_0_5px_currentColor]" />
+                        </div>
+                        <h3 className="text-lg font-black text-slate-100 tracking-tight">Relatório de Performance</h3>
                     </div>
 
                     {error && (
-                        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl flex items-center gap-3 text-sm">
-                            <AlertCircle size={18} />
+                        <div className="relative z-10 p-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl flex items-center gap-3 text-sm font-medium shadow-[0_0_15px_rgba(244,63,94,0.1)]">
+                            <AlertCircle size={20} className="shrink-0" />
                             <p>{error}</p>
                         </div>
                     )}
 
                     {!analysisData && !loading && !error && (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-600 min-h-[380px] border-2 border-slate-800 rounded-2xl gap-4">
-                            <BrainCircuit size={52} className="opacity-30" />
-                            <p className="max-w-xs text-center text-sm leading-relaxed">
-                                Preencha os dados ao lado e clique em <strong className="text-slate-400">Gerar Plano de Revisão</strong> para ver o relatório aqui.
+                        <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-500 min-h-[380px] border-2 border-dashed border-slate-800 rounded-2xl gap-5 p-6 bg-slate-950/30">
+                            <BrainCircuit size={64} className="opacity-20" />
+                            <p className="max-w-xs text-center text-sm font-medium leading-relaxed">
+                                Preencha os dados ao lado e clique em <strong className="text-blue-400">GERAR PLANO</strong> para ver o diagnóstico completo.
                             </p>
                         </div>
                     )}
 
                     {analysisData && (
-                        <div className="space-y-5 pr-1 flex-1">
+                        <div className="relative z-10 space-y-6 pr-1 flex-1">
 
                             {/* Insight geral */}
-                            <div className="p-4 bg-gradient-to-r from-purple-900/40 to-indigo-900/40 border border-purple-500/25 rounded-2xl flex gap-3 items-start">
-                                <div className="p-2 bg-purple-500/20 rounded-xl shrink-0 mt-0.5">
-                                    <BrainCircuit size={18} className="text-purple-300" />
+                            <div className="p-5 bg-gradient-to-r from-purple-900/40 via-indigo-900/30 to-slate-900/40 border border-purple-500/30 rounded-2xl flex gap-4 items-start shadow-[0_0_20px_rgba(168,85,247,0.1)] backdrop-blur-md">
+                                <div className="p-2.5 bg-purple-500/20 rounded-xl shrink-0 border border-purple-500/30 shadow-inner">
+                                    <BrainCircuit size={20} className="text-purple-300 drop-shadow-[0_0_5px_currentColor]" />
                                 </div>
                                 <div>
-                                    <h4 className="text-[10px] font-bold text-purple-300 uppercase tracking-widest mb-1">Insight Geral</h4>
-                                    <p className="text-slate-300 text-sm leading-relaxed">"{analysisData.generalInsight}"</p>
+                                    <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em] mb-1.5">Insight Geral da IA</h4>
+                                    <p className="text-slate-200 text-sm font-medium leading-relaxed italic">"{analysisData.generalInsight}"</p>
                                 </div>
                             </div>
 
                             {analysisData.confidence && (
-                                <div className="p-4 bg-slate-800/60 border border-slate-700/60 rounded-2xl">
-                                    <div className="flex items-center justify-between gap-3 mb-2">
-                                        <h4 className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest">Confiabilidade da análise</h4>
-                                        <span className={`text-xs font-black px-2 py-0.5 rounded-full border ${analysisData.confidence.label === 'Alta' ? 'text-green-300 border-green-500/30 bg-green-500/10' : analysisData.confidence.label === 'Média' ? 'text-yellow-300 border-yellow-500/30 bg-yellow-500/10' : 'text-red-300 border-red-500/30 bg-red-500/10'}`}>
+                                <div className="p-5 bg-slate-900/80 border border-slate-700/60 rounded-2xl shadow-inner relative overflow-hidden">
+                                    <div className="absolute right-0 top-0 w-32 h-32 bg-cyan-500/10 blur-[40px] pointer-events-none" />
+                                    
+                                    <div className="relative z-10 flex items-center justify-between gap-3 mb-3">
+                                        <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                                            Confiabilidade da Análise
+                                        </h4>
+                                        <span className={`text-xs font-black px-3 py-1 rounded-md border ${analysisData.confidence.label === 'Alta' ? 'text-green-300 border-green-500/30 bg-green-500/10 shadow-[0_0_10px_rgba(34,197,94,0.2)]' : analysisData.confidence.label === 'Média' ? 'text-yellow-300 border-yellow-500/30 bg-yellow-500/10 shadow-[0_0_10px_rgba(234,179,8,0.2)]' : 'text-rose-300 border-rose-500/30 bg-rose-500/10 shadow-[0_0_10px_rgba(244,63,94,0.2)]'}`}>
                                             {analysisData.confidence.label}
                                         </span>
                                     </div>
-                                    <div className="w-full h-2 bg-slate-900/80 rounded-full overflow-hidden border border-white/5 mb-2">
-                                        <div className="h-full bg-cyan-500 transition-all duration-700" style={{ width: `${analysisData.confidence.score}%` }} />
+                                    <div className="relative z-10 w-full h-1.5 bg-slate-950/80 rounded-full overflow-hidden border border-white/5 mb-3 shadow-inner">
+                                        <div className="h-full bg-cyan-400 transition-all duration-1000 shadow-[0_0_10px_currentColor]" style={{ width: `${analysisData.confidence.score}%` }} />
                                     </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-slate-300">
-                                        <span>Score: <strong>{analysisData.confidence.score}%</strong></span>
-                                        <span>Tópicos: <strong>{analysisData.confidence.analyzedTopics}</strong></span>
-                                        <span>Matérias: <strong>{analysisData.confidence.analyzedSubjects}</strong></span>
-                                        <span>Cobertura: <strong>{analysisData.confidence.rowCoverage}%</strong></span>
+                                    <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                                        <div className="bg-slate-950/50 p-2 rounded-lg border border-slate-800">Score: <strong className="text-cyan-300 font-mono text-xs block mt-0.5">{analysisData.confidence.score}%</strong></div>
+                                        <div className="bg-slate-950/50 p-2 rounded-lg border border-slate-800">Tópicos: <strong className="text-slate-200 font-mono text-xs block mt-0.5">{analysisData.confidence.analyzedTopics}</strong></div>
+                                        <div className="bg-slate-950/50 p-2 rounded-lg border border-slate-800">Matérias: <strong className="text-slate-200 font-mono text-xs block mt-0.5">{analysisData.confidence.analyzedSubjects}</strong></div>
+                                        <div className="bg-slate-950/50 p-2 rounded-lg border border-slate-800">Cobertura: <strong className="text-slate-200 font-mono text-xs block mt-0.5">{analysisData.confidence.rowCoverage}%</strong></div>
                                     </div>
                                 </div>
                             )}
@@ -540,32 +558,32 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         {/* Cabeçalho da disciplina */}
                                         <div className={`relative px-5 py-4 bg-gradient-to-r ${discCfg.from} to-transparent border-b border-slate-700/50`}>
                                             <div className="flex justify-between items-end mb-2 relative z-10">
-                                                <h3 className="text-xl font-black text-white flex items-center gap-2 drop-shadow-md tracking-tight uppercase">
-                                                    <span className="w-8 h-8 rounded-lg flex items-center justify-center text-base uppercase" style={{ backgroundColor: `${subjectColor}40`, color: subjectColor, border: `1px solid ${subjectColor}60` }}>
+                                                <h3 className="text-xl font-black text-white flex items-center gap-3 drop-shadow-md tracking-tight uppercase">
+                                                    <span className="w-10 h-10 rounded-xl flex items-center justify-center text-lg uppercase shadow-inner" style={{ backgroundColor: `${subjectColor}20`, color: subjectColor, border: `1px solid ${subjectColor}40` }}>
                                                         {disc.name ? disc.name[0] : '?'}
                                                     </span>
                                                     {disc.name}
                                                 </h3>
                                                 <div className="text-right">
-                                                    <span className={`text-2xl font-black ${discCfg.text} drop-shadow-sm`}>{discPct}%</span>
+                                                    <span className={`text-3xl font-mono font-black ${discCfg.text} drop-shadow-[0_0_10px_currentColor]`}>{discPct}%</span>
                                                 </div>
                                             </div>
-                                            <div className="flex justify-between items-center mb-3 relative z-10">
-                                                <span className="text-[11px] text-slate-300 font-bold uppercase tracking-wider bg-black/30 px-2 py-1 rounded-md backdrop-blur-sm border border-white/5">
+                                            <div className="flex justify-between items-center mb-4 relative z-10 mt-1">
+                                                <span className="text-[11px] text-slate-200 font-black uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-lg backdrop-blur-md border border-white/10 shadow-sm">
                                                     {disc.overview}
                                                 </span>
-                                                <span className="text-[11px] text-slate-400 font-mono font-bold">
+                                                <span className="text-xs text-slate-400 font-mono font-bold tracking-widest bg-slate-950/50 px-2 py-1 rounded-md border border-slate-800">
                                                     {disc.totalCorrect}/{disc.totalQuestions} acertos
                                                 </span>
                                             </div>
                                             {/* Barra geral da matéria - Agora usando a cor da matéria do Dashboard */}
-                                            <div className="w-full h-2.5 bg-slate-950/80 rounded-full overflow-hidden relative z-10 border border-white/5">
+                                            <div className="w-full h-2 bg-slate-950/80 rounded-full overflow-hidden relative z-10 border border-slate-800/80 shadow-inner">
                                                 <div
-                                                    className="h-full rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+                                                    className="h-full rounded-full transition-all duration-1000 shadow-[0_0_15px_currentColor]"
                                                     style={{
                                                         width: `${discPct}%`,
                                                         backgroundColor: subjectColor,
-                                                        boxShadow: `0 0 10px ${subjectColor}40`
+                                                        color: subjectColor
                                                     }}
                                                 />
                                             </div>
@@ -576,30 +594,33 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                             {disc.topics.map((topic, tIdx) => {
                                                 const pct = topic.percentage || 0;
                                                 const cfg =
-                                                    pct >= 80 ? { label: 'Dominado', icon: '🏆', bar: 'bg-green-500', badge: 'bg-green-500/10 text-green-400 border-green-500/20', text: 'text-green-100' } :
-                                                        pct >= 60 ? { label: 'Bom', icon: '👍', bar: 'bg-orange-500', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20', text: 'text-orange-100' } :
-                                                            pct <= 40 ? { label: 'Crítico', icon: '🚨', bar: 'bg-red-500', badge: 'bg-red-500/10   text-red-400   border-red-500/20', text: 'text-red-100' } :
-                                                                { label: 'Atenção', icon: '⚠️', bar: 'bg-yellow-500', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', text: 'text-yellow-100' };
+                                                    pct >= 80 ? { label: 'Dominado', icon: '🏆', bar: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]', text: 'text-emerald-300' } :
+                                                        pct >= 60 ? { label: 'Bom', icon: '👍', bar: 'bg-amber-500', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.2)]', text: 'text-amber-300' } :
+                                                            pct <= 40 ? { label: 'Crítico', icon: '🚨', bar: 'bg-rose-500', badge: 'bg-rose-500/10   text-rose-400   border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]', text: 'text-rose-300' } :
+                                                                { label: 'Atenção', icon: '⚠️', bar: 'bg-orange-500', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_10px_rgba(249,115,22,0.2)]', text: 'text-orange-300' };
                                                 return (
-                                                    <div key={tIdx} className="px-4 py-3 hover:bg-slate-700/20 transition-colors">
-                                                        <div className="flex items-center justify-between gap-3 mb-1.5">
-                                                            <span className={`text-sm font-medium truncate flex-1 ${cfg.text}`}>{topic.name}</span>
-                                                            <div className="flex items-center gap-2 shrink-0">
-                                                                <span className="text-[10px] font-mono text-slate-500">{topic.correct}/{topic.total}</span>
-                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${cfg.badge}`}>
+                                                    <div key={tIdx} className="px-5 py-4 hover:bg-slate-700/30 transition-all duration-300 group/topic">
+                                                        <div className="flex items-center justify-between gap-3 mb-2">
+                                                            <span className={`text-sm font-bold truncate flex-1 ${cfg.text} group-hover/topic:translate-x-1 transition-transform`}>{topic.name}</span>
+                                                            <div className="flex items-center gap-3 shrink-0">
+                                                                <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-900/50 px-2 py-0.5 rounded-md">{topic.correct}/{topic.total}</span>
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider border ${cfg.badge}`}>
                                                                     {cfg.icon} {cfg.label}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                         {/* Barra de progresso */}
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="flex-1 h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
-                                                                <div className={`h-full rounded-full transition-all ${cfg.bar}`} style={{ width: `${pct}%` }} />
+                                                        <div className="flex items-center gap-3 mt-1">
+                                                            <div className="flex-1 h-1.5 bg-slate-800/80 rounded-full overflow-hidden shadow-inner">
+                                                                <div className={`h-full rounded-full transition-all duration-1000 ${cfg.bar}`} style={{ width: `${pct}%`, boxShadow: `0 0 10px currentColor` }} />
                                                             </div>
-                                                            <span className={`text-[10px] font-black w-8 text-right ${cfg.text}`}>{pct}%</span>
+                                                            <span className={`text-[11px] font-mono font-black w-10 text-right ${cfg.text}`}>{pct}%</span>
                                                         </div>
                                                         {/* Ação */}
-                                                        <p className="text-[11px] text-slate-400 mt-1.5 leading-snug italic">→ {topic.action}</p>
+                                                        <div className="mt-2.5 flex items-center gap-1.5 opacity-70 group-hover/topic:opacity-100 transition-opacity">
+                                                            <div className={`w-1 h-1 rounded-full ${cfg.bar}`} />
+                                                            <p className="text-[11px] text-slate-300 font-medium tracking-wide">Ação recomendada: <strong className="text-white">{topic.action}</strong></p>
+                                                        </div>
                                                     </div>
                                                 );
                                             })}

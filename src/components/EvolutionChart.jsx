@@ -649,33 +649,84 @@ export default function EvolutionChart({
                 </div>
             </div>
 
-            <div className="relative z-0 mb-12 sm:mb-16">
-                <p className="text-[10px] sm:text-xs text-slate-500 uppercase font-black tracking-[0.15em] leading-loose py-2 sm:py-4 mb-0 sm:mb-1 pl-1">
+            <div className="relative z-0 mb-8 sm:mb-12">
+                <p className="text-[10px] sm:text-xs text-slate-500 uppercase font-black tracking-[0.15em] leading-loose py-2 sm:py-3 mb-0 pl-1">
                     Nível Bayesiano por Disciplina • clique para focar
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 px-2 py-4 overflow-visible">
+                <div className="flex overflow-x-auto snap-x gap-4 px-2 py-4 no-scrollbar scroll-smooth">
                     {activeCategories.map(cat => (
-                        <DisciplinaCard
-                            key={cat.id}
-                            cat={cat}
-                            level={categoryLevels[cat.id] || 0}
-                            metrics={timeline.length > 0 ? timeline[timeline.length - 1] : null}
-                            target={targetScore}
-                            isFocused={showOnlyFocus ? focusCategory?.id === cat.id : false}
-                            onClick={() => setFocusSubjectId(cat.id)}
-                            unit={unit}
-                            maxScore={maxScore}
-                        />
+                        <div key={cat.id} className={`snap-center shrink-0 w-[240px] sm:w-[280px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-30 grayscale-[50%] scale-95' : 'opacity-100 scale-100'}`}>
+                            <DisciplinaCard
+                                cat={cat}
+                                level={categoryLevels[cat.id] || 0}
+                                metrics={timeline.length > 0 ? timeline[timeline.length - 1] : null}
+                                target={targetScore}
+                                isFocused={showOnlyFocus ? focusCategory?.id === cat.id : false}
+                                onClick={() => setFocusSubjectId(cat.id)}
+                                unit={unit}
+                                maxScore={maxScore}
+                            />
+                        </div>
                     ))}
                 </div>
             </div>
 
-            <div className="relative z-[50] rounded-2xl border border-slate-800/70 bg-slate-900/90 backdrop-blur p-4 sm:p-6 shadow-xl w-full min-w-0 transition-all duration-500">
-                <div className="relative w-full">
-                    {/* Fade indicators for hidden tabs */}
-                    <div className="pointer-events-none absolute right-0 inset-y-0 w-8 bg-gradient-to-l from-slate-900/90 to-transparent z-10 sm:hidden" />
-                    <div className="flex overflow-x-auto pb-4 gap-3.5 w-full pl-1 pr-8 no-scrollbar scroll-smooth"
-                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="relative z-[50] rounded-2xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-md p-4 sm:p-6 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
+                 style={{ boxShadow: `0 0 60px -15px ${engine.color}20` }}>
+                 
+                 {/* Intense Ambient Glow */}
+                 <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-[80px] opacity-20 pointer-events-none transition-colors duration-1000" style={{ backgroundColor: engine.color }} />
+
+                 {/* Top Toolbar: Engine Header + Filters */}
+                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/50">
+                     
+                     {/* Insight Header */}
+                     <div className="group relative flex-1">
+                         <div className="flex items-center gap-3">
+                             <span className="text-2xl sm:text-3xl" style={{ filter: `drop-shadow(0 0 8px ${engine.color}80)` }}>{engine.emoji}</span>
+                             <h3 className="font-black text-lg sm:text-xl tracking-tight transition-colors duration-300" style={{ color: engine.color }}>
+                                 {engine.explain.titulo}
+                             </h3>
+                             {/* Mini Tooltip Trigger */}
+                             <div className="relative flex items-center justify-center w-5 h-5 rounded-full border border-slate-600 text-slate-400 text-[10px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors">
+                                 ?
+                             </div>
+                         </div>
+                         {/* Hover Popover */}
+                         <div className="absolute top-10 left-12 w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+                             <p className="text-xs text-slate-200 mb-3 leading-relaxed">{engine.explain.simples}</p>
+                             <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-700/50">
+                                 <p className="text-[10px] text-amber-400 italic font-bold">💡 Dica Prática</p>
+                                 <p className="text-[10px] text-slate-400 mt-1">{engine.explain.dica}</p>
+                             </div>
+                         </div>
+                     </div>
+
+                     {/* Filters Toolbar */}
+                     <div className="flex items-center gap-3 w-full lg:w-auto">
+                        <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner">
+                            {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
+                                <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
+                                    className={`shrink-0 flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/30 text-indigo-300 shadow-[0_0_15px_-3px_rgba(99,102,241,0.4)] border border-indigo-500/50' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/50'}`}>
+                                    {w.label}
+                                </button>
+                            ))}
+                        </div>
+                        {activeEngine !== 'compare' && activeEngine !== 'mc_density' && (
+                            <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
+                                className={`shrink-0 flex items-center justify-center gap-2 px-5 py-1.5 h-[34px] rounded-xl text-xs font-bold border transition-all ${showOnlyFocus ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]' : 'bg-slate-950/60 border-slate-800/70 text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}>
+                                <span>{showOnlyFocus ? '🔍' : '👁'}</span>
+                                <span className="hidden sm:inline truncate max-w-[150px]">
+                                    {showOnlyFocus ? `Foco: ${focusCategory?.name}` : 'Todas Matérias'}
+                                </span>
+                            </button>
+                        )}
+                     </div>
+                 </div>
+
+                 {/* Engines Segmented Control */}
+                <div className="relative w-full mb-8">
+                    <div className="flex overflow-x-auto pb-2 gap-3 w-full no-scrollbar scroll-smooth snap-x">
                         {ENGINES.map((eng) => {
                             const active = activeEngine === eng.id;
                             return (
@@ -683,61 +734,23 @@ export default function EvolutionChart({
                                     type="button"
                                     key={eng.id}
                                     onClick={() => setActiveEngine(eng.id)}
-                                    className={`shrink-0 group flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[10px] sm:text-[12px] font-black tracking-tight transition-all duration-300 border ${active
-                                        ? 'shadow-[0_8px_20px_-6px_rgba(0,0,0,0.5)] scale-[1.02]'
-                                        : 'bg-white/[0.03] border-white/[0.08] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/20'
+                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-2 w-28 h-20 rounded-xl transition-all duration-300 border ${active
+                                        ? 'shadow-[0_8px_20px_-6px_rgba(0,0,0,0.5)] scale-105 z-10'
+                                        : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/20'
                                         }`}
                                     style={active ? {
                                         backgroundColor: `${eng.color}15`,
                                         borderColor: `${eng.color}88`,
                                         color: eng.color,
-                                        boxShadow: `0 0 25px ${eng.color}15`
+                                        boxShadow: `0 0 25px ${eng.color}25`
                                     } : {}}
                                 >
-                                    <span className="text-lg group-hover:scale-110 transition-transform duration-300">{eng.emoji}</span>
-                                    <span className="whitespace-nowrap uppercase tracking-wider">{eng.label}</span>
-                                    {active && (
-                                        <div className="relative flex items-center justify-center ml-1">
-                                            <div className="absolute w-2 h-2 rounded-full animate-ping opacity-40" style={{ backgroundColor: eng.color }} />
-                                            <div className="w-1.5 h-1.5 rounded-full z-10" style={{ backgroundColor: eng.color }} />
-                                        </div>
-                                    )}
+                                    <span className="text-2xl group-hover:scale-110 transition-transform duration-300" style={{ filter: active ? `drop-shadow(0 0 5px ${eng.color})` : 'none' }}>{eng.emoji}</span>
+                                    <span className="text-[10px] uppercase tracking-widest font-black text-center leading-tight px-1">{eng.label}</span>
                                 </button>
                             );
                         })}
                     </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3 sm:p-4 mb-3 sm:mb-5 relative overflow-hidden">
-                    <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full blur-3xl opacity-15 pointer-events-none transition-colors duration-500" style={{ backgroundColor: engine.color }} />
-                    <p className="font-bold text-xs sm:text-sm mb-0.5 sm:mb-1 transition-colors duration-300" style={{ color: engine.color }}>
-                        {engine.emoji} {engine.explain.titulo}
-                    </p>
-                    <p className="text-slate-400 text-[10px] sm:text-xs leading-relaxed">{engine.explain.simples}</p>
-                    <p className="text-slate-400 text-[10px] sm:text-xs mt-1 sm:mt-1.5 italic">💡 {engine.explain.dica}</p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-5 w-full">
-                    <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto">
-                        <span className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider px-2 shrink-0">Período</span>
-                        {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
-                            <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
-                                className={`shrink-0 flex-1 sm:flex-none px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
-                                {w.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* 🎯 BUG FIX: Ocultar toggle em engines que não suportam múltiplas matérias simultâneas */}
-                    {activeEngine !== 'compare' && activeEngine !== 'mc_density' && (
-                        <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
-                            className={`shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold border transition-all w-full sm:w-auto min-w-0 ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
-                            <span>{showOnlyFocus ? '🔍' : '👁'}</span>
-                            <span className="truncate block max-w-[200px] sm:max-w-full">
-                                {showOnlyFocus ? `Apenas ${focusCategory?.name || 'Foco'}` : 'Todas as Matérias'}
-                            </span>
-                        </button>
-                    )}
                 </div>
 
                 {activeEngine === "raw_weekly" ? (

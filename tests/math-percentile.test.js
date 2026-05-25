@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getPercentile } from '../src/engine/math/percentile.js';
+import { getPercentile, quickSelect } from '../src/engine/math/percentile.js';
 
 describe('Motor Matemático: Percentil', () => {
     it('Deve calcular corretamente a Mediana (Percentil 0.5) de um array ímpar', () => {
@@ -45,5 +45,12 @@ describe('Motor Matemático: Percentil', () => {
 
     it('Deve retornar 0 se p não for finito', () => {
         expect(getPercentile([1, 2, 3], NaN)).toBe(0);
+    });
+
+    it('quickSelect deve filtrar valores invalidos e clampear k fora da faixa', () => {
+        expect(quickSelect([3, NaN, 1, Infinity, 2], 1)).toBe(2);
+        expect(quickSelect([1, 2, 3], 99)).toBe(3);
+        expect(quickSelect([1, 2, 3], -5)).toBe(1);
+        expect(quickSelect([NaN, Infinity], 0)).toBe(0);
     });
 });
