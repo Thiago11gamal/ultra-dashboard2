@@ -733,7 +733,7 @@ export default function EvolutionChart({
                                     type="button"
                                     key={eng.id}
                                     onClick={() => setActiveEngine(eng.id)}
-                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-2 w-28 h-20 rounded-xl transition-all duration-300 border ${active
+                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-2 w-32 h-20 rounded-xl transition-all duration-300 border ${active
                                         ? 'shadow-[0_8px_20px_-6px_rgba(0,0,0,0.5)] scale-105 z-10'
                                         : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/20'
                                         }`}

@@ -298,7 +298,7 @@ export default function Sidebar({
                                                 closeMobileSidebar();
                                             }}
                                         >
-                                            <Icon style={{ color: isActive ? item.color : 'inherit' }} />
+                                            <Icon />
                                             <span>{item.label}</span>
                                         </Link>
                                     );
