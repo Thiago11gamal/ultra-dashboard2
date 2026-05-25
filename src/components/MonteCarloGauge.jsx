@@ -180,7 +180,7 @@ export default function MonteCarloGauge({
     const projectionDeltaLabel = `${projectionDelta >= 0 ? '+' : ''}${formatValue(projectionDelta)}${unit}`;
 
     return (
-        <div className={`glass p-4 sm:p-5 rounded-2xl sm:rounded-[2rem] relative flex flex-col border-l-4 border-blue-500 bg-slate-900 group transition-all duration-500 shadow-2xl w-full h-fit self-start static lg:sticky lg:top-28 ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
+        <div className={`glass p-4 sm:p-5 rounded-2xl sm:rounded-[2rem] relative flex flex-col border-l-4 border-blue-500 bg-slate-900 group transition-all duration-500 shadow-2xl w-full h-full flex-1 ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
             {isFlashing && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
                     <div className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent absolute top-0 left-0 animate-scan-fast" />
