@@ -8,14 +8,14 @@ export function EvolucaoFocoChart({ data }) {
 
     if (!data || data.length === 0) {
         return (
-            <div className="flex items-center justify-center h-[300px] border border-white/5 rounded-2xl bg-black/20">
+            <div className="flex items-center justify-center h-full min-h-[300px] border border-white/5 rounded-2xl bg-black/20 mt-4 pb-2">
                 <p className="text-slate-500 text-sm font-medium italic">Dados insuficientes para análise de foco.</p>
             </div>
         );
     }
 
     return (
-        <div className="h-[300px] w-full mt-4">
+        <div className="h-full min-h-[300px] w-full mt-4 pb-2">
             <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                 {/* Adicionei margin left: -15 para o eixo Y não usar espaço inútil, e right: 10 para não cortar a última data */}
                 <AreaChart data={data} margin={{ top: 20, right: 10, left: -15, bottom: 5 }}>
