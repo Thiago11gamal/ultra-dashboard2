@@ -50,7 +50,8 @@ export function bootstrapCI(samples, statFn, {
       if (clean[i] < minObserved) minObserved = clean[i];
     }
     maxObserved += noiseStdDev * 3;
-    minObserved = Math.max(0, minObserved - noiseStdDev * 3);
+    // Não forçar piso em 0: preserva domínios negativos (deltas, slopes)
+    minObserved = minObserved - noiseStdDev * 3;
   }
 
   for (let i = 0; i < iters; i++) {
@@ -77,7 +78,7 @@ export function bootstrapCI(samples, statFn, {
   // CORREÇÃO: Limpeza obrigatória ANTES do algoritmo de Sorting, pois o motor V8 do JS
   // abandona a ordenação se comparar NaNs durante as trocas da árvore binária.
   const validDist = dist.filter(Number.isFinite);
-  if (validDist.length === 0) validDist.push(safeEstimate);
+  if (validDist.length === 0) validDist.push(Number.isFinite(safeEstimate) ? safeEstimate : 0);
   
   validDist.sort((x, y) => x - y);
   

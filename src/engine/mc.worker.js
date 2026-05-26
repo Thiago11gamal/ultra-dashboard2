@@ -110,7 +110,8 @@ self.onmessage = function(e) {
                 categoryName,
                 bayesianCI,
                 minScore,
-                maxScore
+                maxScore,
+                historyLength: safeNum(payload.historyLength, 0)
             });
         }
         self.postMessage({ id, type: 'result', result });

@@ -265,8 +265,11 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo pela verdadeira Correção de Bessel,
     // mas com clamping defensivo para evitar assíntotas hiperbólicas quando effectiveN cai para perto de 1.
     // O piso desce de 1.0 para 0.1, permitindo que a penalidade de incerteza seja aplicada corretamente.
-    const safeDenominator = Math.max(0.1, effectiveN - 1); // Nunca permite divisão letal
-    const consistencyFactor = effectiveN > 1.5 ? (effectiveN / safeDenominator) : 1; 
+    // Transição suave: interpola entre 1.0 e N/(N-1) via sigmoid
+    // para evitar descontinuidade em effectiveN = 1.5
+    const besselRaw = effectiveN > 1.01 ? effectiveN / (effectiveN - 1) : effectiveN * 10;
+    const transition = 1 / (1 + Math.exp(-5 * (effectiveN - 1.5)));
+    const consistencyFactor = 1 * (1 - transition) + Math.min(10, besselRaw) * transition;
     
     const sd = Math.sqrt(Math.max(0, weightedVariance * consistencyFactor));
     
@@ -432,9 +435,10 @@ export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificulda
     // Tópicos difíceis geram consolidações mais frágeis (menor Estabilidade).
     const stability = Math.max(0.5, Math.exp(forcaMemoria * 0.45) * difficultyFactor);
     
-    // Retrievability (R) = 0.9^(t / S)
-    // Se o tempo decorrido for 0, R = 1 (100% retido), conforme as leis da memória.
-    const retrievability = Math.pow(0.9, tempoDias / stability);
+    // Retrievability FSRS: R = (1 + t/(9·S))^(-1)
+    // Power-law decay: decai mais lentamente que exponencial para intervalos longos,
+    // mais rápido para intervalos curtos — conforme dados empíricos do FSRS.
+    const retrievability = Math.pow(1 + tempoDias / (9 * stability), -1);
     const finalRetention = retrievability; 
     
     return Math.max(baseline, finalRetention);

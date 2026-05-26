@@ -13,6 +13,7 @@ import { sampleTruncatedNormal } from './math/gaussian.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
 import { weightedRegression, calculateSlopeStdError, getSortedHistory } from './stats.js';
+import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 export { weightedRegression, calculateSlopeStdError, getSortedHistory };
 
 
@@ -166,9 +167,9 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
         validTransitions++;
     }
 
-    const rmssd = (sumSqDiff) / Math.max(1, validTransitions); 
-    // BUG-AUDIT-08 FIX: Removida a divisão por 2. Para séries detrended via OLS,
-    // a autocovariância dos resíduos é alterada pelo fit e a simplificação Var(Δ)=2σ² não vale.
+    // MSSD = (1/2(n-1)) × Σ(Δᵢ²). Para resíduos OLS detrended com ρ≈0,
+    // E[Δ²] = 2σ², logo a divisão por 2 restaura a estimativa correta de σ².
+    const rmssd = (sumSqDiff) / (2 * Math.max(1, validTransitions)); 
     return Math.sqrt(Math.max(1e-6, rmssd)); 
 }
 
@@ -283,7 +284,9 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
 
         const safeMin = options.minScore || 0;
         const safeL = Math.max(L, y + 0.5); 
-        const boundedY = Math.max(safeMin + 0.1, Math.min(safeL - 0.1, y)); 
+        // Offset proporcional à escala (0.1% do range) para evitar logit ±∞
+        const logitOffset = Math.max(0.01, (safeL - safeMin) * 0.001);
+        const boundedY = Math.max(safeMin + logitOffset, Math.min(safeL - logitOffset, y)); 
         const logitY = Math.log((boundedY - safeMin) / (safeL - boundedY));
 
         sumW += w;
@@ -371,7 +374,9 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     
     const angularUncertainty = slopeStdError * projectDays;
     const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(randomWalkUncertainty, 2));
-    const marginOfError = 1.96 * predictionSD; 
+    // Usar T-Student adaptativo para amostras pequenas em vez de Z=1.96 fixo
+    const tMult = getConfidenceMultiplier(sortedHistory.length);
+    const marginOfError = tMult * predictionSD; 
 
     return {
         projected: Math.max(minScore, Math.min(maxScore, projectedScore)),

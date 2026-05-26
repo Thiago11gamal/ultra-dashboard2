@@ -82,7 +82,8 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
     // Regularização de Tikhonov (Ridge) para estabilizar a matriz inversa da Regressão WLS
     // Adicionamos um lambda epsilon baseado na escala dos dias. (Bug 4 Fix)
-    const RIDGE_PENALTY = 0.0001; 
+    // Ridge penalty proporcional à variância dos dados para estabilidade independente da escala
+    const RIDGE_PENALTY = Math.max(1e-8, (sumWXX > 0 ? sumWXX / Math.max(1, sumW) : 1) * 1e-4); 
     const safeSumW = Math.max(1e-15, sumW);
     // CORREÇÃO: Impedir o underflow de precisão (IEEE 754) que gera variâncias X negativas
     const varianceX = Math.max(0, sumWXX - (sumWX * sumWX) / safeSumW);
@@ -263,7 +264,7 @@ export const calcularDesvioPadrao = (arr) => {
     if (!arr || arr.length <= 1) return 0;
     const clean = arr.map(Number).filter(Number.isFinite);
     if (clean.length <= 1) return 0;
-    const m = clean.reduce((a, b) => a + b, 0) / clean.length;
+    const m = kahanMean(clean);
     
     const sumSq = clean.map(x => Math.pow(x - m, 2));
     // Este helper é usado pelos testes rigorosos como desvio padrão populacional (ddof=0).
@@ -788,9 +789,14 @@ export const calculateEMA = (scores, alpha = 0.25) => {
     for (let i = 1; i < scores.length; i++) {
         // Dinamismo: O alpha deve ser maior se a nota subiu muito (absorvemos o sucesso rápido,
         // mas resistimos à queda brusca - Princípio do Benefício da Dúvida).
-        const deviation = Math.abs(scores[i] - ema);
+        const delta = scores[i] - ema;
         const range = maxObserved; // âncora na escala máxima observada e não no primeiro score
-        const trendBonus = Math.min(0.1, 0.05 * (deviation / range));
+        const absDelta = Math.abs(delta);
+        // Benefício da dúvida: absorve sucesso (delta > 0) rápido,
+        // resiste à queda (delta < 0) com alpha menor
+        const upBonus = Math.min(0.10, 0.05 * (absDelta / range));
+        const downBonus = Math.min(0.03, 0.015 * (absDelta / range));
+        const trendBonus = delta >= 0 ? upBonus : downBonus;
         const currentAlpha = Math.min(1, alpha + trendBonus);
         
         ema = (scores[i] * currentAlpha) + (ema * (1 - currentAlpha));

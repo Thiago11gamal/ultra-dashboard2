@@ -108,7 +108,8 @@ export function computeHurstExponent(scores) {
   else if (clampedH < 0.4) interpretation = 'Reversão à Média (Alta Instabilidade / Efeito Ioiô)';
 
   // DIAGNÓSTICO AVANÇADO: Confiança do cálculo baseada no Erro Padrão da Regressão (R²)
-  const SSR = logRS.reduce((s, y, i) => s + (y - (muY + H * (logN[i] - muX))) ** 2, 0);
+  // Usar o H clampado para que o R² reflita o fit do valor efetivamente retornado
+  const SSR = logRS.reduce((s, y, i) => s + (y - (muY + clampedH * (logN[i] - muX))) ** 2, 0);
   const SST = logRS.reduce((s, y) => s + (y - muY) ** 2, 0);
   const rSquared = SST > 0 ? 1 - (SSR / SST) : 0;
 
@@ -222,11 +223,8 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
       stability = Math.max(1, stability);
     }
 
-    if (i < sorted.length - 1) {
-      const gap = (new Date(sorted[i + 1].date) - new Date(sorted[i].date)) / 86400000;
-      const retention = computeEbbinghausRetention(gap, stability);
-      stability *= (0.7 + 0.3 * retention);
-    }
+    // FIX D-2: Removido ajuste de estabilidade baseado no gap FUTURO (lookahead bias).
+    // A estabilidade deve depender apenas de informações passadas e presentes.
 
     stability = Math.min(180, Math.max(1, stability));
   }
@@ -490,10 +488,8 @@ export function computeAR1Coefficient(residuals) {
 
   const numerator = lag0.reduce((s, v, i) => s + v * lag1[i], 0);
   const denom0 = lag0.reduce((s, v) => s + v * v, 0);
-  const denom1 = lag1.reduce((s, v) => s + v * v, 0);
-  const denominator = Math.sqrt(denom0 * denom1);
-
-  const rho = denominator > 1e-10 ? numerator / denominator : 0;
+  // AR(1): ρ = Σ(xₜ·xₜ₊₁) / Σ(xₜ²) — coeficiente de regressão, não correlação de Pearson
+  const rho = denom0 > 1e-10 ? numerator / denom0 : 0;
   const clampedRho = Math.max(-1, Math.min(1, rho));
 
   const bartlettThreshold = 1.96 / Math.sqrt(Math.max(1, n));
