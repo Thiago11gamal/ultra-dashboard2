@@ -52,7 +52,7 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                         className={`pb-4 ${snapshot.isDragging ? 'z-[99999]' : ''}`}
                         style={provided.draggableProps.style}
                     >
-                        <div className={`group relative p-4 sm:pt-5 sm:pb-5 sm:pr-5 sm:pl-6 rounded-xl select-none overflow-hidden h-full ${
+                        <div className={`group relative p-4 sm:p-5 rounded-xl select-none overflow-hidden h-full ${
                             snapshot.isDragging 
                                 ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 backdrop-blur-xl' 
                                 : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-colors duration-500'
@@ -86,7 +86,7 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                                 </div>
 
                                 <div className="flex flex-col gap-2">
-                                    <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors" style={{ paddingLeft: '18px' }}>
+                                    <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors">
                                         {displayTopic}
                                     </h4>
                                     {secondaryText && (
@@ -212,7 +212,7 @@ export default function AICoachPlanner() {
         <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
             <div className="flex flex-col xl:flex-row gap-5">
                 <div className="w-full xl:w-64 shrink-0">
-                    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col h-full min-h-[400px] relative overflow-hidden">
+                    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col h-full min-h-[400px] xl:min-h-[610px] relative overflow-hidden">
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
                         <div className="flex items-center gap-2 mb-6 pb-4 border-b border-white/[0.08]">
                             <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shadow-lg shadow-violet-500/5 group-hover:scale-110 transition-transform">
@@ -228,7 +228,7 @@ export default function AICoachPlanner() {
                         </div>
                         <Droppable droppableId="backlog">
                             {(provided, snapshot) => (
-                                <div className={`flex-1 flex flex-col gap-3 rounded-2xl p-4 transition-all min-h-[200px] relative overflow-visible ${snapshot.isDraggingOver ? 'bg-violet-500/10' : ''}`}>
+                                <div className={`flex-1 flex flex-col gap-3 rounded-2xl p-2 transition-all min-h-[200px] overflow-y-auto no-scrollbar relative ${snapshot.isDraggingOver ? 'bg-violet-500/10' : ''}`}>
                                     {snapshot.isDraggingOver && (
                                         <div 
                                             className="absolute inset-0 bg-gradient-to-b from-violet-500/5 to-transparent pointer-events-none" 
