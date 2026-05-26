@@ -68,7 +68,7 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                                 <div className="flex items-start justify-between gap-3">
                                     <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-[0.18em] ${
                                         isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-white/10 text-slate-200 border-white/10'
-                                    } border backdrop-blur-md shadow-sm w-fit max-w-[90%] flex-shrink-0 group-hover:border-white/20 transition-colors`}>
+                                    } border backdrop-blur-md shadow-sm w-fit max-w-[calc(100%-48px)] group-hover:border-white/20 transition-colors`}>
                                         <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-400'} shrink-0`} />
                                         <span className="leading-none truncate block drop-shadow-sm">{displaySubject(subject)}</span>
                                     </div>
