@@ -228,8 +228,8 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className="w-full flex flex-col items-center justify-center min-h-[140px] sm:min-h-[160px] mb-4">
-                <div className={`w-full bg-black/40 rounded-2xl p-4 flex flex-col items-center transition-all duration-700 ${isFlashing ? 'blur-sm' : ''}`}>
+            <div className="w-full flex flex-col items-center justify-center min-h-[140px] sm:min-h-[160px] mb-4 flex-1">
+                <div className={`w-full h-full bg-black/40 rounded-2xl p-4 flex flex-col items-center transition-all duration-700 ${isFlashing ? 'blur-sm' : ''}`}>
                     <div className="relative mb-2 w-full max-w-[260px] h-[140px] flex justify-center">
                         <svg width="100%" height="100%" viewBox="0 -6 140 76" className="overflow-visible relative z-10 scale-110">
                             <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
@@ -259,7 +259,7 @@ export default function MonteCarloGauge({
                     </span>
                     
                     {/* CONFORMAL PREDICTION PANEL */}
-                    <div className="mt-5 w-full flex flex-col items-center">
+                    <div className="mt-5 w-full flex flex-col items-center flex-1">
                         <div className="w-full sm:w-4/5 md:w-3/4 flex flex-col items-center justify-center p-3 rounded-2xl border border-white/5 bg-black/50 shadow-inner">
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">
                                 Faixa Provável (95%)
@@ -299,7 +299,7 @@ export default function MonteCarloGauge({
                             </div>
                         )}
 
-                        <p className="mt-4 text-[9px] text-slate-500 font-bold uppercase tracking-wider text-center max-w-[260px] leading-relaxed opacity-80 pt-2 border-t border-white/5">
+                        <p className="mt-auto pt-3 text-[9px] text-slate-500 font-bold uppercase tracking-wider text-center max-w-[260px] leading-relaxed opacity-80 border-t border-white/5">
                             Em previsões semelhantes, 95% dos resultados reais ficaram dentro desta faixa.
                         </p>
                     </div>
