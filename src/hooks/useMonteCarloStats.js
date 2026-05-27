@@ -524,11 +524,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         });
                     } else {
                         result = runMonteCarloAnalysis(pureStatsData.bayesianMean, pureStatsData.pooledSD, debouncedTarget, {
-                            iterations: isFuture ? 10000 : SYNCHRONOUS_FALLBACK_SIMULATIONS,
-                            globalMean: pureStatsData.bayesianMean,
-                            globalSD: isFuture ? regularizedSD : pureStatsData.dailySD,
-                            correlation: pureStatsData.estimatedRho,
-                            targetScore: debouncedTarget,
+                            simulations: SYNCHRONOUS_FALLBACK_SIMULATIONS,
+                            currentMean: pureStatsData.bayesianMean,
+                            bayesianCI: pureStatsData.bayesianCI,
                             historicalCutoffs: historicalCutoffs,
                             minScore,
                             maxScore

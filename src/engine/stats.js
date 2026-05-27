@@ -985,10 +985,10 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
         const localSD = Number.isFinite(cat.sd) ? cat.sd : (pooledSD || 15);
         const localVar = Math.pow(localSD, 2) / Math.max(1, cat.n);
         
-        // Fator de Shrinkage (B)
-        // B será próximo a 1 se a variância local for alta (pouca confiança) e tau2 for baixo
-        // B será próximo a 0 se a variância local for baixa (alta confiança) e tau2 for alto
-        const B = localVar / (localVar + tau2 || 1);
+        // BUG-FIX: Added parentheses to fix operator precedence. Was `localVar + tau2 || 1`
+        // which parsed as `localVar + (tau2 || 1)`, returning `localVar + 1` when tau2=0,
+        // making every B always ≈1 and shrinking all categories to the global mean.
+        const B = localVar / ((localVar + tau2) || 1);
         
         // Média ajustada empiricamente (Bayes)
         const bayesianMean = B * globalMean + (1 - B) * cat.mean;

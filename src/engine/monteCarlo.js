@@ -64,6 +64,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let mean = typeof meanOrObj === 'number' ? meanOrObj : 0;
     let minScore = DEFAULT_DOMAIN_MIN;
     let maxScore = DEFAULT_DOMAIN_MAX;
+    // BUG-FIX: Moved to outer scope so they are accessible in the simulation loop
+    // regardless of whether meanOrObj is an object or a number.
+    let subjects = [];
+    let historicalCutoffs = [];
 
     if (typeof meanOrObj === 'object' && meanOrObj !== null) {
         mean = meanOrObj.mean ?? mean;
@@ -77,10 +81,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         minScore = meanOrObj.minScore ?? minScore;
         maxScore = meanOrObj.maxScore ?? maxScore;
         historyLength = meanOrObj.historyLength ?? 0;
-        // NOVA PROP PARA FEATURE 1
-        var subjects = meanOrObj.subjects ?? [];
-        // NOVA PROP PARA FEATURE 2
-        var historicalCutoffs = meanOrObj.historicalCutoffs ?? [];
+        subjects = meanOrObj.subjects ?? [];
+        historicalCutoffs = meanOrObj.historicalCutoffs ?? [];
     }
 
     const safeDomain = sanitizeDomain(minScore, maxScore);
