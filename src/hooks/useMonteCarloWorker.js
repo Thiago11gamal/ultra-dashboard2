@@ -124,14 +124,17 @@ export function useMonteCarloWorker() {
 
                             // Re-bind handlers with a clean closure capturing ONLY the new instance
                             newWorker.onmessage = (e) => {
-                                const { id, type, result, error } = e.data;
-                                const pending = pendingRequestsRef.current.get(id);
+                                // BUG-FIX: Renamed from 'id' to 'msgId' to avoid shadowing the outer
+                                // 'id' variable from the Promise closure, which caused the recycled
+                                // worker to never resolve its pending requests.
+                                const { id: msgId, type: msgType, result: msgResult, error: msgError } = e.data;
+                                const pending = pendingRequestsRef.current.get(msgId);
                                 if (!pending) return;
-                                pendingRequestsRef.current.delete(id);
-                                if (type === 'error') {
-                                    pending.reject(new Error(error));
+                                pendingRequestsRef.current.delete(msgId);
+                                if (msgType === 'error') {
+                                    pending.reject(new Error(msgError));
                                 } else {
-                                    pending.resolve(result);
+                                    pending.resolve(msgResult);
                                 }
                             };
 

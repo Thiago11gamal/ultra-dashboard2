@@ -280,8 +280,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             // Só resetamos se não estiver a correr ou se a tarefa mudou completamente
             const taskChanged = activeSubject?.taskId !== stateRefs.current.lastTaskId;
             if (!stateRefs.current.isRunning || taskChanged) {
-                // 🛡️ [FIX-SET-STATE] Deferimos a atualização do estado para evitar "cascading renders"
-                setTimeout(() => setTimeLeft(newTotalTime), 0);
+                // 🛡️ [FIX-SET-STATE] Direct state update inside effect is safe; removed setTimeout to prevent
+                // orphaned state updates if the component unmounts before the 0ms timer fires.
+                setTimeLeft(newTotalTime);
                 stateRefs.current.timeLeft = newTotalTime;
                 stateRefs.current.lastTaskId = activeSubject?.taskId;
 

@@ -229,9 +229,9 @@ function generateAnalyticsStats({
 
     if (categoryStats.length === 0 || totalWeight === 0) return null;
 
-    // APLICAR MODELO HIERÁRQUICO BAYESIANO (Feature 6)
-    categoryStats = computeHierarchicalAdjustment(categoryStats);
-
+    // BUG-FIX: Compute pooledSD BEFORE calling computeHierarchicalAdjustment so it can be
+    // passed as the second argument. Previously pooledSD was declared after the call, causing
+    // the function to fall back to localSD=15 for every category (ignoring actual variance).
     const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
     const scoreRows = sortedDates.map(date => scoresByDate[date] || {});
     const subjectNames = categoryStats.map(cat => cat.key || cat.name);
@@ -239,6 +239,11 @@ function generateAnalyticsStats({
 
     const pooledVariance = computeWeightedVariance(categoryStats.map(cat => ({ sd: cat.volatility, weight: cat.weight })), totalWeight, estimatedRho);
     const pooledSD = totalWeight > 0 ? Math.sqrt(pooledVariance) : 0;
+
+    // APLICAR MODELO HIERÁRQUICO BAYESIANO (Feature 6)
+    // BUG-FIX: Pass pooledSD as second argument. Without it, the function falls back
+    // to localSD=15 for every category, completely ignoring the actual pooled variance.
+    categoryStats = computeHierarchicalAdjustment(categoryStats, pooledSD);
 
     const bayesianMean = (weightedBayesianAlpha + weightedBayesianBeta) > 0 ? (weightedBayesianAlpha / (weightedBayesianAlpha + weightedBayesianBeta)) * maxScore : 0;
     const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight, estimatedRho);

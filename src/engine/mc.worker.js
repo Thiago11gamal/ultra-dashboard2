@@ -102,6 +102,17 @@ self.onmessage = function(e) {
                 n: payload.bayesianCI.n !== undefined ? safeNum(payload.bayesianCI.n, 1) : undefined,
             } : undefined;
 
+            // BUG-FIX: Sanitize subjects array to prevent NaN/Infinity from corrupting the simulation.
+            const sanitizedSubjects = Array.isArray(payload.subjects)
+                ? payload.subjects.map(s => ({
+                    mean: safeNum(s?.mean, 0),
+                    sd: Math.max(0, safeNum(s?.sd, 1)),
+                    minCutoff: safeNum(s?.minCutoff, 0),
+                    maxScore: safeNum(s?.maxScore, 100),
+                    minScore: safeNum(s?.minScore, 0)
+                }))
+                : undefined;
+
             result = simulateNormalDistribution({
                 mean,
                 sd,
@@ -114,6 +125,7 @@ self.onmessage = function(e) {
                 minScore,
                 maxScore,
                 historyLength: safeNum(payload.historyLength, 0),
+                subjects: sanitizedSubjects,
                 historicalCutoffs: payload.historicalCutoffs !== undefined ? (Array.isArray(payload.historicalCutoffs) ? payload.historicalCutoffs.map(v => safeNum(v, 0)) : []) : undefined,
             });
         }

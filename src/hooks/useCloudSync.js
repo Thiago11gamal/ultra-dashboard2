@@ -799,7 +799,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         };
     }, [syncTrigger, parityTick, currentUser?.uid, setInternalSyncing, confirmParity]);
 
-    const forcePull = () => {
+    // BUG-FIX: Memoize with useCallback to prevent needless re-renders in consumers that
+    // take forcePullCloud as a dependency (e.g. Dashboard toolbar, ConflictBanner).
+    const forcePull = useCallback(() => {
         if (latestCloudDataRef.current && setAppState && isMountedRef.current) {
             const merged = mergeAppState(useAppStore.getState().appState, latestCloudDataRef.current);
             setAppState(() => merged);
@@ -807,7 +809,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             setHasConflict(false);
             if (showToastRef.current) showToastRef.current('Paridade forçada com sucesso! 💎', 'success');
         }
-    };
+    }, [mergeAppState, setAppState]);
 
     return {
         cloudStatus,
