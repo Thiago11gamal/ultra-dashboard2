@@ -42,9 +42,11 @@ export const MonteCarloConfig = ({
     show, onClose, targetScore, setTargetScore,
     equalWeightsMode, setEqualWeightsMode, getEqualWeights,
     setWeights, weights, updateWeight, categories,
+    historicalCutoffs = [], setHistoricalCutoffs,
     minScore = 0, maxScore = 100
 }) => {
     const savedCustomWeights = useRef(null);
+    const [newCutoff, setNewCutoff] = React.useState('');
     
     // 🔒 PADRÃO CONTROLADO: O componente agora é 'burro'. 
     // A lógica de trava (lock) e debounce reside no pai (VerifiedStats).
@@ -205,6 +207,75 @@ export const MonteCarloConfig = ({
                                 );
                             })}
                         </div>
+                    </div>
+
+                    <div className="bg-slate-950/40 p-5 rounded-3xl mb-8 border border-white/[0.03] shadow-inner relative overflow-hidden">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Activity size={18} className="text-purple-400" />
+                            <div>
+                                <h4 className="text-sm font-black text-white uppercase tracking-tight">Cortes Históricos</h4>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Sorteio Inteligente no Monte Carlo</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mb-4">
+                            <input
+                                type="number"
+                                placeholder="Nota de Corte (Ex: 82)"
+                                value={newCutoff}
+                                onChange={(e) => setNewCutoff(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        const val = parseFloat(newCutoff);
+                                        if (!isNaN(val) && val >= 0 && val <= maxScore) {
+                                            setHistoricalCutoffs([...historicalCutoffs, val]);
+                                            setNewCutoff('');
+                                        }
+                                    }
+                                }}
+                                className="bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-bold w-full outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all placeholder:text-slate-600"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const val = parseFloat(newCutoff);
+                                    if (!isNaN(val) && val >= 0 && val <= maxScore) {
+                                        setHistoricalCutoffs([...historicalCutoffs, val]);
+                                        setNewCutoff('');
+                                    }
+                                }}
+                                className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-4 py-2.5 transition-all shadow-lg shadow-purple-500/20 shrink-0 font-black flex items-center justify-center active:scale-95"
+                            >
+                                <Plus size={20} />
+                            </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {historicalCutoffs.length === 0 ? (
+                                <p className="text-xs font-bold text-slate-500 italic w-full text-center py-2 bg-slate-900/50 rounded-lg">
+                                    Adicione notas de corte anteriores para simular incerteza real na prova.
+                                </p>
+                            ) : (
+                                historicalCutoffs.map((cutoff, idx) => (
+                                    <div key={idx} className="bg-slate-800/80 border border-white/5 rounded-lg px-3 py-1.5 flex items-center gap-2 group/tag">
+                                        <span className="text-sm font-black text-slate-200">{cutoff}%</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newArr = [...historicalCutoffs];
+                                                newArr.splice(idx, 1);
+                                                setHistoricalCutoffs(newArr);
+                                            }}
+                                            className="text-slate-500 hover:text-red-400 opacity-50 group-hover/tag:opacity-100 transition-all"
+                                        >
+                                            <Minus size={14} />
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium bg-black/20 p-3 rounded-xl border border-white/[0.02]">
+                            Se você inserir notas aqui, o motor Monte Carlo irá <b>sortear a nota de corte alvo</b> a cada simulação a partir de uma Distribuição Normal baseada nestes valores, ignorando o Target fixo do slider. Isso gera previsões hiper-realistas para bancas voláteis.
+                        </p>
                     </div>
 
                     <div className="bg-slate-800/50 p-1 rounded-xl flex flex-col sm:flex-row mb-6 border border-white/5 gap-1 sm:gap-0">

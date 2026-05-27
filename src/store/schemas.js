@@ -161,6 +161,7 @@ const sanitizeContest = (data) => {
       })).filter(t => t.id && (t.text || t.title)), // Skip Corrupted Tasks
       weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
       maxScore: Number(cat.maxScore) || 100,
+      minCutoff: Number(cat.minCutoff) || 0,
       level: Number(cat.level) || 0,
       totalMinutes: Number(cat.totalMinutes) || 0,
       lastStudiedAt: cat.lastStudiedAt || null,

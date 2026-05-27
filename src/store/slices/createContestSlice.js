@@ -44,7 +44,8 @@ export const createContestSlice = (set) => ({
             simuladoRows: [],
             simulados: [],
             categories: [],
-            mcWeights: {}
+            mcWeights: {},
+            historicalCutoffs: []
         };
         state.appState.contests[newId] = newContestData;
         state.appState.activeId = newId;

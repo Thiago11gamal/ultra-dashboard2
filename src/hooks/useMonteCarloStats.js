@@ -6,7 +6,8 @@ import {
     computeBayesianLevel, 
     computeWeightedVariance, 
     calculateVolatility, 
-    estimateInterSubjectCorrelation 
+    estimateInterSubjectCorrelation,
+    computeHierarchicalAdjustment
 } from '../engine';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
@@ -220,13 +221,16 @@ function generateAnalyticsStats({
                     }
                 });
 
-                categoryStats.push({ key: weightKey, name: cat.name, ...stats, maxScore: catMaxScore, bayesianMean: baye.mean, bayesianSd: baye.sd, volatility: vol, weight });
+                categoryStats.push({ key: weightKey, name: cat.name, ...stats, maxScore: catMaxScore, bayesianMean: baye.mean, bayesianSd: baye.sd, volatility: vol, weight, minCutoff: Number(cat.minCutoff) || 0 });
                 bayesianStats.push({ sd: baye.sd, weight, n: history.length });
             }
         }
     });
 
     if (categoryStats.length === 0 || totalWeight === 0) return null;
+
+    // APLICAR MODELO HIERÁRQUICO BAYESIANO (Feature 6)
+    categoryStats = computeHierarchicalAdjustment(categoryStats);
 
     const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
     const scoreRows = sortedDates.map(date => scoresByDate[date] || {});
@@ -280,7 +284,8 @@ function generateAnalyticsStats({
     const firstScore = hLen > 0 ? globalHistory[0].score.toFixed(4) : '0';
     const lastScore = hLen > 0 ? globalHistory[hLen - 1].score.toFixed(4) : '0';
     const scoreFingerprint = `${hLen}-${firstScore}-${lastScore}`;
-    const statsHash = `${bayesianMean.toFixed(4)}-${pooledSD.toFixed(4)}-${minScore}-${maxScore}-${scoreFingerprint}`;
+    const cutoffs = categoryStats.map(c => c.minCutoff || 0).join('-');
+    const statsHash = `${bayesianMean.toFixed(4)}-${pooledSD.toFixed(4)}-${minScore}-${maxScore}-${scoreFingerprint}-cutoffs[${cutoffs}]`;
 
     return {
         categoryStats,
@@ -296,11 +301,17 @@ function generateAnalyticsStats({
     };
 }
 
+const EMPTY_ARRAY = [];
+
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, effectiveSimulateToday }) {
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
-    const mcHistory = useAppStore(state => state.appState?.contests?.[activeId]?.monteCarloHistory || []);
+    const mcHistory = useAppStore(state => state.appState?.contests?.[activeId]?.monteCarloHistory || EMPTY_ARRAY);
+    const historicalCutoffs = useAppStore(state => {
+        const arr = state.appState?.contests?.[activeId]?.historicalCutoffs;
+        return Array.isArray(arr) ? arr : EMPTY_ARRAY;
+    });
     
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const recordMonteCarloSnapshot = useAppStore(state => state.recordMonteCarloSnapshot);
@@ -429,13 +440,21 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const isFuture = projectDays > 0;
  
         // Mecanismo de Throttling/Debouncing (150ms) para proteger contra re-execuções excessivas em tempo real
-        const timerId = setTimeout(async () => {
+        const doAnalysis = async () => {
             try {
                 let result;
                 if (isFuture && pureStatsData.globalHistory?.length > 0) {
                     const domain = maxScore - minScore;
                     const regularizedSD = regularizeVolatility(pureStatsData.dailySD, projectDays, pureStatsData.globalHistory.length, domain);
  
+                    const subjectsOpts = pureStatsData.categoryStats.map(c => ({
+                        mean: c.bayesianMean ?? c.mean,
+                        sd: c.volatility ?? c.sd,
+                        minCutoff: c.minCutoff || 0,
+                        maxScore: c.maxScore || maxScore,
+                        minScore: minScore
+                    }));
+
                     result = await runAnalysis({
                         values: pureStatsData.globalHistory.map(h => h.score),
                         dates: pureStatsData.globalHistory.map(h => h.date),
@@ -447,14 +466,24 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         currentMean: pureStatsData.bayesianMean,
                         minScore,
                         maxScore,
+                        subjects: subjectsOpts,
                     });
                 } else {
+                    const subjectsOpts = pureStatsData.categoryStats.map(c => ({
+                        mean: c.bayesianMean ?? c.mean,
+                        sd: c.bayesianSd ?? c.sd,
+                        minCutoff: c.minCutoff || 0,
+                        maxScore: c.maxScore || maxScore,
+                        minScore: minScore
+                    }));
+
                     result = await runAnalysis(pureStatsData.bayesianMean, pureStatsData.pooledSD, debouncedTarget, {
                         simulations: 5000,
                         currentMean: pureStatsData.bayesianMean,
                         bayesianCI: pureStatsData.bayesianCI,
                         minScore,
                         maxScore,
+                        subjects: subjectsOpts,
                     });
                 }
  
@@ -466,9 +495,20 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 console.warn('[MC Worker] Simulation failed, using sync fallback:', err);
                 if (!cancelled) {
                     let result;
+                    const domain = maxScore - minScore;
+                    const regularizedSD = isFuture && pureStatsData.globalHistory?.length > 0
+                        ? regularizeVolatility(pureStatsData.dailySD, projectDays, pureStatsData.globalHistory.length, domain)
+                        : pureStatsData.dailySD;
+
                     if (isFuture && pureStatsData.globalHistory?.length > 0) {
-                        const domain = maxScore - minScore;
-                        const regularizedSD = regularizeVolatility(pureStatsData.dailySD, projectDays, pureStatsData.globalHistory.length, domain);
+                        const subjectsOpts = pureStatsData.categoryStats.map(c => ({
+                            mean: c.bayesianMean ?? c.mean,
+                            sd: c.volatility ?? c.sd,
+                            minCutoff: c.minCutoff || 0,
+                            maxScore: c.maxScore || maxScore,
+                            minScore: minScore
+                        }));
+
                         result = runMonteCarloAnalysis({
                             values: pureStatsData.globalHistory.map(h => h.score),
                             dates: pureStatsData.globalHistory.map(h => h.date),
@@ -480,27 +520,32 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             currentMean: pureStatsData.bayesianMean,
                             minScore,
                             maxScore,
+                            subjects: subjectsOpts,
                         });
                     } else {
                         result = runMonteCarloAnalysis(pureStatsData.bayesianMean, pureStatsData.pooledSD, debouncedTarget, {
-                            simulations: SYNCHRONOUS_FALLBACK_SIMULATIONS,
-                            currentMean: pureStatsData.bayesianMean,
-                            bayesianCI: pureStatsData.bayesianCI,
+                            iterations: isFuture ? 10000 : SYNCHRONOUS_FALLBACK_SIMULATIONS,
+                            globalMean: pureStatsData.bayesianMean,
+                            globalSD: isFuture ? regularizedSD : pureStatsData.dailySD,
+                            correlation: pureStatsData.estimatedRho,
+                            targetScore: debouncedTarget,
+                            historicalCutoffs: historicalCutoffs,
                             minScore,
-                            maxScore,
+                            maxScore
                         });
                     }
                     setSimulationData({ status: 'ready', data: result });
                     setIsFlashing(true);
                 }
             }
-        }, 150);
+        };
  
+        const timerId = setTimeout(doAnalysis, 150);
         return () => {
             cancelled = true;
             clearTimeout(timerId);
         };
-    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, pureStatsData]);
+    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, pureStatsData, historicalCutoffs]);
  
     const effectiveSimulationData = useMemo(() => {
         if (!statsData) return { status: 'waiting', missing: 'data' };

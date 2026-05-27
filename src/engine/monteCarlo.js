@@ -77,6 +77,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         minScore = meanOrObj.minScore ?? minScore;
         maxScore = meanOrObj.maxScore ?? maxScore;
         historyLength = meanOrObj.historyLength ?? 0;
+        // NOVA PROP PARA FEATURE 1
+        var subjects = meanOrObj.subjects ?? [];
+        // NOVA PROP PARA FEATURE 2
+        var historicalCutoffs = meanOrObj.historicalCutoffs ?? [];
     }
 
     const safeDomain = sanitizeDomain(minScore, maxScore);
@@ -205,10 +209,43 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         muParam = safeMean + repulsaoPiso - repulsaoTeto;
     } 
 
+    // FEATURE 2: Preparar distribuição de cortes históricos se houver
+    let cutoffsMean = 0;
+    let cutoffsSD = 0;
+    const hasCutoffs = Array.isArray(historicalCutoffs) && historicalCutoffs.length > 0;
+    if (hasCutoffs) {
+        cutoffsMean = historicalCutoffs.reduce((a, b) => a + b, 0) / historicalCutoffs.length;
+        if (historicalCutoffs.length > 1) {
+            cutoffsSD = Math.sqrt(historicalCutoffs.reduce((a, b) => a + Math.pow(b - cutoffsMean, 2), 0) / (historicalCutoffs.length - 1));
+        } else {
+            cutoffsSD = cutoffsMean * 0.05; // 5% default SD
+        }
+    }
+
     for (let i = 0; i < safeSimulations; i++) {
+        let currentTarget = effectiveTarget;
+        if (hasCutoffs) {
+            // Sorteio inteligente do cutoff usando a distribuição dos cortes históricos
+            currentTarget = sampleTruncatedNormal(cutoffsMean, cutoffsSD, minScore, maxScore, rng);
+        }
+
         let score = sampleTruncatedNormal(muParam, safeSD, minScore, maxScore, rng);
         
-        if (score >= effectiveTarget) success++;
+        let passedMins = true;
+        if (subjects && subjects.length > 0) {
+            for (let j = 0; j < subjects.length; j++) {
+                const s = subjects[j];
+                if (s.minCutoff > 0) {
+                    const sScore = sampleTruncatedNormal(s.mean, s.sd, minScore, maxScore, rng);
+                    if (sScore < s.minCutoff) {
+                        passedMins = false;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (score >= currentTarget && passedMins) success++;
         allScores[i] = score;
 
         welfordCount++;
@@ -404,6 +441,8 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
             currentMean: objCurrentMean,
             minScore: objMinScore,
             maxScore: objMaxScore,
+            subjects: objSubjects,
+            historicalCutoffs: objHistoricalCutoffs,
         } = inputOrMean;
 
         const safeDomain = sanitizeDomain(objMinScore, objMaxScore);
@@ -420,6 +459,8 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
             currentMean: objCurrentMean,
             minScore: domainMin,
             maxScore: domainMax,
+            subjects: objSubjects,
+            historicalCutoffs: objHistoricalCutoffs,
             ...options,
         };
 
@@ -461,7 +502,9 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
         bayesianCI: options.bayesianCI,
         minScore: safeDomain.minScore,
         maxScore: safeDomain.maxScore,
-        historyLength: (options.history || []).length
+        historyLength: (options.history || []).length,
+        subjects: options.subjects,
+        historicalCutoffs: options.historicalCutoffs
     });
 }
 

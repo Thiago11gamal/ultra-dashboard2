@@ -26,6 +26,7 @@ export const createCategorySlice = (set) => ({
             weight: 10,
             // BUG-FIX: maxScore ausente causava fallback silencioso a 100 em toda a engine
             maxScore: 100,
+            minCutoff: 0,
             simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
             totalMinutes: 0,
             lastStudiedAt: null
@@ -98,6 +99,19 @@ export const createCategorySlice = (set) => ({
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+    }),
+
+    updateCategoryFields: (id, fields) => set((state) => {
+        const activeData = state.appState.contests[state.appState.activeId];
+        if (!activeData || !Array.isArray(activeData.categories)) return;
+
+        const category = activeData.categories.find(c => c.id === id);
+        if (category) {
+            Object.assign(category, fields);
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+            localStorage.setItem('ultra-sync-dirty', 'true');
+        }
     }),
 
     setMonteCarloWeights: (weightsUpdate) => set((state) => {
@@ -260,5 +274,34 @@ export const createCategorySlice = (set) => ({
             state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
         }
+    }),
+
+    importCategory: (sourceContestId, categoryId) => set((state) => {
+        const sourceData = state.appState.contests[sourceContestId];
+        const activeData = state.appState.contests[state.appState.activeId];
+
+        if (!sourceData || !activeData || !Array.isArray(sourceData.categories)) return;
+
+        const categoryToImport = sourceData.categories.find(c => c.id === categoryId);
+        if (!categoryToImport) return;
+
+        if (!activeData.categories) activeData.categories = [];
+
+        // Check duplicates
+        const normName = normalize(categoryToImport.name);
+        if (activeData.categories.some(c => normalize(c.name) === normName)) {
+            console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
+            return;
+        }
+
+        const newId = generateId('cat');
+        const importedCat = safeClone(categoryToImport);
+        importedCat.id = newId;
+
+        activeData.categories.push(importedCat);
+
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 });

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronUp, Plus, Trash2, TrendingUp, TrendingDown, Minus, BarChart2, Play } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Trash2, TrendingUp, TrendingDown, Minus, BarChart2, Play, Settings, Download } from 'lucide-react';
 import PromptModal from './PromptModal';
+import CategoryEditor from './CategoryEditor';
 
 const priorityColors = {
     high: { bg: 'bg-red-500/20', border: 'border-red-500/50', text: 'text-red-400' },
@@ -195,6 +196,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
     const [isConfirmDeleteTaskOpen, setIsConfirmDeleteTaskOpen] = useState(false);
+    const [isCategoryEditorOpen, setIsCategoryEditorOpen] = useState(false);
     const [taskToDelete, setTaskToDelete] = useState(null);
 
     const tasks = category.tasks || [];
@@ -235,9 +237,20 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
+                        setIsCategoryEditorOpen(true);
+                    }}
+                    className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white shadow-[0_0_15px_rgba(0,0,0,0.4)] transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 ml-auto"
+                    title="Configurar Disciplina"
+                >
+                    <Settings size={16} strokeWidth={2.5} />
+                </button>
+
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
                         setIsConfirmDeleteOpen(true);
                     }}
-                    className="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)] transition-all transform hover:scale-110 active:scale-95 flex-shrink-0"
+                    className="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)] transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 ml-2"
                     title="Excluir Disciplina Permanente"
                 >
                     <Trash2 size={16} strokeWidth={3} />
@@ -353,12 +366,35 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                 </div>,
                 document.body
             )}
+            
+            <CategoryEditor 
+                category={category} 
+                isOpen={isCategoryEditorOpen} 
+                onClose={() => setIsCategoryEditorOpen(false)} 
+            />
         </div >
     );
 };
 
-function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onTogglePriority, onAddCategory, onDeleteCategory, onPlayContext, filter = 'all', setFilter, showSimuladoStats = false }) {
+function Checklist({ 
+    categories = [], 
+    onToggleTask, 
+    onDeleteTask, 
+    onAddCategory, 
+    onDeleteCategory, 
+    onAddTask, 
+    onTogglePriority, 
+    onPlayContext, 
+    showSimuladoStats, 
+    filter, 
+    setFilter,
+    contests,
+    activeId,
+    onImportCategory
+}) {
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importSourceContest, setImportSourceContest] = useState('');
     const bottomRef = React.useRef(null);
 
     const scrollToBottom = () => {
@@ -463,16 +499,26 @@ function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onT
                 ))}
             </div>
 
-            {/* Add Category Button */}
+            {/* Add Category / Import Button Row */}
             {onAddCategory && filter !== 'completed' && (
-                <div className="mt-6">
+                <div className="mt-6 flex flex-col sm:flex-row gap-4">
                     <button
                         onClick={() => setIsCatModalOpen(true)}
-                        className="w-full py-4 rounded-xl border-2 border-dashed border-purple-500/20 bg-purple-500/5 text-purple-300 hover:text-purple-100 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all flex items-center justify-center gap-3 group"
+                        className="flex-1 py-4 rounded-xl border-2 border-dashed border-purple-500/20 bg-purple-500/5 text-purple-300 hover:text-purple-100 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all flex items-center justify-center gap-3 group"
                     >
                         <span className="p-2 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 text-2xl transition-colors">📚</span>
-                        <span className="font-semibold text-lg">Adicionar Disciplina</span>
+                        <span className="font-semibold text-lg">Nova Disciplina</span>
                     </button>
+
+                    {contests && Object.keys(contests).length > 1 && (
+                        <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="flex-1 sm:max-w-[250px] py-4 rounded-xl border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all flex items-center justify-center gap-3 group shadow-lg"
+                        >
+                            <Download size={20} className="text-slate-400 group-hover:text-white transition-colors" />
+                            <span className="font-semibold text-sm">Importar de outro</span>
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -488,6 +534,95 @@ function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onT
                 title="Nova Disciplina"
                 placeholder="Nome da nova disciplina..."
             />
+
+            {/* Modal de Importação (Transferência) */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsImportModalOpen(false)} />
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl relative z-10 p-6 flex flex-col max-h-[80vh]">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-2 text-white">
+                                <Download size={20} className="text-purple-400" />
+                                <h3 className="text-lg font-bold">Importar Disciplina</h3>
+                            </div>
+                            <button onClick={() => setIsImportModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        {!contests || Object.keys(contests).length <= 1 ? (
+                            <div className="text-center p-6 bg-slate-800/50 rounded-xl border border-white/5">
+                                <p className="text-slate-400 text-sm">Você precisa ter mais de um concurso (painel) criado para poder importar disciplinas.</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-4 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                                <div>
+                                    <label className="block text-xs text-slate-400 font-bold uppercase mb-2">Selecione o Concurso Origem</label>
+                                    <select
+                                        className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-colors"
+                                        value={importSourceContest}
+                                        onChange={(e) => setImportSourceContest(e.target.value)}
+                                    >
+                                        <option value="">-- Escolha um concurso --</option>
+                                        {Object.entries(contests).map(([id, contest]) => {
+                                            if (id === activeId) return null;
+                                            return (
+                                                <option key={id} value={id}>
+                                                    {contest.contestName || contest.user?.name || 'Sem Nome'}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+
+                                {importSourceContest && contests[importSourceContest]?.categories?.length > 0 && (
+                                    <div>
+                                        <label className="block text-xs text-slate-400 font-bold uppercase mb-2">Disciplinas Disponíveis</label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {contests[importSourceContest].categories.map(cat => {
+                                                const exists = categories.some(c => (c.name || '').toLowerCase() === (cat.name || '').toLowerCase());
+                                                return (
+                                                    <button
+                                                        key={cat.id}
+                                                        disabled={exists}
+                                                        onClick={() => {
+                                                            if (onImportCategory) {
+                                                                onImportCategory(importSourceContest, cat.id);
+                                                                setIsImportModalOpen(false);
+                                                                scrollToBottom();
+                                                            }
+                                                        }}
+                                                        className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                                                            exists 
+                                                                ? 'bg-slate-800/30 border-white/5 opacity-50 cursor-not-allowed' 
+                                                                : 'bg-slate-800/80 border-white/10 hover:border-purple-500/50 hover:bg-slate-800'
+                                                        }`}
+                                                    >
+                                                        <span className="text-xl">{cat.icon || '📚'}</span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm font-bold text-white truncate" style={{ color: cat.color }}>{cat.name}</div>
+                                                            <div className="text-[10px] text-slate-400">
+                                                                {exists ? 'Já existe' : `${cat.tasks?.length || 0} tarefas`}
+                                                            </div>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {importSourceContest && (!contests[importSourceContest]?.categories || contests[importSourceContest].categories.length === 0) && (
+                                    <div className="text-center p-4 bg-slate-800/30 rounded-xl border border-white/5">
+                                        <p className="text-slate-500 text-xs font-bold uppercase">Nenhuma disciplina encontrada</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <div ref={bottomRef} className="h-px w-full" />
         </div>
     );

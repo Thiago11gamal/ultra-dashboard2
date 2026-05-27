@@ -953,3 +953,54 @@ export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct =
     const neutral = Math.max(0, Math.min(100, Number(neutralPct) || 50));
     return p * (1 - k) + neutral * k;
 }
+
+/**
+ * Aplica um ajuste Hierárquico Bayesiano (Shrinkage) aos dados das categorias.
+ * Categorias com poucos dados (menor 'n') sofrem "encolhimento" em direção à média global.
+ * @param {Array} categories Array de categorias com { mean, sd, n }
+ * @param {Number} pooledSD Desvio padrão global/agrupado
+ * @returns {Array} Categorias atualizadas com bayesianMean e bayesianSd
+ */
+export function computeHierarchicalAdjustment(categories, pooledSD) {
+    if (!Array.isArray(categories) || categories.length === 0) return categories;
+
+    const validCategories = categories.filter(c => Number.isFinite(c.mean) && Number.isFinite(c.n) && c.n > 0);
+    if (validCategories.length === 0) return categories;
+
+    // Calcular média global (ponderada pelo 'n' de cada disciplina)
+    const globalSum = validCategories.reduce((acc, c) => acc + (c.mean * c.n), 0);
+    const globalN = validCategories.reduce((acc, c) => acc + c.n, 0);
+    const globalMean = globalSum / Math.max(1, globalN);
+
+    // Variância empírica entre as médias das categorias (tau^2)
+    const tau2 = validCategories.reduce((acc, c) => acc + Math.pow(c.mean - globalMean, 2), 0) / Math.max(1, validCategories.length - 1);
+
+    return categories.map(cat => {
+        if (!Number.isFinite(cat.mean) || !cat.n) {
+            return { ...cat, bayesianMean: cat.mean, bayesianSd: cat.sd };
+        }
+        
+        // Variância da estimativa da média local (sigma^2 / n)
+        // Se a disciplina não tiver SD próprio, usamos o pooledSD
+        const localSD = Number.isFinite(cat.sd) ? cat.sd : (pooledSD || 15);
+        const localVar = Math.pow(localSD, 2) / Math.max(1, cat.n);
+        
+        // Fator de Shrinkage (B)
+        // B será próximo a 1 se a variância local for alta (pouca confiança) e tau2 for baixo
+        // B será próximo a 0 se a variância local for baixa (alta confiança) e tau2 for alto
+        const B = localVar / (localVar + tau2 || 1);
+        
+        // Média ajustada empiricamente (Bayes)
+        const bayesianMean = B * globalMean + (1 - B) * cat.mean;
+        
+        // Atualizamos também o SD, que pode ser afetado, mas na implementação simples mantemos o localSD
+        const bayesianSd = localSD;
+        
+        return {
+            ...cat,
+            bayesianMean,
+            bayesianSd,
+            shrinkage: B
+        };
+    });
+}

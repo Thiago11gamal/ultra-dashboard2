@@ -569,6 +569,8 @@ export function monteCarloSimulation(
     const unconditionalVar = Math.pow(dailyVolatility, 2);
     const omega = (1 - alphaG - betaG) * unconditionalVar;
 
+    const minCutoffFailures = [];
+
     for (let i = 0; i < safeSimulations; i++) {
         // CORREÇÃO: O truncamento normal tem de respeitar o driftLimit dinâmico e não hardcodes de 1%.
         const sampledDrift = sampleTruncatedNormal(
@@ -635,12 +637,35 @@ export function monteCarloSimulation(
         // Preservação de sinal estrito: O backend mantém o valor bruto. 
         // O clamping ocorre apenas na camada de UI (MonteCarloGauge.jsx).
         results.push(currentSimScore);
+        
+        let passedMins = true;
+        if (options.subjects && options.subjects.length > 0) {
+            for (let j = 0; j < options.subjects.length; j++) {
+                const s = options.subjects[j];
+                if (s.minCutoff > 0) {
+                    // Estimate subject score. We use the subject's baseline and standard deviation, plus the drift Effect and mean reversion from the global simulation.
+                    const subjScore = sampleTruncatedNormal(s.mean, s.sd, minScore, maxScore, rng);
+                    if (subjScore < s.minCutoff) {
+                        passedMins = false;
+                        break;
+                    }
+                }
+            }
+        }
+        minCutoffFailures.push(!passedMins);
     }
 
     // 4. Agregação Estatística
+    // Note: We need to count successes before sorting results!
+    let successes = 0;
+    for (let i = 0; i < safeSimulations; i++) {
+        if (results[i] >= targetScore && !minCutoffFailures[i]) {
+            successes++;
+        }
+    }
+
     results.sort((a, b) => a - b);
     const meanResult = kahanMean(results);
-    const successes = results.filter(r => r >= targetScore).length;
 
     // BUG-3 FIX: Calcular a probabilidade analítica real usando a Normal Truncada
     // em vez de copiar a empírica como fallback.

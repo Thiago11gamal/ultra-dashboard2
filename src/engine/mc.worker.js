@@ -36,6 +36,7 @@ function sanitizeOptions(options) {
     if (options.currentMean !== undefined) newOpts.currentMean = safeNum(options.currentMean, undefined);
     if (options.minScore !== undefined) newOpts.minScore = safeNum(options.minScore, 0);
     if (options.maxScore !== undefined) newOpts.maxScore = safeNum(options.maxScore, 100);
+    if (options.historicalCutoffs !== undefined) newOpts.historicalCutoffs = Array.isArray(options.historicalCutoffs) ? options.historicalCutoffs.map(v => safeNum(v, 0)) : [];
     return newOpts;
 }
 
@@ -59,6 +60,7 @@ self.onmessage = function(e) {
                     currentMean: input.currentMean !== undefined ? safeNum(input.currentMean, undefined) : undefined,
                     minScore: input.minScore !== undefined ? safeNum(input.minScore, 0) : undefined,
                     maxScore: input.maxScore !== undefined ? safeNum(input.maxScore, 100) : undefined,
+                    historicalCutoffs: input.historicalCutoffs !== undefined ? (Array.isArray(input.historicalCutoffs) ? input.historicalCutoffs.map(v => safeNum(v, 0)) : []) : undefined,
                 };
                 result = runMonteCarloAnalysis(sanitizedInput);
             } else if (Array.isArray(payload.inputOrMean)) {
@@ -111,7 +113,8 @@ self.onmessage = function(e) {
                 bayesianCI,
                 minScore,
                 maxScore,
-                historyLength: safeNum(payload.historyLength, 0)
+                historyLength: safeNum(payload.historyLength, 0),
+                historicalCutoffs: payload.historicalCutoffs !== undefined ? (Array.isArray(payload.historicalCutoffs) ? payload.historicalCutoffs.map(v => safeNum(v, 0)) : []) : undefined,
             });
         }
         self.postMessage({ id, type: 'result', result });

@@ -23,8 +23,10 @@ export default function Dashboard() {
     const navigate = useNavigate();
 
     const filter = useAppStore(state => state.appState.dashboardFilter || 'all');
-    const isHydrated = useAppStore(state => state.appState.isHydrated); // <- ADICIONAR ISTO
+    const isHydrated = useAppStore(state => state.appState.isHydrated);
     const activeId = useAppStore(state => state.appState.activeId);
+    const contests = useAppStore(state => state.appState.contests || {});
+    const importCategory = useAppStore(state => state.importCategory);
     
     // Otimização: Agrupar as extrações de estado para reduzir re-renders desnecessários usando useShallow
     const { categories, simuladoRows, studyLogs, user, pomodorosCompleted } = useAppStore(useShallow(state => {
@@ -153,6 +155,9 @@ export default function Dashboard() {
                     onPlayContext={handleStartStudying}
                     filter={filter}
                     setFilter={setDashboardFilter}
+                    contests={contests}
+                    activeId={activeId}
+                    onImportCategory={importCategory}
                 />
             </div>
         </div>
