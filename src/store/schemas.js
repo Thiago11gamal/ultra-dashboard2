@@ -74,8 +74,12 @@ const repairContestHistory = (data) => {
         const rawCorrect = parseInt(r.correct, 10) || 0;
         
         // BUG-H2 FIX: Handle legacy isPercentage format where 'correct' is the percentual score
+        const safeMaxScore = Math.max(1, maxScore);
+        const rawScore = Number(r.score);
+        const safeScore = Number.isFinite(rawScore) ? rawScore : 0;
+        
         const corrNorm = (r.isPercentage && r.score != null && rawTotal > 0)
-          ? Math.round((Math.min(maxScore, Math.max(0, Number(r.score))) / maxScore) * rawTotal)
+          ? Math.round((Math.min(safeMaxScore, Math.max(0, safeScore)) / safeMaxScore) * rawTotal)
           : rawCorrect;
           
         dailyStats[dk].correct += corrNorm;
@@ -86,7 +90,7 @@ const repairContestHistory = (data) => {
         date,
         correct: stats.correct,
         total: stats.total,
-        score: stats.total > 0 ? (stats.correct / stats.total) * maxScore : 0
+        score: (stats.total > 0 && Number.isFinite(stats.correct)) ? (stats.correct / stats.total) * maxScore : 0
       })).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0); // FIX: String compare safe for YYYY-MM-DD
 
       const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10, 60, maxScore);

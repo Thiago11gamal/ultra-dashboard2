@@ -403,7 +403,7 @@ export const detectProcrastination = (categories, studyLogs) => {
             if (categoryLogs.length > 0) {
                 const lastLog = categoryLogs.reduce((latest, log) =>
                     (normalizeDate(log.date)?.getTime() ?? 0) > (normalizeDate(latest.date)?.getTime() ?? 0) ? log : latest
-                );
+                , categoryLogs[0]);
                 const lastLogDate = normalizeDate(lastLog.date);
                 const daysSinceLastStudy = lastLogDate ? (normalizedNow - lastLogDate.getTime()) / (1000 * 60 * 60 * 24) : 0;
 

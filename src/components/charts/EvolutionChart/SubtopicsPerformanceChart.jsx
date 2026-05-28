@@ -342,7 +342,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                             />
 
                             <Tooltip
-                                offset={200}
+                                offset={30}
                                 cursor={{ fill: 'rgba(255,255,255,0.04)' }}
                                 contentStyle={CustomTooltipStyle}
                                 itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}

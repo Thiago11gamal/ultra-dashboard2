@@ -142,7 +142,7 @@ export function CompareChart({
         const xOff = isMc ? 12 : 10;
         const formatted = (Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2) + unit;
         return (
-            <g style={{ zIndex: 100 }}>
+            <g>
                 <rect
                     x={x + xOff - 2}
                     y={y - 10 + offset}
@@ -233,7 +233,7 @@ export function CompareChart({
                         label={{ value: `META ${targetScore}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideBottomLeft', dy: -6, dx: 5 }} />
                     
                     <Tooltip 
-                        offset={200}
+                        offset={30}
                         cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
                         content={(props) => <ChartTooltip {...props} chartData={filteredChartData} isCompare={true} unit={unit} />} />
                     

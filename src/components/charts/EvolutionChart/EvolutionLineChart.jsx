@@ -237,7 +237,7 @@ export function EvolutionLineChart({
                     />
 
                     <Tooltip 
-                        offset={200}
+                        offset={30}
                         cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
                         content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} />} 
                     />

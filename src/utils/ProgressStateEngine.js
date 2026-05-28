@@ -81,6 +81,19 @@ export function analyzeProgressState(scores, config = {}) {
         return syntheticNow - ((recentData.length - index) * 86400000); 
     });
 
+    // 4.1 Safety Check after filtering invalid scores
+    if (finiteRecentScores.length < safeWindowSize) {
+        return {
+            state: 'insufficient_data',
+            label: 'Dados Insuficientes',
+            mean_score: 0,
+            delta: 0,
+            variance: 0,
+            trend_slope: 0,
+            severity: 'none'
+        };
+    }
+
     // 5.1 Mean (Absolute Level)
     const mean = finiteRecentScores.reduce((a, b) => a + b, 0) / finiteRecentScores.length;
 

@@ -692,7 +692,7 @@ export default function EvolutionChart({
                              </div>
                          </div>
                          {/* Hover Popover */}
-                         <div className="absolute top-10 left-12 w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+                         <div className="absolute top-10 -left-2 sm:left-12 w-[85vw] sm:w-72 max-w-sm p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
                              <p className="text-xs text-slate-200 mb-3 leading-relaxed">{engine.explain.simples}</p>
                              <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-700/50">
                                  <p className="text-[10px] text-amber-400 italic font-bold">💡 Dica Prática</p>
@@ -725,7 +725,7 @@ export default function EvolutionChart({
 
                  {/* Engines Segmented Control */}
                 <div className="relative w-full mb-8">
-                    <div className="flex overflow-x-auto pb-2 gap-3 w-full no-scrollbar scroll-smooth snap-x">
+                    <div className="flex overflow-x-auto pt-3 pb-3 px-2 gap-3 w-full no-scrollbar scroll-smooth snap-x">
                         {ENGINES.map((eng) => {
                             const active = activeEngine === eng.id;
                             return (
@@ -931,28 +931,36 @@ export default function EvolutionChart({
                         bg: 'from-emerald-500/5 via-slate-900 to-slate-900',
                         glow: 'shadow-emerald-500/10',
                         text: 'text-emerald-400',
-                        icon: 'text-emerald-400'
+                        icon: 'text-emerald-400',
+                        circleBg: 'bg-emerald-500/10',
+                        pingBg: 'bg-emerald-500'
                     },
                     warning: {
                         border: 'border-amber-500/30',
                         bg: 'from-amber-500/5 via-slate-900 to-slate-900',
                         glow: 'shadow-amber-500/10',
                         text: 'text-amber-400',
-                        icon: 'text-amber-400'
+                        icon: 'text-amber-400',
+                        circleBg: 'bg-amber-500/10',
+                        pingBg: 'bg-amber-500'
                     },
                     danger: {
                         border: 'border-rose-500/30',
                         bg: 'from-rose-500/5 via-slate-900 to-slate-900',
                         glow: 'shadow-rose-500/10',
                         text: 'text-rose-400',
-                        icon: 'text-rose-400'
+                        icon: 'text-rose-400',
+                        circleBg: 'bg-rose-500/10',
+                        pingBg: 'bg-rose-500'
                     },
                     info: {
                         border: 'border-indigo-500/30',
                         bg: 'from-indigo-500/5 via-slate-900 to-slate-900',
                         glow: 'shadow-indigo-500/10',
                         text: 'text-indigo-400',
-                        icon: 'text-indigo-400'
+                        icon: 'text-indigo-400',
+                        circleBg: 'bg-indigo-500/10',
+                        pingBg: 'bg-indigo-500'
                     }
                 };
                 const colors = typeColors[insight.type] || typeColors.info;
@@ -962,7 +970,7 @@ export default function EvolutionChart({
                         {/* Decorative Premium Background */}
                         <div className={`absolute inset-0 bg-gradient-to-br ${colors.bg} opacity-50`} />
                         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none group-hover:bg-indigo-500/20 transition-all duration-1000 -mr-48 -mt-48" />
-                        <div className={`absolute bottom-0 left-0 w-[300px] h-[300px] ${insight.type === 'danger' ? 'bg-rose-500/10' : 'bg-emerald-500/10'} rounded-full blur-[100px] pointer-events-none -ml-32 -mb-32`} />
+                        <div className={`absolute bottom-0 left-0 w-[300px] h-[300px] ${colors.circleBg} rounded-full blur-[100px] pointer-events-none -ml-32 -mb-32`} />
                         
                         <div className="flex flex-col lg:flex-row gap-10 items-start p-10 sm:p-14 relative z-10">
                             {/* Icon & Primary Content */}
@@ -1020,8 +1028,8 @@ export default function EvolutionChart({
                         <div className="px-8 sm:px-10 py-5 bg-black/20 border-t border-white/5 flex flex-wrap items-center gap-6 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] relative z-10">
                             <div className="flex items-center gap-2">
                                 <div className="relative flex items-center justify-center">
-                                    <div className={`absolute w-3 h-3 rounded-full animate-ping opacity-20 ${insight.type === 'danger' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                                    <div className={`w-1.5 h-1.5 rounded-full z-10 ${insight.type === 'danger' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                                    <div className={`absolute w-3 h-3 rounded-full animate-ping opacity-20 ${colors.pingBg}`} />
+                                    <div className={`w-1.5 h-1.5 rounded-full z-10 ${colors.pingBg}`} />
                                 </div>
                                 Motor Analítico Sincronizado
                             </div>

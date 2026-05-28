@@ -11,7 +11,7 @@ import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvo
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px]">
+            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[280px] sm:max-w-none break-words whitespace-normal sm:whitespace-nowrap sm:break-normal">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
                     Semana de {label}
                 </p>
@@ -354,12 +354,16 @@ export const WeeklyEvolutionView = ({
     const renderLegendText = useCallback((value, entry) => {
         const keyID = String(entry.dataKey || '').replace('delta_', '');
         const isHidden = hiddenKeys[keyID];
+        const fullName = activeKeys[keyID]?.fullName || String(value || '');
         return (
-            <span className={`text-[10px] font-black uppercase tracking-widest transition-opacity cursor-pointer ${isHidden ? 'opacity-20' : 'opacity-100'}`}>
+            <span 
+                className={`text-[10px] font-black uppercase tracking-widest transition-opacity cursor-pointer ${isHidden ? 'opacity-20' : 'opacity-100'}`}
+                title={fullName}
+            >
                 {String(value || '').replace(' (Var.)', '')}
             </span>
         );
-    }, [hiddenKeys]);
+    }, [hiddenKeys, activeKeys]);
 
     if (chartData.length < 2) {
         return (
@@ -394,25 +398,25 @@ export const WeeklyEvolutionView = ({
                         onClick={() => setViewMode('performance')}
                         aria-label="Alternar para visão de desempenho semanal"
                         aria-pressed={viewMode === 'performance'}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
-                        <Zap size={14} /> Desempenho (7 dias)
+                        <Zap size={14} className="shrink-0" /> <span className="hidden sm:inline">Desempenho (7 dias)</span>
                     </button>
                     <button
                         onClick={() => setViewMode('evolution')}
                         aria-label="Alternar para visão de evolução semanal"
                         aria-pressed={viewMode === 'evolution'}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
-                        <TrendingUp size={14} /> Evolução
+                        <TrendingUp size={14} className="shrink-0" /> <span className="hidden sm:inline">Evolução</span>
                     </button>
                     <button
                         onClick={() => setViewMode('variation')}
                         aria-label="Alternar para visão de variação semanal"
                         aria-pressed={viewMode === 'variation'}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
-                        <BarChart3 size={14} /> Delta
+                        <BarChart3 size={14} className="shrink-0" /> <span className="hidden sm:inline">Delta</span>
                     </button>
                 </div>
             </div>

@@ -71,8 +71,19 @@ export function getSafeScore(historyRow, maxScore = 100) {
     let rawTotal = String(historyRow.total !== null && historyRow.total !== undefined ? historyRow.total : '');
     const ltC = rawTotal.lastIndexOf(',');
     const ltD = rawTotal.lastIndexOf('.');
-    if (ltC > ltD) rawTotal = rawTotal.replace(/\./g, '').replace(',', '.');
-    else rawTotal = rawTotal.replace(/,/g, '');
+    if (ltC > ltD) {
+        rawTotal = rawTotal.replace(/\./g, '').replace(',', '.');
+    } else if (ltD > ltC) {
+        const parts = rawTotal.split('.');
+        const lastPart = parts[parts.length - 1];
+        if (ltC === -1 && parts.length === 2 && lastPart.length === 3) {
+            rawTotal = rawTotal.replace(/\./g, '');
+        } else {
+            rawTotal = rawTotal.replace(/,/g, '');
+        }
+    } else {
+        rawTotal = rawTotal.replace(/[,.]/g, '');
+    }
     
     const hasValidTotal = rawTotal !== undefined && rawTotal !== null && rawTotal !== '' && rawTotal !== 'NaN';
     const total = hasValidTotal && Number.isFinite(Number(rawTotal)) ? Number(rawTotal) : NaN;
@@ -80,8 +91,19 @@ export function getSafeScore(historyRow, maxScore = 100) {
     let rawCorrect = String(historyRow.correct !== null && historyRow.correct !== undefined ? historyRow.correct : '');
     const lcX = rawCorrect.lastIndexOf(',');
     const ldX = rawCorrect.lastIndexOf('.');
-    if (lcX > ldX) rawCorrect = rawCorrect.replace(/\./g, '').replace(',', '.');
-    else rawCorrect = rawCorrect.replace(/,/g, '');
+    if (lcX > ldX) {
+        rawCorrect = rawCorrect.replace(/\./g, '').replace(',', '.');
+    } else if (ldX > lcX) {
+        const parts = rawCorrect.split('.');
+        const lastPart = parts[parts.length - 1];
+        if (lcX === -1 && parts.length === 2 && lastPart.length === 3) {
+            rawCorrect = rawCorrect.replace(/\./g, '');
+        } else {
+            rawCorrect = rawCorrect.replace(/,/g, '');
+        }
+    } else {
+        rawCorrect = rawCorrect.replace(/[,.]/g, '');
+    }
 
     const hasValidCorrect = rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== '' && rawCorrect !== 'NaN';
     const correct = hasValidCorrect && Number.isFinite(Number(rawCorrect)) ? Number(rawCorrect) : NaN;
@@ -118,8 +140,19 @@ export function formatPercent(value) {
         let raw = String(value || '');
         const lastC = raw.lastIndexOf(',');
         const lastD = raw.lastIndexOf('.');
-        if (lastC > lastD) raw = raw.replace(/\./g, '').replace(',', '.');
-        else raw = raw.replace(/,/g, '');
+        if (lastC > lastD) {
+            raw = raw.replace(/\./g, '').replace(',', '.');
+        } else if (lastD > lastC) {
+            const parts = raw.split('.');
+            const lastPart = parts[parts.length - 1];
+            if (lastC === -1 && parts.length === 2 && lastPart.length === 3) {
+                raw = raw.replace(/\./g, '');
+            } else {
+                raw = raw.replace(/,/g, '');
+            }
+        } else {
+            raw = raw.replace(/[,.]/g, '');
+        }
         num = Number.isFinite(Number(raw)) ? Number(raw) : 0;
     }
     
@@ -143,8 +176,19 @@ export function formatValue(value) {
         let raw = String(value || '');
         const lastC = raw.lastIndexOf(',');
         const lastD = raw.lastIndexOf('.');
-        if (lastC > lastD) raw = raw.replace(/\./g, '').replace(',', '.');
-        else raw = raw.replace(/,/g, '');
+        if (lastC > lastD) {
+            raw = raw.replace(/\./g, '').replace(',', '.');
+        } else if (lastD > lastC) {
+            const parts = raw.split('.');
+            const lastPart = parts[parts.length - 1];
+            if (lastC === -1 && parts.length === 2 && lastPart.length === 3) {
+                raw = raw.replace(/\./g, '');
+            } else {
+                raw = raw.replace(/,/g, '');
+            }
+        } else {
+            raw = raw.replace(/[,.]/g, '');
+        }
         num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
     }
     
