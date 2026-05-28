@@ -135,7 +135,7 @@ export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, gl
     const rawTotal = Number(total) || 0;
 
     // Fator de suavização (K) adaptativo baseado na experiência global do aluno
-    const K = Math.max(3, Math.min(15, Math.log10(globalTotal + 1) * 3));
+    const K = Math.max(3, Math.min(15, Math.log10(Math.max(0, globalTotal) + 1) * 3));
     
     // Quando o aluno começa a estudar, aí sim a média global atua como âncora de segurança
     const smoothedAcertos = rawAcertos + (mediaGlobal * K);
@@ -212,7 +212,7 @@ export const getCoachPriorities = (topicsData) => {
         let realProficiency = computeBayesianProficiency(c, tot, mediaGlobal, globalTotal);
         
         // CORREÇÃO: Clamp matemático vital para evitar proficiências negativas ou superiores a 100%
-        realProficiency = Math.max(0, Math.min(1, realProficiency));
+        realProficiency = Number.isFinite(realProficiency) ? Math.max(0, Math.min(1, realProficiency)) : 0;
         
         return {
             ...topic,
@@ -1496,7 +1496,7 @@ export function getCognitiveState(stats) {
     // multiplicador saudável (fallback para 1) caso a BD entregue uma string ilegível.
     const rawLevel = stats.user?.level;
     const userLevel = Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 1;
-    const levelMultiplier = 1 + (userLevel * 0.05);
+    const levelMultiplier = Math.max(0.1, 1 + (userLevel * 0.05));
     
     const decayModifier = hadBreaks ? 0.6 : 1.0;
     const dynamicDecay = (0.003 / levelMultiplier) * decayModifier;

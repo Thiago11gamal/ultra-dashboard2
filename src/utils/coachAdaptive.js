@@ -30,7 +30,7 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
     let dangerCandidates = [];
     let safeCandidates = [];
     
-    for (let cutoff = 0.10; cutoff <= 0.90; cutoff += 0.05) {
+    for (let cutoff = 0.10; cutoff <= 0.901; cutoff += 0.05) {
       const below = sorted.filter(p => Number(p.probability) <= cutoff);
       const above = sorted.filter(p => Number(p.probability) > cutoff);
       
@@ -390,8 +390,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
         const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
         const rawProb01 = rawProb / 100;
-        const isoProb01 = predictIsotonicProbability(rawProb01, isotonicModel);
-        const bbqProb01 = calibrateWithBBQ(rawProb01, predObsPairs);
+        const isoProb01 = predObsPairs.length >= 6 ? predictIsotonicProbability(rawProb01, isotonicModel) : rawProb01;
+        const bbqProb01 = predObsPairs.length >= 6 ? calibrateWithBBQ(rawProb01, predObsPairs) : rawProb01;
         const stackedProb01 = Math.max(0, Math.min(1,
             (stackingWeights[0] || 0) * rawProb01 +
             (stackingWeights[1] || 0) * isoProb01 +
