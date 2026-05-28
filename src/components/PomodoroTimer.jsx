@@ -142,6 +142,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         });
     };
 
+    // Referência antiga de onIsRunningChange removida para evitar overhead desnecessário
+
     // Refs de Controle e Performance
     const stateRefs = useRef({
         mode,
@@ -190,7 +192,6 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     const alarmAudioRef = useRef(null);
     const workFillsRef = useRef([]);
     const breakBallsRef = useRef([]);
-    const cleanupTimeoutRef = useRef(null);
 
     useEffect(() => {
         return () => {
@@ -199,10 +200,6 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 transitionTimeoutRef.current = null;
             }
             setIsTransitioning(false);
-            if (cleanupTimeoutRef.current) {
-                clearTimeout(cleanupTimeoutRef.current);
-                cleanupTimeoutRef.current = null;
-            }
         };
     }, []);
     const showToast = useToast();
@@ -569,7 +566,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             }
         }
 
-        const finalMinutes = Number(((stateRefs.current.accumulatedMinutes || 0) + (sessionMinutes || 0)).toFixed(2));
+        const safeSessionMinutes = Number.isFinite(sessionMinutes) ? sessionMinutes : 0;
+        const currentAccumulated = Number.isFinite(stateRefs.current.accumulatedMinutes) ? stateRefs.current.accumulatedMinutes : 0;
+        const finalMinutes = Number((currentAccumulated + safeSessionMinutes).toFixed(2));
 
         if (isLastWorkSession && activeSubject) {
             safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);

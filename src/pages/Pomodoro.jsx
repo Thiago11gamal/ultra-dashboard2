@@ -151,9 +151,10 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const checkPos = () => {
             const currentPos = uiPosRef.current;
             if (currentPos.x !== 0 || currentPos.y !== 0) {
-                const threshold = 100;
-                if (Math.abs(currentPos.x) > window.innerWidth / 2 + threshold ||
-                    Math.abs(currentPos.y) > window.innerHeight / 2 + threshold) {
+                // Previne que o painel saia completamente da tela
+                const limitX = window.innerWidth - 100;
+                const limitY = window.innerHeight - 100;
+                if (Math.abs(currentPos.x) > limitX || Math.abs(currentPos.y) > limitY) {
                     setUiPosition({ x: 0, y: 0 });
                     localStorage.removeItem('focusPanelPosition');
                 }
@@ -161,7 +162,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         };
         window.addEventListener('resize', checkPos);
         return () => window.removeEventListener('resize', checkPos);
-    }, []); // Estável!
+    }, []);
 
     const handleDragEnd = (_, info) => {
         const newPos = {
@@ -372,7 +373,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                             <div className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] bg-white/5 border border-white/10">
                                 {recommendedTask.catIcon || '📚'}
                             </div>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[150px]">{recommendedTask.catName}</span>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[150px]">{recommendedTask.catName || recommendedTask.category || 'Categoria Oculta'}</span>
                         </div>
                         <span className="text-[9px] font-black text-indigo-400/70 tracking-widest uppercase">Eficácia Máxima</span>
                     </div>
@@ -405,11 +406,12 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                 ) : (
                     <div className="space-y-2 max-h-[360px] overflow-y-auto pr-3 custom-scrollbar">
                         {visibleTasks.filter(Boolean).map((task, idx) => {
-                            const taskId = task.id || task.text;
+                            const taskId = task.id || task.text || `fallback-task-${idx}`;
+                            const categoryName = task.catName || task.category || 'Sem Categoria';
                             const isActive = activeSubject?.taskId === taskId;
                             return (
                                 <Motion.button
-                                    key={taskId || idx}
+                                    key={`task-${taskId}-${idx}`}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: idx * 0.1 }}
@@ -423,7 +425,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
                                     <div
                                         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-base transition-transform group-hover:scale-110"
-                                        style={{ backgroundColor: `${task.catColor}15`, border: `1px solid ${task.catColor}30` }}
+                                        style={{ backgroundColor: `${task.catColor || '#ffffff'}15`, border: `1px solid ${task.catColor || '#ffffff'}30` }}
                                     >
                                         {task.catIcon || '📚'}
                                     </div>
@@ -431,7 +433,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                                         <p className={`text-xs font-black truncate tracking-tight ${isActive ? 'text-amber-400' : 'text-slate-200'}`}>
                                             {task.text || task.title}
                                         </p>
-                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1 opacity-60">{task.catName}</p>
+                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1 opacity-60">{categoryName}</p>
                                         <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${isActive ? 'text-amber-400/90' : 'text-cyan-400/80'}`}>{isActive ? 'Rodando agora' : `Próxima ação #${idx + 1}`}</p>
                                     </div>
                                     {isActive ? (
@@ -548,6 +550,16 @@ export default function Pomodoro() {
     const neuralMode = useAppStore(state => state.appState?.pomodoro?.neuralMode);
     const neuralQueue = useAppStore(state => state.appState?.pomodoro?.neuralQueue || EMPTY_ARRAY);
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
+    
+    const topRef = useRef(null);
+
+    // Auto-scroll para o topo (focando o relógio) quando uma matéria for selecionada
+    useEffect(() => {
+        if (activeSubject && topRef.current) {
+            // Em dispositivos móveis ou telas menores, rolar para o topo
+            topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [activeSubject?.sessionInstanceId]);
 
     const resolveReturnPath = (source, forceDashboard = false) => {
         if (forceDashboard) return '/';
@@ -805,7 +817,7 @@ export default function Pomodoro() {
     }
 
     return (<PageErrorBoundary pageName="Pomodoro">
-        <div className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-12 sm:pt-6 lg:pt-8 pb-8 px-0 sm:px-3">
+        <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-12 sm:pt-6 lg:pt-8 pb-8 px-0 sm:px-3">
             <div className="flex flex-col 2xl:flex-row gap-0 sm:gap-6 2xl:gap-10 items-start justify-center w-full max-w-[1280px] 2xl:max-w-[1440px] mx-auto px-0 sm:px-4">
                 <div className="flex-1 flex flex-col items-center min-w-0 w-full">
                     <PomodoroTopBar
