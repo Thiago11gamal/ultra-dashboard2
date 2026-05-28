@@ -690,7 +690,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         });
 
         // Estimador imparcial de variância ponderada com blindagem contra pesos dominantes únicos
-        const kishDifference = sumW - (sumW2 / sumW);
+        const kishDifference = sumW - (sumW > 0 ? (sumW2 / sumW) : 0);
         
         // FIX: Se a diferença for muito pequena (um simulado engoliu 99% do peso), 
         // evitamos o magic number anterior e recuamos de forma conservadora para a soma bruta.

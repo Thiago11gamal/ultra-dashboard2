@@ -244,7 +244,7 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
                     const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : defaultRho;
                     const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : defaultRho;
                     
-                    const currentRho = (rhoIJ + rhoJI) / 2;
+                    const currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
                     matrix[i][j] = currentRho * sdI * sdJ; // Covariância
             }
         }

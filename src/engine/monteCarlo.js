@@ -216,9 +216,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let cutoffsSD = 0;
     const hasCutoffs = Array.isArray(historicalCutoffs) && historicalCutoffs.length > 0;
     if (hasCutoffs) {
-        cutoffsMean = historicalCutoffs.reduce((a, b) => a + b, 0) / historicalCutoffs.length;
+        cutoffsMean = historicalCutoffs.reduce((a, b) => Number(a) + Number(b), 0) / historicalCutoffs.length;
         if (historicalCutoffs.length > 1) {
-            cutoffsSD = Math.sqrt(historicalCutoffs.reduce((a, b) => a + Math.pow(b - cutoffsMean, 2), 0) / (historicalCutoffs.length - 1));
+            cutoffsSD = Math.sqrt(historicalCutoffs.reduce((a, b) => Number(a) + Math.pow(Number(b) - cutoffsMean, 2), 0) / (historicalCutoffs.length - 1));
         } else {
             cutoffsSD = cutoffsMean * 0.05; // 5% default SD
         }
