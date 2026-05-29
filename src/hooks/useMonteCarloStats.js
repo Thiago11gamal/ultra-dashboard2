@@ -428,13 +428,20 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
     const pureStatsHash = pureStatsData?.statsHash || 'null';
 
+    // C3 FIX: Ref que sempre aponta para o pureStatsData mais recente.
+    // Isso permite que o useEffect abaixo leia os dados sem precisar declará-los
+    // como dependência — quem controla QUANDO o effect roda é apenas pureStatsHash.
+    const pureStatsDataRef = useRef(pureStatsData);
+    useEffect(() => { pureStatsDataRef.current = pureStatsData; }, [pureStatsData]);
+
     const { runAnalysis } = useMonteCarloWorker();
     const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
 
     const [isFlashing, setIsFlashing] = useState(false);
 
-    // Motor roda Cego/Puro para prevenir Feedback Loops (usa pureStatsData)
+    // Motor roda Cego/Puro para prevenir Feedback Loops (usa pureStatsDataRef)
     useEffect(() => {
+        const pureStatsData = pureStatsDataRef.current;
         if (!pureStatsData) return;
  
         let totalPoints = 0;
@@ -548,7 +555,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             cancelled = true;
             clearTimeout(timerId);
         };
-    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, pureStatsData, historicalCutoffs]);
+    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs]);
  
     const effectiveSimulationData = useMemo(() => {
         if (!statsData) return { status: 'waiting', missing: 'data' };

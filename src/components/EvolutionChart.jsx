@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
     computeCategoryStats
 } from "../engine";
@@ -25,6 +25,33 @@ import { MonteCarloEvolutionChart } from "./charts/EvolutionChart/MonteCarloEvol
 import { WeeklyEvolutionView } from "./charts/EvolutionChart/WeeklyEvolutionView";
 
 const EMPTY_ARRAY = [];
+
+// M3 FIX: Função pura extraída para fora do componente — evita recriação a cada render.
+function parseGoalDateLocal(input) {
+    if (!input) return null;
+    try {
+        let raw = input;
+        if (typeof raw === 'number' && Number.isFinite(raw)) {
+            const d = new Date(raw);
+            raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        } else if (typeof raw === 'object' && raw !== null && Number.isFinite(raw.seconds)) {
+            const d = new Date(raw.seconds * 1000);
+            raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        } else {
+            raw = String(raw).trim().split('T')[0];
+        }
+
+        const p = String(raw).split('-');
+        const date = p.length === 3
+            ? new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10), 12, 0, 0, 0)
+            : new Date(raw);
+        if (Number.isNaN(date.getTime())) return null;
+        date.setHours(12, 0, 0, 0);
+        return date;
+    } catch {
+        return null;
+    }
+}
 
 const ENGINES = [
     {
@@ -89,31 +116,7 @@ export default function EvolutionChart({
         });
     }, [rawCategories]);
 
-    const parseGoalDateLocal = (input) => {
-        if (!input) return null;
-        try {
-            let raw = input;
-            if (typeof raw === 'number' && Number.isFinite(raw)) {
-                const d = new Date(raw);
-                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            } else if (typeof raw === 'object' && raw !== null && Number.isFinite(raw.seconds)) {
-                const d = new Date(raw.seconds * 1000);
-                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            } else {
-                raw = String(raw).trim().split('T')[0];
-            }
-
-            const p = String(raw).split('-');
-            const date = p.length === 3
-                ? new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10), 12, 0, 0, 0)
-                : new Date(raw);
-            if (Number.isNaN(date.getTime())) return null;
-            date.setHours(12, 0, 0, 0);
-            return date;
-        } catch {
-            return null;
-        }
-    };
+    // M3 FIX: parseGoalDateLocal movida para fora do componente (ver acima).
 
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
@@ -193,7 +196,8 @@ export default function EvolutionChart({
 
     useEffect(() => {
         if (!Array.isArray(historyArray) || historyArray.length === 0) {
-            setTimeout(() => setMcLoading(false), 0);
+            // C1 FIX: Chamada direta — o setTimeout sem cleanup vazava estado em componente desmontado.
+            setMcLoading(false);
             return;
         }
 
@@ -361,7 +365,8 @@ export default function EvolutionChart({
             .sort((a, b) => b.questoes - a.questoes);
     }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore]);
 
-    const getInsight = () => {
+    // M4 FIX: getInsight memoizado — evita recriação e execução da função a cada render.
+    const getInsight = useCallback(() => {
         const defaultTitle = "Análise do Sistema";
 
         if (!timeline.length || !focusCategory) {
@@ -590,7 +595,8 @@ export default function EvolutionChart({
             details: "Você está operando na sua zona de máxima eficiência.",
             advice: "Mantenha esse ritmo para garantir a aprovação."
         };
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [timeline, focusCategory, activeEngine, categories, targetScore, maxScore, unit]);
 
     const engine = ENGINES.find((e) => e.id === activeEngine) || ENGINES[0];
 

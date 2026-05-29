@@ -1,4 +1,4 @@
-import React, { useMemo, useId, useState } from 'react';
+import React, { useMemo, useId, useState, useCallback } from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine
 } from 'recharts';
@@ -154,6 +154,13 @@ export const MonteCarloEvolutionChart = ({
 
 
 
+    // M1 FIX: Callback estável para o Tooltip — arrow function inline criaria nova referência
+    // a cada render, quebrando a memoização do Recharts e causando re-renders desnecessários.
+    const renderTooltip = useCallback(
+        (props) => <MonteCarloTooltip {...props} unit={unit} targetScore={targetScore} maxScore={maxScore} minScore={minScore} />,
+        [unit, targetScore, maxScore, minScore]
+    );
+
     if (formattedData.length === 0) {
         return (
             <div className="w-full min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-xl border border-white/5 p-6 overflow-hidden relative">
@@ -293,7 +300,7 @@ export const MonteCarloEvolutionChart = ({
                             />
                             <Tooltip
                                 offset={200}
-                                content={(props) => <MonteCarloTooltip {...props} unit={unit} targetScore={targetScore} maxScore={maxScore} minScore={minScore} />}
+                                content={renderTooltip}
                                 cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
                             />
 

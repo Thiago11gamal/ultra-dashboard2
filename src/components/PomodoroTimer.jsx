@@ -71,13 +71,15 @@ class PomodoroErrorBoundary extends React.Component {
     }
 }
 
+// M5/M6 FIX: Função pura extraída para nível de módulo — evita recriação a cada render
+// e remove o risco de closure obsoleta na dep de useMemo.
+function toPositiveMinutes(value, fallback) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return fallback;
+    return Math.min(240, Math.max(1, Math.round(n)));
+}
+
 function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUpdateStudyTime, onExit, isLayoutLocked, onSessionComplete }) {
- 
-    const toPositiveMinutes = (value, fallback) => {
-        const n = Number(value);
-        if (!Number.isFinite(n) || n <= 0) return fallback;
-        return Math.min(240, Math.max(1, Math.round(n)));
-    };
  
     const safeSettings = useMemo(() => Object.freeze({
         ...settings,
@@ -85,6 +87,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         pomodoroBreak: toPositiveMinutes(settings?.pomodoroBreak, 5),
         pomodoroLongBreak: toPositiveMinutes(settings?.pomodoroLongBreak, 15),
         soundEnabled: settings?.soundEnabled ?? true
+    // toPositiveMinutes é estável (nível de módulo), não precisa estar nas deps.
     }), [settings]);
 
     const [savedState] = useState(() => {

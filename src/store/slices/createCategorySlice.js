@@ -49,10 +49,10 @@ export const createCategorySlice = (set) => ({
                 contestId: state.appState.activeId,
                 data: safeClone({
                     category: category,
-                    studyLogs: activeData.studyLogs?.filter(l => l.categoryId === id) || [],
-                    studySessions: activeData.studySessions?.filter(s => s.categoryId === id) || [],
-                    simuladoRows: activeData.simuladoRows?.filter(r => r.categoryId === id) || [],
-                    simulados: activeData.simulados?.filter(s => s.categoryId === id) || [],
+                    studyLogs: (Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {})).filter(l => l.categoryId === id),
+                    studySessions: (Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {})).filter(s => s.categoryId === id),
+                    simuladoRows: (Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {})).filter(r => r.categoryId === id),
+                    simulados: (Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {})).filter(s => s.categoryId === id),
                     mcWeight: activeData.mcWeights?.[id] || activeData.mcWeights?.[category.name]
                 }),
                 deletedAt: new Date().toISOString()
@@ -70,16 +70,20 @@ export const createCategorySlice = (set) => ({
         }
 
         if (activeData.studyLogs) {
-            activeData.studyLogs = activeData.studyLogs.filter(l => l.categoryId !== id);
+            const safeLogs = Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {});
+            activeData.studyLogs = safeLogs.filter(l => l.categoryId !== id);
         }
         if (activeData.studySessions) {
-            activeData.studySessions = activeData.studySessions.filter(s => s.categoryId !== id);
+            const safeSessions = Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {});
+            activeData.studySessions = safeSessions.filter(s => s.categoryId !== id);
         }
         if (activeData.simuladoRows) {
-            activeData.simuladoRows = activeData.simuladoRows.filter(r => r.categoryId !== id);
+            const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
+            activeData.simuladoRows = safeRows.filter(r => r.categoryId !== id);
         }
         if (activeData.simulados) {
-            activeData.simulados = activeData.simulados.filter(s => s.categoryId !== id);
+            const safeSimulados = Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {});
+            activeData.simulados = safeSimulados.filter(s => s.categoryId !== id);
         }
 
         if (state.appState.pomodoro?.activeSubject?.categoryId === id) {
@@ -232,13 +236,19 @@ export const createCategorySlice = (set) => ({
                 const newId = primary.id;
 
                 if (activeData.studyLogs) {
-                    activeData.studyLogs.forEach(l => { if (l.categoryId === oldId) l.categoryId = newId; });
+                    const safeLogs = Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {});
+                    safeLogs.forEach(l => { if (l.categoryId === oldId) l.categoryId = newId; });
+                    activeData.studyLogs = safeLogs;
                 }
                 if (activeData.studySessions) {
-                    activeData.studySessions.forEach(s => { if (s.categoryId === oldId) s.categoryId = newId; });
+                    const safeSessions = Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {});
+                    safeSessions.forEach(s => { if (s.categoryId === oldId) s.categoryId = newId; });
+                    activeData.studySessions = safeSessions;
                 }
                 if (activeData.simuladoRows) {
-                    activeData.simuladoRows.forEach(r => { if (r.categoryId === oldId) r.categoryId = newId; });
+                    const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
+                    safeRows.forEach(r => { if (r.categoryId === oldId) r.categoryId = newId; });
+                    activeData.simuladoRows = safeRows;
                 }
             });
 

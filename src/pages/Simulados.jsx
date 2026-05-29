@@ -102,12 +102,11 @@ export default function Simulados() {
                 !(row.isAuto && getDateKey(normalizeDate(row.date || row.createdAt)) === todayKey)
             );
 
-            // 2. Filter out untouched auto-generated rows to save space
-            // BUG FIX: preserve the 'validated' field
             const validRowsToSave = updatedTodayRows.filter(r => {
                 const hasScore = parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0;
+                const hasEmptyString = r.total === '' || r.correct === '';
                 const hasCustomDifficulty = r.difficulty !== undefined && parseFloat(r.difficulty) !== 1.0;
-                return hasScore || hasCustomDifficulty;
+                return hasScore || hasEmptyString || hasCustomDifficulty;
             }).map(row => ({
                 ...row,
                 createdAt: row.createdAt || new Date().toISOString()

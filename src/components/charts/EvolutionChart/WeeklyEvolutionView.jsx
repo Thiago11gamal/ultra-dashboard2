@@ -119,13 +119,23 @@ export const WeeklyEvolutionView = ({
     unit = '%'
 }) => {
     const [viewMode, setViewMode] = useState('performance');
-    const [userToggles, setUserToggles] = useState({});
-    const [hoveredLine, setHoveredLine] = useState(null);
 
-    React.useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+    // A1 FIX: Padrão idiomático do React para resetar estado derivado de props sem useEffect.
+    // Em vez de setUserToggles({}) dentro de useEffect (que causa render duplo e dispara a
+    // regra react-hooks/set-state-in-effect), rastreamos a "chave de foco" anterior e chamamos
+    // setState DURANTE o render quando ela muda. O React descarta o render parcial e reinicia
+    // com o novo estado — isso é um render único, sem o ciclo extra do useEffect.
+    // Ref: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+    const focusKey = `${showOnlyFocus}-${focusSubjectId}`;
+    const [lastFocusKey, setLastFocusKey] = useState(focusKey);
+    const [userToggles, setUserToggles] = useState({});
+
+    if (lastFocusKey !== focusKey) {
+        setLastFocusKey(focusKey);
         setUserToggles({});
-    }, [showOnlyFocus, focusSubjectId]);
+    }
+
+    const [hoveredLine, setHoveredLine] = useState(null);
 
     const categoriesSignature = useMemo(() => categories.map((cat) => {
         const history = cat?.simuladoStats?.history || [];
@@ -365,6 +375,14 @@ export const WeeklyEvolutionView = ({
         );
     }, [hiddenKeys, activeKeys]);
 
+    // M2 FIX: Tooltip extraído em useCallback para restaurar memoização do Recharts.
+    // Arrow functions inline quebram a memoização porque criam nova referência a cada render.
+    const renderWeeklyTooltip = useCallback(
+        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} />,
+        [hiddenKeys, unit]
+    );
+
+
     if (chartData.length < 2) {
         return (
             <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-xl border border-slate-800 p-6">
@@ -439,7 +457,7 @@ export const WeeklyEvolutionView = ({
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
                                 <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={true} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
-                                <Tooltip offset={200} content={(props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <Tooltip offset={200} content={renderWeeklyTooltip} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {keys.map(key => {
@@ -496,7 +514,7 @@ export const WeeklyEvolutionView = ({
                                         return `${v > 0 ? '+' : ''}${formatted}${unit}`;
                                     }} 
                                 />
-                                <Tooltip offset={200} content={(props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} />} cursor={{ fill: '#ffffff11' }} />
+                                <Tooltip offset={200} content={renderWeeklyTooltip} cursor={{ fill: '#ffffff11' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="square" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
                                 <ReferenceLine y={0} stroke="#ffffff22" />
 

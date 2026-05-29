@@ -34,6 +34,9 @@ export default function MonteCarloGauge({
     const [localTimeIndex, setLocalTimeIndex] = useState(-1);
     const isDraggingTime = useRef(false);
     const debounceTimeoutTime = useRef(null);
+    // C5 FIX: Usar useRef em vez de window.mcGaugeDragTimeout para evitar race condition
+    // quando o componente é montado mais de uma vez (Strict Mode, navegação).
+    const dragDebounceRef = useRef(null);
     const timeSliderRef = useRef(null);
 
     const timelineDates = useMemo(() => {
@@ -68,12 +71,10 @@ export default function MonteCarloGauge({
         };
     }, []);
 
+    // C4 FIX: Estado-derivado-de-prop via useEffect eliminado.
+    // localSimulateToday era apenas um espelho de simulateToday, causando render extra.
+    // resolvedSimulateToday (linha abaixo) já resolve isso diretamente sem estado intermediário.
     const [localSimulateToday, setLocalSimulateToday] = useState(Boolean(simulateToday));
-
-    React.useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setLocalSimulateToday(Boolean(simulateToday));
-    }, [simulateToday]);
 
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
@@ -371,8 +372,9 @@ export default function MonteCarloGauge({
                             setLocalTimeIndex(newTimeIndex);
                             
                             isDraggingTime.current = true;
-                            if (window.mcGaugeDragTimeout) clearTimeout(window.mcGaugeDragTimeout);
-                            window.mcGaugeDragTimeout = setTimeout(() => { isDraggingTime.current = false; }, 500);
+                            // C5 FIX: dragDebounceRef (useRef) em vez de window.mcGaugeDragTimeout
+                            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
+                            dragDebounceRef.current = setTimeout(() => { isDraggingTime.current = false; }, 500);
 
                             if (debounceTimeoutTime.current) clearTimeout(debounceTimeoutTime.current);
                             debounceTimeoutTime.current = setTimeout(() => {
@@ -390,12 +392,12 @@ export default function MonteCarloGauge({
                         }}
                         onPointerUp={() => {
                             isDraggingTime.current = false;
-                            if (window.mcGaugeDragTimeout) clearTimeout(window.mcGaugeDragTimeout);
+                            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
                         }}
                         onTouchStart={() => { isDraggingTime.current = true; }}
                         onTouchEnd={() => {
                             isDraggingTime.current = false;
-                            if (window.mcGaugeDragTimeout) clearTimeout(window.mcGaugeDragTimeout);
+                            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
                         }}
                         className="custom-slider w-full h-1.5 rounded-full outline-none"
                         style={{
