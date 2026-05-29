@@ -93,6 +93,15 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
     return finalVar;
 }
 
+/**
+ * Computes the pooled standard deviation across subjects.
+ * 
+ * NOTA CONCEITUAL: Cuidado com a mistura de unidades aqui!
+ * Este Pooled SD reflete a variabilidade estática "entre provas" (disciplinas).
+ * Ele NÃO representa a incerteza dinâmica da trajetória temporal (Random Walk/Drift).
+ * Usar isto isoladamente para calcular o Margin of Error da Projeção subestima
+ * drasticamente o cone de incerteza no longo prazo.
+ */
 export function computePooledSD(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
     const validRho = Number.isFinite(rho) ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
     const weightedVariance = computeWeightedVariance(stats, totalWeight, validRho);

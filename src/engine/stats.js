@@ -754,7 +754,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
     
     // Aplicação agora segura
-    const rawTrend = Math.max(limiteInferior, Math.min(limiteSuperior, safeSlope * 30));
+    const rawTrend = Math.max(limiteInferior, Math.min(limiteSuperior, safeSlope * 10));
 
     let trendLabel = 'stable';
     if (rawTrend > trendThreshold) trendLabel = 'up';

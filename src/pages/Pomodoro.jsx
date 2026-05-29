@@ -559,7 +559,7 @@ export default function Pomodoro() {
             // Em dispositivos móveis ou telas menores, rolar para o topo
             topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-    }, [activeSubject?.sessionInstanceId]);
+    }, [activeSubject, activeSubject?.sessionInstanceId]);
 
     const resolveReturnPath = (source, forceDashboard = false) => {
         if (forceDashboard) return '/';

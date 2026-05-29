@@ -196,9 +196,9 @@ export default function EvolutionChart({
 
     useEffect(() => {
         if (!Array.isArray(historyArray) || historyArray.length === 0) {
-            // C1 FIX: Chamada direta — o setTimeout sem cleanup vazava estado em componente desmontado.
-            setMcLoading(false);
-            return;
+            // FIX: Assíncrono para evitar render cascata apontado pelo linter.
+            const t = setTimeout(() => setMcLoading(false), 0);
+            return () => clearTimeout(t);
         }
 
         const hist = [...historyArray]
@@ -264,7 +264,7 @@ export default function EvolutionChart({
             cancelled = true; 
             clearTimeout(workerDebounceTimeout);
         };
-    }, [focusCategory?.id, historyArray, targetScore, projectDays, runAnalysis, minScore, maxScore]);
+    }, [focusCategory, focusCategory?.id, categoryLevels, historyArray, targetScore, projectDays, runAnalysis, minScore, maxScore]);
 
     const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;
     const activeMcProjectionSeries = mcProjectionSeries?.categoryId === focusCategory?.id ? mcProjectionSeries : null;

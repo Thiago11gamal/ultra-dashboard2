@@ -215,7 +215,7 @@ export function calculateSlope(history, maxScore = 100, options = {}) {
     }
     const { slope } = weightedRegression(history, lambda, maxScore, options);
     
-    const maxDailyDriftPct = options.maxDailyDriftPct !== undefined ? options.maxDailyDriftPct : 0.015;
+    const maxDailyDriftPct = options.maxDailyDriftPct !== undefined ? options.maxDailyDriftPct : 0.004;
     const limit = maxDailyDriftPct * maxScore;
     
     return Math.max(-limit, Math.min(limit, slope));
