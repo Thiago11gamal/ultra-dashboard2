@@ -113,16 +113,30 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     // toLocaleDateString depende da localidade do browser e pode falhar o matching.
     // 🎯 STABILITY FIX: Inclui o Ano na chave para evitar colisão entre anos diferentes (Bug do Fantasma do Ano Passado)
     const getFullKey = (dateObj) => {
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const year = dateObj.getFullYear();
-        return `${day}/${month}/${year}`;
+        try {
+            return new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'America/Manaus',
+                day: '2-digit', month: '2-digit', year: 'numeric'
+            }).format(dateObj);
+        } catch {
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const year = dateObj.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
     };
 
     const getDisplayKey = (dateObj) => {
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        return `${day}/${month}`;
+        try {
+            return new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'America/Manaus',
+                day: '2-digit', month: '2-digit'
+            }).format(dateObj);
+        } catch {
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            return `${day}/${month}`;
+        }
     };
 
     const last14Days = [];

@@ -456,9 +456,14 @@ export default function VerifiedStats({ categories = [], user }) {
                     const difficultyFactor = Math.max(0.40, 1 - 0.5 * (currentScore / maxScore));
 
                     let quality = 0.8;
-                    const dailyScoresList = dailyHistory.map(h => h.score);
-                    const dailyMean = dailyScoresList.reduce((a, b) => a + b, 0) / dailyScoresList.length;
-                    const dailyVar = dailyScoresList.reduce((a, b) => a + Math.pow(b - dailyMean, 2), 0) / (dailyScoresList.length - 1 || 1);
+                    const totalDailyW = dailyHistory.reduce((acc, h) => acc + (h.weight || 1), 0);
+                    const dailyMean = totalDailyW > 0 
+                        ? dailyHistory.reduce((acc, h) => acc + h.score * (h.weight || 1), 0) / totalDailyW
+                        : dailyHistory.reduce((a, h) => a + h.score, 0) / (dailyHistory.length || 1);
+                    
+                    const dailyVar = dailyHistory.length > 1 && totalDailyW > 0
+                        ? dailyHistory.reduce((acc, h) => acc + (h.weight || 1) * Math.pow(h.score - dailyMean, 2), 0) / totalDailyW
+                        : (dailyHistory.length > 1 ? dailyHistory.reduce((a, h) => a + Math.pow(h.score - dailyMean, 2), 0) / (dailyHistory.length - 1) : 0);
                     const dailySD = Math.sqrt(dailyVar);
 
                     quality = Math.max(0.5, 1 - (dailySD / (0.40 * maxScore)));
