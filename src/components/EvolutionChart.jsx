@@ -218,7 +218,17 @@ export default function EvolutionChart({
         const workerDebounceTimeout = setTimeout(async () => {
             setMcLoading(true);
             try {
-                const result = await runAnalysis(hist, targetScore, projectDays, { minScore, maxScore });
+                const currentLevel = focusCategory ? categoryLevels[focusCategory.id] : undefined;
+                const result = await runAnalysis({
+                    values: hist.map(h => h.score),
+                    dates: hist.map(h => h.date),
+                    meta: targetScore,
+                    projectionDays: projectDays,
+                    minScore,
+                    maxScore,
+                    currentMean: currentLevel,
+                    forcedBaseline: currentLevel
+                });
 
                 if (cancelled || !result) return;
 
