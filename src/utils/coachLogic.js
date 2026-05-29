@@ -114,7 +114,7 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
 
 function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null) {
     // CORREÇÃO: Transmitir a recência real (dias desde a última interação teórica ou prática)
-    const forgettingData = computeForgettingRisk(history, maxScore, daysSince, mssdVolatility, effectiveN);
+    const forgettingData = computeForgettingRisk(history, maxScore, null, mssdVolatility, effectiveN, daysSince);
     
     const retention = forgettingData.retentionPct;
 

@@ -271,7 +271,7 @@ export function computeOptimalReviewInterval(stability, targetRetention = 0.7, m
 }
 
 // ATUALIZAÇÃO 2: Passagem de Parâmetros na Avaliação de Risco
-export function computeForgettingRisk(history, maxScore = 100, baselineScore = null, mssdVolatility = null, effectiveN = null) {
+export function computeForgettingRisk(history, maxScore = 100, baselineScore = null, mssdVolatility = null, effectiveN = null, daysSinceOverride = null) {
   const noData = { risk: 'low', retentionPct: 100, stabilityDays: 3, optimalIntervalDays: 3, daysSinceLast: 0 };
   if (!Array.isArray(history) || history.length === 0) return noData;
 
@@ -281,7 +281,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
 
   if (sorted.length === 0) return noData;
 
-  const daysSinceLast = Math.max(0, (Date.now() - new Date(sorted[0].date).getTime()) / 86400000);
+  const daysSinceLast = daysSinceOverride !== null ? daysSinceOverride : Math.max(0, (Date.now() - new Date(sorted[0].date).getTime()) / 86400000);
   const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore);
   const retention = computeEbbinghausRetention(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));

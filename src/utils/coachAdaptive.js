@@ -1,6 +1,7 @@
 import { monteCarloSimulation } from '../engine/monteCarlo.js';
 import { getSafeScore } from './scoreHelper.js';
 import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeCalibrationDiagnostics, fitIsotonicCalibration, predictIsotonicProbability, calibrateWithBBQ, conformalizedCalibrationInterval, computeStackingWeights } from './calibration.js';
+import { getDateKey } from './dateHelper.js';
 
 // BUG-MATH-03 FIX: Antes, quantis de scores brutos eram usados diretamente como limiares de probabilidade.
 // q(0.25)*0.55 não tem fundamentação estatística — o quantil de scores não se traduz em probabilidade de meta.
@@ -167,15 +168,15 @@ export function deriveBacktestWeights(scores = [], maxScore = 100) {
  * MC-01: Mapper simulados → history para monteCarloSimulation
  */
 export function simuladosToHistory(simulados, maxScore = 100) {
-    return (simulados || [])
-        .filter(s => s && (s.total > 0 || s.score != null))
+    if (!simulados || !Array.isArray(simulados)) return [];
+    
+    return simulados
         .map((s, idx) => {
-            const rawDate = s?.date || s?.createdAt || '';
-            const parsed = Date.parse(rawDate);
+            const parsed = Date.parse(s.date || s.createdAt);
             return {
                 score: getSafeScore(s, maxScore),
                 rawTimestamp: Number.isFinite(parsed) ? parsed : 0, // Adiciona o timestamp real
-                date: Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : null,
+                date: Number.isFinite(parsed) ? getDateKey(new Date(parsed)) : null,
                 _idx: idx
             };
         })
