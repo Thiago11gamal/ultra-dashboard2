@@ -385,8 +385,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     </div>
 
                     {/* Colunas header */}
-                    <div className="hidden md:grid grid-cols-[1fr_1fr_52px_52px_52px_28px] gap-1.5 px-1 pb-1 border-b border-slate-700/50 mb-1">
-                        {['Matéria', 'Assunto', '✓', 'Total', 'Peso', ''].map((h, i) => (
+                    <div className="hidden md:grid grid-cols-[1fr_1fr_52px_52px_95px_28px] gap-1.5 px-1 pb-1 border-b border-slate-700/50 mb-1">
+                        {['Matéria', 'Assunto', '✓', 'Total', 'Classificação', ''].map((h, i) => (
                             <span key={i} className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center first:text-left">{h}</span>
                         ))}
                     </div>
@@ -407,7 +407,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         </div>
                                     )}
                                     <div
-                                        className="group flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr_48px_48px_48px_10px] gap-2 items-center bg-slate-800/30 hover:bg-slate-800/80 rounded-xl px-3 py-2.5 transition-all border border-transparent hover:border-slate-700 hover:shadow-lg">
+                                        className="group flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr_48px_48px_95px_10px] gap-2 items-center bg-slate-800/30 hover:bg-slate-800/80 rounded-xl px-3 py-2.5 transition-all border border-transparent hover:border-slate-700 hover:shadow-lg">
 
                                         <div className="flex gap-2 w-full md:contents">
                                             <input type="text" value={row.subject}
@@ -421,7 +421,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         </div>
 
                                         <div className="flex gap-2 w-full md:contents items-center justify-between md:justify-center mt-2 md:mt-0 pt-2 md:pt-0 border-t border-slate-700/50 md:border-t-0">
-                                            <div className="md:hidden text-[10px] font-black text-slate-500 uppercase tracking-widest mr-auto">Acertos / Total / Peso</div>
+                                            <div className="md:hidden text-[10px] font-black text-slate-500 uppercase tracking-widest mr-auto">Acertos / Total / Classificação</div>
                                             <input type="number" min="0" value={row.correct}
                                                 disabled={loading}
                                                 onChange={(e) => updateRow(index, 'correct', e.target.value)}
@@ -434,12 +434,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                 value={row.difficulty || 1.0}
                                                 disabled={loading}
                                                 onChange={(e) => updateRow(index, 'difficulty', e.target.value)}
-                                                className={`bg-slate-950 border border-slate-700/80 rounded-md outline-none text-[10px] sm:text-xs text-purple-400 font-bold text-center w-16 md:w-full h-8 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:bg-slate-900 transition-all shadow-inner cursor-pointer ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-600'}`}
+                                                className={`bg-slate-950 border border-slate-700/80 rounded-md outline-none text-[10px] sm:text-xs text-purple-400 font-bold text-center w-20 md:w-full h-8 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:bg-slate-900 transition-all shadow-inner cursor-pointer ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-600'}`}
                                             >
-                                                <option value={0.7}>0.7</option>
-                                                <option value={1.0}>1.0</option>
-                                                <option value={1.3}>1.3</option>
-                                                <option value={1.6}>1.6</option>
+                                                <option value={0.7}>Fácil</option>
+                                                <option value={1.0}>Médio</option>
+                                                <option value={1.3}>Difícil</option>
+                                                <option value={1.6}>Expert</option>
                                             </select>
                                             <div className="w-2 hidden md:block"></div>
                                         </div>
