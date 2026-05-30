@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { db } from '../services/firebase';
+import { db, isLocalMode } from '../services/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { SYNC_LOG_CAP } from '../config';
 import { logger } from '../utils/logger';
@@ -364,8 +364,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     };
 
     useEffect(() => {
-        if (!currentUser?.uid || !setAppState || !db || db?.app?.options?.projectId === 'config-missing') {
-            if (currentUser?.uid && (!db || db?.app?.options?.projectId === 'config-missing')) {
+        if (isLocalMode || !currentUser?.uid || !setAppState || !db || db?.app?.options?.projectId === 'config-missing') {
+            if (isLocalMode) {
+                setTimeout(() => {
+                    setCloudStatus('idle');
+                }, 0);
+            } else if (currentUser?.uid && (!db || db?.app?.options?.projectId === 'config-missing')) {
                 console.error("[Sync] Erro: Configuração do Firebase incompleta (VITE_FIREBASE_PROJECT_ID ausente).");
                 setTimeout(() => {
                     setCloudStatus('error');
@@ -572,7 +576,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     }, [currentUser?.uid]);
     
     const performEmergencySync = useCallback(async () => {
-        if (!currentUser?.uid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
+        if (isLocalMode || !currentUser?.uid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
         
         if (debounceRef.current) clearTimeout(debounceRef.current);
         
@@ -671,7 +675,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     }, [currentUser?.uid, performEmergencySync]);
 
     useEffect(() => {
-        if (!currentUser?.uid || !syncTrigger || !isParityValidatedRef.current || !db) return;
+        if (isLocalMode || !currentUser?.uid || !syncTrigger || !isParityValidatedRef.current || !db) return;
 
         const currentState = useAppStore.getState().appState;
         const currentStateString = stateStringForSync(currentState);
