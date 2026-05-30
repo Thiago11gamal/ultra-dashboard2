@@ -25,7 +25,7 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
 
     let subject = hasDetails ? parts[0] : fullText;
     let actionPart = hasDetails ? parts.slice(1).join(':').trim() : 'Revisão Geral';
-    subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF()-]/g, '').trim();
+    subject = subject.replace(/Foco em /i, '').trim();
 
     // Clean up redundant priority labels for cleaner UI
     const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart);
@@ -199,7 +199,7 @@ export default function AICoachPlanner() {
         }
 
         let startIndex = sessionTasks.findIndex(t => getSafeId(t) === getSafeId(task));
-        if (startIndex === -1) startIndex = 0;
+        if (startIndex === -1) return;
 
         // FIX: Injetar o contexto do dia para a Store conseguir ler, mantendo toda a fila
         const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext: dayId }));

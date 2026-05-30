@@ -40,7 +40,7 @@ export default function Coach() {
     // ocupam memória desnecessariamente até o cap de 50 ser atingido.
     useEffect(() => {
         clearMcCache();
-        calibrationAlertCache.clear();
+        // BUG 1 FIX: Removed calibrationAlertCache.clear() to prevent global cache reset on mount
     }, [activeId]);
 
     const data = useAppStore(state => state.appState?.contests?.[activeId] || null);
@@ -172,11 +172,12 @@ export default function Coach() {
                 const reliabilitySignatureChanged =
                     toReliabilitySignature(lastEntry?.reliability) !== toReliabilitySignature(reliability);
 
+                // BUG 6 FIX: Lowered absolute thresholds to capture low-variance micro-movements
                 const shouldSkipPersist =
-                    brierDelta < 0.01 &&
-                    eceDelta < 0.01 &&
-                    penaltyDelta < 0.01 &&
-                    probabilityDelta < 0.5 &&
+                    brierDelta < 0.001 &&
+                    eceDelta < 0.001 &&
+                    penaltyDelta < 0.001 &&
+                    probabilityDelta < 0.1 &&
                     !reliabilitySignatureChanged;
 
                 if (shouldSkipPersist) return prev;
@@ -296,6 +297,7 @@ export default function Coach() {
         if (!data?.categories || !isHydrated) return;
 
         let metricsTimer = null;
+        let nestedTimeouts = [];
         // UX-FLUIDITY FIX: agenda o cálculo pesado para o próximo ciclo.
         // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
         // lateral não fica "preso" aguardando cálculo síncrono.
@@ -322,11 +324,11 @@ export default function Coach() {
             setSuggestedFocus(result);
             setIsAnalyzing(false);
 
-            // PERSISTENCE BATCHING: Só persiste se houver métricas relevantes e evita loop imediato
             if (collectedMetrics.length > 0) {
                 metricsTimer = setTimeout(() => {
                     collectedMetrics.forEach((metric, i) => {
-                        setTimeout(() => persistCalibrationMetric(metric), i * 600);
+                        const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
+                        nestedTimeouts.push(t);
                     });
                 }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
             }
@@ -335,6 +337,7 @@ export default function Coach() {
         return () => {
             clearTimeout(analysisTimer);
             if (metricsTimer) clearTimeout(metricsTimer);
+            nestedTimeouts.forEach(clearTimeout);
         };
     }, [
         isHydrated,

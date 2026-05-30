@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { exportComponentAsPDF } from '../utils/pdfExport';
 import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
+import { useToast } from '../hooks/useToast';
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
@@ -19,7 +20,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
 
     let subjectPart = hasDetails ? fullText.slice(0, separatorIndex) : fullText;
     let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : 'Revisão Geral';
-    subjectPart = subjectPart.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF()-]/g, '').trim();
+    subjectPart = subjectPart.replace(/Foco em /i, '').trim();
 
     let topicPart = '';
     const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
@@ -135,6 +136,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const calibrationAuditLog = activeContest?.calibrationAuditLog || [];
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();
+    const showToast = useToast();
     const [now] = useState(() => Date.now());
 
     const handleStartNeural = (task) => {
@@ -172,6 +174,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         setIsExporting(true);
         try {
             await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
+        } catch (err) {
+            console.error('PDF Export Error:', err);
+            showToast('Erro ao exportar o plano para PDF.', 'error');
         } finally {
             setIsExporting(false);
         }
@@ -375,7 +380,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 </div>
             )}
 
-            {viewMode === 'cards' ? (
+            <div className={viewMode === 'cards' ? 'block' : 'hidden'}>
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -402,10 +407,14 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         </div>
                     )}
                 </div>
-            ) : viewMode === 'planner' ? (
-                <div key="planner"><AICoachPlanner /></div>
-            ) : (
-                <div key="list" className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            </div>
+            
+            <div className={viewMode === 'planner' ? 'block' : 'hidden'} key="planner">
+                <AICoachPlanner />
+            </div>
+            
+            <div className={viewMode === 'list' ? 'block' : 'hidden'} key="list">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     {(() => {
                         const allAssignedIds = new Set();
                         Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
@@ -440,7 +449,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         ));
                     })()}
                 </div>
-            )}
+            </div>
         </div>
     );
 }
