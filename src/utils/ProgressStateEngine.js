@@ -195,7 +195,7 @@ export function analyzeProgressState(scores, config = {}) {
 
     // 8. Standardized Output
     return {
-    // FIX 1.1: O trend_slope retorna o valor bruto em "pontos/prova" (pp/índice).
+    // trend_slope em pp/dia (regressão linear sobre eixo-X em dias reais).
     // O motor está calibrado para este valor; compará-lo com pp/dia (calculateSlope) causaria confusão.
         state,
         label,

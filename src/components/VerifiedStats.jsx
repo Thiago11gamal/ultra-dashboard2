@@ -358,7 +358,8 @@ export default function VerifiedStats({ categories = [], user }) {
         // 0. Aggregate by Day
         const dailyMap = {};
         allHistory.forEach(h => {
-            const dateStr = getDateKey(new Date(h.date));
+            const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(h.date)).split('/');
+            const dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
             if (!dailyMap[dateStr]) {
                 dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: h.date };
             }
@@ -429,7 +430,8 @@ export default function VerifiedStats({ categories = [], user }) {
             // ensure format is valid (dailyHistory already has { date: number(ms), score: number })
             let slope = calculateSlope(dailyHistory, maxScore);
             // Engine clamps properly internally, but we can do a hard limit just to be absolutely safe for dates.
-            slope = Math.max(-2.0, Math.min(2.0, slope));
+            const MAX_SLOPE = 0.004 * maxScore;
+            slope = Math.max(-MAX_SLOPE, Math.min(MAX_SLOPE, slope));
 
             // ANTIGRAVITY PREDICTION ENGINE 🚀
             const currentScore = currentAvg;
@@ -461,8 +463,8 @@ export default function VerifiedStats({ categories = [], user }) {
                         ? dailyHistory.reduce((acc, h) => acc + h.score * (h.weight || 1), 0) / totalDailyW
                         : dailyHistory.reduce((a, h) => a + h.score, 0) / (dailyHistory.length || 1);
                     
-                    const dailyVar = dailyHistory.length > 1 && totalDailyW > 0
-                        ? dailyHistory.reduce((acc, h) => acc + (h.weight || 1) * Math.pow(h.score - dailyMean, 2), 0) / totalDailyW
+                    const dailyVar = dailyHistory.length > 1 && totalDailyW > 1
+                        ? dailyHistory.reduce((acc, h) => acc + (h.weight || 1) * Math.pow(h.score - dailyMean, 2), 0) / (totalDailyW - 1)
                         : (dailyHistory.length > 1 ? dailyHistory.reduce((a, h) => a + Math.pow(h.score - dailyMean, 2), 0) / (dailyHistory.length - 1) : 0);
                     const dailySD = Math.sqrt(dailyVar);
 
@@ -605,12 +607,11 @@ export default function VerifiedStats({ categories = [], user }) {
                             const isSynthetic = total === 0 && t.score != null;
                             if (isSynthetic) total = 100; // Synthetic total for percentage-only inputs
 
-                            // CORREÇÃO: Blindagem regex antes de transformar o tópico numa entidade matemática (Bug 2.1 Fix)
-                            let rawVal = String(t.score || '').replace(/\./g, '').replace(',', '.').replace('%', '');
-                            let cleanTopicScore = Number(rawVal);
+                            // CORREÇÃO: Usar getSafeScore para tratar percentuais e absolutos corretamente
+                            const safeScore = getSafeScore(t, maxScore);
 
-                            const correct = (t.score != null && total > 0 && !Number.isNaN(cleanTopicScore))
-                                ? Math.round((Math.min(maxScore, Math.max(0, cleanTopicScore)) / maxScore) * total)
+                            const correct = (safeScore >= 0 && total > 0)
+                                ? Math.round((Math.min(maxScore, safeScore) / maxScore) * total)
                                 : Math.min(total, (Number(t.correct) || 0)); // BUG-03 FIX: Limitar acertos ao total
 
                             if (total > 0) {
@@ -624,7 +625,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
                 const unstableTopics = [];
                 Object.entries(topicMap).forEach(([tName, tScores]) => {
-                    if (tScores.length >= 2) {
+                    if (tScores.length >= 3) {
                         const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
                         const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
                         const tSD = Math.sqrt(tVar);
@@ -669,7 +670,8 @@ export default function VerifiedStats({ categories = [], user }) {
             };
             const stateValues = categoryBreakdown.map(c => stateScores[c.state] ?? 3);
             stateValues.sort((a, b) => a - b);
-            const medianValue = stateValues[Math.floor((stateValues.length - 1) / 2)];
+            const medIdx = Math.floor(stateValues.length / 2);
+            const medianValue = stateValues[medIdx];
             const medianState = Object.entries(stateScores).find(([, v]) => v === medianValue)?.[0] || 'unstable';
             const uiState = stateMap[medianState] || stateMap.insufficient_data;
             const medianCat = categoryBreakdown.find(c => c.state === medianState) ?? categoryBreakdown[0];
