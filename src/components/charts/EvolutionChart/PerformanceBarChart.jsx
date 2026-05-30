@@ -47,101 +47,102 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                 </div>
             </div>
  
-            <div className="h-[320px] sm:h-[380px] w-full">
+            <div className="h-[320px] sm:h-[380px] w-full overflow-x-auto custom-scrollbar pb-2">
                 {chartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%" minHeight={320}>
-                        <BarChart
-                            data={chartData}
-                            margin={{ top: 20, right: 20, left: 10, bottom: showOnlyFocus ? 20 : 60 }}
-                            barCategoryGap="25%"
-                        >
-                            <defs>
-                                <linearGradient id={gradQuestoesId} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9} />
-                                    <stop offset="100%" stopColor="#b91c1c" stopOpacity={0.7} />
-                                </linearGradient>
-                                <linearGradient id={gradAcertosId} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
-                                    <stop offset="100%" stopColor="#059669" stopOpacity={0.75} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                            
-                            <XAxis
-                                dataKey="name"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: '#94a3b8', fontSize: 10, width: 80 }}
-                                dy={8}
-                                angle={showOnlyFocus ? 0 : -35}
-                                textAnchor={showOnlyFocus ? 'middle' : 'end'}
-                                interval={0}
-                            />
-                            
-                            <YAxis
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: '#64748b', fontSize: 10 }}
-                                width={38}
-                                allowDecimals={false}
-                                label={{ value: 'Questões', angle: -90, position: 'insideLeft', fill: '#475569', fontSize: 10, dx: -2 }}
-                            />
-                            
-                            <Tooltip
-                                cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 4 }}
-                                content={({ active, payload }) => {
-                                    if (active && payload && payload.length) {
-                                        const d = payload[0].payload;
-                                        const rendPctRaw = d.questoes > 0 ? ((d.acertos / d.questoes) * 100) : 0;
-                                        const rendPct = formatValue(rendPctRaw);
-                                        return (
-                                            <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px]">
-                                                <p className="font-black text-slate-200 mb-2 border-b border-white/5 pb-1.5 text-xs">{d.fullName}</p>
-                                                <div className="space-y-1.5">
-                                                    <div className="flex justify-between items-center gap-4">
-                                                        <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                                                            <span className="w-2 h-2 rounded-sm bg-slate-500 inline-block"></span>
-                                                            Total de Questões
-                                                        </span>
-                                                        <span className="text-[11px] font-black text-slate-300">{d.questoes}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center gap-4">
-                                                        <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                                                            <span className="w-2 h-2 rounded-sm bg-emerald-400 inline-block"></span>
-                                                            Acertos
-                                                        </span>
-                                                        <span className="text-[11px] font-black text-emerald-300">{d.acertos}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center gap-4">
-                                                        <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                                                            <span className="w-2 h-2 rounded-sm bg-red-400 inline-block"></span>
-                                                            Erros
-                                                        </span>
-                                                        <span className="text-[11px] font-black text-red-300">{d.erros}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center gap-4 pt-1 border-t border-white/5">
-                                                        <span className="text-[9px] text-slate-500 uppercase font-bold">Aproveitamento</span>
-                                                        <span className="text-[11px] font-black text-white">{rendPct}%</span>
+                    <div className="min-w-[600px] lg:min-w-full h-full">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={320}>
+                            <BarChart
+                                data={chartData}
+                                margin={{ top: 20, right: 20, left: 10, bottom: 60 }}
+                                barCategoryGap="25%"
+                            >
+                                <defs>
+                                    <linearGradient id={gradQuestoesId} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9} />
+                                        <stop offset="100%" stopColor="#b91c1c" stopOpacity={0.7} />
+                                    </linearGradient>
+                                    <linearGradient id={gradAcertosId} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                                        <stop offset="100%" stopColor="#059669" stopOpacity={0.75} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                                
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#94a3b8', fontSize: 10, width: 80 }}
+                                    dy={8}
+                                    angle={-35}
+                                    textAnchor="end"
+                                />
+                                
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#64748b', fontSize: 10 }}
+                                    width={38}
+                                    allowDecimals={false}
+                                    label={{ value: 'Questões', angle: -90, position: 'insideLeft', fill: '#475569', fontSize: 10, dx: -2 }}
+                                />
+                                
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 4 }}
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            const d = payload[0].payload;
+                                            const rendPctRaw = d.questoes > 0 ? ((d.acertos / d.questoes) * 100) : 0;
+                                            const rendPct = formatValue(rendPctRaw);
+                                            return (
+                                                <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px]">
+                                                    <p className="font-black text-slate-200 mb-2 border-b border-white/5 pb-1.5 text-xs">{d.fullName}</p>
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex justify-between items-center gap-4">
+                                                            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                                                                <span className="w-2 h-2 rounded-sm bg-slate-500 inline-block"></span>
+                                                                Total de Questões
+                                                            </span>
+                                                            <span className="text-[11px] font-black text-slate-300">{d.questoes}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center gap-4">
+                                                            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                                                                <span className="w-2 h-2 rounded-sm bg-emerald-400 inline-block"></span>
+                                                                Acertos
+                                                            </span>
+                                                            <span className="text-[11px] font-black text-emerald-300">{d.acertos}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center gap-4">
+                                                            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                                                                <span className="w-2 h-2 rounded-sm bg-red-400 inline-block"></span>
+                                                                Erros
+                                                            </span>
+                                                            <span className="text-[11px] font-black text-red-300">{d.erros}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center gap-4 pt-1 border-t border-white/5">
+                                                            <span className="text-[9px] text-slate-500 uppercase font-bold">Aproveitamento</span>
+                                                            <span className="text-[11px] font-black text-white">{rendPct}%</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                }}
-                            />
-                            
-                            <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} isAnimationActive={true} />
-                            
-                            <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[5, 5, 0, 0]} isAnimationActive={true}>
-                                <LabelList 
-                                    dataKey="questoes" 
-                                    position="top" 
-                                    style={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} 
+                                            );
+                                        }
+                                        return null;
+                                    }}
                                 />
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                                
+                                <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} isAnimationActive={true} />
+                                
+                                <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[5, 5, 0, 0]} isAnimationActive={true}>
+                                    <LabelList 
+                                        dataKey="questoes" 
+                                        position="top" 
+                                        style={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} 
+                                    />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
                         <span className="text-4xl mb-3">📊</span>

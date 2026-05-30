@@ -234,6 +234,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
         const topTopics = Object.entries(topicVolumeMap)
             .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
             .map(entry => entry[0]);
 
         let series = Object.values(dateMap).sort((a, b) => a.originalDate - b.originalDate);
