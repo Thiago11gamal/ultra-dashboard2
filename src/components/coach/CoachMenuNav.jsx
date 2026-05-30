@@ -25,8 +25,8 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
                     <Icon size={16} strokeWidth={2.5} className={`shrink-0 ${active ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-slate-400'}`} />
                 </div>
                 <div className="min-w-0">
-                    <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.08em] leading-snug break-words">{label}</p>
-                    <p className={`text-[10px] font-bold leading-tight mt-0.5 uppercase tracking-[0.12em] break-words ${active ? 'text-indigo-100/90' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                    <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.08em] leading-snug truncate">{label}</p>
+                    <p className={`text-[10px] font-bold leading-tight mt-0.5 uppercase tracking-[0.12em] truncate ${active ? 'text-indigo-100/90' : 'text-slate-500 group-hover:text-slate-400'}`}>
                         {subtitle}
                     </p>
                 </div>

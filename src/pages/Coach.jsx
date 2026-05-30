@@ -693,7 +693,7 @@ function RaioXDashboard({ data }) {
                                     <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{Number.isFinite(Number(log?.avgBrier)) ? Number(log.avgBrier).toFixed(3) : '-'}</td>
                                     <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number.isFinite(Number(log?.ece)) ? Number(log.ece).toFixed(3) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
-                                        {toFiniteNumber(log?.calibrationPenalty) > 0 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (shrink)` : '-'}
+                                        {toFiniteNumber(log?.calibrationPenalty) > 0 ? `-${Math.max(1, Math.round(toFiniteNumber(log.calibrationPenalty) * 100))}% (shrink)` : '-'}
                                     </td>
                                     <td className="py-3 px-4 text-[10px] text-white font-black whitespace-nowrap">{toPercentLabel(log?.probability)}</td>
                                 </tr>

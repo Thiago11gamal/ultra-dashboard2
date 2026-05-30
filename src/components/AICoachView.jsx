@@ -78,7 +78,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     </div>
                     <div className={`border rounded-xl p-2.5 flex items-center justify-between ${task.analysis.monteCarlo.volatility > 8 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-slate-500/10 border-slate-500/20'}`}>
                         <span className={`text-[9px] font-black tracking-widest uppercase ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
-                        <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{Math.round(task.analysis.monteCarlo.volatility)}</span>
+                        <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{task.analysis.monteCarlo.volatility > 0 && task.analysis.monteCarlo.volatility < 0.5 ? '<1' : Math.round(task.analysis.monteCarlo.volatility)}</span>
                     </div>
                 </div>
             )}
@@ -109,7 +109,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                             <Zap size={14} className="text-amber-400 mt-0.5 shrink-0" />
                                             <p className="text-[10px] text-amber-300/90 leading-relaxed">
                                                 <span className="font-black text-amber-400 uppercase tracking-tighter mr-2">Ajuste de Calibração:</span> 
-                                                -{Math.round((Number.isFinite(Number(task.analysis.monteCarlo.calibrationPenalty)) ? Number(task.analysis.monteCarlo.calibrationPenalty) : 0) * 100)}%
+                                                -{Math.max(1, Math.round((Number.isFinite(Number(task.analysis.monteCarlo.calibrationPenalty)) ? Number(task.analysis.monteCarlo.calibrationPenalty) : 0) * 100))}%
                                             </p>
                                         </div>
                                     )}
@@ -364,7 +364,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Penalidade</span>
                                             </div>
                                             <span className={`text-[13px] font-black ${toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400' : 'text-slate-400'}`}>
-                                                -{Math.round(toFinite(row.avgPenalty) * 100)}%
+                                                -{Math.max(1, Math.round(toFinite(row.avgPenalty) * 100))}%
                                             </span>
                                         </div>
                                     </div>

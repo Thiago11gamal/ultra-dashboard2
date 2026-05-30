@@ -122,14 +122,16 @@ function partition(arr, left, right) {
  * O valor deve interpolar entre as casas adjacentes quando a posição não for inteira.
  * [BUG-PERCENTIL-DISCRETO FIX]
  */
-export const calculateInterpolatedPercentile = (sortedArray, p) => {
-    if (!sortedArray || sortedArray.length === 0) return 0;
-    if (sortedArray.length === 1) return sortedArray[0];
-    if (p <= 0) return sortedArray[0];
-    if (p >= 1) return sortedArray[sortedArray.length - 1];
+export const calculateInterpolatedPercentile = (arr, p) => {
+    if (!arr || arr.length === 0) return 0;
+    const cleanArr = arr.filter(Number.isFinite);
+    if (cleanArr.length === 0) return 0;
+    if (cleanArr.length === 1) return cleanArr[0];
+    if (p <= 0) return cleanArr[0];
+    if (p >= 1) return cleanArr[cleanArr.length - 1];
 
     // Calculamos o índice exacto em ponto flutuante
-    const exactIndex = p * (sortedArray.length - 1);
+    const exactIndex = p * (cleanArr.length - 1);
     
     // As "paredes" dos índices
     const lowerIndex = Math.floor(exactIndex);
@@ -138,8 +140,8 @@ export const calculateInterpolatedPercentile = (sortedArray, p) => {
     // A fracção remanescente (ex: se exactIndex = 9.5, weight = 0.5)
     const weight = exactIndex - lowerIndex;
     
-    const lowerValue = sortedArray[lowerIndex];
-    const upperValue = sortedArray[upperIndex];
+    const lowerValue = cleanArr[lowerIndex];
+    const upperValue = cleanArr[upperIndex];
     
     // Interpolação linear fina entre os dois limites da amostra discreta
     return lowerValue + weight * (upperValue - lowerValue);

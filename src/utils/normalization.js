@@ -46,6 +46,7 @@ export const aliases = {
 export const safeNormalize = (val, max, min) => {
     // Tratamento de edge case crítico
     if (typeof val !== 'number' || isNaN(val)) return 0;
+    if (!Number.isFinite(max) || !Number.isFinite(min)) return 0;
     if (max === min) return 0.5; 
     
     const normalized = (val - min) / (max - min);

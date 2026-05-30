@@ -241,8 +241,10 @@ export function conformalizedCalibrationInterval(probability01, pairs = [], alph
     return { low: Math.max(0, p - 0.15), high: Math.min(1, p + 0.15), qHat: 0.15 };
   }
   const residuals = clean.map(x => Math.abs(Math.max(0, Math.min(1, x.probability)) - Math.max(0, Math.min(1, x.observed)))).sort((a,b)=>a-b);
-  const qIdx = Math.min(residuals.length - 1, Math.floor((1 - Math.max(0.01, Math.min(0.4, alpha))) * (residuals.length + 1)) - 1);
-  const qHat = residuals[Math.max(0, qIdx)] || 0;
+  const n = residuals.length;
+  const safeAlpha = Math.max(0.01, Math.min(0.4, alpha));
+  const qIdx = Math.max(0, Math.min(Math.ceil((1 - safeAlpha) * (n + 1)) - 1, n - 1));
+  const qHat = residuals[qIdx] || 0;
   return { low: Math.max(0, p - qHat), high: Math.min(1, p + qHat), qHat };
 }
 

@@ -4,6 +4,41 @@
 import { bootstrapCI } from '../engine/math/bootstrap.js';
 import { kahanSum, kahanMean } from '../engine/math/kahan.js';
 
+// t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
+// Evita subestimar IC quando n é baixo.
+const SMALL_SAMPLE_T_CRITICAL = {
+    1: 12.706,
+    2: 4.303,
+    3: 3.182,
+    4: 2.776,
+    5: 2.571,
+    6: 2.447,
+    7: 2.365,
+    8: 2.306,
+    9: 2.262,
+    10: 2.228,
+    11: 2.201,
+    12: 2.179,
+    13: 2.160,
+    14: 2.145,
+    15: 2.131,
+    16: 2.120,
+    17: 2.110,
+    18: 2.101,
+    19: 2.093,
+    20: 2.086,
+    21: 2.080,
+    22: 2.074,
+    23: 2.069,
+    24: 2.064,
+    25: 2.060,
+    26: 2.056,
+    27: 2.052,
+    28: 2.048,
+    29: 2.045,
+    30: 2.042
+};
+
 /**
  * Calcula o multiplicador de confiança (T-Student aproximado).
  * @param {number} sampleSize - Tamanho da amostra.
@@ -17,53 +52,22 @@ export function getConfidenceMultiplier(sampleSize, options = {}) {
     const n = Math.max(1, allowFractional ? nBase : Math.round(nBase));
     const df = Math.max(allowFractional ? 0.1 : 1, n - 1);
 
-    // t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
-    // Evita subestimar IC quando n é baixo.
-    const smallSampleTCritical = {
-        1: 12.706,
-        2: 4.303,
-        3: 3.182,
-        4: 2.776,
-        5: 2.571,
-        6: 2.447,
-        7: 2.365,
-        8: 2.306,
-        9: 2.262,
-        10: 2.228,
-        11: 2.201,
-        12: 2.179,
-        13: 2.160,
-        14: 2.145,
-        15: 2.131,
-        16: 2.120,
-        17: 2.110,
-        18: 2.101,
-        19: 2.093,
-        20: 2.086,
-        21: 2.080,
-        22: 2.074,
-        23: 2.069,
-        24: 2.064,
-        25: 2.060,
-        26: 2.056,
-        27: 2.052,
-        28: 2.048,
-        29: 2.045,
-        30: 2.042
-    };
+
 
     if (df <= 30) {
         const lowDf = Math.max(1, Math.floor(df)); 
         const highDf = Math.ceil(df);
-        const lowT = smallSampleTCritical[lowDf] ?? smallSampleTCritical[1];
-        const highT = smallSampleTCritical[highDf] ?? smallSampleTCritical[30];
+        const lowT = SMALL_SAMPLE_T_CRITICAL[lowDf] ?? SMALL_SAMPLE_T_CRITICAL[1];
+        const highT = SMALL_SAMPLE_T_CRITICAL[highDf] ?? SMALL_SAMPLE_T_CRITICAL[30];
         
         if (lowDf === highDf) return lowT;
         
         // CORREÇÃO: Em vez de interpolação harmónica reversa instável, 
         // usamos interpolação log-linear no espaço dos Graus de Liberdade.
         // É estatisticamente superior para o decaimento em cauda pesada.
-        const w = (Math.log(df) - Math.log(lowDf)) / (Math.log(highDf) - Math.log(lowDf));
+        const logDenom = Math.log(highDf) - Math.log(lowDf);
+        if (Math.abs(logDenom) < 1e-15) return lowT;
+        const w = (Math.log(df) - Math.log(lowDf)) / logDenom;
         return (lowT * (1 - w)) + (highT * w);
     }
 
@@ -205,7 +209,7 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         if (isObjectHistory) {
             const rawTime = new Date(item.date || item.createdAt).getTime();
             return {
-                score: Number(item.score || item.value || 0),
+                score: Number(item.score ?? item.value ?? 0),
                 time: Number.isFinite(rawTime) ? rawTime : Date.now() - (historyOrScores.length - i) * 86400000
             };
         }

@@ -333,6 +333,7 @@ const generateEfficiencyRecommendations = ({ minutesPerTask, completionRate, hig
 };
 
 export const detectProcrastination = (categories, studyLogs) => {
+    if (!Array.isArray(categories)) categories = [];
     const now = new Date();
     // BUG-02 FIX: Usar âncora de 12:00:00 para comparação de dias, 
     // garantindo paridade com o resto do sistema de datas (dateHelper).
@@ -577,7 +578,7 @@ export const getCompleteReport = (data) => {
     const streak = calculateStudyStreak(data.studyLogs || []);
     const balance = analyzeSubjectBalance(data.categories || []);
     const efficiency = analyzeEfficiency(data.categories || [], data.studyLogs || [], data.user);
-    const procrastination = detectProcrastination(data.categories, data.studyLogs || []);
+    const procrastination = detectProcrastination(data.categories || [], data.studyLogs || []);
     const goals = calculateDailyPomodoroGoal(data.categories, data.user);
 
     return {

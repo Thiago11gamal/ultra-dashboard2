@@ -1,5 +1,6 @@
 // src/engine/math/gaussian.js
 import { getPercentile } from './percentile.js';
+import { MIN_SD_FLOOR } from './constants.js';
 
 /**
  * Abramowitz & Stegun approximation (formula 7.1.26) for Normal(0,1) CDF
@@ -88,6 +89,9 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
  * @param {number} [maxScore=100] - Dynamic upper bound (e.g. 150 pts)
  */
 export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore = 0, maxScore = 100) {
+    if (!Number.isFinite(minScore) || !Number.isFinite(maxScore) || minScore >= maxScore) {
+        return { plotPoints: [], bandwidth: 0, binEdges: [], binDensity: [] };
+    }
     if (!allScores || allScores.length === 0) return [];
 
     // CORREÇÃO: Blindar o desvio padrão e a média ANTES de calcular as fronteiras físicas do gráfico
@@ -105,8 +109,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     // BUG 4 FIX: Ensure a minimum plot width of 1.0 even at domain boundaries.
     if (plotMax - plotMin < 1) {
-        plotMin = Math.max(vMin, projectedMean - 0.5);
-        plotMax = Math.min(vMax, projectedMean + 0.5);
+        plotMin = Math.max(vMin, safeMean - 0.5);
+        plotMax = Math.min(vMax, safeMean + 0.5);
 
         // Correct asymmetric squeeze at boundaries respeitando a folga visual
         if (plotMax >= maxScore && maxScore - minScore >= 1) plotMin = Math.max(vMin, plotMax - 1);
@@ -256,7 +260,7 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
         max = temp;
     }
 
-    if (sd <= 0.0001) return Math.max(min, Math.min(max, mean));
+    if (sd <= MIN_SD_FLOOR) return Math.max(min, Math.min(max, mean));
 
     // O normalCDF_complement calcula P(X >= z), logo 1 - normalCDF_complement = P(X <= z)
     const cdfMin = 1 - normalCDF_complement((min - mean) / sd);
@@ -331,6 +335,9 @@ export function choleskyDecomposition(matrix) {
  * a correlação entre as disciplinas.
  */
 export function applyCovariance(choleskyLower, zVector) {
+    if (!choleskyLower || !zVector || choleskyLower.length !== zVector.length) {
+        return zVector ? [...zVector] : [];
+    }
     const n = zVector.length;
     const result = Array(n).fill(0);
     for (let i = 0; i < n; i++) {

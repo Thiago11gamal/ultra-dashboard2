@@ -47,8 +47,10 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
 
     const residualSamples = validSorted.map(h => {
         const hDate = h.date || h.createdAt;
-        const x = (safeDateParse(hDate).getTime() - t0_vol) / 86400000;
-        const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
+        const parsed = safeDateParse(hDate);
+        if (!parsed || Number.isNaN(parsed.getTime())) return null;
+        const x = (parsed.getTime() - t0_vol) / 86400000;
+        const t = Math.max(0, (now - parsed.getTime()) / 86400000);
         const w = Math.exp(-lambda * t);
         const y = getSafeScore(h, maxScore);
         const val = y - (intercept + slope * x); // Resíduo (detrended)
@@ -60,7 +62,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         sumSw2 += w * w;
 
         return { value: val, weight: w }; 
-    });
+    }).filter(Boolean);
 
     // CORREÇÃO: Prevenir o colapso por "amnésia temporal". Se os pesos decaírem para zero absoluto,
     // evitamos a divisão por zero para que o aluno mantenha um cone de projeção conservador.
@@ -72,7 +74,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     
     // O bessel deve responder ao Effective N, não à contagem bruta temporal (n_res)
     const bessel = effectiveN > 1.5 ? effectiveN / (effectiveN - 1) : 1;
-    const mssdVariance = sumWeights > 1e-15 ? ((sumSw / safeWeights) - (expectedResidual * expectedResidual)) * bessel : 0;
+    const mssdVariance = sumWeights > 1e-15 ? Math.max(0, ((sumSw / safeWeights) - (expectedResidual * expectedResidual)) * bessel) : 0;
 
     const weightedMedian = (arr) => {
         if (!arr.length) return 0;

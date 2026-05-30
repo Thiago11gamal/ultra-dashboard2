@@ -110,9 +110,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
  
             // Se a média estiver muito próxima do limite (0 ou 100), o intervalo de 95% 
             // fica comprimido. Inflamos o SD para refletir a incerteza real.
-            if (distToBoundary < inferredSD * 1.5) {
-                const correctionFactor = 1 + (1 - distToBoundary / (inferredSD * 1.5));
-                inferredSD *= Math.min(1.5, correctionFactor);
+            if (Number.isFinite(inferredSD) && inferredSD >= 1e-10) {
+                if (distToBoundary < inferredSD * 1.5) {
+                    const correctionFactor = 1 + (1 - distToBoundary / (inferredSD * 1.5));
+                    inferredSD *= Math.min(1.5, correctionFactor);
+                }
             }
             if (Number.isFinite(inferredSD) && inferredSD > 0) {
                 safeSD = inferredSD;
@@ -154,7 +156,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             ci95VisualLow: Number(safeMean.toFixed(2)),
             ci95VisualHigh: Number(safeMean.toFixed(2)),
             ci95VisualClamped: false,
-            currentMean: Number((currentMean || safeMean).toFixed(2)),
+            currentMean: Number((currentMean ?? safeMean).toFixed(2)),
             projectedMean: safeMean,
             projectedSD: 0,
             kdeData: [
@@ -263,19 +265,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // Deve-se usar o algoritmo QuickSelect (Hoare's Selection), que possui complexidade média de O(N).
     // Isso evita o congelamento da Main Thread por ordenação O(NlogN).
     const nAll = allScores.length;
-    const iLow = Math.floor(nAll * 0.025);
-    const iHigh = Math.floor(nAll * 0.975);
-    const iMedian = Math.floor(nAll * 0.5);
-    const i16 = Math.floor(nAll * 0.16);
-    const i84 = Math.floor(nAll * 0.84);
+    const iLow = Math.min(Math.floor((nAll - 1) * 0.025), nAll - 1);
+    const iHigh = Math.min(Math.floor((nAll - 1) * 0.975), nAll - 1);
+    const iMedian = Math.min(Math.floor((nAll - 1) * 0.5), nAll - 1);
+    const i16 = Math.min(Math.floor((nAll - 1) * 0.16), nAll - 1);
+    const i84 = Math.min(Math.floor((nAll - 1) * 0.84), nAll - 1);
 
     // [BUG-SORT-FIX] Encontramos os pontos críticos usando QuickSelect (O(N))
     // CORREÇÃO: Utilizar .slice() para clonagem nativa sem alocação abusiva de memória
-    const statisticalCi95Low = quickSelect(allScores.slice(), iLow);
-    const statisticalCi95High = quickSelect(allScores.slice(), iHigh);
-    const empMedian = quickSelect(allScores.slice(), iMedian);
-    const rawLeft = quickSelect(allScores.slice(), i16);
-    const rawRight = quickSelect(allScores.slice(), i84);
+    const statisticalCi95Low = quickSelect(allScores, iLow);
+    const statisticalCi95High = quickSelect(allScores, iHigh);
+    const empMedian = quickSelect(allScores, iMedian);
+    const rawLeft = quickSelect(allScores, i16);
+    const rawRight = quickSelect(allScores, i84);
 
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;
@@ -417,7 +419,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         ci95VisualLow: Number(displayLow.toFixed(2)),
         ci95VisualHigh: Number(displayHigh.toFixed(2)),
         ci95VisualClamped: wasVisualCIClamped,
-        currentMean: Number((currentMean || safeMean).toFixed(2)),
+        currentMean: Number((currentMean ?? safeMean).toFixed(2)),
         projectedMean,
         projectedSD,
         kdeData: generateKDE(allScores, displayMean, projectedSD, safeSimulations, minScore, maxScore),

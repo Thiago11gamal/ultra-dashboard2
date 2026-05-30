@@ -35,6 +35,7 @@ export function getSortedHistory(history) {
 // Regressão ponderada temporal
 // -----------------------------
 export function weightedRegression(history, lambda = 0.08, maxScore = 100, options = {}) {
+    lambda = Math.max(0, Math.min(1, lambda ?? 0.95));
     const sorted = getSortedHistory(history);
     if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
 
@@ -626,7 +627,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const historyToUse = validHistory.length > 0 ? validHistory : historyWithSynthetics;
 
     // BUG 4b FIX: Pass maxScore to getSafeScore
-    const scores = historyToUse.map(h => getSafeScore(h, safeMaxScore));
+    const scores = historyToUse.map(h => getSafeScore(h, safeMaxScore)).filter(Number.isFinite);
 
     // CORREÇÃO: Filtrar notas corrompidas ANTES de aplicar o peso de Kish na média,
     // garantindo que não dividimos por um denominador fantasma.
@@ -783,7 +784,7 @@ export const calculateEMA = (scores, alpha = 0.25) => {
     
     // O Marco Zero da EMA é estritamente o valor empírico mais antigo, NÃO ZERO. (Bug 4 Fix)
     let ema = scores[0]; 
-    const maxObserved = Math.max(1, ...scores);
+    const maxObserved = scores.reduce((a, b) => Math.max(a, b), 1);
     
     // Começa a iteração a partir do 1 (segundo simulado)
     for (let i = 1; i < scores.length; i++) {
@@ -811,15 +812,20 @@ export const calculateEMA = (scores, alpha = 0.25) => {
  * peso que simulados diários. O peso Alpha (esquecimento) é função do tempo real.
  */
 export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
-    if (!historicData || historicData.length === 0) return 0;
+    if (!Array.isArray(historicData) || historicData.length === 0) return null;
+    
+    const validData = historicData.filter(d => 
+        Number.isFinite(d?.score) && (d?.timestamp != null || d?.date != null)
+    );
+    if (validData.length === 0) return null;
     
     // Assumimos que historicData possui { score: number, timestamp: number }
     // O timestamp deve estar em milissegundos.
-    let ema = historicData[0].score;
-    let lastTime = historicData[0].timestamp;
+    let ema = validData[0].score;
+    let lastTime = validData[0].timestamp;
     
-    for(let i = 1; i < historicData.length; i++) {
-        const currentItem = historicData[i];
+    for(let i = 1; i < validData.length; i++) {
+        const currentItem = validData[i];
         // Gap em dias entre as provas
         const deltaDays = Math.max(0, (currentItem.timestamp - lastTime) / 86400000);
         
@@ -988,7 +994,8 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
         // BUG-FIX: Added parentheses to fix operator precedence. Was `localVar + tau2 || 1`
         // which parsed as `localVar + (tau2 || 1)`, returning `localVar + 1` when tau2=0,
         // making every B always ≈1 and shrinking all categories to the global mean.
-        const B = localVar / ((localVar + tau2) || 1);
+        const denom = localVar + tau2;
+        const B = denom > 1e-15 ? localVar / denom : 0;
         
         // Média ajustada empiricamente (Bayes)
         const bayesianMean = B * globalMean + (1 - B) * cat.mean;

@@ -128,6 +128,9 @@ self.onmessage = function(e) {
                 subjects: sanitizedSubjects,
                 historicalCutoffs: payload.historicalCutoffs !== undefined ? (Array.isArray(payload.historicalCutoffs) ? payload.historicalCutoffs.map(v => safeNum(v, 0)) : []) : undefined,
             });
+        } else {
+            self.postMessage({ id, type: 'error', error: `Tipo de mensagem desconhecido: ${type}` });
+            return;
         }
         self.postMessage({ id, type: 'result', result });
     } catch (error) {
