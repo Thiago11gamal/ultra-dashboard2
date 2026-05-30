@@ -396,61 +396,65 @@ export const SubtopicsPerformanceChart = React.memo(({
                         {uniqueTopics.length} tópicos plotados simultaneamente.
                     </div>
                     {timeSeriesData.length > 1 ? (
-                        <ResponsiveContainer width="100%" height={750}>
-                            <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: -20, bottom: 50 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                        <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                            <div className="min-w-[700px] lg:min-w-full">
+                                <ResponsiveContainer width="100%" height={750}>
+                                    <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: -20, bottom: 50 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
 
-                                <XAxis
-                                    dataKey="dateLabel"
-                                    stroke="#64748b"
-                                    tick={{ fontSize: 11, fill: '#94a3b8' }}
-                                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                                    tickLine={false}
-                                />
-
-                                <YAxis
-                                    stroke="#64748b"
-                                    domain={[0, 100]}
-                                    tick={{ fontSize: 11, fill: '#94a3b8' }}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tickFormatter={(v) => `${v}%`}
-                                    allowDataOverflow={true}
-                                />
-
-                                <Tooltip
-                                    offset={40}
-                                    content={(props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />}
-                                    cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                                />
-
-                                <ReferenceLine y={targetScorePct} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="4 4" label={{ position: 'top', value: 'META', fill: '#6ee7b7', fontSize: 10 }} />
-
-                                <Legend
-                                    wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }}
-                                    iconType="circle"
-                                />
-
-                                {uniqueTopics.map((topicName, index) => {
-                                    const color = MEGA_PALETTE[index % MEGA_PALETTE.length];
-                                    return (
-                                        <Line
-                                            key={topicName}
-                                            type="linear" // FIX: Mudado de monotoneX para linear para evitar spaghetti/zig-zag com connectNulls durante as animações do Recharts
-                                            dataKey={topicName}
-                                            name={topicName}
-                                            stroke={color}
-                                            strokeWidth={3}
-                                            dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}
-                                            activeDot={{ r: 5, fill: color, stroke: '#ffffff', strokeWidth: 2 }}
-                                            connectNulls={true} // FIX: Preserva continuidade temporal sem quebrar animação
-                                            animationDuration={800}
-                                            animationEasing="ease-out"
+                                        <XAxis
+                                            dataKey="dateLabel"
+                                            stroke="#64748b"
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                            axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                            tickLine={false}
                                         />
-                                    );
-                                })}
-                            </LineChart>
-                        </ResponsiveContainer>
+
+                                        <YAxis
+                                            stroke="#64748b"
+                                            domain={[0, 100]}
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tickFormatter={(v) => `${v}%`}
+                                            allowDataOverflow={true}
+                                        />
+
+                                        <Tooltip
+                                            offset={40}
+                                            content={(props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />}
+                                            cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                        />
+
+                                        <ReferenceLine y={targetScorePct} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="4 4" label={{ position: 'top', value: 'META', fill: '#6ee7b7', fontSize: 10 }} />
+
+                                        <Legend
+                                            wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }}
+                                            iconType="circle"
+                                        />
+
+                                        {uniqueTopics.map((topicName, index) => {
+                                            const color = MEGA_PALETTE[index % MEGA_PALETTE.length];
+                                            return (
+                                                <Line
+                                                    key={topicName}
+                                                    type="linear" // FIX: Mudado de monotoneX para linear para evitar spaghetti/zig-zag com connectNulls durante as animações do Recharts
+                                                    dataKey={topicName}
+                                                    name={topicName}
+                                                    stroke={color}
+                                                    strokeWidth={3}
+                                                    dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}
+                                                    activeDot={{ r: 5, fill: color, stroke: '#ffffff', strokeWidth: 2 }}
+                                                    connectNulls={true} // FIX: Preserva continuidade temporal sem quebrar animação
+                                                    animationDuration={800}
+                                                    animationEasing="ease-out"
+                                                />
+                                            );
+                                        })}
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
                     ) : (
                         <div className="h-[250px] flex flex-col items-center justify-center text-slate-500 italic">
                             <span className="text-3xl mb-2">📉</span>

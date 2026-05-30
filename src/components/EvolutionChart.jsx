@@ -783,6 +783,8 @@ export default function EvolutionChart({
                         showOnlyFocus={showOnlyFocus}
                         timeWindow={timeWindow}
                         targetScore={targetScore}
+                        minScore={minScore}
+                        maxScore={maxScore}
                     />
                 ) : activeEngine === "mc_density" ? (
                     <MonteCarloEvolutionChart
@@ -824,37 +826,43 @@ export default function EvolutionChart({
                         </div>
                     </div>
                 ) : activeEngine === "compare" ? (
-                    <div className="relative">
-                        {mcLoading && (
-                            <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-xl transition-all duration-300">
-                                <div className="flex flex-col items-center gap-3">
-                                    <Loader2 size={32} className="animate-spin text-indigo-400" />
-                                    <span className="text-[9px] font-black uppercase text-indigo-300 tracking-[0.2em] animate-pulse">Sincronizando Monte Carlo...</span>
+                    <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                        <div className="min-w-[700px] lg:min-w-full relative">
+                            {mcLoading && (
+                                <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-xl transition-all duration-300">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <Loader2 size={32} className="animate-spin text-indigo-400" />
+                                        <span className="text-[9px] font-black uppercase text-indigo-300 tracking-[0.2em] animate-pulse">Sincronizando Monte Carlo...</span>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                        <CompareChart
-                            filteredChartData={filteredChartData}
-                            targetScore={targetScore}
-                            categories={categories}
-                            minScore={minScore}
-                            maxScore={maxScore}
-                            unit={unit}
-                        />
+                            )}
+                            <CompareChart
+                                filteredChartData={filteredChartData}
+                                targetScore={targetScore}
+                                categories={categories}
+                                minScore={minScore}
+                                maxScore={maxScore}
+                                unit={unit}
+                            />
+                        </div>
                     </div>
                 ) : (
-                    <EvolutionLineChart
-                        filteredChartData={filteredChartData}
-                        activeCategories={activeCategories}
-                        engine={engine}
-                        targetScore={targetScore}
-                        focusSubjectId={focusSubjectId}
-                        showOnlyFocus={showOnlyFocus}
-                        categories={categories}
-                        minScore={minScore}
-                        maxScore={maxScore}
-                        unit={unit}
-                    />
+                    <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                        <div className="min-w-[700px] lg:min-w-full relative">
+                            <EvolutionLineChart
+                                filteredChartData={filteredChartData}
+                                activeCategories={activeCategories}
+                                engine={engine}
+                                targetScore={targetScore}
+                                focusSubjectId={focusSubjectId}
+                                showOnlyFocus={showOnlyFocus}
+                                categories={categories}
+                                minScore={minScore}
+                                maxScore={maxScore}
+                                unit={unit}
+                            />
+                        </div>
+                    </div>
                 )}
             </div>
 
