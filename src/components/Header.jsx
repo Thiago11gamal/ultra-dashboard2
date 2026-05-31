@@ -164,7 +164,7 @@ const Header = React.memo(function Header({
                                 value={displayName}
                                 onChange={handleNameChange}
                                 placeholder="Nome do utilizador..."
-                                className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0 leading-tight min-w-[200px] lg:min-w-[350px]"
+                                className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0 leading-tight w-[200px] sm:w-[300px] lg:w-[400px] text-ellipsis overflow-hidden whitespace-nowrap"
                             />
                         </div>
                     </div>

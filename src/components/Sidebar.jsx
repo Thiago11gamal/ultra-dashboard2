@@ -237,7 +237,7 @@ export default function Sidebar({
                                             <div className="nested-item-marker"></div>
                                             <LayoutDashboard size={14} />
                                             <span className="flex-1 truncate text-[0.8rem]">{name}</span>
-                                            {isActive && <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>}
+                                            {isActive && <div className={`w-1.5 h-1.5 rounded-full bg-green-400 ${collapsed ? 'hidden' : ''}`}></div>}
                                             <button
                                                 type="button"
                                                 onClick={(e) => { 
@@ -246,7 +246,7 @@ export default function Sidebar({
                                                 }}
                                                 disabled={isSingleContest}
                                                 title={isSingleContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
-                                                className={`p-1 transition-opacity ${isSingleContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400'}`}
+                                                className={`p-1 transition-opacity ${collapsed ? 'hidden' : ''} ${isSingleContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400'}`}
                                             >
                                                 <Trash2 size={12} />
                                             </button>
