@@ -111,6 +111,9 @@ export function getSafeScore(historyRow, maxScore = 100) {
     // PRIORIDADE MÁXIMA: Flag isPercentage deve ser respeitada mesmo que total > 0.
     // Isso evita corrupção de dados em registros híbridos de bancos legados.
     if (historyRow.isPercentage) {
+        // BUG: se correct for NaN, pValue = 0, e scoreFromPercentage = 0, enviesando a estatística.
+        if (!hasValidCorrect) return NaN;
+        
         // FIX: score já foi verificado como null, então usamos `correct` como valor percentual direto.
         const pValue = normalizePercentInput(correct);
         const scoreFromPercentage = (pValue / 100) * safeMaxScore;

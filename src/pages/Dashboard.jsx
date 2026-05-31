@@ -29,16 +29,20 @@ export default function Dashboard() {
     const importCategory = useAppStore(state => state.importCategory);
     
     // Otimização: Agrupar as extrações de estado para reduzir re-renders desnecessários usando useShallow
-    const { categories, simuladoRows, studyLogs, user, pomodorosCompleted } = useAppStore(useShallow(state => {
+    const { categories, simuladoRows, rawStudyLogs, user, pomodorosCompleted } = useAppStore(useShallow(state => {
         const contest = state.appState.contests?.[activeId] || {};
         return {
             categories: contest.categories,
             simuladoRows: contest.simuladoRows,
-            studyLogs: Array.isArray(contest.studyLogs) ? contest.studyLogs : Object.values(contest.studyLogs || {}),
+            rawStudyLogs: contest.studyLogs,
             user: contest.user,
             pomodorosCompleted: contest.pomodorosCompleted
         };
     }));
+
+    const studyLogs = React.useMemo(() => {
+        return Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
+    }, [rawStudyLogs]);
 
     // Filtro centralizado aplicado a todos os componentes relevantes
     const filteredCategories = React.useMemo(() => {

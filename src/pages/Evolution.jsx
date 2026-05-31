@@ -9,14 +9,14 @@ const EMPTY_ARRAY = [];
 export default function Evolution() {
     // 🎯 PERFORMANCE FIX: Granular selectors with useShallow.
     // Previne re-renders pesados quando o Pomodoro ou outros dados do contest mudam mas não afetam o gráfico.
-    const { categories, studyLogs, monteCarloHistory, user, unit, minScore, maxScore } = useAppStore(
+    const { categories, rawStudyLogs, monteCarloHistory, user, unit, minScore, maxScore } = useAppStore(
         useShallow(state => {
             const contests = state?.appState?.contests || {};
             const activeId = state?.appState?.activeId;
             const contest = contests[activeId] || {};
             return {
                 categories: contest.categories ?? EMPTY_ARRAY,
-                studyLogs: Array.isArray(contest.studyLogs) ? contest.studyLogs : Object.values(contest.studyLogs || {}),
+                rawStudyLogs: contest.studyLogs,
                 monteCarloHistory: contest.monteCarloHistory ?? EMPTY_ARRAY,
                 user: contest.user,
                 unit: contest.unit || '%',
@@ -25,6 +25,10 @@ export default function Evolution() {
             };
         })
     );
+
+    const studyLogs = React.useMemo(() => {
+        return Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
+    }, [rawStudyLogs]);
 
     const hasEvolutionData = Array.isArray(categories) && categories.some(category => Array.isArray(category?.simuladoStats?.history) && category.simuladoStats.history.length > 0);
 
