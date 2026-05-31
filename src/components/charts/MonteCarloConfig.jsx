@@ -9,7 +9,7 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm shadow-inner shrink-0" style={{ backgroundColor: `${cat.color || '#3b82f6'}15`, border: `1px solid ${cat.color || '#3b82f6'}20` }}>{cat.icon || '📚'}</div>
                 <div className="flex-1 sm:hidden">
                     <p className="text-[11px] font-black text-slate-200 uppercase tracking-tight mb-0.5 truncate">{cat.name || 'Matéria'}</p>
-                    <p className="text-[9px] font-black text-slate-500">{normalizedShare}% do Peso</p>
+                    <p className="text-[9px] font-black text-slate-500">{normalizedShare}% da Classificação</p>
                 </div>
             </div>
             <div className="hidden sm:block flex-1 min-w-0">
@@ -103,12 +103,12 @@ export const MonteCarloConfig = ({
             <div className="relative w-full max-w-2xl h-full max-h-[90vh] bg-slate-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-white/5">
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-                            <Settings2 size={20} className="text-blue-400" />
+                        <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 shadow-inner flex items-center justify-center">
+                            <Activity className="w-5 h-5 text-indigo-400" />
                         </div>
                         <div className="min-w-0">
-                            <h3 className="text-base font-bold text-white truncate">Configuração</h3>
-                            <p className="text-[10px] text-slate-400 truncate">Monte Carlo & Pesos das Matérias</p>
+                            <h3 className="text-sm font-bold text-slate-200 truncate">Engine configuration</h3>
+                            <p className="text-[10px] text-slate-400 truncate">Monte Carlo & Classificações das Matérias</p>
                         </div>
                     </div>
                     <button

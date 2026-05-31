@@ -211,8 +211,8 @@ export default function MonteCarloGauge({
                         <div className="flex items-center gap-1.5 p-1 bg-black/20 rounded-xl border border-white/5 w-full sm:w-auto">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setShowConfig(true); }}
-                                className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
-                                title="Configurar Pesos"
+                                className="h-full w-full rounded-full transition-transform hover:scale-110"
+                                title="Configurar Classificações"
                             >
                                 <Settings2 size={16} />
                             </button>

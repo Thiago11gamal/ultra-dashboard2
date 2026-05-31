@@ -11,7 +11,7 @@ const helpSections = [
         howItWorks: [
             'Coleta suas notas de simulados por matéria',
             'Calcula a média e variação (SD) de cada matéria',
-            'Aplica pesos configuráveis (ex: Português 20%, Matemática 25%)',
+            'Aplica classificações configuráveis (ex: Português 20%, Matemática 25%)',
             'Roda 10.000 simulações de "provas virtuais"',
             'Conta quantas vezes você passou de 90%'
         ],
@@ -23,7 +23,7 @@ IC 95% (Intervalo de Confiança): mostra o range onde 95% das suas notas cairiam
         tips: [
             'SD baixo (< 5) = você é consistente ✅',
             'SD alto (> 10) = você oscila muito ⚠️',
-            'Configure os pesos pelo botão ⚙️ conforme o edital'
+            'Configure as classificações pelo botão ⚙️ conforme o edital'
         ]
     },
     {

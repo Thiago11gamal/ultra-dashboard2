@@ -722,8 +722,9 @@ export default function VerifiedStats({ categories = [], user }) {
                         className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-slate-800/50 hover:bg-slate-700/80 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-300 transition-all shadow-lg active:scale-95"
                     >
                         <Settings2 size={14} />
-                        Configurar Pesos e Meta
-                    </button>
+                        <span className="flex-1 text-center font-semibold tracking-wide">
+                        Configurar Classificações e Meta
+                    </span></button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
                     <MonteCarloGauge
