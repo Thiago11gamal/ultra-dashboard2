@@ -129,8 +129,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 
                 // Remover duplicados por ID e Data (para não dobrar dados legítimos)
                 // CORREÇÃO: Evitar aniquilação de tarefas "draft" que ainda não possuam ID injetado
+                // Usando fallback semântico em vez de JSON.stringify() que pode quebrar a desduplicação se
+                // a ordem das propriedades das tarefas divergir entre ambientes.
                 winner.tasks = Array.from(new Map(
-                    mergedTasks.map(t => [t.id || JSON.stringify(t), t])
+                    mergedTasks.map(t => [t.id || `${t.name}-${t.date || ''}-${t.score || ''}`, t])
                 ).values());
                 
                 if (winner.simuladoStats) {
@@ -331,9 +333,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 const combined = [...(local.trash || []), ...(cloud.trash || []), ...newTrashItems];
                 const seen = new Set();
                 return combined.filter(item => {
-                    if (!item?.id) return true; // keep items without id
-                    if (seen.has(item.id)) return false;
-                    seen.add(item.id);
+                    // FIX: Generate a fallback virtual ID so legacy trash items without IDs
+                    // don't accumulate geometrically on each sync merge cycle.
+                    const stableId = item?.id || `virtual-${item?.contestId || 'unknown'}-${item?.deletedAt || JSON.stringify(item?.data || {}).length}`;
+                    if (seen.has(stableId)) return false;
+                    seen.add(stableId);
                     return true;
                 });
             })(),
@@ -603,13 +607,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             const safeTrash = (syncState.trash || []).slice(-20);
 
-            const stateToSave = cleanUndefined({
+            // CRITICAL FIX: SafeClone aplicado ao EmergencySync para evitar que Promises, 
+            // refs do React, ou elementos do DOM invadam a store de sincronização.
+            // O Firestore disparava DataCloneError quando o utilizador minimizava a tela, 
+            // falhando silenciosamente e causando a perda de dados locais recentes.
+            const stateToSave = cleanUndefined(safeClone({
                 ...syncState,
                 contests: safeContests,
                 trash: safeTrash,
                 history: [],
                 _lastBackup: new Date().toISOString()
-            });
+            }));
 
             setInternalSyncing(true);
             logger.debug(`[Sync] Iniciando conexão segura com a nuvem...`);
