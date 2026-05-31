@@ -86,7 +86,7 @@ const PerformancePanel = ({ stats, color }) => {
                                     />
                                     {/* Tooltip */}
                                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                        {h.score}% ({new Date(h.date).toLocaleDateString('pt-BR')})
+                                        {h.score}% ({new Date(h.date.includes('T') ? h.date : h.date + 'T12:00:00').toLocaleDateString('pt-BR')})
                                     </div>
                                 </div>
                             ));
