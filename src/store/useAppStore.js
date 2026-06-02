@@ -45,6 +45,8 @@ const flushPendingIDBSaves = () => {
                 });
             }
 
+            // FIX BUG: Separate localStorage and IDB try-catch blocks
+            // If localStorage throws QuotaExceededError, we MUST still attempt to save to IDB.
             try {
                 const serializedSlim = JSON.stringify({ state: { appState: slimState } });
                 if (serializedSlim.length < 4000000) { // Limite de segurança de 4MB
@@ -52,12 +54,14 @@ const flushPendingIDBSaves = () => {
                 } else {
                     console.warn("[Storage] Estado muito grande para LocalStorage (>4MB). Salvamento delegado exclusivamente ao IDB.");
                 }
-                
-                // Also flush to IDB immediately
-                try { idbSet(name, serializedSlim); } catch { /* best-effort */ }
             } catch (err) {
-                console.error("[Storage] Quota excedida no fallback.", err);
+                console.error("[Storage] Falha no fallback localStorage.", err);
             }
+            
+            try { 
+                const fullState = { state: { appState: stateToRescue.appState } };
+                idbSet(name, JSON.stringify(fullState)); 
+            } catch { /* best-effort */ }
         }
     });
 };

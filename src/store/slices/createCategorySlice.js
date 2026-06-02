@@ -79,7 +79,12 @@ export const createCategorySlice = (set) => ({
         }
         if (activeData.simuladoRows) {
             const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
-            activeData.simuladoRows = safeRows.filter(r => r.categoryId !== id);
+            const normName = category ? normalize(category.name) : null;
+            activeData.simuladoRows = safeRows.filter(r => {
+                if (r.categoryId) return r.categoryId !== id;
+                if (normName && r.subject) return normalize(r.subject) !== normName;
+                return true;
+            });
         }
         if (activeData.simulados) {
             const safeSimulados = Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {});
