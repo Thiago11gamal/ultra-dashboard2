@@ -56,7 +56,7 @@ export function EvolucaoFocoChart({ data }) {
                         formatter={(value) => [formatDuration(value), 'Tempo Estudado']}
                     />
 
-                    <Area
+                    <Area connectNulls
                         type="monotoneX"
                         dataKey="horasEstudadas"
                         stroke="#8b5cf6"

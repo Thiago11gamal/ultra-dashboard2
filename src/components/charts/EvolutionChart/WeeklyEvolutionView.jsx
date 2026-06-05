@@ -465,9 +465,9 @@ export const WeeklyEvolutionView = ({
                                     const isOtherHovered = hoveredLine && hoveredLine !== key;
                                     
                                     return (
-                                        <Line
+                                        <Line connectNulls
                                             key={key}
-                                            type="linear"
+                                            type="monotoneX"
                                             dataKey={key}
                                             name={activeKeys[key].name}
                                             stroke={activeKeys[key].color}

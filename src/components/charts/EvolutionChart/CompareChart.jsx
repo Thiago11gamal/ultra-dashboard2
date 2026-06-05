@@ -239,30 +239,30 @@ export function CompareChart({
                     
                     <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                     
-                    <Area type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill={`url(#${CC.bayBandGradient})`} legendType="none" connectNulls isAnimationActive={false} />
-                    <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill={`url(#${CC.projectionPurpleGradient})`} stroke="none" legendType="none" connectNulls isAnimationActive={false} />
+                    <Area connectNulls type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill={`url(#${CC.bayBandGradient})`} legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
+                    <Area connectNulls type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill={`url(#${CC.projectionPurpleGradient})`} stroke="none" legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
                     
-                    {showGainArea && <Area type="monotoneX" dataKey="Futuro Provável" name="Ganho Estimado" fill="#10b981" fillOpacity={0.08} stroke="#10b981" strokeWidth={1} strokeOpacity={0.2} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />}
-                    <Area type="monotoneX" dataKey="Cenário Range" name="Intervalo de Confiança MC" fill={`url(#${CC.cloudGradient})`} stroke="none" legendType="none" />
+                    {showGainArea && <Area connectNulls type="monotoneX" dataKey="Futuro Provável" name="Ganho Estimado" fill="#10b981" fillOpacity={0.08} stroke="#10b981" strokeWidth={1} strokeOpacity={0.2} legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" baseValue={gainBase} />}
+                    <Area type="monotoneX" dataKey="Cenário Range" name="Intervalo de Confiança MC" fill={`url(#${CC.cloudGradient})`} stroke="none" legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
                     
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={4}
                         strokeLinecap="round" strokeLinejoin="round"
                         fill={`url(#${CC.greenGradient})`} dot={{ r: 3, fill: '#0f172a', stroke: '#34d399', strokeWidth: 1.5 }}
-                        activeDot={false} connectNulls style={{ filter: `url(#${CC.lineShadow})` }} isAnimationActive={animateSeries}>
+                        activeDot={false} connectNulls style={{ filter: `url(#${CC.lineShadow})` }} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
                     </Area>
                     
-                    <Line type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={3}
+                    <Line connectNulls type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={3}
                         strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 5" 
-                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={false} connectNulls strokeOpacity={1} isAnimationActive={animateSeries}>
+                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={false} connectNulls strokeOpacity={1} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
                     </Line>
                     
-                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.4} isAnimationActive={animateSeries}>
+                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.4} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'stats', '#818cf8')} />
                     </Line>
                     
-                    <Line type="monotoneX" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={3}
+                    <Line connectNulls type="monotoneX" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={3}
                         strokeLinecap="round" strokeDasharray="6 4"
                         dot={(props) => {
                             const { cx, cy, index } = props;

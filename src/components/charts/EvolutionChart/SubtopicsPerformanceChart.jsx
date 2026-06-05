@@ -437,18 +437,18 @@ export const SubtopicsPerformanceChart = React.memo(({
                                         {uniqueTopics.map((topicName, index) => {
                                             const color = MEGA_PALETTE[index % MEGA_PALETTE.length];
                                             return (
-                                                <Line
+                                                <Line connectNulls
                                                     key={topicName}
-                                                    type="linear" // FIX: Mudado de monotoneX para linear para evitar spaghetti/zig-zag com connectNulls durante as animações do Recharts
+                                                    type="monotoneX"
                                                     dataKey={topicName}
                                                     name={topicName}
                                                     stroke={color}
                                                     strokeWidth={3}
                                                     dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}
                                                     activeDot={{ r: 5, fill: color, stroke: '#ffffff', strokeWidth: 2 }}
-                                                    connectNulls={true} // FIX: Preserva continuidade temporal sem quebrar animação
-                                                    animationDuration={800}
-                                                    animationEasing="ease-out"
+                                                    connectNulls={true}
+                                                    animationDuration={1500}
+                                                    animationEasing="ease-in-out"
                                                 />
                                             );
                                         })}

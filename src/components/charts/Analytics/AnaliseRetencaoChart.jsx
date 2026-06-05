@@ -115,7 +115,7 @@ export function AnaliseRetencaoChart({ data }) {
                         maxBarSize={24}
                     />
 
-                    <Line
+                    <Line connectNulls
                         yAxisId="right"
                         type="monotone"
                         dataKey="nivelCritico"

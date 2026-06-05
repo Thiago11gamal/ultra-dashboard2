@@ -176,7 +176,7 @@ export const MonteCarloEvolutionChart = ({
                         <AreaChart data={[{ date: '1', mean: 40 }, { date: '2', mean: 60 }, { date: '3', mean: 85 }]}>
                             <XAxis dataKey="date" hide />
                             <YAxis hide domain={[minScore, maxScore]} />
-                            <Area type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={false} />
+                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={true} animationDuration={1500} animationEasing="ease-in-out" />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -304,16 +304,18 @@ export const MonteCarloEvolutionChart = ({
                                 cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
                             />
 
-                            <Area
+                            <Area connectNulls
                                 type="linear" 
                                 dataKey="ciRange"
                                 stroke="none"
                                 fillOpacity={1}
                                 fill={`url(#${gradientId})`}
                                 isAnimationActive={true}
+                                animationDuration={1500}
+                                animationEasing="ease-in-out"
                             />
 
-                            <Area
+                            <Area connectNulls
                                 type="monotoneX"
                                 dataKey="mean"
                                 stroke="#60a5fa"
@@ -326,17 +328,23 @@ export const MonteCarloEvolutionChart = ({
                                     fill: '#0f172a', 
                                     stroke: '#60a5fa' 
                                 } : false}
+                                isAnimationActive={true}
+                                animationDuration={1500}
+                                animationEasing="ease-in-out"
                             />
 
-                            <Area
+                            <Area connectNulls
                                 type="monotoneX"
                                 dataKey="projectedMean"
                                 stroke="#818cf8"
                                 strokeWidth={2}
-                                strokeDasharray="5 5"
+                                strokeDasharray="6 4"
                                 fill="none"
                                 isAnimationActive={true}
+                                animationDuration={1500}
+                                animationEasing="ease-in-out"
                                 dot={false}
+                                activeDot={false}
                             />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -344,7 +352,7 @@ export const MonteCarloEvolutionChart = ({
                     <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
                     <ResponsiveContainer width="100%" height="100%" minHeight={150}>
                         <AreaChart data={[{ mean: minScore }, { mean: scenarioAdjustedData[0]?.mean ?? minScore }, { mean: minScore }]}>
-                            <Area type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
+                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
                         </AreaChart>
                     </ResponsiveContainer>
                     </div>

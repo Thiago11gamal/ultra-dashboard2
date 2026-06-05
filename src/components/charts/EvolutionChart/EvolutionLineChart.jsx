@@ -257,7 +257,7 @@ export function EvolutionLineChart({
                         return [
                             // Bayesian Confidence Interval Band
                             (isFocused && engine?.id === 'bayesian') ? (
-                                <Area key={`bay_ci_${cat.id}`} type={lineType}
+                                <Area connectNulls key={`bay_ci_${cat.id}`} type={lineType}
                                     dataKey={`band_${cat.id}`}
                                     name="_IC 95%" stroke="none"
                                     fill={`url(#bayBand_${cat.id}_${instanceId})`} legendType="none"
@@ -267,11 +267,11 @@ export function EvolutionLineChart({
                             ) : null,
                             // Background Gradient Area for Focused Line
                             isFocused ? (
-                                <Area key={`area_${cat.id}`} type={lineType} dataKey={dataKey} name={`_area_${cat.id}`} stroke="none"
+                                <Area connectNulls key={`area_${cat.id}`} type={lineType} dataKey={dataKey} name={`_area_${cat.id}`} stroke="none"
                                     fill={`url(#grad_${cat.id}_${instanceId})`} legendType="none" connectNulls />
                             ) : null,
                             // The Performance Evolution Line
-                            <Line 
+                            <Line connectNulls 
                                 key={cat.id} 
                                 type={lineType} 
                                 dataKey={dataKey} 

@@ -103,7 +103,7 @@ const Header = React.memo(function Header({
             <header className="hidden lg:flex items-center justify-center py-1 px-4 sticky top-0 z-[110] backdrop-blur-xl bg-[#0a0f1e]/85 border-b border-white/[0.05] min-h-[50px] transition-all duration-300 w-full">
                 <div className="w-full max-w-[1500px] flex items-center relative h-full">
                     {/* ─── LEFT SIDE ─── */}
-                    <div className="flex items-center gap-4 flex-1 min-w-0 pr-24">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
                         {/* Desktop Toggle Button */}
                         <button
                             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -150,27 +150,27 @@ const Header = React.memo(function Header({
                         </div>
                     </div>
 
-                    {/* ─── CENTRAL USER NAME (ABSOLUTE) ─── */}
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group pointer-events-auto z-20">
+                    {/* ─── CENTRAL USER NAME (FLEX) ─── */}
+                    <div className="flex flex-col items-center justify-center group pointer-events-auto z-20 flex-[0.8] max-w-[500px] px-2 relative">
                         {/* Premium Glow Effect */}
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[150%] bg-indigo-500/10 blur-[40px] rounded-[100%] pointer-events-none transition-opacity duration-500 opacity-50 group-hover:opacity-100" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[150%] bg-indigo-500/10 blur-[40px] rounded-[100%] pointer-events-none transition-opacity duration-500 opacity-50 group-hover:opacity-100" />
                         
                         <span className="relative z-10 text-[7px] text-slate-500 uppercase tracking-[0.4em] font-black opacity-40 group-hover:opacity-100 transition-all duration-300 mb-0.5 h-2">
                             Foco Principal ✏️
                         </span>
-                        <div className="relative">
+                        <div className="relative w-full">
                             <input
                                 type="text"
                                 value={displayName}
                                 onChange={handleNameChange}
                                 placeholder="Nome do utilizador..."
-                                className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0 leading-tight w-[200px] sm:w-[300px] lg:w-[400px] text-ellipsis overflow-hidden whitespace-nowrap"
+                                className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0 leading-tight w-full text-ellipsis overflow-hidden whitespace-nowrap"
                             />
                         </div>
                     </div>
 
                     {/* ─── RIGHT SIDE ─── */}
-                    <div className="flex items-center gap-3 flex-1 justify-end pl-24">
+                    <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
                         <button
                             onClick={onUndo}
                             className="p-1.5 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.08] transition-all text-slate-500 hover:text-white group relative flex-shrink-0"

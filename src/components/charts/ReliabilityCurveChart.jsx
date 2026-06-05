@@ -102,15 +102,16 @@ export default function ReliabilityCurveChart({ buckets }) {
                     
                     <ReferenceLine segment={[{x: 0, y: 0}, {x: 100, y: 100}]} stroke="rgba(255,255,255,0.2)" strokeDasharray="3 3" />
                     
-                    {/* FIX: Uso de type="linear" previne o "efeito espaguete" retrocedente indesejado em gráficos empíricos pontuais */}
-                    <Line 
-                        type="linear" 
+                    <Line connectNulls 
+                        type="monotoneX" 
                         dataKey="obs" 
                         stroke="#06b6d4" 
                         strokeWidth={3} 
+                        animationDuration={1500}
+                        animationEasing="ease-in-out"
                         dot={{ r: 4, fill: '#06b6d4', stroke: '#0f172a', strokeWidth: 2 }}
                         activeDot={{ r: 6, fill: '#818cf8', stroke: '#0f172a', strokeWidth: 2 }}
-                        isAnimationActive={false}
+                        isAnimationActive={true}
                     />
                 </LineChart>
             </ResponsiveContainer>
