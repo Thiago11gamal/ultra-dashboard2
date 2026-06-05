@@ -48,8 +48,8 @@ describe('Stochastic Engine Hardening & Architectural Safety', () => {
         
         // Tolerância a score negativo (deve clamp para >= 0)
         const resNegScore = computeBayesianLevel(-50, 10, 100);
-        expect(resNegScore.mean).toBeGreaterThan(12);
-        expect(resNegScore.mean).toBeLessThan(15);
+        expect(resNegScore.mean).toBeLessThan(1);
+        expect(resNegScore.mean).toBeGreaterThanOrEqual(0);
 
         // Tolerância a alpha/beta negativos
         const resNegParams = computeBayesianLevel([], -5, -10, 100);
