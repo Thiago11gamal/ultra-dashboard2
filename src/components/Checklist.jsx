@@ -510,15 +510,6 @@ function Checklist({
                         <span className="font-semibold text-lg">Nova Disciplina</span>
                     </button>
 
-                    {contests && Object.keys(contests).length > 1 && (
-                        <button
-                            onClick={() => setIsImportModalOpen(true)}
-                            className="flex-1 sm:max-w-[250px] py-4 rounded-xl border border-white/10 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all flex items-center justify-center gap-3 group shadow-lg"
-                        >
-                            <Download size={20} className="text-slate-400 group-hover:text-white transition-colors" />
-                            <span className="font-semibold text-sm">Importar de outro</span>
-                        </button>
-                    )}
                 </div>
             )}
 

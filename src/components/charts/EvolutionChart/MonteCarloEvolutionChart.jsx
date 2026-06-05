@@ -359,11 +359,50 @@ export const MonteCarloEvolutionChart = ({
                 )}
             </div>
 
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 opacity-50 px-2">
+            <div className="mt-4 flex flex-col gap-2 px-2">
+                <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
+                    <p className="text-xs font-bold text-blue-400 mb-1 flex items-center gap-2">
+                        <AlertCircle size={14} /> Entenda este gráfico
+                    </p>
+                    <div className="flex flex-col gap-3 mt-2">
+                        <div className="flex items-start gap-3 bg-blue-500/10 p-3 rounded-lg border-l-4 border-blue-400 border-y border-r border-blue-500/20">
+                            <p className="text-[11.5px] text-blue-100 leading-relaxed">
+                                <strong className="text-blue-400 text-xs tracking-wide uppercase">Linha Azul (O Seu Passado):</strong> Mostra a sua evolução real. Atenção: este gráfico <strong>não mostra as notas dos seus simulados</strong>. Ele mostra qual era a <strong>previsão da sua nota no dia da prova</strong> a cada dia que passou. Se a linha está subindo, você está ficando mais preparado.
+                            </p>
+                        </div>
+                        
+                        <div className="flex items-start gap-3 bg-indigo-500/10 p-3 rounded-lg border-l-4 border-indigo-400 border-dashed border-y border-r border-indigo-500/20">
+                            <p className="text-[11.5px] text-indigo-100 leading-relaxed">
+                                <strong className="text-indigo-400 text-xs tracking-wide uppercase">Linha Tracejada Roxa (O Seu Futuro):</strong> É para onde você está indo. O robô pega o seu ritmo atual e desenha onde a sua nota vai parar no dia da prova se você continuar estudando desse jeito. 
+                            </p>
+                        </div>
+
+                        <div className="flex items-start gap-3 bg-emerald-500/10 p-3 rounded-lg border-l-4 border-emerald-400 border-dashed border-y border-r border-emerald-500/20">
+                            <p className="text-[11.5px] text-emerald-100 leading-relaxed">
+                                <strong className="text-emerald-400 text-xs tracking-wide uppercase">Linha Pontilhada Verde (O Seu Objetivo):</strong> A nota que você quer tirar. O jogo é simples: faça a linha azul e a roxa ultrapassarem essa marca verde.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {qualitySignal && qualitySignal.color.includes('red') && (
+                    <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl mt-1 animate-pulse">
+                        <p className="text-xs font-bold text-red-400 mb-1 flex items-center gap-2">
+                            <AlertCircle size={14} /> Alerta de Tendência
+                        </p>
+                        <p className="text-[11px] text-red-200 leading-relaxed">
+                            Suas projeções recentes estão apontando para baixo. Isso indica que os seus últimos resultados puxaram a expectativa para o dia da prova para um nível crítico. Considere revisar seus métodos de estudo e focar nos tópicos com pior desempenho.
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 pt-3 border-t border-white/5 opacity-50 px-2 gap-2">
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-                    A área sombreada representa o IC 95% da projeção ao longo do tempo (P2.5 ~ P97.5).
+                    A área sombreada representa o IC 95% da projeção (Margem de erro e incerteza probabilística).
                 </p>
-                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-md border border-white/5">N = {scenarioAdjustedData.length} registros</span>
+                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-md border border-white/5 whitespace-nowrap">
+                    N = {scenarioAdjustedData.length} registros
+                </span>
             </div>
         </div>
     );

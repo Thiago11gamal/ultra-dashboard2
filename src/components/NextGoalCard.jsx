@@ -156,15 +156,26 @@ function NextGoalCard({ categories = [], simulados = [], studyLogs = [], onStart
                         )}
                     </div>
 
-                    <div className="flex items-center gap-2 mt-2">
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5 text-[11px] text-slate-400 font-medium">
-                            <Clock size={12} className={urgencyStyle.textHighlight} />
-                            Tempo sem ver: <span className="text-white font-bold">
-                                {hasSimuladoData && (urgency?.details?.daysSinceLastStudy ?? 0) > 0
-                                    ? `${urgency.details.daysSinceLastStudy}d`
-                                    : hasSimuladoData ? '0d' : 'Nunca'}
+                    <div className="flex flex-col gap-2 mt-2">
+                        <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5 text-[11px] text-slate-400 font-medium">
+                                <Clock size={12} className={urgencyStyle.textHighlight} />
+                                Tempo sem ver: <span className="text-white font-bold">
+                                    {hasSimuladoData && (urgency?.details?.daysSinceLastStudy ?? 0) > 0
+                                        ? `${urgency.details.daysSinceLastStudy}d`
+                                        : hasSimuladoData ? '0d' : 'Nunca'}
+                                </span>
                             </span>
-                        </span>
+                        </div>
+                        {urgency?.recommendation && (
+                            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+                                <span className="text-lg leading-none">💡</span>
+                                <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                                    <span className="text-white font-bold">Motivo da escolha: </span> 
+                                    {urgency.recommendation}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

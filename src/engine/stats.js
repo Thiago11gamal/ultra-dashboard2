@@ -574,8 +574,13 @@ export function computeBayesianLevel(
 
     const adjustedMarginOfError = marginOfError;
     const centerForCI = p_tilde * safeMaxScore;
+    const trueMean = p * safeMaxScore;
     let ciLow = centerForCI - adjustedMarginOfError;
     let ciHigh = centerForCI + adjustedMarginOfError;
+
+    // GUARD: Garantir que a verdadeira média Bayesiana SEMPRE esteja dentro do CI
+    if (trueMean < ciLow) ciLow = trueMean;
+    if (trueMean > ciHigh) ciHigh = trueMean;
 
     const strictLow = Math.max(0, ciLow);
     const strictHigh = Math.min(safeMaxScore, ciHigh);
@@ -589,7 +594,7 @@ export function computeBayesianLevel(
     }
 
     return {
-        mean: Number(centerForCI.toFixed(2)), // 🎯 FIX: Média de Shrinkage (Center) para alinhar com CI
+        mean: Number(trueMean.toFixed(2)), // 🎯 FIX: Usar a verdadeira média Bayesiana posterior
         sd: Number((effectiveSd * safeMaxScore).toFixed(2)),
         ciLow: Number(strictLow.toFixed(2)),
         ciHigh: Number(strictHigh.toFixed(2)),
@@ -755,7 +760,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
     
     // Aplicação agora segura
-    const rawTrend = Math.max(limiteInferior, Math.min(limiteSuperior, safeSlope * 10));
+    const rawTrend = Math.max(limiteInferior, Math.min(limiteSuperior, safeSlope * 30));
 
     let trendLabel = 'stable';
     if (rawTrend > trendThreshold) trendLabel = 'up';
