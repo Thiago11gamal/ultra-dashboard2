@@ -223,7 +223,7 @@ const WeeklyPerformanceChart = ({
                             animationDuration={1500}
                         />
 
-                        <Area connectNulls
+                        <Area
                             yAxisId="right"
                             type="monotoneX"
                             dataKey="acertos"
@@ -233,7 +233,7 @@ const WeeklyPerformanceChart = ({
                             connectNulls={true}
                         />
 
-                        <Line connectNulls
+                        <Line
                             yAxisId="right"
                             type="monotoneX"
                             dataKey="acertos"

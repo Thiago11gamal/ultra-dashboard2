@@ -139,6 +139,7 @@ export default function Coach() {
         };
 
         setData(prev => {
+            if (!prev) return;
             const current = prev.calibrationHistoryByCategory || {};
             const categoryHistory = current[normalizedCategoryId] || [];
             
@@ -210,16 +211,10 @@ export default function Coach() {
                 degraded: isDegraded,
                 source: 'coach'
             }].slice(-500);
-
-            return {
-                ...prev,
-                calibrationHistoryByCategory: {
-                    ...current,
-                    [normalizedCategoryId]: nextHistory
-                },
-                calibrationOps,
-                calibrationAuditLog
-            };
+            prev.calibrationHistoryByCategory = prev.calibrationHistoryByCategory || {};
+            prev.calibrationHistoryByCategory[normalizedCategoryId] = nextHistory;
+            prev.calibrationOps = calibrationOps;
+            prev.calibrationAuditLog = calibrationAuditLog;
         });
 
         if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
@@ -394,14 +389,15 @@ export default function Coach() {
             );
             
             if (newTasks.length) {
-                setData(prev => ({ ...prev, coachPlan: newTasks }));
+                setData(prev => { if(prev) prev.coachPlan = newTasks; });
                 showToast('Sugestões geradas!', 'success');
             } else {
                 showToast('Nenhuma sugestão necessária.', 'info');
             }
 
             collectedMetrics.forEach((metric, i) => {
-                setTimeout(() => persistCalibrationMetric(metric), i * 600);
+                const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
+                if (window._coachGenerationTimeouts) window._coachGenerationTimeouts.push(t);
             });
             setCoachLoading(false);
             // LOGIC-TIMEOUT-NULL FIX: zerar a ref após a execução para não manter
@@ -411,15 +407,20 @@ export default function Coach() {
     }, [data, coachLoading, setData, showToast, persistCalibrationMetric, userProfile?.targetProbability]);
 
     const handleClearHistory = useCallback(() => {
-        setData(prev => ({ ...prev, coachPlan: [] }));
+        setData(prev => { if (prev) prev.coachPlan = []; });
         useAppStore.getState().updateCoachPlanner({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] });
     }, [setData]);
 
     useEffect(() => {
+        window._coachGenerationTimeouts = [];
         return () => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
                 timeoutRef.current = null;
+            }
+            if (window._coachGenerationTimeouts) {
+                window._coachGenerationTimeouts.forEach(clearTimeout);
+                window._coachGenerationTimeouts = [];
             }
         };
     }, []);
@@ -584,7 +585,7 @@ function RaioXDashboard({ data }) {
     const sortedLogs = useMemo(() => {
         const source = Array.isArray(data?.calibrationAuditLog) ? data.calibrationAuditLog : [];
         return [...source].sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp));
-    }, [data]);
+    }, [data?.calibrationAuditLog]);
 
     const filteredLogs = useMemo(() => (sortedLogs
         .filter(log => filter === 'all' || (filter === 'degraded' && Boolean(log?.degraded)))

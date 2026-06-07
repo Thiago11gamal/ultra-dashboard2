@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
 import { useAppStore } from '../store/useAppStore';
@@ -92,7 +92,12 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     </button>
                     <AnimatePresence>
                         {isExpanded && (
-                            <div className="overflow-hidden">
+                            <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                            >
                                 <div className="pt-4 space-y-3">
                                     <p className="text-[11px] text-slate-400 leading-relaxed bg-black/40 p-4 rounded-2xl border border-white/5 font-medium">{task.analysis.reason}</p>
                                     {task.analysis.metrics && (
@@ -115,7 +120,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                         </div>
                                     )}
                                 </div>
-                            </div>
+                            </motion.div>
                         )}
                     </AnimatePresence>
                 </div>
