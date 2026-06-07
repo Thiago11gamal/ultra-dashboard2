@@ -110,8 +110,6 @@ const DEFAULT_PLANNER = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], 
 
 export default function AICoachPlanner() {
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-    const activeContestId = useAppStore(state => state.appState?.activeId);
-    const contestSettings = activeContest?.settings || {};
     const coachPlanner   = activeContest?.coachPlanner || DEFAULT_PLANNER;
     const coachPlan      = useMemo(() => activeContest?.coachPlan || [], [activeContest?.coachPlan]);
 
