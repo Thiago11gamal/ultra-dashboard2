@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { Activity, TrendingUp, BarChart2, Trophy, Calendar, AlertCircle } from 'lucide-react';
+import { Activity, TrendingUp, BarChart2, Trophy, Calendar, AlertCircle, Info } from 'lucide-react';
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
 import { formatValue } from '../utils/scoreHelper';
@@ -121,11 +121,16 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                        <div className="p-2 bg-orange-500/10 rounded-lg group-hover:bg-orange-500/20 transition-colors">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 relative group/tooltip cursor-help">
+                        <div className="p-2 bg-orange-500/10 rounded-lg group-hover/tooltip:bg-orange-500/20 transition-colors">
                             <Activity size={18} className="text-orange-400" />
                         </div>
                         <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Sequência</span>
+                        <Info size={14} className="ml-auto text-slate-600 group-hover/tooltip:text-slate-400 transition-colors" />
+                        
+                        <div className="absolute top-full left-4 mt-2 w-60 max-w-[85vw] p-2.5 bg-yellow-400 text-[10px] sm:text-xs text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500">
+                            <strong>Status {streak?.isActive ? 'ATIVA' : 'INATIVA'}</strong>: {streak?.isActive ? 'Você estudou hoje ou ontem, mantendo a corrente viva!' : 'Você ficou mais de 1 dia sem estudar. Comece hoje para criar uma nova corrente!'}
+                        </div>
                     </div>
                     <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-2">
                         {streak?.current || 0} <span className="text-lg sm:text-2xl text-slate-300 font-bold">{(streak?.current || 0) === 1 ? 'dia' : 'dias'}</span>
@@ -149,11 +154,22 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 <div className={`absolute -top-10 -left-10 w-24 h-24 ${effTheme.glow} rounded-full blur-[40px] ${effTheme.glowHover} transition-all duration-700`} />
                 <div className={`absolute inset-0 bg-gradient-to-br ${effTheme.gradient} to-transparent pointer-events-none`} />
                 <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 relative group/tooltip cursor-help">
                         <div className={`p-2 ${effTheme.iconBg} rounded-lg transition-colors`}>
                             <TrendingUp size={18} className={effTheme.iconColor} />
                         </div>
                         <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Eficiência</span>
+                        <Info size={14} className="ml-auto text-slate-600 group-hover/tooltip:text-slate-400 transition-colors" />
+                        
+                        <div className="absolute top-full left-0 mt-2 w-60 max-w-[85vw] p-2.5 bg-yellow-400 text-[10px] sm:text-xs text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500">
+                            <strong>Status {(typeof efficiency?.efficiency === 'string' ? efficiency.efficiency.replace(/_/g, ' ') : 'Sem dados').toUpperCase()}</strong>: {
+                                efficiency?.efficiency === 'excelente' ? 'Fluxo e velocidade de conclusão de tarefas ideais.' :
+                                efficiency?.efficiency === 'boa' ? 'Bom ritmo de resolução de tarefas.' :
+                                efficiency?.efficiency === 'regular' ? 'Produtividade na média. Pode melhorar o foco para concluir mais tarefas.' :
+                                efficiency?.efficiency === 'precisa_melhorar' ? 'Baixa taxa de tarefas concluídas por tempo. Verifique distrações.' :
+                                (efficiency?.message || 'Faça sessões com o cronômetro para medir.')
+                            }
+                        </div>
                     </div>
                     <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-2 truncate">
                         {formatValue(efficiency?.score || 0)}<span className="text-lg sm:text-2xl text-slate-300 font-bold ml-1">%</span>
@@ -176,11 +192,16 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full blur-[40px] group-hover:bg-blue-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                        <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 relative group/tooltip cursor-help">
+                        <div className="p-2 bg-blue-500/10 rounded-lg group-hover/tooltip:bg-blue-500/20 transition-colors">
                             <BarChart2 size={18} className="text-blue-400" />
                         </div>
                         <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Equilíbrio</span>
+                        <Info size={14} className="ml-auto text-slate-600 group-hover/tooltip:text-slate-400 transition-colors" />
+                        
+                        <div className="absolute top-full left-0 mt-2 w-60 max-w-[85vw] p-2.5 bg-yellow-400 text-[10px] sm:text-xs text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500">
+                            <strong>Status {(balance?.status ? balance.status.replace(/_/g, ' ') : 'Sem Dados').toUpperCase()}</strong>: {balance?.message || 'Analisa como você divide seu tempo entre as matérias.'}
+                        </div>
                     </div>
                     {/* [CORREÇÃO VISUAL-BUG-4] Separar Flex de Line-Clamp */}
                     <div className="mt-1 mb-1 min-h-[2.5rem] flex flex-col justify-center">
@@ -208,13 +229,18 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-purple-500/10 rounded-full blur-[40px] group-hover:bg-purple-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                        <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 relative group/tooltip cursor-help">
+                        <div className="p-2 bg-purple-500/10 rounded-lg group-hover/tooltip:bg-purple-500/20 transition-colors">
                             <Trophy size={18} className="text-purple-400" />
                         </div>
                         <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">
                             Nível {progress.level}
                         </span>
+                        <Info size={14} className="ml-auto text-slate-600 group-hover/tooltip:text-slate-400 transition-colors" />
+                        
+                        <div className="absolute top-full right-0 sm:right-auto sm:left-0 mt-2 w-60 max-w-[85vw] p-2.5 bg-yellow-400 text-[10px] sm:text-xs text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500">
+                            <strong>Status NÍVEL {progress.level}</strong>: Representa sua experiência geral. Complete tarefas e ciclos de estudo para evoluir de nível!
+                        </div>
                     </div>
                     <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3 truncate" title={`${(user.xp || 0).toLocaleString('pt-BR')} XP`}>
                         {(user.xp || 0).toLocaleString('pt-BR')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
@@ -238,6 +264,20 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 ? 'border-slate-500/30'
                 : 'border-white/10 hover:border-rose-500/30'
                 }`}>
+                
+                <div className="absolute top-4 right-4 z-20">
+                    <div className="relative group/tooltip">
+                        <Info size={14} className="text-slate-600 hover:text-slate-400 cursor-help transition-colors" />
+                        <div className="absolute top-full right-0 mt-2 w-60 max-w-[85vw] p-2.5 bg-yellow-400 text-[10px] sm:text-xs text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500">
+                            <strong>Status {daysRemaining === null ? 'SEM DATA' : daysRemaining < 0 ? 'ATRASADO' : daysRemaining === 0 ? 'É HOJE' : 'NO PRAZO'}</strong>: {
+                                daysRemaining === null ? 'Nenhuma data alvo definida no momento.' :
+                                daysRemaining < 0 ? 'A data agendada para a prova já passou.' :
+                                daysRemaining === 0 ? 'O dia do seu objetivo chegou. Boa sorte!' :
+                                `Faltam ${daysRemaining} dias de preparação para a sua prova.`
+                            }
+                        </div>
+                    </div>
+                </div>
 
                 <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                     <div className={`absolute -top-10 -right-10 w-24 h-24 rounded-full blur-[40px] transition-transform duration-700 ${!user.goalDate ? 'bg-slate-500/10' : 'bg-red-500/10 group-hover:scale-150'}`} />
