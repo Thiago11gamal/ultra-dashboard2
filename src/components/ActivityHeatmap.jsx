@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { normalizeDate, formatDuration, getDateKey } from '../utils/dateHelper';
 
 function ActivityHeatmap({ studyLogs = [] }) {
@@ -98,6 +98,12 @@ function ActivityHeatmap({ studyLogs = [] }) {
                 <div className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     Visão Mensal
+                    <div className="relative group/tooltip cursor-help ml-1 inline-flex">
+                        <Info size={14} className="text-slate-500/50 hover:text-slate-400 transition-colors" />
+                        <div className="absolute top-full left-0 mt-2 w-56 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
+                            <strong>Mapa de Calor:</strong> Cada quadrado representa um dia. Quanto mais escuro o verde, mais tempo de estudo foi registrado no cronômetro ou adicionado manualmente.
+                        </div>
+                    </div>
                 </div>
                 <div className="flex items-center gap-3">
                     <button

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
-import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertCircle } from 'lucide-react';
+import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertCircle, Info } from 'lucide-react';
 import { formatValue } from '../utils/scoreHelper';
 
 const VolumeRanking = ({ categories = [] }) => {
@@ -54,6 +54,12 @@ const VolumeRanking = ({ categories = [] }) => {
                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
                         <BarChart3 size={14} className="text-purple-500" />
                         Volume de Treino
+                        <div className="relative group/tooltip cursor-help ml-1 inline-flex">
+                            <Info size={12} className="text-slate-500/50 hover:text-slate-500 transition-colors" />
+                            <div className="absolute top-full left-0 mt-2 w-48 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
+                                <strong>Volume de Treino:</strong> Ranking das matérias baseado no número total de questões resolvidas e atividades concluídas.
+                            </div>
+                        </div>
                     </h3>
                     <div className="px-2 py-1 bg-purple-500/10 rounded-md border border-purple-500/20">
                         <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest">{totalVolumeOverall} Total</span>

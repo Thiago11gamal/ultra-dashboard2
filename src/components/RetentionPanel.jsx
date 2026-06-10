@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play } from 'lucide-react';
+import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play, Info } from 'lucide-react';
 import { formatTimeAgo, toDateMs } from '../utils/dateHelper';
 import { formatValue } from '../utils/scoreHelper';
 
@@ -196,8 +196,14 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                     </div>
                 </div>
                 <div>
-                    <h2 className="text-2xl font-black bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-transparent uppercase tracking-tight">
+                    <h2 className="text-2xl font-black bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-transparent uppercase tracking-tight flex items-center">
                         Painel de Retenção
+                        <div className="relative group/tooltip cursor-help ml-3 inline-flex mt-1">
+                            <Info size={16} className="text-slate-500/50 hover:text-slate-400 transition-colors" />
+                            <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-yellow-400 text-xs text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case leading-relaxed">
+                                <strong>Retenção (Ebbinghaus):</strong> Calcula o quanto de um assunto você ainda lembra baseado em quando foi a última revisão. Revisar antes do nível "Atenção" (abaixo de 60%) ajuda a fixar o conteúdo na memória de longo prazo.
+                            </div>
+                        </div>
                     </h2>
                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-0.5 opacity-80">
                         Baseado na Curva de Esquecimento de Ebbinghaus

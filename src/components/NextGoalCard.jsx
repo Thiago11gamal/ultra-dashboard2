@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Target, Play, Clock } from 'lucide-react';
+import { Target, Play, Clock, Info } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 
 function NextGoalCard({ categories = [], simulados = [], studyLogs = [], onStartStudying }) {
@@ -131,8 +131,14 @@ function NextGoalCard({ categories = [], simulados = [], studyLogs = [], onStart
                 {/* Center: Task Info */}
                 <div className="flex-1 min-w-0 w-full flex flex-col justify-center">
                     <div className="flex flex-wrap items-center gap-3 mb-2">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center">
                             PRÓXIMA MISSÃO
+                            <div className="relative group/tooltip cursor-help ml-2 inline-flex">
+                                <Info size={12} className="text-slate-500 hover:text-slate-400 transition-colors" />
+                                <div className="absolute top-full left-0 mt-2 w-56 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
+                                    <strong>Por que isso?</strong> O Coach analisou sua frequência, prioridades e tempo sem ver as matérias para sugerir a tarefa de maior impacto.
+                                </div>
+                            </div>
                         </span>
 
                         <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-md border tracking-widest leading-none ${urgencyStyle.badge}`}>

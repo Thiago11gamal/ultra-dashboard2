@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
-
-const priorityColors = {
+import { Info } from 'lucide-react';const priorityColors = {
     high: { label: 'Alta', bar: 'bg-red-500', bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' },
     medium: { label: 'Média', bar: 'bg-yellow-500', bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/20' },
     low: { label: 'Baixa', bar: 'bg-green-500', bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20' },
@@ -47,8 +46,14 @@ export default function PriorityProgress({ categories = [] }) {
                 <div className="relative z-10 flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 sm:gap-4 px-1">
                         <div className="min-w-0">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 leading-none block mb-1">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 leading-none flex items-center mb-1">
                                 Progresso Global
+                                <div className="relative group/tooltip cursor-help ml-2 inline-flex">
+                                    <Info size={12} className="text-purple-400/50 hover:text-purple-400 transition-colors" />
+                                    <div className="absolute top-full left-0 mt-2 w-48 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
+                                        <strong>Progresso Global:</strong> Representa o percentual total de tarefas concluídas em relação a todas as tarefas cadastradas, independente da prioridade.
+                                    </div>
+                                </div>
                             </span>
                             <h3 className="text-xl font-bold text-white leading-tight">Conclusão de Assuntos</h3>
                         </div>
@@ -91,8 +96,18 @@ export default function PriorityProgress({ categories = [] }) {
 
                             <div className="relative z-10 flex flex-col gap-5">
                                 <div className="flex justify-between items-center px-1">
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text} leading-none pt-1`}>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text} leading-none pt-1 flex items-center`}>
                                         Prioridade {conf.label}
+                                        <div className="relative group/tooltip cursor-help ml-1 inline-flex">
+                                            <Info size={12} className={`${conf.text} opacity-50 hover:opacity-100 transition-opacity`} />
+                                            <div className="absolute top-full left-0 mt-2 w-48 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
+                                                <strong>{conf.label}:</strong> {
+                                                    p === 'high' ? 'Tarefas mais urgentes e importantes.' :
+                                                    p === 'medium' ? 'Tarefas de importância moderada.' :
+                                                    'Tarefas de menor impacto ou flexíveis.'
+                                                }
+                                            </div>
+                                        </div>
                                     </span>
                                     <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors tracking-wide">
                                         {completed}/{total}
