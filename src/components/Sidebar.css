@@ -14,14 +14,14 @@
   /* GPU OPTIMIZATION */
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
   
-  padding: 24px 0px 24px 12px;
+  padding: 24px 16px;
   box-shadow: 10px 0 30px rgba(2, 6, 23, 0.45);
   overflow-x: hidden !important;
 }
 
 .sidebar.collapsed {
-  width: 70px;
-  padding: 24px 0px 24px 10px;
+  width: 80px;
+  padding: 24px 12px;
 }
 
 /* Logo */

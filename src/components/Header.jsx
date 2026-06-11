@@ -63,8 +63,8 @@ const Header = React.memo(function Header({
     return (
         <>
             {/* ─── MOBILE HEADER ─── */}
-            <div className="lg:hidden fixed top-0 left-0 right-0 z-[120] backdrop-blur-xl bg-[#0a0f1e]/90 border-b border-white/[0.08] px-4 py-1">
-                <div className="flex items-center justify-between mb-1">
+            <div className="lg:hidden fixed top-0 left-0 right-0 z-[120] backdrop-blur-xl bg-[#0a0f1e]/90 border-b border-white/[0.08] px-4 py-2">
+                <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2.5">
                         <button
                             onClick={onToggleSidebar}
@@ -100,7 +100,7 @@ const Header = React.memo(function Header({
 
 
             {/* ─── DESKTOP HEADER ─── */}
-            <header className="hidden lg:flex items-center justify-center py-1 px-4 sticky top-0 z-[110] backdrop-blur-xl bg-[#0a0f1e]/85 border-b border-white/[0.05] min-h-[50px] transition-all duration-300 w-full">
+            <header className="hidden lg:flex items-center justify-center py-2.5 px-6 sticky top-0 z-[110] backdrop-blur-xl bg-[#0a0f1e]/85 border-b border-white/[0.05] min-h-[64px] transition-all duration-300 w-full">
                 <div className="w-full max-w-[1500px] flex items-center relative h-full">
                     {/* ─── LEFT SIDE ─── */}
                     <div className="flex items-center gap-4 flex-1 min-w-0">

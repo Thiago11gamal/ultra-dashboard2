@@ -33,6 +33,16 @@ export const createMonteCarloSlice = (set) => ({
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 
+    setHistoricalCutoffs: (cutoffs) => set((state) => {
+        const activeId = state.appState.activeId;
+        const activeData = state.appState.contests[activeId];
+        if (!activeData) return;
+        activeData.historicalCutoffs = cutoffs;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        localStorage.setItem('ultra-sync-dirty', 'true');
+    }),
+
     recordCalibrationMetric: (categoryId, metric) => set((state) => {
         const activeId = state.appState.activeId;
         const activeData = state.appState.contests[activeId];

@@ -222,85 +222,90 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     return (
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
             <div className="flex flex-col gap-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shadow-lg shadow-indigo-500/5">
-                            <Compass size={20} className="text-indigo-400" />
+                <div className="bg-[#0a0c14]/80 backdrop-blur-xl border border-white/[0.05] p-6 sm:p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none"></div>
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px] -ml-32 -mb-32 pointer-events-none"></div>
+                    
+                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
+                                <Compass size={24} className="text-indigo-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg sm:text-xl font-black tracking-tight text-white">Painel Coach AI</h2>
+                                <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mt-0.5">Navegação tática</p>
+                            </div>
                         </div>
-                        <div className="py-1">
-                            <h2 className="text-base font-black tracking-tight text-white">Painel Coach AI</h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black opacity-70">Navegação tática</p>
+                        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4">
+                            <div className="flex items-center p-1.5 rounded-2xl bg-black/40 border border-white/5 backdrop-blur-md shadow-inner">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('planner')}
+                                    className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex justify-center items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                                >
+                                    <LayoutGrid size={13} className="shrink-0" />
+                                    Planner
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('cards')}
+                                    className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex justify-center items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                                >
+                                    <Sparkles size={13} className="shrink-0" />
+                                    Cards
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('list')}
+                                    className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex justify-center items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                                >
+                                    <List size={13} className="shrink-0" />
+                                    Lista
+                                </button>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleExport}
+                                    disabled={isExporting}
+                                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] hover:border-white/20 transition-all disabled:opacity-50 flex-1 sm:flex-none"
+                                >
+                                    {isExporting ? <Loader2 size={13} className="animate-spin shrink-0" /> : <Download size={13} className="shrink-0" />}
+                                    Exportar
+                                </button>
+                                <button
+                                    onClick={onClearHistory}
+                                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all flex-1 sm:flex-none"
+                                >
+                                    <Trash2 size={13} className="shrink-0" />
+                                    Limpar
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 ml-auto lg:ml-0">
-                        <div className="flex items-center p-1 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-inner">
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('planner')}
-                                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
-                            >
-                                <LayoutGrid size={13} className="shrink-0" />
-                                Planner
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('cards')}
-                                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
-                            >
-                                <Sparkles size={13} className="shrink-0" />
-                                Cards
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('list')}
-                                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
-                            >
-                                <List size={13} className="shrink-0" />
-                                Lista
-                            </button>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handleExport}
-                                disabled={isExporting}
-                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] hover:border-white/20 transition-all disabled:opacity-50"
-                            >
-                                {isExporting ? <Loader2 size={13} className="animate-spin shrink-0" /> : <Download size={13} className="shrink-0" />}
-                                Exportar
-                            </button>
-                            <button
-                                onClick={onClearHistory}
-                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all"
-                            >
-                                <Trash2 size={13} className="shrink-0" />
-                                Limpar
-                            </button>
-                        </div>
-                    </div>
-                </div>
 
-                <div className="flex justify-center w-full mt-2">
-                    <button
-                        onClick={onGenerateGoals}
-                        disabled={loading}
-                        className="group relative w-full md:w-auto px-10 py-3.5 rounded-2xl font-black text-xs tracking-[0.2em] uppercase transition-all duration-500 overflow-hidden bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 text-white shadow-[0_0_40px_rgba(99,102,241,0.25)] hover:shadow-[0_0_60px_rgba(99,102,241,0.4)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 border border-white/20"
-                        style={{ backgroundSize: '200% auto' }}
-                    >
-                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none animate-pulse" />
-                        {loading ? (
-                            <>
-                                <Loader2 size={18} className="animate-spin shrink-0 drop-shadow-md" />
-                                <span>Sincronizando...</span>
-                            </>
-                        ) : (
-                            <>
-                                <BrainCircuit size={18} className="shrink-0 drop-shadow-md" />
-                                <span>Recalcular Estratégia</span>
-                            </>
-                        )}
-                    </button>
+                    <div className="relative z-10 w-full mt-6 pt-6 border-t border-white/[0.05] flex justify-center lg:justify-end">
+                        <button
+                            onClick={onGenerateGoals}
+                            disabled={loading}
+                            className="group relative w-full lg:w-auto px-8 py-3.5 rounded-2xl font-black text-[11px] tracking-[0.2em] uppercase transition-all duration-500 overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-white shadow-[0_0_30px_rgba(99,102,241,0.25)] hover:shadow-[0_0_50px_rgba(99,102,241,0.4)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 border border-white/20"
+                            style={{ backgroundSize: '200% auto' }}
+                        >
+                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none animate-pulse" />
+                            {loading ? (
+                                <>
+                                    <Loader2 size={16} className="animate-spin shrink-0 drop-shadow-md" />
+                                    <span>Sincronizando...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <BrainCircuit size={16} className="shrink-0 drop-shadow-md" />
+                                    <span>Recalcular Estratégia</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
 
                 {suggestedFocus ? (

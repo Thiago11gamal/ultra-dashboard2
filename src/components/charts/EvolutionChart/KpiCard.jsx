@@ -24,8 +24,8 @@ export function KpiCard({ value, label, color, icon, sub }) {
                 )}
             </div>
             <div className="relative z-10 mt-1">
-                <p className="text-2xl sm:text-4xl font-mono font-black tracking-tight truncate break-words group-hover:translate-x-1 transition-transform duration-300" style={{ color, textShadow: `0 0 15px ${color}40` }}>{value}</p>
-                <p className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest mt-1 font-bold block group-hover:text-slate-300 transition-colors duration-300">{label}</p>
+                <p className="text-2xl sm:text-4xl font-mono font-black tracking-tight truncate break-words group-hover:translate-x-1 transition-transform duration-300 leading-tight pb-0.5" style={{ color, textShadow: `0 0 15px ${color}40` }}>{value}</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest mt-1 font-bold block group-hover:text-slate-300 transition-colors duration-300 leading-relaxed pb-0.5">{label}</p>
             </div>
         </div>
     );

@@ -477,7 +477,6 @@ export const WeeklyEvolutionView = ({
                                             activeDot={{ r: 5, strokeWidth: 2, stroke: '#ffffff', fill: activeKeys[key].color, className: 'shadow-lg', opacity: isOtherHovered ? 0.4 : 1 }}
                                             hide={hiddenKeys[key]}
                                             isAnimationActive={true}
-                                            connectNulls={true}
                                             animationDuration={800}
                                             animationEasing="ease-out"
                                             style={{ transition: 'all 0.3s ease' }}

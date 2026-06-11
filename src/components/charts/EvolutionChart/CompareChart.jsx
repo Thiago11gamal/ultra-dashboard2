@@ -254,7 +254,7 @@ export function CompareChart({
                     
                     <Line connectNulls type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={3}
                         strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 5" 
-                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={false} connectNulls strokeOpacity={1} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
+                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={false} strokeOpacity={1} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
                     </Line>
                     
@@ -279,7 +279,7 @@ export function CompareChart({
                                 </g>
                             );
                         }}
-                        connectNulls strokeOpacity={1} style={{ filter: `url(#${CC.glow})` }} isAnimationActive={false}>
+                        strokeOpacity={1} style={{ filter: `url(#${CC.glow})` }} isAnimationActive={false}>
                         <LabelList content={(props) => renderLabel(props, 'mc', '#a78bfa')} />
                     </Line>
                 </ComposedChart>

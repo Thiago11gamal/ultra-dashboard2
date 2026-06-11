@@ -51,7 +51,6 @@ export default defineConfig({
           pdf: ['html-to-image', 'jspdf'],
           motion: ['framer-motion'],
           firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
-          particles: ['tsparticles', 'react-tsparticles'],
         },
       },
     },

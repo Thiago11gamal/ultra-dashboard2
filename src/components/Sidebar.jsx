@@ -164,7 +164,7 @@ export default function Sidebar({
 
             <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}>
                 {/* Logo Area */}
-                <div className="flex items-center justify-between mb-2 px-1">
+                <div className="flex items-center justify-between mb-4">
                     <div className="sidebar-logo">
                         <img src={logo} alt="Ultra Dashboard" />
                         <span>Método Arraia</span>
@@ -185,7 +185,7 @@ export default function Sidebar({
                 <div className="sidebar-divider"></div>
 
                 {/* Nav Sections */}
-                <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pl-1 pr-3">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
 
                     {/* MEUS CONCURSOS COLLAPSIBLE SECTION */}
                     <div className="mb-2">

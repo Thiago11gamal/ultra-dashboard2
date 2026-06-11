@@ -9,16 +9,34 @@ import { displaySubject } from '../utils/displaySubject';
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
 const DAYS = [
-    { id: 'mon', label: 'SEG', full: 'Segunda',  gradient: 'from-violet-600 to-indigo-600',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25', text: 'text-violet-300',  dot: 'bg-violet-500',  over: 'bg-violet-500/10 border-violet-500/40'  },
-    { id: 'tue', label: 'TER', full: 'Terça',    gradient: 'from-sky-500 to-cyan-500',       bg: 'bg-sky-500/10',     border: 'border-sky-500/25',    text: 'text-sky-300',    dot: 'bg-sky-500',     over: 'bg-sky-500/10 border-sky-500/40'        },
-    { id: 'wed', label: 'QUA', full: 'Quarta',   gradient: 'from-pink-500 to-rose-500',      bg: 'bg-pink-500/10',    border: 'border-pink-500/25',   text: 'text-pink-300',   dot: 'bg-pink-500',    over: 'bg-pink-500/10 border-pink-500/40'      },
-    { id: 'thu', label: 'QUI', full: 'Quinta',   gradient: 'from-orange-500 to-amber-500',   bg: 'bg-orange-500/10',  border: 'border-orange-500/25', text: 'text-orange-300', dot: 'bg-orange-500',  over: 'bg-orange-500/10 border-orange-500/40'  },
-    { id: 'fri', label: 'SEX', full: 'Sexta',    gradient: 'from-emerald-500 to-teal-500',   bg: 'bg-emerald-500/10', border: 'border-emerald-500/25',text: 'text-emerald-300',dot: 'bg-emerald-500', over: 'bg-emerald-500/10 border-emerald-500/40'},
-    { id: 'sat', label: 'SAB', full: 'Sábado',   gradient: 'from-cyan-500 to-blue-500',      bg: 'bg-cyan-500/10',    border: 'border-cyan-500/25',   text: 'text-cyan-300',   dot: 'bg-cyan-500',    over: 'bg-cyan-500/10 border-cyan-500/40'      },
-    { id: 'sun', label: 'DOM', full: 'Domingo',  gradient: 'from-rose-500 to-red-500',       bg: 'bg-rose-500/10',    border: 'border-rose-500/25',   text: 'text-rose-300',   dot: 'bg-rose-500',    over: 'bg-rose-500/10 border-rose-500/40'      },
+    { id: 'mon', label: 'SEG', full: 'Segunda',  gradient: 'from-violet-600 to-indigo-600',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25', text: 'text-violet-300',  dot: 'bg-violet-500',  over: 'bg-violet-500/10 border-violet-500/40', cardBg: 'bg-violet-500/[0.08]', cardBorder: 'border-violet-500/20', cardHover: 'hover:border-violet-500/40 hover:bg-violet-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(139,92,246,0.3)]' },
+    { id: 'tue', label: 'TER', full: 'Terça',    gradient: 'from-sky-500 to-cyan-500',       bg: 'bg-sky-500/10',     border: 'border-sky-500/25',    text: 'text-sky-300',    dot: 'bg-sky-500',     over: 'bg-sky-500/10 border-sky-500/40',       cardBg: 'bg-sky-500/[0.08]',     cardBorder: 'border-sky-500/20',    cardHover: 'hover:border-sky-500/40 hover:bg-sky-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(14,165,233,0.3)]' },
+    { id: 'wed', label: 'QUA', full: 'Quarta',   gradient: 'from-pink-500 to-rose-500',      bg: 'bg-pink-500/10',    border: 'border-pink-500/25',   text: 'text-pink-300',   dot: 'bg-pink-500',    over: 'bg-pink-500/10 border-pink-500/40',      cardBg: 'bg-pink-500/[0.08]',    cardBorder: 'border-pink-500/20',   cardHover: 'hover:border-pink-500/40 hover:bg-pink-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(236,72,153,0.3)]' },
+    { id: 'thu', label: 'QUI', full: 'Quinta',   gradient: 'from-orange-500 to-amber-500',   bg: 'bg-orange-500/10',  border: 'border-orange-500/25', text: 'text-orange-300', dot: 'bg-orange-500',  over: 'bg-orange-500/10 border-orange-500/40',  cardBg: 'bg-orange-500/[0.08]',  cardBorder: 'border-orange-500/20', cardHover: 'hover:border-orange-500/40 hover:bg-orange-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(249,115,22,0.3)]' },
+    { id: 'fri', label: 'SEX', full: 'Sexta',    gradient: 'from-emerald-500 to-teal-500',   bg: 'bg-emerald-500/10', border: 'border-emerald-500/25',text: 'text-emerald-300',dot: 'bg-emerald-500', over: 'bg-emerald-500/10 border-emerald-500/40',cardBg: 'bg-emerald-500/[0.08]', cardBorder: 'border-emerald-500/20',cardHover: 'hover:border-emerald-500/40 hover:bg-emerald-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(16,185,129,0.3)]' },
+    { id: 'sat', label: 'SAB', full: 'Sábado',   gradient: 'from-cyan-500 to-blue-500',      bg: 'bg-cyan-500/10',    border: 'border-cyan-500/25',   text: 'text-cyan-300',   dot: 'bg-cyan-500',    over: 'bg-cyan-500/10 border-cyan-500/40',      cardBg: 'bg-cyan-500/[0.08]',    cardBorder: 'border-cyan-500/20',   cardHover: 'hover:border-cyan-500/40 hover:bg-cyan-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(6,182,212,0.3)]' },
+    { id: 'sun', label: 'DOM', full: 'Domingo',  gradient: 'from-rose-500 to-red-500',       bg: 'bg-rose-500/10',    border: 'border-rose-500/25',   text: 'text-rose-300',   dot: 'bg-rose-500',    over: 'bg-rose-500/10 border-rose-500/40',      cardBg: 'bg-rose-500/[0.08]',    cardBorder: 'border-rose-500/20',   cardHover: 'hover:border-rose-500/40 hover:bg-rose-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(244,63,94,0.3)]' },
 ];
 
-const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro }) => {
+import ReactDOM from 'react-dom';
+
+const getPortalRoot = () => {
+    let el = document.getElementById('dnd-portal');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'dnd-portal';
+        // Make sure the portal sits on top of everything
+        el.style.position = 'absolute';
+        el.style.top = '0';
+        el.style.left = '0';
+        el.style.width = '100%';
+        el.style.zIndex = '999999';
+        document.body.appendChild(el);
+    }
+    return el;
+};
+
+const TaskCard = ({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro }) => {
     const fullText = task.text || task.title || '';
     const parts = fullText.split(':');
     const hasDetails = parts.length > 1;
@@ -41,6 +59,13 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
     const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
     const secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
 
+    const cardBg = !isBacklog && dayTheme ? dayTheme.cardBg : 'bg-white/[0.02]';
+    const cardBorder = !isBacklog && dayTheme ? dayTheme.cardBorder : 'border-white/[0.05]';
+    const cardHover = !isBacklog && dayTheme ? dayTheme.cardHover : 'hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]';
+    const accentColor = !isBacklog && dayTheme ? dayTheme.text : 'text-violet-300';
+    const accentBorder = !isBacklog && dayTheme ? dayTheme.border : 'border-violet-500/30';
+    const gradientLine = !isBacklog && dayTheme ? dayTheme.gradient : 'from-violet-600 to-indigo-600';
+
     return (
         <Draggable draggableId={stableId} index={index}>
             {(provided, snapshot) => {
@@ -52,25 +77,25 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                         className={`pb-4 ${snapshot.isDragging ? 'z-[99999]' : ''}`}
                         style={provided.draggableProps.style}
                     >
-                        <div className={`group relative p-4 sm:p-5 rounded-xl select-none overflow-hidden h-full ${
+                        <div className={`group relative p-4 sm:p-5 rounded-xl select-none overflow-hidden h-full border ${
                             snapshot.isDragging 
-                                ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 backdrop-blur-xl' 
-                                : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-colors duration-500'
+                                ? `bg-slate-900/95 border-2 ${accentBorder} shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-[1.05] rotate-1 backdrop-blur-xl` 
+                                : `${cardBg} ${cardBorder} ${cardHover} hover:-translate-y-0.5 transition-all duration-300`
                         }`}>
-                            {!isBacklog && dayColor && (
-                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b ${dayColor} opacity-70 group-hover:opacity-100 transition-opacity`} />
+                            {!isBacklog && dayTheme && (
+                                <div className={`absolute left-0 top-0 bottom-0 w-[4px] bg-gradient-to-b ${gradientLine} opacity-80 group-hover:opacity-100 transition-opacity shadow-[0_0_10px_rgba(255,255,255,0.1)]`} />
                             )}
                             
                             {/* Glossy background detail */}
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.01] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.03] transition-all duration-700" />
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.02] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.04] transition-all duration-700 pointer-events-none" />
 
-                            <div className="flex flex-col gap-5 relative z-10">
+                            <div className="flex flex-col gap-4 relative z-10">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-[0.18em] ${
-                                        isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-white/10 text-slate-200 border-white/10'
+                                        isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : `bg-black/40 ${accentColor} ${accentBorder}`
                                     } border backdrop-blur-md shadow-sm w-fit max-w-[calc(100%-48px)] group-hover:border-white/20 transition-colors`}>
-                                        <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-400'} shrink-0`} />
-                                        <span className="leading-none truncate block drop-shadow-sm">{displaySubject(subject)}</span>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
+                                        <span className="leading-none truncate block drop-shadow-sm brightness-150">{displaySubject(subject)}</span>
                                     </div>
                                     
                                     <button 
@@ -78,19 +103,23 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                                             e.stopPropagation();
                                             onStartPomodoro?.(task);
                                         }}
-                                        className="relative w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all duration-300 shrink-0 shadow-lg group/play"
+                                        className={`relative w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 shrink-0 shadow-lg group/play ${
+                                            !isBacklog && dayTheme ? `bg-white/5 border ${dayTheme.border} ${dayTheme.text} hover:${dayTheme.bg}` : 'bg-violet-500/10 border-violet-500/20 text-violet-400 hover:bg-violet-500 hover:text-white'
+                                        }`}
                                     >
-                                        <div className="absolute inset-0 bg-violet-500 blur-md opacity-0 group-hover/play:opacity-20 transition-opacity" />
-                                        <Play size={14} className="fill-current relative z-10 translate-x-0.5" />
+                                        <div className={`absolute inset-0 blur-md opacity-0 group-hover/play:opacity-30 transition-opacity rounded-lg ${!isBacklog && dayTheme ? dayTheme.bg : 'bg-violet-500'}`} />
+                                        <Play size={14} className="fill-current relative z-10 translate-x-[1px]" />
                                     </button>
                                 </div>
 
-                                <div className="flex flex-col gap-2">
-                                    <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors">
+                                <div className="flex flex-col gap-1.5 pl-1">
+                                    <h4 className={`text-[13px] font-black leading-snug uppercase tracking-widest transition-colors ${
+                                        !isBacklog && dayTheme ? 'text-white group-hover:text-slate-200 drop-shadow-md' : 'text-slate-100 group-hover:text-white'
+                                    }`}>
                                         {displayTopic}
                                     </h4>
                                     {secondaryText && (
-                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] line-clamp-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                        <p className="text-[10.5px] text-slate-400 font-bold uppercase tracking-[0.15em] line-clamp-2 opacity-80 group-hover:opacity-100 group-hover:text-slate-300 transition-all">
                                             {secondaryText}
                                         </p>
                                     )}
@@ -99,6 +128,10 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                         </div>
                     </div>
                 );
+
+                if (snapshot.isDragging) {
+                    return ReactDOM.createPortal(child, getPortalRoot());
+                }
 
                 return child;
             }}
@@ -293,7 +326,7 @@ export default function AICoachPlanner() {
                                                         {...provided.droppableProps} 
                                                         className="relative z-10 h-full flex flex-col min-h-[100px]"
                                                     >
-                                                        {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayColor={day.gradient} onStartPomodoro={(t) => handleStartTask(t, day.id)} />; })}
+                                                        {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} onStartPomodoro={(t) => handleStartTask(t, day.id)} />; })}
                                                         {provided.placeholder}
                                                     </div>
                                                 </div>

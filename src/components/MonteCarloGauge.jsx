@@ -317,8 +317,8 @@ export default function MonteCarloGauge({
                         { label: "IC 95%", val: `${formatValue(ciLowSafe)}–${formatValue(ciHighSafe)}${unit}`, color: "text-green-500/80", small: true }
                     ].map((m, i) => (
                     <div key={i} className="bg-black/30 p-2 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[56px]">
-                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">{m.label}</span>
-                        <span className={`${m.small ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm'} font-black ${m.color} truncate w-full text-center`}>{m.val}</span>
+                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1 text-center">{m.label}</span>
+                        <span className={`${m.small ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm'} font-black ${m.color} w-full text-center break-words leading-tight`}>{m.val}</span>
                     </div>
                 ))}
             </div>

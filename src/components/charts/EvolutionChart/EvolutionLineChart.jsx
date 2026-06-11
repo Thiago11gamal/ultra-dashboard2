@@ -261,14 +261,13 @@ export function EvolutionLineChart({
                                     dataKey={`band_${cat.id}`}
                                     name="_IC 95%" stroke="none"
                                     fill={`url(#bayBand_${cat.id}_${instanceId})`} legendType="none"
-                                    connectNulls
                                     isAnimationActive={false}
                                 />
                             ) : null,
                             // Background Gradient Area for Focused Line
                             isFocused ? (
                                 <Area connectNulls key={`area_${cat.id}`} type={lineType} dataKey={dataKey} name={`_area_${cat.id}`} stroke="none"
-                                    fill={`url(#grad_${cat.id}_${instanceId})`} legendType="none" connectNulls />
+                                    fill={`url(#grad_${cat.id}_${instanceId})`} legendType="none" />
                             ) : null,
                             // The Performance Evolution Line
                             <Line connectNulls 
@@ -283,7 +282,6 @@ export function EvolutionLineChart({
                                 strokeOpacity={lineOpacity}
                                 dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
                                 activeDot={{ r: 5, fill: displayColor, stroke: '#ffffff', strokeWidth: 2, strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
-                                connectNulls
                                 style={{ filter: (isFocused || !hasFocus) ? `url(#${shadowId})` : 'none', transition: 'all 0.5s ease' }}
                                 isAnimationActive={true}
                                 animationDuration={800}

@@ -270,6 +270,8 @@ export default function VerifiedStats({ categories = [], user }) {
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const equalWeightsMode = useAppStore(state => !!state.appState?.mcEqualWeights);
     const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
+    const historicalCutoffs = useAppStore(state => state.appState?.contests?.[activeId]?.historicalCutoffs) || [];
+    const setHistoricalCutoffs = useAppStore(state => state.setHistoricalCutoffs);
 
     const getEqualWeights = React.useCallback(() => {
         if (categories.length === 0) return {};
@@ -764,6 +766,10 @@ export default function VerifiedStats({ categories = [], user }) {
                 weights={weights}
                 updateWeight={updateWeight}
                 categories={categories}
+                historicalCutoffs={historicalCutoffs}
+                setHistoricalCutoffs={setHistoricalCutoffs}
+                minScore={0}
+                maxScore={maxScore}
                 user={user}
             />
 

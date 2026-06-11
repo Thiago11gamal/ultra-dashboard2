@@ -171,11 +171,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             }
                         </div>
                     </div>
-                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-2 truncate">
+                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-2 truncate min-w-0 pb-0.5">
                         {formatValue(efficiency?.score || 0)}<span className="text-lg sm:text-2xl text-slate-300 font-bold ml-1">%</span>
                     </div>
-                    <div className="mt-auto pt-1 pb-1 flex flex-col gap-1 pl-2">
-                        <div className={`text-[10px] sm:text-xs ${effTheme.iconColor} capitalize leading-normal truncate font-extrabold`}>
+                    <div className="mt-auto pt-1 pb-1 flex flex-col gap-1 pl-2 min-w-0">
+                        <div className={`text-[10px] sm:text-xs ${effTheme.iconColor} capitalize leading-normal truncate min-w-0 font-extrabold pb-0.5`}>
                             {typeof efficiency?.efficiency === 'string' ? efficiency.efficiency.replace(/_/g, ' ') : 'Sem dados'}
                         </div>
                         {efficiency?.metrics?.minutesPerTask > 0 && (
@@ -205,13 +205,13 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     </div>
                     {/* [CORREÇÃO VISUAL-BUG-4] Separar Flex de Line-Clamp */}
                     <div className="mt-1 mb-1 min-h-[2.5rem] flex flex-col justify-center">
-                        <div className={`capitalize leading-none line-clamp-2 ${balance?.status ? 'text-xl sm:text-2xl font-black text-white' : 'text-sm sm:text-base font-bold text-slate-500'}`}>
+                        <div className={`capitalize leading-tight line-clamp-2 pb-0.5 ${balance?.status ? 'text-xl sm:text-2xl font-black text-white' : 'text-sm sm:text-base font-bold text-slate-500'}`}>
                             {balance?.status?.replace(/_/g, ' ') || 'Sem Dados'}
                         </div>
                     </div>
-                    <div className="mt-auto pt-1 pb-1 flex flex-col gap-1 pl-2">
+                    <div className="mt-auto pt-1 pb-1 flex flex-col gap-1 pl-2 min-w-0">
                         {balance?.distribution?.[0] && (
-                            <div className="text-[10px] sm:text-xs text-slate-400 font-medium leading-normal truncate">
+                            <div className="text-[10px] sm:text-xs text-slate-400 font-medium leading-normal truncate min-w-0">
                                 {balance.distribution[0].subject}: <span className="font-bold text-slate-300">{formatValue(balance.distribution[0].percentage || 0)}%</span>
                             </div>
                         )}
@@ -242,7 +242,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             <strong>Status NÍVEL {progress.level}</strong>: Representa sua experiência geral. Complete tarefas e ciclos de estudo para evoluir de nível!
                         </div>
                     </div>
-                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3 truncate" title={`${(user.xp || 0).toLocaleString('pt-BR')} XP`}>
+                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3 truncate min-w-0 pb-0.5" title={`${(user.xp || 0).toLocaleString('pt-BR')} XP`}>
                         {(user.xp || 0).toLocaleString('pt-BR')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
                     </div>
                     <div className="space-y-1 mt-auto pt-1 pb-1 pl-2">

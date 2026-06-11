@@ -66,8 +66,8 @@ function MetricChip({ label, value, index }) {
             className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-4 transition-all cursor-default relative overflow-hidden group/chip"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
-            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors pl-1">{label}</span>
-            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate pl-1">{value}</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors pl-1">{label}</span>
+            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate min-w-0 block pl-1">{value}</span>
         </Motion.div>
     );
 }

@@ -6,7 +6,7 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
     return (
         <div key={cat.id || cat.name} className={`bg-slate-800/40 backdrop-blur-md p-3 rounded-2xl border border-white/[0.03] flex flex-col sm:flex-row items-center gap-4 hover:border-indigo-500/20 transition-all ${weight === 0 ? 'opacity-50 grayscale' : ''}`}>
             <div className="flex items-center gap-4 w-full sm:w-auto">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm shadow-inner shrink-0" style={{ backgroundColor: `${cat.color || '#3b82f6'}15`, border: `1px solid ${cat.color || '#3b82f6'}20` }}>{cat.icon || '📚'}</div>
+                <div className="min-w-[40px] h-10 px-2 rounded-xl flex items-center justify-center text-sm shadow-inner shrink-0 whitespace-nowrap overflow-hidden" style={{ backgroundColor: `${cat.color || '#3b82f6'}15`, border: `1px solid ${cat.color || '#3b82f6'}20` }}>{cat.icon || '📚'}</div>
                 <div className="flex-1 sm:hidden">
                     <p className="text-[11px] font-black text-slate-200 uppercase tracking-tight mb-0.5 truncate">{cat.name || 'Matéria'}</p>
                     <p className="text-[9px] font-black text-slate-500">{normalizedShare}% da Classificação</p>
@@ -209,7 +209,7 @@ export const MonteCarloConfig = ({
                         </div>
                     </div>
 
-                    <div className="bg-slate-950/40 p-5 rounded-3xl mb-8 border border-white/[0.03] shadow-inner relative overflow-hidden">
+                    <div className="bg-slate-950/40 p-5 rounded-md mb-8 border border-white/[0.03] shadow-inner relative overflow-hidden">
                         <div className="flex items-center gap-2 mb-4">
                             <Activity size={18} className="text-purple-400" />
                             <div>
@@ -233,7 +233,7 @@ export const MonteCarloConfig = ({
                                         }
                                     }
                                 }}
-                                className="bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-bold w-full outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all placeholder:text-slate-600"
+                                className="bg-slate-900 border border-white/10 rounded-md px-4 py-2.5 text-sm text-white font-bold w-full outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all placeholder:text-slate-600"
                             />
                             <button
                                 type="button"
@@ -244,20 +244,20 @@ export const MonteCarloConfig = ({
                                         setNewCutoff('');
                                     }
                                 }}
-                                className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-4 py-2.5 transition-all shadow-lg shadow-purple-500/20 shrink-0 font-black flex items-center justify-center active:scale-95"
+                                className="bg-purple-600 hover:bg-purple-500 text-white rounded-md px-4 py-2.5 transition-all shadow-lg shadow-purple-500/20 shrink-0 font-black flex items-center justify-center active:scale-95"
                             >
                                 <Plus size={20} />
                             </button>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {historicalCutoffs.length === 0 ? (
-                                <p className="text-xs font-bold text-slate-500 italic w-full text-center py-2 bg-slate-900/50 rounded-lg">
+                                <p className="text-xs font-bold text-slate-500 italic w-full text-center py-2 bg-slate-900/50 rounded-md">
                                     Adicione notas de corte anteriores para simular incerteza real na prova.
                                 </p>
                             ) : (
                                 historicalCutoffs.map((cutoff, idx) => (
-                                    <div key={idx} className="bg-slate-800/80 border border-white/5 rounded-lg px-3 py-1.5 flex items-center gap-2 group/tag">
-                                        <span className="text-sm font-black text-slate-200">{cutoff}%</span>
+                                    <div key={idx} className="bg-slate-800/80 border border-white/5 rounded-md px-3 py-1.5 flex items-center gap-2 group/tag shrink-0 whitespace-nowrap">
+                                        <span className="text-sm font-black text-slate-200">{cutoff}{maxScore === 100 ? '%' : ''}</span>
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -265,7 +265,7 @@ export const MonteCarloConfig = ({
                                                 newArr.splice(idx, 1);
                                                 setHistoricalCutoffs(newArr);
                                             }}
-                                            className="text-slate-500 hover:text-red-400 opacity-50 group-hover/tag:opacity-100 transition-all"
+                                            className="text-slate-500 hover:text-red-400 opacity-50 group-hover/tag:opacity-100 transition-all shrink-0"
                                         >
                                             <Minus size={14} />
                                         </button>
@@ -273,7 +273,7 @@ export const MonteCarloConfig = ({
                                 ))
                             )}
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium bg-black/20 p-3 rounded-xl border border-white/[0.02]">
+                        <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium bg-black/20 p-3 rounded-md border border-white/[0.02]">
                             Se você inserir notas aqui, o motor Monte Carlo irá <b>sortear a nota de corte alvo</b> a cada simulação a partir de uma Distribuição Normal baseada nestes valores, ignorando o Target fixo do slider. Isso gera previsões hiper-realistas para bancas voláteis.
                         </p>
                     </div>

@@ -446,7 +446,6 @@ export const SubtopicsPerformanceChart = React.memo(({
                                                     strokeWidth={3}
                                                     dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}
                                                     activeDot={{ r: 5, fill: color, stroke: '#ffffff', strokeWidth: 2 }}
-                                                    connectNulls={true}
                                                     animationDuration={1500}
                                                     animationEasing="ease-in-out"
                                                 />

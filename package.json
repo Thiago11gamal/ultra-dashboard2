@@ -39,14 +39,12 @@
     "test:coach-suite": "node scripts/test-coach-suite.mjs"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "@hello-pangea/dnd": "^18.0.1",
     "@stripe/stripe-js": "^8.9.0",
     "date-fns": "^4.1.0",
     "firebase": "^12.6.0",
     "framer-motion": "^12.23.25",
     "html-to-image": "^1.11.13",
-    "html2pdf.js": "^0.12.1",
     "idb-keyval": "^6.2.2",
     "immer": "^11.1.4",
     "jspdf": "^4.2.1",
@@ -56,11 +54,7 @@
     "react-is": "^19.2.4",
     "react-joyride": "^2.9.3",
     "react-router-dom": "^7.13.0",
-    "react-tsparticles": "^2.12.2",
     "recharts": "^3.5.1",
-    "three": "^0.181.2",
-    "tsparticles": "^3.9.1",
-    "tsparticles-slim": "^2.12.0",
     "zundo": "^2.3.0",
     "zustand": "^5.0.11"
   },

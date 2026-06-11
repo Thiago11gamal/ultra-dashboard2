@@ -924,7 +924,7 @@ export default function EvolutionChart({
                                              <span className={stat.color}>{stat.icon}</span>
                                              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</span>
                                          </div>
-                                         <span className={`text-base sm:text-lg font-black ${stat.color} tracking-tight truncate w-full block`} title={stat.val}>
+                                         <span className={`text-base sm:text-lg font-black ${stat.color} tracking-tight break-words w-full block leading-tight`} title={stat.val}>
                                              {stat.val}
                                          </span>
                                      </div>
