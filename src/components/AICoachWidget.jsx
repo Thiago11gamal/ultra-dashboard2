@@ -61,13 +61,13 @@ function MetricChip({ label, value, index }) {
         <Motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.05, duration: 0.4 }}
+            transition={{ delay: index * 0.05, duration: 0.3 }}
             whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-            className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-4 transition-all cursor-default relative overflow-hidden group/chip"
+            className="group/chip relative flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-md p-3 sm:p-4 transition-all cursor-default overflow-hidden"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
-            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors pl-1">{label}</span>
-            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate min-w-0 block pl-1">{value}</span>
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 leading-none truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors">{label}</span>
+            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate min-w-0 block">{value}</span>
         </Motion.div>
     );
 }
@@ -326,11 +326,13 @@ export default function AICoachWidget({ suggestion }) {
                         <div className="pt-4">
                             <button
                                 onClick={() => setShowMatrix(!showMatrix)}
-                                className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 hover:text-white transition-all py-3 px-6 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-white/20"
+                                className="flex items-center justify-between w-full sm:w-auto gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all py-3 px-4 sm:px-6 rounded-md bg-white/[0.03] border border-white/[0.05] hover:border-white/20"
                             >
-                                <BrainCircuit size={14} className={`${showMatrix ? cfg.accent : 'text-slate-600'} transition-colors`} />
-                                Matriz de Telemetria
-                                <Motion.div animate={{ rotate: showMatrix ? 180 : 0 }} transition={{ duration: 0.3 }}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <BrainCircuit size={14} className={`shrink-0 ${showMatrix ? cfg.accent : 'text-slate-600'} transition-colors`} />
+                                    <span className="truncate">Matriz de Telemetria</span>
+                                </div>
+                                <Motion.div animate={{ rotate: showMatrix ? 180 : 0 }} transition={{ duration: 0.3 }} className="shrink-0">
                                     <ChevronDown size={14} />
                                 </Motion.div>
                             </button>
@@ -344,9 +346,11 @@ export default function AICoachWidget({ suggestion }) {
                                         transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                                         className="overflow-hidden"
                                     >
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 pt-6">
+                                        <div className="flex flex-wrap gap-2 sm:gap-3 pt-6">
                                             {sortedHumanReadable.map(([k, v], i) => (
-                                                <MetricChip key={`metric-${k}-${i}`} label={k} value={v} index={i} />
+                                                <div key={`metric-${k}-${i}`} className="flex-1 min-w-[130px] sm:min-w-[150px] max-w-full">
+                                                    <MetricChip label={k} value={v} index={i} />
+                                                </div>
                                             ))}
                                         </div>
                                         {urgency?.monteCarlo?.explainability?.note && (
