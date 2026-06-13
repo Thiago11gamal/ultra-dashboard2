@@ -621,12 +621,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             setInternalSyncing(true);
             logger.debug(`[Sync] Iniciando conexão segura com a nuvem...`);
-            await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
+            // FIRE-AND-FORGET no mobile: iOS mata a thread no 'hidden'.
+            // Atualizamos a ref OTIMISTICAMENTE para não causar deadlock infinito 
+            // se o Promise nunca resolver devido ao App Suspense.
             lastSyncedRef.current = currentStateString;
+            setDoc(doc(db, 'backups', currentUser.uid), stateToSave)
+                .catch(e => logger.error("[Sync] Erro no emergency-save:", e))
+                .finally(() => {
+                    if (isMountedRef.current) setInternalSyncing(false);
+                });
         } catch (e) {
-            logger.error("[Sync] Erro no emergency-save:", e);
-        } finally {
-            if (isMountedRef.current) setInternalSyncing(false);
+            logger.error("[Sync] Erro na montagem do emergency-save:", e);
         }
     }, [currentUser?.uid, setInternalSyncing]);
 
@@ -636,6 +641,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
                 performEmergencySync();
+            } else if (document.visibilityState === 'visible') {
+                // BUG FIX: iOS Safari suspende Promises no background.
+                // Ao voltar para o app, se a Promise ficou pendurada, 
+                // forçamos o desbloqueio do Sync State para não brickar o save.
+                setInternalSyncing(false);
             }
         };
 
@@ -719,6 +729,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             let attempt = 0;
             let lastError = null;
 
+            // Helper to prevent Firebase SDK hanging indefinitely on mobile network drops
+            const setDocWithTimeout = (docRef, data, timeoutMs = 15000) => {
+                return Promise.race([
+                    setDoc(docRef, data),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs))
+                ]);
+            };
+
             setInternalSyncing(true);
             while (attempt < MAX_RETRIES) {
                 try {
@@ -758,7 +776,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                     }));
 
                     logger.debug(`[Sync] Tentativa ${attempt + 1}/${MAX_RETRIES} para Master-Save...`);
-                    await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
+                    await setDocWithTimeout(doc(db, 'backups', currentUser.uid), stateToSave, 15000);
                     logger.styled(`[Sync] Sincronização MASTER com sucesso.`, "color: #22c55e; font-weight: bold;");
                     
                     lastSyncedRef.current = currentStateString;

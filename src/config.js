@@ -1,6 +1,6 @@
 // Global application configuration and constants
 
-export const SYNC_LOG_CAP = 5000;
+export const SYNC_LOG_CAP = 500;
 export const MAX_BACKUP_SIZE = 5 * 1024 * 1024; // 5MB limit for JSON backups
 export const DEBUG_MODE = import.meta.env?.DEV || false;
 
