@@ -559,10 +559,12 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
 
     // [BUG-1A FIX] Pré-calcular o drift logístico fora do loop de simulações (determinístico)
     const driftsDiarios = new Float64Array(diasProjecao + 1);
+    const mediasDiarias = new Float64Array(diasProjecao + 1);
     for (let d = 1; d <= diasProjecao; d++) {
         const logisticaOntem = limiteAssintotico / (1 + Math.exp(-taxaCrescimento * (d - 1)) * ((limiteAssintotico - n0) / n0));
         const logisticaHoje  = limiteAssintotico / (1 + Math.exp(-taxaCrescimento * d) * ((limiteAssintotico - n0) / n0));
         driftsDiarios[d] = logisticaHoje - logisticaOntem;
+        mediasDiarias[d] = logisticaHoje;
     }
     
     // [BUG-3 & 4 FIX] Injetar Memória Estocástica (AR-1) e Absorção Fria (Piso/Teto)
@@ -593,7 +595,7 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
             
             // CORREÇÃO: Âncora de estabilização estocástica (Ornstein-Uhlenbeck simplificado).
             // Impede que o desvio padrão cresça indefinidamente sob a raiz do tempo.
-            const forcaGravitacional = 0.05 * (limiteAssintotico - notaAtual);
+            const forcaGravitacional = 0.05 * (mediasDiarias[dia] - notaAtual);
             effectiveDrift += forcaGravitacional;
 
             if (notaAtual <= (0.05 * escala) && driftDiario < 0) {
