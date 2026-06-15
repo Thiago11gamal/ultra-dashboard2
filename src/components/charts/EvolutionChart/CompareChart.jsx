@@ -225,8 +225,19 @@ export function CompareChart({
                         </filter>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                    <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dy={12} axisLine={false} tickLine={false} minTickGap={35} />
-                    
+                    <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(val) => {
+                            if (!val) return '';
+                            const parts = String(val).split('-');
+                            return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : val;
+                        }}
+                        tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} 
+                        dy={12} 
+                        axisLine={false} 
+                        tickLine={false} 
+                        minTickGap={35} 
+                    />
                     <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[safeMinScore, safeMaxScore]} allowDataOverflow={true} tickFormatter={(v) => `${v}${unit}`} width={50} />
                     
                     <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"

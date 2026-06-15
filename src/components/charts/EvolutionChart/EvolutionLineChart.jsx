@@ -201,7 +201,12 @@ export function EvolutionLineChart({
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
 
                     <XAxis
-                        dataKey="displayDate"
+                        dataKey="date"
+                        tickFormatter={(val) => {
+                            if (!val) return '';
+                            const parts = String(val).split('-');
+                            return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : val;
+                        }}
                         tick={{ fontSize: 10, fill: '#64748b' }}
                         dy={12}
                         axisLine={false}

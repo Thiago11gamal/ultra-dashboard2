@@ -278,7 +278,13 @@ export const MonteCarloEvolutionChart = ({
                             <ReferenceArea y1={targetScore} y2={maxScore} fill={`url(#targetGlow-${rawId})`} />
                             <ReferenceLine y={targetScore} stroke="#10b981" strokeDasharray="4 4" strokeWidth={2} style={{ filter: 'drop-shadow(0px 0px 4px rgba(16,185,129,0.8))' }} />
                             <XAxis
-                                dataKey="displayDate"
+                                dataKey="date"
+                                tickFormatter={(val) => {
+                                    if (!val) return '';
+                                    const d = new Date(val);
+                                    if (isNaN(d.getTime())) return val;
+                                    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                }}
                                 stroke="#64748b"
                                 fontSize={11}
                                 tickLine={false}

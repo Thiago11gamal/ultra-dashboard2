@@ -404,11 +404,15 @@ export const SubtopicsPerformanceChart = React.memo(({
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
 
                                         <XAxis
-                                            dataKey="dateLabel"
+                                            dataKey="originalDate"
                                             stroke="#64748b"
                                             tick={{ fontSize: 11, fill: '#94a3b8' }}
                                             axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                             tickLine={false}
+                                            tickFormatter={(val) => {
+                                                const d = new Date(val);
+                                                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                            }}
                                         />
 
                                         <YAxis
