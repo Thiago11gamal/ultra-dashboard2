@@ -214,9 +214,9 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
     }
 
     if (pct >= dynamicSuccessThreshold) {
-      // Crescimento Elástico: Se a retenção estava em 30%, o fator é ~2.7x (reforço forte). 
-      // Se a retenção estava em 95%, o fator é ~1.1x (ganho marginal).
-      const elasticGrowth = 1 + (1.5 * Math.exp(-currentRetention));
+      // Crescimento FSRS-Lite: Reforço forte apenas quando a retenção é baixa.
+      // Se a retenção é alta (ex: 95%), o ganho é ínfimo. Se for baixa (ex: 30%), o ganho é acentuado (~2x).
+      const elasticGrowth = 1 + 2 * Math.pow(1 - currentRetention, 2);
       stability *= elasticGrowth;
     } else {
       stability *= DECAY_FACTOR;

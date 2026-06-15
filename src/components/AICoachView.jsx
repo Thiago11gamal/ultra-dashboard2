@@ -155,6 +155,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         let targetIndex = unallocatedTasks.findIndex(t => getSafeId(t) === getSafeId(task));
         let sessionTasks = unallocatedTasks;
 
+        let sourceContext = 'backlog';
+
         if (targetIndex === -1) {
             // BUG-DESYNC FIX: Se não estiver nos não-alocados, buscar ativamente em qual dia do planner está
             const dayEntry = Object.entries(coachPlanner).find(([, tasks]) => 
@@ -163,6 +165,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             if (dayEntry) {
                 sessionTasks = dayEntry[1];
                 targetIndex = sessionTasks.findIndex(t => getSafeId(t) === getSafeId(task));
+                sourceContext = dayEntry[0];
             } else {
                 // Fallback: se não estiver no unallocated nem em nenhum dia, usa o coachPlan inteiro
                 sessionTasks = coachPlan;
@@ -172,7 +175,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
         if (!Array.isArray(sessionTasks) || sessionTasks.length === 0) return;
         const safeIndex = targetIndex !== -1 ? targetIndex : 0;
-        startNeuralSession(sessionTasks, safeIndex);
+        
+        // FIX: Inject sourceContext just like in AICoachPlanner.jsx
+        const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext }));
+        
+        startNeuralSession(sessionWithContext, safeIndex);
         navigate('/pomodoro');
     };
 
