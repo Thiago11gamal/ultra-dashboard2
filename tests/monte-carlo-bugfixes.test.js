@@ -18,7 +18,7 @@ describe('Monte Carlo Bugfixes Validation', () => {
         expect(res.volatility).toBeGreaterThan(3.5);
     });
 
-    it('Bug 2: simularMonteCarlo deve usar QuickSelect (implicitamente validado por não travar)', () => {
+    it('Bug 2: simularMonteCarlo deve usar ordenação otimizada com Float64Array (implicitamente validado por não travar)', () => {
         const history = [80, 85, 90];
         const res = simularMonteCarlo({ volumeSemanasAnteriores: history }, 1000);
         
