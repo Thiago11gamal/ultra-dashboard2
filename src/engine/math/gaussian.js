@@ -21,6 +21,47 @@ export function normalCDF_complement(z) {
 }
 
 /**
+ * Standard Normal PDF: φ(z) = (1/√(2π)) · exp(-z²/2)
+ */
+export function normalPDF(z) {
+    if (!Number.isFinite(z)) return 0;
+    return 0.3989422804014327 * Math.exp(-0.5 * z * z);
+}
+
+/**
+ * Média Exata da Normal Truncada em [a, b] com parâmetros (μ, σ).
+ * Fórmula: E[X] = μ + σ · (φ(α) - φ(β)) / (Φ(β) - Φ(α))
+ * onde α = (a - μ)/σ, β = (b - μ)/σ
+ *
+ * Se a diferença de CDF for desprezível (underflow), retorna o clamp de μ no intervalo.
+ * @param {number} mean - μ da normal não truncada
+ * @param {number} sd - σ da normal não truncada
+ * @param {number} a - limite inferior da truncagem
+ * @param {number} b - limite superior da truncagem
+ * @returns {number} média exata da distribuição truncada
+ */
+export function truncatedNormalMean(mean, sd, a, b) {
+    if (!Number.isFinite(sd) || sd <= 0) return Math.max(a, Math.min(b, mean));
+    
+    const alpha = (a - mean) / sd;
+    const beta = (b - mean) / sd;
+    
+    // Φ(z) = 1 - complement(z)
+    const phiAlpha = 1 - normalCDF_complement(alpha);
+    const phiBeta = 1 - normalCDF_complement(beta);
+    const denominator = phiBeta - phiAlpha;
+    
+    // Underflow: se a massa da normal no intervalo é desprezível, a média é simplesmente o clamp
+    if (denominator < 1e-15) return Math.max(a, Math.min(b, mean));
+    
+    const pdfAlpha = normalPDF(alpha);
+    const pdfBeta = normalPDF(beta);
+    
+    const truncMean = mean + sd * (pdfAlpha - pdfBeta) / denominator;
+    return Math.max(a, Math.min(b, truncMean));
+}
+
+/**
  * Gerador de ruído gaussiano (Normal(0,1)) usando a Transformada de Box-Muller.
  * [BUG-BOX-MULLER FIX] Proteção contra u1=0 que causaria Math.log(0) = -Infinity.
  */

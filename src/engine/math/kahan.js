@@ -1,12 +1,20 @@
 /**
+ * Helper: verifica se o valor é um array-like iterável com .length
+ * Suporta Array, Float64Array, Float32Array, Int32Array, etc.
+ */
+function isArrayLike(arr) {
+    return arr != null && typeof arr.length === 'number' && arr.length >= 0;
+}
+
+/**
  * Algoritmo de Soma de Kahan (Kahan Summation Algorithm)
  * Minimiza o erro de ponto flutuante (IEEE 754) em somatórios de grandes séries.
  * 
- * @param {number[]} arr - Array de números para somar.
+ * @param {number[]|Float64Array|Float32Array} arr - Array de números para somar.
  * @returns {number} Soma matematicamente precisa.
  */
 export function kahanSum(arr) {
-    if (!Array.isArray(arr) || arr.length === 0) return 0;
+    if (!isArrayLike(arr) || arr.length === 0) return 0;
     
     let sum = 0.0;
     let c = 0.0; // Um compensador para os bits de baixa ordem perdidos
@@ -26,10 +34,25 @@ export function kahanSum(arr) {
 
 /**
  * Calcula a média utilizando a Soma de Kahan para máxima precisão.
+ * Suporta Array, Float64Array, Float32Array, etc.
  */
 export function kahanMean(arr) {
-    if (!Array.isArray(arr) || arr.length === 0) return 0;
-    const clean = arr.filter(v => Number.isFinite(Number(v)));
-    if (clean.length === 0) return 0;
-    return kahanSum(clean) / clean.length;
+    if (!isArrayLike(arr) || arr.length === 0) return 0;
+    
+    // Para TypedArrays, filtrar NaN/Infinity in-line sem .filter()
+    let count = 0;
+    let sum = 0.0;
+    let c = 0.0;
+    
+    for (let i = 0; i < arr.length; i++) {
+        const val = Number(arr[i]);
+        if (!Number.isFinite(val)) continue;
+        const y = val - c;
+        const t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+        count++;
+    }
+    
+    return count === 0 ? 0 : sum / count;
 }
