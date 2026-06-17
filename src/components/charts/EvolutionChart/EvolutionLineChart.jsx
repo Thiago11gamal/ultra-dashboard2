@@ -237,7 +237,7 @@ export function EvolutionLineChart({
                         axisLine={false}
                         tickLine={false}
                         domain={[minScore, maxScore]}
-                        allowDataOverflow={true}
+                        allowDataOverflow={false}
                         tickFormatter={(v) => `${formatValue(v)}${unit}`}
                         width={45}
                     />
