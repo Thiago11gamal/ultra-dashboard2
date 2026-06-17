@@ -10,6 +10,8 @@ const toFiniteNumber = (value, fallback = 0) => {
     return Number.isFinite(n) ? n : fallback;
 };
 
+const sanitizeMinutes = (value) => Math.min(720, Math.max(0, toFiniteNumber(value, 0)));
+
 const toSafeDate = (value) => {
     if (!value) return null;
     
@@ -163,8 +165,8 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
         const dayMatch = last14Days.find(d => d.fullKey === logFullKey);
         if (dayMatch) {
             // BUGFIX: Suporte a minutes ou duration (Sincronia com motor de eficiência)
-            const minutes = toFiniteNumber(log.minutes, toFiniteNumber(log.duration, 0));
-            dayMatch.horasEstudadas += Math.max(0, minutes) / 60;
+            const minutes = sanitizeMinutes(log.minutes ?? log.duration);
+            dayMatch.horasEstudadas += minutes / 60;
         }
     });
 
@@ -190,7 +192,8 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
         if (!log || typeof log !== 'object') return;
         const cat = safeCategories.find(c => c.id === log.categoryId);
         const name = cat ? cat.name : 'Outros';
-        const actualMinutes = Math.max(0, toFiniteNumber(log.minutes, toFiniteNumber(log.duration, 0)));
+        const actualMinutes = sanitizeMinutes(log.minutes ?? log.duration);
+        if (actualMinutes <= 0) return;
         hoursMap[name] = (hoursMap[name] || 0) + actualMinutes;
     });
 
