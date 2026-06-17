@@ -2,9 +2,24 @@ import React, { useId } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
-    LabelList
+    LabelList, Brush
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
+
+const CustomActiveDot = (props) => {
+    const { cx, cy, fill, stroke } = props;
+    if (!cx || !cy) return null;
+    return (
+        <g>
+            {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}
+            <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
+                <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
+                <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
+        </g>
+    );
+};
 
 export function CompareChart({ 
     filteredChartData, 
@@ -190,7 +205,7 @@ export function CompareChart({
         <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
             <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0">
                 {/* 🎯 FIX: right: 85 impede que as Labels cortem a borda direita na renderização do MC */}
-                <ComposedChart data={chartData} margin={{ top: 20, right: 85, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
+                <ComposedChart data={chartData} syncId="evolutionSync" margin={{ top: 20, right: 85, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
                         <linearGradient id={CC.projectionPurpleGradient} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.2} />
@@ -259,17 +274,17 @@ export function CompareChart({
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={4}
                         strokeLinecap="round" strokeLinejoin="round"
                         fill={`url(#${CC.greenGradient})`} dot={{ r: 3, fill: '#0f172a', stroke: '#34d399', strokeWidth: 1.5 }}
-                        activeDot={false} connectNulls style={{ filter: `url(#${CC.lineShadow})` }} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
+                        activeDot={<CustomActiveDot fill="#34d399" />} connectNulls style={{ filter: `url(#${CC.lineShadow})` }} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
                     </Area>
                     
                     <Line connectNulls type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={3}
                         strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 5" 
-                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={false} strokeOpacity={1} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
+                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={<CustomActiveDot fill="#fb923c" />} strokeOpacity={1} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
                     </Line>
                     
-                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.4} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
+                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.4} activeDot={<CustomActiveDot fill="#818cf8" />} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'stats', '#818cf8')} />
                     </Line>
                     
@@ -293,6 +308,14 @@ export function CompareChart({
                         strokeOpacity={1} style={{ filter: `url(#${CC.glow})` }} isAnimationActive={false}>
                         <LabelList content={(props) => renderLabel(props, 'mc', '#a78bfa')} />
                     </Line>
+
+                    <Brush 
+                        dataKey="date" 
+                        height={30} 
+                        stroke="#64748b" 
+                        fill="rgba(15, 23, 42, 0.4)" 
+                        tickFormatter={(val) => val ? val.split('-').slice(1).reverse().join('/') : ''}
+                    />
                 </ComposedChart>
             </ResponsiveContainer>
         </div>

@@ -11,6 +11,8 @@ import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-re
 import { useMonteCarloWorker } from "../hooks/useMonteCarloWorker";
 import { GaussianPlot } from "./charts/GaussianPlot";
 import { useAppStore } from "../store/useAppStore";
+import { downsampleLTTB } from "../utils/downsample";
+import { motion } from "framer-motion";
 
 // Sub-components
 import { KpiCard } from "./charts/EvolutionChart/KpiCard";
@@ -320,19 +322,27 @@ export default function EvolutionChart({
     const chartData = activeEngine === "compare" ? compareData : timeline;
 
     const filteredChartData = useMemo(() => {
-        if (timeWindow === "all") return chartData;
-        const days = Number.parseInt(timeWindow, 10);
-        if (!Number.isFinite(days) || days <= 0 || chartData.length === 0) return chartData;
-        const getDateMs = (item) => {
-            if (!item?.date) return Number.NaN;
-            const ms = toDateMs(item.date);
-            return Number.isNaN(ms) ? Number.NaN : ms;
-        };
-        const lastValid = [...chartData].reverse().find(d => Number.isFinite(getDateMs(d)));
-        if (!lastValid) return chartData;
-        const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
-        return chartData.filter(d => { const ms = getDateMs(d); return Number.isFinite(ms) && ms >= limit; });
-    }, [chartData, timeWindow]);
+        let result = chartData;
+        if (timeWindow !== "all") {
+            const days = Number.parseInt(timeWindow, 10);
+            if (Number.isFinite(days) && days > 0 && chartData.length > 0) {
+                const getDateMs = (item) => {
+                    if (!item?.date) return Number.NaN;
+                    const ms = toDateMs(item.date);
+                    return Number.isNaN(ms) ? Number.NaN : ms;
+                };
+                const lastValid = [...chartData].reverse().find(d => Number.isFinite(getDateMs(d)));
+                if (lastValid) {
+                    const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
+                    result = chartData.filter(d => { const ms = getDateMs(d); return Number.isFinite(ms) && ms >= limit; });
+                }
+            }
+        }
+        
+        // 🎯 FIX: LTTB Downsampling para proteger a performance (mantém até 150 pontos max)
+        const primaryKey = activeEngine === "compare" || activeEngine === "mc_density" ? "Futuro Provável" : activeEngine === "raw" ? `raw_${focusCategory?.id}` : activeEngine === "stats" ? `stats_${focusCategory?.id}` : `bay_${focusCategory?.id}`;
+        return downsampleLTTB(result, 150, "date", primaryKey);
+    }, [chartData, timeWindow, activeEngine, focusCategory?.id]);
 
     const radarData = useMemo(() => {
         if (!categories || !categories.length) return [];
@@ -632,8 +642,18 @@ export default function EvolutionChart({
         );
     }
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 30 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+    };
+
     return (
-        <div id="evolution-chart-container" className="space-y-10 animate-fade-in relative">
+        <motion.div id="evolution-chart-container" className="space-y-10 relative" variants={containerVariants} initial="hidden" animate="visible">
             <div className="flex justify-end mb-6 relative z-20 no-print pr-1">
                 <button
                     type="button"
@@ -654,7 +674,7 @@ export default function EvolutionChart({
                 .recharts-wrapper { outline: none !important; }
             ` }} />
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
+            <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
                 <KpiCard value={safeGlobalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
                 <KpiCard value={safeGlobalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
                 <div className="col-span-2 sm:col-span-1">
@@ -663,9 +683,9 @@ export default function EvolutionChart({
                         label="Precisão Global" color="#fb923c" icon="⚡"
                     />
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="relative z-0 mb-8 sm:mb-12">
+            <motion.div variants={itemVariants} className="relative z-0 mb-8 sm:mb-12">
                 <p className="text-[10px] sm:text-xs text-slate-500 uppercase font-black tracking-[0.15em] leading-loose py-2 sm:py-3 mb-0 pl-1">
                     Nível Bayesiano por Disciplina • clique para focar
                 </p>
@@ -685,9 +705,9 @@ export default function EvolutionChart({
                         </div>
                     ))}
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="relative z-[50] rounded-2xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-md p-4 sm:p-6 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
+            <motion.div variants={itemVariants} className="relative z-[50] rounded-2xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-md p-4 sm:p-6 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
                  style={{ boxShadow: `0 0 60px -15px ${engine.color}20` }}>
                  
                  {/* Intense Ambient Glow Removido a pedido do usuário */}
@@ -1096,6 +1116,6 @@ export default function EvolutionChart({
                     />
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 }

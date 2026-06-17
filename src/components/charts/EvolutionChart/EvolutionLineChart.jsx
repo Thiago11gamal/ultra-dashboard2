@@ -2,11 +2,26 @@ import React, { useId } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
-    LabelList
+    LabelList, Brush
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
 import { normalizeDate } from '../../../utils/dateHelper';
 import { formatValue } from '../../../utils/scoreHelper';
+
+const CustomActiveDot = (props) => {
+    const { cx, cy, fill, stroke } = props;
+    if (!cx || !cy) return null;
+    return (
+        <g>
+            {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}
+            <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
+                <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
+                <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
+        </g>
+    );
+};
 
 /**
  * EvolutionLineChart
@@ -167,6 +182,7 @@ export function EvolutionLineChart({
             <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0">
                 <ComposedChart 
                     data={enhancedChartData} 
+                    syncId="evolutionSync"
                     // 🎯 FIX: Aumento da margem direita (right: 110) para acomodar a Label formatada
                     margin={{ top: 20, right: 110, left: 0, bottom: 20 }} 
                     style={{ outline: 'none' }} 
@@ -286,7 +302,7 @@ export function EvolutionLineChart({
                                 strokeLinejoin="round"
                                 strokeOpacity={lineOpacity}
                                 dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
-                                activeDot={{ r: 5, fill: displayColor, stroke: '#ffffff', strokeWidth: 2, strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
+                                activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" />}
                                 style={{ filter: (isFocused || !hasFocus) ? `url(#${shadowId})` : 'none', transition: 'all 0.5s ease' }}
                                 isAnimationActive={true}
                                 animationDuration={800}
@@ -297,6 +313,14 @@ export function EvolutionLineChart({
                             </Line>
                         ];
                     })}
+
+                    <Brush 
+                        dataKey="date" 
+                        height={30} 
+                        stroke="#64748b" 
+                        fill="rgba(15, 23, 42, 0.4)" 
+                        tickFormatter={(val) => val ? val.split('-').slice(1).reverse().join('/') : ''}
+                    />
                 </ComposedChart>
             </ResponsiveContainer>
         </div>
