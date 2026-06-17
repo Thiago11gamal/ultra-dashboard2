@@ -690,7 +690,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             window.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, [currentUser?.uid, performEmergencySync]);
+    }, [currentUser?.uid, performEmergencySync, setInternalSyncing]);
 
     useEffect(() => {
         if (isLocalMode || !currentUser?.uid || !syncTrigger || !isParityValidatedRef.current || !db) return;

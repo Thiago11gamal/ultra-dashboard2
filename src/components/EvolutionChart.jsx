@@ -12,6 +12,7 @@ import { useMonteCarloWorker } from "../hooks/useMonteCarloWorker";
 import { GaussianPlot } from "./charts/GaussianPlot";
 import { useAppStore } from "../store/useAppStore";
 import { downsampleLTTB } from "../utils/downsample";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 
 // Sub-components
