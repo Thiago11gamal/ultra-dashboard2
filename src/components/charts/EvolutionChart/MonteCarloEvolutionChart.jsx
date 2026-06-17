@@ -301,7 +301,7 @@ export const MonteCarloEvolutionChart = ({
                                 dx={-5}
                                 width={45}
                                 domain={[minScore, maxScore]}
-                                allowDataOverflow={true}
+                                allowDataOverflow={false}
                                 tickCount={6}
                                 tickFormatter={(v) => unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit}`}
                             />
