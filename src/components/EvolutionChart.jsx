@@ -885,7 +885,7 @@ export default function EvolutionChart({
                         </div>
                     </div>
                 )}
-            </div>
+            </motion.div>
 
             {/* PREMIUM MC STATS CARD */}
             {isMcEngine && focusCategory && (
