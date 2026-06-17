@@ -392,15 +392,17 @@ export const SubtopicsPerformanceChart = React.memo(({
                     </ResponsiveContainer>
                 </div>
             ) : (
-                <div className="w-full relative min-h-[750px]">
+                // 🎯 FIX: Altura reduzida de 750px para 500px para caber melhor na tela
+                <div className="w-full relative min-h-[500px]">
                     <div className="absolute top-0 right-4 text-[10px] text-indigo-400/60 font-mono z-10">
                         {uniqueTopics.length} tópicos plotados simultaneamente.
                     </div>
                     {timeSeriesData.length > 1 ? (
                         <div className="w-full overflow-x-auto custom-scrollbar pb-2">
                             <div className="min-w-[700px] lg:min-w-full">
-                                <ResponsiveContainer width="100%" height={750}>
-                                    <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: -20, bottom: 50 }}>
+                                <ResponsiveContainer width="100%" height={500}>
+                                    {/* 🎯 FIX: left de -20 para 0 para evitar corte do eixo Y */}
+                                    <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
 
                                         <XAxis

@@ -708,7 +708,8 @@ export default function EvolutionChart({
                              </div>
                          </div>
                          {/* Hover Popover */}
-                         <div className="absolute top-10 -left-2 sm:left-12 w-[85vw] sm:w-72 max-w-sm p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+                         {/* 🎯 FIX: Ajuste de left-0 e max-w para evitar vazamento da tela no celular */}
+                         <div className="absolute top-10 left-0 sm:left-12 w-[280px] max-w-[90vw] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
                              <p className="text-xs text-slate-200 mb-3 leading-relaxed">{engine.explain.simples}</p>
                              <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-700/50">
                                  <p className="text-[10px] text-amber-400 italic font-bold">💡 Dica Prática</p>
@@ -996,7 +997,8 @@ export default function EvolutionChart({
                         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none group-hover:bg-indigo-500/20 transition-all duration-1000 -mr-48 -mt-48" />
                         <div className={`absolute bottom-0 left-0 w-[300px] h-[300px] ${colors.circleBg} rounded-full blur-[100px] pointer-events-none -ml-32 -mb-32`} />
                         
-                        <div className="flex flex-col lg:flex-row gap-10 items-start p-10 sm:p-14 relative z-10">
+                        {/* 🎯 FIX: Reduzido padding mobile de p-10 para p-6 para evitar esmagamento de texto */}
+                        <div className="flex flex-col lg:flex-row gap-8 sm:gap-10 items-start p-6 sm:p-14 relative z-10">
                             {/* Icon & Primary Content */}
                             <div className="flex-1 space-y-6">
                                 <div className="flex items-start sm:items-center gap-6">

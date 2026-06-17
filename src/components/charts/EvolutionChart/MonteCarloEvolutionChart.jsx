@@ -171,7 +171,8 @@ export const MonteCarloEvolutionChart = ({
                 <p className="text-xs text-slate-400 text-center max-w-sm mb-6 leading-relaxed">
                     A evolução do Monte Carlo é registrada gradativamente a cada vez que o motor calcula as projeções diárias. Aguarde o primeiro registro de hoje!
                 </p>
-                <div className="w-full max-w-md h-32 opacity-20 pointer-events-none">
+                {/* 🎯 FIX: Ajustado h-32 para h-40 para que o minHeight=150 não estoure as bordas do pai */}
+                <div className="w-full max-w-md h-40 opacity-20 pointer-events-none">
                     <ResponsiveContainer width="100%" height="100%" minWidth={120} minHeight={150}>
                         <AreaChart data={[{ date: '1', mean: 40 }, { date: '2', mean: 60 }, { date: '3', mean: 85 }]}>
                             <XAxis dataKey="date" hide />
