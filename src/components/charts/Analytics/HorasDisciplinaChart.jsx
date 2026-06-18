@@ -16,14 +16,13 @@ export function HorasDisciplinaChart({ data }) {
     // Sort by hours descending
     const sortedData = [...data].sort((a, b) => b.horas - a.horas);
 
-    // FIX: Altura proporcional ao número de matérias. Mínimo compacto para poucas matérias.
-    const barHeight = 50;
-    const baseHeight = 60; // espaço para eixo X e margens
-    const dynamicHeight = Math.max(120, baseHeight + sortedData.length * barHeight);
+    // FIX: Altura base de 300px (para o eixo X ficar sempre no fundo alinhado ao outro gráfico), 
+    // mas se tiver muitas matérias, cresce proporcionalmente para não amassar as barras.
+    const minChartHeight = Math.max(300, sortedData.length * 45);
 
     return (
-        <div style={{ height: `${dynamicHeight}px` }} className="w-full mt-2 transition-all duration-300">
-            <ResponsiveContainer width="100%" height="100%">
+        <div className="h-full w-full mt-2 pb-2 transition-all duration-300" style={{ minHeight: `${minChartHeight}px` }}>
+            <ResponsiveContainer width="100%" height="100%" minHeight={minChartHeight - 50}>
                 <BarChart
                     layout="vertical"
                     data={sortedData}
