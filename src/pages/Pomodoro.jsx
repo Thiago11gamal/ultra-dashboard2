@@ -346,7 +346,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
 
                     <div className="flex items-center gap-2 mb-4">
-                        <span className="px-3 py-1 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/30">Recomendado</span>
+                        <span className="shrink-0 px-4 py-1.5 rounded-sm bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/30">Recomendado</span>
                         <div className="flex-1 h-[1px] bg-gradient-to-r from-indigo-500/30 to-transparent" />
                     </div>
 
