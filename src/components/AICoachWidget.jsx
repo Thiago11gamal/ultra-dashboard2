@@ -274,27 +274,46 @@ export default function AICoachWidget({ suggestion }) {
                     </div>
                 ) : (
                     <div className="space-y-8">
-                        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-10 items-start">
-                            <div>
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className={`w-1.5 h-6 rounded-full bg-gradient-to-b ${cfg.bar}`} />
-                                    <span className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500">Alvo Prioritário</span>
+                        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 items-start">
+                            <div className="flex flex-col gap-5">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-1 h-5 rounded-full bg-gradient-to-b ${cfg.bar}`} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Alvo Prioritário</span>
                                     {statusLabel && (
-                                        <span className="text-[10px] font-bold text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                                        <span className="text-[10px] font-bold text-slate-400 bg-white/5 px-2.5 py-1 rounded-md border border-white/5">
                                             {statusLabel.replace(/[🔥⚡✓]/gu, '').trim()}
                                         </span>
                                     )}
                                 </div>
 
-                                <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tighter leading-tight sm:leading-none mb-6 group-hover/widget:translate-x-1 transition-transform duration-500">
-                                    {displaySubject(suggestion.name)}
-                                </h2>
+                                <div>
+                                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-3">
+                                        {displaySubject(suggestion.name)}
+                                    </h2>
+                                    {topic && (
+                                        <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl border text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>
+                                            <Target size={16} />
+                                            <span>{topic.name}</span>
+                                        </div>
+                                    )}
+                                </div>
 
-                                {topic && (
-                                    <div className={`inline-flex items-center gap-3 px-5 py-3 rounded-2xl border text-base font-black tracking-tight ${cfg.badge} hover:scale-105 transition-transform cursor-default`}>
-                                        <Target size={18} />
-                                        <span>{topic.name}</span>
-                                    </div>
+                                {suggestion.urgency?.recommendation && (
+                                    <Motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="mt-2"
+                                    >
+                                        <div className="flex items-start gap-3 p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/5 shadow-inner">
+                                            <Sparkles size={18} className={`${cfg.accent} shrink-0 mt-0.5`} />
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Status de Escolha</span>
+                                                <p className="text-[13px] sm:text-sm text-slate-300 leading-relaxed font-medium">
+                                                    {renderRecommendation(suggestion.urgency.recommendation)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </Motion.div>
                                 )}
                             </div>
 
@@ -302,22 +321,6 @@ export default function AICoachWidget({ suggestion }) {
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {suggestion.urgency?.details?.monteCarlo && (
                                     <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} />
-                                )}
-                                {suggestion.urgency?.recommendation && (
-                                    <Motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="relative rounded-none overflow-hidden border border-white/10 bg-black/40 group/quote"
-                                    >
-                                        <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${cfg.bar} shadow-[0_0_10px_rgba(255,255,255,0.2)]`} />
-                                        <div className="p-5">
-                                            {/* VIS-10 FIX: substituir **texto** por <strong> antes de renderizar.
-                                                Antes, os asteriscos duplos apareciam literais no texto. */}
-                                            <p className="text-xs text-slate-400 leading-relaxed font-medium italic group-hover/quote:text-slate-200 transition-colors">
-                                                "{renderRecommendation(suggestion.urgency.recommendation)}"
-                                            </p>
-                                        </div>
-                                    </Motion.div>
                                 )}
                             </div>
                         </div>
