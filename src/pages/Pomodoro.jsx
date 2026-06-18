@@ -500,7 +500,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
                             <span className="text-[11px] font-black uppercase tracking-[0.4em] text-[#2d1a12]/60 truncate">{activeSubject?.category || 'SISTEMA'}</span>
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-700/60 animate-pulse shrink-0" />
                         </div>
-                        <h1 className="text-xl sm:text-2xl font-black text-[#2d1a12] tracking-tight truncate leading-tight">
+                        <h1 className="text-sm sm:text-lg font-black text-[#2d1a12] tracking-tight leading-snug break-words line-clamp-3">
                             {activeSubject ? cleanText(activeSubject.task) : 'Aguardando protocolo...'}
                         </h1>
                     </div>
