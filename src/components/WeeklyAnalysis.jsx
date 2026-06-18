@@ -259,9 +259,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                         <div className="px-5 pb-3 pt-0 space-y-1">
                                             {cat.logs.map((log, logIdx) => (
                                                 <div key={log.taskId || `log-${logIdx}`} className="flex items-center justify-between text-xs py-1.5 border-t border-white/5 text-slate-400 hover:text-slate-300 transition-colors">
-                                                    <div className="flex items-center gap-2 truncate pr-4">
+                                                    <div className="flex items-center gap-2 pr-4 min-w-0">
                                                         <Zap size={10} className="text-slate-600" />
-                                                        <span className="truncate" title={log.taskTitle}>{log.taskTitle}</span>
+                                                        <span className="break-words line-clamp-2 text-xs sm:text-sm" title={log.taskTitle}>{log.taskTitle}</span>
                                                     </div>
                                                     <span className="font-mono whitespace-nowrap opacity-60">+{log.minutes}m</span>
                                                 </div>

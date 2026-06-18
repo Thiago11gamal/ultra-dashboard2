@@ -171,7 +171,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             }
                         </div>
                     </div>
-                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-2 truncate min-w-0 pb-0.5">
+                    <div className="text-xl sm:text-2xl md:text-4xl font-black text-white mt-1 mb-2 break-words line-clamp-2 min-w-0 pb-0.5">
                         {formatValue(efficiency?.score || 0)}<span className="text-lg sm:text-2xl text-slate-300 font-bold ml-1">%</span>
                     </div>
                     <div className="mt-auto pt-1 pb-1 flex flex-col gap-1 pl-2 min-w-0">
@@ -242,7 +242,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             <strong>Status NÍVEL {progress.level}</strong>: Representa sua experiência geral. Complete tarefas e ciclos de estudo para evoluir de nível!
                         </div>
                     </div>
-                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3 truncate min-w-0 pb-0.5" title={`${(user.xp || 0).toLocaleString('pt-BR')} XP`}>
+                    <div className="text-xl sm:text-2xl md:text-4xl font-black text-white mt-1 mb-3 break-words line-clamp-2 min-w-0 pb-0.5" title={`${(user.xp || 0).toLocaleString('pt-BR')} XP`}>
                         {(user.xp || 0).toLocaleString('pt-BR')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
                     </div>
                     <div className="space-y-1 mt-auto pt-1 pb-1 pl-2">

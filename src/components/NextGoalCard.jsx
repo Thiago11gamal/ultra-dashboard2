@@ -149,13 +149,13 @@ function NextGoalCard({ categories = [], simulados = [], studyLogs = [], onStart
                     </div>
 
                     <div className="flex flex-col gap-1 mb-2 min-w-0">
-                        <h3 className="text-xl md:text-2xl font-black text-white truncate min-w-0 block drop-shadow-sm pb-0.5" title={category.name}>
+                        <h3 className="text-lg md:text-xl font-black text-white break-words line-clamp-2 min-w-0 block drop-shadow-sm pb-0.5" title={category.name}>
                             {category.name}
                         </h3>
                         {display.assunto && (
                             <div className="flex items-center gap-2 min-w-0">
                                 <Target size={14} className={urgencyStyle.textHighlight} shrink-0 />
-                                <h4 className="text-sm font-bold text-slate-300 truncate min-w-0 block pb-0.5" title={display.assunto}>
+                                <h4 className="text-xs sm:text-sm font-bold text-slate-300 break-words line-clamp-2 min-w-0 block pb-0.5" title={display.assunto}>
                                     {display.assunto}
                                 </h4>
                             </div>

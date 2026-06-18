@@ -133,7 +133,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
         <div className={`grid grid-cols-[1fr_auto_100px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] overflow-hidden ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
             <div className="col-span-1 md:col-span-3 flex items-center gap-2 min-w-0">
                 <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${safeBgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
-                <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
+                <span className="text-xs sm:text-sm font-bold text-slate-200 break-words line-clamp-2">{cat.name}</span>
             </div>
             <div className="flex justify-center md:col-span-2">
                 <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${safeColor} ${safeBgBorder} bg-black/40`}>
