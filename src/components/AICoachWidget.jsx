@@ -279,9 +279,6 @@ export default function AICoachWidget({ suggestion }) {
                                         animate={{ opacity: 1, scale: 1 }}
                                         className="relative p-5 sm:p-6 rounded-3xl bg-black/40 backdrop-blur-xl border border-white/[0.05] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] group/status hover:border-white/10 transition-all duration-500 overflow-hidden"
                                     >
-                                        {/* Colored top line */}
-                                        <div className={`absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r ${cfg.bar} opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.2)]`} />
-                                        
                                         {/* Soft background glow based on theme */}
                                         <div className={`absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl ${cfg.stripe} to-transparent opacity-20 blur-2xl pointer-events-none rounded-full`} />
 
