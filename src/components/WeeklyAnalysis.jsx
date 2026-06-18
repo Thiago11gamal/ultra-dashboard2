@@ -178,7 +178,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                     </div>
                     <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
                         <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Matéria Favorita</span>
-                        <span className="text-2xl font-black text-indigo-400 truncate leading-tight mt-1" title={stats.topCategory}>{stats.topCategory}</span>
+                        <span className="text-base sm:text-lg font-black text-indigo-400 break-words line-clamp-3 leading-tight mt-1" title={stats.topCategory}>{stats.topCategory}</span>
                     </div>
                 </div>
             )}
