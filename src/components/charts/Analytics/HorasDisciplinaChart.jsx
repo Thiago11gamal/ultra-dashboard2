@@ -27,7 +27,7 @@ export function HorasDisciplinaChart({ data }) {
                 <BarChart
                     layout="vertical"
                     data={sortedData}
-                    margin={{ top: 5, right: 15, left: 0, bottom: 5 }}
+                    margin={{ top: 25, right: 15, left: 0, bottom: 5 }}
                 >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={true} vertical={false} />
 
