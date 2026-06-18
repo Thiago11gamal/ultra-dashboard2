@@ -16,17 +16,18 @@ export function HorasDisciplinaChart({ data }) {
     // Sort by hours descending
     const sortedData = [...data].sort((a, b) => b.horas - a.horas);
 
-    // FIX: Altura dinâmica! Mínimo de 300px, mas cresce 45px por cada matéria extra
-    const dynamicHeight = Math.max(300, sortedData.length * 45);
+    // FIX: Altura proporcional ao número de matérias. Mínimo compacto para poucas matérias.
+    const barHeight = 50;
+    const baseHeight = 60; // espaço para eixo X e margens
+    const dynamicHeight = Math.max(120, baseHeight + sortedData.length * barHeight);
 
     return (
-        <div style={{ height: `${dynamicHeight}px` }} className="w-full mt-4 transition-all duration-300">
-            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+        <div style={{ height: `${dynamicHeight}px` }} className="w-full mt-2 transition-all duration-300">
+            <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                     layout="vertical"
                     data={sortedData}
-                    // Margem left aumentada para acomodar nomes grandes de matérias de Direito
-                    margin={{ top: 5, right: 30, left: 130, bottom: 5 }}
+                    margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
                 >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={true} vertical={false} />
 
@@ -44,14 +45,15 @@ export function HorasDisciplinaChart({ data }) {
                         type="category"
                         dataKey="disciplina"
                         stroke="#f1f5f9"
-                        fontSize={11}
+                        fontSize={10}
                         axisLine={false}
                         tickLine={false}
-                        width={120} // Largura sincronizada com a margem left para não cortar nomes
+                        width={140}
+                        tick={{ fill: '#e2e8f0', fontSize: 10, fontWeight: 600 }}
                     />
 
                     <Tooltip
-                        cursor={{ fill: 'rgba(255,255,255,0.03)' }} // Melhor UX: Dá um destaque na linha onde o mouse passa
+                        cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                         contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
                         itemStyle={{ padding: '2px 0' }}
                         formatter={(value) => [formatDuration(value), 'Total']}
@@ -60,8 +62,8 @@ export function HorasDisciplinaChart({ data }) {
                     <Bar
                         dataKey="horas"
                         fill="#6366f1"
-                        radius={[0, 6, 6, 0]} // Arredondamento um pouco mais elegante
-                        maxBarSize={20} // Evita que matérias únicas fiquem parecendo blocos gigantes
+                        radius={[0, 6, 6, 0]}
+                        maxBarSize={24}
                         name="Horas"
                     >
                         {sortedData.map((entry, index) => (
