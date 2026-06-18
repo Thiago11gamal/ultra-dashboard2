@@ -280,8 +280,8 @@ export default function OnboardingTour() {
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
 
     const handleJoyrideCallback = useCallback((data) => {
-        const { status } = data;
-        if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+        const { status, type, action } = data;
+        if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status) || status === 'error' || action === 'close' || type === 'tour:end') {
             setHasSeenTour(true);
         }
     }, [setHasSeenTour]);

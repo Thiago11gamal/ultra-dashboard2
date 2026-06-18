@@ -199,7 +199,7 @@ export default function Sidebar({
                                     setContestsExpanded(!contestsExpanded);
                                 }
                             }}
-                            className="sidebar-item group justify-between"
+                            className="sidebar-item group justify-between tour-step-1"
                             title={collapsed ? "Meus Concursos" : ""}
                             aria-expanded={contestsExpanded && !collapsed}
                             aria-controls="sidebar-contests-panel"
@@ -276,7 +276,7 @@ export default function Sidebar({
                     <div className="sidebar-divider"></div>
 
                     {SECTIONS.map((section, sIdx) => (
-                        <div key={sIdx} className="mb-4">
+                        <div key={sIdx} className={`mb-4 ${section.label === 'Dados & Análise' ? 'tour-step-2' : ''}`}>
                             <h4 className="sidebar-nav-label">{section.label}</h4>
                             <nav className="space-y-1">
                                 {section.items.map((item) => {
@@ -287,7 +287,7 @@ export default function Sidebar({
                                         <Link
                                             key={item.path}
                                             to={item.path}
-                                            className={`sidebar-item ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''}`}
+                                            className={`sidebar-item ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
                                             aria-current={isActive ? "page" : undefined}
                                             style={{
                                                 '--item-color': item.color,
