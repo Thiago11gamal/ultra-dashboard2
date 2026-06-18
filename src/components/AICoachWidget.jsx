@@ -274,7 +274,8 @@ export default function AICoachWidget({ suggestion }) {
                     </div>
                 ) : (
                     <div className="space-y-8">
-                        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 items-start">
+                        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_320px] gap-8 xl:gap-12 items-center">
+                            {/* Left Column: Subject & Topic */}
                             <div className="flex flex-col gap-5">
                                 <div className="flex items-center gap-3">
                                     <div className={`w-1 h-5 rounded-full bg-gradient-to-b ${cfg.bar}`} />
@@ -297,18 +298,24 @@ export default function AICoachWidget({ suggestion }) {
                                         </div>
                                     )}
                                 </div>
+                            </div>
 
+                            {/* Center Column: Recommendation Status */}
+                            <div className="flex flex-col justify-center h-full">
                                 {suggestion.urgency?.recommendation && (
                                     <Motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="mt-2"
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="relative p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group/status hover:border-white/20 transition-all duration-300"
                                     >
-                                        <div className="flex items-start gap-3 p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/5 shadow-inner">
-                                            <Sparkles size={18} className={`${cfg.accent} shrink-0 mt-0.5`} />
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Status de Escolha</span>
-                                                <p className="text-[13px] sm:text-sm text-slate-300 leading-relaxed font-medium">
+                                        <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${cfg.bar} opacity-70`} />
+                                        <div className="flex items-start gap-4">
+                                            <div className={`p-2 rounded-xl bg-black/40 border border-white/5 shadow-inner`}>
+                                                <Sparkles size={20} className={`${cfg.accent}`} />
+                                            </div>
+                                            <div className="flex flex-col gap-1.5 flex-1">
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Motivo da Recomendação</span>
+                                                <p className="text-sm sm:text-base text-white leading-relaxed font-semibold drop-shadow-md">
                                                     {renderRecommendation(suggestion.urgency.recommendation)}
                                                 </p>
                                             </div>
@@ -317,6 +324,7 @@ export default function AICoachWidget({ suggestion }) {
                                 )}
                             </div>
 
+                            {/* Right Column: Gauges */}
                             <div className="space-y-6">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {suggestion.urgency?.details?.monteCarlo && (
