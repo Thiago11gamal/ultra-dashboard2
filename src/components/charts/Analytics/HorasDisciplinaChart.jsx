@@ -27,7 +27,7 @@ export function HorasDisciplinaChart({ data }) {
                 <BarChart
                     layout="vertical"
                     data={sortedData}
-                    margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                    margin={{ top: 5, right: 15, left: 0, bottom: 5 }}
                 >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={true} vertical={false} />
 
@@ -48,8 +48,8 @@ export function HorasDisciplinaChart({ data }) {
                         fontSize={10}
                         axisLine={false}
                         tickLine={false}
-                        width={140}
-                        tick={{ fill: '#e2e8f0', fontSize: 10, fontWeight: 600 }}
+                        width={80}
+                        tick={{ fill: '#e2e8f0', fontSize: 9, fontWeight: 600 }}
                     />
 
                     <Tooltip
