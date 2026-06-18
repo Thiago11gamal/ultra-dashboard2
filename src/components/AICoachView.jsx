@@ -291,7 +291,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         </div>
                     </div>
 
-                    <div className="relative z-10 w-full mt-6 pt-6 border-t border-white/[0.05] flex justify-center lg:justify-end">
+                    <div className="relative z-10 w-full mt-6 pt-6 border-t border-white/[0.05] flex justify-center sm:justify-start">
                         <button
                             onClick={onGenerateGoals}
                             disabled={loading}
