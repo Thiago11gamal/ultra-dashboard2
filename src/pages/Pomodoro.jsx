@@ -819,7 +819,7 @@ export default function Pomodoro() {
     }
 
     return (<PageErrorBoundary pageName="Pomodoro">
-        <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-12 sm:pt-6 lg:pt-8 pb-8 px-0 sm:px-3">
+        <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-12 sm:pt-6 lg:pt-8 pb-8 px-3 sm:px-3">
             <div className="flex flex-col 2xl:flex-row gap-0 sm:gap-6 2xl:gap-10 items-start justify-center w-full max-w-[1280px] 2xl:max-w-[1440px] mx-auto px-0 sm:px-4">
                 <div className="flex-1 flex flex-col items-center min-w-0 w-full">
                     <PomodoroTopBar
