@@ -306,16 +306,24 @@ export default function AICoachWidget({ suggestion }) {
                                     <Motion.div
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}
-                                        className="relative p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group/status hover:border-white/20 transition-all duration-300"
+                                        className="relative p-5 sm:p-6 rounded-3xl bg-black/40 backdrop-blur-xl border border-white/[0.05] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] group/status hover:border-white/10 transition-all duration-500 overflow-hidden"
                                     >
-                                        <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${cfg.bar} opacity-70`} />
-                                        <div className="flex items-start gap-4">
-                                            <div className={`p-2 rounded-xl bg-black/40 border border-white/5 shadow-inner`}>
-                                                <Sparkles size={20} className={`${cfg.accent}`} />
+                                        {/* Colored top line */}
+                                        <div className={`absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r ${cfg.bar} opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.2)]`} />
+                                        
+                                        {/* Soft background glow based on theme */}
+                                        <div className={`absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl ${cfg.stripe} to-transparent opacity-20 blur-2xl pointer-events-none rounded-full`} />
+
+                                        <div className="flex items-start gap-4 relative z-10">
+                                            <div className={`p-3 rounded-2xl bg-gradient-to-b from-white/[0.08] to-transparent border ${cfg.border} shadow-inner shrink-0 group-hover/status:scale-110 transition-transform duration-500`}>
+                                                <Sparkles size={20} className={`${cfg.accent} drop-shadow-[0_0_8px_currentColor]`} />
                                             </div>
-                                            <div className="flex flex-col gap-1.5 flex-1">
-                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Motivo da Recomendação</span>
-                                                <p className="text-sm sm:text-base text-white leading-relaxed font-semibold drop-shadow-md">
+                                            <div className="flex flex-col gap-1.5 flex-1 pt-0.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${cfg.pulse} animate-pulse`} />
+                                                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400">Motivo da Recomendação</span>
+                                                </div>
+                                                <p className="text-sm sm:text-[15px] text-slate-100 leading-relaxed font-medium mt-1">
                                                     {renderRecommendation(suggestion.urgency.recommendation)}
                                                 </p>
                                             </div>
