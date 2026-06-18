@@ -74,10 +74,10 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro 
                         ref={provided.innerRef} 
                         {...provided.draggableProps} 
                         {...provided.dragHandleProps} 
-                        className={`pb-4 ${snapshot.isDragging ? 'z-[99999]' : ''}`}
+                        className={`pb-3 ${snapshot.isDragging ? 'z-[99999]' : ''}`}
                         style={provided.draggableProps.style}
                     >
-                        <div className={`group relative p-4 sm:p-5 rounded-xl select-none overflow-hidden h-full border ${
+                        <div className={`group relative p-3.5 sm:p-4 rounded-xl select-none overflow-hidden h-full border ${
                             snapshot.isDragging 
                                 ? `bg-slate-900/95 border-2 ${accentBorder} shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-[1.05] rotate-1 backdrop-blur-xl` 
                                 : `${cardBg} ${cardBorder} ${cardHover} hover:-translate-y-0.5 transition-all duration-300`
@@ -86,16 +86,15 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro 
                                 <div className={`absolute left-0 top-0 bottom-0 w-[4px] bg-gradient-to-b ${gradientLine} opacity-80 group-hover:opacity-100 transition-opacity shadow-[0_0_10px_rgba(255,255,255,0.1)]`} />
                             )}
                             
-                            {/* Glossy background detail */}
                             <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.02] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.04] transition-all duration-700 pointer-events-none" />
 
-                            <div className="flex flex-col gap-4 relative z-10">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-[0.18em] ${
-                                        isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : `bg-black/40 ${accentColor} ${accentBorder}`
-                                    } border backdrop-blur-md shadow-sm w-fit max-w-[calc(100%-48px)] group-hover:border-white/20 transition-colors`}>
+                            <div className="flex flex-col h-full relative z-10">
+                                <div className="flex items-start justify-between gap-2 mb-2.5">
+                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                        isBacklog ? 'bg-violet-500/15 text-violet-200 border-violet-500/20' : `bg-black/20 ${accentColor} border-white/5`
+                                    } border backdrop-blur-sm shadow-sm w-fit max-w-[calc(100%-40px)] group-hover:bg-black/30 transition-colors`}>
                                         <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
-                                        <span className="leading-none truncate block drop-shadow-sm brightness-150">{displaySubject(subject)}</span>
+                                        <span className="leading-none truncate block opacity-90">{displaySubject(subject)}</span>
                                     </div>
                                     
                                     <button 
@@ -103,23 +102,23 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro 
                                             e.stopPropagation();
                                             onStartPomodoro?.(task);
                                         }}
-                                        className={`relative w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 shrink-0 shadow-lg group/play ${
-                                            !isBacklog && dayTheme ? `bg-white/5 border ${dayTheme.border} ${dayTheme.text} hover:${dayTheme.bg}` : 'bg-violet-500/10 border-violet-500/20 text-violet-400 hover:bg-violet-500 hover:text-white'
+                                        className={`relative w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-300 shrink-0 shadow-sm group/play ${
+                                            !isBacklog && dayTheme ? `bg-white/5 border border-white/5 ${dayTheme.text} hover:${dayTheme.bg}` : 'bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500 hover:text-white'
                                         }`}
                                     >
                                         <div className={`absolute inset-0 blur-md opacity-0 group-hover/play:opacity-30 transition-opacity rounded-lg ${!isBacklog && dayTheme ? dayTheme.bg : 'bg-violet-500'}`} />
-                                        <Play size={14} className="fill-current relative z-10 translate-x-[1px]" />
+                                        <Play size={12} className="fill-current relative z-10 translate-x-[1px]" />
                                     </button>
                                 </div>
 
-                                <div className="flex flex-col gap-1.5 pl-1">
-                                    <h4 className={`text-[13px] font-black leading-snug uppercase tracking-widest transition-colors ${
-                                        !isBacklog && dayTheme ? 'text-white group-hover:text-slate-200 drop-shadow-md' : 'text-slate-100 group-hover:text-white'
+                                <div className="flex flex-col flex-1 justify-center gap-1 mt-1">
+                                    <h4 className={`text-[13px] sm:text-sm font-extrabold leading-tight uppercase tracking-tight transition-colors ${
+                                        !isBacklog && dayTheme ? 'text-slate-100 group-hover:text-white' : 'text-slate-200 group-hover:text-white'
                                     }`}>
                                         {displayTopic}
                                     </h4>
                                     {secondaryText && (
-                                        <p className="text-[10.5px] text-slate-400 font-bold uppercase tracking-[0.15em] line-clamp-2 opacity-80 group-hover:opacity-100 group-hover:text-slate-300 transition-all">
+                                        <p className="text-[11px] text-slate-400 font-medium leading-snug line-clamp-2 mt-0.5 group-hover:text-slate-300 transition-colors">
                                             {secondaryText}
                                         </p>
                                     )}
