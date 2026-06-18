@@ -206,8 +206,6 @@ export default function AICoachWidget({ suggestion }) {
                         <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0 shadow-[0_0_8px_currentColor]`} />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <span className="text-sm font-bold text-slate-200 truncate">Motor de Produtividade</span>
-                            <span className="w-1 h-1 rounded-full bg-white/10 shrink-0 hidden sm:block" />
-                            <span className={`text-xs font-semibold ${cfg.accent} shrink-0 opacity-80`}>v4.2</span>
                         </div>
                     </div>
 
