@@ -73,10 +73,10 @@ const VolumeRanking = ({ categories = [] }) => {
                                 <TrendingUp size={16} className="text-purple-400" />
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight truncate">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight break-words line-clamp-2">
                                     Líder de Produção
                                 </span>
-                                <span className="text-xs font-black text-white truncate">
+                                <span className="text-xs font-black text-white break-words line-clamp-2">
                                     {sorted[0].name} <span className="text-purple-400 ml-1">({formatValue(leaderPercentage)}%)</span>
                                 </span>
                             </div>
@@ -114,7 +114,7 @@ const VolumeRanking = ({ categories = [] }) => {
                             {/* Info & Bar */}
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className={`text-[11px] font-bold truncate tracking-tight uppercase ${index < 3 ? 'text-slate-200' : 'text-slate-500'}`} style={index < 3 ? {} : { color: item.color }}>
+                                    <span className={`text-[11px] font-bold break-words line-clamp-2 tracking-tight uppercase ${index < 3 ? 'text-slate-200' : 'text-slate-500'}`} style={index < 3 ? {} : { color: item.color }}>
                                         {item.name}
                                     </span>
                                     {item.totalVolume > 0 ? (

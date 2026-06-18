@@ -324,7 +324,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black border transition-all duration-300 hover:scale-105 cursor-pointer ${task.retention.border} ${task.retention.color} bg-black/40 backdrop-blur-sm`}
                                     >
                                         <span className="opacity-70">{task.categoryIcon}</span>
-                                        <span className="uppercase tracking-tight truncate max-w-[120px]">{task.title || task.text || 'Sem nome'}</span>
+                                        <span className="uppercase tracking-tight break-words line-clamp-2">{task.title || task.text || 'Sem nome'}</span>
                                         <span className="ml-1 bg-white/5 px-1.5 py-0.5 rounded-md">{formatValue(task.retention.val)}%</span>
                                     </div>
                                 ))}
@@ -389,7 +389,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-3 mb-1.5">
-                                                    <h4 className="text-base font-black text-white uppercase tracking-tight truncate">{cat.name}</h4>
+                                                    <h4 className="text-base font-black text-white uppercase tracking-tight break-words line-clamp-2">{cat.name}</h4>
                                                     <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm ${cat.retention.bg}/10 ${cat.retention.color} border ${cat.retention.border}`}>
                                                         {cat.retention.label === 'Urgente!' ? 'Crítico' : cat.retention.label}
                                                     </span>
@@ -457,7 +457,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
                                                         {/* Task Info */}
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-black text-slate-200 uppercase tracking-tight truncate">{task.title || task.text || 'Sem nome'}</p>
+                                                            <p className="text-sm font-black text-slate-200 uppercase tracking-tight break-words line-clamp-2">{task.title || task.text || 'Sem nome'}</p>
                                                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
                                                                 {task.timeAgo === 'Nunca' ? 'Aguardando estudo' : `Última revisão: ${task.timeAgo}`}
                                                             </p>
