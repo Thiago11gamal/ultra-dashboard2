@@ -797,7 +797,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             if (lastError) {
                 logger.error("[Sync] Todas as tentativas falharam:", lastError);
-                if (showToastRef.current && lastError.code !== 'unavailable') {
+                if (showToastRef.current && lastError.code !== 'unavailable' && lastError.message !== 'timeout') {
                     showToastRef.current(`Falha ao salvar após ${MAX_RETRIES} tentativas`, 'error');
                 }
             }

@@ -206,11 +206,11 @@ const StudyHistory = React.memo(function StudyHistory({
 
             {/* Middle Section - Chart and Sessions */}
             {(mode === 'full' || mode === 'sessions') && (
-                <div className="flex flex-col gap-4 items-stretch">
+                <div className="flex flex-col gap-4 items-stretch min-w-0 w-full">
                     {/* Weekly Chart - Enhanced */}
-                    <div className="w-full glass p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-3">
+                    <div className="w-full glass p-4 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 min-w-0">
+                            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-3 shrink-0">
                                 <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
                                     <BarChart3 size={12} className="text-blue-400" />
                                 </div>
@@ -218,8 +218,8 @@ const StudyHistory = React.memo(function StudyHistory({
                             </h3>
 
                             {/* Week Selector - Wrapped for Mobile */}
-                            <div className="w-full sm:w-auto overflow-hidden">
-                                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar scroll-smooth">
+                            <div className="w-full sm:w-auto min-w-0">
+                                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 custom-scrollbar scroll-smooth w-full">
                                     {Array.from({ length: Math.min(availableWeeks, 8) }).map((_, i) => {
                                         const offset = -i;
                                         const isSelected = selectedWeekOffset === offset;
