@@ -339,15 +339,15 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                 <Motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mb-6 p-6 rounded-2xl bg-gradient-to-br from-indigo-500/20 via-slate-900/80 to-slate-900 border border-indigo-500/30 shadow-[0_20px_50px_rgba(79,70,229,0.15)] relative overflow-hidden group/card"
+                    className="mb-6 p-6 rounded-none bg-gradient-to-br from-indigo-500/20 via-slate-900/80 to-slate-900 border border-indigo-500/30 shadow-[0_20px_50px_rgba(79,70,229,0.15)] relative group/card"
                 >
                     <div className="absolute top-0 right-0 p-4 opacity-20 group-hover/card:scale-110 transition-transform">
                         <Zap size={48} className="text-indigo-400" />
                     </div>
 
-                    <div className="flex items-center gap-2 mb-4">
-                        <span className="shrink-0 px-5 py-2 ml-1 rounded-none bg-indigo-500 text-white text-[10px] font-black uppercase shadow-lg shadow-indigo-500/30">
-                            Recomendado
+                    <div className="flex items-center gap-3 mb-4">
+                        <span className="inline-block px-4 py-1.5 rounded-none bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-indigo-500/30 whitespace-nowrap">
+                            ⚡ Recomendado
                         </span>
                         <div className="flex-1 h-[1px] bg-gradient-to-r from-indigo-500/30 to-transparent" />
                     </div>
@@ -361,7 +361,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
                     <button
                         onClick={() => onStartTask(recommendedTask, null, 'neural_core')}
-                        className="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 group/btn relative overflow-hidden active:scale-95"
+                        className="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-none font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 group/btn relative overflow-hidden active:scale-95"
                     >
                         <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
                         <span className="relative z-10">
