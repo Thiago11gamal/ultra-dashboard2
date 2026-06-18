@@ -295,7 +295,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         <button
                             onClick={onGenerateGoals}
                             disabled={loading}
-                            className="group relative w-full lg:w-auto px-8 py-3.5 rounded-2xl font-black text-[11px] tracking-[0.2em] uppercase transition-all duration-500 overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-white shadow-[0_0_30px_rgba(99,102,241,0.25)] hover:shadow-[0_0_50px_rgba(99,102,241,0.4)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 border border-white/20"
+                            className="group relative w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] tracking-[0.2em] uppercase transition-all duration-500 overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-white shadow-[0_0_30px_rgba(99,102,241,0.25)] hover:shadow-[0_0_50px_rgba(99,102,241,0.4)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 sm:gap-3 border border-white/20 shrink-0"
                             style={{ backgroundSize: '200% auto' }}
                         >
                             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>
@@ -303,12 +303,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             {loading ? (
                                 <>
                                     <Loader2 size={16} className="animate-spin shrink-0 drop-shadow-md" />
-                                    <span>Sincronizando...</span>
+                                    <span className="whitespace-nowrap">Sincronizando...</span>
                                 </>
                             ) : (
                                 <>
                                     <BrainCircuit size={16} className="shrink-0 drop-shadow-md" />
-                                    <span>Recalcular Estratégia</span>
+                                    <span className="whitespace-nowrap">Recalcular Estratégia</span>
                                 </>
                             )}
                         </button>
