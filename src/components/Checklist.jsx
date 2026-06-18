@@ -128,7 +128,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                         )}
                     </div>
                     {task.notes && (
-                        <p className="text-[10px] sm:text-xs text-slate-500 truncate mt-0.5 leading-tight">{task.notes}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-500 break-words line-clamp-3 mt-0.5 leading-tight">{task.notes}</p>
                     )}
                 </div>
             </div>
@@ -219,7 +219,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     <span className="text-xl sm:text-2xl flex-shrink-0">{category.icon || '📚'}</span>
                     <div className="text-left flex-1 min-w-0 mr-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-bold text-sm sm:text-lg truncate" style={{ color: category.color }}>
+                            <h3 className="font-bold text-sm sm:text-lg break-words line-clamp-2" style={{ color: category.color }}>
                                 {category.name || 'Sem Nome'}
                             </h3>
                             {category.totalMinutes > 0 && (
@@ -591,7 +591,7 @@ function Checklist({
                                                     >
                                                         <span className="text-xl">{cat.icon || '📚'}</span>
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="text-sm font-bold text-white truncate" style={{ color: cat.color }}>{cat.name}</div>
+                                                            <div className="text-sm font-bold text-white break-words line-clamp-2" style={{ color: cat.color }}>{cat.name}</div>
                                                             <div className="text-[10px] text-slate-400">
                                                                 {exists ? 'Já existe' : `${cat.tasks?.length || 0} tarefas`}
                                                             </div>
