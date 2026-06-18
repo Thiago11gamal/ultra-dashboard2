@@ -199,61 +199,32 @@ export default function AICoachWidget({ suggestion }) {
             {/* Top Energy Line */}
             <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-80`} />
 
-            {/* Neural Grid Overlay */}
-            <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
-                style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
-
-            {/* Scanning Laser */}
-            <Motion.div
-                animate={{ top: ['-10%', '110%'] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                className={`absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-30 pointer-events-none z-10`}
-            />
-
             <div className="relative z-10 p-5 sm:p-8">
                 {/* Header Section */}
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-white/[0.06]">
-                    <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <div className="relative flex items-center justify-center w-12 h-12 shrink-0 rounded-2xl bg-black/40 border border-white/10">
-                            <div className={`w-2.5 h-2.5 rounded-full ${cfg.pulse} shadow-[0_0_12px_rgba(255,255,255,0.5)]`} />
-                            <Motion.div
-                                animate={{ scale: [1, 2, 1], opacity: [0.4, 0, 0.4] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                                className={`absolute inset-0 rounded-2xl ${cfg.pulse}`}
-                            />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 truncate">Motor de Produtividade</span>
-                                <span className="w-1 h-1 rounded-full bg-white/20 shrink-0 hidden sm:block" />
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${cfg.accent} shrink-0`}>V4.2 Online</span>
-                            </div>
-                            <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest truncate">Análise de Redes Neurais em Tempo Real</p>
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-white/[0.04]">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0`} shadow-[0_0_8px_currentColor] />
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <span className="text-sm font-bold text-slate-200 truncate">Motor de Produtividade</span>
+                            <span className="w-1 h-1 rounded-full bg-white/10 shrink-0 hidden sm:block" />
+                            <span className={`text-xs font-semibold ${cfg.accent} shrink-0 opacity-80`}>v4.2</span>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
                         {Number.isFinite(Number(urgency?.crunchMultiplier)) && Number(urgency.crunchMultiplier) > 1 && (
-                            <Motion.div
-                                animate={{ opacity: [1, 0.6, 1] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                                className="flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest shrink-0"
-                            >
+                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-wider shrink-0">
                                 <AlertTriangle size={12} className="shrink-0" />
                                 <span className="whitespace-nowrap">CRÍTICO ×{Number(urgency.crunchMultiplier).toFixed(1).replace(/\.0$/, '')}</span>
-                            </Motion.div>
+                            </div>
                         )}
                         {isDegraded && (
-                             <Motion.div
-                                animate={{ opacity: [1, 0.7, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                                className="flex items-center gap-2 px-4 sm:px-6 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(244,63,94,0.2)] shrink-0"
-                             >
-                                <Database size={12} className="text-rose-400 shrink-0" />
+                             <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[10px] font-bold uppercase tracking-wider shrink-0">
+                                <Database size={12} className="shrink-0" />
                                 <span className="whitespace-nowrap">CALIBRAÇÃO DEGRADADA</span>
-                             </Motion.div>
+                             </div>
                         )}
-                        <div className={`flex items-center gap-2 px-4 sm:px-6 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-[0.15em] ${cfg.badge} shadow-lg shadow-black/20 shrink-0`}>
+                        <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md border text-[10px] font-bold uppercase tracking-wider ${cfg.badge} shrink-0`}>
                             <TierIcon size={12} className="shrink-0" />
                             <span className="whitespace-nowrap">{tier === 'Standard' ? 'Padrão' : tier}</span>
                         </div>
