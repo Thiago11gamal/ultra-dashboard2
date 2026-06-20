@@ -8,29 +8,33 @@ const steps = [
     {
         target: 'body',
         content: (
-            <div className="text-center py-5">
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 border border-indigo-500/30 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(99,102,241,0.2)]">
-                    <Rocket className="w-8 h-8 text-indigo-400" />
+            <div className="text-center py-6">
+                <div className="relative w-20 h-20 mx-auto mb-6">
+                    {/* Glow Animado */}
+                    <div className="absolute inset-0 bg-indigo-500/30 blur-xl rounded-full animate-pulse"></div>
+                    <div className="relative w-full h-full bg-slate-900/80 backdrop-blur-sm border border-indigo-500/50 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.3)]">
+                        <Rocket className="w-10 h-10 text-indigo-400 drop-shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
+                    </div>
                 </div>
-                <h2 className="text-2xl font-black text-white mb-3 tracking-tight">
-                    Bem-vindo ao Método Arraia
+                <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-4 tracking-tight drop-shadow-md">
+                    Imersão Iniciada
                 </h2>
-                <p className="text-sm text-slate-400 leading-relaxed mb-6 px-2">
-                    Seu ecossistema inteligente de aprovação. Vamos fazer um tour rápido de 60 segundos para configurar sua base de estudos.
+                <p className="text-sm text-slate-300 leading-relaxed mb-6 px-2 font-medium">
+                    Você acaba de entrar no <strong>Método Arraia</strong>. Vamos fazer um tour de 60 segundos para mapear suas ferramentas de aprovação.
                 </p>
-                <div className="text-left bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 mb-2">
-                    <ul className="text-sm text-slate-300 space-y-3">
+                <div className="text-left bg-slate-800/60 backdrop-blur-md rounded-2xl p-5 border border-slate-700/80 mb-2 shadow-inner">
+                    <ul className="text-sm text-slate-200 space-y-4">
                         <li className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
-                            Planejamento Guiado por IA
+                            <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,1)]"></div>
+                            <span className="font-semibold">Painéis de Inteligência Artificial</span>
                         </li>
                         <li className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]"></div>
-                            Revisões Espaçadas Automáticas
+                            <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,1)]"></div>
+                            <span className="font-semibold">Revisões Espaçadas de Alto Nível</span>
                         </li>
                         <li className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>
-                            Gamificação e Métricas de Alto Nível
+                            <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,1)]"></div>
+                            <span className="font-semibold">Monitoramento de Desempenho e Constância</span>
                         </li>
                     </ul>
                 </div>
@@ -204,16 +208,16 @@ const TOUR_LOCALE = {
 const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, tooltipProps, isLastStep, size }) => (
     <div
         {...tooltipProps}
-        className="bg-slate-900 border border-slate-700/60 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8),0_0_30px_rgba(99,102,241,0.08)] w-full font-sans overflow-hidden relative"
+        className="bg-slate-900/90 backdrop-blur-xl border border-indigo-500/30 rounded-3xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.9),0_0_40px_rgba(99,102,241,0.15)] w-full font-sans overflow-hidden relative"
         style={{
             ...tooltipProps.style,
-            maxWidth: '460px',
-            padding: '0', // O padding interno vai separar o corpo do rodapé
-            transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1), opacity 0.3s ease',
+            maxWidth: '480px',
+            padding: '0', 
+            transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease',
         }}
     >
-        {/* Efeito de brilho de fundo super sutil (Glow) */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-12 bg-indigo-500/10 blur-[30px] rounded-full pointer-events-none" />
+        {/* Efeito de brilho de fundo super premium (Glow) */}
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-full h-32 bg-gradient-to-b from-indigo-500/20 to-transparent blur-[40px] rounded-full pointer-events-none" />
 
         {/* Conteúdo do Passo */}
         <div className="p-7 mb-2 relative z-10">
@@ -261,10 +265,10 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
             <div className="flex justify-end min-w-[80px]">
                 <button
                     {...primaryProps}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-200 outline-none active:scale-95 ${
+                    className={`px-6 py-2.5 rounded-full text-sm font-bold text-white transition-all duration-300 outline-none hover:scale-105 active:scale-95 ${
                         isLastStep 
-                            ? 'bg-emerald-500 hover:bg-emerald-400 shadow-[0_4px_15px_rgba(16,185,129,0.3)]' 
-                            : 'bg-indigo-500 hover:bg-indigo-400 shadow-[0_4px_15px_rgba(99,102,241,0.3)]'
+                            ? 'bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)] border border-emerald-400/30' 
+                            : 'bg-indigo-600 hover:bg-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.4)] border border-indigo-400/30'
                     }`}
                 >
                     {isLastStep ? TOUR_LOCALE.last : TOUR_LOCALE.next}

@@ -9,6 +9,7 @@ import Toast from './components/Toast';
 import LevelUpToast from './components/LevelUpToast';
 import OnboardingTour from './components/OnboardingTour';
 import TrashModal from './components/TrashModal';
+import WelcomeScreen from './components/WelcomeScreen';
 import { lazyWithRetry } from './utils/lazyRetry';
 
 // Página Principal (Dashboard) - Lazy Loading para otimizar o bundle inicial
@@ -105,6 +106,19 @@ function MainLayout() {
   const [trashOpen, setTrashOpen] = useState(false);
   const rescueAttemptsRef = useRef(0);
   
+  // Controle da tela de Boas-Vindas (Premium) - Aparece 1x por sessão (login)
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      return sessionStorage.getItem('welcomeShown') !== 'true';
+    }
+    return true;
+  });
+
+  const handleDismissWelcome = useCallback(() => {
+    sessionStorage.setItem('welcomeShown', 'true');
+    setShowWelcome(false);
+  }, []);
+
   // Flag reativa da Store para garantir hidratação atômica
   const isStoreHydrated = useAppStore(state => state.appState.isHydrated);
 
@@ -254,6 +268,11 @@ function MainLayout() {
         </div>
       </div>
     );
+  }
+
+  // Welcome Screen bloqueante logo após o carregamento inicial (se não tiver sido mostrada nesta sessão)
+  if (currentUser && showWelcome) {
+    return <WelcomeScreen onDismiss={handleDismissWelcome} />;
   }
 
   return (
