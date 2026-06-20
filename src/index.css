@@ -126,17 +126,19 @@ body::before {
 @keyframes pageEntrance {
   0% {
     opacity: 0;
-    transform: scale(0.98);
-    filter: blur(4px);
+    transform: scale(0.97) translateY(10px);
+    filter: blur(8px);
   }
 
   100% {
     opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
   }
 }
 
 .animate-page-entrance {
-  animation: pageEntrance 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: pageEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Neon text effect */
@@ -235,7 +237,7 @@ body::before {
 @keyframes fadeInDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-20px);
   }
 
   to {
@@ -245,7 +247,23 @@ body::before {
 }
 
 .animate-fade-in-down {
-  animation: fadeInDown 0.3s ease-out forwards;
+  animation: fadeInDown 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes fadeIn {
@@ -259,7 +277,7 @@ body::before {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes spin-slow {
