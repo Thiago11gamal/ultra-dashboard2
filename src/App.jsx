@@ -105,12 +105,8 @@ function MainLayout() {
   const [trashOpen, setTrashOpen] = useState(false);
   const rescueAttemptsRef = useRef(0);
   
-  // Timer para garantir que a tela de "bem-vindo"/splash screen fique visível por um tempo mínimo
-  const [splashReady, setSplashReady] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setSplashReady(true), 1500);
-    return () => clearTimeout(timer);
-  }, []);
+  // Controle da tela de Bem-vindo interativa
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
 
   // Flag reativa da Store para garantir hidratação atômica
   const isStoreHydrated = useAppStore(state => state.appState.isHydrated);
@@ -246,7 +242,7 @@ function MainLayout() {
 
 
   // ── Render Logic ──
-  if (!isStoreHydrated || !splashReady) {
+  if (!isStoreHydrated) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#020617] gap-6 animate-fade-in">
         <div className="relative">
@@ -259,6 +255,30 @@ function MainLayout() {
           <span className="text-white font-black uppercase tracking-[0.3em] text-sm animate-pulse">Ultra Dashboard</span>
           <span className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Iniciando Motor de Persistência...</span>
         </div>
+      </div>
+    );
+  }
+
+  if (currentUser && !welcomeDismissed) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#020617] gap-8 animate-fade-in relative overflow-hidden">
+        {/* Glow de fundo */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
+        
+        <div className="flex flex-col items-center gap-3 text-center z-10">
+          <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 tracking-tight">
+            Bem-vindo
+          </h1>
+          <p className="text-slate-400 text-sm md:text-base max-w-md px-4 mt-2">
+            Seu ambiente de alta performance está pronto e atualizado.
+          </p>
+        </div>
+        <button 
+          onClick={() => setWelcomeDismissed(true)}
+          className="z-10 mt-4 px-10 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full font-bold tracking-widest uppercase transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(79,70,229,0.3)] hover:shadow-[0_0_50px_rgba(79,70,229,0.5)] border border-indigo-400/20"
+        >
+          Próximo
+        </button>
       </div>
     );
   }
