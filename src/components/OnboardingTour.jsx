@@ -301,9 +301,14 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
 );
 
 export default function OnboardingTour() {
-    
     const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
+    const lastSeenTourDate = useAppStore(state => state.appState.lastSeenTourDate);
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
+
+    const today = new Date().toDateString();
+    
+    // Mostra o tutorial se o usuario nunca tiver visto OU se viu em um dia diferente de hoje
+    const shouldShowTour = !hasSeenTour || lastSeenTourDate !== today;
 
     const handleJoyrideCallback = useCallback((data) => {
         const { status, type, action } = data;
@@ -312,7 +317,7 @@ export default function OnboardingTour() {
         }
     }, [setHasSeenTour]);
 
-    if (hasSeenTour) return null;
+    if (!shouldShowTour) return null;
 
     return (
         <Joyride

@@ -2,8 +2,10 @@ import { validateAppState } from '../schemas';
 
 export const createSettingsSlice = (set) => ({
     setHasSeenTour: (value) => set((state) => {
-        if (state.appState.hasSeenTour === value) return;
         state.appState.hasSeenTour = value;
+        if (value) {
+            state.appState.lastSeenTourDate = new Date().toDateString();
+        }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');

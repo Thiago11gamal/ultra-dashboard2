@@ -278,6 +278,7 @@ export const validateAppState = (data) => {
         return (new Date() - deletedAt) / (1000 * 60 * 60 * 24) <= 30;
       }) : [],
       hasSeenTour: Boolean(d.hasSeenTour),
+      lastSeenTourDate: typeof d.lastSeenTourDate === 'string' ? d.lastSeenTourDate : '',
       lastHistoryTime: Number(d.lastHistoryTime) || 0,
       version: Number(d.version) || 0,
       mcEqualWeights: d.mcEqualWeights ?? true,
