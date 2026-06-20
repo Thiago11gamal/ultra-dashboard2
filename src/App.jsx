@@ -105,6 +105,13 @@ function MainLayout() {
   const [trashOpen, setTrashOpen] = useState(false);
   const rescueAttemptsRef = useRef(0);
   
+  // Timer para garantir que a tela de "bem-vindo"/splash screen fique visível por um tempo mínimo
+  const [splashReady, setSplashReady] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSplashReady(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Flag reativa da Store para garantir hidratação atômica
   const isStoreHydrated = useAppStore(state => state.appState.isHydrated);
 
@@ -239,7 +246,7 @@ function MainLayout() {
 
 
   // ── Render Logic ──
-  if (!isStoreHydrated) {
+  if (!isStoreHydrated || !splashReady) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#020617] gap-6 animate-fade-in">
         <div className="relative">
