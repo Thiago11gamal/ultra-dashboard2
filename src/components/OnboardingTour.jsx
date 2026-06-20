@@ -49,14 +49,17 @@ const steps = [
         target: '.tour-step-1',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
-                        <UserCircle className="w-5 h-5 text-indigo-400" />
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-violet-500/30 blur-md rounded-full animate-pulse"></div>
+                        <div className="relative p-3 bg-slate-900/80 backdrop-blur-sm border border-violet-500/50 rounded-xl shadow-[0_0_20px_rgba(139,92,246,0.3)]">
+                            <UserCircle className="w-6 h-6 text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]" />
+                        </div>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-100">Gestão de Conta</h3>
+                    <h3 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400 tracking-tight drop-shadow-sm">Gestão de Conta</h3>
                 </div>
-                <p className="text-sm text-slate-400 leading-relaxed">
-                    Acesse seu perfil para criar <strong>Múltiplos Painéis</strong>. Estude para concursos diferentes sem misturar suas métricas. Gerencie backups e lixeira em um só lugar.
+                <p className="text-sm text-slate-300 leading-relaxed font-medium">
+                    Acesse seu perfil para criar <strong className="text-violet-300 font-bold">Múltiplos Painéis</strong>. Estude para concursos diferentes sem misturar suas métricas. Gerencie backups e lixeira em um só lugar.
                 </p>
             </div>
         ),
@@ -68,14 +71,17 @@ const steps = [
         target: '.tour-step-2',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
-                        <Compass className="w-5 h-5 text-cyan-400" />
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-cyan-500/30 blur-md rounded-full animate-pulse"></div>
+                        <div className="relative p-3 bg-slate-900/80 backdrop-blur-sm border border-cyan-500/50 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+                            <Compass className="w-6 h-6 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+                        </div>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-100">Navegação Estratégica</h3>
+                    <h3 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 tracking-tight drop-shadow-sm">Navegação Estratégica</h3>
                 </div>
-                <p className="text-sm text-slate-400 leading-relaxed">
-                    Sua central de ferramentas. Acesse <strong>Simulados IA</strong>, <strong>Retenção</strong> e analise sua <strong>Evolução</strong> com projeções de aprovação precisas.
+                <p className="text-sm text-slate-300 leading-relaxed font-medium">
+                    Sua central de ferramentas. Acesse <strong className="text-cyan-300">Simulados IA</strong>, <strong className="text-cyan-300">Retenção</strong> e analise sua <strong className="text-cyan-300">Evolução</strong> com projeções de aprovação precisas.
                 </p>
             </div>
         ),
@@ -87,14 +93,17 @@ const steps = [
         target: '.tour-step-3',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
-                        <Timer className="w-5 h-5 text-rose-400" />
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-rose-500/30 blur-md rounded-full animate-pulse"></div>
+                        <div className="relative p-3 bg-slate-900/80 backdrop-blur-sm border border-rose-500/50 rounded-xl shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+                            <Timer className="w-6 h-6 text-rose-400 drop-shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                        </div>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-100">Foco Sincronizado</h3>
+                    <h3 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-pink-400 tracking-tight drop-shadow-sm">Foco Sincronizado</h3>
                 </div>
-                <p className="text-sm text-slate-400 leading-relaxed mb-3">
-                    Cronometre sessões para gerar <strong>XP</strong> e alimentar seu mapa de constância. Sincronização em tempo real entre todos os seus dispositivos.
+                <p className="text-sm text-slate-300 leading-relaxed mb-3 font-medium">
+                    Cronometre sessões para gerar <strong className="text-rose-300">XP</strong> e alimentar seu mapa de constância. Sincronização em tempo real entre todos os seus dispositivos.
                 </p>
             </div>
         ),
@@ -106,13 +115,16 @@ const steps = [
         target: '.tour-step-4',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
-                        <BarChart3 className="w-5 h-5 text-indigo-400" />
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-indigo-500/30 blur-md rounded-full animate-pulse"></div>
+                        <div className="relative p-3 bg-slate-900/80 backdrop-blur-sm border border-indigo-500/50 rounded-xl shadow-[0_0_20px_rgba(99,102,241,0.3)]">
+                            <BarChart3 className="w-6 h-6 text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
+                        </div>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-100">Visão Executiva</h3>
+                    <h3 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 tracking-tight drop-shadow-sm">Visão Executiva</h3>
                 </div>
-                <p className="text-sm text-slate-400 leading-relaxed">
+                <p className="text-sm text-slate-300 leading-relaxed font-medium">
                     Monitoramento contínuo dos seus KPIs: média de acertos, contagem regressiva da prova e o percentual exato de fechamento do edital.
                 </p>
             </div>
@@ -125,14 +137,17 @@ const steps = [
         target: '.tour-step-5',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 bg-indigo-500/20 border border-indigo-500/30 rounded-xl shadow-[0_0_15px_rgba(99,102,241,0.2)]">
-                        <Target className="w-5 h-5 text-indigo-400" />
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-amber-500/30 blur-md rounded-full animate-pulse"></div>
+                        <div className="relative p-3 bg-slate-900/80 backdrop-blur-sm border border-amber-500/50 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+                            <Target className="w-6 h-6 text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                        </div>
                     </div>
-                    <h3 className="text-lg font-bold text-indigo-300">Motor de Decisão (IA)</h3>
+                    <h3 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400 tracking-tight drop-shadow-sm">Motor de Decisão (IA)</h3>
                 </div>
-                <p className="text-sm text-slate-400 leading-relaxed">
-                    Nossa IA analisa seu desempenho e prioridades para sugerir o tópico mais crítico agora. Confie no <strong>Próximo Foco Inteligente</strong> para guiar sua rotina e otimizar cada minuto de estudo.
+                <p className="text-sm text-slate-300 leading-relaxed font-medium">
+                    Nossa IA analisa seu desempenho e prioridades para sugerir o tópico mais crítico agora. Confie no <strong className="text-amber-300 font-bold">Próximo Foco Inteligente</strong> para guiar sua rotina e otimizar cada minuto de estudo.
                 </p>
             </div>
         ),
@@ -144,13 +159,16 @@ const steps = [
         target: '.tour-step-6',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
-                        <CheckSquare className="w-5 h-5 text-emerald-400" />
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-emerald-500/30 blur-md rounded-full animate-pulse"></div>
+                        <div className="relative p-3 bg-slate-900/80 backdrop-blur-sm border border-emerald-500/50 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                            <CheckSquare className="w-6 h-6 text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                        </div>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-100">Gestão de Tarefas</h3>
+                    <h3 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 tracking-tight drop-shadow-sm">Gestão de Tarefas</h3>
                 </div>
-                <p className="text-sm text-slate-400 leading-relaxed">
+                <p className="text-sm text-slate-300 leading-relaxed font-medium">
                     Crie matérias, defina prioridades e marque subtópicos como concluídos. Seu progresso alimenta diretamente o nível da sua conta.
                 </p>
             </div>
@@ -163,29 +181,33 @@ const steps = [
         target: 'body',
         content: (
             <div className="text-center py-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-                    <Trophy className="w-8 h-8 text-emerald-400" />
+                <div className="relative w-20 h-20 mx-auto mb-6">
+                    {/* Glow Animado */}
+                    <div className="absolute inset-0 bg-emerald-500/30 blur-xl rounded-full animate-pulse"></div>
+                    <div className="relative w-full h-full bg-slate-900/80 backdrop-blur-sm border border-emerald-500/50 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                        <Trophy className="w-10 h-10 text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
+                    </div>
                 </div>
-                <h2 className="text-2xl font-black text-white mb-3 tracking-tight">
+                <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 mb-4 tracking-tight drop-shadow-md">
                     Tudo Pronto!
                 </h2>
-                <p className="text-sm text-slate-400 leading-relaxed mb-6 px-2">
+                <p className="text-sm text-slate-300 leading-relaxed mb-6 px-2 font-medium">
                     O motor do Método Arraia está configurado. Inicie sua jornada de alta performance agora mesmo.
                 </p>
-                <div className="text-left bg-slate-800/50 rounded-xl p-5 border border-slate-700/50">
-                    <h4 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-wider">Missão Inicial</h4>
-                    <ul className="text-sm text-slate-300 space-y-4">
-                        <li className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-md bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xs text-indigo-300 font-bold">1</span>
-                            Adicione sua primeira Matéria
+                <div className="text-left bg-slate-800/60 backdrop-blur-md rounded-2xl p-5 border border-slate-700/80 shadow-inner">
+                    <h4 className="text-[11px] font-black text-emerald-400/80 mb-4 uppercase tracking-widest text-center">Missão Inicial</h4>
+                    <ul className="text-sm text-slate-200 space-y-4">
+                        <li className="flex items-center gap-4">
+                            <span className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xs text-emerald-300 font-bold shadow-[0_0_10px_rgba(16,185,129,0.2)]">1</span>
+                            <span className="font-semibold">Adicione sua primeira Matéria</span>
                         </li>
-                        <li className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-md bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xs text-indigo-300 font-bold">2</span>
-                            Configure a Data da Prova
+                        <li className="flex items-center gap-4">
+                            <span className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xs text-emerald-300 font-bold shadow-[0_0_10px_rgba(16,185,129,0.2)]">2</span>
+                            <span className="font-semibold">Configure a Data da Prova</span>
                         </li>
-                        <li className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-md bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xs text-indigo-300 font-bold">3</span>
-                            Inicie um ciclo de Foco
+                        <li className="flex items-center gap-4">
+                            <span className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xs text-emerald-300 font-bold shadow-[0_0_10px_rgba(16,185,129,0.2)]">3</span>
+                            <span className="font-semibold">Inicie um ciclo de Foco</span>
                         </li>
                     </ul>
                 </div>
