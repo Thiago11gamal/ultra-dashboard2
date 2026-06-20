@@ -363,6 +363,20 @@ export default function Sidebar({
 
                                     <button
                                         type="button"
+                                        className="sidebar-item !py-2 hover:!bg-indigo-500/10"
+                                        onClick={() => {
+                                            useAppStore.getState().setHasSeenTour(false);
+                                            closeMobileSidebar();
+                                        }}
+                                        style={{ '--item-color': '#818cf8' }}
+                                        title="Reiniciar Tutorial"
+                                    >
+                                        <Sparkles size={14} style={{ color: '#818cf8' }} />
+                                        <span className="text-[0.8rem]">Reiniciar Tutorial</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
                                         className="sidebar-item logout-btn !py-2 hover:!bg-rose-500/10"
                                         onClick={handleLogout}
                                         style={{ '--item-color': '#f43f5e' }}
