@@ -38,26 +38,45 @@ export default function WelcomeScreen({ onDismiss }) {
                     />
 
                     <div className="flex flex-col items-center z-10 gap-8">
-                        {/* Premium Manta Ray Animation */}
+                        {/* Premium Manta Ray Animation com nado 3D */}
                         <motion.div
-                            initial={{ y: 30, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                            initial={{ y: 50, opacity: 0, scale: 0.8 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+                            style={{ perspective: 1000 }}
                         >
-                            <motion.img 
-                                src={logo} 
-                                alt="Manta Logo" 
+                            {/* Wrapper para movimento de translação (flutuar e deslizar) */}
+                            <motion.div
                                 animate={{ 
-                                    y: [0, -15, 0],
-                                    rotate: [0, 2, -2, 0]
+                                    y: [0, -30, 10, 0],
+                                    x: [-15, 20, -10, -15],
                                 }}
                                 transition={{ 
-                                    duration: 6, 
+                                    duration: 8, 
                                     repeat: Infinity,
                                     ease: "easeInOut" 
                                 }}
-                                className="w-64 md:w-80 filter drop-shadow-[0_0_40px_rgba(99,102,241,0.5)]"
-                            />
+                            >
+                                {/* Wrapper da imagem para movimento 3D e "bater de asas" (ondulação) */}
+                                <motion.img 
+                                    src={logo} 
+                                    alt="Manta Logo" 
+                                    animate={{ 
+                                        rotateZ: [-3, 4, -2, -3],
+                                        rotateX: [15, -5, 20, 15], 
+                                        rotateY: [-20, 15, -10, -20], 
+                                        scaleX: [1, 0.88, 1.05, 1], 
+                                        scaleY: [1, 1.08, 0.95, 1],
+                                    }}
+                                    transition={{ 
+                                        duration: 6, 
+                                        repeat: Infinity,
+                                        ease: "easeInOut" 
+                                    }}
+                                    className="w-64 md:w-80 filter drop-shadow-[0_20px_50px_rgba(99,102,241,0.6)]"
+                                    style={{ transformStyle: 'preserve-3d' }}
+                                />
+                            </motion.div>
                         </motion.div>
 
                         {/* Text Content */}
