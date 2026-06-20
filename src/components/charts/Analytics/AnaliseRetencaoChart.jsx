@@ -15,10 +15,10 @@ export function AnaliseRetencaoChart({ data }) {
     }
 
     return (
-        <div className="h-[320px] w-full mt-4">
+        <div className="h-[400px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                 {/* Margens ajustadas para dar respiro aos valores numéricos (left/right) e ao texto inclinado (bottom) */}
-                <ComposedChart data={data} margin={{ top: 20, right: 10, left: 10, bottom: 40 }}>
+                <ComposedChart data={data} margin={{ top: 20, right: 10, left: 10, bottom: 120 }}>
                     <defs>
                         <linearGradient id={barGradId} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
@@ -39,25 +39,56 @@ export function AnaliseRetencaoChart({ data }) {
                         tickLine={false}
                         axisLine={false}
                         dy={10}
-                        angle={-45}
-                        textAnchor="end"
+                        interval={0}
                         padding={{ left: 15, right: 15 }}
                         tick={(props) => {
                             const { x, y, payload } = props;
                             const item = data[payload.index];
+                            let rawText = item?.isTask ? `• ${payload.value}` : payload.value;
+                            
+                            // Truncar textos muito longos (máximo 40 caracteres) para não quebrar o layout
+                            if (rawText.length > 40) {
+                                rawText = rawText.substring(0, 40).trim() + '...';
+                            }
+                            
+                            const words = String(rawText).split(' ');
+                            const lines = [];
+                            let currentLine = '';
+                            const maxCharsPerLine = 15; // Garante um bloco de texto com largura agradável
+                            
+                            for (const word of words) {
+                                if (!currentLine) {
+                                    currentLine = word;
+                                } else if (currentLine.length + 1 + word.length <= maxCharsPerLine) {
+                                    currentLine += ' ' + word;
+                                } else {
+                                    lines.push(currentLine);
+                                    currentLine = word;
+                                }
+                            }
+                            if (currentLine) {
+                                lines.push(currentLine);
+                            }
+
+                            const isRotated = data.length > 4;
+
                             return (
                                 <g transform={`translate(${x},${y})`}>
                                     <text
                                         x={0}
                                         y={0}
                                         dy={16}
-                                        textAnchor="end"
+                                        textAnchor={isRotated ? "end" : "middle"}
                                         fill={item?.isTask ? "#94a3b8" : "#f1f5f9"}
                                         fontSize={item?.isTask ? 9 : 10}
                                         fontWeight={item?.isTask ? 400 : 700}
-                                        transform="rotate(-45)"
+                                        transform={isRotated ? "rotate(-45)" : undefined}
                                     >
-                                        {item?.isTask ? `• ${payload.value}` : payload.value}
+                                        {lines.map((line, index) => (
+                                            <tspan x={0} dy={index === 0 ? 0 : 12} key={index}>
+                                                {line}
+                                            </tspan>
+                                        ))}
                                     </text>
                                 </g>
                             );
