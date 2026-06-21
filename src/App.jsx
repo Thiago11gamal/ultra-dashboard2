@@ -124,6 +124,7 @@ function MainLayout() {
   useEffect(() => {
       if (!loading && !currentUser) {
           sessionStorage.removeItem('hasSeenWelcomeScreen');
+          // eslint-disable-next-line
           setShowWelcome(true);
       }
   }, [currentUser, loading]);
