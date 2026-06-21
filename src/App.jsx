@@ -107,17 +107,27 @@ function MainLayout() {
   const rescueAttemptsRef = useRef(0);
   
   // Controle da tela de Boas-Vindas (Premium) - Aparece 1x por sessão (login)
+  // ── ESTADO DA TELA DE BOAS-VINDAS ──
   const [showWelcome, setShowWelcome] = useState(() => {
-    if (typeof sessionStorage !== 'undefined') {
-      return sessionStorage.getItem('welcomeShown') !== 'true';
-    }
-    return true;
+      // Verifica se a tela de boas-vindas já foi vista nesta sessão
+      const hasSeen = sessionStorage.getItem('hasSeenWelcomeScreen');
+      return !hasSeen;
   });
 
   const handleDismissWelcome = useCallback(() => {
-    sessionStorage.setItem('welcomeShown', 'true');
-    setShowWelcome(false);
+      sessionStorage.setItem('hasSeenWelcomeScreen', 'true');
+      setShowWelcome(false);
   }, []);
+
+  // Garante que se o usuário fizer logout (voltar para a tela de login), 
+  // o estado reseta para mostrar o WelcomeScreen no próximo login.
+  useEffect(() => {
+      if (!loading && !currentUser) {
+          sessionStorage.removeItem('hasSeenWelcomeScreen');
+          setShowWelcome(true);
+      }
+  }, [currentUser, loading]);
+  // ───────────────────────────────────
 
   // Flag reativa da Store para garantir hidratação atômica
   const isStoreHydrated = useAppStore(state => state.appState.isHydrated);
