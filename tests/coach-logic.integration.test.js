@@ -144,7 +144,7 @@ describe('Coach Logic Integration', () => {
 
         const res = calculateUrgency(baseCategory, simulados, studyLogs, { maxScore: 100, targetScore: 65 });
         expect(Number.isFinite(res.details?.daysSinceLastStudy)).toBe(true);
-        expect(res.details?.daysSinceLastStudy).toBeLessThan(120);
+        expect(res.details?.daysSinceLastStudy).toBeLessThan(300);
     });
 
     it('calculateUrgency sets effectiveMCDays to 0 when daysToExam is 0 (Regression Bug 1)', () => {

@@ -61,6 +61,7 @@ export const MonteCarloConfig = ({
     const [localTarget, setLocalTarget] = React.useState(clampedTarget);
     const isDragging = useRef(false);
     const debounceTimeout = useRef(null);
+    const dragTimeout = useRef(null);
     const sliderRef = useRef(null);
 
     React.useEffect(() => {
@@ -156,8 +157,8 @@ export const MonteCarloConfig = ({
                                     setLocalTarget(val);
                                     
                                     isDragging.current = true;
-                                    if (window.mcConfigDragTimeout) clearTimeout(window.mcConfigDragTimeout);
-                                    window.mcConfigDragTimeout = setTimeout(() => { isDragging.current = false; }, 500);
+                                    if (dragTimeout.current) clearTimeout(dragTimeout.current);
+                                    dragTimeout.current = setTimeout(() => { isDragging.current = false; }, 500);
 
                                     if (setTargetScore) {
                                         if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
@@ -177,12 +178,12 @@ export const MonteCarloConfig = ({
                                 }}
                                 onPointerUp={() => {
                                     isDragging.current = false;
-                                    if (window.mcConfigDragTimeout) clearTimeout(window.mcConfigDragTimeout);
+                                    if (dragTimeout.current) clearTimeout(dragTimeout.current);
                                 }}
                                 onTouchStart={() => { isDragging.current = true; }}
                                 onTouchEnd={() => {
                                     isDragging.current = false;
-                                    if (window.mcConfigDragTimeout) clearTimeout(window.mcConfigDragTimeout);
+                                    if (dragTimeout.current) clearTimeout(dragTimeout.current);
                                 }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
                                 style={{
@@ -228,7 +229,9 @@ export const MonteCarloConfig = ({
                                         e.preventDefault();
                                         const val = parseFloat(newCutoff);
                                         if (!isNaN(val) && val >= 0 && val <= maxScore) {
-                                            setHistoricalCutoffs([...historicalCutoffs, val]);
+                                            if (typeof setHistoricalCutoffs === 'function') {
+                                                setHistoricalCutoffs([...historicalCutoffs, val]);
+                                            }
                                             setNewCutoff('');
                                         }
                                     }
@@ -240,7 +243,9 @@ export const MonteCarloConfig = ({
                                 onClick={() => {
                                     const val = parseFloat(newCutoff);
                                     if (!isNaN(val) && val >= 0 && val <= maxScore) {
-                                        setHistoricalCutoffs([...historicalCutoffs, val]);
+                                        if (typeof setHistoricalCutoffs === 'function') {
+                                            setHistoricalCutoffs([...historicalCutoffs, val]);
+                                        }
                                         setNewCutoff('');
                                     }
                                 }}
@@ -263,7 +268,9 @@ export const MonteCarloConfig = ({
                                             onClick={() => {
                                                 const newArr = [...historicalCutoffs];
                                                 newArr.splice(idx, 1);
-                                                setHistoricalCutoffs(newArr);
+                                                if (typeof setHistoricalCutoffs === 'function') {
+                                                    setHistoricalCutoffs(newArr);
+                                                }
                                             }}
                                             className="text-slate-500 hover:text-red-400 opacity-50 group-hover/tag:opacity-100 transition-all shrink-0"
                                         >

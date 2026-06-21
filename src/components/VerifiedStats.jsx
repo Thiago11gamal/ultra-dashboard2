@@ -386,8 +386,8 @@ export default function VerifiedStats({ categories = [], user }) {
             window_size: Math.min(5, dailyHistory.length),
             stagnation_threshold: 0.04 * maxScore, // 4% do teto
             low_level_limit: 0.60 * maxScore,      // 60% do teto
-            high_level_limit: (statsTarget / 100) * maxScore,
-            mastery_limit: (statsTarget / 100) * maxScore,
+            high_level_limit: statsTarget,
+            mastery_limit: statsTarget,
             maxScore: maxScore
         });
 
@@ -589,8 +589,8 @@ export default function VerifiedStats({ categories = [], user }) {
                     window_size: Math.min(5, analysisHistory.length),
                     stagnation_threshold: 0.04 * maxScore, // 4% do teto
                     low_level_limit: 0.60 * maxScore,      // 60% do teto
-                    high_level_limit: (statsTarget / 100) * maxScore,
-                    mastery_limit: (statsTarget / 100) * maxScore,
+                    high_level_limit: statsTarget,
+                    mastery_limit: statsTarget,
                     maxScore: maxScore
                 });
 

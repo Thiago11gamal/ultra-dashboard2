@@ -646,8 +646,11 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const icWidth = ci95High - ci95Low;
         const saturation = Math.min(1, domainWidth > 0 ? icWidth / domainWidth : 1);
         const projectionConfidence = Math.max(0, 1 - Math.pow(saturation, 1.5));
-        const pBaseline = (domainWidth > 0) ? Math.max(0, (maxScore - debouncedTarget) / domainWidth) * 100 : 0;
-        const pAdjusted = probability * projectionConfidence + pBaseline * (1 - projectionConfidence);
+        
+        // BUG FIX: O probability já foi retraído pela penalidade de calibração em shrinkProbabilityToNeutral.
+        // Fazer outro blend com pBaseline com base na saturação do IC é duplo encolhimento,
+        // o que subestima brutalmente as chances reais do candidato em cenários voláteis.
+        const pAdjusted = probability;
         const safeSdForTrend = Number.isFinite(sd) && sd > 0 ? sd : 1;
         const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / safeSdForTrend) * 100;
 

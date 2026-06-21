@@ -124,8 +124,12 @@ function partition(arr, left, right) {
  */
 export const calculateInterpolatedPercentile = (arr, p) => {
     if (!arr || arr.length === 0) return 0;
-    const cleanArr = arr.filter(Number.isFinite);
+    let cleanArr = arr.filter(Number.isFinite);
     if (cleanArr.length === 0) return 0;
+    
+    // BUG FIX: O array precisa ser ordenado antes de calcular índices de percentil
+    cleanArr = cleanArr.sort((a, b) => a - b);
+    
     if (cleanArr.length === 1) return cleanArr[0];
     if (p <= 0) return cleanArr[0];
     if (p >= 1) return cleanArr[cleanArr.length - 1];

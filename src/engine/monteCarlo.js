@@ -269,19 +269,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const sortedScores = new Float64Array(allScores);
     sortedScores.sort();
     
-    const nAll = sortedScores.length;
-    const iLow = Math.min(Math.floor((nAll - 1) * 0.025), nAll - 1);
-    const iHigh = Math.min(Math.floor((nAll - 1) * 0.975), nAll - 1);
-    const iMedian = Math.min(Math.floor((nAll - 1) * 0.5), nAll - 1);
-    const i16 = Math.min(Math.floor((nAll - 1) * 0.16), nAll - 1);
-    const i84 = Math.min(Math.floor((nAll - 1) * 0.84), nAll - 1);
-
-    // Leitura direta por índice do array já ordenado (O(1) cada)
-    const statisticalCi95Low = sortedScores[iLow];
-    const statisticalCi95High = sortedScores[iHigh];
-    const empMedian = sortedScores[iMedian];
-    const rawLeft = sortedScores[i16];
-    const rawRight = sortedScores[i84];
+    // Leitura usando função de percentil interpolada para consistência matemática no sistema
+    const statisticalCi95Low = getPercentile(sortedScores, 0.025, true);
+    const statisticalCi95High = getPercentile(sortedScores, 0.975, true);
+    const empMedian = getPercentile(sortedScores, 0.5, true);
+    const rawLeft = getPercentile(sortedScores, 0.16, true);
+    const rawRight = getPercentile(sortedScores, 0.84, true);
 
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;
