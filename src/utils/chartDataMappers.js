@@ -117,7 +117,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     const getFullKey = (dateObj) => {
         try {
             return new Intl.DateTimeFormat('en-GB', {
-                timeZone: 'America/Manaus',
+                // timeZone removed to use user's local time instead of hard-coded Manaus (fixes date bugs for other regions)
                 day: '2-digit', month: '2-digit', year: 'numeric'
             }).format(dateObj);
         } catch {
@@ -131,7 +131,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     const getDisplayKey = (dateObj) => {
         try {
             return new Intl.DateTimeFormat('en-GB', {
-                timeZone: 'America/Manaus',
+                // timeZone removed to use user's local time instead of hard-coded Manaus (fixes date bugs for other regions)
                 day: '2-digit', month: '2-digit'
             }).format(dateObj);
         } catch {

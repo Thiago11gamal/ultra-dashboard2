@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react';
-import { Activity, TrendingUp, BarChart2, Trophy, Calendar, AlertCircle, Info } from 'lucide-react';
-import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
+import { Activity, TrendingUp, BarChart2, Trophy, Calendar, AlertCircle, Info, BookOpen } from 'lucide-react';
+import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency, buildAchievementStats } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
 import { formatValue } from '../utils/scoreHelper';
 
@@ -56,6 +56,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     const streak = useMemo(() => calculateStudyStreak(data.studyLogs || []), [data.studyLogs]);
     const balance = useMemo(() => analyzeSubjectBalance(data.categories || []), [data.categories]);
     const efficiency = useMemo(() => analyzeEfficiency(data.categories || [], data.studyLogs || []), [data.categories, data.studyLogs]);
+    const fcStats = useMemo(() => buildAchievementStats(data) || {}, [data]);
 
     const user = data.user || { xp: 0, level: 1 };
     const progress = useMemo(() => getXPProgress(user.xp), [user.xp]);
@@ -115,7 +116,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     }, [user.goalDate]);
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 auto-rows-auto gap-3 sm:gap-4 animate-fade-in-down">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 auto-rows-auto gap-3 sm:gap-4 animate-fade-in-down">
             {/* ── Sequência ─────────────────────────────────────────────────── */}
             <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700" />
@@ -219,6 +220,40 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             <div className="text-[10px] sm:text-xs text-slate-500 font-medium leading-normal">
                                 {balance.metrics.activeSubjects}/{balance.metrics.totalSubjects} matérias ativas
                             </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Flashcards (Medidas & Indicadores SRS) ─────────────────── */}
+            <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-6 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl">
+                <div className="absolute -top-10 -left-10 w-24 h-24 bg-amber-500/10 rounded-full blur-[40px] group-hover:bg-amber-500/20 transition-all duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.02] to-transparent pointer-events-none" />
+                <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 relative group/tooltip cursor-help">
+                        <div className="p-2 bg-amber-500/10 rounded-lg group-hover/tooltip:bg-amber-500/20 transition-colors">
+                            <BookOpen size={18} className="text-amber-400" />
+                        </div>
+                        <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Flashcards</span>
+                        <Info size={14} className="ml-auto text-slate-600 group-hover/tooltip:text-slate-400 transition-colors" />
+                        
+                        <div className="absolute top-full left-0 mt-2 w-60 max-w-[85vw] p-2.5 bg-yellow-400 text-[10px] sm:text-xs text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500">
+                            <strong>Indicadores SRS</strong>: Revisões totais, precisão e cartões pendentes hoje via repetição espaçada.
+                        </div>
+                    </div>
+                    <div className="text-2xl sm:text-3xl font-black text-white mt-1 mb-2">
+                        {fcStats.flashcardReviews || 0} <span className="text-lg sm:text-xl text-slate-300 font-bold">revisões</span>
+                    </div>
+                    <div className="mt-auto pt-1 pb-1 flex flex-col gap-1 pl-2 min-w-0">
+                        <div className="flex items-center gap-2 text-[10px] sm:text-xs text-amber-400 font-medium">
+                            <span>Precisão: <span className="font-bold">{formatValue(fcStats.flashcardAccuracy || 0)}%</span></span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs text-slate-400 font-medium">
+                            <span>Hoje: <span className="font-bold text-white">{fcStats.flashcardReviewsToday || 0}</span></span>
+                            <span>Pendentes: <span className="font-bold text-amber-300">{fcStats.flashcardDueToday || 0}</span></span>
+                        </div>
+                        {(fcStats.flashcardMastery || 0) > 0 && (
+                            <div className="text-[10px] sm:text-xs text-slate-500 font-medium">Domínio: {fcStats.flashcardMastery}%</div>
                         )}
                     </div>
                 </div>

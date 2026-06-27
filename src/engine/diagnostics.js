@@ -79,7 +79,7 @@ export function detectDataAnomalies(history = [], maxScore = 100) {
   const nFinite = finites.length;
 
   // 1. Taxa alta de dados inválidos / NaN após sanitize
-  const invalidRate = (history.length - nFinite) / history.length;
+  const invalidRate = history.length > 0 ? (history.length - nFinite) / history.length : 0;
   if (invalidRate > 0.2) {
     issues.push({ type: 'data', severity: 'warning', msg: `${Math.round(invalidRate*100)}% dos registros têm score inválido/NaN (possível corrupção legacy).`, count: history.length - nFinite });
   }

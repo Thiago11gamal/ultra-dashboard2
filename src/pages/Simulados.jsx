@@ -1,13 +1,15 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { safeClone } from '../store/safeClone.js';
-import React from 'react';
+import React, { useState } from 'react';
 import SimuladoAnalysis from '../components/SimuladoAnalysis';
+import AIGeneratedSimulado from '../components/ai/AIGeneratedSimulado';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 import { normalize, aliases } from '../utils/normalization';
 import { computeCategoryStats } from '../engine';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { generateId } from '../utils/idGenerator';
+import { ListChecks, Brain } from 'lucide-react';
 
 export default function Simulados() {
     const data = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
@@ -28,6 +30,11 @@ export default function Simulados() {
             if (r.isAuto) {
                 const key = `${normalize(r.subject)}-${normalize(r.topic)}`;
                 savedAutoRows[key] = r;
+
+                // Support for AI-generated rows that carry exact IDs (adendo requirement)
+                if (r.categoryId && r.taskId) {
+                    savedAutoRows[`id:${r.categoryId}:${r.taskId}`] = r;
+                }
             }
         });
 
@@ -60,8 +67,12 @@ export default function Simulados() {
                     if (!title) return;
 
                     const key = `${subjNorm}-${topicNorm}`;
+                    const idKey = `id:${cat.id}:${task.id}`;
 
-                    if (savedAutoRows[key]) {
+                    if (savedAutoRows[idKey]) {
+                        // Prefer exact ID match (from AI generated simulados)
+                        rows.push(savedAutoRows[idKey]);
+                    } else if (savedAutoRows[key]) {
                         rows.push(savedAutoRows[key]);
                     } else {
                         rows.push({
@@ -78,6 +89,8 @@ export default function Simulados() {
         });
         return rows;
     }, [data]);
+
+    const [mode, setMode] = useState('analyzer'); // 'analyzer' | 'ai-generator'
 
     // BUG-11/20 FIX: Guarda de segurança contra estado vazio
     if (!data || !data.categories) {
@@ -96,8 +109,9 @@ export default function Simulados() {
         const todayKey = getDateKey(normalizeDate(new Date()));
         setData(prev => {
             const existingRows = prev.simuladoRows || [];
-            // BUGFIX CRITICO: Preservar dados importados via CSV no dia de hoje (isAuto falso).
-            // Apenas deleta as rows autogeradas de hoje, pois elas serão substituídas pela UI atual.
+            // BUGFIX CRITICO: Preservar dados importados via CSV (isAuto falso).
+            // As rows isAuto de hoje (incluindo AI) serão substituídas pelos valores atuais da tabela.
+            // Os dados de AI são preservados porque a tabela (displayRows) injeta as rows de AI com seus scores.
             const rowsToKeep = existingRows.filter(row => 
                 !(row.isAuto && getDateKey(normalizeDate(row.date || row.createdAt)) === todayKey)
             );
@@ -202,7 +216,9 @@ export default function Simulados() {
                 });
             }
 
-            // BUGFIX CRITICO: Preservar dados importados via CSV no dia de hoje (isAuto falso).
+            // BUGFIX CRITICO: Preservar dados importados via CSV (isAuto falso).
+            // As rows isAuto de hoje (incluindo de IA) serão substituídas pelos valores da análise atual.
+            // Dados de IA são mantidos via os rawRows vindos da tabela que injeta eles.
             const rowsToKeep = (prev.simuladoRows || []).filter(
                 r => !(r.isAuto && getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey)
             );
@@ -264,11 +280,35 @@ export default function Simulados() {
 
 
     return (<PageErrorBoundary pageName="Simulados">
-        <SimuladoAnalysis
+        {/* Premium Tabs */}
+        <div className="mb-8 flex items-center bg-white/5 border border-white/10 rounded-2xl p-1 w-fit">
+          <button
+            onClick={() => setMode('analyzer')}
+            className={`flex items-center gap-2 px-6 py-2.5 text-sm font-black rounded-[14px] transition-all ${mode === 'analyzer' 
+              ? 'bg-white text-slate-950 shadow' 
+              : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+          >
+            <ListChecks size={17} className="opacity-70" /> Analisador de Desempenho
+          </button>
+          <button
+            onClick={() => setMode('ai-generator')}
+            className={`flex items-center gap-2 px-6 py-2.5 text-sm font-black rounded-[14px] transition-all ${mode === 'ai-generator' 
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow' 
+              : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+          >
+            <Brain size={17} className="opacity-70" /> Gerar Simulado com IA
+          </button>
+        </div>
+
+        {mode === 'analyzer' ? (
+          <SimuladoAnalysis
             rows={displayRows}
             onRowsChange={handleUpdateSimuladoRows}
             onAnalysisComplete={handleSimuladoAnalysis}
             categories={data.categories || []}
-        />
+          />
+        ) : (
+          <AIGeneratedSimulado />
+        )}
     </PageErrorBoundary>);
 }

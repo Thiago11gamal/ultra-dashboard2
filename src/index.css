@@ -515,7 +515,16 @@ h3,
 h4,
 h5,
 h6 {
-  line-height: 1.4;
+  line-height: 1.42;
+}
+
+/* Extra safety for text inside our glass/premium cards */
+.premium-card h1,
+.premium-card h2,
+.premium-card h3,
+.premium-card .font-bold,
+.premium-card .font-extrabold {
+  padding-bottom: 1px;
 }
 
 /* Custom scrollbar definition moved to line 152 for consolidation */
@@ -584,6 +593,15 @@ h6 {
   top: -155%;
 }
 
+/* Safety for tiny labels that often get clipped (text-[9px], text-[8px], text-xs) */
+.text-\[8px\],
+.text-\[9px\],
+.text-\[10px\],
+.text-xs {
+  line-height: 1.38;
+  padding-bottom: 0.5px;
+}
+
 /* Premium Custom Range Slider */
 input[type=range].custom-slider {
   -webkit-appearance: none;
@@ -640,4 +658,198 @@ input[type=range].custom-slider::-moz-range-thumb:hover {
 
 input[type=range].custom-slider::-moz-range-thumb:active {
   transform: scale(0.95);
+}
+
+/* =========================================
+   VISUAL POLISH & NEW TOOLS - 2026
+   ========================================= */
+
+/* Premium Card Base - consistent across app */
+.premium-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 27, 75, 0.85) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 18px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s ease;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
+}
+
+.premium-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(129, 140, 248, 0.25);
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(129, 140, 248, 0.08);
+}
+
+/* Tool header title polish */
+.tool-header {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  background: linear-gradient(90deg, #f8fafc, #cbd5e1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding-bottom: max(0.12em, 2px); /* Prevent descender clipping on gradient text */
+  line-height: 1.35;
+}
+
+/* Consistent micro labels (fix audit noise) */
+.micro-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  line-height: 1.3;
+  padding-bottom: 1px;
+}
+
+/* Flashcard flip styles - premium */
+.flashcard-container {
+  perspective: 1200px;
+  min-height: 260px;
+}
+
+.flashcard {
+  position: relative;
+  width: 100%;
+  min-height: 260px;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+  border-radius: 20px;
+}
+
+.flashcard.flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-front,
+.flashcard-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.6rem 2.1rem; /* Good breathing room top + bottom for letters */
+  text-align: center;
+  background: linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6);
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+  background: linear-gradient(145deg, #1e1b4b 0%, #312e81 100%);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.flashcard-content {
+  font-size: 1.32rem;
+  font-weight: 600;
+  line-height: 1.48; /* Much safer for descenders (g,y,p,j,ç) */
+  color: #f1f5f9;
+  max-width: 92%;
+  padding-bottom: 0.15em; /* Safety padding for clipped letters */
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Agenda / Calendar polish */
+.agenda-day {
+  transition: all 0.15s ease;
+  border-radius: 10px;
+  padding: 4px; /* Extra internal framing */
+  min-height: 44px;
+}
+
+.agenda-day:hover {
+  background-color: rgba(129, 140, 248, 0.08);
+  transform: translateY(-1px);
+}
+
+.agenda-day.today {
+  border-color: #6366f1 !important;
+  background: rgba(99, 102, 241, 0.08);
+}
+
+/* Ensure day number + dots never clip */
+.agenda-day span {
+  line-height: 1.1;
+  padding-top: 1px;
+}
+
+.agenda-event {
+  font-size: 0.75rem;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.12);
+  border-left: 3px solid #38bdf8;
+  margin-bottom: 4px;
+  line-height: 1.35;
+  transition: all 0.1s ease;
+}
+
+.agenda-event:hover {
+  background: rgba(56, 189, 248, 0.22);
+}
+
+/* Nice primary action buttons for tools */
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.tool-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.45);
+}
+
+.tool-btn:active {
+  transform: scale(0.985);
+}
+
+.tool-btn.secondary {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+  box-shadow: none;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.tool-btn.secondary:hover {
+  background: rgba(148, 163, 184, 0.22);
+  box-shadow: none;
+}
+
+/* Deck card for flashcards */
+.deck-card {
+  border-radius: 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.deck-card:hover {
+  transform: translateY(-3px) scale(1.005);
+  box-shadow: 0 15px 35px -12px rgba(0,0,0,0.5);
+}
+
+/* Better empty states */
+.empty-state {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px dashed rgba(148, 163, 184, 0.25);
+  border-radius: 18px;
+  padding: 3rem 2rem;
 }

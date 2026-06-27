@@ -7,6 +7,7 @@ import { logger } from '../utils/logger';
 import { useAppStore } from '../store/useAppStore';
 import { normalize } from '../utils/normalization';
 import { safeClone } from '../store/safeClone.js';
+import { getSafeScore } from '../utils/scoreHelper.js';
 
 // Remove propriedades nulas/indefinidas de forma segura com proteção contra loops recursivos
 const cleanUndefined = (obj, seen = new WeakSet()) => {
@@ -163,7 +164,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const mergeMonteCarloHistory = (localMC = [], cloudMC = []) => {
         const mcMap = new Map();
         [...localMC, ...cloudMC].forEach(item => {
-            if (item?.date) mcMap.set(item.date, item);
+            if (item?.date) {
+                const sanitized = {
+                    ...item,
+                    probability: Number.isFinite(item.probability) ? item.probability : 0
+                };
+                mcMap.set(item.date, sanitized);
+            }
         });
         return Array.from(mcMap.values()).sort((a, b) => {
             const aMs = new Date(a?.date || 0).getTime();
@@ -220,7 +227,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                     simuladoStats: {
                         ...(localCat.simuladoStats || c.simuladoStats || {}),
                         ...(c.simuladoStats || {}),
-                        history: Array.from(historyMap.values()).sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
+                        history: Array.from(historyMap.values())
+                            .map(h => ({ ...h, score: getSafeScore(h, 100) }))
+                            .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
                     }
                 };
             } else {
@@ -560,7 +569,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 isCloudPullRef.current = true;
                 // SAFETY: Never call setAppState after unmount (avoids React warning + memory leak)
                 if (isMountedRef.current) {
-                    setAppState(prev => mergeAppState(prev, cloudData, { nonDestructive: mergeMode === "nonDestructive" }));
+                    setAppState(() => mergeAppState(useAppStore.getState().appState, cloudData, { nonDestructive: mergeMode === "nonDestructive" }));
                 }
                 lastSyncedRef.current = stateStringForSync(appStateRef.current);
                 setHasConflict(false);
@@ -573,7 +582,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 // efeito "sumiu no 1º refresh e voltou no 2º".
                 // Ainda executamos deduplicação local não-destrutiva.
                 if (isMountedRef.current) {
-                    setAppState(prev => mergeAppState(prev, null));
+                    setAppState(() => mergeAppState(useAppStore.getState().appState, null));
                 }
                 lastSyncedRef.current = stateStringForSync(appStateRef.current);
 

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Activity, AlertCircle, Settings2, Plus, RotateCcw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Activity, AlertCircle, Settings2, Plus, RotateCcw, BookOpen } from 'lucide-react';
 import MonteCarloGauge from './MonteCarloGauge';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { useAppStore } from '../store/useAppStore';
@@ -7,6 +7,8 @@ import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
+import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
+import DueForecast from './DueForecast';
 
 const InfoTooltip = React.memo(({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
@@ -215,6 +217,25 @@ export default function VerifiedStats({ categories = [], user }) {
         const scores = categories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
         return scores.length > 0 ? Math.max(...scores) : 100;
     }, [categories]);
+
+    const flashcardDecks = useAppStore(state => {
+        const activeId = state.appState?.activeId;
+        const contest = state.appState?.contests?.[activeId] || {};
+        return contest.flashcardDecks || [];
+    });
+
+    const flashcardIndicators = useMemo(() => {
+        const decks = flashcardDecks || [];
+        // Centralized helpers (consistent TZ dates + mastery >=6)
+        const totalCards = getFlashcardTotalCards(decks);
+        return {
+            totalDecks: getFlashcardDeckCount(decks),
+            totalCards,
+            dueToday: getFlashcardDueTodayCount(decks),
+            masteryPct: getFlashcardMasteryPct(decks),
+            totalReviews: decks.reduce((sum, d) => sum + (d.cards || []).reduce((r, c) => r + (c.reviews || 0), 0), 0)
+        };
+    }, [flashcardDecks]);
 
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
     const [targetScore, setTargetScore] = React.useState(() => {
@@ -753,6 +774,54 @@ export default function VerifiedStats({ categories = [], user }) {
                     />
                 </div>
             </div>
+
+            {/* Flashcards como Medidas e Indicadores */}
+            {flashcardIndicators.totalCards > 0 && (
+                <div className="glass p-5 rounded-2xl border border-amber-500/20 bg-amber-950/10">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                            <BookOpen size={18} className="text-amber-400" />
+                        </div>
+                        <div>
+                            <div className="text-sm font-black text-white tracking-tight">Flashcards — Medidas & Indicadores</div>
+                            <div className="text-[10px] text-amber-400/80 uppercase tracking-widest">Repetição Espaçada (SRS) • Volume, Precisão e Due</div>
+                        </div>
+                        <div className="ml-auto text-right text-xs">
+                            <span className="font-black text-amber-300">{flashcardIndicators.totalDecks}</span> <span className="text-slate-400">decks</span> · <span className="font-black text-white">{flashcardIndicators.totalCards}</span> <span className="text-slate-400">cartões</span>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <div className="bg-slate-900/60 border border-white/10 rounded-xl p-3">
+                            <div className="text-[10px] uppercase text-slate-500 tracking-widest">Revisões Totais</div>
+                            <div className="text-2xl font-black text-amber-300 mt-1">{flashcardIndicators.totalReviews}</div>
+                        </div>
+                        <div className="bg-slate-900/60 border border-white/10 rounded-xl p-3">
+                            <div className="text-[10px] uppercase text-slate-500 tracking-widest">Domínio (Mastery)</div>
+                            <div className="text-2xl font-black text-emerald-400 mt-1">{flashcardIndicators.masteryPct}<span className="text-base align-super">%</span></div>
+                        </div>
+                        <div className="bg-slate-900/60 border border-white/10 rounded-xl p-3">
+                            <div className="text-[10px] uppercase text-slate-500 tracking-widest">Pendentes Hoje</div>
+                            <div className={`text-2xl font-black mt-1 ${flashcardIndicators.dueToday > 0 ? 'text-orange-400' : 'text-emerald-400'}`}>{flashcardIndicators.dueToday}</div>
+                            <div className="text-[10px] text-slate-500">cartões para revisar</div>
+                        </div>
+                        <div className="bg-slate-900/60 border border-white/10 rounded-xl p-3 flex items-center">
+                            <div>
+                                <div className="text-[10px] uppercase text-slate-500 tracking-widest mb-1">Ação Recomendada</div>
+                                {flashcardIndicators.dueToday > 0 ? (
+                                    <div className="text-sm font-bold text-orange-300">Revisar {flashcardIndicators.dueToday} cartões hoje</div>
+                                ) : (
+                                    <div className="text-sm font-bold text-emerald-400">Tudo em dia — bom trabalho!</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Mini Previsão de Vencimentos */}
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                        <DueForecast decks={flashcardDecks} horizon={7} compact />
+                    </div>
+                </div>
+            )}
 
             <MonteCarloConfig
                 show={showConfig}

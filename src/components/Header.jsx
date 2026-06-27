@@ -155,7 +155,7 @@ const Header = React.memo(function Header({
                         {/* Premium Glow Effect */}
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[150%] bg-indigo-500/10 blur-[40px] rounded-[100%] pointer-events-none transition-opacity duration-500 opacity-50 group-hover:opacity-100" />
                         
-                        <span className="relative z-10 text-[7px] text-slate-500 uppercase tracking-[0.4em] font-black opacity-40 group-hover:opacity-100 transition-all duration-300 mb-0.5 h-2">
+                        <span className="relative z-10 text-[7px] text-slate-500 uppercase tracking-[0.4em] font-black opacity-40 group-hover:opacity-100 transition-all duration-300 mb-0.5 h-2 leading-none">
                             Foco Principal ✏️
                         </span>
                         <div className="relative w-full">
@@ -164,7 +164,7 @@ const Header = React.memo(function Header({
                                 value={displayName}
                                 onChange={handleNameChange}
                                 placeholder="Nome do utilizador..."
-                                className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0 leading-tight w-full text-ellipsis overflow-hidden whitespace-nowrap"
+                                className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0.5 leading-[1.35] w-full text-ellipsis overflow-hidden whitespace-nowrap"
                             />
                         </div>
                     </div>

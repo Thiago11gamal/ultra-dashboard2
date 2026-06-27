@@ -51,7 +51,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                 <div className="flex flex-col items-start gap-2 min-w-0">
                     <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border border-white/20 max-w-full overflow-hidden shrink-0`}>
                         <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
-                        <span className="leading-tight truncate min-w-0 block">{displaySubject(subjectPart)}</span>
+                        <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart)}</span>
                     </div>
                 </div>
                 <button 
@@ -65,7 +65,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                 </button>
             </div>
             <div className="relative z-10 flex-1 mb-4">
-                <h3 className="text-lg sm:text-xl font-black text-white leading-tight mb-2 tracking-tighter">
+                <h3 className="text-lg sm:text-xl font-black text-white leading-[1.32] mb-2 tracking-tighter">
                     {displayAssunto}
                 </h3>
                 <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed font-medium">{displayMeta}</p>
@@ -235,56 +235,56 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     
                     <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
                                 <Compass size={24} className="text-indigo-400" />
                             </div>
                             <div>
                                 <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">Painel Coach AI</h2>
-                                <p className="text-[10px] text-cyan-400/80 uppercase tracking-[0.25em] font-black mt-1">Navegação tática</p>
+                                <p className="text-[10px] text-cyan-400/80 uppercase tracking-[0.25em] font-bold mt-1">Estratégia inteligente com MC</p>
                             </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4">
-                            <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-700/50 rounded-2xl p-1 shadow-inner backdrop-blur-sm">
+                        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/5 rounded-2xl p-0.5 shadow-inner">
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('planner')}
-                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-150 flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'}`}
+                                    className={`px-3.5 py-1 rounded-[10px] text-[9px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1 ${viewMode === 'planner' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <LayoutGrid size={13} className="shrink-0" />
+                                    <LayoutGrid size={12} className="shrink-0" />
                                     Planner
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('cards')}
-                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-150 flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'}`}
+                                    className={`px-3.5 py-1 rounded-[10px] text-[9px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1 ${viewMode === 'cards' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <Sparkles size={13} className="shrink-0" />
+                                    <Sparkles size={12} className="shrink-0" />
                                     Cards
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('list')}
-                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-150 flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'}`}
+                                    className={`px-3.5 py-1 rounded-[10px] text-[9px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1 ${viewMode === 'list' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <List size={13} className="shrink-0" />
+                                    <List size={12} className="shrink-0" />
                                     Lista
                                 </button>
                             </div>
                             
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={handleExport}
                                     disabled={isExporting}
-                                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] hover:border-white/20 transition-all disabled:opacity-50 flex-1 sm:flex-none"
+                                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/5 transition disabled:opacity-50"
                                 >
-                                    {isExporting ? <Loader2 size={13} className="animate-spin shrink-0" /> : <Download size={13} className="shrink-0" />}
-                                    Exportar
+                                    {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                                    Export
                                 </button>
                                 <button
                                     onClick={onClearHistory}
-                                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all flex-1 sm:flex-none"
+                                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/5 border border-rose-500/10 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/10 transition"
                                 >
-                                    <Trash2 size={13} className="shrink-0" />
+                                    <Trash2 size={12} />
                                     Limpar
                                 </button>
                             </div>
@@ -319,9 +319,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
                     </div>
                 ) : (
-                    <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-[11px] font-medium text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2">
-                        <AlertCircle size={14} className="text-slate-500" />
-                        Nenhum foco sugerido no momento.
+                    <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
+                        <AlertCircle size={20} className="mx-auto mb-3 text-slate-600" />
+                        <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Recalcule a estratégia após novos simulados.</p>
                     </div>
                 )}
             </div>

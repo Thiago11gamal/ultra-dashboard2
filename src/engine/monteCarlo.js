@@ -6,12 +6,13 @@ import { getPercentile } from './math/percentile.js';
 import { kahanMean, kahanSum } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
-import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
+import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION, getAdaptiveInterSubjectCorrelation } from './variance.js';
 
 export { getPercentile };
 
 const DEFAULT_SIMULATIONS = 5000;
 const MAX_SIMULATIONS = 50000;
+const TARGET_PROB_SE = 0.008; // Target standard error on pass probability (~0.8%) for adaptive stopping
 const DEFAULT_DOMAIN_MIN = 0;
 const DEFAULT_DOMAIN_MAX = 100;
 
@@ -41,6 +42,18 @@ function sanitizeSimulations(simulations) {
     // DOS GUARD: evita consumo extremo de CPU com entradas hostis/acidentais.
     const normalized = Math.floor(toFiniteNumber(simulations, DEFAULT_SIMULATIONS));
     return clamp(normalized, 1, MAX_SIMULATIONS);
+}
+
+/**
+ * NEW: Adaptive simulation count based on desired precision on pass probability.
+ * Uses rough variance of Bernoulli to estimate needed N.
+ */
+export function recommendSimulationCount(targetProb = 0.7, targetSE = TARGET_PROB_SE, minSims = 2000, maxSims = MAX_SIMULATIONS) {
+  // p(1-p) max at 0.25
+  const p = Math.max(0.05, Math.min(0.95, targetProb));
+  const varBernoulli = p * (1 - p);
+  const needed = Math.ceil(varBernoulli / (targetSE * targetSE));
+  return clamp(needed, minSims, maxSims);
 }
 
 // CORREÇÃO VISUAL E MATEMÁTICA: Geração de semente estável (FNV-1a Hash)
@@ -75,6 +88,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         sd = meanOrObj.sd ?? sd;
         targetScore = meanOrObj.targetScore ?? targetScore;
         simulations = meanOrObj.simulations ?? simulations;
+    // NEW: auto-adapt number of simulations for better convergence when not explicitly provided
+    if (!meanOrObj?.simulations && !simulations) {
+      const roughProb = Math.max(0.1, Math.min(0.9, (currentMean || safeMean || 70) / 100));
+      simulations = recommendSimulationCount(roughProb);
+    }
         seed = meanOrObj.seed ?? seed;
         currentMean = meanOrObj.currentMean ?? currentMean;
         categoryName = meanOrObj.categoryName ?? categoryName;
@@ -234,7 +252,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
       const stats = cutoffSubjects.map(s => ({ sd: Number(s.sd) || 1 }));
-      const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION);
+      const adaptiveRhoContext = (meanOrObj?.simuladoRows || options?.simuladoRows) 
+        ? { simuladoRows: meanOrObj?.simuladoRows || options?.simuladoRows, categoryNames: subjects.map(s => s.name || s) } 
+        : null;
+      const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
       const psdCov = ensurePositiveSemiDefinite(cov);
       subjectCholesky = choleskyDecomposition(psdCov);
     }
@@ -420,6 +441,26 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         + (finiteEmpiricalProbability * (1 - analyticalWeight));
     const recommendedProbability = blendedProbability;
 
+    // === NEW: Rich Diagnostics for Transparency ===
+    const diagnostics = {
+      simulationCount: safeSimulations,
+      empiricalStdErr: Number(empiricalStdErr.toFixed(3)),
+      analyticalWeight: Number(analyticalWeight.toFixed(3)),
+      rhoUsed: null, // filled by caller when adaptive
+      effectiveN: Math.max(1, historyLength || safeSimulations / 10),
+      shrinkageApplied: null, // populated upstream
+      volatilitySources: {
+        withinSubject: Number(safeSD.toFixed(2)),
+        betweenSubjectContribution: 0
+      },
+      convergence: {
+        targetSE: TARGET_PROB_SE,
+        achievedSE: Number(empiricalStdErr.toFixed(4)),
+        sufficient: empiricalStdErr < TARGET_PROB_SE * 1.5
+      },
+      policy: lowSimulation ? 'low_sample' : (highTruncationStress ? 'truncated' : 'standard')
+    };
+
     return {
         simulationCount: safeSimulations,
         probability: finiteEmpiricalProbability,
@@ -428,18 +469,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         probabilityPolicy: lowSimulation
             ? 'blended_low_sample_policy'
             : (highTruncationStress ? 'blended_truncated_policy' : 'blended_adaptive_policy'),
-        // FIX #2: Retornar com precisão completa. Removido toFixed prematuro.
-        // Formatação deve ocorrer apenas na camada de apresentação/UI.
         analyticalWeight,
         empiricalStdErr,
         empiricalProbabilityRaw: empiricalProbability,
         empiricalProbabilityBayes: finiteEmpiricalProbability,
         mean: (bayesianCI ? safeMean : displayMean),
-        // sd = estatístico (não visual)
         sd: projectedSD,
-        // sdVisual reflete o cone após clamp mínimo de UX
         sdVisual: visualSD,
-        // 📊 ESTATÍSTICA: Nomes alterados para empSigma (Empirical Sigma)
         sdLeft: Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), empMedian - rawLeft),
         sdRight: Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), rawRight - empMedian),
         ci95StatLow: statisticalCi95Low,
@@ -457,11 +493,17 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         volatility: safeSD,
         minScore,
         maxScore,
-        method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
+        method: bayesianCI ? 'bayesian_static_hybrid' : 'normal',
+        // NEW rich transparency
+        diagnostics
     };
 }
 
 export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, options = {}) {
+    // NOTE: This function has overloaded signatures for backwards compat:
+    // - object: rich input from useMonteCarloStats etc.
+    // - array: runMonteCarloAnalysis(hist, target, days, options) -- pooledSD param is actually target, targetScore param is days
+    // - numbers: simulateNormalDistribution(mean, sd, target, options)
     if (typeof inputOrMean === 'object' && inputOrMean !== null && !Array.isArray(inputOrMean)) {
         const {
             values = [],
@@ -516,10 +558,11 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
     }
 
     if (Array.isArray(inputOrMean)) {
-        // EvolutionChart sends: runAnalysis(hist, targetScore, projectDays, options)
+        // Legacy/Evolution path: runMonteCarloAnalysis(historyArray, targetScore, projectionDays, options)
+        // Note param shift: second arg (pooledSD) is actually target, third (targetScore) is days
         const hist = inputOrMean;
-        const actualTargetScore = pooledSD;
-        const projectDays = targetScore;
+        const actualTargetScore = Number.isFinite(pooledSD) ? pooledSD : 85;
+        const projectDays = Number.isFinite(targetScore) ? targetScore : 90;
         return monteCarloSimulation(hist, actualTargetScore, projectDays, options.simulations || 5000, options);
     }
 

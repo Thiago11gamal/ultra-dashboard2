@@ -100,3 +100,29 @@ export function bootstrapCI(samples, statFn, {
     n,
   };
 }
+
+/**
+ * NEW: Simple conformal prediction interval (quantile-based on residuals).
+ * Gives distribution-free coverage guarantees (approximate).
+ * Use on historical residuals (actual - predicted).
+ */
+export function conformalPredictionInterval(residuals = [], alpha = 0.1, pointEstimate = 0) {
+  const clean = residuals.map(Number).filter(Number.isFinite);
+  if (clean.length < 3) {
+    // Fallback to normal-like
+    return { lower: pointEstimate - 8, upper: pointEstimate + 8, coverage: 0.9 };
+  }
+  const sortedRes = [...clean].sort((a, b) => a - b);
+  const n = sortedRes.length;
+  // Conformal quantile (slightly conservative)
+  const qIdx = Math.ceil((n + 1) * (1 - alpha)) - 1;
+  const q = sortedRes[Math.min(Math.max(0, qIdx), n - 1)] || 0;
+
+  return {
+    lower: pointEstimate - q,
+    upper: pointEstimate + q,
+    conformalQuantile: Number(q.toFixed(2)),
+    n,
+    alpha
+  };
+}

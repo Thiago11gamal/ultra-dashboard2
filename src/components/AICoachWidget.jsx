@@ -66,8 +66,8 @@ function MetricChip({ label, value, index }) {
             className="group/chip relative flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-md p-3 sm:p-4 transition-all cursor-default overflow-hidden"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 leading-none truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors">{label}</span>
-            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate min-w-0 block">{value}</span>
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 leading-[1.35] truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors pb-px">{label}</span>
+            <span className="text-sm font-black text-slate-100 tracking-tight leading-[1.25] truncate min-w-0 block pb-px">{value}</span>
         </Motion.div>
     );
 }
@@ -78,7 +78,7 @@ function UrgencyBar({ score, cfg }) {
     return (
         <div className="w-full">
             <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">Urgência</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 leading-[1.35]">Urgência</span>
                 <span className={`text-[11px] font-black ${cfg.accent}`}>{Math.round(pct)}</span>
             </div>
             <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/[0.06]">
@@ -111,29 +111,24 @@ function MonteCarloGauge({ mc }) {
             animate={{ opacity: 1, y: 0 }}
             className="mt-3 p-4 rounded-2xl bg-black/40 border border-white/10 relative overflow-hidden"
         >
-            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                <BrainCircuit size={64} />
+            <div className="absolute top-0 right-0 p-3 text-white/5">
+                <BrainCircuit size={48} />
             </div>
             
-            <div className="relative z-10 flex justify-between items-center mb-3">
-                <div className="min-w-0 flex-1">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-1 truncate">
-                        Projeção (Monte Carlo)
-                    </span>
-                    <span className="text-xl font-black text-white">{Math.round(prob)}%</span>
+            <div className="relative z-10 flex justify-between items-end mb-2">
+                <div>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">Projeção MC</span>
+                    <span className="text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
                 </div>
-                <div className="text-right shrink-0">
+                <div className="text-right">
                     <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">Volatilidade</span>
                     <span className="text-xs font-mono font-bold text-amber-400">±{Math.round(mc.volatility)} pts</span>
                 </div>
             </div>
 
             {/* Intervalo de Confiança Visual */}
-            <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05] my-4">
-                {/* Background Track Padrão */}
-                <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,white_4px,white_8px)]" />
-                
-                {/* Faixa de Confiança 95% (A dispersão matemática) */}
+            <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05] my-3">
+                {/* Faixa de Confiança 95% */}
                 <Motion.div 
                     initial={{ width: 0 }}
                     animate={{ left: `${low}%`, width: `${high - low}%` }}
@@ -206,6 +201,9 @@ export default function AICoachWidget({ suggestion }) {
                         <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0 shadow-[0_0_8px_currentColor]`} />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <span className="text-sm font-bold text-slate-200 truncate">Motor de Produtividade</span>
+                            {suggestion.globalProjectedMean != null && (
+                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">GLOBAL {suggestion.globalProjectedMean}%</span>
+                            )}
                         </div>
                     </div>
 
@@ -304,6 +302,21 @@ export default function AICoachWidget({ suggestion }) {
                                 {suggestion.urgency?.details?.monteCarlo && (
                                     <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} />
                                 )}
+
+                                {suggestion.urgency?.details?.monteCarlo?.diagnostics && (
+                                    <div className="text-[8px] bg-slate-900/50 border border-white/5 rounded-md p-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-400 font-mono">
+                                        <div className="flex justify-between col-span-2">
+                                            <span>MC</span>
+                                            <span className="text-emerald-300">{suggestion.urgency.details.monteCarlo.diagnostics.simulationCount} sims</span>
+                                        </div>
+                                        {suggestion.urgency.details.monteCarlo.diagnostics?.modelHealth != null && (
+                                            <div>Health: {Number(suggestion.urgency.details.monteCarlo.diagnostics.modelHealth).toFixed(1)}</div>
+                                        )}
+                                        {suggestion.urgency.details.monteCarlo?.healthAdjustedProb != null && (
+                                            <div>Adj: {Number(suggestion.urgency.details.monteCarlo.healthAdjustedProb).toFixed(0)}%</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -352,6 +365,15 @@ export default function AICoachWidget({ suggestion }) {
                                                 <p className="text-xs text-slate-300 leading-relaxed">
                                                     {urgency.monteCarlo.explainability.note}
                                                 </p>
+                                            </div>
+                                        )}
+
+                                        {/* NEW: Show engine math diagnostics (adaptive rho, convergence, effective N, etc) */}
+                                        {mc?.diagnostics && (
+                                            <div className="mt-3 text-[9px] text-slate-400 bg-white/[0.015] rounded p-2 border border-white/5">
+                                                <div>Simulações: <span className="font-mono text-slate-200">{mc.diagnostics.simulationCount}</span></div>
+                                                {mc.diagnostics.convergence && <div>Convergência: {mc.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {mc.diagnostics.convergence.achievedSE})</div>}
+                                                {mc.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(mc.diagnostics.effectiveN).toFixed(1)}</span></div>}
                                             </div>
                                         )}
                                     </Motion.div>

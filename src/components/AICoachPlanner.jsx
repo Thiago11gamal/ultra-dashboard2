@@ -91,7 +91,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
                                         isBacklog ? 'bg-violet-500/10 text-violet-300 border border-violet-500/20' : `bg-black/30 ${accentColor} border-white/10`
                                     }`}>
                                         <div className={`w-1 h-1 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
-                                        <span className="leading-none truncate">{displaySubject(subject)}</span>
+                                        <span className="leading-[1.32] truncate">{displaySubject(subject)}</span>
                                     </div>
                                     
                                     <button 
@@ -106,7 +106,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
                                 </div>
 
                                 <div className="flex flex-col flex-1 justify-center gap-0.5">
-                                    <h4 className="text-[12px] sm:text-[13px] font-semibold leading-tight tracking-tight text-slate-100 group-hover:text-white">
+                                    <h4 className="text-[12px] sm:text-[13px] font-semibold leading-[1.35] tracking-tight text-slate-100 group-hover:text-white">
                                         {displayTopic}
                                     </h4>
                                     {secondaryText && (
@@ -146,7 +146,13 @@ export default function AICoachPlanner() {
         const allAssignedIds = new Set();
         DAYS.forEach(d => (coachPlanner[d.id] || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
         const activeBacklog = (coachPlan || []).filter(t => { if (!t) return false; const sid = getSafeId(t); return !allAssignedIds.has(sid); });
-        return { backlog: activeBacklog, mon: coachPlanner.mon || [], tue: coachPlanner.tue || [], wed: coachPlanner.wed || [], thu: coachPlanner.thu || [], fri: coachPlanner.fri || [], sat: coachPlanner.sat || [], sun: coachPlanner.sun || [] };
+        // ENHANCED MC INTEGRATION: sort backlog by lowest MC probability first (most urgent projections first)
+        const sortedBacklog = [...activeBacklog].sort((a, b) => {
+            const pa = a?.analysis?.monteCarlo?.probability ?? 100;
+            const pb = b?.analysis?.monteCarlo?.probability ?? 100;
+            return pa - pb;
+        });
+        return { backlog: sortedBacklog, mon: coachPlanner.mon || [], tue: coachPlanner.tue || [], wed: coachPlanner.wed || [], thu: coachPlanner.thu || [], fri: coachPlanner.fri || [], sat: coachPlanner.sat || [], sun: coachPlanner.sun || [] };
     }, [coachPlan, coachPlanner]);
 
     const [columns, setColumns] = useState(() => getInitialColumns());

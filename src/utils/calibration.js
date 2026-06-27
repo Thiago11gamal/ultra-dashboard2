@@ -105,6 +105,102 @@ export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct =
     return p * (1 - k) + neutral * k;
 }
 
+/**
+ * NEW: Record a Monte Carlo prediction outcome for future calibration.
+ * Stores lightweight events that can be used for walk-forward analysis.
+ */
+export function recordPredictionEvent(storeUpdateFn, prediction) {
+  // prediction: { timestamp, probability, observed, targetScore, sims, category, effectiveN? }
+  if (typeof storeUpdateFn !== 'function') return;
+  const event = {
+    timestamp: prediction.timestamp || Date.now(),
+    probability: Math.max(0, Math.min(1, Number(prediction.probability) || 0)),
+    observed: prediction.observed != null ? (prediction.observed ? 1 : 0) : null,
+    targetScore: prediction.targetScore,
+    sims: prediction.sims || 5000,
+    category: prediction.category || 'global',
+    effectiveN: prediction.effectiveN || null
+  };
+  // The caller is responsible for pushing to a contest.calibrationEvents array
+  // We just validate and return a clean event
+  return event;
+}
+
+/**
+ * Aggregate calibration events into metrics + trend.
+ * Supports walk-forward style analysis.
+ */
+export function computeCalibrationSummary(events = [], options = {}) {
+  const clean = (events || []).filter(e => 
+    Number.isFinite(e?.probability) && 
+    (e?.observed === 0 || e?.observed === 1)
+  );
+
+  if (clean.length < 3) {
+    return { n: clean.length, ece: 0, avgBrier: 0, reliability: [], trend: 'insufficient_data' };
+  }
+
+  const diag = computeCalibrationDiagnostics(clean.map(e => ({ probability: e.probability, observed: e.observed })), { bins: options.bins || 6 });
+
+  const briers = clean.map(e => computeBrierScore(e.probability, e.observed));
+  const avgBrier = kahanSum(briers) / briers.length;
+
+  // Simple trend: compare first half vs second half Brier
+  const mid = Math.floor(clean.length / 2);
+  const firstHalf = briers.slice(0, mid);
+  const secondHalf = briers.slice(mid);
+  const firstAvg = firstHalf.length ? kahanSum(firstHalf) / firstHalf.length : avgBrier;
+  const secondAvg = secondHalf.length ? kahanSum(secondHalf) / secondHalf.length : avgBrier;
+  const trend = secondAvg < firstAvg * 0.92 ? 'improving' : (secondAvg > firstAvg * 1.08 ? 'degrading' : 'stable');
+
+  return {
+    n: clean.length,
+    ece: diag.ece,
+    mce: diag.mce,
+    avgBrier: Number(avgBrier.toFixed(4)),
+    reliability: diag.reliability,
+    trend,
+    brierDecomposition: diag.brierDecomposition
+  };
+}
+
+/**
+ * NEW: Try to backfill observed values in calibrationEvents using actual simulado results.
+ * Matches by category and approximate target.
+ * Call this after adding/updating simulados.
+ */
+export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRows = [], categories = [], maxScore = 100) {
+  if (!Array.isArray(calibrationEvents) || !Array.isArray(simuladoRows)) return calibrationEvents;
+
+  const updated = [...calibrationEvents];
+
+  simuladoRows.forEach(row => {
+    const subj = row.subject || row.categoryName;
+    if (!subj) return;
+
+    const score = Number(row.score ?? ((row.correct / row.total) * (row.maxScore || maxScore)));
+    if (!Number.isFinite(score)) return;
+
+    // Find recent global or per-subject predictions that might match this simulado
+    updated.forEach(ev => {
+      if (ev.observed != null) return; // already filled
+      if (!ev.category) return;
+
+      const isMatch = ev.category.toLowerCase().includes(subj.toLowerCase()) ||
+                      subj.toLowerCase().includes(ev.category.toLowerCase());
+
+      if (isMatch && ev.targetScore) {
+        // Simple rule: if the simulado score >= target, it was a "pass" for that prediction
+        const passed = score >= Number(ev.targetScore);
+        ev.observed = passed ? 1 : 0;
+        ev.backfilled = true;
+      }
+    });
+  });
+
+  return updated;
+}
+
 export function computeRollingCalibrationParams(history = [], cfg = {}) {
   const safeHistory = Array.isArray(history) ? history : [];
   if (safeHistory.length === 0) {

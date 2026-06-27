@@ -34,7 +34,12 @@ export const INITIAL_DATA = {
 
     notes: "",
 
+    // NEW TOOLS DATA
+    flashcardDecks: [],
+    agenda: [],
 
+    // Math calibration events for continuous improvement
+    calibrationEvents: [],
 
     settings: {
         darkMode: 'auto',

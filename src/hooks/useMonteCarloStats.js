@@ -7,9 +7,11 @@ import {
     computeWeightedVariance, 
     calculateVolatility, 
     estimateInterSubjectCorrelation,
+    getAdaptiveInterSubjectCorrelation,
     computeHierarchicalAdjustment
 } from '../engine';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
+import { computeNonLinearTrend } from '../engine/projection';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { normalCDF_complement } from '../engine/math/gaussian';
@@ -18,7 +20,7 @@ import {
     winsorizeSeries, 
     computeAdaptiveSignal 
 } from '../utils/adaptiveMath.js';
-import { shrinkProbabilityToNeutral } from '../utils/calibration.js';
+import { shrinkProbabilityToNeutral, recordPredictionEvent, backfillObservedFromSimulados, computeCalibrationSummary } from '../utils/calibration.js';
 import { 
     getConfidenceTier, 
     buildHumanExplanation, 
@@ -32,6 +34,7 @@ const VOLATILITY_REGULARIZATION_FACTOR = 0.35;
 const INFORMATIVE_PRIOR_MAX_STRENGTH = 5.0;
 const LOG_DAMPING_FACTOR = 45;
 const SYNCHRONOUS_FALLBACK_SIMULATIONS = 500;
+const BASE_SIMULATIONS = 5000;
 const MAX_CALIBRATION_PENALTY = 0.15;
 const CALIBRATION_LAMBDA_DAYS = 30; // Meia-vida de decaimento (30 dias)
 // -------------------------------
@@ -53,7 +56,7 @@ function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
     return Math.sqrt(regularizedVariance);
 }
 
-function computeCalibrationPenalty(mcHistory, globalHistory, maxScore) {
+function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, summary = null) {
     if (!Array.isArray(mcHistory) || mcHistory.length === 0 || !Array.isArray(globalHistory) || globalHistory.length === 0) {
         return 0;
     }
@@ -135,6 +138,12 @@ function computeCalibrationPenalty(mcHistory, globalHistory, maxScore) {
         const combinedPenalty = (rawBrierPenalty * 0.7) + (avgResidual * 0.3);
         calibrationPenalty = Math.min(MAX_CALIBRATION_PENALTY, combinedPenalty);
     }
+
+    // NEW: Blend with live summary for better real-time calibration awareness
+    if (summary && summary.avgBrier > 0) {
+        const summaryPenalty = Math.max(0, (summary.avgBrier - 0.18) * 0.8);
+        calibrationPenalty = Math.max(calibrationPenalty, Math.min(MAX_CALIBRATION_PENALTY * 0.9, summaryPenalty));
+    }
     
     return calibrationPenalty;
 }
@@ -145,7 +154,8 @@ function generateAnalyticsStats({
     timeIndex,
     timelineDates,
     minScore,
-    maxScore
+    maxScore,
+    simuladoRows: rawSimuladoRows = []
 }) {
     let categoryStats = [];
     let totalWeight = 0;
@@ -235,7 +245,12 @@ function generateAnalyticsStats({
     const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
     const scoreRows = sortedDates.map(date => scoresByDate[date] || {});
     const subjectNames = categoryStats.map(cat => cat.key || cat.name);
-    const estimatedRho = estimateInterSubjectCorrelation(scoreRows, subjectNames);
+    // NEW: Prefer full adaptive estimator (with blending)
+    const estimatedRho = getAdaptiveInterSubjectCorrelation(
+      categoryStats.map(cat => ({ sd: cat.sd ?? cat.volatility, weight: cat.weight })), 
+      rawSimuladoRows, 
+      subjectNames
+    );
 
     const pooledVariance = computeWeightedVariance(categoryStats.map(cat => ({ sd: cat.sd ?? cat.volatility, weight: cat.weight })), totalWeight, estimatedRho);
     const pooledSD = totalWeight > 0 ? Math.sqrt(pooledVariance) : 0;
@@ -308,7 +323,7 @@ function generateAnalyticsStats({
 
 const EMPTY_ARRAY = [];
 
-export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, effectiveSimulateToday }) {
+export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, effectiveSimulateToday, simuladoRows: propSimuladoRows }) {
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
@@ -317,6 +332,53 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const arr = state.appState?.contests?.[activeId]?.historicalCutoffs;
         return Array.isArray(arr) ? arr : EMPTY_ARRAY;
     });
+    
+    const contest = useAppStore(state => state.appState?.contests?.[activeId]);
+    const rawSimuladoRows = useMemo(() => {
+        if (propSimuladoRows) return propSimuladoRows;
+        return (contest?.simuladoRows) || [];
+    }, [propSimuladoRows, contest?.simuladoRows]);
+    
+    // NEW: Compute live calibration summary early (before other memos that depend on it)
+    const calibrationSummary = useMemo(() => {
+        const events = (contest && contest.calibrationEvents) || [];
+        if (events.length < 3) return null;
+        try {
+            return computeCalibrationSummary(events, { bins: 6 });
+        } catch (e) {
+            return null;
+        }
+    }, [contest?.calibrationEvents]);
+
+    // NEW: Simple model health score (0-1) based on summary + trend
+    const modelHealth = useMemo(() => {
+        if (!calibrationSummary) return 0.5;
+        const brierHealth = Math.max(0, Math.min(1, 1 - (calibrationSummary.avgBrier - 0.12) / 0.2));
+        const trendHealth = calibrationSummary.trend === 'improving' ? 0.2 : (calibrationSummary.trend === 'degrading' ? -0.2 : 0);
+        return Math.max(0.1, Math.min(1, (brierHealth + 0.5 + trendHealth) / 1.5));
+    }, [calibrationSummary]);
+
+    // NEW: Compute blend weight for non-linear / conformal based on calib quality
+    const modelWeight = useMemo(() => {
+        if (!calibrationSummary || !calibrationSummary.avgBrier) return 0.25;
+        const brier = Math.max(0.12, Math.min(0.3, calibrationSummary.avgBrier));
+        return Math.max(0.1, Math.min(0.45, 0.25 + (0.18 - brier) * 2.5));
+    }, [calibrationSummary]);
+
+    // NEW: Dynamic sim count based on calibration quality (worse = more sims for stability)
+    const dynamicSimulations = useMemo(() => {
+        let sims = BASE_SIMULATIONS;
+        if (calibrationSummary && calibrationSummary.avgBrier > 0.2) {
+            sims = Math.min(15000, BASE_SIMULATIONS + Math.floor((calibrationSummary.avgBrier - 0.18) * 20000));
+        }
+        // High health can reduce sims a bit for speed, low health increases
+        if (modelHealth > 0.8) {
+            sims = Math.max(2000, Math.floor(sims * 0.8));
+        } else if (modelHealth < 0.4) {
+            sims = Math.min(20000, Math.floor(sims * 1.3));
+        }
+        return sims;
+    }, [calibrationSummary, modelHealth]);
     
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const recordMonteCarloSnapshot = useAppStore(state => state.recordMonteCarloSnapshot);
@@ -398,13 +460,19 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             timeIndex,
             timelineDates,
             minScore,
-            maxScore
+            maxScore,
+            simuladoRows: rawSimuladoRows
         });
-    }, [categories, debouncedWeights, timeIndex, timelineDates, minScore, maxScore]);
+    }, [categories, debouncedWeights, timeIndex, timelineDates, minScore, maxScore, rawSimuladoRows]);
 
     const calibrationPenalty = useMemo(() => {
-        return computeCalibrationPenalty(mcHistory, pureStatsData?.globalHistory, maxScore);
-    }, [mcHistory, pureStatsData?.globalHistory, maxScore]);
+        let pen = computeCalibrationPenalty(mcHistory, pureStatsData?.globalHistory, maxScore, calibrationSummary);
+        // Use modelHealth to scale penalty: low health increases penalty (more conservative)
+        if (modelHealth < 0.6) {
+            pen = Math.min(MAX_CALIBRATION_PENALTY, pen * (1 + (0.6 - modelHealth)));
+        }
+        return pen;
+    }, [mcHistory, pureStatsData?.globalHistory, maxScore, calibrationSummary, modelHealth]);
 
     const statsData = useMemo(() => {
         if (!pureStatsData) return null;
@@ -439,6 +507,21 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
     const [isFlashing, setIsFlashing] = useState(false);
 
+    // NEW: Backfill observed from actual simulados into calibration events (walk-forward calibration)
+    useEffect(() => {
+        if (!rawSimuladoRows || rawSimuladoRows.length === 0) return;
+        try {
+            const events = (contest && contest.calibrationEvents) || [];
+            if (events.length === 0) return;
+            const backfilled = backfillObservedFromSimulados(events, rawSimuladoRows, statsData?.categoryStats || [], maxScore);
+            const changed = JSON.stringify(backfilled.slice(-3)) !== JSON.stringify(events.slice(-3));
+            if (changed) {
+                const setD = useAppStore.getState().setData;
+                if (setD) setD(c => ({...c, calibrationEvents: backfilled}));
+            }
+        } catch (e) { /* ignore */ }
+    }, [rawSimuladoRows?.length, maxScore]);
+
     // Motor roda Cego/Puro para prevenir Feedback Loops (usa pureStatsDataRef)
     useEffect(() => {
         const pureStatsData = pureStatsDataRef.current;
@@ -471,7 +554,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         values: pureStatsData.globalHistory.map(h => h.score),
                         dates: pureStatsData.globalHistory.map(h => h.date),
                         meta: debouncedTarget,
-                        simulations: 5000,
+                        simulations: dynamicSimulations,
                         projectionDays: projectDays,
                         forcedVolatility: regularizedSD,
                         forcedBaseline: pureStatsData.bayesianMean,
@@ -490,7 +573,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     }));
 
                     result = await runAnalysis(pureStatsData.bayesianMean, pureStatsData.pooledSD, debouncedTarget, {
-                        simulations: 5000,
+                        simulations: dynamicSimulations,
                         currentMean: pureStatsData.bayesianMean,
                         bayesianCI: pureStatsData.bayesianCI,
                         minScore,
@@ -500,8 +583,43 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 }
  
                 if (!cancelled) {
+                    if (result) {
+                        result.diagnostics = {
+                            ...(result.diagnostics || {}),
+                            trendType: result.trendType || 'linear',
+                            rhoUsed: statsData?.estimatedRho
+                        };
+                        // NEW: If log-time trend available and improving, blend into projected for global
+                        // using modelWeight (better calib = higher non-linear influence)
+                        if (result.trendType === 'log_time_available' && result.projectedMean > result.currentMean) {
+                            const blend = modelWeight;
+                            result.projectedMean = result.projectedMean * (1 - blend) + (result.projectedMean * 1.1) * blend;
+                        }
+                    }
                     setSimulationData({ status: 'ready', data: result });
                     setIsFlashing(true);
+
+                    // NEW: Record MC prediction for continuous calibration / walk-forward analysis
+                    try {
+                        const setDataFn = useAppStore.getState().setData;
+                        if (setDataFn && result?.probability != null) {
+                            const ev = recordPredictionEvent(null, {
+                                timestamp: Date.now(),
+                                probability: Number(result.probability) / 100,
+                                targetScore: debouncedTarget,
+                                sims: result.simulationCount,
+                                effectiveN: result.diagnostics?.effectiveN,
+                                category: 'global'
+                            });
+                            if (ev) {
+                                setDataFn(contest => {
+                                    const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
+                                    evs.push(ev);
+                                    return { ...contest, calibrationEvents: evs.slice(-200) };
+                                });
+                            }
+                        }
+                    } catch (_) { /* best effort, non blocking */ }
                 }
             } catch (err) {
                 console.warn('[MC Worker] Simulation failed, using sync fallback:', err);
@@ -525,7 +643,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             values: pureStatsData.globalHistory.map(h => h.score),
                             dates: pureStatsData.globalHistory.map(h => h.date),
                             meta: debouncedTarget,
-                            simulations: SYNCHRONOUS_FALLBACK_SIMULATIONS,
+                            simulations: Math.min(dynamicSimulations, 2000),
                             projectionDays: projectDays,
                             forcedVolatility: regularizedSD,
                             forcedBaseline: pureStatsData.bayesianMean,
@@ -533,6 +651,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             minScore,
                             maxScore,
                             subjects: subjectsOpts,
+                            // Pass for adaptive rho
+                            simuladoRows: rawSimuladoRows,
+                            categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key)
                         });
                     } else {
                         const subjectsOpts = pureStatsData.categoryStats.map(c => ({
@@ -544,17 +665,51 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         }));
 
                         result = runMonteCarloAnalysis(pureStatsData.bayesianMean, pureStatsData.pooledSD, debouncedTarget, {
-                            simulations: SYNCHRONOUS_FALLBACK_SIMULATIONS,
+                            simulations: Math.min(dynamicSimulations, 2000),
                             currentMean: pureStatsData.bayesianMean,
                             bayesianCI: pureStatsData.bayesianCI,
                             historicalCutoffs: historicalCutoffs,
                             subjects: subjectsOpts,
                             minScore,
-                            maxScore
+                            maxScore,
+                            // For adaptive correlation
+                            simuladoRows: rawSimuladoRows,
+                            categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key)
                         });
+                    }
+                    if (result) {
+                        result.diagnostics = {
+                            ...(result.diagnostics || {}),
+                            trendType: result.trendType || 'linear',
+                            rhoUsed: statsData?.estimatedRho
+                        };
+                        if (result.trendType === 'log_time_available' && result.projectedMean > result.currentMean) {
+                            const blend = modelWeight;
+                            result.projectedMean = result.projectedMean * (1 - blend) + (result.projectedMean * 1.1) * blend;
+                        }
                     }
                     setSimulationData({ status: 'ready', data: result });
                     setIsFlashing(true);
+
+                    // Record fallback too
+                    try {
+                        const setDataFn2 = useAppStore.getState().setData;
+                        if (setDataFn2 && result?.probability != null) {
+                            const ev2 = recordPredictionEvent(null, {
+                                timestamp: Date.now(),
+                                probability: Number(result.probability) / 100,
+                                targetScore: debouncedTarget,
+                                sims: result.simulationCount
+                            });
+                            if (ev2) {
+                                setDataFn2(contest => {
+                                    const evs2 = Array.isArray(contest.calibrationEvents) ? [...contest.calibrationEvents] : [];
+                                    evs2.push(ev2);
+                                    return { ...contest, calibrationEvents: evs2.slice(-200) };
+                                });
+                            }
+                        }
+                    } catch (_) {}
                 }
             }
         };
@@ -566,13 +721,83 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         };
     }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs]);
  
+    const probabilityData = useMemo(() => {
+        const rawProbability = simulationData?.data?.probability ?? 0;
+        const neutralValuePct = (Number.isFinite(pureStatsData?.bayesianMean) && maxScore > 0)
+            ? (pureStatsData.bayesianMean / maxScore) * 100
+            : 50;
+        let adjustedProb = shrinkProbabilityToNeutral(rawProbability, calibrationPenalty, neutralValuePct, 0.5);
+
+        // Continue sequence: if conformal available, blend a conservative adjustment
+        // using modelWeight (better calib = less conservative, more trust in raw)
+        let confFactor = 0;
+        if (simulationData?.data?.ciConformalLow != null && simulationData?.data?.ciConformalHigh != null) {
+            const confWidth = simulationData.data.ciConformalHigh - simulationData.data.ciConformalLow;
+            if (confWidth > 0) {
+                confFactor = Math.min(0.2, confWidth / (maxScore * 1.2)) * (1 - modelWeight);
+                const currentProb = Number(adjustedProb);
+                if (currentProb > 50) {
+                    adjustedProb = currentProb * (1 - confFactor) + 50 * confFactor;
+                }
+            }
+        }
+        // High modelHealth means trust the raw more, less shrinkage
+        let finalProb = adjustedProb;
+        if (modelHealth > 0.7) {
+            const trust = (modelHealth - 0.7) / 0.3;
+            finalProb = finalProb * (1 - trust * 0.5) + (rawProbability * (1 - calibrationPenalty * 0.5)) * (trust * 0.5);
+        }
+        let healthProb = finalProb;
+        // Best: further modulate with modelHealth for overall trust
+        if (modelHealth < 0.5) {
+            const healthFactor = (0.5 - modelHealth) / 0.5;
+            healthProb = healthProb * (1 - healthFactor * 0.3) + 50 * (healthFactor * 0.3);
+        }
+        // NEW: compute a health-adjusted probability that factors modelHealth into the final output
+        const healthAdjustedProb = Math.max(0, Math.min(100, 
+            healthProb * modelHealth + (50 * (1 - modelHealth))
+        ));
+        const prob = healthProb;
+        
+        const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
+        const pMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));
+        
+        const cMean = Number.isFinite(Number(pureStatsData?.bayesianMean)) 
+            ? Number(pureStatsData.bayesianMean) 
+            : (simulationData?.data?.currentMean ?? pMean);
+
+        return { probability: prob, projectedMean: pMean, currentMean: cMean, healthAdjustedProb };
+    }, [simulationData?.data, pureStatsData, maxScore, minScore, calibrationPenalty, modelHealth, modelWeight]);
+
+    const probabilityDataResult = probabilityData;
+    const probability = probabilityDataResult.probability;
+    const projectedMean = probabilityDataResult.projectedMean;
+    const currentMean = probabilityDataResult.currentMean;
+    const healthAdjustedProb = probabilityDataResult.healthAdjustedProb ?? Math.max(0, Math.min(100, 
+        (probabilityDataResult.probability || 0) * (modelHealth || 0.5) + (50 * (1 - (modelHealth || 0.5)))
+    ));
+
     const effectiveSimulationData = useMemo(() => {
         if (!statsData) return { status: 'waiting', missing: 'data' };
         let totalPoints = 0;
         statsData.categoryStats.forEach(cat => { totalPoints += cat.n || 1; });
         if (totalPoints < 1) return { status: 'waiting', missing: 'count', count: totalPoints };
-        return simulationData;
-    }, [statsData, simulationData]);
+        const base = simulationData;
+        if (base?.status === 'ready' && base.data) {
+            return {
+                ...base,
+                data: {
+                    ...base.data,
+                    calibrationSummary,
+                    diagnostics: { ...(base.data.diagnostics || {}), calibrationSummary, modelHealth, modelWeight },
+                    healthAdjustedProb: base.data.healthAdjustedProb || Math.max(0, Math.min(100, 
+                        (base.data.probability || 0) * (modelHealth || 0.5) + (50 * (1 - (modelHealth || 0.5)))
+                    ))
+                }
+            };
+        }
+        return base;
+    }, [statsData, simulationData, calibrationSummary, healthAdjustedProb]);
 
     const perSubjectProbs = useMemo(() => {
         if (!statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
@@ -583,10 +808,23 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 const catMaxScore = Number(cat.maxScore) || maxScore;
                 const currentBaseline = cat.bayesianMean ?? cat.mean;
                 // trendValue = slope × 30 → pontos em 30 dias; converter para pontos/dia antes de projetar
-                const trendPer30Days = cat.trendValue || 0;
+                const trendPer30Days = cat.trendValue || cat.trend || 0;
                 const projectedDaysAmortized = LOG_DAMPING_FACTOR * Math.log(1 + projectDays / LOG_DAMPING_FACTOR);
                 const dailyTrend = trendPer30Days / 30;
-                const totalTrendProjection = dailyTrend * projectedDaysAmortized;
+                let totalTrendProjection = dailyTrend * projectedDaysAmortized;
+
+                // FIX: use simuladoStats.history (or fallback) - cat.history was never attached to categoryStats
+                try {
+                    const simHistory = cat.simuladoStats?.history || cat.history || [];
+                    if (Array.isArray(simHistory) && simHistory.length >= 4) {
+                        const nl = computeNonLinearTrend(simHistory, catMaxScore);
+                        if (nl && nl.logTimeFit && Math.abs(nl.slope) > 0) {
+                            const nlWeight = modelWeight;
+                            const nlProjection = nl.slope * (projectedDaysAmortized / 30);
+                            totalTrendProjection = totalTrendProjection * (1 - nlWeight) + nlProjection * nlWeight;
+                        }
+                    }
+                } catch (e) {}
 
                 const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
 
@@ -598,16 +836,88 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     mean: baseline,
                     sd: cat.bayesianSd ?? cat.sd,
                     targetScore: (maxScore > 0 ? (debouncedTarget / maxScore) * catMaxScore : debouncedTarget),
-                    simulations: 500,
+                    simulations: Math.min(dynamicSimulations || 2000, 3000),
                     categoryName: cat.name,
                     minScore: catMinScore,
                     maxScore: catMaxScore,
+                    // Adaptive context
+                    simuladoRows: rawSimuladoRows,
+                    subjects: [{ name: cat.name }]
                 });
 
-                return { name: cat.name, prob: result.probability, mean: baseline, trend: cat.trend };
+                const subjDiag = {
+                    ...(result.diagnostics || {}),
+                    trendType: result.trendType || 'linear',
+                    calibrationSummary, // attach global summary for per-subject context
+                    modelHealth,
+                    modelWeight
+                };
+
+                let subjProb = result.probability;
+                if (result.ciConformalLow != null && result.ciConformalHigh != null) {
+                    const subjConfWidth = result.ciConformalHigh - result.ciConformalLow;
+                    if (subjConfWidth > 0) {
+                        let subjConfFactor = Math.min(0.15, subjConfWidth / (catMaxScore * 1.5)) * (1 - modelWeight);
+                        if (modelHealth < 0.6) {
+                            subjConfFactor = Math.min(0.25, subjConfFactor * 1.4);
+                        }
+                        if (subjProb > 50) {
+                            subjProb = subjProb * (1 - subjConfFactor) + 50 * subjConfFactor;
+                        }
+                    }
+                }
+                // High modelHealth for subject: trust raw prob more
+                if (modelHealth > 0.7) {
+                    const trust = (modelHealth - 0.7) / 0.3;
+                    subjProb = subjProb * (1 - trust * 0.4) + result.probability * (trust * 0.4);
+                }
+                return { 
+                    name: cat.name, 
+                    prob: subjProb, 
+                    mean: baseline, 
+                    trend: cat.trend,
+                    diagnostics: subjDiag,
+                    ciConformalLow: result.ciConformalLow,
+                    ciConformalHigh: result.ciConformalHigh,
+                    // prefer conformal if available for this subject
+                    ciLow: result.ciConformalLow ?? result.ci95Low,
+                    ciHigh: result.ciConformalHigh ?? result.ci95High,
+                    modelHealth,
+                    modelWeight,
+                    healthAdjustedProb: Math.max(0, Math.min(100, 
+                        subjProb * modelHealth + (50 * (1 - modelHealth))
+                    ))
+                };
             })
             .sort((a, b) => a.prob - b.prob);
-    }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays, minScore]);
+    }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays, minScore, modelHealth, modelWeight, rawSimuladoRows, calibrationSummary]);
+
+    // NEW: Record per-subject predictions for finer-grained calibration data
+    useEffect(() => {
+        if (!perSubjectProbs || perSubjectProbs.length === 0 || simulationData?.status !== 'ready') return;
+        try {
+            const setDataFn = useAppStore.getState().setData;
+            if (!setDataFn) return;
+            perSubjectProbs.forEach(subj => {
+                if (subj.prob == null) return;
+                const ev = recordPredictionEvent(null, {
+                    timestamp: Date.now(),
+                    probability: Number(subj.prob) / 100,
+                    targetScore: debouncedTarget,
+                    sims: 500,
+                    category: subj.name || 'subject',
+                    effectiveN: subj.diagnostics?.effectiveN
+                });
+                if (ev) {
+                    setDataFn(contest => {
+                        const evs = Array.isArray(contest.calibrationEvents) ? [...contest.calibrationEvents] : [];
+                        evs.push(ev);
+                        return { ...contest, calibrationEvents: evs.slice(-200) };
+                    });
+                }
+            });
+        } catch (_) {}
+    }, [perSubjectProbs?.length, debouncedTarget]);
 
     useEffect(() => {
         if (isFlashing) {
@@ -616,31 +926,22 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         }
     }, [isFlashing]);
 
-    const { probability, projectedMean, currentMean } = useMemo(() => {
-        const rawProbability = simulationData?.data?.probability ?? 0;
-        const neutralValuePct = (Number.isFinite(pureStatsData?.bayesianMean) && maxScore > 0)
-            ? (pureStatsData.bayesianMean / maxScore) * 100
-            : 50;
-        const prob = shrinkProbabilityToNeutral(rawProbability, calibrationPenalty, neutralValuePct, 0.5);
-        
-        const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
-        const pMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));
-        
-        const cMean = Number.isFinite(Number(pureStatsData?.bayesianMean)) 
-            ? Number(pureStatsData.bayesianMean) 
-            : (simulationData?.data?.currentMean ?? pMean);
-
-        return { probability: prob, projectedMean: pMean, currentMean: cMean };
-    }, [simulationData?.data, pureStatsData, maxScore, minScore, calibrationPenalty]);
-
-
-
     const derivedMetrics = useMemo(() => {
         let sd = simulationData?.data?.sd ?? 0;
         let sdLeft = simulationData?.data?.sdLeft ?? sd;
         let sdRight = simulationData?.data?.sdRight ?? sd;
-        let ci95Low = simulationData?.data?.ci95Low ?? 0;
-        let ci95High = simulationData?.data?.ci95High ?? 0;
+        // Prefer conformal CIs when available for more robust intervals
+        let ci95Low = simulationData?.data?.ciConformalLow ?? simulationData?.data?.ci95Low ?? 0;
+        let ci95High = simulationData?.data?.ciConformalHigh ?? simulationData?.data?.ci95High ?? 0;
+
+        // NEW: also use conformal for the base before expansion if present
+        if (simulationData?.data?.ciConformalLow != null) {
+            ci95Low = simulationData.data.ciConformalLow;
+            ci95High = simulationData.data.ciConformalHigh;
+        }
+
+        // Continue: use effective drift slope if provided by engine for better transparency in drift
+        const effectiveDrift = simulationData?.data?.diagnostics?.effectiveDriftSlope ?? (simulationData?.data?.drift / 30 || 0);
 
         // Apply Calibration Expansion visually
         if (calibrationPenalty > 0) {
@@ -709,7 +1010,16 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             confidenceObj,
             explanations,
             humanVol,
-            driftAlerts
+            driftAlerts,
+            // NEW: conformal CIs for consumers
+            ciConformalLow: simulationData?.data?.ciConformalLow,
+            ciConformalHigh: simulationData?.data?.ciConformalHigh,
+            // NEW: trend and summary
+            trendType: simulationData?.data?.trendType || 'linear',
+            calibrationSummary,
+            effectiveDrift,
+            modelHealth,
+            modelWeight
         };
     }, [simulationData?.data, maxScore, minScore, debouncedTarget, projectedMean, calibrationPenalty, currentMean, statsData, timelineDates, probability]);
 
@@ -728,6 +1038,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         pAdjusted: derivedMetrics.pAdjusted,
         ci95Low: derivedMetrics.ci95Low,
         ci95High: derivedMetrics.ci95High,
+        calibrationSummary: derivedMetrics.calibrationSummary,
+        trendType: derivedMetrics.trendType,
+        effectiveDrift: derivedMetrics.effectiveDrift,
         recordMonteCarloSnapshot
     });
 
@@ -743,10 +1056,18 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         probability, // Calibrated
         projectedMean,
         currentMean,
-        ...derivedMetrics, // Calibrated CIs & confidenceTier
+        healthAdjustedProb: healthAdjustedProb ?? Math.max(0, Math.min(100, 
+            (probability || 0) * (modelHealth || 0.5) + (50 * (1 - (modelHealth || 0.5)))
+        )), // NEW: probability modulated by modelHealth
+        ...derivedMetrics, // Calibrated CIs & confidenceTier (now with conformal preference + trendType + summary)
         equalWeightsMode,
         setEqualWeightsMode,
-        calibrationPenalty // Expose penalty for potential UI badges
+        calibrationPenalty, // Expose penalty for potential UI badges (influenced by live summary)
+        calibrationSummary, // NEW: Brier/ECE/trend from backfilled events
+        trendType: derivedMetrics.trendType || 'linear',
+        effectiveDrift: derivedMetrics.effectiveDrift,
+        modelHealth: derivedMetrics.modelHealth,
+        modelWeight: derivedMetrics.modelWeight
     };
 }
 
@@ -754,6 +1075,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 function useMonteCarloHistoryRecorder({ 
     activeId, simulationData, timeIndex, timelineDates, effectiveSimulateToday, projectDays, goalDate,
     debouncedTarget, currentMean, projectedMean, pAdjusted, ci95Low, ci95High,
+    calibrationSummary, trendType, effectiveDrift, modelHealth, modelWeight,
     recordMonteCarloSnapshot 
 }) {
     const lastRecordTime = useRef(0);
@@ -786,7 +1108,12 @@ function useMonteCarloHistoryRecorder({
                         ci95Low: Number(ci95Low.toFixed(2)),
                         ci95High: Number(ci95High.toFixed(2)),
                         target: Number(debouncedTarget.toFixed(2)),
-                        targetDate: goalDate
+                        targetDate: goalDate,
+                        trendType: trendType || 'linear',
+                        effectiveDrift: Number((effectiveDrift || 0).toFixed(4)),
+                        calibrationBrier: calibrationSummary ? Number(calibrationSummary.avgBrier || 0).toFixed(4) : null,
+                        modelHealth: Number((modelHealth || 0.5).toFixed(3)),
+                        modelWeight: Number((modelWeight || 0.25).toFixed(3))
                     });
                 }
             };

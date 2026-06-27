@@ -1,6 +1,6 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState } from 'react';
-import { CalendarDays, RotateCcw, X, Trophy, Target } from 'lucide-react';
+import { CalendarDays, RotateCcw, X, Trophy, Target, BookOpen } from 'lucide-react';
 import { StreakDisplay, XPHistory, AchievementsGrid } from '../components/GamificationComponents';
 import ActivityHeatmap from '../components/ActivityHeatmap';
 import { useAppStore } from '../store/useAppStore';
@@ -149,6 +149,43 @@ export default function Activity() {
                     </div>
                 </div>
             </div>
+
+            {/* Flashcards como Medidas e Indicadores */}
+            {achievementStats && (achievementStats.flashcardReviews > 0 || achievementStats.flashcardDecks > 0) && (
+                <div className="glass border border-amber-500/20 bg-amber-950/5 rounded-3xl p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                            <BookOpen size={20} className="text-amber-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-white tracking-tight">Flashcards — Medidas e Indicadores</h3>
+                            <p className="text-xs text-amber-400/70 uppercase">Volume, precisão e retenção via SRS</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+                        <div>
+                            <div className="text-xs text-slate-500 tracking-widest">REVISÕES</div>
+                            <div className="text-3xl font-black text-amber-300">{achievementStats.flashcardReviews || 0}</div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-slate-500 tracking-widest">PRECISÃO</div>
+                            <div className="text-3xl font-black text-emerald-400">{(achievementStats.flashcardAccuracy || 0).toFixed(0)}<span className="text-base">%</span></div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-slate-500 tracking-widest">HOJE</div>
+                            <div className="text-3xl font-black text-white">{achievementStats.flashcardReviewsToday || 0}</div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-slate-500 tracking-widest">DECKS</div>
+                            <div className="text-3xl font-black text-white">{achievementStats.flashcardDecks || 0}</div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-slate-500 tracking-widest">PENDENTES</div>
+                            <div className="text-3xl font-black text-orange-400">{achievementStats.flashcardDueToday || 0}</div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Seção Inferior: Galeria de Troféus */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl relative transition-all hover:border-white/20">

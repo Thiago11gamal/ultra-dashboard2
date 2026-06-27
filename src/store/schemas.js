@@ -186,6 +186,11 @@ const sanitizeContest = (data) => {
     studyLogs: (Array.isArray(source.studyLogs) ? source.studyLogs : Object.values(source.studyLogs || {})).filter(l => l && l.id),
     studySessions: (Array.isArray(source.studySessions) ? source.studySessions : Object.values(source.studySessions || {})).filter(s => s && s.id),
     notes: typeof source.notes === 'string' ? source.notes : "",
+    // NEW TOOLS
+    flashcardDecks: Array.isArray(source.flashcardDecks) ? source.flashcardDecks : [],
+    agenda: Array.isArray(source.agenda) ? source.agenda : [],
+    // Math / Calibration history (lightweight for continuous calibration)
+    calibrationEvents: Array.isArray(source.calibrationEvents) ? source.calibrationEvents.slice(-200) : [], // keep last 200 for walk-forward
     settings: {
       darkMode: true,
       soundEnabled: source.settings?.soundEnabled ?? true,

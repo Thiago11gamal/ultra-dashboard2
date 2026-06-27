@@ -440,6 +440,16 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         }
     }
 
+    const globalProjectedMean = options.globalMcStats && Number.isFinite(options.globalMcStats.projectedMean)
+        ? options.globalMcStats.projectedMean
+        : null;
+
+    // Blend with global projected mean from Coach's MC stats for contest-aware conservatism
+    if (globalProjectedMean != null && globalProjectedMean < effectiveMCTarget) {
+        const blend = 0.25;
+        effectiveMCTarget = effectiveMCTarget * (1 - blend) + globalProjectedMean * blend;
+    }
+
     let globalBaselinePct = 50;
     const validCatNorms = new Set((options.allCategories || []).map(c => normalize(c.name || "")));
     const allSimsForBaseline = (simulados || []).filter(s => s && validCatNorms.has(normalize(s.subject || "")));
@@ -508,7 +518,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         effectiveCfg,
         mcResult,
         mcProbability,
-        mcHasData
+        mcHasData,
+        globalProjectedMean
     };
 };
 
@@ -532,7 +543,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         mssdVolatility,
         mcProbability,
         mcHasData,
-        maxScore
+        maxScore,
+        globalProjectedMean
     } = metrics;
 
     const forgetting = computeForgettingRisk(
@@ -587,6 +599,13 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         );
         mcUrgencyBoost = continuous.boost;
         mcRiskLabel = continuous.riskLabel;
+
+        // INTEGRATION: if global MC (from useMonteCarloStats) shows worse outlook than this category's, add extra nudge.
+        // This makes the Coach consider the overall contest projection.
+        if (globalProjectedMean != null && globalProjectedMean < (mcProbability * 0.8)) {
+            mcUrgencyBoost += 5; // small global risk boost
+            mcRiskLabel = mcRiskLabel || 'elevated_global_risk';
+        }
     }
 
     const hasHighPriorityTasks = safeCategory.tasks?.some(t => !t.completed && t.priority === 'high') || false;
@@ -773,7 +792,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         effectiveMCDays,
         mcResult,
         mcProbability,
-        mcHasData
+        mcHasData,
+        globalProjectedMean
     } = metrics;
 
     const {
@@ -823,7 +843,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     if (mcHasData && mcRiskLabel === 'critical') {
         const burnoutNote = isBurnoutRisk ? ` (⚠️ ${burnoutMsg || 'Sinais de estafa — mude o método.'})` : '';
         const targetInfo = effectiveMCTarget < targetScore ? ` (Meta ZDP: ${formatValue(effectiveMCTarget)})` : '';
-        recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${targetInfo}${burnoutNote}`;
+        const globalNote = globalProjectedMean != null ? ` [Global: ${formatPercent(globalProjectedMean)}]` : '';
+        recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${targetInfo}${globalNote}${burnoutNote}`;
     } else if (isBurnoutRisk) {
         recommendation = `🛑 Risco de Estafa: ${burnoutMsg || 'Você estudou muito mas a nota não reagiu.'} Considere descansar.`;
     } else if (mcHasData && mcRiskLabel === 'safe') {
@@ -850,6 +871,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         recommendation,
         details: {
             averageScore: Number(averageScore.toFixed(2)),
+            globalProjectedMean: globalProjectedMean != null ? Number(globalProjectedMean.toFixed(1)) : null,
             daysSinceLastStudy,
             standardDeviation: Number(mssdVolatility.toFixed(2)),
             mssdVolatility: Number(mssdVolatility.toFixed(2)),
@@ -877,6 +899,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 meanProjected: Number(mcResult.mean.toFixed(2)),
                 effectiveMCTarget: Number(effectiveMCTarget.toFixed(2)),
                 effectiveMCDays: Number(effectiveMCDays),
+                // From global MC stats when provided by Coach page (better integration)
+                globalProjectedMean: globalProjectedMean != null ? Number(globalProjectedMean.toFixed(1)) : null,
                 ci95Low: Number(mcResult.ci95Low.toFixed(2)),
                 ci95High: Number(mcResult.ci95High.toFixed(2)),
                 urgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
@@ -908,6 +932,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 "Tendência": trend > 0.5 ? `↑ +${formatValue(trend)}` : trend < -0.5 ? `↓ ${formatValue(trend)}` : "→ Estável",
                 "Instabilidade": `±${formatValue(mssdVolatility)} pts`,
                 "Probabilidade (MC)": mcHasData ? formatPercent(mcProbability) : "Dados insuf.",
+                "Contexto Global MC": globalProjectedMean != null ? formatPercent(globalProjectedMean) : null,
                 "Peso da Matéria": weightLabel,
                 "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
             },
@@ -1009,10 +1034,36 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     if (!top) return null;
 
     const maxScore = options.maxScore ?? 100;
-    return {
+    const result = {
         ...top,
         weakestTopic: getWeakestTopic(top, simulados, maxScore)
     };
+
+    // Integrate flashcards as measure: surface due cards and SRS boost
+    if (options.flashcardDue > 0) {
+        result.flashcardDue = options.flashcardDue;
+        result.srsRecommendation = `Revisar ${options.flashcardDue} flashcards hoje para reforçar retenção e consistência.`;
+        // Light urgency nudge (global indicator, not per-subject)
+        if (result.urgency) {
+            result.urgency.srsDue = options.flashcardDue;
+        }
+    }
+
+    // INTEGRATION: Pass global MC stats from useMonteCarloStats so per-subject recommendations have global context.
+    if (options.globalMcStats && Number.isFinite(options.globalMcStats.projectedMean)) {
+        const globalMean = Number(options.globalMcStats.projectedMean);
+        if (result.urgency && result.urgency.details) {
+            result.urgency.details.globalMcContext = {
+                projectedMean: Number(globalMean.toFixed(1)),
+                volatility: options.globalMcStats.sd ? Number(options.globalMcStats.sd.toFixed(2)) : null,
+                source: 'global from useMonteCarloStats (Coach integration)'
+            };
+        }
+        result.globalProjectedMean = Number(globalMean.toFixed(1));
+        result.mcIntegrationSource = 'globalMcStats';
+    }
+
+    return result;
 };
 
 const _topicsCache = new Map();
@@ -1335,8 +1386,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     analysis: {
                         reason: "Monte Carlo — Zona de Perigo",
                         details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias.`,
-                        metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc,
+                        metrics: cat.urgency?.details?.humanReadable || {},
+                        monteCarlo: mc || null,
                         verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
                     }
                 });
@@ -1354,8 +1405,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     analysis: {
                         reason: "Monte Carlo — Caos Estatístico",
                         details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)}. Probabilidade: ${probPct}%.`,
-                        metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc,
+                        metrics: cat.urgency?.details?.humanReadable || {},
+                        monteCarlo: mc || null,
                         verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível."
                     }
                 });
@@ -1373,8 +1424,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     analysis: {
                         reason: "Monte Carlo — Cruzeiro Seguro",
                         details: `${probPct}% de probabilidade de atingir a meta.`,
-                        metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc,
+                        metrics: cat.urgency?.details?.humanReadable || {},
+                        monteCarlo: mc || null,
                         verdict: "Mantenha o ritmo atual para proteger sua posição."
                     }
                 });
@@ -1383,17 +1434,17 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             if (cat.urgency?.details?.srsLabel && !alertEmitted) {
                 alertEmitted = true;
-                const srsKey = cat.urgency.details.srsLabel.replace(/\s/g, '').substring(0, 15);
+                const srsKey = cat.urgency?.details?.srsLabel.replace(/\s/g, '').substring(0, 15);
                 allGeneratedTasks.push({
                     id: `${cat.id}-srs-${srsKey}-${i}`,
-                    text: `${cat.name}: ${priorityLabel}[REVISÃO] 🧠 ${cat.urgency.details.srsLabel}.`,
+                    text: `${cat.name}: ${priorityLabel}[REVISÃO] 🧠 ${cat.urgency?.details?.srsLabel}.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
                         reason: "Revisão Espaçada (SRS) Ativada",
-                        label: cat.urgency.details.srsLabel,
-                        metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc,
+                        label: cat.urgency?.details?.srsLabel,
+                        metrics: cat.urgency?.details?.humanReadable || {},
+                        monteCarlo: mc || null,
                         verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
                     }
                 });
@@ -1410,8 +1461,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     analysis: {
                         reason: "Detector de Pseudo-Estudo",
                         details: "Alta carga horária com baixíssimo volume de exercícios.",
-                        metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc,
+                        metrics: cat.urgency?.details?.humanReadable || {},
+                        monteCarlo: mc || null,
                         verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
                     }
                 });
@@ -1449,11 +1500,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     analysis: {
                         reason: `Tópico Selecionado: ${weakTopic.name}`,
                         details: reasonStr,
-                        metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc,
+                        metrics: cat.urgency?.details?.humanReadable || {},
+                        monteCarlo: mc || null,
                         categoryDetails: {
                             "Urgência Total": Math.round(cat.urgency.score),
-                            ...cat.urgency.details.components
+                            ...cat.urgency?.details?.components
                         },
                         topicDetails: {
                             "Nota do Tópico": Math.round(weakTopic.percentage) + "%",
@@ -1473,11 +1524,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     categoryId: cat.id,
                     analysis: {
                         reason: "Revisão Geral Complementar",
-                        metrics: cat.urgency.details.humanReadable,
-                        monteCarlo: mc,
+                        metrics: cat.urgency?.details?.humanReadable || {},
+                        monteCarlo: mc || null,
                         categoryDetails: {
                             "Total Urgency": Math.round(cat.urgency.score),
-                            ...cat.urgency.details.components
+                            ...cat.urgency?.details?.components
                         }
                     }
                 });

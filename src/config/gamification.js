@@ -126,5 +126,20 @@ export const ACHIEVEMENTS = [
         icon: '📚', 
         xpReward: 500, 
         condition: (stats) => stats.subjectsStudied >= 3 // Estudou 3 matérias/tópicos diferentes
+    },
+    // Flashcard achievements (medidas e indicadores SRS)
+    { 
+        id: 'flashcard_starter', 
+        name: 'Iniciante SRS', 
+        icon: '🃏', 
+        xpReward: 80, 
+        condition: (stats) => (stats.flashcardReviews || 0) >= 20 
+    },
+    { 
+        id: 'flashcard_master', 
+        name: 'Mestre de Cartões', 
+        icon: '📖', 
+        xpReward: 400, 
+        condition: (stats) => (stats.flashcardReviews || 0) >= 100 && (stats.flashcardAccuracy || 0) >= 70 
     }
 ];

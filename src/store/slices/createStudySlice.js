@@ -108,4 +108,66 @@ export const createStudySlice = (set, get) => ({
             get().awardExperience(-xpToDeduct);
         }
     },
+
+    logFlashcardReview: (deckId, cardId, rating, subject, minutes = 0.5) => {
+        set((state) => {
+            const activeData = state.appState.contests[state.appState.activeId];
+            if (!activeData) return;
+
+            const now = new Date().toISOString();
+            const logId = generateId('flashlog');
+
+            // Find matching category by subject name
+            let categoryId = null;
+            const normSubject = (subject || '').toLowerCase().trim();
+            if (activeData.categories && normSubject) {
+                const match = activeData.categories.find(c => 
+                    (c.name || '').toLowerCase().trim() === normSubject ||
+                    (c.name || '').toLowerCase().includes(normSubject) ||
+                    normSubject.includes((c.name || '').toLowerCase())
+                );
+                if (match) categoryId = match.id;
+            }
+
+            const isCorrect = rating >= 2;
+            const newLog = {
+                id: logId,
+                date: now,
+                categoryId: categoryId || 'flashcards',
+                taskId: deckId,
+                minutes: minutes,
+                taskTitle: 'Revisão de Flashcard',
+                type: 'flashcard',
+                deckId,
+                cardId,
+                rating,
+                correct: isCorrect
+            };
+
+            const safeLogs = Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {});
+            activeData.studyLogs = [...safeLogs, newLog].slice(-LOG_CAP);
+
+            // Update category flashcard stats if matched
+            if (categoryId) {
+                const cat = activeData.categories.find(c => c.id === categoryId);
+                if (cat) {
+                    cat.flashcardReviews = (cat.flashcardReviews || 0) + 1;
+                    cat.lastFlashcardReview = now;
+                    if (isCorrect) {
+                        cat.flashcardCorrect = (cat.flashcardCorrect || 0) + 1;
+                    }
+                }
+            }
+
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+            localStorage.setItem('ultra-sync-dirty', 'true');
+        });
+
+        // Award XP
+        if (get().awardExperience) {
+            const xp = rating >= 2 ? 3 : 1;
+            get().awardExperience(xp);
+        }
+    },
 });

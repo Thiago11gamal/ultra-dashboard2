@@ -1,6 +1,8 @@
 /**
  * Centralized date utilities for consistency across the application.
  */
+import { addDays } from 'date-fns';
+
 export const APP_TIMEZONE = 'America/Manaus';
 
 /**
@@ -229,4 +231,24 @@ export const formatWeekdayShortPtBR = (date) => {
     } catch {
         return '';
     }
+};
+
+/**
+ * Flashcard SRS date helpers - ensures ALL due dates use the same
+ * TZ-normalized YYYY-MM-DD keys as getDateKey (America/Manaus).
+ * This fixes the previous mismatch between toISOString().split('T')[0]
+ * (UTC day) and the rest of the app.
+ */
+export const getFlashcardTodayKey = () => getDateKey(new Date());
+
+export const getFlashcardNextDueKey = (intervalDays = 1) => {
+  const safeDays = Math.max(1, Math.floor(Number(intervalDays) || 1));
+  const future = addDays(new Date(), safeDays);
+  return getDateKey(future);
+};
+
+export const isFlashcardDue = (cardDue, referenceKey = null) => {
+  if (!cardDue) return true;
+  const todayKey = referenceKey || getFlashcardTodayKey();
+  return cardDue <= todayKey;
 };

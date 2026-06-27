@@ -17,7 +17,9 @@ import {
     X,
     Plus,
     Trash2,
-    Settings
+    Settings,
+    BookOpen,
+    Calendar
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
@@ -54,6 +56,13 @@ const SECTIONS = [
         items: [
             { path: '/coach', label: 'Coach IA', icon: Sparkles, color: '#c084fc' },
             { path: '/notes', label: 'Notas', icon: FileText, color: '#fca5a5' },
+        ]
+    },
+    {
+        label: 'Ferramentas',
+        items: [
+            { path: '/flashcards', label: 'Flashcards', icon: BookOpen, color: '#f59e0b' },
+            { path: '/agenda', label: 'Agenda de Estudos', icon: Calendar, color: '#14b8a6' },
         ]
     }
 ];

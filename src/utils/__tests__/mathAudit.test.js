@@ -302,8 +302,10 @@ describe('IMP-MATH-08: Topic urgency normalization', () => {
             { subject: 'Direito Constitucional', score: 70, total: 10, date: '2026-02-01' },
         ];
         const result = calculateUrgency(category, simulados, [], { maxScore: 100 });
-        expect(result.normalizedScore).toBeGreaterThanOrEqual(0);
-        expect(result.normalizedScore).toBeLessThanOrEqual(100);
+        const norm = Number(result.normalizedScore);
+        expect(Number.isFinite(norm)).toBe(true);
+        expect(norm).toBeGreaterThanOrEqual(0);
+        expect(norm).toBeLessThanOrEqual(100);
         expect(result.details.hasData).toBe(true);
     });
 });
@@ -406,6 +408,9 @@ describe('Regression: Pipeline output sanity', () => {
         if (result.details.monteCarlo) {
             expect(Number.isFinite(result.details.monteCarlo.probability)).toBe(true);
             expect(Number.isFinite(result.details.monteCarlo.meanProjected)).toBe(true);
+        }
+        if (result.globalProjectedMean != null) {
+            expect(Number.isFinite(result.globalProjectedMean)).toBe(true);
         }
     });
 

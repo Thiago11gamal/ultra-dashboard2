@@ -132,6 +132,10 @@ export default function Dashboard() {
 
     return (<PageErrorBoundary pageName="Dashboard">
         <div className="space-y-6 animate-fade-in">
+            {/* Visual hint for new tools */}
+            <div className="hidden lg:flex items-center gap-2 text-[10px] text-teal-400/70 font-bold uppercase tracking-widest mb-1 px-1">
+                <span className="inline-block w-2 h-px bg-teal-400/50"></span> NOVO: Flashcards e Agenda de Estudos disponíveis no menu
+            </div>
             <div className="tour-step-4">
                 <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
             </div>

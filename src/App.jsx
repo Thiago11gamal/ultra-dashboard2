@@ -28,6 +28,8 @@ const Activity = lazyWithRetry(() => import('./pages/Activity'));
 const Retention = lazyWithRetry(() => import('./pages/Retention'));
 const Notes = lazyWithRetry(() => import('./pages/Notes'));
 const Sessions = lazyWithRetry(() => import('./pages/Sessions'));
+const Flashcards = lazyWithRetry(() => import('./pages/Flashcards'));
+const Agenda = lazyWithRetry(() => import('./pages/Agenda'));
 const Paywall = lazyWithRetry(() => import('./components/Paywall'));
 
 import { useAuth } from './context/useAuth';
@@ -256,6 +258,8 @@ function MainLayout() {
             <Route path="/heatmap" element={<Activity />} />
             <Route path="/retention" element={<Retention />} />
             <Route path="/notes" element={<Notes />} />
+            <Route path="/flashcards" element={<Flashcards />} />
+            <Route path="/agenda" element={<Agenda />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

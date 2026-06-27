@@ -27,7 +27,44 @@ import { kahanSum } from './math/kahan.js';
 // CORREÇÃO: Alinhamento com Modelos TRI (Teoria de Resposta ao Item).
 // 0.25 capta melhor a covariância psicológica (stress do dia) 
 // sem esmagar o Desvio Padrão Agregado (Pooled SD) do candidato.
-export const INTER_SUBJECT_CORRELATION = 0.25;
+export const INTER_SUBJECT_CORRELATION = 0.25; // Prior / fallback correlation between subjects (stress day effect)
+
+/**
+ * Adaptive version of INTER_SUBJECT_CORRELATION.
+ * Tries to estimate from real user performance history (simulado rows) when sufficient data exists.
+ * Falls back gracefully to the conservative prior.
+ */
+export function getAdaptiveInterSubjectCorrelation(stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION) {
+  try {
+    if (!Array.isArray(simuladoRows) || simuladoRows.length < 5 || !Array.isArray(categoryNames) || categoryNames.length < 2) {
+      return fallback;
+    }
+
+    // Build aligned score rows: one object per "simulado day" { "Matematica": 82, "Direito": 71, ... }
+    const byDate = {};
+    simuladoRows.forEach(row => {
+      const dateKey = row.date || (row.createdAt ? new Date(row.createdAt).toISOString().slice(0,10) : null);
+      if (!dateKey) return;
+      const subj = row.subject || row.categoryName || row.name;
+      if (!subj) return;
+      const score = Number(row.score ?? row.percent ?? row.correct / row.total * 100);
+      if (!Number.isFinite(score)) return;
+
+      if (!byDate[dateKey]) byDate[dateKey] = {};
+      byDate[dateKey][subj] = score;
+    });
+
+    const alignedRows = Object.values(byDate);
+    if (alignedRows.length < 4) return fallback;
+
+    const estimated = estimateInterSubjectCorrelation(alignedRows, categoryNames, fallback);
+    // Blend a little toward prior for stability (never go full data-driven with limited history)
+    const blend = Math.min(1, alignedRows.length / 12);
+    return estimated * blend + fallback * (1 - blend);
+  } catch (e) {
+    return fallback;
+  }
+}
 
 export function computeEffectiveSampleSizeFromWeights(weights = []) {
     const clean = Array.isArray(weights) ? weights.map(w => Number(w)).filter(w => Number.isFinite(w) && w > 0) : [];
@@ -50,8 +87,10 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
         if (typeof optionsOrRho.rho === 'number') {
             rho = optionsOrRho.rho;
         } else if (optionsOrRho.scoreRows && optionsOrRho.subjectNames) {
-            // Estimação empírica dinâmica baseada no histórico real!
             rho = estimateInterSubjectCorrelation(optionsOrRho.scoreRows, optionsOrRho.subjectNames, INTER_SUBJECT_CORRELATION);
+        } else if (optionsOrRho.simuladoRows && optionsOrRho.categoryNames) {
+            // NEW: Use the full adaptive estimator with blending
+            rho = getAdaptiveInterSubjectCorrelation(stats, optionsOrRho.simuladoRows, optionsOrRho.categoryNames, INTER_SUBJECT_CORRELATION);
         }
     } else {
         // Fallback de compatibilidade
@@ -237,9 +276,20 @@ export function getVarianceBreakdown(stats, totalWeight) {
  * individuais e do fator de correlação (Rho). Necessária para alimentar
  * o Cholesky Decomposition para Monte Carlo multidimensional.
  */
-export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTER_SUBJECT_CORRELATION) {
+export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTER_SUBJECT_CORRELATION, adaptiveContext = null) {
     const n = stats.length;
     const matrix = Array(n).fill(0).map(() => Array(n).fill(0));
+
+    // NEW: Support full adaptive rho from context
+    let effectiveDefaultRho = defaultRho;
+    if (adaptiveContext && adaptiveContext.simuladoRows && adaptiveContext.categoryNames) {
+      effectiveDefaultRho = getAdaptiveInterSubjectCorrelation(
+        stats,
+        adaptiveContext.simuladoRows,
+        adaptiveContext.categoryNames,
+        defaultRho
+      );
+    }
     
     for (let i = 0; i < n; i++) {
         for (let j = 0; j < n; j++) {
@@ -248,10 +298,8 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
             if (i === j) {
                 matrix[i][j] = sdI * sdJ; // Variância pura na diagonal
             } else {
-                    // CORREÇÃO: Impor Simetria Perfeita na Matriz.
-                    // Previne a destruição de tensores estatísticos caso haja injeção de matrizes defeituosas.
-                    const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : defaultRho;
-                    const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : defaultRho;
+                    const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
+                    const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : effectiveDefaultRho;
                     
                     const currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
                     matrix[i][j] = currentRho * sdI * sdJ; // Covariância

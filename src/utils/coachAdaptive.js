@@ -327,6 +327,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             { maxScore }
         );
 
+        // NOTE from Coach+MC analysis: when globalMcStats are passed from useMonteCarloStats (in Coach page),
+        // future optimization could short-circuit or blend with precomputed per-category results here to avoid duplicate heavy sims.
+
         const enableAdaptiveCalibration = cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false;
 
         let calibrationPenalty = 0;

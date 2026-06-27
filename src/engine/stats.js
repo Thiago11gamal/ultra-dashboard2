@@ -1,5 +1,20 @@
 
 export const BAYESIAN_DECAY_FACTOR = 0.985;
+
+// NEW: Multi-timescale decay for better retention modeling
+export const RETENTION_DECAY_SHORT = 0.94; // fast forgetting (recent cramming)
+export const RETENTION_DECAY_LONG = 0.992;  // long term consolidation
+
+/**
+ * NEW: Improved retention probability using dual timescale decay.
+ * Combines short-term rapid decay with long-term slow decay.
+ */
+export function computeImprovedRetentionProbability(historyLength, lastGapDays = 7, maxAlpha = 0.9) {
+  const shortDecay = Math.pow(RETENTION_DECAY_SHORT, Math.max(0, lastGapDays));
+  const longDecay = Math.pow(RETENTION_DECAY_LONG, Math.max(0, lastGapDays * 0.6));
+  const blended = 0.6 * shortDecay + 0.4 * longDecay;
+  return Math.max(0.15, Math.min(maxAlpha, blended * maxAlpha));
+}
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
 import { normalizeDate } from '../utils/dateHelper.js';
 // BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo

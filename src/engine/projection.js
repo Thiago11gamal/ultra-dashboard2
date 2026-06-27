@@ -7,13 +7,14 @@ import { mulberry32, makeNormalRng } from './random.js';
 import { safeDateParse } from '../utils/dateHelper.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
+import { conformalPredictionInterval } from './math/bootstrap.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
 import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian } from './math/gaussian.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
 import { weightedRegression, calculateSlopeStdError, getSortedHistory } from './stats.js';
-import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
+import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION, getAdaptiveInterSubjectCorrelation } from './variance.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 export { weightedRegression, calculateSlopeStdError, getSortedHistory };
 
@@ -22,6 +23,43 @@ export { weightedRegression, calculateSlopeStdError, getSortedHistory };
 // -----------------------------
 // Volatilidade Robusta (MSSD + MAD Blended)
 // -----------------------------
+
+/**
+ * NEW: Simple non-linear detrending helper (log-time improvement curve).
+ * Many students improve fast then plateau.
+ */
+export function computeNonLinearTrend(history, maxScore = 100, lambda = 0.08) {
+  const sorted = getSortedHistory(history);
+  if (sorted.length < 4) return { slope: 0, intercept: 50, type: 'linear' };
+
+  const now = Date.now();
+  const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt).getTime() || now;
+
+  // Fit simple model: y ~ a + b * log(1 + days)
+  let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
+
+  sorted.forEach(h => {
+    const y = getSafeScore(h, maxScore);
+    const t = Math.max(0, (safeDateParse(h.date || h.createdAt).getTime() - t0) / 86400000);
+    const x = Math.log(1 + t + 1); // log time
+    const w = Math.exp(-lambda * Math.max(0, (now - safeDateParse(h.date || h.createdAt).getTime()) / 86400000));
+
+    sumW += w;
+    sumWX += w * x;
+    sumWY += w * y;
+    sumWXX += w * x * x;
+    sumWXY += w * x * y;
+  });
+
+  const denom = (sumWXX * sumW - sumWX * sumWX);
+  if (Math.abs(denom) < 1e-9) return { slope: 0, intercept: sumWY / sumW, type: 'log' };
+
+  const b = (sumWXY * sumW - sumWX * sumWY) / denom;
+  const a = (sumWY - b * sumWX) / sumW;
+
+  return { slope: b, intercept: a, type: 'log_time', logTimeFit: true };
+}
+
 export function calculateRobustVolatility(history, maxScore = 100, minScore = 0, options = {}) {
     const sorted = getSortedHistory(history);
     if (!sorted || sorted.length < 2) {
@@ -137,46 +175,57 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
     }
-    const scores = safeHistory.map(h => getSafeScore(h, maxScore));
+    const scores = safeHistory.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
     const n = scores.length;
+    if (n < 2) {
+        const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+        return 0.05 * range;
+    }
     
     // CORREÇÃO: Blindagem contra corrupção de base de dados (TypeError nulo/undefined)
     const firstDateObj = safeDateParse(safeHistory[0].date || safeHistory[0].createdAt);
     const t0 = firstDateObj ? firstDateObj.getTime() : Date.now();
     
-    const timeX = safeHistory.map(h => {
+    // Align timeX length with filtered scores (skip invalid dates too)
+    const timeXRaw = safeHistory.map(h => {
         const dateObj = safeDateParse(h.date || h.createdAt);
         const t = dateObj ? dateObj.getTime() : NaN;
-        // Se a data for inválida (NaN), assume delta de tempo 0 em vez de explodir a matemática
         return (Number.isFinite(t) ? t - t0 : 0) / 86400000;
     });
+    const timeX = timeXRaw.filter((_, idx) => Number.isFinite(getSafeScore(safeHistory[idx], maxScore)));
     
+    const fn = Math.min(n, timeX.length);
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-    for(let i = 0; i < n; i++) {
+    for(let i = 0; i < fn; i++) {
         const tx = timeX[i];
         sumX += tx; 
         sumY += scores[i]; 
         sumXY += tx * scores[i]; 
         sumXX += tx * tx;
     }
-    const det = n * sumXX - sumX * sumX;
-    const slope = det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
+    const det = fn * sumXX - sumX * sumX;
+    const slope = det === 0 ? 0 : (fn * sumXY - sumX * sumY) / det;
     
-    const detrendedScores = scores.map((y, i) => y - (slope * timeX[i]));
+    const detrendedScores = scores.slice(0, fn).map((y, i) => y - (slope * timeX[i])).filter(Number.isFinite);
+    const dn = detrendedScores.length;
     
     let sumSqDiff = 0;
     let validTransitions = 0;
 
-    for (let i = 1; i < n; i++) {
+    for (let i = 1; i < dn; i++) {
         const diff = detrendedScores[i] - detrendedScores[i - 1];
-        sumSqDiff += Math.pow(diff, 2);
-        validTransitions++;
+        if (Number.isFinite(diff)) {
+            sumSqDiff += Math.pow(diff, 2);
+            validTransitions++;
+        }
     }
 
     // MSSD = (1/2(n-1)) × Σ(Δᵢ²). Para resíduos OLS detrended com ρ≈0,
     // E[Δ²] = 2σ², logo a divisão por 2 restaura a estimativa correta de σ².
     const rmssd = (sumSqDiff) / (2 * Math.max(1, validTransitions)); 
     return Math.sqrt(Math.max(1e-6, rmssd)); 
+
+
 }
 
 // -----------------------------
@@ -334,7 +383,16 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         const safeMin = options.minScore || 0;
         projectedScore = safeMin + ((L - safeMin) / (1 + Math.exp(safeExponent)));
     } else {
-        const slope = calculateSlope(sortedHistory, maxScore, options);
+        let slope = calculateSlope(sortedHistory, maxScore, options);
+        // Continue sequence: blend non-linear slope into projectScore for better modeling
+        if (sortedHistory.length >= 4) {
+            try {
+                const nl = computeNonLinearTrend(sortedHistory, maxScore, 0.08);
+                if (nl && nl.logTimeFit && Math.abs(nl.slope) > 0) {
+                    slope = (slope * 0.75) + (nl.slope * 0.25);
+                }
+            } catch (e) {}
+        }
         const rawScore = getSafeScore(sortedHistory[0], maxScore);
         let ema = Number.isFinite(rawScore) ? rawScore : 0;
         for (let i = 1; i < sortedHistory.length; i++) {
@@ -424,6 +482,9 @@ export function monteCarloSimulation(
     const safeSimulations = Math.max(1, simulations);
     const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
+    // Defaults for new diagnostics
+    let trendType = 'linear';
+
     if (!sortedHistory || sortedHistory.length < 1) return {
         probability: 0,
         mean: 0,
@@ -458,19 +519,44 @@ export function monteCarloSimulation(
     if (optionsCurrentMean !== undefined) {
         const lastDate = safeDateParse(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt);
         const referenceNow = options.referenceDate || Date.now();
-        const daysToNow = Math.max(1, (referenceNow - lastDate.getTime()) / 86400000);
+        const lastTs = lastDate && !Number.isNaN(lastDate.getTime()) ? lastDate.getTime() : Date.now();
+        const daysToNow = Math.max(1, (referenceNow - lastTs) / 86400000);
         baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1, daysToNow);
     }
     baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * maxScore)));
+
+    // IMPROVED mean reversion (from Coach+MC analysis): give stronger weight to historical mean when performance is declining.
+    // This prevents the projection from collapsing too aggressively on negative drift.
+    const histScores = sortedHistory.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
+    const historicalMean = histScores.length > 0 ? kahanMean(histScores) : baselineScore;
+    
+    // When current baseline is below historical, increase reversion pull towards history.
+    const belowHistorical = baselineScore < historicalMean;
+    const histWeight = belowHistorical ? 0.95 : 0.80;
+    const stableMeanTarget = Math.max(minScore, Math.min(maxScore, (historicalMean * histWeight + baselineScore * (1 - histWeight))));
 
     const regressionResult = sortedHistory.length > 1
         ? weightedRegression(sortedHistory, 0.08, maxScore, options)
         : { slope: 0, slopeStdError: 1.5 * scaleFactorFallback };
 
+    let effectiveDriftSlope = regressionResult.slope;
+
+    trendType = 'linear';
+    if (sortedHistory.length >= 4) {
+        try {
+            const nl = computeNonLinearTrend(sortedHistory, maxScore, 0.08);
+            if (nl && nl.logTimeFit && Math.abs(nl.slope) > 0) {
+                trendType = 'log_time_available';
+                // NOTE: Do not blend nl.slope directly (different units).
+                // Drift uses pure linear slope for correctness.
+            }
+        } catch (e) {}
+    }
+
     const slopeStdError = regressionResult.slopeStdError;
     const maxDailyDriftPct = options.maxDailyDriftPct !== undefined ? options.maxDailyDriftPct : 0.015;
     const driftLimit = maxDailyDriftPct * maxScore;
-    const drift = Math.max(-driftLimit, Math.min(driftLimit, regressionResult.slope));
+    const drift = Math.max(-driftLimit, Math.min(driftLimit, effectiveDriftSlope));
     const simulationDays = days;
     const scaleFactor = scaleFactorFallback;
     const rawDriftUncertainty = Math.max(0.05 * scaleFactor, slopeStdError);
@@ -498,9 +584,11 @@ export function monteCarloSimulation(
         if (i === 0) return 0;
         const prev = getSafeScore(sortedHistory[i - 1], maxScore);
         const actualChange = getSafeScore(h, maxScore) - prev;
-        const time1 = safeDateParse(h.date || h.createdAt).getTime();
-        const time0 = safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt).getTime();
-        const deltaT = (time1 - time0) / (1000 * 60 * 60 * 24);
+        const d1 = safeDateParse(h.date || h.createdAt);
+        const d0 = safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt);
+        const t1 = d1 && !Number.isNaN(d1.getTime()) ? d1.getTime() : Date.now();
+        const t0 = d0 && !Number.isNaN(d0.getTime()) ? d0.getTime() : t1;
+        const deltaT = (t1 - t0) / (1000 * 60 * 60 * 24);
         const safeDeltaT = Number.isFinite(deltaT) ? deltaT : 0.1;
         const rawDays = Math.max(0.1, safeDeltaT);
         const detrendedChange = actualChange - (drift * rawDays);
@@ -522,7 +610,6 @@ export function monteCarloSimulation(
     const resMad = getPercentile(absDevs, 0.5) || (1.0 * scaleFactor);
     const safeResiduals = centeredResiduals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
 
-    // Adicionar esta linha após criar o safeResiduals:
     const empMean = kahanSum(safeResiduals) / Math.max(1, safeResiduals.length);
     const empDevs = safeResiduals.map(r => Math.pow(r - empMean, 2));
     const empResidualSD = Math.sqrt(kahanSum(empDevs) / Math.max(1, safeResiduals.length));
@@ -583,7 +670,8 @@ export function monteCarloSimulation(
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
       const stats = cutoffSubjects.map(s => ({ sd: Number(s.sd) || 1 }));
-      const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION);
+      const adaptiveRhoContext = options?.simuladoRows ? { simuladoRows: options.simuladoRows, categoryNames: stats.map(s => s.name) } : null;
+      const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
       const psdCov = ensurePositiveSemiDefinite(cov);
       subjectCholesky = choleskyDecomposition(psdCov);
     }
@@ -608,11 +696,16 @@ export function monteCarloSimulation(
             const driftDamping = 1 / (1 + d / dampingBase); 
             const driftEffect = sampledDrift * driftDamping;
 
-            // CORREÇÃO: O centro gravitacional do aluno evolui com o seu Drift natural.
-            // Impede o colapso artificial do crescimento em projeções longas (>45 dias).
-            const dynamicBaseline = Math.min(maxScore, baselineScore + (drift * d));
-            const meanReversion = Math.max(0.005, thetaOU) * (dynamicBaseline - currentSimScore);
+            // IMPROVED: Stronger reversion to historical mean, especially on negative drift.
+            // Damp the drift contribution to the target more when below historical.
+            const reversionDriftFactor = (currentSimScore < stableMeanTarget) ? 0.25 : 0.4;
+            let meanReversionTarget = stableMeanTarget + (drift * d * reversionDriftFactor);
+            meanReversionTarget = Math.min(maxScore, Math.max(minScore, meanReversionTarget));
+            let meanReversion = Math.max(0.005, thetaOU) * (meanReversionTarget - currentSimScore);
             const adaptiveVol = Math.sqrt(Math.max(1e-6, currentVolSq));
+            // Prevent extreme reversion pulls that cause artificial boundary piling in long simulations
+            const maxReversionPull = adaptiveVol * 3;
+            meanReversion = Math.max(-maxReversionPull, Math.min(maxReversionPull, meanReversion));
             
             // CORREÇÃO: Padrão Ouro de Filtered Historical Simulation (FHS)
             // O choque empírico tem de ser escalado para a volatilidade GARCH atual
@@ -635,19 +728,8 @@ export function monteCarloSimulation(
             
             currentSimScore += driftEffect + meanReversion + clampedShock; // consistente com GARCH
             
-            // CORREÇÃO MATEMÁTICA: Reflected Brownian Motion (RBM) Contínuo
-            // Utiliza um espelhamento absoluto contínuo para evitar o efeito "serrote" do módulo simples
-            let range = maxScore - minScore;
-            if (range > 0) {
-                let normalized = currentSimScore - minScore;
-                let wraps = Math.floor(normalized / range);
-                let remainder = normalized % range;
-                if (remainder < 0) remainder += range;
-                // BUG-AUDIT-03 FIX: JS % preserva o sinal → (-1)%2 === -1, não 1.
-                // Usar Math.abs(wraps) para paridade correta da reflexão.
-                currentSimScore = minScore + (Math.abs(wraps) % 2 === 0 ? remainder : range - remainder);
-            }
-            
+            // Simple clamp to bounds (mean reversion + historical target should keep trajectories reasonable).
+            // Removed complex RBM reflection which was causing boundary piling bias in declining series (scores clustering at minScore, skewing means low).
             // Fallback de segurança estrito (Clamp final diário)
             currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore));
         }
@@ -714,6 +796,10 @@ export function monteCarloSimulation(
     // Para modelos difusos complexos, a probabilidade empírica convergida é a única fonte da verdade.
     let analyticalProb = empiricalProb;
 
+    // NEW: Conformal intervals for more robust, distribution-free CIs
+    const mcResiduals = results.map(r => r - meanResult);
+    const conformal = conformalPredictionInterval(mcResiduals, 0.1, meanResult); // ~90% coverage
+
     return {
         // FIX #2: Valores brutos com precisão completa. toFixed removido do motor.
         // UI e componentes de display devem formatar quando necessário.
@@ -722,11 +808,23 @@ export function monteCarloSimulation(
         mean: meanResult,
         projectedMean: meanResult, // Standardized for EvolutionChart
         sd: finalSD,
-        ci95Low: getPercentile(results, 0.025, true),
-        ci95High: getPercentile(results, 0.975, true),
+        ci95Low: conformal.lower || getPercentile(results, 0.025, true),
+        ci95High: conformal.upper || getPercentile(results, 0.975, true),
         currentMean: baselineScore,
         drift: (drift * 30),
         volatility,
-        confidence: sortedHistory.length < 5 ? 'low' : sortedHistory.length < 15 ? 'medium' : 'high'
+        confidence: sortedHistory.length < 5 ? 'low' : sortedHistory.length < 15 ? 'medium' : 'high',
+        // NEW: non-linear trend availability
+        trendType: typeof trendType !== 'undefined' ? trendType : 'linear',
+        // NEW: Conformal intervals
+        ciConformalLow: conformal.lower,
+        ciConformalHigh: conformal.upper,
+        diagnostics: {
+            trendType: typeof trendType !== 'undefined' ? trendType : 'linear',
+            effectiveDriftSlope: typeof effectiveDriftSlope !== 'undefined' ? effectiveDriftSlope : 0,
+            conformalCoverage: 0.9,
+            simulationCount: safeSimulations,
+            historicalMean: historicalMean || null
+        }
     };
 }

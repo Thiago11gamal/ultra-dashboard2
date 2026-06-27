@@ -6,20 +6,25 @@ export const createMonteCarloSlice = (set) => ({
 
         const history = Array.isArray(activeData.monteCarloHistory) ? activeData.monteCarloHistory : [];
         const snapshot = { date, probability: prob, ...metadata };
+        let newHistory;
         const idx = history.findIndex(h => h.date === date);
 
         if (idx >= 0) {
-            activeData.monteCarloHistory[idx] = { ...history[idx], ...snapshot };
-            // Garante ordem + retenção de janela após atualização de snapshot existente
-            activeData.monteCarloHistory = activeData.monteCarloHistory
-                .sort((a, b) => new Date(a.date) - new Date(b.date))
-                .slice(-30);
+            newHistory = [...history];
+            newHistory[idx] = { ...history[idx], ...snapshot };
         } else {
-            // Ordena estritamente por data antes de aplicar o limite de 30 dias
-            activeData.monteCarloHistory = [...history, snapshot]
-                .sort((a, b) => new Date(a.date) - new Date(b.date))
-                .slice(-30);
+            newHistory = [...history, snapshot];
         }
+        // Immutable sort + limit
+        newHistory = newHistory
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .slice(-30);
+
+        // Assign immutably to avoid direct mutation issues
+        state.appState.contests[activeId] = {
+            ...activeData,
+            monteCarloHistory: newHistory
+        };
 
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();

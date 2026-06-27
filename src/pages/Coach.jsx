@@ -6,7 +6,8 @@ import {
     ArrowUpRight,
     ShieldCheck,
     Dna,
-    List
+    List,
+    BookOpen
 } from 'lucide-react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
@@ -17,10 +18,12 @@ import AICoachView from '../components/AICoachView';
 import CoachMenuNav from '../components/coach/CoachMenuNav';
 import MonteCarloDebugger from '../components/MonteCarloDebugger';
 import ReliabilityCurveChart from '../components/charts/ReliabilityCurveChart';
+import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { useSubscription } from '../hooks/useSubscription';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { getSuggestedFocus, generateDailyGoals, clearMcCache } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
+import { useNavigate } from 'react-router-dom';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
 import { displaySubject } from '../utils/displaySubject';
@@ -56,10 +59,15 @@ export default function Coach() {
     const history = useMemo(() => data?.simuladoRows ?? [], [data?.simuladoRows]);
     const simulados = useMemo(() => data?.simulados ?? [], [data?.simulados]);
     const categories = useMemo(() => data?.categories || [], [data?.categories]);
+    const flashcardDecks = useMemo(() => data?.flashcardDecks || [], [data?.flashcardDecks]);
+    const flashcardDue = useMemo(() => {
+        return getFlashcardDueTodayCount(flashcardDecks);
+    }, [flashcardDecks]);
     const userProfile = data?.user;
     
     const updateCoachScore = useAppStore(state => state.updateCoachScore);
     const { isPremium } = useSubscription(userProfile);
+    const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState('insights');
 
@@ -81,24 +89,7 @@ export default function Coach() {
         calibrationHistoryRef.current = data?.calibrationHistoryByCategory || {};
     }, [data?.calibrationHistoryByCategory]);
 
-    // BUG-15 BACKFILL: Sincronização de contador global desativada para evitar poluição de histórico.
-    /*
-    useEffect(() => {
-        if (simulados.length === 0 && history.length > 0 && setData) {
-            const dates = [...new Set(history.map(h => h.date || h.createdAt?.split('T')[0]).filter(Boolean))];
-            if (dates.length > 0) {
-                const backfillEvents = dates.map(d => ({
-                    id: `bf-${d}`,
-                    date: d,
-                    score: 0, // Placeholder
-                    type: 'backfill',
-                    subject: 'Simulado Restaurado'
-                }));
-                setData(prev => ({ ...prev, simulados: backfillEvents }));
-            }
-        }
-    }, [simulados.length, history.length, setData]);
-    */
+    // Backfill de simulados agora é gerenciado no hook useMonteCarloStats via rawSimuladoRows (evita duplicação).
 
     const lastPersistRef = useRef(0);
     const persistCalibrationMetric = useCallback((metric) => {
@@ -274,7 +265,8 @@ export default function Coach() {
         timeIndex: -1,
         timelineDates: [],
         minScore: data?.minScore ?? 0,
-        maxScore: currentMaxScore
+        maxScore: currentMaxScore,
+        simuladoRows: data?.simuladoRows || []
     });
 
     const projectedScore = mcStats?.projectedMean ?? 0;
@@ -309,13 +301,25 @@ export default function Coach() {
                     targetScore,
                     maxScore: data.maxScore ?? 100,
                     calibrationHistoryByCategory: calibrationHistoryRef.current,
+                    flashcardDecks: flashcardDecks,
+                    flashcardDue,
                     onCalibrationMetric: (metric) => collectedMetrics.push(metric),
+                    // Pass global MC stats for richer integration (see analysis of Coach + MC)
+                    globalMcStats: mcStats,
                     config: {
                         MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
                     }
                 }
             );
 
+            // BEST: enrich the suggestion with global MC context for the UI
+            if (result && mcStats && mcStats.projectedMean != null) {
+                result.globalMcContext = {
+                    projectedMean: Number(mcStats.projectedMean.toFixed(1)),
+                    probability: mcStats.probability != null ? Number(mcStats.probability.toFixed(1)) : null,
+                    source: 'useMonteCarloStats'
+                };
+            }
             setSuggestedFocus(result);
             setIsAnalyzing(false);
 
@@ -343,6 +347,7 @@ export default function Coach() {
         data?.maxScore, 
         data?.settings?.adaptiveCalibrationEnabled,
         userProfile?.targetProbability,
+        flashcardDue,
         persistCalibrationMetric
     ]);
 
@@ -449,19 +454,21 @@ export default function Coach() {
                         description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
                     />
                     
-                    <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-6 bg-slate-900/40 border border-white/5 p-3 sm:p-4 rounded-3xl backdrop-blur-md w-full md:w-auto">
-                        <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-rose-400" icon={<Zap size={14} />} />
-                        <div className="w-px h-10 bg-white/5" />
+                    <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner">
+                        <div className="flex items-center gap-3 sm:gap-4 px-2">
+                            <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-rose-400" icon={<Zap size={14} />} />
+                            <div className="w-px h-6 bg-white/10" />
+                            <QuickStat
+                                label="Tendência"
+                                value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
+                                color="text-emerald-400"
+                                icon={<ArrowUpRight size={14} />}
+                            />
+                            <div className="w-px h-6 bg-white/10" />
+                            <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
+                        </div>
+                        <div className="hidden sm:block w-px h-6 bg-white/10" />
                         <MonteCarloDebugger stats={mcStats} />
-                        <div className="w-px h-10 bg-white/5" />
-                        <QuickStat
-                            label="Tendência"
-                            value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
-                            color="text-emerald-400"
-                            icon={<ArrowUpRight size={14} />}
-                        />
-                        <div className="w-px h-10 bg-white/5" />
-                        <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
                     </div>
                 </div>
 
@@ -488,12 +495,37 @@ export default function Coach() {
                                 hidden={safeActiveTab !== 'insights'}
                             >
                                 {safeActiveTab === 'insights' && (
-                                    <AICoachView 
-                                        suggestedFocus={suggestedFocus}
-                                        onGenerateGoals={handleGenerateGoals}
-                                        loading={coachLoading}
-                                        onClearHistory={handleClearHistory}
-                                    />
+                                    <>
+                                        {flashcardDue > 0 && (
+                                            <div className="mb-3 flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm">
+                                                <BookOpen className="text-amber-400" size={18} />
+                                                <div className="flex-1 text-amber-200">
+                                                    <span className="font-semibold">{flashcardDue} flashcards</span> pendentes para hoje. SRS melhora retenção e o modelo.
+                                                </div>
+                                                <button
+                                                    onClick={() => navigate('/flashcards')}
+                                                    className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
+                                                >
+                                                    FLASHCARDS
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Visual global MC context */}
+                                        {suggestedFocus?.globalProjectedMean != null && (
+                                            <div className="mb-3 flex items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 text-xs">
+                                                <span className="font-semibold text-emerald-300">Global MC:</span>
+                                                <span className="font-mono text-base font-bold text-emerald-200">{suggestedFocus.globalProjectedMean}%</span>
+                                                <span className="text-emerald-400/60">contexto global aplicado</span>
+                                            </div>
+                                        )}
+                                        <AICoachView 
+                                            suggestedFocus={suggestedFocus}
+                                            onGenerateGoals={handleGenerateGoals}
+                                            loading={coachLoading}
+                                            onClearHistory={handleClearHistory}
+                                        />
+                                    </>
                                 )}
                             </div>
 
@@ -516,12 +548,12 @@ export default function Coach() {
 
 function QuickStat({ label, value, color, icon }) {
     return (
-        <div className="flex flex-col min-w-[78px] sm:min-w-[80px]">
-            <div className="flex items-center gap-1.5 mb-1.5">
-                <span className={`${color} opacity-60`}>{icon}</span>
-                <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">{label}</span>
+        <div className="flex flex-col min-w-[78px] sm:min-w-[80px] px-1">
+            <div className="flex items-center gap-1.5 mb-0.5 opacity-70">
+                <span className={color}>{icon}</span>
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em]">{label}</span>
             </div>
-            <span className={`text-sm font-black ${color} tracking-tighter`}>{value}</span>
+            <span className={`text-base font-black ${color} tracking-tighter tabular-nums`}>{value}</span>
         </div>
     );
 }
@@ -551,14 +583,14 @@ const GovernanceBanner = React.memo(function GovernanceBanner({ data }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="mb-8 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-4 overflow-hidden"
+            className="mb-6 p-4 rounded-3xl bg-rose-500/5 border border-rose-500/30 flex items-center justify-between gap-4 overflow-hidden shadow-sm"
         >
             <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 border border-rose-500/20 shadow-lg shadow-rose-900/20">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 flex items-center justify-center text-rose-400 border border-rose-500/20">
                     <AlertCircle size={20} />
                 </div>
                 <div>
-                    <h4 className="text-sm font-black text-white uppercase tracking-tight">Alerta de Governança</h4>
+                    <h4 className="text-sm font-black text-rose-200 uppercase tracking-tight">Alerta de Governança</h4>
                     <p className="text-[10px] text-rose-300/80 font-medium uppercase tracking-widest">
                         Detectamos <span className="text-rose-400 font-black">{degradedCount}</span> categorias com calibração degradada.
                     </p>
@@ -667,18 +699,18 @@ function RaioXDashboard({ data }) {
                         <List size={14} className="text-indigo-400/80" />
                         Log de Auditoria
                     </h3>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 bg-slate-900/50 border border-white/5 rounded-xl p-0.5">
                         <button 
                             onClick={() => setFilter('all')}
-                            className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${filter === 'all' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-900/40 border border-white/20' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                            className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${filter === 'all' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200'}`}
                         >
                             Tudo
                         </button>
                         <button 
                             onClick={() => setFilter('degraded')}
-                            className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${filter === 'degraded' ? 'bg-rose-500 text-white shadow-lg shadow-rose-900/40 border border-white/20' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                            className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${filter === 'degraded' ? 'bg-rose-500/20 text-rose-300' : 'text-slate-400 hover:text-slate-200'}`}
                         >
-                            Falhas
+                            Degradados
                         </button>
                     </div>
                 </div>

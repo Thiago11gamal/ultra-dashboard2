@@ -1,6 +1,7 @@
 import { getXPProgress } from './gamification.js';
-import { normalizeDate, getLocalMidnight, getDateKey } from './dateHelper.js';
+import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
+import { format } from 'date-fns';
 
 /**
  * Distributes a rounding remainder across items based on their decimal parts.
@@ -159,26 +160,30 @@ const aggregateQuestionAccuracy = (contestData) => {
     let totalQuestions = validSimulados.reduce((acc, r) => acc + Number(r.total), 0);
     let totalCorrect = validSimulados.reduce((acc, r) => acc + Number(r.correct), 0);
 
-    (contestData.categories || []).forEach(cat => {
-        const maxS = Number(cat.maxScore) || 100;
-        const syntheticTotal = getSyntheticTotal(maxS);
-        const histArr = Array.isArray(cat.simuladoStats?.history)
-            ? cat.simuladoStats.history
-            : Object.values(cat.simuladoStats?.history || {});
+    // Only supplement from history if we have no explicit validated rows (legacy or no submissions)
+    // This prevents double-counting recent simulado data that exists in both rows and history.
+    if (validSimulados.length === 0 || totalQuestions === 0) {
+        (contestData.categories || []).forEach(cat => {
+            const maxS = Number(cat.maxScore) || 100;
+            const syntheticTotal = getSyntheticTotal(maxS);
+            const histArr = Array.isArray(cat.simuladoStats?.history)
+                ? cat.simuladoStats.history
+                : Object.values(cat.simuladoStats?.history || {});
 
-        histArr.forEach(e => {
-            let t = Number(e.total) || 0;
-            let c = 0;
-            if (t > 0) {
-                c = e.correct !== undefined ? Number(e.correct) : Math.round((getSafeScore(e, maxS) / maxS) * t);
-            } else if (e.score != null) {
-                t = syntheticTotal;
-                c = Math.round((getSafeScore(e, maxS) / maxS) * t);
-            }
-            totalQuestions += t;
-            totalCorrect += c;
+            histArr.forEach(e => {
+                let t = Number(e.total) || 0;
+                let c = 0;
+                if (t > 0) {
+                    c = e.correct !== undefined ? Number(e.correct) : Math.round((getSafeScore(e, maxS) / maxS) * t);
+                } else if (e.score != null) {
+                    t = syntheticTotal;
+                    c = Math.round((getSafeScore(e, maxS) / maxS) * t);
+                }
+                totalQuestions += t;
+                totalCorrect += c;
+            });
         });
-    });
+    }
 
     return {
         totalQuestions,
@@ -240,7 +245,28 @@ export const buildAchievementStats = (contestData, options = {}) => {
         studiedEarly,
         studiedLate,
         studiedWeekend,
-        subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size
+        subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size,
+        // Flashcard indicators as measures
+        flashcardReviews: studyLogs.filter(log => log.type === 'flashcard').length,
+        flashcardAccuracy: (() => {
+            const fcLogs = studyLogs.filter(log => log.type === 'flashcard' && log.correct !== undefined);
+            if (fcLogs.length === 0) return 0;
+            const correct = fcLogs.filter(l => l.correct).length;
+            return (correct / fcLogs.length) * 100;
+        })(),
+        flashcardReviewsToday: (() => {
+            const startOfToday = getLocalMidnight().getTime();
+            return studyLogs.filter(log => 
+                log.type === 'flashcard' && 
+                normalizeDate(log?.date)?.getTime() >= startOfToday
+            ).length;
+        })(),
+        // Enhanced deck-based flashcard indicators (for KPIs, Coach, Retention)
+        // Now uses centralized helpers (consistent date keys + mastery >=6)
+        flashcardDecks: getFlashcardDeckCount(contestData.flashcardDecks),
+        flashcardTotalCards: getFlashcardTotalCards(contestData.flashcardDecks),
+        flashcardDueToday: getFlashcardDueTodayCount(contestData.flashcardDecks),
+        flashcardMastery: getFlashcardMasteryPct(contestData.flashcardDecks)
     };
 };
 
@@ -769,3 +795,108 @@ export const getCompleteReport = (data) => {
         ]
     };
 };
+
+/**
+ * Previsão de Cartões a Vencer (Due Forecast)
+ * Uses the centralized flashcard date helpers for consistent TZ handling.
+ * Past/overdue cards are bucketed into "Hoje".
+ */
+/**
+ * Reusable pure helpers for SRS flashcard metrics (used by Due Forecast,
+ * VerifiedStats, Retention, Coach, buildAchievementStats, etc).
+ * Standardized mastery threshold: >= 3 reviews AND interval >= 6.
+ */
+export function getFlashcardDueTodayCount(decks = []) {
+  const todayKey = getFlashcardTodayKey();
+  let due = 0;
+  (Array.isArray(decks) ? decks : []).forEach(deck => {
+    (deck.cards || []).forEach(card => {
+      if (!card?.due || card.due <= todayKey) due++;
+    });
+  });
+  return due;
+}
+
+export function getFlashcardMasteryPct(decks = []) {
+  let total = 0, mastered = 0;
+  (Array.isArray(decks) ? decks : []).forEach(deck => {
+    (deck.cards || []).forEach(card => {
+      total++;
+      if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 6) mastered++;
+    });
+  });
+  return total > 0 ? Math.round((mastered / total) * 100) : 0;
+}
+
+export function getFlashcardTotalCards(decks = []) {
+  return (Array.isArray(decks) ? decks : []).reduce((sum, d) => sum + (d.cards?.length || 0), 0);
+}
+
+export function getFlashcardDeckCount(decks = []) {
+  return (Array.isArray(decks) ? decks : []).length;
+}
+
+export function computeFlashcardDueForecast(decks = [], horizon = 14) {
+    const raw = Number(horizon);
+    const safeHorizon = Math.max(0, Math.floor(isNaN(raw) ? 14 : raw));
+    const todayKey = getFlashcardTodayKey();
+    const counts = {};
+
+    const safeDecks = Array.isArray(decks) ? decks : [];
+
+    safeDecks.forEach(deck => {
+        (deck.cards || []).forEach(card => {
+            let dueKey = card && card.due ? String(card.due) : todayKey;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dueKey)) {
+                dueKey = todayKey;
+            }
+            if (dueKey < todayKey) {
+                dueKey = todayKey;
+            }
+            counts[dueKey] = (counts[dueKey] || 0) + 1;
+        });
+    });
+
+    const forecast = [];
+    let totalDueInHorizon = 0;
+    let maxDaily = 0;
+
+    const baseDate = new Date();
+
+    for (let i = 0; i < safeHorizon; i++) {
+        const key = i === 0
+            ? todayKey
+            : getFlashcardNextDueKey(i);  // i days ahead, normalized
+
+        // For label + dateLabel we still use date-fns for nice display (from "today")
+        const displayDate = new Date(baseDate.getTime());
+        displayDate.setDate(displayDate.getDate() + i);
+
+        const count = counts[key] || 0;
+
+        totalDueInHorizon += count;
+        if (count > maxDaily) maxDaily = count;
+
+        let label;
+        if (i === 0) label = 'Hoje';
+        else if (i === 1) label = 'Amanhã';
+        else label = `+${i}d`;
+
+        forecast.push({
+            day: i,
+            dateKey: key,
+            label,
+            dateLabel: format(displayDate, 'dd/MM'),
+            count,
+            isToday: i === 0,
+            isTomorrow: i === 1
+        });
+    }
+
+    return {
+        forecast,
+        totalDueInHorizon,
+        maxDaily,          // 0 is valid now
+        horizon: safeHorizon
+    };
+}
