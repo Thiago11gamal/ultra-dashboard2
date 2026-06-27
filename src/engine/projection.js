@@ -14,7 +14,7 @@ import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecompositio
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
 import { weightedRegression, calculateSlopeStdError, getSortedHistory } from './stats.js';
-import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION, getAdaptiveInterSubjectCorrelation } from './variance.js';
+import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 export { weightedRegression, calculateSlopeStdError, getSortedHistory };
 
@@ -391,7 +391,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
                 if (nl && nl.logTimeFit && Math.abs(nl.slope) > 0) {
                     slope = (slope * 0.75) + (nl.slope * 0.25);
                 }
-            } catch (e) {}
+            } catch { /* ignore */ }
         }
         const rawScore = getSafeScore(sortedHistory[0], maxScore);
         let ema = Number.isFinite(rawScore) ? rawScore : 0;
@@ -550,7 +550,7 @@ export function monteCarloSimulation(
                 // NOTE: Do not blend nl.slope directly (different units).
                 // Drift uses pure linear slope for correctness.
             }
-        } catch (e) {}
+        } catch { /* ignore */ }
     }
 
     const slopeStdError = regressionResult.slopeStdError;

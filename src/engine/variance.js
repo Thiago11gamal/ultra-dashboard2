@@ -34,7 +34,7 @@ export const INTER_SUBJECT_CORRELATION = 0.25; // Prior / fallback correlation b
  * Tries to estimate from real user performance history (simulado rows) when sufficient data exists.
  * Falls back gracefully to the conservative prior.
  */
-export function getAdaptiveInterSubjectCorrelation(stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION) {
+export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION) {
   try {
     if (!Array.isArray(simuladoRows) || simuladoRows.length < 5 || !Array.isArray(categoryNames) || categoryNames.length < 2) {
       return fallback;
@@ -61,7 +61,8 @@ export function getAdaptiveInterSubjectCorrelation(stats = [], simuladoRows = []
     // Blend a little toward prior for stability (never go full data-driven with limited history)
     const blend = Math.min(1, alignedRows.length / 12);
     return estimated * blend + fallback * (1 - blend);
-  } catch (e) {
+  } catch {
+    /* ignore */
     return fallback;
   }
 }

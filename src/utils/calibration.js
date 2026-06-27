@@ -169,7 +169,7 @@ export function computeCalibrationSummary(events = [], options = {}) {
  * Matches by category and approximate target.
  * Call this after adding/updating simulados.
  */
-export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRows = [], categories = [], maxScore = 100) {
+export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRows = [], _categories = [], maxScore = 100) {
   if (!Array.isArray(calibrationEvents) || !Array.isArray(simuladoRows)) return calibrationEvents;
 
   const updated = [...calibrationEvents];

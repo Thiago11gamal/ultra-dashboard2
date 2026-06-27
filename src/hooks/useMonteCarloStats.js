@@ -6,7 +6,6 @@ import {
     computeBayesianLevel, 
     computeWeightedVariance, 
     calculateVolatility, 
-    estimateInterSubjectCorrelation,
     getAdaptiveInterSubjectCorrelation,
     computeHierarchicalAdjustment
 } from '../engine';
@@ -243,7 +242,6 @@ function generateAnalyticsStats({
     // passed as the second argument. Previously pooledSD was declared after the call, causing
     // the function to fall back to localSD=15 for every category (ignoring actual variance).
     const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
-    const scoreRows = sortedDates.map(date => scoresByDate[date] || {});
     const subjectNames = categoryStats.map(cat => cat.key || cat.name);
     // NEW: Prefer full adaptive estimator (with blending)
     const estimatedRho = getAdaptiveInterSubjectCorrelation(
@@ -345,7 +343,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         if (events.length < 3) return null;
         try {
             return computeCalibrationSummary(events, { bins: 6 });
-        } catch (e) {
+        } catch {
             return null;
         }
     }, [contest?.calibrationEvents]);
@@ -519,7 +517,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 const setD = useAppStore.getState().setData;
                 if (setD) setD(c => ({...c, calibrationEvents: backfilled}));
             }
-        } catch (e) { /* ignore */ }
+        } catch { /* ignore */ }
     }, [rawSimuladoRows?.length, maxScore]);
 
     // Motor roda Cego/Puro para prevenir Feedback Loops (usa pureStatsDataRef)
@@ -619,7 +617,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                                 });
                             }
                         }
-                    } catch (_) { /* best effort, non blocking */ }
+                    } catch { /* best effort, non blocking */ }
                 }
             } catch (err) {
                 console.warn('[MC Worker] Simulation failed, using sync fallback:', err);
@@ -709,7 +707,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                                 });
                             }
                         }
-                    } catch (_) {}
+                    } catch { /* ignore */ }
                 }
             }
         };
@@ -824,7 +822,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             totalTrendProjection = totalTrendProjection * (1 - nlWeight) + nlProjection * nlWeight;
                         }
                     }
-                } catch (e) {}
+                } catch { /* ignore */ }
 
                 const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
 
@@ -916,7 +914,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     });
                 }
             });
-        } catch (_) {}
+        } catch { /* ignore */ }
     }, [perSubjectProbs?.length, debouncedTarget]);
 
     useEffect(() => {

@@ -6,7 +6,7 @@ import { getPercentile } from './math/percentile.js';
 import { kahanMean, kahanSum } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
-import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION, getAdaptiveInterSubjectCorrelation } from './variance.js';
+import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 
 export { getPercentile };
 
@@ -252,8 +252,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
       const stats = cutoffSubjects.map(s => ({ sd: Number(s.sd) || 1 }));
-      const adaptiveRhoContext = (meanOrObj?.simuladoRows || options?.simuladoRows) 
-        ? { simuladoRows: meanOrObj?.simuladoRows || options?.simuladoRows, categoryNames: subjects.map(s => s.name || s) } 
+      const adaptiveRhoContext = (meanOrObj?.simuladoRows) 
+        ? { simuladoRows: meanOrObj?.simuladoRows, categoryNames: subjects.map(s => s.name || s) } 
         : null;
       const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
       const psdCov = ensurePositiveSemiDefinite(cov);

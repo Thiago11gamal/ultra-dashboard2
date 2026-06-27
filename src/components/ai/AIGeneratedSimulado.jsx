@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateAIQuestions } from '../../services/aiQuestionService';
 import { useAppStore } from '../../store/useAppStore';
@@ -760,11 +761,8 @@ export default function AIGeneratedSimulado() {
 
   if (step === 'playing' && currentQuestion) {
     const answeredCount = Object.keys(answers).length;
-    const progress = ((currentIndex + 1) / questions.length) * 100;
-    const answeredProgress = (answeredCount / questions.length) * 100;
     const timeColor = timeLeft < 180 ? 'text-red-400 border-red-500/30' : timeLeft < 300 ? 'text-amber-400 border-amber-500/30' : 'text-slate-300 border-white/10';
     const difficultyLabel = DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || form.dificuldade;
-    const timePercent = Math.max(0, (timeLeft / (45 * 60)) * 100);
 
     return (
       <div className="max-w-3xl mx-auto">

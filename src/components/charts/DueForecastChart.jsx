@@ -1,6 +1,22 @@
 import React, { useId } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
+const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        const item = payload[0].payload;
+        return (
+            <div className="glass p-3 rounded-xl border border-white/10 text-xs shadow-2xl">
+                <div className="font-bold text-amber-300">{item.label} • {item.dateLabel}</div>
+                <div className="text-white mt-1">
+                    <span className="font-black text-lg tabular-nums">{item.count}</span> cartões a vencer
+                </div>
+                {item.isToday && <div className="text-[10px] text-orange-400 mt-0.5">Inclui vencidos + hoje</div>}
+            </div>
+        );
+    }
+    return null;
+};
+
 export default function DueForecastChart({ data = [], height = 260 }) {
     const instanceId = useId().replace(/:/g, "");
     const barId = `due_bar_${instanceId}`;
@@ -21,22 +37,6 @@ export default function DueForecastChart({ data = [], height = 260 }) {
     }));
 
     const hasAny = chartData.some(d => d.value > 0);
-
-    const CustomTooltip = ({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-            const item = payload[0].payload;
-            return (
-                <div className="glass p-3 rounded-xl border border-white/10 text-xs shadow-2xl">
-                    <div className="font-bold text-amber-300">{item.label} • {item.dateLabel}</div>
-                    <div className="text-white mt-1">
-                        <span className="font-black text-lg tabular-nums">{item.count}</span> cartões a vencer
-                    </div>
-                    {item.isToday && <div className="text-[10px] text-orange-400 mt-0.5">Inclui vencidos + hoje</div>}
-                </div>
-            );
-        }
-        return null;
-    };
 
     return (
         <div style={{ height }} className="w-full -mx-1" role="img" aria-label="Gráfico de previsão de cartões a vencer por dia">

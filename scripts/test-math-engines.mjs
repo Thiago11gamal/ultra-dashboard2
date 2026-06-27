@@ -1,5 +1,5 @@
 import { simulateNormalDistribution } from '../src/engine/monteCarlo.js';
-import { monteCarloSimulation, calculateVolatility, projectScore, calculateSlope } from '../src/engine/projection.js';
+import { monteCarloSimulation, calculateVolatility, projectScore, calculateSlope, calculateRobustVolatility, calculateMSSD, computeNonLinearTrend, calculateDynamicEMA } from '../src/engine/projection.js';
 import { normalCDF_complement } from '../src/engine/math/gaussian.js';
 import { estimateInterSubjectCorrelation } from '../src/engine/variance.js';
 
@@ -55,6 +55,18 @@ addCheck('projection.projectScore bounded [0,100]', projection.projected >= 0 &&
 const mc = monteCarloSimulation(history, 70, 60, 800, { maxScore: 100, minScore: 0, seed: 42 });
 addCheck('projection.monteCarloSimulation probability [0,100]', mc.probability >= 0 && mc.probability <= 100, mc.probability);
 addCheck('projection.monteCarloSimulation ci ordered', mc.ci95Low <= mc.ci95High, `${mc.ci95Low}..${mc.ci95High}`);
+
+const robustVol = calculateRobustVolatility(history, 100, 0);
+addCheck('projection.calculateRobustVolatility finite+positive', Number.isFinite(robustVol) && robustVol > 0, robustVol);
+
+const mssd = calculateMSSD(history, 100, 0);
+addCheck('projection.calculateMSSD finite+positive', Number.isFinite(mssd) && mssd >= 0, mssd);
+
+const nlTrend = computeNonLinearTrend(history, 100);
+addCheck('projection.computeNonLinearTrend valid object', nlTrend !== null && Number.isFinite(nlTrend.slope), nlTrend?.slope);
+
+const ema = calculateDynamicEMA(80, 75, 10, 2);
+addCheck('projection.calculateDynamicEMA finite', Number.isFinite(ema) && ema > 0, ema);
 
 const negativelyCorrelatedRows = [
   { Direito: 95, Penal: 50 },

@@ -369,11 +369,11 @@ export default function AICoachWidget({ suggestion }) {
                                         )}
 
                                         {/* NEW: Show engine math diagnostics (adaptive rho, convergence, effective N, etc) */}
-                                        {mc?.diagnostics && (
+                                        {urgency?.monteCarlo?.diagnostics && (
                                             <div className="mt-3 text-[9px] text-slate-400 bg-white/[0.015] rounded p-2 border border-white/5">
-                                                <div>Simulações: <span className="font-mono text-slate-200">{mc.diagnostics.simulationCount}</span></div>
-                                                {mc.diagnostics.convergence && <div>Convergência: {mc.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {mc.diagnostics.convergence.achievedSE})</div>}
-                                                {mc.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(mc.diagnostics.effectiveN).toFixed(1)}</span></div>}
+                                                <div>Simulações: <span className="font-mono text-slate-200">{urgency.monteCarlo.diagnostics.simulationCount}</span></div>
+                                                {urgency.monteCarlo.diagnostics.convergence && <div>Convergência: {urgency.monteCarlo.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {urgency.monteCarlo.diagnostics.convergence.achievedSE})</div>}
+                                                {urgency.monteCarlo.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(urgency.monteCarlo.diagnostics.effectiveN).toFixed(1)}</span></div>}
                                             </div>
                                         )}
                                     </Motion.div>
