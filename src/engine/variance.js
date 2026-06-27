@@ -4,7 +4,7 @@
  * Implements weighted variance calculation and time uncertainty
  * All formulas are statistically correct and auditable
  */
-import { kahanMean, kahanSum } from './math/kahan.js';
+import { kahanSum } from './math/kahan.js';
 
 /**
  * Compute weighted variance from category statistics
@@ -265,7 +265,6 @@ export function calcularVariancia(arr) {
     if (!Array.isArray(arr) || arr.length <= 1) return 0;
     const clean = arr.map(Number).filter(Number.isFinite);
     if (clean.length <= 1) return 0;
-    const m = kahanMean(clean);
 
     // Welford online: estável para magnitudes extremas (evita overflow em v²)
     let count = 0;

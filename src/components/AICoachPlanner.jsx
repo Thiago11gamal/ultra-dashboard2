@@ -61,7 +61,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
 
     const cardBg = !isBacklog && dayTheme ? dayTheme.cardBg : 'bg-white/[0.02]';
     const cardBorder = !isBacklog && dayTheme ? dayTheme.cardBorder : 'border-white/[0.05]';
-    const cardHover = !isBacklog && dayTheme ? dayTheme.cardHover : 'hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]';
     const accentColor = !isBacklog && dayTheme ? dayTheme.text : 'text-violet-300';
     const accentBorder = !isBacklog && dayTheme ? dayTheme.border : 'border-violet-500/30';
     const gradientLine = !isBacklog && dayTheme ? dayTheme.gradient : 'from-violet-600 to-indigo-600';

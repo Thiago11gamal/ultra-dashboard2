@@ -607,7 +607,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 return { name: cat.name, prob: result.probability, mean: baseline, trend: cat.trend };
             })
             .sort((a, b) => a.prob - b.prob);
-    }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays]);
+    }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays, minScore]);
 
     useEffect(() => {
         if (isFlashing) {

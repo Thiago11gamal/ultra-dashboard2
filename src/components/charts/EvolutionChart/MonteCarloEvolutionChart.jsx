@@ -304,9 +304,6 @@ export const MonteCarloEvolutionChart = ({
                                 tickLine={false}
                                 axisLine={{ stroke: '#334155' }}
                                 dx={-5}
-                                domain={[minScore, maxScore]}
-                                tickFormatter={(v) => `${formatValue(v)}${unit}`}
-                            />
                                 width={45}
                                 domain={[minScore, maxScore]}
                                 allowDataOverflow={false}

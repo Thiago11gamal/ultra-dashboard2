@@ -83,14 +83,12 @@ const Sidebar = React.memo(function Sidebar({
     React.useEffect(() => {
         // Garantir que as configurações comecem fechadas ao expandir o menu
         if (!collapsed) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSettingsExpanded(false);
         }
     }, [collapsed]);
 
     React.useEffect(() => {
         if (!collapsed && contestEntries.length > 0) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setContestsExpanded(true);
         }
     }, [collapsed, contestEntries.length]);

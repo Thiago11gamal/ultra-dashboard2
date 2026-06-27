@@ -381,6 +381,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             version: Math.max(local.version ?? 0, cloud.version ?? 0),
             lastUpdated: new Date(Math.max(cloudFullUpdate, localFullUpdate)).toISOString()
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [deduplicateCategoryNames]);
 
     // BUG-14 FIX: Include a fast content fingerprint (category count + total tasks)

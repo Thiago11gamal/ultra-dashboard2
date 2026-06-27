@@ -984,7 +984,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                     const current = stateRefs.current;
                                     const newTarget = Math.max(current.completedCycles < 1 ? 1 : current.completedCycles, current.targetCycles - 1);
                                     setTargetCycles(newTarget);
-                                    try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (error) {}
+                                    try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch { /* ignore */ }
                                 }} disabled={!activeSubject || targetCycles <= 1} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20 disabled:opacity-40">-</button>
                                 <div className="flex items-baseline gap-0.5 text-sm font-black tabular-nums">
                                     <span>{completedCycles}</span>
@@ -993,7 +993,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                 <button onClick={() => {
                                     const newTarget = targetCycles + 1;
                                     setTargetCycles(newTarget);
-                                    try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (error) {}
+                                    try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch { /* ignore */ }
                                 }} disabled={!activeSubject} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20">+</button>
                             </div>
                         </div>
