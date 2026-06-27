@@ -1,7 +1,6 @@
 import { calculateLevel } from '../../utils/gamification';
-import { calculateStudyStreak } from '../../utils/analytics';
+import { buildAchievementStats } from '../../utils/analytics';
 import { ACHIEVEMENTS } from '../../config/gamification';
-import { getSafeScore, getSyntheticTotal } from '../../utils/scoreHelper';
 
 export const createGamificationSlice = (set, get) => ({
     processGamification: (xpGained) => {
@@ -19,31 +18,7 @@ export const createGamificationSlice = (set, get) => ({
             let newXP = Math.max(minXPForLevel, currentXP + xpGained);
 
             const currentAchievements = activeData.user.achievements || [];
-            
-            // Stats for achievement check (Hardened for legacy data)
-            const stats = {
-                completedTasks: activeData.categories?.reduce((sum, cat) => sum + (cat.tasks?.filter(t => t.completed)?.length || 0), 0) || 0,
-                currentStreak: calculateStudyStreak(activeData.studyLogs || []).current,
-                totalQuestions: activeData.categories?.reduce((sum, cat) => {
-                    const hist = cat.simuladoStats?.history;
-                    const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
-                    const syntheticTotal = getSyntheticTotal(Number(cat.maxScore) || 100);
-                    return sum + (histArr?.reduce((h, e) => {
-                        const t = Number(e.total) || 0;
-                        if (t === 0 && e.score != null) return h + syntheticTotal;
-                        return h + t;
-                    }, 0) || 0);
-                }, 0) || 0,
-                hasPerfectScore: activeData.categories?.some(cat => {
-                    const hist = cat.simuladoStats?.history;
-                    const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
-                    const maxS = Number(cat.maxScore) || 100;
-                    return histArr?.some(h => getSafeScore(h, maxS) >= maxS || (h.correct === h.total && h.total > 0));
-                }) || false,
-                pomodorosCompleted: activeData.studySessions?.length || 0,
-                studiedEarly: activeData.user?.studiedEarly || false,
-                studiedLate: activeData.user?.studiedLate || false
-            };
+            const stats = buildAchievementStats(activeData) || {};
 
             const newlyUnlocked = [];
             ACHIEVEMENTS.forEach(ach => {

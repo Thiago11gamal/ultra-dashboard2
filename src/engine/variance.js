@@ -266,9 +266,20 @@ export function calcularVariancia(arr) {
     const clean = arr.map(Number).filter(Number.isFinite);
     if (clean.length <= 1) return 0;
     const m = kahanMean(clean);
-    
-    // CORREÇÃO: Divisão Amostral Não-Viesada (N - 1)
-    return kahanSum(clean.map(v => Math.pow(v - m, 2))) / (clean.length - 1);
+
+    // Welford online: estável para magnitudes extremas (evita overflow em v²)
+    let count = 0;
+    let mean = 0;
+    let m2 = 0;
+    for (const raw of clean) {
+        count += 1;
+        const delta = raw - mean;
+        mean += delta / count;
+        const delta2 = raw - mean;
+        m2 += delta * delta2;
+    }
+    const variance = count > 1 ? m2 / (count - 1) : 0;
+    return Number.isFinite(variance) ? Math.max(0, variance) : 0;
 }
 
 export default {

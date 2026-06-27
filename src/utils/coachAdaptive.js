@@ -2,6 +2,9 @@ import { monteCarloSimulation } from '../engine/monteCarlo.js';
 import { getSafeScore } from './scoreHelper.js';
 import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeCalibrationDiagnostics, fitIsotonicCalibration, predictIsotonicProbability, calibrateWithBBQ, conformalizedCalibrationInterval, computeStackingWeights } from './calibration.js';
 import { getDateKey } from './dateHelper.js';
+import { kahanSum } from '../engine/math/kahan.js';
+import { detectDataAnomalies } from '../engine/diagnostics.js';
+import { pruneHistoryForMemory } from '../engine/stats.js';
 
 // BUG-MATH-03 FIX: Antes, quantis de scores brutos eram usados diretamente como limiares de probabilidade.
 // q(0.25)*0.55 não tem fundamentação estatística — o quantil de scores não se traduz em probabilidade de meta.
@@ -205,8 +208,9 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}
     }
 
     const scores = history.map(h => Number(h.score) || 0);
-    const mean = scores.reduce((a, b) => a + b, 0) / n;
-    const variance = n > 1 ? scores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / (n - 1) : 0;
+    const mean = kahanSum(scores) / n;
+    const devs = scores.map(s => (s - mean) ** 2);
+    const variance = n > 1 ? kahanSum(devs) / (n - 1) : 0;
     const sd = Math.sqrt(Math.max(0, variance));
     const cv = mean > 0 ? Math.min(2, sd / mean) : 1;
 
@@ -265,10 +269,22 @@ function getCpuAwareSimulationCap(defaultCap = 2500, cfg = {}) {
  */
 export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, days = 90) {
     const safeTargetScore = Number.isFinite(Number(targetScore)) ? Number(targetScore) : Math.max(0, maxScore * 0.8);
-    const history = simuladosToHistory(relevantSimulados, maxScore);
+    let history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < (cfg.MC_MIN_DATA_POINTS || 5)) return null;
+
+    // MEMORY + PERF: For very large histories, use pruned representative sample
+    // Preserves recent data + spaced historical for trends (improves long-term use)
+    if (history.length > 2000) {
+        history = pruneHistoryForMemory(history, 1200, 365*4);
+    }
+
+    // Improve algorithm: early data quality diagnostics for better adaptive behavior
+    const anomalies = detectDataAnomalies(history, maxScore);
+    const dataIssues = anomalies.filter(a => a.severity === 'error' || a.severity === 'warning').length;
+    const dataQuality = Math.max(0.3, 1 - (dataIssues * 0.15));  // penalize bad data
+
     const lowSampleThreshold = Math.max(Number(cfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (cfg.MC_MIN_DATA_POINTS || 5) + 2);
-    const isLowSample = history.length < lowSampleThreshold;
+    const isLowSample = history.length < lowSampleThreshold || dataIssues > 0;
 
     const sumCorrect = (relevantSimulados || []).reduce((a, s) => a + getSafeScore(s, maxScore), 0);
     const sequenceChecksum = (relevantSimulados || []).reduce((acc, sim, idx) => {
@@ -288,12 +304,20 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const adaptiveHash = adaptive ? `${adaptive.mcSimulations || 0}-${adaptive.decayK || 0}` : 'no-adapt';
     const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}`;
     
-    if (mcCache.has(hash)) return mcCache.get(hash);
+    if (mcCache.has(hash)) {
+        // LRU: move to most recent on access (improves cache memory efficiency)
+        const val = mcCache.get(hash);
+        mcCache.delete(hash);
+        mcCache.set(hash, val);
+        return val;
+    }
 
     try {
         const requestedSims = adaptive?.mcSimulations || cfg.MC_SIMULATIONS || 800;
         const simulationCap = getCpuAwareSimulationCap(2500, cfg);
-        const safeSimulations = Math.max(300, Math.min(simulationCap, Number(requestedSims) || 800));
+        // Algorithm improvement: when data quality is poor (anomalies), run more sims for robust diagnostics
+        const qualityBoost = dataQuality < 0.7 ? 1.3 : 1.0;
+        const safeSimulations = Math.max(300, Math.min(simulationCap, Math.round(Number(requestedSims) || 800) * qualityBoost));
 
         const result = monteCarloSimulation(
             history,
@@ -409,7 +433,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             : (stackedProb01 * 100);
 
         const extraLowSampleShrink = isLowSample
-            ? Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold)
+            ? Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold) * (1 / dataQuality)
             : 0;
         const adjustedProbability = isLowSample
             ? shrinkProbabilityToNeutral(probability, extraLowSampleShrink, cfg.MC_CALIBRATION_NEUTRAL_PCT || 50, 0.5)
@@ -443,7 +467,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             dataQuality: {
                 historySize: history.length,
                 predObsPairs: predObsPairs.length,
-                calibrationEnabled: enableAdaptiveCalibration
+                calibrationEnabled: enableAdaptiveCalibration,
+                anomalyCount: dataIssues,
+                qualityScore: Number(dataQuality.toFixed(3)),
+                anomalies: anomalies.filter(a => a.severity !== 'ok').slice(0, 3)
             }
         };
 
@@ -451,6 +478,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             const firstKey = mcCache.keys().next().value;
             mcCache.delete(firstKey);
         }
+        // Ensure LRU on set too
+        if (mcCache.has(hash)) mcCache.delete(hash);
         mcCache.set(hash, finalResult);
         return finalResult;
     } catch (e) {

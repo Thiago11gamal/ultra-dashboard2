@@ -29,7 +29,7 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
         const sortedPayload = [...payload].sort((a, b) => b.value - a.value);
 
         return (
-            <div className="bg-slate-950/95 border border-white/10 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
+            <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
                 <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
                     <span>📅 {label}</span>
                     <span className="text-slate-500 font-bold bg-slate-900/50 px-2 py-0.5 rounded">META: {targetScorePct?.toFixed(0)}%</span>
@@ -277,16 +277,16 @@ export const SubtopicsPerformanceChart = React.memo(({
                     <p className="text-slate-500 text-xs mt-1">Percentual de precisão real de cada pilar da sua disciplina.</p>
                 </div>
 
-                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/50 p-1 rounded-xl shadow-inner shrink-0 w-full sm:w-auto">
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/50 p-1 rounded-2xl shadow-inner shrink-0 w-full sm:w-auto">
                     <button
                         onClick={() => setViewMode('bars')}
-                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-lg transition-all ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}
+                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
                     >
                         Ranking (Barras)
                     </button>
                     <button
                         onClick={() => setViewMode('lines')}
-                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-lg transition-all ${viewMode === 'lines' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}
+                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'lines' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
                     >
                         Tempo (Linhas)
                     </button>
@@ -319,7 +319,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     <stop offset="100%" stopColor="#f87171" stopOpacity={1}/>
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" horizontal={false} />
+                            <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" horizontal={false} />
 
                             <XAxis
                                 type="number"
@@ -356,7 +356,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                             <ReferenceLine x={targetScorePct} stroke="rgba(52, 211, 153, 0.6)" strokeDasharray="4 4" strokeWidth={2} />
 
-                            <Bar dataKey="accuracy" radius={[0, 12, 12, 0]} barSize={32} background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 12, 12, 0] }} isAnimationActive={true} animationDuration={1000}>
+                            <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={28} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.04)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
                                 {chartData.map((entry, index) => {
                                     let barColor = `url(#gradBad_${instanceId})`;
                                     if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;
@@ -403,7 +403,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 <ResponsiveContainer width="100%" height={500}>
                                     {/* 🎯 FIX: left de -20 para 0 para evitar corte do eixo Y */}
                                     <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                                        <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
 
                                         <XAxis
                                             dataKey="originalDate"

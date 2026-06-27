@@ -24,7 +24,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
         const isGood = pointMean >= pointTarget;
 
         return (
-            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[210px]">
+            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[210px]">
                 <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-3 border-b border-white/10 pb-2">{fullDate}</p>
 
                 <div className="flex flex-col gap-2">
@@ -163,7 +163,7 @@ export const MonteCarloEvolutionChart = ({
 
     if (formattedData.length === 0) {
         return (
-            <div className="w-full min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-xl border border-white/5 p-6 overflow-hidden relative">
+            <div className="w-full min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-2xl border border-white/5 p-6 overflow-hidden relative">
                 <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4">
                     <AlertCircle size={32} className="text-blue-400" />
                 </div>
@@ -198,7 +198,7 @@ export const MonteCarloEvolutionChart = ({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md border border-white/10 rounded-lg p-1 shadow-inner">
+                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-700/50 rounded-2xl p-1 shadow-inner backdrop-blur-sm">
                     {SCENARIO_OPTIONS.map(opt => (
                         <button
                             key={opt.id}
@@ -206,18 +206,15 @@ export const MonteCarloEvolutionChart = ({
                             onClick={() => setScenario(opt.id)}
                             aria-label={`Selecionar cenário ${opt.fullLabel}`}
                             aria-pressed={scenario === opt.id}
-                            className={`relative px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-300 rounded-md ${scenario === opt.id ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`relative px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-150 rounded-2xl will-change-transform ${scenario === opt.id ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 hover:scale-[1.01]'}`}
                         >
-                            {scenario === opt.id && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/40 to-blue-600/40 border border-indigo-400/50 rounded-md shadow-[0_0_12px_rgba(99,102,241,0.4)]"></div>
-                            )}
-                            <span className="relative z-10">{opt.label}</span>
+                            {opt.label}
                         </button>
                     ))}
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-black/40 border border-white/5">
                         <Target size={12} className="text-slate-500" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
                             Meta: <strong className="text-white">{unit === 'horas' ? formatDuration(targetScore) : unit === '%' ? formatValue(targetScore) : targetScore} {unit}</strong>
@@ -273,11 +270,17 @@ export const MonteCarloEvolutionChart = ({
                                     <stop offset={1} stopColor="#10b981" stopOpacity={0.0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                            <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
                             
                             {/* Glowing Target Zone */}
                             <ReferenceArea y1={targetScore} y2={maxScore} fill={`url(#targetGlow-${rawId})`} />
-                            <ReferenceLine y={targetScore} stroke="#10b981" strokeDasharray="4 4" strokeWidth={2} style={{ filter: 'drop-shadow(0px 0px 4px rgba(16,185,129,0.8))' }} />
+                            <ReferenceLine 
+                                y={targetScore} 
+                                stroke="#10b981" 
+                                strokeDasharray="4 2" 
+                                strokeWidth={1.5}
+                                label={{ value: `Meta`, fill: '#10b981', fontSize: 9, position: 'insideTopLeft', dy: 2 }}
+                            />
                             <XAxis
                                 dataKey="date"
                                 tickFormatter={(val) => {
@@ -286,19 +289,24 @@ export const MonteCarloEvolutionChart = ({
                                     if (isNaN(d.getTime())) return val;
                                     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
                                 }}
-                                stroke="#64748b"
-                                fontSize={11}
+                                stroke="#475569"
+                                fontSize={9}
+                                fontWeight={500}
                                 tickLine={false}
-                                axisLine={false}
-                                dy={10}
-                                minTickGap={25}
+                                axisLine={{ stroke: '#334155' }}
+                                dy={8}
+                                minTickGap={20}
                             />
                             <YAxis
-                                stroke="#94a3b8"
-                                fontSize={11}
+                                stroke="#475569"
+                                fontSize={9}
+                                fontWeight={500}
                                 tickLine={false}
-                                axisLine={false}
+                                axisLine={{ stroke: '#334155' }}
                                 dx={-5}
+                                domain={[minScore, maxScore]}
+                                tickFormatter={(v) => `${formatValue(v)}${unit}`}
+                            />
                                 width={45}
                                 domain={[minScore, maxScore]}
                                 allowDataOverflow={false}

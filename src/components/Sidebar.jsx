@@ -58,7 +58,7 @@ const SECTIONS = [
     }
 ];
 
-export default function Sidebar({
+const Sidebar = React.memo(function Sidebar({
     onOpenHelp,
     isOpen,
     onToggle,
@@ -164,21 +164,20 @@ export default function Sidebar({
 
             <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}>
                 {/* Logo Area */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-3 px-1">
                     <div className="sidebar-logo">
                         <img src={logo} alt="Ultra Dashboard" />
                         <span>Método Arraia</span>
                     </div>
 
-
                     {/* Mobile Close Button */}
                     <button
                         type="button"
-                        className="lg:hidden p-2 text-slate-500 hover:text-white"
+                        className="lg:hidden p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                         onClick={onToggle}
                         aria-label="Fechar menu lateral"
                     >
-                        <X size={20} />
+                        <X size={18} />
                     </button>
                 </div>
 
@@ -199,15 +198,16 @@ export default function Sidebar({
                                     setContestsExpanded(!contestsExpanded);
                                 }
                             }}
-                            className="sidebar-item group justify-between tour-step-1"
+                            className="sidebar-item group justify-between tour-step-1 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5"
                             title={collapsed ? "Meus Concursos" : ""}
                             aria-expanded={contestsExpanded && !collapsed}
                             aria-controls="sidebar-contests-panel"
                         >
                             <div className="flex items-center gap-3">
-                                <Sparkles size={18} className="text-violet-400" />
-                                <span className="font-bold text-slate-200">Meus Concursos</span>
+                                <Sparkles size={16} className="text-violet-400" />
+                                <span className="font-semibold text-slate-200 text-sm">Meus Concursos</span>
                             </div>
+                            <span className={`text-xs transition-transform ${contestsExpanded ? 'rotate-180' : ''} text-slate-400`}>▼</span>
                         </button>
 
                         <div id="sidebar-contests-panel" className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
@@ -220,7 +220,7 @@ export default function Sidebar({
                                             key={id}
                                             role="button"
                                             tabIndex={0}
-                                            className={`sidebar-item group !py-2 relative w-full text-left ${isActive ? 'active' : ''}`}
+                                            className={`sidebar-item group !py-1.5 relative w-full text-left flex items-center ${isActive ? 'active' : ''}`}
                                             title={name}
                                             onClick={() => {
                                                 if (id !== activeContestId) onSwitchContest(id);
@@ -235,9 +235,9 @@ export default function Sidebar({
                                             }}
                                         >
                                             <div className="nested-item-marker"></div>
-                                            <LayoutDashboard size={14} />
-                                            <span className="flex-1 truncate text-[0.8rem]">{name}</span>
-                                            {isActive && <div className={`w-1.5 h-1.5 rounded-full bg-green-400 ${collapsed ? 'hidden' : ''}`}></div>}
+                                            <LayoutDashboard size={13} className="text-slate-400" />
+                                            <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
+                                            {isActive && <div className={`w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 ${collapsed ? 'hidden' : ''}`}></div>}
                                             <button
                                                 type="button"
                                                 onClick={(e) => { 
@@ -246,9 +246,9 @@ export default function Sidebar({
                                                 }}
                                                 disabled={isSingleContest}
                                                 title={isSingleContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
-                                                className={`p-1 transition-opacity ${collapsed ? 'hidden' : ''} ${isSingleContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400'}`}
+                                                className={`p-1 transition-all ${collapsed ? 'hidden' : ''} ${isSingleContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
                                             >
-                                                <Trash2 size={12} />
+                                                <Trash2 size={11} />
                                             </button>
                                         </div>
                                     );
@@ -256,16 +256,16 @@ export default function Sidebar({
 
                                 <button
                                     type="button"
-                                    className="sidebar-item !py-2 text-green-500/80 hover:text-green-400 relative"
+                                    className="sidebar-item !py-1.5 text-emerald-400/80 hover:text-emerald-300 hover:bg-emerald-500/10 relative border border-emerald-500/20"
                                     onClick={() => {
                                         onCreateContest();
                                         closeMobileSidebar();
                                     }}
                                     title="Criar Novo Painel"
                                 >
-                                    <div className="nested-item-marker !bg-green-500/20"></div>
-                                    <Plus size={14} className="text-emerald-400" />
-                                    <span className="text-[0.8rem] text-emerald-400 font-bold">Criar Novo</span>
+                                    <div className="nested-item-marker !bg-emerald-500/20"></div>
+                                    <Plus size={13} className="text-emerald-400" />
+                                    <span className="text-[0.78rem] text-emerald-300 font-semibold">Criar Novo</span>
                                 </button>
                             </div>
                         </div>
@@ -287,7 +287,7 @@ export default function Sidebar({
                                         <Link
                                             key={item.path}
                                             to={item.path}
-                                            className={`sidebar-item ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
+                                            className={`sidebar-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#060810] focus-visible:ring-indigo-400/70 ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
                                             aria-current={isActive ? "page" : undefined}
                                             style={{
                                                 '--item-color': item.color,
@@ -323,20 +323,20 @@ export default function Sidebar({
                                         setSettingsExpanded(!settingsExpanded);
                                     }
                                 }}
-                                className="sidebar-item group"
+                                className="sidebar-item group bg-white/[0.02] hover:bg-white/[0.04] border border-white/5"
                                 title={collapsed ? "Configurações" : ""}
                                 aria-expanded={settingsExpanded && !collapsed}
                                 aria-controls="sidebar-settings-panel"
                             >
-                                <Settings size={18} className="text-slate-400" />
-                                <span>Configurações</span>
+                                <Settings size={16} className="text-slate-400" />
+                                <span className="font-semibold text-sm">Configurações</span>
                             </button>
 
                             <div id="sidebar-settings-panel" className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
                                     <button
                                         type="button"
-                                        className="sidebar-item !py-2 hover:!bg-red-500/10"
+                                        className="sidebar-item !py-1.5 hover:!bg-red-500/10 text-red-300"
                                         onClick={() => {
                                             onOpenTrash();
                                             closeMobileSidebar();
@@ -344,26 +344,26 @@ export default function Sidebar({
                                         style={{ '--item-color': '#ef4444' }}
                                         title="Lixeira"
                                     >
-                                        <Trash2 size={14} style={{ color: '#ef4444' }} />
-                                        <span className="text-[0.8rem]">Lixeira</span>
+                                        <Trash2 size={13} />
+                                        <span className="text-[0.78rem]">Lixeira</span>
                                     </button>
 
                                     <button
                                         type="button"
-                                        className="sidebar-item !py-2 hover:!bg-sky-500/10"
+                                        className="sidebar-item !py-1.5 hover:!bg-sky-500/10 text-sky-300"
                                         onClick={() => {
                                             onOpenHelp();
                                             closeMobileSidebar();
                                         }}
                                         style={{ '--item-color': '#0ea5e9' }}
                                     >
-                                        <HelpCircle size={14} style={{ color: '#0ea5e9' }} />
-                                        <span className="text-[0.8rem]">Ajuda</span>
+                                        <HelpCircle size={13} />
+                                        <span className="text-[0.78rem]">Ajuda</span>
                                     </button>
 
                                     <button
                                         type="button"
-                                        className="sidebar-item !py-2 hover:!bg-indigo-500/10"
+                                        className="sidebar-item !py-1.5 hover:!bg-indigo-500/10 text-indigo-300"
                                         onClick={() => {
                                             useAppStore.getState().setHasSeenTour(false);
                                             closeMobileSidebar();
@@ -371,18 +371,18 @@ export default function Sidebar({
                                         style={{ '--item-color': '#818cf8' }}
                                         title="Reiniciar Tutorial"
                                     >
-                                        <Sparkles size={14} style={{ color: '#818cf8' }} />
-                                        <span className="text-[0.8rem]">Reiniciar Tutorial</span>
+                                        <Sparkles size={13} />
+                                        <span className="text-[0.78rem]">Reiniciar Tutorial</span>
                                     </button>
 
                                     <button
                                         type="button"
-                                        className="sidebar-item logout-btn !py-2 hover:!bg-rose-500/10"
+                                        className="sidebar-item logout-btn !py-1.5 hover:!bg-rose-500/10 text-rose-300"
                                         onClick={handleLogout}
                                         style={{ '--item-color': '#f43f5e' }}
                                     >
-                                        <LogOut size={14} style={{ color: '#f43f5e' }} />
-                                        <span className="text-[0.8rem]">Sair da Conta</span>
+                                        <LogOut size={13} />
+                                        <span className="text-[0.78rem]">Sair da Conta</span>
                                     </button>
                                 </div>
                             </div>
@@ -407,4 +407,6 @@ export default function Sidebar({
             />
         </>
     );
-}
+}); 
+
+export default Sidebar;

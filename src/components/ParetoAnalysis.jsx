@@ -99,7 +99,7 @@ export default function ParetoAnalysis({ categories = [] }) {
     return (
         <div className="glass p-6 h-full flex flex-col border-l border-white/5 bg-gradient-to-br from-slate-900/50 to-red-900/10">
             <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-red-500/20 rounded-none">
+                <div className="p-2 bg-red-500/20 rounded-xl">
                     <Target size={18} className="text-red-400" />
                 </div>
                 <div>
@@ -116,7 +116,7 @@ export default function ParetoAnalysis({ categories = [] }) {
                             const impactPercent = Math.min(100, Math.max(2, Math.round((item.weightedMissed / maxImpact) * 100)));
 
                             return (
-                                <div key={idx} className="bg-slate-950/40 backdrop-blur-sm p-2.5 pb-3.5 rounded-none border border-white/5 flex flex-col group hover:border-red-500/30 hover:bg-slate-900/60 transition-all duration-300 relative overflow-hidden mb-2 shadow-xl">
+                                <div key={idx} className="bg-slate-950/40 backdrop-blur-sm p-2.5 pb-3.5 rounded-xl border border-white/5 flex flex-col group hover:border-red-500/30 hover:bg-slate-900/60 transition-all duration-300 relative overflow-hidden mb-2 shadow-xl">
                                     {/* Glass Impact Bar */}
                                     <div className="absolute left-0 right-[140px] bottom-0 h-1.5 bg-white/5 overflow-hidden">
                                         <div

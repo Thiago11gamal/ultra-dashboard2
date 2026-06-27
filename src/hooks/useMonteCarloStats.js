@@ -46,7 +46,7 @@ const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
 
 function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
     const safeSD = Number.isFinite(dailySD) ? dailySD : 0;
-    const informativeSD = VOLATILITY_REGULARIZATION_FACTOR * domain / Math.sqrt(Math.max(1, projectionDays));
+    const informativeSD = VOLATILITY_REGULARIZATION_FACTOR * domain;
     const priorStrength = Math.max(1.0, INFORMATIVE_PRIOR_MAX_STRENGTH - Math.log2(historyLength + 1));
     const n = Math.max(1, historyLength);
     const regularizedVariance = (safeSD * safeSD * n + informativeSD * informativeSD * priorStrength) / (n + priorStrength);
@@ -237,7 +237,7 @@ function generateAnalyticsStats({
     const subjectNames = categoryStats.map(cat => cat.key || cat.name);
     const estimatedRho = estimateInterSubjectCorrelation(scoreRows, subjectNames);
 
-    const pooledVariance = computeWeightedVariance(categoryStats.map(cat => ({ sd: cat.volatility, weight: cat.weight })), totalWeight, estimatedRho);
+    const pooledVariance = computeWeightedVariance(categoryStats.map(cat => ({ sd: cat.sd ?? cat.volatility, weight: cat.weight })), totalWeight, estimatedRho);
     const pooledSD = totalWeight > 0 ? Math.sqrt(pooledVariance) : 0;
 
     // APLICAR MODELO HIERÁRQUICO BAYESIANO (Feature 6)
@@ -535,11 +535,20 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             subjects: subjectsOpts,
                         });
                     } else {
+                        const subjectsOpts = pureStatsData.categoryStats.map(c => ({
+                            mean: c.bayesianMean ?? c.mean,
+                            sd: c.bayesianSd ?? c.sd,
+                            minCutoff: c.minCutoff || 0,
+                            maxScore: c.maxScore || maxScore,
+                            minScore: minScore
+                        }));
+
                         result = runMonteCarloAnalysis(pureStatsData.bayesianMean, pureStatsData.pooledSD, debouncedTarget, {
                             simulations: SYNCHRONOUS_FALLBACK_SIMULATIONS,
                             currentMean: pureStatsData.bayesianMean,
                             bayesianCI: pureStatsData.bayesianCI,
                             historicalCutoffs: historicalCutoffs,
+                            subjects: subjectsOpts,
                             minScore,
                             maxScore
                         });
@@ -573,14 +582,16 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             .map(cat => {
                 const catMaxScore = Number(cat.maxScore) || maxScore;
                 const currentBaseline = cat.bayesianMean ?? cat.mean;
-                const rawTrend = cat.trendValue || 0;
-                
+                // trendValue = slope × 30 → pontos em 30 dias; converter para pontos/dia antes de projetar
+                const trendPer30Days = cat.trendValue || 0;
                 const projectedDaysAmortized = LOG_DAMPING_FACTOR * Math.log(1 + projectDays / LOG_DAMPING_FACTOR);
-                const dailyTrend = rawTrend;
+                const dailyTrend = trendPer30Days / 30;
                 const totalTrendProjection = dailyTrend * projectedDaysAmortized;
 
+                const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
+
                 const baseline = (!effectiveSimulateToday && projectDays > 0)
-                    ? Math.max(0, Math.min(catMaxScore, currentBaseline + totalTrendProjection))
+                    ? Math.max(catMinScore, Math.min(catMaxScore, currentBaseline + totalTrendProjection))
                     : currentBaseline;
 
                 const result = simulateNormalDistribution({
@@ -589,7 +600,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     targetScore: (maxScore > 0 ? (debouncedTarget / maxScore) * catMaxScore : debouncedTarget),
                     simulations: 500,
                     categoryName: cat.name,
-                    minScore: 0,
+                    minScore: catMinScore,
                     maxScore: catMaxScore,
                 });
 

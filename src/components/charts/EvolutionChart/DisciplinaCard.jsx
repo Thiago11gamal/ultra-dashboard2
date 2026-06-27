@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 
-export function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100 }) {
+export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100 }) {
     const val = level || 0;
     const ok = val >= target;
     const mid = val >= target * 0.75;
@@ -13,66 +13,30 @@ export function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick
 
     return (
         <button onClick={onClick}
-            className={`relative text-left w-full rounded-lg border p-3 sm:p-4 transition-all duration-500 group min-h-[82px] sm:min-h-[105px] overflow-hidden flex flex-col justify-between ${isFocused ? 'shadow-[0_0_30px_-5px_rgba(0,0,0,0.6)] z-20 border-transparent bg-white/[0.03]' : 'border-slate-800/40 hover:border-slate-700/60 hover:bg-slate-800/30 active:scale-95'}`}
+            className={`relative text-left w-full rounded-2xl border p-3 sm:p-4 transition-all duration-200 group min-h-[82px] sm:min-h-[105px] overflow-hidden flex flex-col justify-between ${isFocused ? 'z-20 border-transparent bg-slate-900/80 shadow-sm' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-800/40'}`}
             style={{
-                backgroundColor: isFocused ? `${cat.color}35` : 'rgba(15,23,42,0.4)',
+                backgroundColor: isFocused ? `${cat.color}10` : 'rgba(15,23,42,0.5)',
+                borderColor: isFocused ? cat.color : undefined,
             }}>
 
-            {/* Neon Border Glow (Focused State) */}
-            {isFocused && (
-                <div className="absolute inset-0 rounded-lg pointer-events-none" style={{
-                    border: `2px solid ${cat.color}`,
-                    boxShadow: `inset 0 0 15px ${cat.color}40, 0 0 15px ${cat.color}60`,
-                    filter: 'brightness(1.2)'
-                }} />
-            )}
-
-            {/* Tech Corner Accent */}
-            {isFocused && (
-                <div className="absolute top-0 right-0 w-8 h-8 pointer-events-none opacity-60" style={{
-                    background: `linear-gradient(45deg, transparent 50%, ${cat.color} 50%)`,
-                    clipPath: 'polygon(100% 0, 100% 100%, 0 0)'
-                }} />
-            )}
-
-            {/* Background Glow */}
-            <div className={`absolute -top-10 -right-10 w-24 h-24 blur-[40px] rounded-full pointer-events-none transition-opacity duration-700 ${isFocused ? 'opacity-40 animate-pulse' : 'opacity-0'}`}
-                style={{ backgroundColor: cat.color }} />
-
             {/* Progress Bar (Bottom) */}
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-800/50 overflow-hidden">
-                <div className="h-full transition-all duration-1000 ease-out"
-                    style={{
-                        width: `${(val / maxScore) * 100}%`,
-                        backgroundColor: statusColor,
-                        boxShadow: `0 0 10px ${statusColor}80`
-                    }} />
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-800/60 overflow-hidden">
+                <div className="h-full transition-all duration-700" style={{ width: `${(val / maxScore) * 100}%`, backgroundColor: statusColor }} />
             </div>
 
-            {/* Glass Reflection Effect */}
-            {isFocused && (
-                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg">
-                    <div className="absolute top-[-100%] left-[-100%] w-[300%] h-[300%] bg-gradient-to-br from-white/10 via-transparent to-transparent rotate-12 transition-transform duration-1000" />
-                </div>
-            )}
-
             <div className="relative z-10 flex items-center justify-end mb-2 w-full">
-                <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${isFocused ? 'scale-125' : ''}`}
-                    style={{
-                        backgroundColor: statusColor,
-                        boxShadow: `0 0 12px ${statusColor}`
-                    }} />
+                <div className={`w-2 h-2 rounded-full transition-all ${isFocused ? 'scale-110' : ''}`} style={{ backgroundColor: statusColor }} />
             </div>
 
             <div className="relative z-10 flex flex-col justify-end w-full">
-                <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.1em] transition-colors duration-300 line-clamp-1 ${isFocused ? 'text-white' : 'text-slate-500'}`} title={cat.name}>
+                <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] transition-colors line-clamp-1 ${isFocused ? 'text-white' : 'text-slate-400'}`} title={cat.name}>
                     {cat.name}
                 </p>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className={`text-base sm:text-2xl font-black tracking-normal transition-all duration-500 ${isFocused ? 'text-white scale-105' : 'text-slate-200'}`}>
+                    <span className={`text-xl sm:text-3xl font-black tracking-tight transition-all ${isFocused ? 'text-white' : 'text-slate-100'}`}>
                         {formatValue(val)}
                     </span>
-                    <span className={`text-[8px] sm:text-[10px] font-bold ${isFocused ? 'opacity-100 text-white' : 'opacity-40'}`}>{unit}</span>
+                    <span className={`text-[8px] sm:text-[10px] font-bold ${isFocused ? 'text-white/70' : 'text-slate-500'}`}>{unit}</span>
                 </div>
             </div>
 
@@ -112,4 +76,4 @@ export function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick
         </button>
 
     );
-}
+});

@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2 } from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
+import { countPomodorosToday } from '../utils/analytics';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
 const EMPTY_ARRAY = Object.freeze([]);
@@ -290,28 +291,28 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.02, zIndex: 100 }}
-            className={`flex flex-col w-full 2xl:w-[520px] shrink-0 relative group p-2 ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex flex-col w-full 2xl:w-[520px] shrink-0 relative group p-2 bg-slate-900/60 border border-white/10 rounded-3xl backdrop-blur-md shadow-xl ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
-            <div className="absolute -top-14 left-0 right-0 flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:-translate-y-1">
+            <div className="absolute -top-14 left-0 right-0 flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-1 group-hover:-translate-y-0">
                 {!isPanelLocked && (
                     <button
                         type="button"
                         onClick={resetPosition}
-                        className="px-4 py-2 rounded-2xl bg-slate-900/80 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-800 transition-all shadow-2xl backdrop-blur-xl flex items-center gap-2"
+                        className="px-3 py-1.5 rounded-xl bg-slate-900/70 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-800 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5"
                     >
-                        <RotateCcw size={14} className="animate-spin-slow" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Resetar</span>
+                        <RotateCcw size={12} />
+                        <span>Reset</span>
                     </button>
                 )}
                 <button
                     type="button"
                     onClick={toggleLock}
-                    className={`p-3 rounded-2xl transition-all duration-300 shadow-2xl backdrop-blur-xl border ${isPanelLocked
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                    className={`p-2 rounded-xl transition-all border flex items-center justify-center ${isPanelLocked
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                         : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
                         }`}
                 >
-                    {isPanelLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                    {isPanelLocked ? <Lock size={14} /> : <Unlock size={14} />}
                 </button>
             </div>
 
@@ -319,18 +320,18 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             <AICoachPanel activeSubject={activeSubject} stats={stats} />
 
             {activeTaskStats && (
-                <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-2">Status do assunto atual</p>
+                <div className="mb-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 mb-2">Status do assunto atual</p>
                     <p className="text-xs text-slate-200 leading-relaxed">
-                        Este assunto foi escolhido por {activeTaskStats.whySelected}. Progresso da categoria: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
-                        Ao finalizar este bloco, o ganho estimado é de <strong>+{activeTaskStats.gainIfComplete}%</strong> no avanço da categoria.
+                        Escolhido por {activeTaskStats.whySelected}. Progresso: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
+                        Ganho estimado: <strong>+{activeTaskStats.gainIfComplete}%</strong>.
                     </p>
-                    <p className="text-[11px] text-slate-300 mt-2">
-                        Nível atual: <strong className="text-white">{activeTaskStats.quality}</strong>. {activeTaskStats.improveText}
+                    <p className="text-xs text-slate-300 mt-2">
+                        Nível: <strong className="text-white">{activeTaskStats.quality}</strong>. {activeTaskStats.improveText}
                         <br />
-                        <span className="text-cyan-200/90">{activeTaskStats.statusLine}</span>
+                        <span className="text-cyan-300">{activeTaskStats.statusLine}</span>
                         <br />
-                        Acerto estimado: <strong className="text-white">{activeTaskStats.hitRate}%</strong> • Faixa a melhorar: <strong className="text-white">{activeTaskStats.missRate}%</strong>
+                        Acerto: <strong className="text-white">{activeTaskStats.hitRate}%</strong> • Melhorar: <strong className="text-white">{activeTaskStats.missRate}%</strong>
                     </p>
                 </div>
             )}
@@ -339,35 +340,31 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                 <Motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mb-6 p-6 rounded-none bg-gradient-to-br from-indigo-500/20 via-slate-900/80 to-slate-900 border border-indigo-500/30 shadow-[0_20px_50px_rgba(79,70,229,0.15)] relative group/card"
+                    className="mb-6 p-6 rounded-2xl bg-gradient-to-br from-indigo-500/20 via-slate-900/80 to-slate-900 border border-indigo-500/30 shadow-[0_20px_50px_rgba(79,70,229,0.15)] relative group/card"
                 >
                     <div className="absolute top-0 right-0 p-4 opacity-20 group-hover/card:scale-110 transition-transform">
                         <Zap size={48} className="text-indigo-400" />
                     </div>
 
                     <div className="flex items-center gap-3 mb-4">
-                        <span className="inline-block px-4 py-1.5 rounded-none bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-indigo-500/30 whitespace-nowrap">
-                            ⚡ Recomendado
+                        <span className="inline-block px-3 py-1 rounded-lg bg-indigo-500/90 text-white text-[9px] font-bold uppercase tracking-widest">
+                            ⚡ Recomendado pela IA
                         </span>
-                        <div className="flex-1 h-[1px] bg-gradient-to-r from-indigo-500/30 to-transparent" />
                     </div>
 
-                    <h3 className="text-lg font-black text-white mb-2 leading-tight tracking-tight">
+                    <h3 className="text-base font-semibold text-white mb-2 leading-tight">
                         {recommendedTask.text || recommendedTask.title}
                     </h3>
-                    <p className="text-[11px] text-slate-400 mb-6 font-medium leading-relaxed max-w-[80%]">
-                        Baseado na sua última performance, esta meta oferece a melhor janela de retenção neural agora.
+                    <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+                        Baseado na sua última performance, esta meta oferece a melhor janela de retenção agora.
                     </p>
 
                     <button
                         onClick={() => onStartTask(recommendedTask, null, 'neural_core')}
-                        className="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-none font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 group/btn relative overflow-hidden active:scale-95"
+                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-semibold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 active:scale-[0.985]"
                     >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
-                        <span className="relative z-10">
-                            INICIAR: {recommendedTask.text || recommendedTask.title || 'Mestra'}
-                        </span>
-                        <ChevronRight size={18} className="relative z-10 group-hover/btn:translate-x-1 transition-transform" />
+                        INICIAR AGORA
+                        <ChevronRight size={16} className="group-hover/btn:translate-x-0.5 transition-transform" />
                     </button>
 
                     <div className="mt-4 flex items-center justify-between">
@@ -382,28 +379,26 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                 </Motion.div>
             )}
 
-            <div className="bg-[#08090f]/80 border border-white/[0.06] rounded-xl p-4 backdrop-blur-md flex-1 shadow-2xl relative overflow-hidden">
+            <div className="bg-[#08090f]/80 border border-white/[0.06] rounded-2xl p-4 backdrop-blur-md flex-1 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
 
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
-                        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500">Próximas Ações</p>
+                        <div className="w-2 h-2 rounded-full bg-rose-500" />
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Próximas Ações</p>
                     </div>
                     {pendingCount > 0 && (
-                        <span className="text-[10px] font-black bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg">
-                            Mostrando até 6 próximas • {pendingCount} pendentes
+                        <span className="text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-0.5 rounded-md">
+                            {pendingCount} pendentes
                         </span>
                     )}
                 </div>
 
                 {visibleTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center bg-white/[0.02] rounded-3xl border border-dashed border-white/10">
-                        <div className="w-16 h-16 rounded-full bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-center mb-4">
-                            <CheckCircle2 size={32} className="text-emerald-500/40" />
-                        </div>
-                        <p className="text-sm font-black text-slate-400 tracking-tight">Perímetro Limpo</p>
-                        <p className="text-[10px] text-slate-600 uppercase font-bold mt-1">Nenhum risco de atraso detectado</p>
+                    <div className="flex flex-col items-center justify-center py-12 text-center bg-white/[0.015] rounded-2xl border border-white/5">
+                        <CheckCircle2 size={28} className="text-emerald-500/40 mb-3" />
+                        <p className="text-xs font-bold text-slate-400 tracking-tight">Nenhuma ação pendente</p>
+                        <p className="text-[9px] text-slate-600 mt-1">Todas as missões neurais completas ou em foco.</p>
                     </div>
                 ) : (
                     <div className="space-y-2 max-h-[360px] overflow-y-auto pr-3 custom-scrollbar">
@@ -418,34 +413,34 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: idx * 0.1 }}
                                     onClick={() => onStartTask(task, null, 'neural_core')}
-                                    className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all duration-300 group text-left relative overflow-hidden ${isActive
-                                        ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
-                                        : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
+                                    className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all duration-200 group text-left relative overflow-hidden ${isActive
+                                        ? 'bg-amber-500/10 border-amber-500/40 shadow-sm'
+                                        : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10'
                                         }`}
                                 >
                                     <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 ${isActive ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-transparent group-hover:bg-white/10'}`} />
 
                                     <div
-                                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-base transition-transform group-hover:scale-110"
+                                        className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-base transition-transform group-hover:scale-105"
                                         style={{ backgroundColor: `${task.catColor || '#ffffff'}15`, border: `1px solid ${task.catColor || '#ffffff'}30` }}
                                     >
                                         {task.catIcon || '📚'}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className={`text-xs font-black truncate tracking-tight ${isActive ? 'text-amber-400' : 'text-slate-200'}`}>
+                                        <p className={`text-xs font-semibold truncate tracking-tight ${isActive ? 'text-amber-400' : 'text-slate-200'}`}>
                                             {task.text || task.title}
                                         </p>
-                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1 opacity-60">{categoryName}</p>
-                                        <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${isActive ? 'text-amber-400/90' : 'text-cyan-400/80'}`}>{isActive ? 'Rodando agora' : `Próxima ação #${idx + 1}`}</p>
+                                        <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest mt-0.5 opacity-70">{categoryName}</p>
+                                        <p className={`text-[8px] font-bold uppercase tracking-widest mt-0.5 ${isActive ? 'text-amber-400' : 'text-cyan-400/70'}`}>{isActive ? 'Em foco agora' : `Ação #${idx + 1}`}</p>
                                     </div>
                                     {isActive ? (
-                                        <div className="flex flex-col items-center gap-1">
-                                            <Flame size={16} className="text-amber-400 animate-bounce" />
-                                            <span className="text-[7px] font-black text-amber-500 uppercase">Em execução</span>
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <Flame size={14} className="text-amber-400" />
+                                            <span className="text-[7px] font-bold text-amber-500">ATIVO</span>
                                         </div>
                                     ) : (
-                                        <div className="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                                            <ChevronRight size={14} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                                        <div className="w-6 h-6 rounded-full bg-white/5 border border-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                                            <ChevronRight size={12} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
                                         </div>
                                     )}
                                 </Motion.button>
@@ -485,7 +480,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
     };
 
     return (
-        <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] mb-0 sm:mb-6 rounded-none sm:rounded-2xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-8 py-6 sm:py-10 shadow-2xl relative overflow-hidden group mx-auto">
+        <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] mb-0 sm:mb-6 rounded-3xl sm:rounded-3xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-8 py-6 sm:py-10 shadow-2xl relative overflow-hidden group mx-auto">
             {/* Efeito de brilho sutil no topo da madeira */}
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
 
@@ -508,17 +503,17 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
 
                 <div className="flex items-center gap-5 shrink-0">
                     <div className="flex flex-col items-end gap-1.5">
-                        <span className="px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-[#2d1a12]/20 bg-[#2d1a12]/10 text-[#2d1a12]">
-                            {neuralMode ? 'Neural' : 'Manual'}
+                        <span className="px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-[#2d1a12]/30 bg-[#2d1a12]/5 text-[#2d1a12]">
+                            {neuralMode ? 'NEURAL' : 'MANUAL'}
                         </span>
                     </div>
 
                     <button
                         type="button"
                         onClick={onToggleLock}
-                        className={`p-4 rounded-2xl border transition-all ${isLayoutLocked ? 'bg-white/10 border-black/5 text-[#2d1a12]/40 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12] shadow-[0_0_20px_rgba(45,26,18,0.2)]'}`}
+                        className={`p-3 rounded-xl border transition-all ${isLayoutLocked ? 'bg-white/5 border-[#2d1a12]/20 text-[#2d1a12]/50 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/10 border-[#2d1a12]/40 text-[#2d1a12] '}`}
                     >
-                        {isLayoutLocked ? <Lock size={20} /> : <Unlock size={20} />}
+                        {isLayoutLocked ? <Lock size={18} /> : <Unlock size={18} />}
                     </button>
                 </div>
             </div>
@@ -548,7 +543,7 @@ export default function Pomodoro() {
     const activeSubject = useAppStore(state => state.appState?.pomodoro?.activeSubject);
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
 
-    const currentSessions = useAppStore(state => state.appState?.pomodoro?.sessions ?? 0);
+    const completedCycles = useAppStore(state => state.appState?.pomodoro?.completedCycles ?? 0);
     const neuralMode = useAppStore(state => state.appState?.pomodoro?.neuralMode);
     const neuralQueue = useAppStore(state => state.appState?.pomodoro?.neuralQueue || EMPTY_ARRAY);
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
@@ -603,7 +598,13 @@ export default function Pomodoro() {
     };
 
     const userStats = useMemo(() => {
-        if (!contest || contest === EMPTY_OBJECT) return { pomodorosCompleted: currentSessions, consecutiveMinutes: 0, settings: null };
+        if (!contest || contest === EMPTY_OBJECT) {
+            return {
+                pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, completedCycles),
+                consecutiveMinutes: 0,
+                settings: null
+            };
+        }
 
         const now = new Date();
         const startOfToday = getLocalMidnight().getTime();
@@ -636,12 +637,12 @@ export default function Pomodoro() {
         }
 
         return {
-            pomodorosCompleted: currentSessions,
+            pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, completedCycles),
             consecutiveMinutes: consecutiveStudyMinutes,
             settings: settings,
             user: user
         };
-    }, [currentSessions, contest, studyLogs, settings, user]);
+    }, [completedCycles, contest, studyLogs, settings, user]);
 
 
     useEffect(() => {

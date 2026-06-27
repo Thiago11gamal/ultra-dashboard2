@@ -25,7 +25,10 @@ function runStressTests() {
         const end = performance.now();
         
         if (isNaN(variancia)) throw new Error('Variância retornou NaN');
-        console.log(`✅ Carga Massiva: Concluída em ${(end - start).toFixed(2)}ms (Resultado: ${variancia})`);
+        if (!Number.isFinite(variancia) || variancia > 1e20) {
+            throw new Error(`Variância fora do intervalo seguro: ${variancia}`);
+        }
+        console.log(`✅ Carga Massiva: Concluída em ${(end - start).toFixed(2)}ms (Resultado: ${variancia.toExponential(4)})`);
     } catch (e) {
         console.error('❌ Falha na Carga Massiva:', e.message);
         falhas++;

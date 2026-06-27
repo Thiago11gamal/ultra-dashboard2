@@ -1,4 +1,5 @@
 import { makeNormalRng } from '../random.js';
+import { kahanSum } from './kahan.js';
 
 /**
  * Percentile bootstrap CI for robust uncertainty estimation.
@@ -33,8 +34,9 @@ export function bootstrapCI(samples, statFn, {
   // em amostras esparsas, alargando artificialmente o intervalo de confiança.
   let sampleVariance = 0;
   if (n > 1) {
-    const m = clean.reduce((acc, val) => acc + val, 0) / n;
-    sampleVariance = clean.reduce((acc, val) => acc + Math.pow(val - m, 2), 0) / (n - 1);
+    const m = kahanSum(clean) / n;
+    const devs = clean.map(val => Math.pow(val - m, 2));
+    sampleVariance = kahanSum(devs) / (n - 1);
   }
   
   // Criamos o gerador de ruído apenas se houver variância e N for pequeno.

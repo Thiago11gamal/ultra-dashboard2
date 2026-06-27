@@ -149,6 +149,100 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         return { ...contest, categories: deduped };
     }, []);
 
+    const mergeArrays = (arr1, arr2) => {
+        const map = new Map();
+        const getStableKey = (item) => {
+            if (item.id) return item.id;
+            return `${item.date || ''}-${item.categoryId || ''}-${item.taskId || JSON.stringify(item)}`;
+        };
+        (arr1 || []).forEach(item => map.set(getStableKey(item), item));
+        (arr2 || []).forEach(item => map.set(getStableKey(item), item));
+        return Array.from(map.values());
+    };
+
+    const mergeMonteCarloHistory = (localMC = [], cloudMC = []) => {
+        const mcMap = new Map();
+        [...localMC, ...cloudMC].forEach(item => {
+            if (item?.date) mcMap.set(item.date, item);
+        });
+        return Array.from(mcMap.values()).sort((a, b) => {
+            const aMs = new Date(a?.date || 0).getTime();
+            const bMs = new Date(b?.date || 0).getTime();
+            return (Number.isFinite(aMs) ? aMs : 0) - (Number.isFinite(bMs) ? bMs : 0);
+        });
+    };
+
+    const mergeCategoryTasks = (localTasks = [], cloudTasks = []) => {
+        const taskMap = new Map();
+        const taskKey = (t) => t?.id || t?.text || `${t?.title || ''}-${t?.priority || ''}`;
+        const pickWinner = (a, b) => {
+            if (!a) return b;
+            if (!b) return a;
+            if (a.completed && !b.completed) return a;
+            if (b.completed && !a.completed) return b;
+            const aTime = new Date(a.lastStudiedAt || 0).getTime();
+            const bTime = new Date(b.lastStudiedAt || 0).getTime();
+            return (Number.isFinite(aTime) ? aTime : 0) >= (Number.isFinite(bTime) ? bTime : 0) ? a : b;
+        };
+
+        [...localTasks, ...cloudTasks].forEach(task => {
+            if (!task) return;
+            const key = taskKey(task);
+            taskMap.set(key, pickWinner(taskMap.get(key), task));
+        });
+        return Array.from(taskMap.values());
+    };
+
+    const mergeContestCategories = (localCats = [], cloudCats = []) => {
+        const mergedCatsMap = {};
+        const toDateMs = (value) => {
+            if (!value) return 0;
+            const ms = new Date(value).getTime();
+            return Number.isFinite(ms) ? ms : 0;
+        };
+
+        (localCats || []).forEach(c => {
+            if (c?.id) mergedCatsMap[c.id] = c;
+        });
+
+        (cloudCats || []).forEach(c => {
+            if (!c?.id) return;
+            if (mergedCatsMap[c.id]) {
+                const localCat = mergedCatsMap[c.id];
+                const historyMap = new Map();
+                (localCat.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(h.date, h); });
+                (c.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(h.date, h); });
+
+                mergedCatsMap[c.id] = {
+                    ...localCat,
+                    ...c,
+                    tasks: mergeCategoryTasks(localCat.tasks, c.tasks),
+                    simuladoStats: {
+                        ...(localCat.simuladoStats || c.simuladoStats || {}),
+                        ...(c.simuladoStats || {}),
+                        history: Array.from(historyMap.values()).sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
+                    }
+                };
+            } else {
+                mergedCatsMap[c.id] = c;
+            }
+        });
+
+        return Object.values(mergedCatsMap);
+    };
+
+    const mergeContestPayload = (localContest, cloudContest, preferCloudBase = false) => {
+        const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
+        return {
+            ...base,
+            categories: mergeContestCategories(localContest.categories, cloudContest.categories),
+            studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
+            studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
+            simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),
+            monteCarloHistory: mergeMonteCarloHistory(localContest.monteCarloHistory, cloudContest.monteCarloHistory),
+        };
+    };
+
     const mergeAppState = useCallback((local, cloud, options = {}) => {
         if (!cloud || typeof cloud !== 'object') {
             // Mesmo sem nuvem, rodamos a deduplicação no local para limpar o estado
@@ -185,18 +279,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const cloudFullUpdate = new Date(cloud.lastUpdated || 0).getTime();
         const localFullUpdate = new Date(local.lastUpdated || 0).getTime();
 
-        const mergeArrays = (arr1, arr2) => {
-            const map = new Map();
-            const getStableKey = (item) => {
-                if (item.id) return item.id;
-                // Se não há ID claro, a assinatura do objeto atua como ID para evitar clones infinitos
-                return `${item.date || ''}-${item.categoryId || ''}-${item.taskId || JSON.stringify(item)}`;
-            };
-            (arr1 || []).forEach(item => map.set(getStableKey(item), item));
-            (arr2 || []).forEach(item => map.set(getStableKey(item), item));
-            return Array.from(map.values());
-        };
-
         // 1. Processar adições e atualizações da nuvem
         Object.entries(cloudContests).forEach(([id, cloudContest]) => {
             const localContest = localContests[id];
@@ -215,57 +297,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
                 const localTime = new Date(localContest.lastUpdated || 0).getTime();
                 
-                if (cloudTime > localTime) {
-                    const mergedCatsMap = {};
-                    (localContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
-                    (cloudContest.categories || []).forEach(c => {
-                        if (mergedCatsMap[c.id]) {
-                            const localHistory = mergedCatsMap[c.id].simuladoStats?.history || [];
-                            const cloudHistory = c.simuladoStats?.history || [];
-                            const historyMap = new Map();
-                            localHistory.forEach(h => { if (h?.date) historyMap.set(h.date, h); });
-                            cloudHistory.forEach(h => { if (h?.date) historyMap.set(h.date, h); });
-                            const toDateMs = (value) => {
-                                if (!value) return 0;
-                                const ms = new Date(value).getTime();
-                                return Number.isFinite(ms) ? ms : 0;
-                            };
-                            mergedCatsMap[c.id] = {
-                                ...c,
-                                simuladoStats: {
-                                    ...c.simuladoStats,
-                                    history: Array.from(historyMap.values()).sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
-                                }
-                            };
-                        } else {
-                            mergedCatsMap[c.id] = c;
-                        }
-                    });
-
-                    mergedContests[id] = { 
-                        ...cloudContest, 
-                        categories: Object.values(mergedCatsMap),
-                        studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
-                        studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
-                        simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),
-                        // BUG-FIX: monteCarloHistory não era mergeado — spread do cloudContest
-                        // sobrescrevia o histórico local, causando perda de pontos quando
-                        // a nuvem era mais recente mas tinha MC history desatualizado.
-                        monteCarloHistory: (() => {
-                            const localMC = localContest.monteCarloHistory || [];
-                            const cloudMC = cloudContest.monteCarloHistory || [];
-                            const mcMap = new Map();
-                            [...localMC, ...cloudMC].forEach(item => {
-                                if (item?.date) mcMap.set(item.date, item);
-                            });
-                            return Array.from(mcMap.values()).sort((a, b) => {
-                                const aMs = new Date(a?.date || 0).getTime();
-                                const bMs = new Date(b?.date || 0).getTime();
-                                return (Number.isFinite(aMs) ? aMs : 0) - (Number.isFinite(bMs) ? bMs : 0);
-                            });
-                        })(),
-                    };
-                }
+                mergedContests[id] = mergeContestPayload(
+                    localContest,
+                    cloudContest,
+                    cloudTime > localTime
+                );
             }
         });
 

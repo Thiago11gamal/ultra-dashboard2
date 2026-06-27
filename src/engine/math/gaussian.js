@@ -1,6 +1,7 @@
 // src/engine/math/gaussian.js
 import { getPercentile } from './percentile.js';
 import { MIN_SD_FLOOR } from './constants.js';
+import { kahanSum } from './kahan.js';
 
 /**
  * Abramowitz & Stegun approximation (formula 7.1.26) for Normal(0,1) CDF
@@ -237,8 +238,12 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     }
 
     // BUGFIX B5: Normalizar integral da densidade para 1.0 (Reflexão de fronteira infla a integral)
-    const totalArea = rawData.reduce((s, d, i) =>
-        i > 0 ? s + (d.density + rawData[i - 1].density) * stepSize / 2 : s, 0);
+    // Use Kahan for precise trapezoidal integration (better for large sim counts)
+    const trapAreas = [];
+    for (let i = 1; i < rawData.length; i++) {
+        trapAreas.push( (rawData[i].density + rawData[i-1].density) * stepSize / 2 );
+    }
+    const totalArea = kahanSum(trapAreas);
         
     // CORREÇÃO: Proteção rígida contra underflow do IEEE 754. 
     // Se a área for residual/atómica (< 1e-15), evitamos inflar lixo numérico para a interface.
@@ -336,10 +341,19 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
  * Aplica Regularização de Tikhonov (Jitter/Ridge) para garantir
  * que uma matriz empírica de correlação seja Positiva Semi-Definida (PSD)
  * antes de passar pela Decomposição de Cholesky.
+ * 
+ * FIX #4: Jitter adaptativo baseado na escala da matriz + fallback maior.
  */
-export function ensurePositiveSemiDefinite(matrix, jitter = 1e-6) {
+export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
     const n = matrix.length;
     const psdMatrix = matrix.map(row => [...row]);
+
+    let diagMax = 0;
+    for (let i = 0; i < n; i++) {
+        diagMax = Math.max(diagMax, Math.abs(psdMatrix[i][i] || 0));
+    }
+    const jitter = Math.max(baseJitter, diagMax * 1e-8 || baseJitter);
+
     for (let i = 0; i < n; i++) {
         psdMatrix[i][i] += jitter; // Estabiliza a diagonal principal
     }
@@ -349,24 +363,44 @@ export function ensurePositiveSemiDefinite(matrix, jitter = 1e-6) {
 /**
  * 💡 Decomposição de Cholesky (A = L * L^T)
  * Converte um array de ruídos normais independentes em ruídos correlacionados.
+ * 
+ * FIX #4: Mais robusto contra degeneração (diagonal <=0 após jitter insuficiente).
+ * Usa epsilon e fallback para matriz diagonal pequena em vez de zeros silenciosos.
  */
 export function choleskyDecomposition(matrix) {
     const n = matrix.length;
     const lower = Array(n).fill(0).map(() => Array(n).fill(0));
+    const EPS = 1e-12;
 
     for (let i = 0; i < n; i++) {
         for (let j = 0; j <= i; j++) {
-            let sum = 0;
             if (j === i) {
-                for (let k = 0; k < j; k++) sum += Math.pow(lower[j][k], 2);
-                lower[j][j] = Math.sqrt(Math.max(0, matrix[j][j] - sum));
+                const diagTerms = [];
+                for (let k = 0; k < j; k++) diagTerms.push(Math.pow(lower[j][k], 2));
+                const sum = kahanSum(diagTerms);
+                const diagVal = matrix[j][j] - sum;
+                lower[j][j] = Math.sqrt(Math.max(EPS, diagVal));
             } else {
-                for (let k = 0; k < j; k++) sum += (lower[i][k] * lower[j][k]);
-                // Se a diagonal for 0, previne divisão por zero
-                lower[i][j] = lower[j][j] > 0 ? (matrix[i][j] - sum) / lower[j][j] : 0;
+                const offTerms = [];
+                for (let k = 0; k < j; k++) offTerms.push(lower[i][k] * lower[j][k]);
+                const sum = kahanSum(offTerms);
+                const denom = lower[j][j];
+                lower[i][j] = denom > EPS ? (matrix[i][j] - sum) / denom : 0;
             }
         }
     }
+
+    // Robustness: se algum diag ficou muito pequeno (mesmo com jitter), injeta valor mínimo
+    // para evitar colapso total da correlação (evita NaN ou matriz zero efetiva)
+    for (let i = 0; i < n; i++) {
+        if (!Number.isFinite(lower[i][i]) || lower[i][i] < EPS) {
+            lower[i][i] = EPS;
+            for (let k = 0; k < i; k++) {
+                lower[i][k] = 0;
+            }
+        }
+    }
+
     return lower;
 }
 

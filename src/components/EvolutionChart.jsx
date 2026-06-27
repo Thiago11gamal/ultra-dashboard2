@@ -660,7 +660,7 @@ export default function EvolutionChart({
                     type="button"
                     onClick={handleExport}
                     disabled={isExporting}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50 will-change-transform active:scale-[0.985]"
                 >
                     {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                     <span className="hidden sm:inline">{isExporting ? 'Gerando PDF...' : 'Baixar PDF'}</span>
@@ -671,8 +671,9 @@ export default function EvolutionChart({
             <style dangerouslySetInnerHTML={{
                 __html: `
                  .recharts-wrapper:focus, .recharts-surface:focus { outline: none !important; border: none !important; box-shadow: none !important; }
-                button:focus-visible { outline: 2px solid rgba(129, 140, 248, 0.8); outline-offset: 2px; }
                 .recharts-wrapper { outline: none !important; }
+                .recharts-cartesian-axis-tick-value { font-family: ui-sans-serif, system-ui, sans-serif; }
+                .recharts-legend-item-text { font-size: 10px !important; font-weight: 600; }
             ` }} />
 
             <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
@@ -687,8 +688,8 @@ export default function EvolutionChart({
             </motion.div>
 
             <motion.div variants={itemVariants} className="relative z-0 mb-8 sm:mb-12">
-                <p className="text-[10px] sm:text-xs text-slate-500 uppercase font-black tracking-[0.15em] leading-loose py-2 sm:py-3 mb-0 pl-1">
-                    Nível Bayesiano por Disciplina • clique para focar
+                <p className="text-[10px] sm:text-xs text-slate-400 uppercase font-black tracking-[0.25em] leading-loose py-1 sm:py-2 mb-1 pl-1">
+                    Nível Bayesiano por Disciplina • toque para focar
                 </p>
                 <div className="flex overflow-x-auto snap-x gap-4 px-2 py-4 no-scrollbar scroll-smooth">
                     {activeCategories.map(cat => (
@@ -732,7 +733,7 @@ export default function EvolutionChart({
                          {/* 🎯 FIX: Ajuste de left-0 e max-w para evitar vazamento da tela no celular */}
                          <div className="absolute top-10 left-0 sm:left-12 w-[280px] max-w-[90vw] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
                              <p className="text-xs text-slate-200 mb-3 leading-relaxed">{engine.explain.simples}</p>
-                             <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-700/50">
+                             <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-700/50">
                                  <p className="text-[10px] text-amber-400 italic font-bold">💡 Dica Prática</p>
                                  <p className="text-[10px] text-slate-400 mt-1">{engine.explain.dica}</p>
                              </div>
@@ -741,20 +742,20 @@ export default function EvolutionChart({
 
                      {/* Filters Toolbar */}
                      <div className="flex items-center gap-3 w-full lg:w-auto">
-                        <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner">
+                        <div className="flex items-center justify-between gap-1 bg-slate-950/80 border border-slate-700/50 rounded-2xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner backdrop-blur-sm">
                             {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
                                 <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
-                                    className={`shrink-0 flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/30 text-indigo-300 shadow-[0_0_15px_-3px_rgba(99,102,241,0.4)] border border-indigo-500/50' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/50'}`}>
+                                    className={`shrink-0 flex-1 sm:flex-none px-4 py-1.5 rounded-2xl text-xs font-bold transition-all duration-150 will-change-transform ${timeWindow === w.value ? 'bg-indigo-600/40 text-indigo-200 shadow-sm border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 border border-transparent hover:scale-[1.01]'}`}>
                                     {w.label}
                                 </button>
                             ))}
                         </div>
                         {activeEngine !== 'compare' && activeEngine !== 'mc_density' && (
                             <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
-                                className={`shrink-0 flex items-center justify-center gap-2 px-5 py-1.5 h-[34px] rounded-xl text-xs font-bold border transition-all ${showOnlyFocus ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]' : 'bg-slate-950/60 border-slate-800/70 text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}>
-                                <span>{showOnlyFocus ? '🔍' : '👁'}</span>
-                                <span className="hidden sm:inline truncate max-w-[150px]">
-                                    {showOnlyFocus ? `Foco: ${focusCategory?.name}` : 'Todas Matérias'}
+                                className={`shrink-0 flex items-center justify-center gap-2 px-5 py-1.5 h-[34px] rounded-2xl text-xs font-bold border transition-all will-change-transform active:scale-[0.985] ${showOnlyFocus ? 'bg-amber-500/30 border-amber-500/60 text-amber-200 shadow-sm' : 'bg-slate-950/80 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 hover:border-slate-600'}`}>
+                                <span className="text-base">{showOnlyFocus ? '🎯' : '👁️'}</span>
+                                <span className="hidden sm:inline truncate max-w-[150px] font-semibold">
+                                    {showOnlyFocus ? `Foco: ${focusCategory?.name}` : 'Ver Todas'}
                                 </span>
                             </button>
                         )}
@@ -763,7 +764,7 @@ export default function EvolutionChart({
 
                  {/* Engines Segmented Control */}
                 <div className="relative w-full mb-8">
-                    <div className="flex overflow-x-auto pt-3 pb-3 px-2 gap-3 w-full no-scrollbar scroll-smooth snap-x">
+                    <div className="flex overflow-x-auto pt-2 pb-4 px-1 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
                         {ENGINES.map((eng) => {
                             const active = activeEngine === eng.id;
                             return (
@@ -771,19 +772,19 @@ export default function EvolutionChart({
                                     type="button"
                                     key={eng.id}
                                     onClick={() => setActiveEngine(eng.id)}
-                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-2 w-32 h-20 rounded-xl transition-all duration-300 border ${active
-                                        ? 'shadow-[0_8px_20px_-6px_rgba(0,0,0,0.5)] scale-105 z-10'
-                                        : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/20'
+                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[118px] h-[78px] rounded-2xl transition-all duration-150 border will-change-transform ${active
+                                        ? 'shadow-md scale-[1.03] z-10'
+                                        : 'bg-white/[0.015] border-white/[0.04] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300 hover:border-white/15 hover:scale-[1.015]'
                                         }`}
                                     style={active ? {
-                                        backgroundColor: `${eng.color}15`,
-                                        borderColor: `${eng.color}88`,
+                                        backgroundColor: `${eng.color}12`,
+                                        borderColor: `${eng.color}55`,
                                         color: eng.color,
-                                        boxShadow: `0 0 25px ${eng.color}25`
+                                        boxShadow: `0 0 20px ${eng.color}20, 0 4px 12px -2px rgba(0,0,0,0.3)`
                                     } : {}}
                                 >
-                                    <span className="text-2xl group-hover:scale-110 transition-transform duration-300" style={{ filter: active ? `drop-shadow(0 0 5px ${eng.color})` : 'none' }}>{eng.emoji}</span>
-                                    <span className="text-[10px] uppercase tracking-widest font-black text-center leading-tight px-1">{eng.label}</span>
+                                    <span className="text-[22px] group-hover:scale-105 transition-transform duration-150" style={{ filter: active ? `drop-shadow(0 0 4px ${eng.color})` : 'none' }}>{eng.emoji}</span>
+                                    <span className="text-[9px] uppercase tracking-[0.12em] font-black text-center leading-none px-1">{eng.label}</span>
                                 </button>
                             );
                         })}
@@ -826,7 +827,7 @@ export default function EvolutionChart({
                         unit={unit}
                     />
                 ) : !accountHasData ? (
-                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-800 bg-slate-950/30">
+                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>
@@ -834,14 +835,14 @@ export default function EvolutionChart({
                         </div>
                     </div>
                 ) : !filterHasData ? (
-                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-800 bg-slate-950/30">
+                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">📅</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Nenhuma atividade recente</p>
                             <p className="text-slate-500 text-sm max-w-xs">Não registrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.</p>
                             <button 
                                 onClick={() => setTimeWindow("all")} 
-                                className="mt-4 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-600/40 rounded-lg font-bold text-xs hover:bg-indigo-600/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+                                className="mt-4 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-600/40 rounded-2xl font-bold text-xs hover:bg-indigo-600/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
                             >
                                 Ver Todo o Histórico
                             </button>
@@ -851,7 +852,7 @@ export default function EvolutionChart({
                     <div className="w-full overflow-x-auto custom-scrollbar pb-2">
                         <div className="min-w-[700px] lg:min-w-full relative">
                             {mcLoading && (
-                                <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-xl transition-all duration-300">
+                                <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-2xl transition-all duration-300">
                                     <div className="flex flex-col items-center gap-3">
                                         <Loader2 size={32} className="animate-spin text-indigo-400" />
                                         <span className="text-[9px] font-black uppercase text-indigo-300 tracking-[0.2em] animate-pulse">Sincronizando Monte Carlo...</span>
@@ -941,7 +942,7 @@ export default function EvolutionChart({
                                         { label: 'Margem de Erro', val: unit === '%' ? `±${marginOfError.toFixed(2)}${unit}` : `±${Math.round(marginOfError)}${unit}`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
                                         { label: 'Confiança 95%', val: unit === '%' ? `${ciMin.toFixed(2)}-${ciMax.toFixed(2)}${unit}` : `${Math.round(ciMin)}-${Math.round(ciMax)}${unit}`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
                                     ].map((stat, i) => (
-                                     <div key={i} className="flex flex-col p-3 rounded-xl bg-black/40 border border-white/5 hover:border-white/10 transition-colors min-w-0">
+                                     <div key={i} className="flex flex-col p-3 rounded-2xl bg-black/40 border border-white/5 hover:border-white/10 transition-colors min-w-0">
                                          <div className="flex items-center gap-1.5 mb-1 opacity-60">
                                              <span className={stat.color}>{stat.icon}</span>
                                              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</span>

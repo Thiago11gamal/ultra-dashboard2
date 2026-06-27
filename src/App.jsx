@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
+import { motion as Motion } from 'framer-motion';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar';
@@ -347,7 +348,14 @@ function MainLayout() {
                 <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
 
                 <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-0 pt-[65px] lg:pt-0 pb-24 lg:pb-12 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
-                  {routesContent}
+                  <Motion.div 
+                    key={activeContestId}
+                    initial={{ opacity: 0.9, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                  >
+                    {routesContent}
+                  </Motion.div>
                 </main>
                 <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
                 <OnboardingTour />

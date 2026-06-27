@@ -31,11 +31,47 @@ export function getSortedHistory(history) {
         .map(item => item.original);
 }
 
+/**
+ * MEMORY SAFETY: Prune very old or excessive history points while preserving
+ * statistical integrity (recent + evenly spaced older samples).
+ * Helps prevent unbounded memory growth in long-term users without destroying
+ * long-term trend signals for projections/volatility.
+ */
+export function pruneHistoryForMemory(history = [], maxPoints = 1500, maxAgeDays = 365 * 5) {
+    const sorted = getSortedHistory(history);
+    if (!sorted.length) return sorted;
+    const now = Date.now();
+    const cutoff = now - maxAgeDays * 86400000;
+
+    // Filter by age
+    let filtered = sorted.filter(h => {
+        const t = safeDateParse(h.date || h.createdAt).getTime();
+        return Number.isFinite(t) && t >= cutoff;
+    });
+
+    if (filtered.length <= maxPoints) return filtered;
+
+    // Keep all recent (last 20%), plus evenly spaced older
+    const recentCount = Math.max(10, Math.floor(maxPoints * 0.2));
+    const older = filtered.slice(0, -recentCount);
+    const recent = filtered.slice(-recentCount);
+
+    if (older.length <= maxPoints - recentCount) return filtered;
+
+    const step = Math.ceil(older.length / (maxPoints - recentCount));
+    const sampledOlder = [];
+    for (let i = 0; i < older.length; i += step) {
+        sampledOlder.push(older[i]);
+    }
+
+    return [...sampledOlder, ...recent].slice(0, maxPoints);
+}
+
 // -----------------------------
 // Regressão ponderada temporal
 // -----------------------------
 export function weightedRegression(history, lambda = 0.08, maxScore = 100, options = {}) {
-    lambda = Math.max(0, Math.min(1, lambda ?? 0.95));
+    lambda = Math.max(0, Math.min(1, lambda ?? 0.08));
     const sorted = getSortedHistory(history);
     if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
 
@@ -46,8 +82,6 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     let sumWY = 0, cWY = 0;
     let sumWXX = 0, cWXX = 0;
     let sumWXY = 0, cWXY = 0;
-
-    let processedIdx = 0;
 
     for(let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
@@ -62,8 +96,10 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         const rawWeight = Math.exp(-lambda * t);
         const w = Math.max(EPSILON_WEIGHT, rawWeight);
 
-        const x = ((safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000) + (processedIdx * 1e-5);
-        processedIdx++;
+        // FIX #6: Removido hack de jitter (processedIdx * 1e-5).
+        // Usar tempo puro em dias. A ridge penalty já estabiliza matrizes singulares
+        // ou com x duplicados. O desempate temporal fica por conta do sort estável em getSortedHistory.
+        const x = ((safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000);
 
         // Kahan summation imperativo para evitar O(N) alocações de map
         const yW = w - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
@@ -124,16 +160,15 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     let sumWXX = 0, cWXX = 0;
     let rss = 0, cRSS = 0;
 
-    let processedIdx = 0; // ← ADICIONADO
-
     for (let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
         const hDate = h.date || h.createdAt;
         const y = getSafeScore(h, maxScore);
         if (!Number.isFinite(y)) continue; // ← MOVIDO para antes de calcular x
 
-        const x = ((safeDateParse(hDate).getTime() - t0) / 86400000) + (processedIdx * 1e-5); // ← CORRIGIDO
-        processedIdx++; // ← ADICIONADO
+        // FIX #6: Removido hack de jitter (processedIdx * 1e-5).
+        // Tempo puro. Ridge e verificação de det já cuidam de singularidade.
+        const x = ((safeDateParse(hDate).getTime() - t0) / 86400000);
 
         const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
         const EPSILON_WEIGHT = 1e-10;
@@ -211,7 +246,7 @@ function getDynamicPriorSD(history, maxScore) {
     
     const globalMean = mean(scores);
     const globalVar = scores.length > 1
-        ? scores.reduce((acc, s) => acc + Math.pow(s - globalMean, 2), 0) / (scores.length - 1)
+        ? kahanSum(scores.map(s => Math.pow(s - globalMean, 2))) / (scores.length - 1)
         : 0;
     
     const empiricalSD = Math.sqrt(globalVar);
@@ -475,8 +510,14 @@ export function computeBayesianLevel(
             // Acertos em questões difíceis pesam mais na subida do nível.
             const itemWeight = Math.max(0.001, Number(h.weight || h.difficulty || 1.0));
             
+            // FIX #5: Synthetic N mais inteligente
+            // Em vez de fixo em 20, usa média dos totais reais do histórico quando disponível.
+            // Isso evita sub ou superestimar "equivalente de questões" para entradas de % pura.
+            const avgTotal = history.length > 0 
+                ? (kahanSum(history.map(hh => Number(hh.total) || 20)) / history.length) 
+                : getSyntheticTotal(safeMaxScore);
             if (isPurePercentage) {
-                const syntheticN = Math.max(0, getSyntheticTotal(safeMaxScore) * itemWeight);
+                const syntheticN = Math.max(0, avgTotal * itemWeight);
                 alpha += pct * syntheticN;
                 beta += (1 - pct) * syntheticN;
             } else {
@@ -594,10 +635,11 @@ export function computeBayesianLevel(
     }
 
     return {
-        mean: Number(trueMean.toFixed(2)), // 🎯 FIX: Usar a verdadeira média Bayesiana posterior
-        sd: Number((effectiveSd * safeMaxScore).toFixed(2)),
-        ciLow: Number(strictLow.toFixed(2)),
-        ciHigh: Number(strictHigh.toFixed(2)),
+        // FIX #5: Retornar precisão completa (sem toFixed prematuro). Formatação na UI.
+        mean: trueMean,
+        sd: effectiveSd * safeMaxScore,
+        ciLow: strictLow,
+        ciHigh: strictHigh,
         unclampedLow: ciLow,
         unclampedHigh: ciHigh,
         alpha: alphaOut,
@@ -728,7 +770,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         variance = Math.pow(getDynamicPriorSD(historyToUse, safeMaxScore), 2);
     }
 
-    const sd = Math.max(Math.sqrt(variance), 0.001 * maxScore);
+    const sd = Math.max(Math.sqrt(variance), 0.001 * safeMaxScore);
     const safeSD = sd;
 
     const slopePerDay = calculateSlope(historyToUse, safeMaxScore);
@@ -826,13 +868,24 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
     
     // Assumimos que historicData possui { score: number, timestamp: number }
     // O timestamp deve estar em milissegundos.
+    const getTime = (d) => {
+        if (d?.timestamp != null && Number.isFinite(d.timestamp)) return d.timestamp;
+        if (d?.date != null) {
+            const ms = new Date(d.date).getTime();
+            return Number.isFinite(ms) ? ms : NaN;
+        }
+        return NaN;
+    };
+
     let ema = validData[0].score;
-    let lastTime = validData[0].timestamp;
+    let lastTime = getTime(validData[0]);
     
     for(let i = 1; i < validData.length; i++) {
         const currentItem = validData[i];
+        const currentTime = getTime(currentItem);
+        if (!Number.isFinite(currentTime) || !Number.isFinite(lastTime)) continue;
         // Gap em dias entre as provas
-        const deltaDays = Math.max(0, (currentItem.timestamp - lastTime) / 86400000);
+        const deltaDays = Math.max(0, (currentTime - lastTime) / 86400000);
         
         // Se deltaDays é grande, o alpha sobe muito, forçando a EMA a "esquecer" 
         // o passado distante e ancorar na nota nova.
@@ -841,7 +894,7 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
         const safeAlpha = Math.max(0.1, Math.min(1.0, dynamicAlpha)); 
         
         ema = safeAlpha * currentItem.score + (1 - safeAlpha) * ema;
-        lastTime = currentItem.timestamp;
+        lastTime = currentTime;
     }
     
     return ema;
@@ -851,119 +904,15 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
  * Calcula o Brier Score (Erro Quadrático Médio das Probabilidades).
  * Mede a acurácia das previsões probabilísticas: (P - Y)^2.
  */
-export function computeBrierScore(probability01, observedBinary) {
-    const rawP = Number(probability01);
-    const p = Math.max(0, Math.min(1, Number.isFinite(rawP) ? rawP : 0));
-    const y = observedBinary ? 1 : 0;
-    return (p - y) ** 2;
-}
-
-/**
- * Neutraliza NaN poisoning em cálculos de Log Loss (Entropia Cruzada).
- * Implementa epsilon clamping (1e-15) conforme exigência técnica.
- */
-export function computeLogLoss(probability01, observedBinary) {
-    const epsilon = 1e-15;
-    const rawP = Number(probability01);
-    const safeP = Number.isFinite(rawP) ? rawP : 0.5;
-    const p = Math.max(epsilon, Math.min(1 - epsilon, safeP));
-    const y = observedBinary ? 1 : 0;
-    return -(y * Math.log(p) + (1 - y) * Math.log(1 - p));
-}
-
-/**
- * Resume a calibração de um conjunto de previsões.
- * Retorna o Brier Score médio e a penalidade de calibração sugerida.
- */
-export function summarizeCalibration(scores = [], options = {}) {
-    const maxPenalty = Math.max(0, Math.min(1, Number(options.maxPenalty) || 0.25));
-    const baseline = Number.isFinite(options.baseline) ? options.baseline : 0.18;
-
-    if (!Array.isArray(scores) || scores.length === 0) {
-        return { avgBrier: 0, calibrationPenalty: 0 };
-    }
-
-    const finiteScores = scores.map(v => Number(v)).filter(Number.isFinite);
-    if (finiteScores.length === 0) return { avgBrier: 0, calibrationPenalty: 0 };
-    const sorted = [...finiteScores].sort((a, b) => a - b);
-    const trim = sorted.length >= 8 ? Math.floor(sorted.length * 0.1) : 0;
-    const core = trim > 0 ? sorted.slice(trim, sorted.length - trim) : sorted;
-    const avgBrier = core.reduce((a, b) => a + b, 0) / core.length;
-    
-    // A penalidade agora é baseada no Brier Score, mas o motor deve monitorar Log Loss
-    // para diagnósticos de "falsa sensação de domínio" (Entropia).
-    const calibrationPenalty = Math.min(maxPenalty, Math.max(0, avgBrier - baseline));
-    
-    return { avgBrier, calibrationPenalty, sampleSize: finiteScores.length };
-}
-
-/**
- * Diagnóstico de Calibração Avançado (Reliability Diagram).
- * Calcula ECE (Expected Calibration Error) e decomposição do Brier Score.
- */
-export function computeCalibrationDiagnostics(pairs = [], options = {}) {
-  const bins = Math.max(2, Number(options.bins) || 5);
-  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
-
-  const cleanPairs = pairs
-    .map((p) => ({
-      probability: Math.max(0, Math.min(1, Number(p?.probability))),
-      observed: Math.max(0, Math.min(1, Number(p?.observed)))
-    }))
-    .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
-  if (cleanPairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
-
-  const sorted = [...cleanPairs].sort((a, b) => a.probability - b.probability);
-  let ece = 0;
-  let mce = 0;
-  const reliability = [];
-  const overallObserved = cleanPairs.reduce((a, b) => a + b.observed, 0) / cleanPairs.length;
-  let relTerm = 0;
-  let resTerm = 0;
-  
-  // [FIX 3] Usar bins de largura fixa (Equal Width) para evitar aglomeração visual
-  for (let i = 0; i < bins; i++) {
-    const binMin = i / bins;
-    const binMax = (i + 1) / bins;
-    
-    // Filtra pares que caem dentro deste intervalo de probabilidade
-    const slice = sorted.filter(p => p.probability >= binMin && p.probability < (i === bins - 1 ? 1.01 : binMax));
-    
-    if (slice.length === 0) continue;
-    
-    const meanPred = slice.reduce((a, b) => a + b.probability, 0) / slice.length;
-    const observedRate = slice.reduce((a, b) => a + b.observed, 0) / slice.length;
-    const gap = Math.abs(meanPred - observedRate);
-    const weight = slice.length / cleanPairs.length;
-    ece += weight * gap;
-    mce = Math.max(mce, gap);
-    relTerm += weight * ((meanPred - observedRate) ** 2);
-    resTerm += weight * ((observedRate - overallObserved) ** 2);
-    reliability.push({ bin: i + 1, count: slice.length, meanPred, observedRate, gap });
-  }
-  const uncertainty = overallObserved * (1 - overallObserved);
-  return {
-    ece,
-    mce,
-    reliability,
-    brierDecomposition: {
-      reliability: relTerm,
-      resolution: resTerm,
-      uncertainty
-    }
-  };
-}
-
-/**
- * Encolhe a probabilidade em direção ao valor neutro (50%) com base na penalidade.
- */
-export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct = 50, maxAppliedPenalty = 0.5) {
-    const p = Math.max(0, Math.min(100, Number(probabilityPct) || 0));
-    const limit = Math.max(0, Math.min(1, Number(maxAppliedPenalty) || 0.5));
-    const k = Math.max(0, Math.min(limit, Number(penalty) || 0));
-    const neutral = Math.max(0, Math.min(100, Number(neutralPct) || 50));
-    return p * (1 - k) + neutral * k;
-}
+// Consolidated re-exports from canonical source (utils/calibration.js) 
+// to eliminate duplication bugs that could cause divergent diagnostics/math behavior or data errors.
+export { 
+  computeBrierScore,
+  computeLogLoss,
+  summarizeCalibration,
+  computeCalibrationDiagnostics,
+  shrinkProbabilityToNeutral 
+} from '../utils/calibration.js';
 
 /**
  * Aplica um ajuste Hierárquico Bayesiano (Shrinkage) aos dados das categorias.
@@ -979,12 +928,12 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
     if (validCategories.length === 0) return categories;
 
     // Calcular média global (ponderada pelo 'n' de cada disciplina)
-    const globalSum = validCategories.reduce((acc, c) => acc + (c.mean * c.n), 0);
-    const globalN = validCategories.reduce((acc, c) => acc + c.n, 0);
+    const globalSum = kahanSum(validCategories.map(c => (c.mean || 0) * (c.n || 0)));
+    const globalN = kahanSum(validCategories.map(c => c.n || 0));
     const globalMean = globalSum / Math.max(1, globalN);
 
     // Variância empírica entre as médias das categorias (tau^2)
-    const tau2 = validCategories.reduce((acc, c) => acc + Math.pow(c.mean - globalMean, 2), 0) / Math.max(1, validCategories.length - 1);
+    const tau2 = kahanSum(validCategories.map(c => Math.pow((c.mean || 0) - globalMean, 2))) / Math.max(1, validCategories.length - 1);
 
     return categories.map(cat => {
         if (!Number.isFinite(cat.mean) || !cat.n) {

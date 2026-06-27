@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
-import { getSafeScore } from '../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 
 const EMPTY_OBJECT = {};
 const EMPTY_ARRAY = [];
@@ -94,7 +94,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
                 // FIX BUG 1 (Matemática): Consistência Bayesiana para entradas percentuais
                 if (total === 0 && entry.score != null) {
                     const pct = Math.min(1, Math.max(0, Number(entry.score) / maxScore));
-                    total = 20; // Peso estatístico realista mínimo para estabilidade bayesiana
+                    total = getSyntheticTotal(maxScore);
                     correct = Math.round(pct * total);
                 }
 
@@ -221,12 +221,14 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
 
-                const rawDailyScore = total >= 1 ? (correct / total) * maxScore : null;
+                const rawDailyScore = total >= 1
+                    ? (correct / total) * maxScore
+                    : (exact && snap?.last?.score != null ? getSafeScore(snap.last, maxScore) : null);
 
                 dataByDate[date][`raw_correct_${cat.id}`] = correct;
                 dataByDate[date][`raw_total_${cat.id}`] = total;
                 dataByDate[date][`raw_${cat.id}`] = rawDailyScore;
-                dataByDate[date][`bay_${cat.id}`]        = snap.bayesian ? (Number(snap.bayesian.mean) || 0)   : 0;
+                dataByDate[date][`bay_${cat.id}`]        = snap.bayesian ? (Number(snap.bayesian.mean) || 0)   : null;
                 dataByDate[date][`bay_ci_low_${cat.id}`]  = snap.bayesian ? (Number(snap.bayesian.ciLow) || 0)  : 0;
                 dataByDate[date][`bay_ci_high_${cat.id}`] = snap.bayesian ? (Number(snap.bayesian.ciHigh) || 0) : 0;
                 dataByDate[date][`stats_${cat.id}`] = stats ? (Number(stats.mean) || 0) : 0;
@@ -249,7 +251,9 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             let activeCount = 0;
 
             activeCategories.forEach(cat => {
-                const score = d[`bay_${cat.id}`] ?? d[`raw_${cat.id}`];
+                const rawScore = d[`raw_${cat.id}`];
+                const bayScore = d[`bay_${cat.id}`];
+                const score = (rawScore != null && Number.isFinite(rawScore)) ? rawScore : bayScore;
                 const w = weights[cat.id] ?? weights[cat.name] ?? 0;
                 
                 if (Number.isFinite(score) && score !== null) {
@@ -348,8 +352,8 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 // para que a nota participe da Global Accuracy, sem adicionar centenas de questões 
                 // fantasmas ao "Total de Questões" resolvido.
                 if (tot === 0 && h.score != null) {
-                    tot = 1; 
-                    corrNorm = (getSafeScore(h, maxScore) / maxScore) * tot;
+                    tot = getSyntheticTotal(maxScore);
+                    corrNorm = Math.round((getSafeScore(h, maxScore) / maxScore) * tot);
                 } else {
                     const raw = Number(h.correct) || 0;
                     corrNorm = tot > 0 

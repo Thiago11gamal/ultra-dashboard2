@@ -72,22 +72,20 @@ export function RadarAnalysis({ radarData, maxScore = 100, unit = '%' }) {
                         <Radar 
                             name="Seu Nível" 
                             dataKey="nivel" 
-                            stroke="#818cf8" 
-                            strokeWidth={2} 
-                            fill="#818cf8" 
-                            fillOpacity={0.25} 
-                            dot={{ r: 3, fill: '#1e293b', stroke: '#818cf8', strokeWidth: 2 }} 
-                            activeDot={{ r: 5, fill: '#fff', strokeWidth: 0 }} 
-                            style={{ filter: `url(#${glowId})` }} 
+                            stroke="#6366f1" 
+                            strokeWidth={2.5} 
+                            fill="#6366f1" 
+                            fillOpacity={0.22} 
+                            dot={{ r: 2.5, fill: '#0f172a', stroke: '#6366f1', strokeWidth: 2 }} 
+                            activeDot={{ r: 4, fill: '#fff' }} 
                         />
 
                         {/* 🎯 FIX: Adição do formatValue no formatter do Tooltip */}
                         <Tooltip 
-                            formatter={(v) => [`${formatValue(v)}${unit}`, '']} 
-                            contentStyle={CustomTooltipStyle} 
-                            itemStyle={{ color: '#f8fafc', fontWeight: 'bold' }} 
+                            formatter={(v) => [`${formatValue(v)}${unit}`, 'Nível']} 
+                            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#e2e8f0', fontSize: '11px' }} 
                         />
-                        <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '15px' }} />
+                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '8px', color: '#64748b' }} />
                     </RadarChart>
                 </ResponsiveContainer>
             </div>

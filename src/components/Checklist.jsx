@@ -184,7 +184,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
     );
 };
 
-const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, onTogglePriority, onDeleteCategory, onPlayContext, showSimuladoStats, filter }) => {
+const CategoryAccordion = React.memo(({ category, onToggleTask, onDeleteTask, onAddTask, onTogglePriority, onDeleteCategory, onPlayContext, showSimuladoStats, filter }) => {
     const playHandler = (catId, taskId) => {
         if (typeof onPlayContext === 'function') {
             onPlayContext(catId, taskId);
@@ -374,7 +374,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
             />
         </div >
     );
-};
+});
 
 function Checklist({ 
     categories = [], 
@@ -447,9 +447,9 @@ function Checklist({
                     <button
                         key={f.id}
                         onClick={() => setFilter(f.id)}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filter === f.id
-                            ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
-                            : 'glass text-slate-400 hover:text-white'
+                        className={`px-4 py-2 rounded-2xl text-sm font-bold tracking-wider uppercase transition-all duration-150 border ${filter === f.id
+                            ? 'bg-gradient-to-br from-purple-500 to-blue-500 text-white border-white/20 shadow-sm scale-[1.02]'
+                            : 'bg-slate-900/70 border-white/10 text-slate-400 hover:bg-slate-800/90 hover:text-slate-200 hover:border-white/20'
                             }`}
                     >
                         {f.label}

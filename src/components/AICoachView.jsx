@@ -229,26 +229,26 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     return (
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
             <div className="flex flex-col gap-6">
-                <div className="bg-[#0a0c14]/80 backdrop-blur-xl border border-white/[0.05] p-6 sm:p-8 rounded-3xl shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none"></div>
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px] -ml-32 -mb-32 pointer-events-none"></div>
+                <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-3xl shadow-inner relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32 pointer-events-none"></div>
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] -ml-32 -mb-32 pointer-events-none"></div>
                     
                     <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center">
                                 <Compass size={24} className="text-indigo-400" />
                             </div>
                             <div>
-                                <h2 className="text-lg sm:text-xl font-black tracking-tight text-white">Painel Coach AI</h2>
-                                <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mt-0.5">Navegação tática</p>
+                                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">Painel Coach AI</h2>
+                                <p className="text-[10px] text-cyan-400/80 uppercase tracking-[0.25em] font-black mt-1">Navegação tática</p>
                             </div>
                         </div>
                         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4">
-                            <div className="flex items-center p-1.5 rounded-2xl bg-black/40 border border-white/5 backdrop-blur-md shadow-inner">
+                            <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-700/50 rounded-2xl p-1 shadow-inner backdrop-blur-sm">
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('planner')}
-                                    className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex justify-center items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-150 flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'}`}
                                 >
                                     <LayoutGrid size={13} className="shrink-0" />
                                     Planner
@@ -256,7 +256,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('cards')}
-                                    className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex justify-center items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-150 flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'}`}
                                 >
                                     <Sparkles size={13} className="shrink-0" />
                                     Cards
@@ -264,7 +264,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('list')}
-                                    className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex justify-center items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-150 flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'}`}
                                 >
                                     <List size={13} className="shrink-0" />
                                     Lista
@@ -295,8 +295,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         <button
                             onClick={onGenerateGoals}
                             disabled={loading}
-                            className="group relative w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-wider uppercase transition-all duration-500 overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-white shadow-[0_0_30px_rgba(99,102,241,0.25)] hover:shadow-[0_0_50px_rgba(99,102,241,0.4)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 sm:gap-3 border border-white/20"
-                            style={{ backgroundSize: '200% auto' }}
+                            className="group relative w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none animate-pulse" />
@@ -328,12 +327,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             </div>
 
             {calibrationSummary.length > 0 && (
-                <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 relative overflow-visible group">
-                    <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-6">
+                <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 shadow-inner">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-6">
                         <div>
-                            <h3 className="text-[11px] uppercase tracking-[0.25em] font-black text-cyan-400 mb-2">Monitor de Calibração</h3>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                Telemetria ativa em {calibrationSummary.length} categorias • {calibrationAuditLog.length} eventos registrados
+                            <h3 className="text-xs uppercase tracking-[0.25em] font-bold text-cyan-400 mb-0.5">Monitor de Calibração</h3>
+                            <p className="text-[10px] text-slate-500">
+                                {calibrationSummary.length} categorias • {calibrationAuditLog.length} eventos
                             </p>
                         </div>
                     </div>
@@ -342,51 +341,42 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         {calibrationSummary.map(row => {
                             const op = calibrationOps[row.categoryId] || {};
                             return (
-                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-6 sm:p-8 hover:bg-white/[0.03] transition-all duration-300 overflow-visible">
-                                    <div className="flex justify-between items-start mb-6 gap-4">
+                                <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-6 hover:bg-slate-800/60 transition-all duration-200">
+                                    <div className="flex justify-between items-start mb-5 gap-4">
                                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                                            <div className={`w-2 h-2 shrink-0 rounded-full ${op.degraded ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
-                                            <p className="text-sm sm:text-[15px] text-white font-black tracking-tight truncate">{displaySubject(row.label)}</p>
+                                            <div className={`w-2 h-2 shrink-0 rounded-full ${op.degraded ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                                            <p className="text-sm sm:text-[15px] text-white font-semibold tracking-tight truncate">{displaySubject(row.label)}</p>
                                         </div>
                                         <div className="shrink-0 flex flex-col items-end gap-1">
-                                            <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                            <div className={`px-2.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
                                                 {op.degraded ? 'Degradado' : 'Estável'}
                                             </div>
                                             <span className="text-[9px] font-mono text-slate-500">n={row.count}</span>
                                         </div>
                                     </div>
                                     
-                                    <div className="space-y-6">
+                                    <div className="space-y-5">
                                         <div>
-                                            <div className="flex justify-between text-[10px] mb-2 px-1">
-                                                <span className="text-slate-500 font-bold uppercase tracking-[0.1em]">Erro (Brier)</span>
-                                                {/* Destaca se passou do baseline do seu motor (0.18) invés de 0.25 */}
+                                            <div className="flex justify-between text-[9px] mb-1.5 px-0.5">
+                                                <span className="text-slate-500 font-bold uppercase tracking-widest">Erro (Brier)</span>
                                                 <span className={`font-mono font-bold ${toFinite(row.avgBrier) > 0.18 ? 'text-rose-400' : 'text-emerald-400'}`}>
                                                     {toFinite(row.avgBrier).toFixed(3)}
                                                 </span>
                                             </div>
-                                            <div className="h-2 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05]">
-                                                <div 
-                                                    // Se Brier > 0.18 (baseline), fica âmbar/vermelho. Se > 0.25 (crítico), fica pulsante.
-                                                    className={`h-full transition-all duration-1000 ${
-                                                        toFinite(row.avgBrier) >= 0.25 ? 'bg-gradient-to-r from-rose-500 to-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' :
-                                                        toFinite(row.avgBrier) > 0.18 ? 'bg-gradient-to-r from-amber-500 to-orange-400' : 
-                                                        'bg-gradient-to-r from-emerald-500 to-teal-400'
-                                                    }`}
-                                                    // Ajuste da matemática visual: o máximo considerável é 0.35 (limite prático de descalibração severa)
-                                                    style={{ width: `${Math.min(100, (toFinite(row.avgBrier) / 0.35) * 100)}%` }}
-                                                />
+                                            <div className="h-1.5 bg-slate-800/60 rounded-full overflow-hidden">
+                                                <div className={`h-full transition-all duration-700 ${
+                                                    toFinite(row.avgBrier) >= 0.25 ? 'bg-rose-500' :
+                                                    toFinite(row.avgBrier) > 0.18 ? 'bg-amber-500' : 'bg-emerald-500'
+                                                }`} style={{ width: `${Math.min(100, (toFinite(row.avgBrier) / 0.35) * 100)}%` }} />
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between p-4 rounded-2xl bg-black/40 border border-white/[0.03]">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center shadow-inner">
-                                                    <Zap size={14} className={toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]' : 'text-slate-500'} />
-                                                </div>
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Penalidade</span>
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-black/50 border border-white/[0.04]">
+                                            <div className="flex items-center gap-2">
+                                                <Zap size={14} className={toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400' : 'text-slate-500'} />
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Penalidade</span>
                                             </div>
-                                            <span className={`text-[13px] font-black ${toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400' : 'text-slate-400'}`}>
+                                            <span className={`text-xs font-mono font-bold ${toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400' : 'text-slate-400'}`}>
                                                 -{Math.max(1, Math.round(toFinite(row.avgPenalty) * 100))}%
                                             </span>
                                         </div>
@@ -398,76 +388,100 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 </div>
             )}
 
-            <div className={viewMode === 'cards' ? 'block' : 'hidden'}>
-                <div className="space-y-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center shadow-lg shadow-indigo-500/5">
-                                <Sparkles className="text-indigo-400" size={20} />
-                            </div>
-                            <div>
-                                <h2 className="text-sm font-black text-white uppercase tracking-[0.2em]">Foco do Dia</h2>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Sugestões de estudo baseadas em telemetria</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {hasPlan ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {coachPlan.map((task, idx) => (
-                                <AICoachCard key={getSafeId(task) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
-                            <Target size={32} className="text-slate-600 mx-auto mb-4" />
-                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco definido para hoje</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-            
-            <div className={viewMode === 'planner' ? 'block' : 'hidden'} key="planner">
-                <AICoachPlanner />
-            </div>
-            
-            <div className={viewMode === 'list' ? 'block' : 'hidden'} key="list">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    {(() => {
-                        const allAssignedIds = new Set();
-                        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
-                        const listTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
-                        
-                        if (listTasks.length === 0) {
-                            return (
-                                <div className="md:col-span-2 mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
-                                    <Target size={32} className="text-slate-600 mx-auto mb-4" />
-                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco pendente fora do planner</p>
+            <AnimatePresence mode="wait">
+                {viewMode === 'cards' && (
+                    <Motion.div 
+                        key="cards"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="space-y-8"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center">
+                                    <Sparkles className="text-indigo-400" size={20} />
                                 </div>
-                            );
-                        }
-
-                        const leftColumn = listTasks.filter((_, idx) => idx % 2 === 0);
-                        const rightColumn = listTasks.filter((_, idx) => idx % 2 !== 0);
-
-                        return [leftColumn, rightColumn].map((columnTasks, columnIdx) => (
-                            <div key={`column-${columnIdx}`} className="flex flex-col gap-6">
-                                {columnTasks.map((task, idx) => {
-                                    const visualIdx = (idx * 2) + columnIdx;
-                                    return (
-                                        <AICoachCard
-                                            key={getSafeId(task) || `${columnIdx}-${idx}`}
-                                            task={task}
-                                            idx={visualIdx}
-                                            onStartPomodoro={handleStartNeural}
-                                        />
-                                    );
-                                })}
+                                <div>
+                                    <h2 className="text-sm font-black text-white uppercase tracking-[0.2em]">Foco do Dia</h2>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Sugestões de estudo baseadas em telemetria</p>
+                                </div>
                             </div>
-                        ));
-                    })()}
-                </div>
-            </div>
+                        </div>
+
+                        {hasPlan ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {coachPlan.map((task, idx) => (
+                                    <AICoachCard key={getSafeId(task) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                                <Target size={32} className="text-slate-600 mx-auto mb-4" />
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco definido para hoje</p>
+                            </div>
+                        )}
+                    </Motion.div>
+                )}
+
+                {viewMode === 'planner' && (
+                    <Motion.div 
+                        key="planner"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                    >
+                        <AICoachPlanner />
+                    </Motion.div>
+                )}
+
+                {viewMode === 'list' && (
+                    <Motion.div 
+                        key="list"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"
+                    >
+                        {(() => {
+                            const allAssignedIds = new Set();
+                            Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
+                            const listTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
+                            
+                            if (listTasks.length === 0) {
+                                return (
+                                    <div className="md:col-span-2 mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                                        <Target size={32} className="text-slate-600 mx-auto mb-4" />
+                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco pendente fora do planner</p>
+                                    </div>
+                                );
+                            }
+
+                            const leftColumn = listTasks.filter((_, idx) => idx % 2 === 0);
+                            const rightColumn = listTasks.filter((_, idx) => idx % 2 !== 0);
+
+                            return [leftColumn, rightColumn].map((columnTasks, columnIdx) => (
+                                <div key={`column-${columnIdx}`} className="flex flex-col gap-6">
+                                    {columnTasks.map((task, idx) => {
+                                        const visualIdx = (idx * 2) + columnIdx;
+                                        return (
+                                            <AICoachCard
+                                                key={getSafeId(task) || `${columnIdx}-${idx}`}
+                                                task={task}
+                                                idx={visualIdx}
+                                                onStartPomodoro={handleStartNeural}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            ));
+                        })()}
+                    </Motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

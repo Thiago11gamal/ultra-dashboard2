@@ -821,19 +821,19 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                             <Motion.div
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className={`relative flex items-center justify-center gap-4 w-full rounded-xl py-6 shadow-[0_20px_50px_rgba(16,185,129,0.1)] ${mode === 'long_break' ? 'bg-violet-900/40 border border-violet-500/30' : 'bg-emerald-900/40 border border-emerald-500/30'}`}
+                                className={`relative flex items-center justify-center gap-4 w-full rounded-2xl py-5 border ${mode === 'long_break' ? 'bg-violet-900/30 border-violet-500/40' : 'bg-emerald-900/30 border-emerald-500/40'}`}
                             >
-                                <Zap size={24} className={`${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'} animate-pulse`} />
-                                <span className={`text-xl font-black ${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'} tracking-widest uppercase`}>
-                                    {mode === 'long_break' ? 'Pausa Longa 🛌' : 'Recuperação Neural ☕'}
+                                <Zap size={20} className={`${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'}`} />
+                                <span className={`text-lg font-black ${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'} tracking-widest uppercase`}>
+                                    {mode === 'long_break' ? 'Pausa Longa' : 'Recuperação Neural'}
                                 </span>
                             </Motion.div>
                         ) : !activeSubject ? (
-                            <div onClick={handleManualExit} className="w-full bg-red-950/20 border border-dashed border-red-500/30 rounded-xl py-4 flex items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40">
+                            <div onClick={handleManualExit} className="w-full bg-red-950/20 border border-dashed border-red-500/30 rounded-2xl py-4 flex items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40 transition-all">
                                 <AlertCircle size={20} className="text-red-500" />
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-red-500/60 uppercase">Protocolo Inativo</span>
-                                    <h2 className="text-sm font-black text-red-500 uppercase tracking-widest">Selecione uma missão neural</h2>
+                                    <span className="text-[10px] font-bold text-red-500/70 uppercase tracking-widest">Protocolo Inativo</span>
+                                    <span className="text-xs font-bold text-red-500">Selecione uma missão neural</span>
                                 </div>
                             </div>
                         ) : null}
@@ -843,7 +843,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 <div className="w-full flex justify-end px-4 -mb-8 relative z-50">
                      <button 
                         onClick={toggleMute}
-                        className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-slate-400 hover:text-white transition-all shadow-xl backdrop-blur-md group"
+                        className="p-3 bg-slate-900/40 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all shadow-xl backdrop-blur-md group"
                         title={isMuted ? "Ativar Áudio" : "Mudar para Silencioso"}
                     >
                         {isMuted ? <VolumeX size={18} className="text-red-400" /> : <Volume2 size={18} className="text-emerald-400" />}
@@ -852,26 +852,26 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
                 <div
                     style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)' }}
-                    className="w-full border-y-[6px] border-x-0 sm:border-[6px] border-[#3f2e26] pt-32 pb-16 px-4 sm:px-10 rounded-none sm:rounded-2xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
+                    className="w-full border-y-[6px] border-x-0 sm:border-[6px] border-[#3f2e26] pt-32 pb-16 px-4 sm:px-10 rounded-3xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
                 >
                     <div className="absolute top-4 right-6 z-[60]">
-                        <div className="flex bg-[#1a1411] p-1.5 rounded-xl border border-[#3f2e26] shadow-2xl backdrop-blur-md">
+                        <div className="flex bg-[#1a1411] p-1 rounded-2xl border border-[#3f2e26]/80 shadow-inner backdrop-blur-md">
                             {[1, 10, 100].map(s => (
                                 <button
                                     key={s}
                                     onClick={() => setSpeed(s)}
                                     disabled={isProtocolInactive}
-                                    className={`w-12 h-9 rounded-lg text-[11px] font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-[0_0_15px_rgba(176,142,107,0.4)]' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                                    className={`px-3 h-8 rounded-xl text-[11px] font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
                                 >
                                     {s}X
                                 </button>
                             ))}
                         </div>
                     </div>
-                    <div className="flex items-center gap-6 mb-12 z-30">
-                        <span className={`text-[9px] font-black uppercase tracking-[0.4em] ${mode === 'work' ? 'text-white' : 'text-white/40'}`}>FOCO</span>
-                        <div className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0" />
-                        <span className={`text-[9px] font-black uppercase tracking-[0.4em] ${mode === 'break' ? 'text-white' : 'text-white/40'}`}>PAUSA</span>
+                    <div className="flex items-center gap-4 mb-10 z-30 opacity-60">
+                        <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-white">FOCO</span>
+                        <div className="w-1 h-1 rounded-full bg-white/30" />
+                        <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-white">PAUSA</span>
                     </div>
 
                     <div className="relative mt-12 mb-8 rounded-full">
@@ -966,75 +966,59 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                         handleManualExit();
                                     }
                                 }}
-                                className="w-full flex items-center justify-center gap-3 p-4 bg-red-950/20 hover:bg-red-900/40 border border-red-500/20 rounded-xl transition-all group"
+                                className="w-full flex items-center justify-center gap-3 p-3 bg-red-950/20 hover:bg-red-900/40 border border-red-500/20 rounded-2xl transition-all text-xs font-bold text-red-400 group"
                             >
-                                <RotateCcw size={16} className="text-red-500 group-hover:rotate-[-90deg] transition-transform duration-500" />
-                                <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em]">Abortar Protocolo</span>
+                                <RotateCcw size={14} className="text-red-500 group-hover:rotate-[-90deg] transition-transform" />
+                                ABORTAR SESSÃO
                             </button>
                         </div>
                     )}
                 </div>
 
-                <div className="w-full px-10 py-8 rounded-none bg-[#b08e6b] border-2 border-[#94785a] shadow-xl">
-                    <div className="flex flex-col gap-6">
+                <div className="w-full px-10 py-8 rounded-3xl bg-[#b08e6b] border-2 border-[#94785a] shadow-xl">
+                    <div className="flex flex-col gap-4">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em]">PROGRESSO DOS CICLOS</h3>
-                            <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-3 bg-white/10 p-1 rounded-lg">
-                                    <div className="flex items-center gap-1 px-1">
-                                        <button onClick={() => {
-                                            const current = stateRefs.current;
-                                            const newTarget = Math.max(current.completedCycles < 1 ? 1 : current.completedCycles, current.targetCycles - 1);
-                                            setTargetCycles(newTarget);
-                                            try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (error) {
-                                                console.error('Failed to post TARGET_CYCLES_CHANGE message:', error);
-                                            }
-                                        }} disabled={!activeSubject || targetCycles <= 1} className="w-6 h-6 rounded bg-white/10 text-[#2d1a12] font-bold text-xs">-</button>
-                                        <button onClick={() => {
-                                            const newTarget = targetCycles + 1;
-                                            setTargetCycles(newTarget);
-                                            try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (error) {
-                                                console.error('Failed to post TARGET_CYCLES_CHANGE message (plus):', error);
-                                            }
-                                        }} disabled={!activeSubject} className="w-6 h-6 rounded bg-white/10 text-[#2d1a12] font-bold text-xs">+</button>
-                                    </div>
+                            <h3 className="text-[9px] font-bold text-[#2d1a12]/70 uppercase tracking-[0.2em]">Progresso dos Ciclos</h3>
+                            <div className="flex items-center gap-2 text-[#2d1a12]">
+                                <button onClick={() => {
+                                    const current = stateRefs.current;
+                                    const newTarget = Math.max(current.completedCycles < 1 ? 1 : current.completedCycles, current.targetCycles - 1);
+                                    setTargetCycles(newTarget);
+                                    try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (error) {}
+                                }} disabled={!activeSubject || targetCycles <= 1} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20 disabled:opacity-40">-</button>
+                                <div className="flex items-baseline gap-0.5 text-sm font-black tabular-nums">
+                                    <span>{completedCycles}</span>
+                                    <span className="text-[#2d1a12]/50">/ {targetCycles}</span>
                                 </div>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl font-black text-[#2d1a12] tabular-nums">{completedCycles}</span>
-                                    <span className="text-sm font-black text-[#2d1a12]/40">/ {targetCycles}</span>
-                                </div>
+                                <button onClick={() => {
+                                    const newTarget = targetCycles + 1;
+                                    setTargetCycles(newTarget);
+                                    try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (error) {}
+                                }} disabled={!activeSubject} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20">+</button>
                             </div>
                         </div>
 
-                        <div className="flex flex-1 items-center gap-1.5 h-16 px-4">
+                        <div className="flex items-center gap-2 h-5">
                             {Array.from({ length: targetCycles || 1 }).map((_, i) => (
                                 <React.Fragment key={i}>
-                                    <div className="flex-1 relative">
-                                        <div className="bg-[#2d1a12]/10 h-3 rounded-full overflow-hidden">
-                                            <div
-                                                ref={el => workFillsRef.current[i] = el}
-                                                className="h-full bg-blue-500 will-change-[width]"
-                                                style={{
-                                                    width: (i < sessions - 1 || (i === sessions - 1 && (mode === 'break' || mode === 'long_break'))) ? '100%' :
-                                                        (i === sessions - 1 && mode === 'work') ?
-                                                            (isTransitioning ? '100%' : `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%`)
-                                                            : '0%',
-                                                    transition: isRunning ? 'none' : 'width 0.3s ease'
-                                                }}
-                                            />
-                                        </div>
+                                    <div className="flex-1 h-1.5 bg-[#2d1a12]/20 rounded-full overflow-hidden">
+                                        <div
+                                            ref={el => workFillsRef.current[i] = el}
+                                            className="h-full bg-[#3b82f6] transition-all"
+                                            style={{
+                                                width: (i < sessions - 1 || (i === sessions - 1 && (mode === 'break' || mode === 'long_break'))) ? '100%' :
+                                                    (i === sessions - 1 && mode === 'work') ? `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%` : '0%'
+                                            }}
+                                        />
                                     </div>
                                     {i < (targetCycles || 1) - 1 && (
-                                        <div className="relative w-6 h-6 rounded-full bg-[#2d1a12]/10 border-2 border-[#2d1a12]/20 overflow-hidden shrink-0">
+                                        <div className="relative w-4 h-4 rounded-full bg-[#2d1a12]/20 border border-[#2d1a12]/40 overflow-hidden shrink-0">
                                             <div
                                                 ref={el => breakBallsRef.current[i] = el}
-                                                className="absolute bottom-0 w-full bg-emerald-500 will-change-[height]"
+                                                className="absolute bottom-0 w-full bg-emerald-600 transition-all"
                                                 style={{
                                                     height: (i < sessions - 1) ? '100%' :
-                                                        (sessions === i + 1 && (mode === 'break' || mode === 'long_break')) ?
-                                                            (isTransitioning ? '100%' : `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%`)
-                                                            : '0%',
-                                                    transition: isRunning ? 'none' : 'height 0.3s ease'
+                                                        (sessions === i + 1 && (mode === 'break' || mode === 'long_break')) ? `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%` : '0%'
                                                 }}
                                             />
                                         </div>

@@ -117,36 +117,3 @@ function partition(arr, left, right) {
     return storeIndex;
 }
 
-/**
- * Matemática Padrão de Percentil Contínuo (Linear Interpolation).
- * O valor deve interpolar entre as casas adjacentes quando a posição não for inteira.
- * [BUG-PERCENTIL-DISCRETO FIX]
- */
-export const calculateInterpolatedPercentile = (arr, p) => {
-    if (!arr || arr.length === 0) return 0;
-    let cleanArr = arr.filter(Number.isFinite);
-    if (cleanArr.length === 0) return 0;
-    
-    // BUG FIX: O array precisa ser ordenado antes de calcular índices de percentil
-    cleanArr = cleanArr.sort((a, b) => a - b);
-    
-    if (cleanArr.length === 1) return cleanArr[0];
-    if (p <= 0) return cleanArr[0];
-    if (p >= 1) return cleanArr[cleanArr.length - 1];
-
-    // Calculamos o índice exacto em ponto flutuante
-    const exactIndex = p * (cleanArr.length - 1);
-    
-    // As "paredes" dos índices
-    const lowerIndex = Math.floor(exactIndex);
-    const upperIndex = Math.ceil(exactIndex);
-    
-    // A fracção remanescente (ex: se exactIndex = 9.5, weight = 0.5)
-    const weight = exactIndex - lowerIndex;
-    
-    const lowerValue = cleanArr[lowerIndex];
-    const upperValue = cleanArr[upperIndex];
-    
-    // Interpolação linear fina entre os dois limites da amostra discreta
-    return lowerValue + weight * (upperValue - lowerValue);
-};

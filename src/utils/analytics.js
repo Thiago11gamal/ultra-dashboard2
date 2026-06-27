@@ -1,5 +1,6 @@
 import { getXPProgress } from './gamification.js';
 import { normalizeDate, getLocalMidnight, getDateKey } from './dateHelper.js';
+import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
 
 /**
  * Distributes a rounding remainder across items based on their decimal parts.
@@ -110,6 +111,137 @@ const calculateLongest = (uniqueDays) => {
         }
     }
     return longest;
+};
+
+const getStudyMinutes = (entry) => {
+    const duration = Number(entry?.duration);
+    const minutes = Number(entry?.minutes);
+    const raw = Number.isFinite(duration) ? duration : (Number.isFinite(minutes) ? minutes : 0);
+    return Math.max(0, raw);
+};
+
+/**
+ * Conta pomodoros concluídos hoje a partir dos studyLogs.
+ * extraCompletedCycles cobre blocos de foco da sessão ativa ainda não persistidos em log.
+ */
+export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompletedCycles = 0) => {
+    const startOfToday = getLocalMidnight().getTime();
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    const workDuration = Math.max(1, Number(pomodoroWork) || 25);
+
+    const minutesToday = logsArray.reduce((sum, log) => {
+        const d = normalizeDate(log?.date);
+        if (!d || d.getTime() < startOfToday) return sum;
+        return sum + getStudyMinutes(log);
+    }, 0);
+
+    return Math.floor(minutesToday / workDuration) + Math.max(0, Number(extraCompletedCycles) || 0);
+};
+
+/** Total de pomodoros (vida útil) baseado em minutos reais, não contagem de sessões. */
+export const countPomodorosTotal = (studyLogs, studySessions, pomodoroWork = 25) => {
+    const workDuration = Math.max(1, Number(pomodoroWork) || 25);
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    const sessionsArray = Array.isArray(studySessions) ? studySessions : Object.values(studySessions || {});
+
+    const totalMinutes = sessionsArray.length > 0
+        ? sessionsArray.reduce((sum, s) => sum + getStudyMinutes(s), 0)
+        : logsArray.reduce((sum, log) => sum + getStudyMinutes(log), 0);
+
+    return Math.floor(totalMinutes / workDuration);
+};
+
+const aggregateQuestionAccuracy = (contestData) => {
+    const validSimulados = (contestData.simuladoRows || []).filter(
+        r => r?.validated && Number(r?.total) > 0 && r?.correct !== undefined
+    );
+
+    let totalQuestions = validSimulados.reduce((acc, r) => acc + Number(r.total), 0);
+    let totalCorrect = validSimulados.reduce((acc, r) => acc + Number(r.correct), 0);
+
+    (contestData.categories || []).forEach(cat => {
+        const maxS = Number(cat.maxScore) || 100;
+        const syntheticTotal = getSyntheticTotal(maxS);
+        const histArr = Array.isArray(cat.simuladoStats?.history)
+            ? cat.simuladoStats.history
+            : Object.values(cat.simuladoStats?.history || {});
+
+        histArr.forEach(e => {
+            let t = Number(e.total) || 0;
+            let c = 0;
+            if (t > 0) {
+                c = e.correct !== undefined ? Number(e.correct) : Math.round((getSafeScore(e, maxS) / maxS) * t);
+            } else if (e.score != null) {
+                t = syntheticTotal;
+                c = Math.round((getSafeScore(e, maxS) / maxS) * t);
+            }
+            totalQuestions += t;
+            totalCorrect += c;
+        });
+    });
+
+    return {
+        totalQuestions,
+        totalCorrect,
+        accuracy: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0,
+    };
+};
+
+/**
+ * Estatísticas unificadas para conquistas e painéis de gamificação.
+ * Centraliza a lógica que antes divergia entre Activity.jsx e createGamificationSlice.
+ */
+export const buildAchievementStats = (contestData, options = {}) => {
+    if (!contestData) return null;
+
+    const pomodoroWork = Math.max(1, Number(options.pomodoroWork ?? contestData.settings?.pomodoroWork) || 25);
+    const extraCompletedCycles = Math.max(0, Number(options.extraCompletedCycles) || 0);
+
+    const studyLogs = Array.isArray(contestData.studyLogs)
+        ? contestData.studyLogs
+        : Object.values(contestData.studyLogs || {});
+    const studySessions = Array.isArray(contestData.studySessions)
+        ? contestData.studySessions
+        : Object.values(contestData.studySessions || {});
+
+    const { totalQuestions, totalCorrect, accuracy } = aggregateQuestionAccuracy(contestData);
+
+    let studiedEarly = contestData.user?.studiedEarly || false;
+    let studiedLate = contestData.user?.studiedLate || false;
+    let studiedWeekend = false;
+
+    studyLogs.forEach(log => {
+        const d = normalizeDate(log?.date);
+        if (!d) return;
+        const hr = d.getHours();
+        const day = d.getDay();
+        if (hr >= 4 && hr < 7) studiedEarly = true;
+        if (hr >= 23 || hr < 4) studiedLate = true;
+        if (day === 0 || day === 6) studiedWeekend = true;
+    });
+
+    const hasPerfectScoreFromHistory = contestData.categories?.some(cat => {
+        const hist = cat.simuladoStats?.history;
+        const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
+        const maxS = Number(cat.maxScore) || 100;
+        return histArr?.some(h => getSafeScore(h, maxS) >= maxS || (h.correct === h.total && h.total > 0));
+    }) || false;
+
+    return {
+        completedTasks: contestData.categories?.reduce(
+            (sum, cat) => sum + (cat.tasks?.filter(t => t.completed)?.length || 0), 0
+        ) || 0,
+        currentStreak: calculateStudyStreak(studyLogs).current,
+        totalQuestions,
+        hasPerfectScore: (totalQuestions > 0 && totalCorrect >= totalQuestions) || hasPerfectScoreFromHistory,
+        accuracy,
+        pomodorosCompleted: countPomodorosTotal(studyLogs, studySessions, pomodoroWork),
+        pomodorosToday: countPomodorosToday(studyLogs, pomodoroWork, extraCompletedCycles),
+        studiedEarly,
+        studiedLate,
+        studiedWeekend,
+        subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size
+    };
 };
 
 export const analyzeSubjectBalance = (categories) => {
@@ -240,8 +372,9 @@ export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
     // Tempo médio por tarefa concluída (Métrica Bruta para Display)
     const minutesPerTask = totalMinutes / completedTasks;
 
-    // Taxa de conclusão geral
-    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    // Taxa de conclusão geral (clamp defensivo contra dados corrompidos)
+    const safeCompleted = Math.min(completedTasks, totalTasks);
+    const completionRate = totalTasks > 0 ? Math.min(100, Math.round((safeCompleted / totalTasks) * 100)) : 0;
 
     // FIX MATEMÁTICO: Novo Motor de Eficiência (Anti-Punição de Deep Work)
     // Em vez de punir o tempo absoluto, medimos a cadência de entrega (tarefas/hora).
@@ -272,8 +405,9 @@ export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
         (Array.isArray(c?.tasks) ? c.tasks : []).filter(t => t?.priority === 'high')
     );
     const highPriorityCompleted = highPriorityTasks.filter(t => t.completed).length;
-    const highPriorityRate = highPriorityTasks.length > 0 ?
-        Math.round((highPriorityCompleted / highPriorityTasks.length) * 100) : 100;
+    const highPriorityRate = highPriorityTasks.length > 0
+        ? Math.min(100, Math.round((Math.min(highPriorityCompleted, highPriorityTasks.length) / highPriorityTasks.length) * 100))
+        : 100;
 
     return {
         efficiency,
@@ -461,7 +595,7 @@ export const DAILY_GOAL_MINUTES = 240; // Configurado para 4 horas padrão
  * G-02 FIX: Recovers duration from startTime/endTime if duration field is 0.
  */
 export const calculatePomodoroStats = (stats) => {
-    const { studySessions = [], categories = [], user = {}, settings = {} } = stats || {};
+    const { studySessions = [], studyLogs = [], categories = [], user = {}, settings = {} } = stats || {};
 
     // Get dynamic goal (B-11 FIX: Link dashboard UI to dynamic goal engine)
     const dynamicGoal = calculateDailyPomodoroGoal(categories, user);
@@ -522,7 +656,10 @@ export const calculatePomodoroStats = (stats) => {
     });
 
     // Calcular a série de dias (streak)
-    const streak = calculateStudyStreak(studySessions.map(s => ({ date: s.startTime })));
+    const streakSource = (Array.isArray(studyLogs) && studyLogs.length > 0)
+        ? studyLogs
+        : studySessions.map(s => ({ date: s.startTime || s.date }));
+    const streak = calculateStudyStreak(streakSource);
 
     // Calcular progresso da meta (G-01: Used dynamic goal minutes)
     // BUGFIX M3: Protection against division by zero when goal is 0.
@@ -575,11 +712,14 @@ export const calculateDailyPomodoroGoal = (categories, user) => {
 };
 
 export const getCompleteReport = (data) => {
-    const streak = calculateStudyStreak(data.studyLogs || []);
+    const studyLogs = data.studyLogs || [];
+    const streak = calculateStudyStreak(studyLogs);
     const balance = analyzeSubjectBalance(data.categories || []);
-    const efficiency = analyzeEfficiency(data.categories || [], data.studyLogs || [], data.user);
-    const procrastination = detectProcrastination(data.categories || [], data.studyLogs || []);
+    const efficiency = analyzeEfficiency(data.categories || [], studyLogs, data.user);
+    const procrastination = detectProcrastination(data.categories || [], studyLogs);
     const goals = calculateDailyPomodoroGoal(data.categories, data.user);
+    const pomodoroWork = data.settings?.pomodoroWork || 25;
+    const pomodorosToday = countPomodorosToday(studyLogs, pomodoroWork);
 
     return {
         performance: {
@@ -593,12 +733,10 @@ export const getCompleteReport = (data) => {
         procrastination,
         goals: {
             ...goals,
-            current: data.pomodorosCompleted || 0,
-            // BUGFIX: quando a meta diária é 0 (ex.: sem tarefas pendentes), evitar divisão por zero.
-            // Mantemos o progresso em 100 se não há exigência no dia, caso contrário clamp [0,100].
+            current: pomodorosToday,
             progress: goals.daily <= 0
                 ? 100
-                : Math.max(0, Math.min(100, Math.round(((data.pomodorosCompleted || 0) / goals.daily) * 100)))
+                : Math.max(0, Math.min(100, Math.round((pomodorosToday / goals.daily) * 100)))
         },
         // IMP-GLOBAL-08 FIX: Pesos diferenciados para métricas com distribuições assimétricas.
         // Antes: média simples de 4 componentes com ranges/distribuições muito diferentes.

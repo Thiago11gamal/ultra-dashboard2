@@ -473,7 +473,13 @@ export default function Coach() {
                     <div className="w-full">
                         <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} />
 
-                        <div className="animate-fade-in">
+                        <Motion.div 
+                            key={safeActiveTab}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, ease: "easeOut" }}
+                            className="min-h-[200px]"
+                        >
                             <div
                                 role="tabpanel"
                                 id="coach-panel-insights"
@@ -500,7 +506,7 @@ export default function Coach() {
                             >
                                 {safeActiveTab === 'analytics' && <RaioXDashboard data={data} />}
                             </div>
-                        </div>
+                        </Motion.div>
                     </div>
                 </div>
             </div>

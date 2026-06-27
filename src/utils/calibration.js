@@ -1,3 +1,5 @@
+import { kahanSum } from '../engine/math/kahan.js';
+
 export function computeBrierScore(probability01, observedBinary) {
     const rawP = Number(probability01);
     const p = Math.max(0, Math.min(1, Number.isFinite(rawP) ? rawP : 0));
@@ -32,7 +34,8 @@ export function summarizeCalibration(scores = [], options = {}) {
     const sorted = [...finiteScores].sort((a, b) => a - b);
     const trim = sorted.length >= 8 ? Math.floor(sorted.length * 0.1) : 0;
     const core = trim > 0 ? sorted.slice(trim, sorted.length - trim) : sorted;
-    const avgBrier = core.reduce((a, b) => a + b, 0) / core.length;
+    // Precision: Kahan for avgBrier
+    const avgBrier = kahanSum(core) / core.length;
     
     // A penalidade agora é baseada no Brier Score, mas o motor deve monitorar Log Loss
     // para diagnósticos de "falsa sensação de domínio" (Entropia).
@@ -57,7 +60,7 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
   let ece = 0;
   let mce = 0;
   const reliability = [];
-  const overallObserved = cleanPairs.reduce((a, b) => a + b.observed, 0) / cleanPairs.length;
+  const overallObserved = kahanSum(cleanPairs.map(p => p.observed)) / cleanPairs.length;
   let relTerm = 0;
   let resTerm = 0;
   
@@ -71,8 +74,8 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
     
     if (slice.length === 0) continue;
     
-    const meanPred = slice.reduce((a, b) => a + b.probability, 0) / slice.length;
-    const observedRate = slice.reduce((a, b) => a + b.observed, 0) / slice.length;
+    const meanPred = kahanSum(slice.map(p => p.probability)) / slice.length;
+    const observedRate = kahanSum(slice.map(p => p.observed)) / slice.length;
     const gap = Math.abs(meanPred - observedRate);
     const weight = slice.length / cleanPairs.length;
     ece += weight * gap;
@@ -225,7 +228,7 @@ export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
     const hi = isLastBin ? 1.01 : sorted[end - 1].probability;
 
     if (!(p >= lo && (p < hi || isLastBin))) continue;
-    const succ = slice.reduce((a, b) => a + b.observed, 0);
+    const succ = kahanSum(slice.map(p => p.observed));
     const n = slice.length;
     return (succ + alpha0) / (n + alpha0 + beta0);
   }
@@ -270,7 +273,7 @@ export function computeStackingWeights(candidateProbs = [], observed = []) {
         // Peso inversamente proporcional à entropia
         const minLoss = Math.min(...logLoss);
         const scores = logLoss.map(l => Math.exp(-(l - minLoss) / 0.08));
-        const z = scores.reduce((a, b) => a + b, 0);
+        const z = kahanSum(scores);
         if (z === 0) return new Array(k).fill(1 / k);
         return scores.map(s => s / z);
     };
@@ -297,9 +300,9 @@ export function buildCalibrationDashboardSeries(events = []) {
   }
 
   const briers = clean.map(e => Number.isFinite(e.avgBrier) ? e.avgBrier : null).filter(v => v !== null);
-  const mean = briers.length > 0 ? briers.reduce((a, b) => a + b, 0) / briers.length : null;
+  const mean = briers.length > 0 ? kahanSum(briers) / briers.length : null;
   const sd = briers.length > 1
-    ? Math.sqrt(briers.reduce((acc, v) => acc + ((v - mean) ** 2), 0) / (briers.length - 1))
+    ? Math.sqrt(kahanSum(briers.map(v => (v - mean) ** 2)) / (briers.length - 1))
     : 0;
 
   const trend = clean.map(e => ({

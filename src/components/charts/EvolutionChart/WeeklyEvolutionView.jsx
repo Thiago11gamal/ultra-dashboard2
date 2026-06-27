@@ -385,7 +385,7 @@ export const WeeklyEvolutionView = ({
 
     if (chartData.length < 2) {
         return (
-            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-xl border border-slate-800 p-6">
+            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
                 <HelpCircle size={40} className="text-slate-600 mb-3" />
                 <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
                 <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
@@ -411,12 +411,12 @@ export const WeeklyEvolutionView = ({
                     )}
                 </div>
 
-                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-1">
+                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-2xl p-1">
                     <button
                         onClick={() => setViewMode('performance')}
                         aria-label="Alternar para visão de desempenho semanal"
                         aria-pressed={viewMode === 'performance'}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
                     >
                         <Zap size={14} className="shrink-0" /> <span className="hidden sm:inline">Desempenho (7 dias)</span>
                     </button>
@@ -424,7 +424,7 @@ export const WeeklyEvolutionView = ({
                         onClick={() => setViewMode('evolution')}
                         aria-label="Alternar para visão de evolução semanal"
                         aria-pressed={viewMode === 'evolution'}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
                     >
                         <TrendingUp size={14} className="shrink-0" /> <span className="hidden sm:inline">Evolução</span>
                     </button>
@@ -432,7 +432,7 @@ export const WeeklyEvolutionView = ({
                         onClick={() => setViewMode('variation')}
                         aria-label="Alternar para visão de variação semanal"
                         aria-pressed={viewMode === 'variation'}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
                     >
                         <BarChart3 size={14} className="shrink-0" /> <span className="hidden sm:inline">Delta</span>
                     </button>

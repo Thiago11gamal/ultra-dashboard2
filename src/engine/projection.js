@@ -9,10 +9,11 @@ import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
-import { sampleTruncatedNormal } from './math/gaussian.js';
+import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian } from './math/gaussian.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
 import { weightedRegression, calculateSlopeStdError, getSortedHistory } from './stats.js';
+import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 export { weightedRegression, calculateSlopeStdError, getSortedHistory };
 
@@ -79,7 +80,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const weightedMedian = (arr) => {
         if (!arr.length) return 0;
         const sortedArr = [...arr].sort((a, b) => a.value - b.value);
-        const totalW = sortedArr.reduce((acc, it) => acc + it.weight, 0);
+        const totalW = kahanSum(sortedArr.map(it => it.weight));
         if (totalW < 1e-15) return sortedArr[Math.floor(sortedArr.length / 2)].value;
         let accW = 0;
         for (const it of sortedArr) {
@@ -116,7 +117,10 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
     }
     const scores = history.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
     const n = scores.length;
-    if (n < 2) return 0;
+    if (n < 2) {
+        const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+        return 0.05 * range;
+    }
     const meanVal = kahanMean(scores);
     const variance = kahanSum(scores.map(b => Math.pow(b - meanVal, 2))) / (n - 1);
     return Math.sqrt(variance);
@@ -236,8 +240,9 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
 
     const now = options.referenceDate || Date.now();
     const historicalScores = sorted.map(h => getSafeScore(h, maxScore));
-    const meanVal = historicalScores.reduce((a, b) => a + b, 0) / historicalScores.length;
-    const currentVariance = Math.sqrt(historicalScores.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / Math.max(1, historicalScores.length - 1));
+    const meanVal = kahanSum(historicalScores) / Math.max(1, historicalScores.length);
+    const devs = historicalScores.map(b => Math.pow(b - meanVal, 2));
+    const currentVariance = Math.sqrt(kahanSum(devs) / Math.max(1, historicalScores.length - 1));
 
     let L = maxScore;
     if (sorted.length >= 4) {
@@ -381,8 +386,9 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const marginOfError = tMult * predictionSD; 
 
     return {
+        // FIX #2: Precisão completa
         projected: Math.max(minScore, Math.min(maxScore, projectedScore)),
-        marginOfError: Number(marginOfError.toFixed(2))
+        marginOfError
     };
 }
 
@@ -504,7 +510,7 @@ export function monteCarloSimulation(
     const validResiduals = residuals.length > 1 ? residuals.slice(1) : residuals;
     let centeredResiduals;
     if (validResiduals.length > 1) {
-        const residualMean = validResiduals.reduce((a, b) => a + b, 0) / validResiduals.length;
+        const residualMean = kahanSum(validResiduals) / Math.max(1, validResiduals.length);
         centeredResiduals = validResiduals.map(r => r - residualMean);
     } else {
         centeredResiduals = validResiduals;
@@ -517,8 +523,9 @@ export function monteCarloSimulation(
     const safeResiduals = centeredResiduals.filter(r => Math.abs(r - resMedian) < 4 * resMad);
 
     // Adicionar esta linha após criar o safeResiduals:
-    const empMean = safeResiduals.reduce((a, b) => a + b, 0) / Math.max(1, safeResiduals.length);
-    const empResidualSD = Math.sqrt(safeResiduals.reduce((a, b) => a + Math.pow(b - empMean, 2), 0) / Math.max(1, safeResiduals.length));
+    const empMean = kahanSum(safeResiduals) / Math.max(1, safeResiduals.length);
+    const empDevs = safeResiduals.map(r => Math.pow(r - empMean, 2));
+    const empResidualSD = Math.sqrt(kahanSum(empDevs) / Math.max(1, safeResiduals.length));
     const standardizer = empResidualSD > 0 ? empResidualSD : 1;
 
     const results = [];
@@ -570,6 +577,16 @@ export function monteCarloSimulation(
     // σ²_∞ = ω / (1 - α - β), logo ω = (1 - α - β) × σ²_∞
     const unconditionalVar = Math.pow(dailyVolatility, 2);
     const omega = (1 - alphaG - betaG) * unconditionalVar;
+
+    // FIX #3: Prepare Cholesky for correlated subject minCutoffs (disciplines with minCutoff)
+    const cutoffSubjects = (options.subjects || []).filter(s => s && Number(s.minCutoff) > 0);
+    let subjectCholesky = null;
+    if (cutoffSubjects.length > 1) {
+      const stats = cutoffSubjects.map(s => ({ sd: Number(s.sd) || 1 }));
+      const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION);
+      const psdCov = ensurePositiveSemiDefinite(cov);
+      subjectCholesky = choleskyDecomposition(psdCov);
+    }
 
     const minCutoffFailures = [];
 
@@ -641,12 +658,29 @@ export function monteCarloSimulation(
         results.push(currentSimScore);
         
         let passedMins = true;
-        if (options.subjects && options.subjects.length > 0) {
-            for (let j = 0; j < options.subjects.length; j++) {
-                const s = options.subjects[j];
-                if (s.minCutoff > 0) {
-                    // Estimate subject score. We use the subject's baseline and standard deviation, plus the drift Effect and mean reversion from the global simulation.
-                    const subjScore = sampleTruncatedNormal(s.mean, s.sd, minScore, maxScore, rng);
+        if (cutoffSubjects.length > 0) {
+            if (subjectCholesky) {
+                // Correlated subjects using latent normals (Cholesky)
+                const zVec = cutoffSubjects.map(() => generateGaussian(rng));
+                const zCorr = applyCovariance(subjectCholesky, zVec);
+                for (let j = 0; j < cutoffSubjects.length; j++) {
+                    const s = cutoffSubjects[j];
+                    const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
+                    const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
+                    const raw = Number(s.mean) + zCorr[j] * (Number(s.sd) || 1);
+                    const subjScore = Math.max(sMin, Math.min(sMax, raw));
+                    if (subjScore < Number(s.minCutoff)) {
+                        passedMins = false;
+                        break;
+                    }
+                }
+            } else {
+                // fallback independent
+                for (let j = 0; j < cutoffSubjects.length; j++) {
+                    const s = cutoffSubjects[j];
+                    const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
+                    const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
+                    const subjScore = sampleTruncatedNormal(s.mean, s.sd, sMin, sMax, rng);
                     if (subjScore < s.minCutoff) {
                         passedMins = false;
                         break;
@@ -681,18 +715,18 @@ export function monteCarloSimulation(
     let analyticalProb = empiricalProb;
 
     return {
+        // FIX #2: Valores brutos com precisão completa. toFixed removido do motor.
+        // UI e componentes de display devem formatar quando necessário.
         probability: empiricalProb,
-        analyticalProbability: Number(analyticalProb.toFixed(4)),
-        mean: Number(meanResult.toFixed(2)),
-        projectedMean: Number(meanResult.toFixed(2)), // Standardized for EvolutionChart
-        sd: Number(finalSD.toFixed(2)),
-        // BUG-GLOBAL-01 FIX: getPercentile espera p em [0,1], não [0,100].
-        // Antes: 2.5 e 97.5 → p>=1 retornava último elemento → CI = [minScore, maxScore] always.
-        ci95Low: Number(getPercentile(results, 0.025, true).toFixed(2)),
-        ci95High: Number(getPercentile(results, 0.975, true).toFixed(2)),
-        currentMean: Number(baselineScore.toFixed(2)),
-        drift: Number((drift * 30).toFixed(2)),
-        volatility: Number(volatility.toFixed(2)),
+        analyticalProbability: analyticalProb,
+        mean: meanResult,
+        projectedMean: meanResult, // Standardized for EvolutionChart
+        sd: finalSD,
+        ci95Low: getPercentile(results, 0.025, true),
+        ci95High: getPercentile(results, 0.975, true),
+        currentMean: baselineScore,
+        drift: (drift * 30),
+        volatility,
         confidence: sortedHistory.length < 5 ? 'low' : sortedHistory.length < 15 ? 'medium' : 'high'
     };
 }

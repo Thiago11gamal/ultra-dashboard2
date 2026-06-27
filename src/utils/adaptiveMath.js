@@ -153,7 +153,6 @@ export function deriveAdaptiveConfig(scores = []) {
 export const calcSlopeWithSignificance = (dados) => {
     if (!Array.isArray(dados)) return { slope: 0, se: 0, tStat: 0 };
 
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     const n = dados.length;
     
     // N < 3 não tem graus de liberdade (df = n-2) para calcular erro padrão
@@ -170,14 +169,11 @@ export const calcSlopeWithSignificance = (dados) => {
         return Number.isFinite(Number(val)) ? Number(val) : 0;
     });
     
-    for (let i = 0; i < n; i++) {
-        const x = Xs[i];
-        const y = Ys[i];
-        sumX += x; 
-        sumY += y; 
-        sumXY += x * y; 
-        sumXX += x * x;
-    }
+    // Use Kahan for precise accumulation in regression (improved precision)
+    const sumX = kahanSum(Xs);
+    const sumY = kahanSum(Ys);
+    const sumXY = kahanSum(Xs.map((x, i) => x * Ys[i]));
+    const sumXX = kahanSum(Xs.map(x => x * x));
     
     const meanX = sumX / n;
     const det = n * sumXX - sumX * sumX;
@@ -185,14 +181,9 @@ export const calcSlopeWithSignificance = (dados) => {
     const slope = det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
     const intercept = (sumY - slope * sumX) / n;
     
-    let ssRes = 0;
-    let ssX = 0;
-    
-    for (let i = 0; i < n; i++) {
-        const predY = intercept + slope * Xs[i];
-        ssRes += Math.pow(Ys[i] - predY, 2);
-        ssX += Math.pow(Xs[i] - meanX, 2);
-    }
+    const predYs = Xs.map((x) => intercept + slope * x);
+    const ssRes = kahanSum(Ys.map((y, i) => Math.pow(y - predYs[i], 2)));
+    const ssX = kahanSum(Xs.map(x => Math.pow(x - meanX, 2)));
     
     const varRes = ssRes / (n - 2); // Variância residual
     const seSlope = ssX > 0 ? Math.sqrt(varRes / ssX) : 0;

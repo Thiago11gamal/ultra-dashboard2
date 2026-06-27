@@ -214,7 +214,7 @@ export function EvolutionLineChart({
                         </filter>
                     </defs>
                     
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
 
                     <XAxis
                         dataKey="date"
@@ -223,30 +223,31 @@ export function EvolutionLineChart({
                             const parts = String(val).split('-');
                             return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : val;
                         }}
-                        tick={{ fontSize: 10, fill: '#64748b' }}
-                        dy={12}
-                        axisLine={false}
+                        tick={{ fontSize: 9, fill: '#64748b', fontWeight: 500 }}
+                        dy={10}
+                        axisLine={{ stroke: '#334155', strokeWidth: 1 }}
                         tickLine={false}
-                        minTickGap={35}
-                        padding={{ left: 15, right: 10 }}
+                        minTickGap={30}
+                        padding={{ left: 10, right: 5 }}
                     />
 
                     <YAxis
-                        tick={{ fontSize: 10, fill: '#64748b' }}
-                        dx={-8}
-                        axisLine={false}
+                        tick={{ fontSize: 9, fill: '#64748b', fontWeight: 500 }}
+                        dx={-4}
+                        axisLine={{ stroke: '#334155', strokeWidth: 1 }}
                         tickLine={false}
                         domain={[minScore, maxScore]}
                         allowDataOverflow={false}
                         tickFormatter={(v) => `${formatValue(v)}${unit}`}
-                        width={45}
+                        width={40}
                     />
 
                     <ReferenceLine 
                         y={targetScore} 
-                        stroke="#22c55e" 
-                        strokeOpacity={0.45} 
-                        strokeDasharray="0"
+                        stroke="#10b981" 
+                        strokeOpacity={0.6} 
+                        strokeWidth={1.5}
+                        strokeDasharray="4 2"
                         label={{ 
                             value: `Meta ${targetScore}${unit}`, 
                             fill: '#22c55e', 
@@ -258,12 +259,17 @@ export function EvolutionLineChart({
                     />
 
                     <Tooltip 
-                        offset={30}
-                        cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
+                        offset={25}
+                        cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '2 2' }}
                         content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} />} 
                     />
 
-                    <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px', paddingBottom: '0' }} />
+                    <Legend 
+                        verticalAlign="top" 
+                        height={28}
+                        iconSize={6}
+                        wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px' }} 
+                    />
 
                     {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                         const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : false;

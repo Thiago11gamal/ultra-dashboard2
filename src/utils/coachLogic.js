@@ -15,6 +15,7 @@ import {
     simuladosToHistory
 } from './coachAdaptive.js';
 import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
+import { kahanSum } from '../engine/math/kahan.js';
 export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights, clearMcCache, runCoachMonteCarlo };
 
 const sanitizeMinutes = (mins) => Math.min(720, Math.max(0, Number(mins) || 0));
@@ -162,8 +163,9 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
     const validN = validScores.length;
     if (validN < 2) return fallbackVol;
 
-    const mean = validScores.reduce((a, b) => a + b, 0) / validN;
-    const variance = validScores.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (validN - 1);
+    const mean = kahanSum(validScores) / validN;
+    const devs = validScores.map(val => Math.pow(val - mean, 2));
+    const variance = kahanSum(devs) / (validN - 1);
     const nPenalty = Math.max(1, 4 / validN); // Penaliza amostras muito pequenas
     const empiricalVol = Math.sqrt(Math.max(0, variance));
     
@@ -533,7 +535,14 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         maxScore
     } = metrics;
 
-    const forgetting = computeForgettingRisk(simuladosWithMaxScore, maxScore);
+    const forgetting = computeForgettingRisk(
+        simuladosWithMaxScore,
+        maxScore,
+        averageScore,
+        mssdVolatility,
+        backtestWeights?.effectiveN || simuladosWithMaxScore.length,
+        recencyUnknown ? null : daysSinceLastStudy
+    );
     const performanceDeficit = Math.max(0, metrics.targetScore - averageScore);
     const memoryRisk = forgetting.risk === 'critical' ? 40 : (forgetting.risk === 'high' ? 20 : 5);
     const volatilityRisk = mssdVolatility;
@@ -612,9 +621,11 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const firstLogTime = sortedLogsForBurnout.length > 0 
         ? (normalizeDate(sortedLogsForBurnout[0].date) || new Date(nowMs)).getTime() 
         : nowMs;
-    const daysSinceFirstLog = Math.max(1, (nowMs - firstLogTime) / MS_PER_DAY);
-    const activeWeeks = Math.max(1, Math.min(4, daysSinceFirstLog / 7));
-    
+    const recentSpanDays = recentBaselineLogs.length > 0
+        ? Math.max(1, (nowMs - (normalizeDate(recentBaselineLogs[0].date) || new Date(nowMs)).getTime()) / MS_PER_DAY)
+        : Math.max(1, (nowMs - firstLogTime) / MS_PER_DAY);
+    const activeWeeks = Math.max(1, Math.min(4, recentSpanDays / 7));
+
     const baselineHoursPerWeek = recentBaselineLogs.length > 0 ? (recentBaselineHours / activeWeeks) : 5.0;
     const dynamicBurnoutThreshold = Math.max(15.0, baselineHoursPerWeek * 1.8);
 
@@ -964,9 +975,11 @@ export function analisarDesempenhoHistorico(historico) {
         const timestamp = Date.now() - (diasValidos * 86400000);
         const safeDate = Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
 
+        const total = Math.max(1, Number(h.total) || 100);
+        const acertos = Math.max(0, Number(h.acertos) || 0);
         return {
-            score: h.acertos,
-            total: h.total || 100,
+            score: (acertos / total) * 100,
+            total: 100,
             date: safeDate.toISOString()
         };
     });
@@ -1306,7 +1319,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         for (let i = 0; i < iterations; i++) {
             const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
             const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
-            const mcProbKey = mc ? Math.round(mc.probabilityRaw * 100) : '0';
+            const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
             const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
             const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
 

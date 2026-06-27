@@ -239,7 +239,7 @@ export function CompareChart({
                             </feMerge>
                         </filter>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
                     <XAxis 
                         dataKey="date" 
                         tickFormatter={(val) => {

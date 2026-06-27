@@ -1,11 +1,12 @@
 import { mulberry32 } from './random.js';
-import { normalCDF_complement, generateKDE, sampleTruncatedNormal, truncatedNormalMean } from './math/gaussian.js';
+import { normalCDF_complement, generateKDE, sampleTruncatedNormal, truncatedNormalMean, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance } from './math/gaussian.js';
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
 import { getPercentile } from './math/percentile.js';
 import { kahanMean, kahanSum } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
+import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 
 export { getPercentile };
 
@@ -144,19 +145,20 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             analyticalProbability: prob,
             recommendedProbability: prob,
             probabilityPolicy: 'deterministic',
-            mean: Number(safeMean.toFixed(2)),
+            // FIX #2: Retornar valores com precisão completa (formatação só na UI)
+            mean: safeMean,
             sd: 0,
             sdVisual: 0,
             sdLeft: 0, 
             sdRight: 0, 
-            ci95StatLow: Number(safeMean.toFixed(2)),
-            ci95StatHigh: Number(safeMean.toFixed(2)),
-            ci95Low: Number(safeMean.toFixed(2)),
-            ci95High: Number(safeMean.toFixed(2)),
-            ci95VisualLow: Number(safeMean.toFixed(2)),
-            ci95VisualHigh: Number(safeMean.toFixed(2)),
+            ci95StatLow: safeMean,
+            ci95StatHigh: safeMean,
+            ci95Low: safeMean,
+            ci95High: safeMean,
+            ci95VisualLow: safeMean,
+            ci95VisualHigh: safeMean,
             ci95VisualClamped: false,
-            currentMean: Number((currentMean ?? safeMean).toFixed(2)),
+            currentMean: (currentMean ?? safeMean),
             projectedMean: safeMean,
             projectedSD: 0,
             kdeData: [
@@ -217,15 +219,24 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         // que o primeiro elemento (potencialmente string) seja usado como seed.
         const numericCutoffs = historicalCutoffs.map(v => Number(v)).filter(Number.isFinite);
         if (numericCutoffs.length > 0) {
-            cutoffsMean = numericCutoffs.reduce((acc, v) => acc + v, 0) / numericCutoffs.length;
+            cutoffsMean = kahanSum(numericCutoffs) / numericCutoffs.length;
             if (numericCutoffs.length > 1) {
-                cutoffsSD = Math.sqrt(
-                    numericCutoffs.reduce((acc, v) => acc + Math.pow(v - cutoffsMean, 2), 0) / (numericCutoffs.length - 1)
-                );
+                const devs = numericCutoffs.map(v => Math.pow(v - cutoffsMean, 2));
+                cutoffsSD = Math.sqrt( kahanSum(devs) / (numericCutoffs.length - 1) );
             } else {
                 cutoffsSD = cutoffsMean * 0.05; // 5% default SD
             }
         }
+    }
+
+    // FIX #3: Prepare Cholesky for correlated subject minCutoffs (when >1 subjects with minCutoff)
+    const cutoffSubjects = (subjects || []).filter(s => s && Number(s.minCutoff) > 0);
+    let subjectCholesky = null;
+    if (cutoffSubjects.length > 1) {
+      const stats = cutoffSubjects.map(s => ({ sd: Number(s.sd) || 1 }));
+      const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION);
+      const psdCov = ensurePositiveSemiDefinite(cov);
+      subjectCholesky = choleskyDecomposition(psdCov);
     }
 
     for (let i = 0; i < safeSimulations; i++) {
@@ -238,11 +249,29 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         let score = sampleTruncatedNormal(muParam, safeSD, minScore, maxScore, rng);
         
         let passedMins = true;
-        if (subjects && subjects.length > 0) {
-            for (let j = 0; j < subjects.length; j++) {
-                const s = subjects[j];
-                if (s.minCutoff > 0) {
-                    const sScore = sampleTruncatedNormal(s.mean, s.sd, minScore, maxScore, rng);
+        if (cutoffSubjects.length > 0) {
+            if (subjectCholesky) {
+                // Generate independent standard normals, apply correlation via Cholesky
+                const zVec = cutoffSubjects.map(() => generateGaussian(rng));
+                const zCorr = applyCovariance(subjectCholesky, zVec);
+                for (let j = 0; j < cutoffSubjects.length; j++) {
+                    const s = cutoffSubjects[j];
+                    const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
+                    const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
+                    const raw = Number(s.mean) + zCorr[j] * (Number(s.sd) || 1);
+                    const sScore = Math.max(sMin, Math.min(sMax, raw));
+                    if (sScore < Number(s.minCutoff)) {
+                        passedMins = false;
+                        break;
+                    }
+                }
+            } else {
+                // fallback: independent sampling (0 or 1 subject)
+                for (let j = 0; j < cutoffSubjects.length; j++) {
+                    const s = cutoffSubjects[j];
+                    const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
+                    const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
+                    const sScore = sampleTruncatedNormal(s.mean, s.sd, sMin, sMax, rng);
                     if (sScore < s.minCutoff) {
                         passedMins = false;
                         break;
@@ -399,27 +428,28 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         probabilityPolicy: lowSimulation
             ? 'blended_low_sample_policy'
             : (highTruncationStress ? 'blended_truncated_policy' : 'blended_adaptive_policy'),
-        analyticalWeight: Number(analyticalWeight.toFixed(4)),
-        empiricalStdErr: Number(empiricalStdErr.toFixed(4)),
-        empiricalProbabilityRaw: Number(empiricalProbability.toFixed(4)),
-        empiricalProbabilityBayes: Number(finiteEmpiricalProbability.toFixed(4)),
-        mean: Number((bayesianCI ? safeMean : displayMean).toFixed(2)),
-        // sd = estatístico (não visual), para evitar viés de interpretação
-        sd: Number(projectedSD.toFixed(2)),
+        // FIX #2: Retornar com precisão completa. Removido toFixed prematuro.
+        // Formatação deve ocorrer apenas na camada de apresentação/UI.
+        analyticalWeight,
+        empiricalStdErr,
+        empiricalProbabilityRaw: empiricalProbability,
+        empiricalProbabilityBayes: finiteEmpiricalProbability,
+        mean: (bayesianCI ? safeMean : displayMean),
+        // sd = estatístico (não visual)
+        sd: projectedSD,
         // sdVisual reflete o cone após clamp mínimo de UX
-        sdVisual: Number(visualSD.toFixed(2)),
+        sdVisual: visualSD,
         // 📊 ESTATÍSTICA: Nomes alterados para empSigma (Empirical Sigma)
-        // Indica a distância real dos quartis P16/P84, respeitando a assimetria da Normal Truncada.
-        sdLeft: Number(Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), empMedian - rawLeft).toFixed(4)),
-        sdRight: Number(Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), rawRight - empMedian).toFixed(4)),
-        ci95StatLow: Number(statisticalCi95Low.toFixed(2)),
-        ci95StatHigh: Number(statisticalCi95High.toFixed(2)),
-        ci95Low: Number(displayLow.toFixed(2)),
-        ci95High: Number(displayHigh.toFixed(2)),
-        ci95VisualLow: Number(displayLow.toFixed(2)),
-        ci95VisualHigh: Number(displayHigh.toFixed(2)),
+        sdLeft: Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), empMedian - rawLeft),
+        sdRight: Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), rawRight - empMedian),
+        ci95StatLow: statisticalCi95Low,
+        ci95StatHigh: statisticalCi95High,
+        ci95Low: displayLow,
+        ci95High: displayHigh,
+        ci95VisualLow: displayLow,
+        ci95VisualHigh: displayHigh,
         ci95VisualClamped: wasVisualCIClamped,
-        currentMean: Number((currentMean ?? safeMean).toFixed(2)),
+        currentMean: (currentMean ?? safeMean),
         projectedMean,
         projectedSD,
         kdeData: generateKDE(allScores, displayMean, projectedSD, safeSimulations, minScore, maxScore),

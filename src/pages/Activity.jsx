@@ -5,6 +5,7 @@ import { StreakDisplay, XPHistory, AchievementsGrid } from '../components/Gamifi
 import ActivityHeatmap from '../components/ActivityHeatmap';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
+import { buildAchievementStats } from '../utils/analytics';
 
 export default function Activity() {
     const data = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
@@ -13,50 +14,10 @@ export default function Activity() {
     const [showResetModal, setShowResetModal] = useState(false);
     
     // FIX: Hook declarado estritamente no top-level do componente
-    const achievementStats = React.useMemo(() => {
-        if (!data) return null;
-        
-        const studyLogs = Array.isArray(data.studyLogs) ? data.studyLogs : Object.values(data.studyLogs || {});
-        const validSimulados = (data.simuladoRows || []).filter(r => r?.validated && Number(r?.total) > 0 && r?.correct !== undefined);
-        const totalQuestions = validSimulados.reduce((acc, r) => acc + Number(r.total), 0);
-        const totalCorrect = validSimulados.reduce((acc, r) => acc + Number(r.correct), 0);
-
-        let studiedEarly = false;
-        let studiedLate = false;
-        let studiedWeekend = false;
-        let pomodorosToday = 0;
-
-        const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-
-        studyLogs.forEach(log => {
-            const d = new Date(log?.date);
-            if (Number.isNaN(d.getTime())) return;
-            const hr = d.getHours();
-            const day = d.getDay();
-            if (hr < 7) studiedEarly = true;
-            if (hr >= 23 || hr < 4) studiedLate = true;
-            if (day === 0 || day === 6) studiedWeekend = true;
-
-            if (d.getTime() >= startOfToday) {
-                pomodorosToday += Math.max(0, Number(log?.minutes) || 0) / 25;
-            }
-        });
-
-        return {
-            completedTasks: data.categories?.reduce((sum, c) => sum + (c.tasks?.filter(t => t.completed)?.length || 0), 0) || 0,
-            currentStreak: data.user?.streak || 0,
-            totalQuestions,
-            hasPerfectScore: validSimulados.some(r => Number(r.total) > 0 && Number(r.total) === Number(r.correct)),
-            accuracy: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0,
-            pomodorosCompleted: data.pomodorosCompleted || 0,
-            pomodorosToday: Math.floor(pomodorosToday),
-            studiedEarly,
-            studiedLate,
-            studiedWeekend,
-            subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size
-        };
-    }, [data]); // Assina apenas a referência root do data
+    const achievementStats = React.useMemo(
+        () => buildAchievementStats(data),
+        [data]
+    );
 
     if (!data) {
         return <div className="flex items-center justify-center p-12 text-slate-400">A carregar dados gamificados...</div>;

@@ -174,8 +174,8 @@ const WeeklyPerformanceChart = ({
                         </defs>
 
                         <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="rgba(255,255,255,0.03)"
+                            strokeDasharray="2 2"
+                            stroke="#1e2937"
                             vertical={false}
                         />
 

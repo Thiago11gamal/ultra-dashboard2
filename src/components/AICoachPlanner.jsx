@@ -36,7 +36,7 @@ const getPortalRoot = () => {
     return el;
 };
 
-const TaskCard = ({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro }) => {
+const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro }) => {
     const fullText = task.text || task.title || '';
     const parts = fullText.split(':');
     const hasDetails = parts.length > 1;
@@ -77,24 +77,22 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro 
                         className={`pb-3 ${snapshot.isDragging ? 'z-[99999]' : ''}`}
                         style={provided.draggableProps.style}
                     >
-                        <div className={`group relative p-3.5 sm:p-4 rounded-xl select-none overflow-hidden h-full border ${
+                        <div className={`group relative p-3 sm:p-3.5 rounded-xl select-none overflow-hidden h-full border ${
                             snapshot.isDragging 
-                                ? `bg-slate-900/95 border-2 ${accentBorder} shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-[1.05] rotate-1 backdrop-blur-xl` 
-                                : `${cardBg} ${cardBorder} ${cardHover} hover:-translate-y-0.5 transition-all duration-300`
+                                ? `bg-slate-900 border-2 ${accentBorder} shadow-lg scale-[1.02]` 
+                                : `${cardBg} ${cardBorder} hover:border-white/10 transition-all duration-200`
                         }`}>
                             {!isBacklog && dayTheme && (
-                                <div className={`absolute left-0 top-0 bottom-0 w-[4px] bg-gradient-to-b ${gradientLine} opacity-80 group-hover:opacity-100 transition-opacity shadow-[0_0_10px_rgba(255,255,255,0.1)]`} />
+                                <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${gradientLine} opacity-60`} />
                             )}
-                            
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.02] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.04] transition-all duration-700 pointer-events-none" />
 
                             <div className="flex flex-col h-full relative z-10">
-                                <div className="flex items-start justify-between gap-2 mb-2.5">
-                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                        isBacklog ? 'bg-violet-500/15 text-violet-200 border-violet-500/20' : `bg-black/20 ${accentColor} border-white/5`
-                                    } border backdrop-blur-sm shadow-sm w-fit max-w-[calc(100%-40px)] group-hover:bg-black/30 transition-colors`}>
-                                        <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
-                                        <span className="leading-none truncate block opacity-90">{displaySubject(subject)}</span>
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest ${
+                                        isBacklog ? 'bg-violet-500/10 text-violet-300 border border-violet-500/20' : `bg-black/30 ${accentColor} border-white/10`
+                                    }`}>
+                                        <div className={`w-1 h-1 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
+                                        <span className="leading-none truncate">{displaySubject(subject)}</span>
                                     </div>
                                     
                                     <button 
@@ -102,23 +100,18 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro 
                                             e.stopPropagation();
                                             onStartPomodoro?.(task);
                                         }}
-                                        className={`relative w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-300 shrink-0 shadow-sm group/play ${
-                                            !isBacklog && dayTheme ? `bg-white/5 border border-white/5 ${dayTheme.text} hover:${dayTheme.bg}` : 'bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500 hover:text-white'
-                                        }`}
+                                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors shrink-0 ${!isBacklog && dayTheme ? `${dayTheme.text} hover:bg-white/10` : 'bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-white'}`}
                                     >
-                                        <div className={`absolute inset-0 blur-md opacity-0 group-hover/play:opacity-30 transition-opacity rounded-lg ${!isBacklog && dayTheme ? dayTheme.bg : 'bg-violet-500'}`} />
-                                        <Play size={12} className="fill-current relative z-10 translate-x-[1px]" />
+                                        <Play size={11} className="fill-current" />
                                     </button>
                                 </div>
 
-                                <div className="flex flex-col flex-1 justify-center gap-1 mt-1">
-                                    <h4 className={`text-[13px] sm:text-sm font-extrabold leading-tight uppercase tracking-tight transition-colors ${
-                                        !isBacklog && dayTheme ? 'text-slate-100 group-hover:text-white' : 'text-slate-200 group-hover:text-white'
-                                    }`}>
+                                <div className="flex flex-col flex-1 justify-center gap-0.5">
+                                    <h4 className="text-[12px] sm:text-[13px] font-semibold leading-tight tracking-tight text-slate-100 group-hover:text-white">
                                         {displayTopic}
                                     </h4>
                                     {secondaryText && (
-                                        <p className="text-[11px] text-slate-400 font-medium leading-snug line-clamp-2 mt-0.5 group-hover:text-slate-300 transition-colors">
+                                        <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">
                                             {secondaryText}
                                         </p>
                                     )}
@@ -136,7 +129,7 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro 
             }}
         </Draggable>
     );
-};
+});
 
 const DEFAULT_PLANNER = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
 
@@ -246,30 +239,25 @@ export default function AICoachPlanner() {
                 <div className="w-full xl:w-64 shrink-0">
                     <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col h-full min-h-[400px] xl:min-h-[610px] relative overflow-hidden">
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
-                        <div className="flex items-center gap-2 mb-6 pb-4 border-b border-white/[0.08]">
-                            <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shadow-lg shadow-violet-500/5 group-hover:scale-110 transition-transform">
-                                <BrainCircuit size={16} className="text-violet-400" />
+                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/[0.08]">
+                            <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                                <BrainCircuit size={15} className="text-violet-400" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-200">Sugestões</h3>
-                                <p className="text-[8px] font-bold text-slate-500 tracking-widest uppercase">IA Coach</p>
+                                <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-200">Sugestões</h3>
+                                <p className="text-[8px] font-medium text-slate-500 tracking-widest">IA Coach</p>
                             </div>
-                            <span className="bg-violet-500/20 text-violet-300 border border-violet-500/30 text-[10px] font-black py-1 px-2.5 rounded-lg backdrop-blur-sm">
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-violet-500/10 text-violet-300 border border-violet-500/20">
                                 {columns.backlog.length}
                             </span>
                         </div>
                         <Droppable droppableId="backlog">
                             {(provided, snapshot) => (
-                                <div className={`flex-1 flex flex-col gap-3 rounded-2xl p-2 transition-all min-h-[200px] overflow-y-auto no-scrollbar relative ${snapshot.isDraggingOver ? 'bg-violet-500/10' : ''}`}>
-                                    {snapshot.isDraggingOver && (
-                                        <div 
-                                            className="absolute inset-0 bg-gradient-to-b from-violet-500/5 to-transparent pointer-events-none" 
-                                        />
-                                    )}
+                                <div className={`flex-1 flex flex-col gap-2 p-2 min-h-[200px] overflow-y-auto no-scrollbar border border-dashed border-white/10 rounded-xl bg-black/10 ${snapshot.isDraggingOver ? 'border-violet-500/50 bg-violet-500/5' : ''}`}>
                                     <div 
                                         ref={provided.innerRef} 
                                         {...provided.droppableProps} 
-                                        className="relative z-10 flex flex-col h-full"
+                                        className="flex flex-col h-full"
                                     >
                                         {columns.backlog.map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog onStartPomodoro={(t) => handleStartTask(t, 'backlog')} /> ; })}
                                         {provided.placeholder}
@@ -298,32 +286,26 @@ export default function AICoachPlanner() {
                             <div className="flex gap-3 min-w-[1500px] min-h-[520px] pr-2">
                                 {DAYS.map((day) => (
                                     <div key={day.id} className="flex-1 flex flex-col min-w-[195px]">
-                                        <div className={`mb-5 rounded-2xl border ${day.border} ${day.bg} p-4 relative overflow-visible backdrop-blur-md group/header transition-all duration-500 hover:shadow-[0_0_20px_-5px_rgba(255,255,255,0.05)]`}>
-                                            <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${day.gradient} opacity-100 shadow-[0_0_10px_rgba(255,255,255,0.2)]`} />
-                                            <div className="flex items-center justify-between relative z-10">
+                                        <div className={`mb-4 rounded-2xl border ${day.border} ${day.bg} p-3.5 relative overflow-hidden`}>
+                                            <div className="flex items-center justify-between">
                                                 <div className="flex flex-col">
-                                                    <span className={`text-[13px] font-black tracking-[0.2em] ${day.text} uppercase drop-shadow-md`}>
+                                                    <span className={`text-sm font-black tracking-[0.15em] ${day.text} uppercase`}>
                                                         {day.label}
                                                     </span>
-                                                    <span className="text-[7px] font-bold text-slate-500 tracking-widest uppercase mt-0.5">Semana</span>
+                                                    <span className="text-[8px] font-medium text-slate-500 tracking-widest uppercase">Semana</span>
                                                 </div>
-                                                <div className={`text-[11px] font-black px-2.5 py-1 rounded-lg ${day.bg} ${day.text} border ${day.border} shadow-lg backdrop-blur-sm group-hover/header:scale-110 transition-transform`}>
+                                                <div className={`text-xs font-bold px-2 py-0.5 rounded-md ${day.text} bg-black/20 border ${day.border}`}>
                                                     {columns[day.id]?.length || 0}
                                                 </div>
                                             </div>
                                         </div>
                                         <Droppable droppableId={day.id}>
                                             {(provided, snapshot) => (
-                                                <div className={`flex-1 p-3 pt-4 rounded-xl border-2 border-dashed transition-all duration-300 relative overflow-visible ${snapshot.isDraggingOver ? `${day.over} border-solid shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}>
-                                                    {snapshot.isDraggingOver && (
-                                                        <div 
-                                                            className={`absolute inset-0 bg-gradient-to-br ${day.gradient} opacity-[0.07] pointer-events-none`} 
-                                                        />
-                                                    )}
+                                                <div className={`flex-1 p-2 pt-3 rounded-lg border border-dashed transition-colors ${snapshot.isDraggingOver ? 'border-violet-500/60 bg-violet-500/5' : 'bg-black/10 border-white/[0.06] hover:border-white/10'}`}>
                                                     <div 
                                                         ref={provided.innerRef} 
                                                         {...provided.droppableProps} 
-                                                        className="relative z-10 h-full flex flex-col min-h-[100px]"
+                                                        className="h-full flex flex-col min-h-[80px] gap-1"
                                                     >
                                                         {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} onStartPomodoro={(t) => handleStartTask(t, day.id)} />; })}
                                                         {provided.placeholder}
