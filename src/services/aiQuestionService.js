@@ -92,23 +92,24 @@ export async function generateAIQuestions({ materia, assunto, dificuldade, quant
 
   const qtd = Math.min(Math.max(3, parseInt(quantidade, 10) || 10), 20);
 
-  const systemPrompt = `Você é um gerador profissional de questões de concursos públicos brasileiros (CESPE, FCC, FGV, etc).
+  const systemPrompt = `Você é um gerador de questões focado em concursos públicos brasileiros (CESPE, FCC, FGV, etc).
+As questões geradas DEVEM ser rigorosamente baseadas em provas reais e concursos anteriores. Adapte ou crie enunciados mantendo o exato estilo, jurisprudência atualizada, pegadinhas e o nível de dificuldade das bancas examinadoras oficiais.
 Retorne **exclusivamente** um JSON válido no seguinte formato (sem markdown, sem texto fora do JSON):
 {
   "questoes": [
     {
       "id": "string único",
-      "enunciado": "texto da questão",
+      "enunciado": "texto da questão (estilo banca real)",
       "alternativas": [ { "letra": "A", "texto": "..." }, { "letra": "B", "texto": "..." }, { "letra": "C", "texto": "..." }, { "letra": "D", "texto": "..." } ],
       "alternativa_correta": "A",
-      "justificativa": "explicação clara",
+      "justificativa": "explicação detalhada, citando lei/doutrina/jurisprudência aplicável",
       "materia": "${materia}",
       "assunto": "${assunto}",
       "dificuldade": "${dificuldade}"
     }
   ]
 }
-Gere exatamente ${qtd} questões.`;
+Gere exatamente ${qtd} questões baseadas em provas reais.`;
 
   const userPrompt = `Gere ${qtd} questões de nível ${dificuldade} sobre "${assunto}" na matéria "${materia}".`;
 

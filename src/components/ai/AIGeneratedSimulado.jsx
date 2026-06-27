@@ -489,7 +489,7 @@ export default function AIGeneratedSimulado() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="max-w-2xl mx-auto"
+        className="w-full"
       >
         {/* ═══ HERO HEADER ═══ */}
         <div className="relative mb-8 overflow-hidden rounded-[28px] border border-white/[0.06]" style={{ background: 'linear-gradient(135deg, rgba(49,46,129,0.4) 0%, rgba(15,23,42,0.9) 50%, rgba(88,28,135,0.3) 100%)' }}>
@@ -548,8 +548,52 @@ export default function AIGeneratedSimulado() {
           className="rounded-[28px] border border-white/[0.06] overflow-hidden"
           style={{ background: 'linear-gradient(180deg, rgba(30,27,75,0.3) 0%, rgba(15,23,42,0.6) 100%)', backdropFilter: 'blur(20px)' }}
         >
-          <div className="p-7 sm:p-9">
-            {/* Section: Content - Melhorado visualmente */}
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <motion.div 
+                key="loading"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.05 }}
+                className="p-10 sm:p-14 flex flex-col items-center justify-center text-center min-h-[450px] relative z-10"
+              >
+                <div className="relative mb-8">
+                  <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full animate-pulse" />
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+                    className="w-24 h-24 rounded-full border-[3px] border-indigo-500/30 border-t-indigo-400 border-r-purple-500 shadow-[0_0_40px_rgba(99,102,241,0.4)] flex items-center justify-center bg-slate-900/80 backdrop-blur-md"
+                  >
+                    <Brain size={40} className="text-white animate-pulse" />
+                  </motion.div>
+                  <motion.div
+                    animate={{ rotate: -360, scale: [1, 1.1, 1] }}
+                    transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                    className="absolute inset-2 rounded-full border border-dashed border-purple-400/40"
+                  />
+                </div>
+                
+                <h3 className="text-xl sm:text-2xl font-black text-white tracking-wide mb-3">
+                  Sintetizando Simulado Inédito
+                </h3>
+                <p className="text-slate-400 text-[14px] max-w-sm leading-relaxed mb-6">
+                  A Inteligência Artificial está formulando <strong className="text-indigo-300">{form.quantidade} questões</strong> exclusivas de nível <strong className="text-indigo-300">{DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || 'Médio'}</strong> sobre <strong className="text-white">{form.assunto || 'o assunto selecionado'}</strong>.
+                </p>
+                
+                <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 bg-indigo-500/10 px-4 py-2.5 rounded-full border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+                  <Sparkles size={14} className="animate-pulse" />
+                  Aguarde, isso pode levar alguns segundos...
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="form"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="p-7 sm:p-9"
+              >
+                {/* Section: Content - Melhorado visualmente */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
@@ -719,12 +763,13 @@ export default function AIGeneratedSimulado() {
               disabled={isLoading || !isReadyToGenerate}
               whileHover={isReadyToGenerate && !isLoading ? { scale: 1.01 } : {}}
               whileTap={isReadyToGenerate && !isLoading ? { scale: 0.985 } : {}}
-              className="group relative mt-8 w-full py-5 rounded-2xl font-black text-[15px] tracking-[2px] transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative mt-8 w-full py-5 rounded-2xl font-black text-[15px] tracking-[2px] transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
               style={{ 
                 background: isReadyToGenerate && !isLoading 
-                  ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6366f1 100%)' 
-                  : 'rgba(30,41,59,0.8)',
-                boxShadow: isReadyToGenerate && !isLoading ? '0 12px 40px -12px rgba(99,102,241,0.5), inset 0 1px 0 rgba(255,255,255,0.1)' : 'none'
+                  ? 'linear-gradient(135deg, #4338ca 0%, #7e22ce 50%, #4f46e5 100%)' 
+                  : 'rgba(51,65,85,0.9)',
+                color: isReadyToGenerate && !isLoading ? '#ffffff' : '#94a3b8',
+                boxShadow: isReadyToGenerate && !isLoading ? '0 12px 40px -12px rgba(99,102,241,0.8), inset 0 1px 0 rgba(255,255,255,0.2)' : 'none'
               }}
             >
               {/* Sweep effect */}
@@ -753,7 +798,9 @@ export default function AIGeneratedSimulado() {
                 <p className="text-xs text-rose-400 font-medium">Configure sua chave de API (VITE_GEMINI_API_KEY) e reinicie o servidor</p>
               )}
             </div>
-          </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
     );
@@ -765,7 +812,7 @@ export default function AIGeneratedSimulado() {
     const difficultyLabel = DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || form.dificuldade;
 
     return (
-      <div className="max-w-3xl mx-auto">
+      <div className="w-full">
         {/* ═══ TOP BAR ═══ */}
         <div className="mb-6 rounded-2xl border border-white/[0.06] overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(30,27,75,0.4), rgba(15,23,42,0.7))', backdropFilter: 'blur(20px)' }}>
           <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -849,21 +896,21 @@ export default function AIGeneratedSimulado() {
                       onClick={() => selectAnswer(alt.letra)}
                       whileHover={{ scale: 1.005 }}
                       whileTap={{ scale: 0.995 }}
-                      className={`w-full text-left px-5 py-4 rounded-2xl border flex gap-4 items-center transition-all duration-200
+                      className={`group w-full text-left px-5 py-4 rounded-2xl border flex gap-4 items-center transition-all duration-200
                         ${isSelected 
-                          ? 'border-indigo-400/40 shadow-[0_0_20px_rgba(99,102,241,0.12)]' 
-                          : 'border-white/[0.05] hover:border-white/15'}`}
+                          ? 'border-indigo-400/60 shadow-[0_0_25px_rgba(99,102,241,0.2)]' 
+                          : 'border-white/10 hover:border-white/30 hover:bg-white/[0.03]'}`}
                       style={{
                         background: isSelected 
-                          ? 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(147,51,234,0.08))' 
-                          : 'rgba(255,255,255,0.015)'
+                          ? 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(147,51,234,0.1))' 
+                          : 'rgba(15,23,42,0.5)'
                       }}
                     >
                       <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-[13px] font-black border transition-all duration-200
-                        ${isSelected ? 'bg-indigo-500 border-indigo-400 text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'border-white/15 text-slate-500 group-hover:text-white'}`}>
+                        ${isSelected ? 'bg-indigo-500 border-indigo-400 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]' : 'bg-slate-800/60 border-slate-600 text-slate-300 group-hover:border-slate-400 group-hover:text-white'}`}>
                         {alt.letra}
                       </div>
-                      <div className={`text-[14.5px] leading-snug flex-1 transition-colors ${isSelected ? 'text-white font-medium' : 'text-slate-400'}`}>
+                      <div className={`text-[15px] leading-snug flex-1 transition-colors ${isSelected ? 'text-white font-bold' : 'text-slate-200 group-hover:text-white'}`}>
                         {alt.texto}
                       </div>
                       {isSelected && (
@@ -935,7 +982,7 @@ export default function AIGeneratedSimulado() {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-3xl mx-auto"
+        className="w-full max-w-4xl mx-auto"
       >
         {/* ═══ HERO SCORE ═══ */}
         <div className="relative text-center mb-10 py-10">
@@ -1007,18 +1054,18 @@ export default function AIGeneratedSimulado() {
               className="rounded-[24px] border border-white/[0.06] p-8 mb-8"
               style={{ background: 'linear-gradient(180deg, rgba(30,27,75,0.25), rgba(15,23,42,0.5))' }}
             >
-              <div className="grid grid-cols-3 gap-6 text-center">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-center">
+                <div className="bg-white/[0.02] border border-white/[0.04] p-6 rounded-2xl">
                   <div className="text-[44px] leading-none font-black text-emerald-400">{results.correct}</div>
                   <div className="uppercase tracking-[2px] text-[10px] font-bold text-emerald-400/60 mt-2">ACERTOS</div>
                 </div>
-                <div>
+                <div className="bg-white/[0.02] border border-white/[0.04] p-6 rounded-2xl">
                   <div className="text-[44px] leading-none font-black text-rose-400">{results.total - results.correct}</div>
                   <div className="uppercase tracking-[2px] text-[10px] font-bold text-rose-400/60 mt-2">ERROS</div>
                 </div>
-                <div>
-                  <div className="text-[44px] leading-none font-black" style={{ color: colorMap.text }}>{accuracy}</div>
-                  <div className="uppercase tracking-[2px] text-[10px] font-bold text-slate-500 mt-2">% ACERTO</div>
+                <div className="bg-white/[0.02] border border-white/[0.04] p-6 rounded-2xl">
+                  <div className="text-[44px] leading-none font-black" style={{ color: colorMap.text }}>{accuracy}%</div>
+                  <div className="uppercase tracking-[2px] text-[10px] font-bold text-slate-500 mt-2">APROVEITAMENTO</div>
                 </div>
               </div>
             </motion.div>
@@ -1081,17 +1128,17 @@ export default function AIGeneratedSimulado() {
         </AnimatePresence>
 
         {/* ═══ ACTIONS ═══ */}
-        <div className="flex flex-wrap gap-2.5 justify-center">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-4">
           <button 
             onClick={retrySameQuestions} 
-            className="flex-1 min-w-[180px] px-6 py-3.5 rounded-xl bg-emerald-500/[0.08] hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-300 text-[13px] font-bold flex items-center justify-center gap-2 transition active:scale-[0.985]"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-emerald-500/[0.08] hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-300 text-[13px] font-bold flex items-center justify-center gap-2 transition active:scale-[0.985]"
           >
             <RefreshCw size={15} /> Refazer
           </button>
           
           <button 
             onClick={resetAll} 
-            className="flex-1 min-w-[140px] px-6 py-3.5 rounded-xl border border-white/[0.08] hover:bg-white/[0.04] text-white/80 text-[13px] font-bold flex items-center justify-center gap-2 transition"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-white/[0.08] hover:bg-white/[0.04] text-white/80 text-[13px] font-bold flex items-center justify-center gap-2 transition"
           >
             <Sparkles size={15} /> Gerar Novo
           </button>
@@ -1101,7 +1148,7 @@ export default function AIGeneratedSimulado() {
               resetAll();
               showToast('Voltando ao menu de simulados', 'info');
             }} 
-            className="flex-1 min-w-[140px] px-6 py-3.5 rounded-xl text-white text-[13px] font-bold flex items-center justify-center gap-2 transition"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl text-white text-[13px] font-bold flex items-center justify-center gap-2 transition shadow-[0_4px_15px_-4px_rgba(99,102,241,0.4)] hover:scale-[1.02] active:scale-95"
             style={{ background: 'linear-gradient(135deg, #4f46e5, #6366f1)' }}
           >
             <BarChart3 size={15} /> Voltar ao Menu
