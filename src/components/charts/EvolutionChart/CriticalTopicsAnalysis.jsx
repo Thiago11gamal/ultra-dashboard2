@@ -169,7 +169,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         <div className="col-span-1 md:col-span-2 pt-6">
             {/* Week Selector Header */}
             <div className="flex flex-col items-center sm:items-end mb-5 pr-1">
-                <div className="flex items-center gap-1 sm:gap-2 mb-2 overflow-x-auto max-w-full scrollbar-hide py-2 px-1 bg-slate-900/30 rounded-full border border-slate-800/50 shadow-inner">
+                <div className="flex items-center gap-1 sm:gap-2 mb-2 overflow-x-auto max-w-full no-scrollbar py-2 px-1 bg-slate-900/30 rounded-full border border-slate-800/50 shadow-inner">
                     {WEEKS.map((w, idx) => {
                         const isActive = selectedWeekOffset === w.offset;
                         return (

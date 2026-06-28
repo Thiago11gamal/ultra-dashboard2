@@ -52,6 +52,17 @@ export default function AIGeneratedSimulado() {
   const [timeLeft, setTimeLeft] = useState(45 * 60); // 45 minutes default
   const [timerActive, setTimerActive] = useState(false);
   const [showReview, setShowReview] = useState(false);
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+
+  const LOADING_MESSAGES = [
+    "Iniciando Motor Analítico...",
+    "Identificando Banca Examinadora...",
+    "Cruzando Jurisprudências Recentes...",
+    "Formulando Enunciados Inéditos...",
+    "Calibrando Nível de Dificuldade...",
+    "Ajustando Pegadinhas e Casos Práticos...",
+    "Finalizando Pacote de Questões..."
+  ];
 
   // Track mount state to avoid clearing localStorage after unmount
   const mountedRef = useRef(true);
@@ -520,7 +531,7 @@ export default function AIGeneratedSimulado() {
     }
   }, [questions.length]);
 
-  const saveAIResultsToSystem = async (formData, correct, total, _answeredQs) => {
+  const saveAIResultsToSystem = async (formData, correct, total, _answeredQs, timeSpentSecs = 0) => {
     const todayKey = getDateKey(normalizeDate(new Date()));
     const materia = (formData.materia || '').trim();
     const assunto = (formData.assunto || '').trim();
@@ -546,6 +557,7 @@ export default function AIGeneratedSimulado() {
       validated: true,        // treat AI played results as valid (like manual analyzer)
       source: 'ai-generated',
       difficulty: numericDifficulty,
+      timeSpent: timeSpentSecs,
     };
 
     setData(prev => {
@@ -569,11 +581,13 @@ export default function AIGeneratedSimulado() {
           rowFound = true;
           const newCorrect = (Number(r.correct) || 0) + correct;
           const newTotal = (Number(r.total) || 0) + total;
+          const newTimeSpent = (Number(r.timeSpent) || 0) + timeSpentSecs;
           return {
             ...r,
             correct: newCorrect,
             total: newTotal,
             score: newTotal > 0 ? (newCorrect / newTotal) * 100 : 0,
+            timeSpent: newTimeSpent,
             lastUpdated: new Date().toISOString()
           };
         }
@@ -615,7 +629,7 @@ export default function AIGeneratedSimulado() {
           // - Encontrar ou criar entrada de hoje e fazer merge do tópico
           const todayIdx = history.findIndex(h => h.date === todayKey);
 
-          const newTopicEntry = { name: assunto, correct, total, taskId };
+          const newTopicEntry = { name: assunto, correct, total, taskId, timeSpent: timeSpentSecs };
 
           if (todayIdx !== -1) {
             // Merge no entry de hoje existente (Acumula acertos/total se o tópico já existir)
@@ -629,7 +643,8 @@ export default function AIGeneratedSimulado() {
                 return {
                   ...t,
                   correct: (Number(t.correct) || 0) + correct,
-                  total: (Number(t.total) || 0) + total
+                  total: (Number(t.total) || 0) + total,
+                  timeSpent: (Number(t.timeSpent) || 0) + timeSpentSecs
                 };
               }
               return t;
@@ -722,6 +737,8 @@ export default function AIGeneratedSimulado() {
     const total = qList.length;
     const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
+    const timeSpentSeconds = (45 * 60) - timeLeft;
+
     // === SALVA NO SISTEMA (mesma infraestrutura dos simulados) ===
     if (f.categoryId === 'mixed') {
       // Agrupa questões por matéria e assunto
@@ -735,6 +752,7 @@ export default function AIGeneratedSimulado() {
       });
       
       const cats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
+      const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
       
       for (const g of Object.values(groups)) {
         const cat = cats.find(c => normalize(c.name) === normalize(g.materia));
@@ -747,10 +765,11 @@ export default function AIGeneratedSimulado() {
           categoryId: cat ? cat.id : null,
           taskId: tsk ? tsk.id : null,
         };
-        await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs);
+        const topicTime = totalQuestionsInMixed > 0 ? Math.round(timeSpentSeconds * (g.total / totalQuestionsInMixed)) : 0;
+        await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime);
       }
     } else {
-      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions);
+      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, timeSpentSeconds);
     }
 
     setResults({
@@ -830,6 +849,19 @@ export default function AIGeneratedSimulado() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [step, currentQuestion, handleFinish, questions.length]);
+
+  // Loading messages effect
+  useEffect(() => {
+    let interval = null;
+    if (isLoading) {
+      interval = setInterval(() => {
+        setLoadingMsgIdx(prev => (prev < LOADING_MESSAGES.length - 1 ? prev + 1 : prev));
+      }, 3500);
+    } else {
+      setLoadingMsgIdx(0);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   // ==================== RENDER ====================
 
@@ -958,9 +990,9 @@ export default function AIGeneratedSimulado() {
                   )}
                 </div>
                 
-                <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 bg-indigo-500/10 px-4 py-2.5 rounded-full border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
-                  <Sparkles size={14} className="animate-pulse" />
-                  Aguarde, isso pode levar alguns segundos...
+                <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 bg-indigo-500/10 px-4 py-2.5 rounded-full border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)] transition-all duration-500">
+                  <Sparkles size={14} className="animate-pulse shrink-0" />
+                  {LOADING_MESSAGES[loadingMsgIdx]}
                 </div>
               </motion.div>
             ) : (
@@ -1051,7 +1083,7 @@ export default function AIGeneratedSimulado() {
                   {(form.categoryId || form.taskId) && (
                     <div className="mt-4 pt-4 border-t border-white/10 flex items-center gap-2 text-sm">
                       <div className="text-slate-500 text-xs uppercase tracking-widest">Selecionado:</div>
-                      <div className="font-semibold text-white flex-1 truncate">
+                      <div className="font-bold text-white text-sm mt-1 truncate">
                         {form.categoryId === 'mixed' ? (
                            <span>Simulado Personalizado <span className="mx-1.5 text-indigo-400/60">›</span> Foco em Múltiplas Fraquezas</span>
                         ) : (
@@ -1164,7 +1196,7 @@ export default function AIGeneratedSimulado() {
                 {isLoading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>SINTETIZANDO QUESTÕES...</span>
+                    <span>{LOADING_MESSAGES[loadingMsgIdx].toUpperCase()}</span>
                   </>
                 ) : (
                   <>

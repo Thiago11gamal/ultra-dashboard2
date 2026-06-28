@@ -26,6 +26,7 @@ import { CriticalTopicsAnalysis } from "./charts/EvolutionChart/CriticalTopicsAn
 import { SubtopicsPerformanceChart } from "./charts/EvolutionChart/SubtopicsPerformanceChart";
 import { MonteCarloEvolutionChart } from "./charts/EvolutionChart/MonteCarloEvolutionChart";
 import { WeeklyEvolutionView } from "./charts/EvolutionChart/WeeklyEvolutionView";
+import { TimeSpentChart } from "./charts/EvolutionChart/TimeSpentChart";
 
 const EMPTY_ARRAY = [];
 
@@ -89,6 +90,10 @@ const ENGINES = [
         id: "weekly_diff", label: "Semanal", emoji: "📆", color: "#10b981", prefix: null, style: "linear",
         explain: { titulo: "Acelerômetro Semanal de Desempenho", simples: "Calcula a tração do seu estudo comparando diretamente os ganhos ou perdas (delta) da semana atual em relação à semana imediatamente anterior.", dica: "Aviso Antecipado: Semanas com deltas negativos acentuados alertam para esquecimento (curva do esquecimento). Revise a teoria destas disciplinas antes que a perda se torne definitiva." },
     },
+    {
+        id: "time_spent", label: "Agilidade", emoji: "⏳", color: "#06b6d4", prefix: null, style: "linear",
+        explain: { titulo: "Rastreador de Agilidade", simples: "Analisa o tempo médio gasto por questão em cada matéria, ajudando você a encontrar gargalos que roubam minutos preciosos no dia da prova.", dica: "Matérias muito lentas podem te reprovar mesmo se você souber o conteúdo. Foque nelas para ganhar resistência." },
+    },
 ];
 
 
@@ -118,8 +123,6 @@ export default function EvolutionChart({
             return { ...cat, color };
         });
     }, [rawCategories]);
-
-    // M3 FIX: parseGoalDateLocal movida para fora do componente (ver acima).
 
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
@@ -152,18 +155,9 @@ export default function EvolutionChart({
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
 
-    // Redundant validation effects removed to prevent cascading renders. 
-    // State integrity is maintained via useMemo and controlled inputs.
-
-    // B-13 & P0 FIX: Removido useEffect que causava re-render duplo.
-    // A validação do foco agora é feita de forma reativa no useMemo abaixo.
-
     const focusCategory = useMemo(() => {
         if (!categories || categories.length === 0) return null;
         const found = categories.find(c => c.id === focusSubjectId);
-
-        // Se não encontrou (ou foi apagado), volta para o primeiro automaticamente 
-        // sem precisar disparar um setFocusSubjectId e causar um re-render duplo!
         return found || categories[0];
     }, [categories, focusSubjectId]);
 
@@ -180,7 +174,6 @@ export default function EvolutionChart({
                 return;
             }
             
-            // Fallback para quando não há dados no timeline (ex: primeiro simulado do dia ainda não processado no acumulado)
             const history = cat.simuladoStats?.history || [];
             if (!history.length) { map[cat.id] = 0; return; }
             const stats = computeCategoryStats(history, 100, 60, maxScore);
@@ -189,7 +182,6 @@ export default function EvolutionChart({
         return map;
     }, [categories, timeline, activeEngine, maxScore]);
 
-    // PREMIUM INTEGRATION - Monte Carlo Data State
     const [mcResult, setMcResult] = useState(null);
     const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
 
@@ -199,7 +191,6 @@ export default function EvolutionChart({
 
     useEffect(() => {
         if (!Array.isArray(historyArray) || historyArray.length === 0) {
-            // FIX: Assíncrono para evitar render cascata apontado pelo linter.
             const t = setTimeout(() => setMcLoading(false), 0);
             return () => clearTimeout(t);
         }
@@ -249,8 +240,6 @@ export default function EvolutionChart({
                 const hi = result.ci95High ?? result.ci95StatHigh ?? 100;
 
                 setMcProjectionSeries({
-                    // FIX: Usar getDateKey (hora local) em vez de toISOString (UTC)
-                    // para evitar deslocamento de ±1 dia nos fusos negativos (ex: UTC-4)
                     date: getDateKey(nextDate),
                     mc_p50: p50,
                     mc_band: [lo, hi],
@@ -340,7 +329,6 @@ export default function EvolutionChart({
             }
         }
         
-        // 🎯 FIX: LTTB Downsampling para proteger a performance (mantém até 150 pontos max)
         const primaryKey = activeEngine === "compare" || activeEngine === "mc_density" ? "Futuro Provável" : activeEngine === "raw" ? `raw_${focusCategory?.id}` : activeEngine === "stats" ? `stats_${focusCategory?.id}` : `bay_${focusCategory?.id}`;
         return downsampleLTTB(result, 150, "date", primaryKey);
     }, [chartData, timeWindow, activeEngine, focusCategory?.id]);
@@ -361,10 +349,8 @@ export default function EvolutionChart({
             .map(cat => {
                 const history = cat.simuladoStats?.history || [];
 
-                // 🎯 MATH FIX: Injetar questões sintéticas para simulados sem volume
                 const totalQ = history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
-                    // FIX: Use synthetic total dynamically instead of hardcoded 100
                     if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
                     return s + tot;
                 }, 0);
@@ -378,15 +364,16 @@ export default function EvolutionChart({
                     return s + ((normalizedScore - minScore) / range * tot);
                 }, 0));
 
+                const timeSpent = history.reduce((s, h) => s + (Number(h.timeSpent) || 0), 0);
+
                 const safeName = String(cat.name || 'Sem nome');
                 const shortName = safeName.length > 18 ? safeName.substring(0, 16) + '…' : safeName;
-                return { name: shortName, fullName: safeName, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
+                return { name: shortName, fullName: safeName, questoes: totalQ, acertos: totalCorrect, timeSpent, color: cat.color, id: cat.id };
             })
             .filter(d => d.questoes > 0)
             .sort((a, b) => b.questoes - a.questoes);
     }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore]);
 
-    // M4 FIX: getInsight memoizado — evita recriação e execução da função a cada render.
     const getInsight = useCallback(() => {
         const defaultTitle = "Análise do Sistema";
 
@@ -405,7 +392,6 @@ export default function EvolutionChart({
         const bayesian = lastPoint[`bay_${focusCategory.id}`];
         const scale = maxScore / 100;
 
-        // 1. MAPA DE CALOR / WEEKLY
         if (activeEngine === "raw_weekly") {
             const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
             const dayStats = {};
@@ -458,7 +444,6 @@ export default function EvolutionChart({
             };
         }
 
-        // 2. REALIDADE BRUTA (RAW)
         if (activeEngine === "raw") {
             if (raw == null) return { type: 'info', icon: "📊", title: "Realidade Bruta", text: "Ainda não existem dados suficientes para esta matéria." };
             const history = focusCategory.simuladoStats?.history || [];
@@ -507,7 +492,6 @@ export default function EvolutionChart({
             };
         }
 
-        // 3. NÍVEL BAYESIANO
         if (activeEngine === "bayesian") {
             if (bayesian == null) return { type: 'info', icon: "🧠", title: "Nível Bayesiano", text: "Aguardando mais dados..." };
             const ciLow = lastPoint[`bay_ci_low_${focusCategory.id}`];
@@ -543,7 +527,6 @@ export default function EvolutionChart({
             };
         }
 
-        // 4. MÉDIA HISTÓRICA
         if (activeEngine === "stats") {
             const stats = lastPoint[`stats_${focusCategory.id}`];
             if (stats == null) return { type: 'info', icon: "📐", title: "Histórico", text: "Sem dados." };
@@ -560,7 +543,6 @@ export default function EvolutionChart({
             };
         }
 
-        // 5. GENERIC / SMART INSIGHTS
         if (raw != null && bayesian != null) {
             const nowMs = new Date().getTime();
             const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
@@ -621,7 +603,6 @@ export default function EvolutionChart({
 
     const engine = ENGINES.find((e) => e.id === activeEngine) || ENGINES[0];
 
-    // Acima do retorno do JSX no EvolutionChart, extraia o estado dos dados:
     const accountHasData = chartData.length >= 2;
     const filterHasData = filteredChartData.length >= 2;
 
@@ -712,25 +693,18 @@ export default function EvolutionChart({
             <motion.div variants={itemVariants} className="relative z-[50] rounded-2xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-md p-4 sm:p-6 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
                  style={{ boxShadow: `0 0 60px -15px ${engine.color}20` }}>
                  
-                 {/* Intense Ambient Glow Removido a pedido do usuário */}
-
-                 {/* Top Toolbar: Engine Header + Filters */}
                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/50">
                      
-                     {/* Insight Header */}
                      <div className="group relative flex-1">
                          <div className="flex items-center gap-3">
                              <span className="text-2xl sm:text-3xl" style={{ filter: `drop-shadow(0 0 8px ${engine.color}80)` }}>{engine.emoji}</span>
                              <h3 className="font-black text-lg sm:text-xl tracking-tight transition-colors duration-300" style={{ color: engine.color }}>
                                  {engine.explain.titulo}
                              </h3>
-                             {/* Mini Tooltip Trigger */}
                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border border-slate-600 text-slate-400 text-[10px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors">
                                  ?
                              </div>
                          </div>
-                         {/* Hover Popover */}
-                         {/* 🎯 FIX: Ajuste de left-0 e max-w para evitar vazamento da tela no celular */}
                          <div className="absolute top-10 left-0 sm:left-12 w-[280px] max-w-[90vw] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
                              <p className="text-xs text-slate-200 mb-3 leading-relaxed">{engine.explain.simples}</p>
                              <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-700/50">
@@ -740,7 +714,6 @@ export default function EvolutionChart({
                          </div>
                      </div>
 
-                     {/* Filters Toolbar */}
                      <div className="flex items-center gap-3 w-full lg:w-auto">
                         <div className="flex items-center justify-between gap-1 bg-slate-950/80 border border-slate-700/50 rounded-2xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner backdrop-blur-sm">
                             {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
@@ -762,7 +735,6 @@ export default function EvolutionChart({
                      </div>
                  </div>
 
-                 {/* Engines Segmented Control */}
                 <div className="relative w-full mb-8">
                     <div className="flex overflow-x-auto pt-2 pb-4 px-1 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
                         {ENGINES.map((eng) => {
@@ -809,6 +781,12 @@ export default function EvolutionChart({
                         minScore={minScore}
                         maxScore={maxScore}
                     />
+                ) : activeEngine === "time_spent" ? (
+                    <TimeSpentChart 
+                        subjectAggData={subjectAggData} 
+                        showOnlyFocus={showOnlyFocus}
+                        focusCategory={focusCategory}
+                    />
                 ) : activeEngine === "mc_density" ? (
                     <MonteCarloEvolutionChart
                         data={monteCarloHistory}
@@ -849,7 +827,7 @@ export default function EvolutionChart({
                         </div>
                     </div>
                 ) : activeEngine === "compare" ? (
-                    <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                    <div className="w-full overflow-x-auto overflow-y-hidden no-scrollbar pb-2">
                         <div className="min-w-[700px] lg:min-w-full relative">
                             {mcLoading && (
                                 <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-2xl transition-all duration-300">
@@ -870,7 +848,7 @@ export default function EvolutionChart({
                         </div>
                     </div>
                 ) : (
-                    <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                    <div className="w-full overflow-x-auto overflow-y-hidden no-scrollbar pb-2">
                         <div className="min-w-[700px] lg:min-w-full relative">
                             <EvolutionLineChart
                                 filteredChartData={filteredChartData}
@@ -889,7 +867,6 @@ export default function EvolutionChart({
                 )}
             </motion.div>
 
-            {/* PREMIUM MC STATS CARD */}
             {isMcEngine && focusCategory && (
                 <div className="animate-fade-in-up">
                     <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden group">
@@ -898,7 +875,6 @@ export default function EvolutionChart({
                         </div>
 
                         <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
-                            {/* Left: Gaussian Plot */}
                             <div className="w-full md:w-1/2 flex flex-col">
                                 <div className="flex items-center gap-2 mb-4 min-w-0">
                                     <Zap size={16} className="text-indigo-400 shrink-0" />
@@ -924,7 +900,6 @@ export default function EvolutionChart({
                                 </div>
                             </div>
 
-                            {/* Right: Detailed Metrics */}
                             <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-center">
                                 {(() => {
                                     const toFinite = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
@@ -968,7 +943,6 @@ export default function EvolutionChart({
                 </div>
             )}
 
-            {/* PREMIUM SYSTEM ANALYSIS CARD */}
             <div className="pt-20 relative z-0">
             {(() => {
                 const insight = getInsight();
@@ -1014,14 +988,11 @@ export default function EvolutionChart({
 
                 return (
                     <div className={`relative overflow-hidden rounded-[2rem] border ${colors.border} bg-slate-900 shadow-2xl transition-all duration-700 group hover:scale-[1.01] ${colors.glow}`}>
-                        {/* Decorative Premium Background */}
                         <div className={`absolute inset-0 bg-gradient-to-br ${colors.bg} opacity-50`} />
                         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none group-hover:bg-indigo-500/20 transition-all duration-1000 -mr-48 -mt-48" />
                         <div className={`absolute bottom-0 left-0 w-[300px] h-[300px] ${colors.circleBg} rounded-full blur-[100px] pointer-events-none -ml-32 -mb-32`} />
                         
-                        {/* 🎯 FIX: Reduzido padding mobile de p-10 para p-6 para evitar esmagamento de texto */}
                         <div className="flex flex-col lg:flex-row gap-8 sm:gap-10 items-start p-6 sm:p-14 relative z-10">
-                            {/* Icon & Primary Content */}
                             <div className="flex-1 space-y-6">
                                 <div className="flex items-start sm:items-center gap-6">
                                     <div className={`shrink-0 w-16 h-16 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center text-3xl shadow-2xl transform group-hover:rotate-6 transition-transform duration-500 ${colors.icon}`}>
@@ -1046,11 +1017,9 @@ export default function EvolutionChart({
                                 </p>
                             </div>
 
-                            {/* Advice / Action Section - REFINED FONT SIZE */}
                             {insight.advice && (
                                 <div className="lg:w-[400px] shrink-0">
                                     <div className={`rounded-[2rem] bg-black/60 border ${colors.border} p-10 sm:p-12 relative shadow-2xl group-hover:bg-black/80 transition-all duration-500`}>
-                                        {/* Internal glow */}
                                         <div className={`absolute -right-12 -top-12 w-48 h-48 ${colors.glow} opacity-10 blur-3xl pointer-events-none`} />
                                         
                                         <div className="flex items-center gap-2 mb-4 relative z-10">
@@ -1072,7 +1041,6 @@ export default function EvolutionChart({
                             )}
                         </div>
 
-                        {/* Bottom Status Bar */}
                         <div className="px-8 sm:px-10 py-5 bg-black/20 border-t border-white/5 flex flex-wrap items-center gap-6 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] relative z-10">
                             <div className="flex items-center gap-2">
                                 <div className="relative flex items-center justify-center">
@@ -1097,9 +1065,7 @@ export default function EvolutionChart({
 
             <div className="pt-4">
                 <div className="flex items-center gap-3 mb-5">
-                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
                     <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center px-2">Galeria de Análises Detalhadas</h2>
-                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
