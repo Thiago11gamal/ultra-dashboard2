@@ -482,28 +482,25 @@ const StudyHistory = React.memo(function StudyHistory({
                                         : "Atenção! Sua média global indica que é preciso reforçar a base teórica.";
 
                                 return (
-                                    <div className={`flex-1 flex h-full min-h-0 ${isToday ? '' : 'opacity-90'} ${side === 'right' ? 'flex-row-reverse' : 'flex-row'}`}>
-                                        {/* Vertical Icon Column - Mirrored Logic */}
-                                        <div className={`flex flex-col items-center justify-center px-3 py-8 ${side === 'left' ? 'mr-4 rounded-l-xl border-r' : 'ml-4 rounded-r-xl border-l'} bg-slate-800/40 border-indigo-500/20 shadow-xl self-stretch relative group`}>
-                                            <div className="flex-1 flex flex-col items-center justify-between gap-8 h-full">
-                                                <span className="text-3xl filter grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">{icon}</span>
-                                                <h3 className={`text-[11px] font-black tracking-[0.3em] uppercase ${isToday ? 'text-emerald-400' : 'text-indigo-400'} whitespace-nowrap`} style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: side === 'left' ? 'rotate(180deg)' : 'none' }}>
+                                    <div className={`flex-1 flex flex-col h-full min-h-0 ${isToday ? '' : 'opacity-90'} ${side === 'left' ? 'pr-2' : 'pl-2'}`}>
+                                        {/* Horizontal Header (Top) */}
+                                        <div className="flex items-center justify-between mb-4 bg-slate-800/40 rounded-xl border border-indigo-500/20 shadow-xl px-5 py-3 group">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-2xl filter grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">{icon}</span>
+                                                <h3 className={`text-sm font-black tracking-widest uppercase ${isToday ? 'text-emerald-400' : 'text-indigo-400'}`}>
                                                     {title}
                                                 </h3>
-                                                <div className="w-px h-12 bg-gradient-to-b from-indigo-500/30 to-transparent"></div>
                                             </div>
 
-                                            {/* DELETE BUTTON - ABSOLUTE BOTTOM */}
+                                            {/* DELETE BUTTON */}
                                             {onDeleteSimulado && (
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        // Pass the date of one of the rows. 
-                                                        // Fallback seguro usando date ou createdAt para evitar exclusão de imports.
                                                         const dateToDelete = rows[0]?.date || rows[0]?.createdAt || new Date().toISOString();
                                                         onDeleteSimulado(dateToDelete);
                                                     }}
-                                                    className="absolute bottom-2 left-1/2 -translate-x-1/2 p-2 rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
+                                                    className="p-2 rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
                                                     title={`Excluir histórico de ${title}`}
                                                 >
                                                     <Trash2 size={16} />
@@ -512,7 +509,7 @@ const StudyHistory = React.memo(function StudyHistory({
                                         </div>
 
                                         {/* Content Column */}
-                                        <div className="flex-1 min-w-0 pr-2">
+                                        <div className="flex-1 min-w-0 pr-1">
                                             {/* Global Insight Banner - More Spacing */}
                                             <div className="mb-6 bg-slate-800/80 rounded-xl border border-indigo-500/30 p-5 shadow-lg shadow-indigo-500/5 relative overflow-hidden group">
                                                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-50"></div>
@@ -615,8 +612,8 @@ const StudyHistory = React.memo(function StudyHistory({
                                 );
                             };
 
-                            const todaySection = renderSection(todayRows, 'Hoje', '⚡', true, 'right');
-                            const yesterdaySection = renderSection(yesterdayRows, 'Ontem', '🕰️', false, 'left');
+                            const todaySection = renderSection(todayRows, 'Hoje', '⚡', true, 'left');
+                            const yesterdaySection = renderSection(yesterdayRows, 'Ontem', '🕰️', false, 'right');
 
                             if (!todaySection && !yesterdaySection) {
                                 return (
@@ -635,15 +632,15 @@ const StudyHistory = React.memo(function StudyHistory({
 
                             return (
                                 <div className="flex flex-col lg:flex-row gap-8 flex-1 overflow-y-visible" style={{ minHeight: '400px' }}>
-                                    {yesterdaySection || (
-                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-slate-700/40">
-                                            <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
-                                        </div>
-                                    )}
-
                                     {todaySection || (
                                         <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-slate-700/40">
                                             <span className="text-xs text-slate-500 font-medium">Sem dados hoje</span>
+                                        </div>
+                                    )}
+
+                                    {yesterdaySection || (
+                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-slate-700/40">
+                                            <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
                                         </div>
                                     )}
                                 </div>

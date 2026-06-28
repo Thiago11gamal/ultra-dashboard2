@@ -3,7 +3,7 @@ import { normalize, aliases } from '../utils/normalization';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [] }) {
+export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [], viewMode = 'both' }) {
     const analysisTimeoutRef = React.useRef(null);
 
 
@@ -11,9 +11,17 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     // during the render phase whenever r.id was falsy — causing React to see different
     // keys on every render, making inputs lose focus on every keystroke.
     // Using index as stable fallback avoids any mutation during render.
-    const rows = (propRows && propRows.length > 0)
+    const [rows, setLocalRows] = useState(() => (propRows && propRows.length > 0)
         ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
-        : [];
+        : []
+    );
+
+    React.useEffect(() => {
+        setLocalRows((propRows && propRows.length > 0)
+            ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
+            : []
+        );
+    }, [propRows]);
 
     // Helper to report changes up to parent
     const [analysisData, setAnalysisData] = useState(null);
@@ -30,6 +38,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     }, []);
 
     const setRows = (newRows) => {
+        setLocalRows(newRows);
         if (onRowsChange) onRowsChange(Array.isArray(newRows) ? newRows : []);
     };
 
@@ -90,6 +99,23 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             ...row,
             total: Math.min(10000, (parseInt(row.total, 10) || 0) + 10)
         }));
+        setRows(newRows);
+    };
+
+    const addTenToAllCorrect = () => {
+        const newRows = rows.map(row => {
+            const currentTotal = parseInt(row.total, 10) || 0;
+            let newCorrect = (parseInt(row.correct, 10) || 0) + 10;
+            // Não permite que os acertos ultrapassem o total (se o total for maior que zero)
+            if (currentTotal > 0 && newCorrect > currentTotal) {
+                newCorrect = currentTotal;
+            }
+            return {
+                ...row,
+                correct: newCorrect,
+                score: currentTotal > 0 ? Math.min(100, (newCorrect / currentTotal) * 100) : 0
+            };
+        });
         setRows(newRows);
     };
 
@@ -317,7 +343,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                 setAnalysisData(data);
 
-                if (onAnalysisComplete) {
+                if (onAnalysisComplete && viewMode !== 'report') {
                     const cleanRows = rows.map(r => ({
                         ...r,
                         subject: String(r.subject || '').trim(),
@@ -333,49 +359,62 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             } finally {
                 setLoading(false);
             }
-        }, 800); // Small delay for effect
+        }, viewMode === 'report' ? 0 : 800); // Remove delay when just viewing report
     };
 
+    React.useEffect(() => {
+        if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading) {
+            handleAnalyze();
+        }
+    }, [viewMode, rows.length, analysisData, loading, handleAnalyze]);
+
     return (
-        <div className="w-full mx-auto space-y-6 animate-fade-in pb-20">
+        <div className={`w-full mx-auto space-y-6 animate-fade-in pb-20`}>
 
             {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-            <header className="relative flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-slate-900/60 border border-slate-700/50 backdrop-blur-xl shadow-2xl overflow-hidden group">
-                {/* Glow Background */}
-                <div className="absolute -left-20 -top-20 w-64 h-64 bg-purple-600/20 blur-[80px] rounded-full pointer-events-none group-hover:bg-purple-500/30 transition-colors duration-700" />
-                
-                <div className="relative z-10 flex items-center gap-4 w-full">
-                    <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-500/20 to-indigo-600/20 rounded-xl border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.2)] shrink-0">
-                        <BrainCircuit size={28} className="text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <div className="flex items-center gap-3 flex-wrap mb-1">
-                            <h2 className="text-xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-300 to-indigo-400 tracking-tight drop-shadow-sm">IA Analyzer Pro</h2>
-                            <span className="text-[10px] bg-purple-500/10 px-2.5 py-1 rounded-md text-purple-300 border border-purple-500/30 font-black uppercase tracking-widest shadow-inner">
-                                Offline
-                            </span>
+            {(viewMode === 'both') && (
+                <header className="relative flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-slate-900/60 border border-slate-700/50 backdrop-blur-xl shadow-2xl overflow-hidden group">
+                    {/* Glow Background */}
+                    <div className="absolute -left-20 -top-20 w-64 h-64 bg-purple-600/20 blur-[80px] rounded-full pointer-events-none group-hover:bg-purple-500/30 transition-colors duration-700" />
+                    
+                    <div className="relative z-10 flex items-center gap-4 w-full">
+                        <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-500/20 to-indigo-600/20 rounded-xl border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.2)] shrink-0">
+                            <BrainCircuit size={28} className="text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
                         </div>
-                        <p className="text-slate-400 text-xs sm:text-sm font-medium">Motor estocástico de identificação de fraquezas e geração de revisão.</p>
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                            <div className="flex items-center gap-3 flex-wrap mb-1">
+                                <h2 className="text-xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-300 to-indigo-400 tracking-tight drop-shadow-sm">IA Analyzer Pro</h2>
+                                <span className="text-[10px] bg-purple-500/10 px-2.5 py-1 rounded-md text-purple-300 border border-purple-500/30 font-black uppercase tracking-widest shadow-inner">
+                                    Offline
+                                </span>
+                            </div>
+                            <p className="text-slate-400 text-xs sm:text-sm font-medium">Motor estocástico de identificação de fraquezas e geração de revisão.</p>
+                        </div>
                     </div>
-                </div>
-            </header>
+                </header>
+            )}
 
-            {/* â”€â”€ GRID PRINCIPAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+            {/* ── GRID PRINCIPAL ──────────────────────────────────────────────────────────── */}
+            <div className={`grid grid-cols-1 ${viewMode === 'both' ? 'lg:grid-cols-12' : 'lg:grid-cols-1'} gap-4 sm:gap-6`}>
 
-                {/* â•â•â•â• PAINEL ESQUERDO: Entrada de dados â•â•â•â• */}
-                <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-4 shadow-lg">
+                {/* ── PAINEL ESQUERDO: Entrada de dados ── */}
+                {(viewMode === 'both' || viewMode === 'form') && (
+                <div className={`${viewMode === 'both' ? 'lg:col-span-5' : 'w-full'} bg-slate-900 border border-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-4 shadow-lg`}>
 
-                    {/* CabeÃ§alho do painel */}
+                    {/* Cabeçalho do painel */}
                     <div className="flex items-center justify-between">
                         <h3 className="text-base font-bold flex items-center gap-2 text-slate-100">
                             <FileText size={16} className="text-blue-400" />
                             Dados do Simulado
                         </h3>
                         <div className="flex gap-2">
-                            <button onClick={addTenToAll}
-                                className="text-[10px] font-black bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 px-2 py-1 rounded-lg border border-blue-500/20 transition-all hover:scale-105 active:scale-95">
-                                +10
+                            <button onClick={addTenToAllCorrect} title="+10 Acertos"
+                                className="text-[10px] font-black bg-green-500/10 text-green-400 hover:bg-green-500/20 px-2 py-1 rounded-lg border border-green-500/20 transition-all hover:scale-105 active:scale-95">
+                                +10 ✓
+                            </button>
+                            <button onClick={addTenToAll} title="+10 Total"
+                                className="text-[10px] font-black text-slate-300 hover:text-white bg-transparent hover:bg-white/10 px-2 py-1 rounded-lg border border-slate-500 hover:border-slate-300 shadow-sm transition-all hover:scale-105 active:scale-95">
+                                +10 Total
                             </button>
                             <button onClick={resetScores}
                                 className="text-[10px] text-slate-500 hover:text-yellow-400 transition-colors px-2 py-1 rounded-lg hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20">
@@ -385,9 +424,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     </div>
 
                     {/* Colunas header */}
-                    <div className="hidden md:grid grid-cols-[1fr_1fr_52px_52px_95px_28px] gap-1.5 px-1 pb-1 border-b border-slate-700/50 mb-1">
+                    <div className="hidden md:grid grid-cols-[1.5fr_1.5fr_48px_48px_95px_10px] gap-2 px-3 pb-1 border-b border-slate-700/50 mb-1">
                         {['Matéria', 'Assunto', '✓', 'Total', 'Classificação', ''].map((h, i) => (
-                            <span key={i} className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center first:text-left">{h}</span>
+                            <span key={i} className={`text-[9px] font-black uppercase tracking-widest ${i < 2 ? 'text-left' : 'text-center'} ${h === '✓' ? 'text-green-400 text-[11px]' : 'text-slate-400'}`}>{h}</span>
                         ))}
                     </div>
 
@@ -463,27 +502,70 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             ) : (
                                 <span className="flex items-center justify-center gap-2">
                                     <Play size={18} className="fill-current" />
-                                    <span className="tracking-wide">GERAR PLANO DE REVISÃO</span>
+                                    <span className="tracking-wide">{viewMode === 'form' ? 'SALVAR SIMULADO MANUAL' : 'GERAR PLANO DE REVISÃO'}</span>
                                 </span>
                             )}
                         </button>
                     </div>
                 </div>
+                )}
 
-                {/* â•â•â•â• PAINEL DIREITO: Resultado â•â•â•â• */}
-                <div className="relative lg:col-span-7 bg-slate-900/80 border border-slate-700/50 rounded-2xl p-5 sm:p-6 min-h-[500px] shadow-2xl flex flex-col backdrop-blur-xl overflow-hidden">
+                {/* ── PAINEL DIREITO: Resultado ── */}
+                {(viewMode === 'both' || viewMode === 'report') && (
+                <div className={`relative ${viewMode === 'both' ? 'lg:col-span-7' : 'w-full'} bg-slate-900/80 border border-slate-700/50 rounded-2xl p-5 sm:p-6 min-h-[500px] shadow-2xl flex flex-col backdrop-blur-xl overflow-hidden`}>
 
                     {/* Background Ambient Glow for Results */}
                     {analysisData && (
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
                     )}
 
-                    <div className="relative z-10 flex items-center gap-3 mb-6 pb-4 border-b border-slate-700/50">
-                        <div className="p-1.5 bg-green-500/20 rounded-lg border border-green-500/30">
-                            <CheckCircle2 size={18} className="text-green-400 drop-shadow-[0_0_5px_currentColor]" />
+                    {/* Empty State */}
+                    {!analysisData && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-900/60 backdrop-blur-sm z-20">
+                            <div className="w-24 h-24 mb-6 rounded-3xl bg-slate-800/80 border border-slate-700 shadow-2xl flex items-center justify-center rotate-3 hover:rotate-6 transition-transform">
+                                <FileText size={40} className="text-slate-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Relatório de Performance</h3>
+                            {loading ? (
+                                <p className="text-slate-400 max-w-sm">Processando dados e gerando insights da inteligência artificial...</p>
+                            ) : (
+                                <p className="text-slate-400 max-w-sm">
+                                    {viewMode === 'report' ? (rows.length > 0 ? "Espere a análise ser gerada." : "Faça um simulado (IA ou Manual) para ver seu relatório consolidado aqui!") : "Preencha seus acertos ao lado e clique em Analisar para gerar um plano de revisão."}
+                                </p>
+                            )}
                         </div>
-                        <h3 className="text-lg font-black text-slate-100 tracking-tight">Relatório de Performance</h3>
-                    </div>
+                    )}
+
+                    {analysisData && (
+                        <div className="relative z-10 flex items-center gap-3 mb-6 pb-4 border-b border-slate-700/50">
+                            <div className="p-1.5 bg-green-500/20 rounded-lg border border-green-500/30">
+                                <CheckCircle2 size={18} className="text-green-400 drop-shadow-[0_0_5px_currentColor]" />
+                            </div>
+                            <h3 className="text-lg font-black text-slate-100 tracking-tight flex items-center gap-3">
+                                Relatório de Performance
+                                {(() => {
+                                    const originTypes = rows.map(r => r.source === 'ai-generated' ? 'AI' : 'Manual');
+                                    const hasAI = originTypes.includes('AI');
+                                    const hasManual = originTypes.includes('Manual');
+                                    let badge = null;
+                                    
+                                    if (hasAI && !hasManual) {
+                                        badge = { text: 'Gerado por IA', cls: 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_10px_rgba(168,85,247,0.15)]' };
+                                    } else if (!hasAI && hasManual) {
+                                        badge = { text: 'Manual', cls: 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.15)]' };
+                                    } else if (hasAI && hasManual) {
+                                        badge = { text: 'Misto (IA + Manual)', cls: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_10px_rgba(99,102,241,0.15)]' };
+                                    }
+
+                                    return badge ? (
+                                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border uppercase tracking-widest ${badge.cls}`}>
+                                            {badge.text}
+                                        </span>
+                                    ) : null;
+                                })()}
+                            </h3>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="relative z-10 p-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl flex items-center gap-3 text-sm font-medium shadow-[0_0_15px_rgba(244,63,94,0.1)]">
@@ -631,7 +713,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         </div>
                     )}
                 </div>
-
+                )}
             </div>
         </div>
     );

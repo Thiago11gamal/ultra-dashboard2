@@ -274,6 +274,134 @@ export default function AIGeneratedSimulado() {
   const selectedCategory = categories.find(c => c.id === form.categoryId);
   const availableTasks = selectedCategory?.tasks || [];
 
+  const generatePersonalizedSimulado = async () => {
+    // 1. Encontra fraquezas
+    const allTasks = [];
+    categories.forEach(cat => {
+      const stats = cat.simuladoStats;
+      const level = stats?.level || 'BAIXO';
+      const avg = stats?.average || 0;
+      
+      cat.tasks?.forEach(tsk => {
+        const title = String(tsk.title || tsk.text || '').trim();
+        if (title) {
+          allTasks.push({ catId: cat.id, taskId: tsk.id, materia: cat.name, assunto: title, level, avg });
+        }
+      });
+    });
+
+    const levelScore = { 'BAIXO': 1, 'MÉDIO': 2, 'ALTO': 3 };
+    allTasks.sort((a, b) => {
+      const lsA = levelScore[a.level] || 1;
+      const lsB = levelScore[b.level] || 1;
+      if (lsA !== lsB) return lsA - lsB;
+      return a.avg - b.avg;
+    });
+
+    // Pega as 5 piores (ou menos) matérias/assuntos
+    const worstTasks = allTasks.slice(0, 5);
+    
+    if (worstTasks.length === 0) {
+      showToast('Cadastre matérias e assuntos no Dashboard primeiro.', 'warning');
+      return;
+    }
+
+    const assuntoString = worstTasks.map(t => `- Matéria: ${t.materia} | Assunto: ${t.assunto} (Nível: ${t.level})`).join('\n');
+    
+    // Inteligência Adaptativa de Dificuldade
+    // Níveis: BAIXO=1, MÉDIO=2, ALTO=3
+    const avgDifficulty = worstTasks.reduce((acc, t) => acc + (levelScore[t.level] || 1), 0) / worstTasks.length;
+    let adaptiveDifficulty = 'medio';
+    if (avgDifficulty >= 2.5) {
+      adaptiveDifficulty = 'expert'; // Se suas piores matérias já estão no nível ALTO
+    } else if (avgDifficulty >= 1.5) {
+      adaptiveDifficulty = 'dificil'; // Se suas piores matérias estão no nível MÉDIO
+    } else {
+      adaptiveDifficulty = 'medio'; // Se a maioria for nível BAIXO
+    }
+    
+    setForm(prev => ({
+      ...prev,
+      categoryId: 'mixed',
+      taskId: 'mixed',
+      materia: 'Simulado Personalizado',
+      assunto: assuntoString,
+      dificuldade: adaptiveDifficulty,
+      quantidade: 10
+    }));
+
+    setIsLoading(true);
+
+    const genForm = { categoryId: 'mixed', taskId: 'mixed', materia: 'Simulado Personalizado', assunto: assuntoString, dificuldade: adaptiveDifficulty, quantidade: 10 };
+    const genState = { status: 'generating', form: genForm, startedAt: Date.now() };
+    localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify(genState));
+
+    const activeContestName = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.name || 'Concurso Geral';
+
+    activeGenerationPromise = (async () => {
+      try {
+        const generated = await generateAIQuestions({
+          materia: 'Simulado Personalizado',
+          assunto: assuntoString,
+          dificuldade: adaptiveDifficulty,
+          quantidade: 10,
+          contestName: activeContestName,
+        });
+
+        if (!Array.isArray(generated) || generated.length === 0) {
+          throw new Error('A IA não gerou questões válidas.');
+        }
+
+        const normalizedQuestions = generated.map((q, idx) => ({
+          ...q,
+          id: q.id || `ai-${Date.now()}-${idx}`,
+          categoryId: 'mixed',
+          taskId: 'mixed',
+        }));
+
+        localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify({
+          status: 'done',
+          form: genForm,
+          questions: normalizedQuestions,
+          completedAt: Date.now(),
+        }));
+        return normalizedQuestions;
+      } catch (err) {
+        localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify({
+          status: 'error',
+          errorMessage: err.message,
+        }));
+        return null;
+      }
+    })();
+
+    if (mountedRef.current) {
+      setTimeout(() => {
+        if (mountedRef.current && isLoading) {
+          activeGenerationPromise.then((normalizedQuestions) => {
+            if (normalizedQuestions && normalizedQuestions.length > 0) {
+              isFinishingRef.current = false;
+              setQuestions(normalizedQuestions);
+              setAnswers({});
+              setCurrentIndex(0);
+              setTimeLeft(45 * 60);
+              setStep('playing');
+              setTimerActive(true);
+              setShowReview(false);
+              setIsLoading(false);
+              localStorage.removeItem(AI_GEN_STORAGE_KEY);
+              showToast(`Personalizado: ${normalizedQuestions.length} questões focadas nas fraquezas!`, 'success');
+            }
+          }).catch((error) => {
+            setIsLoading(false);
+            localStorage.removeItem(AI_GEN_STORAGE_KEY);
+            showToast(error.message || 'Erro ao gerar questões personalizadas.', 'error');
+          });
+        }
+      }, 0);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!form.categoryId || !form.taskId) {
       showToast('Selecione Matéria e Assunto cadastrados', 'error');
@@ -294,6 +422,8 @@ export default function AIGeneratedSimulado() {
     const currentForm = { ...form };
     const currentCategories = [...categories];
 
+    const activeContestName = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.name || 'Concurso Geral';
+
     activeGenerationPromise = (async () => {
       try {
         const generated = await generateAIQuestions({
@@ -301,6 +431,7 @@ export default function AIGeneratedSimulado() {
           assunto: currentForm.assunto.trim(),
           dificuldade: currentForm.dificuldade,
           quantidade: currentForm.quantidade,
+          contestName: activeContestName,
         });
 
         if (!Array.isArray(generated) || generated.length === 0) {
@@ -411,7 +542,7 @@ export default function AIGeneratedSimulado() {
       score: computedScore,   // for compatibility with getSafeScore and filters
       date: todayKey,
       createdAt: new Date().toISOString(),
-      isAuto: true,
+      isAuto: false,
       validated: true,        // treat AI played results as valid (like manual analyzer)
       source: 'ai-generated',
       difficulty: numericDifficulty,
@@ -420,12 +551,12 @@ export default function AIGeneratedSimulado() {
     setData(prev => {
       if (!prev) return prev;
 
-      // 1. Atualiza simuladoRows – remove APENAS a row isAuto do mesmo (categoryId+taskId) ou (subject+topic) do dia
-      // Isso corrige o bug de apagar simulados AI de outros assuntos no mesmo dia.
+      // 1. Atualiza simuladoRows – ACUMULA os acertos se for o mesmo (categoryId+taskId) ou (subject+topic) do dia
       const existingRows = prev.simuladoRows || [];
-      const rowsToKeep = existingRows.filter(r => {
-        if (!r.isAuto) return true;
-        if (getDateKey(normalizeDate(r.date || r.createdAt)) !== todayKey) return true;
+      let rowFound = false;
+      const updatedRows = existingRows.map(r => {
+        if (!r.isAuto && r.source !== 'ai-generated') return r;
+        if (getDateKey(normalizeDate(r.date || r.createdAt)) !== todayKey) return r;
 
         // Match by ID (preferred) or by name
         const sameById = categoryId && r.categoryId && r.taskId && 
@@ -433,9 +564,25 @@ export default function AIGeneratedSimulado() {
         const sameByName = !categoryId && 
                            normalize(r.subject) === normalize(materia) && 
                            normalize(r.topic) === normalize(assunto);
-        return !(sameById || sameByName);
+                           
+        if (sameById || sameByName) {
+          rowFound = true;
+          const newCorrect = (Number(r.correct) || 0) + correct;
+          const newTotal = (Number(r.total) || 0) + total;
+          return {
+            ...r,
+            correct: newCorrect,
+            total: newTotal,
+            score: newTotal > 0 ? (newCorrect / newTotal) * 100 : 0,
+            lastUpdated: new Date().toISOString()
+          };
+        }
+        return r;
       });
-      const updatedRows = [...rowsToKeep, newRow];
+
+      if (!rowFound) {
+        updatedRows.push(newRow);
+      }
 
       // 2. Atualiza simulados (histórico)
       const newSimEvent = {
@@ -452,9 +599,8 @@ export default function AIGeneratedSimulado() {
       };
 
       const existingSims = Array.isArray(prev.simulados) ? prev.simulados : [];
-      // Apenas remove eventos AI do mesmo dia (não apaga eventos do analyzer)
-      const simsWithoutToday = existingSims.filter(s => !(s.date === todayKey && (s.type === 'ai-simulado' || s.source === 'ai')));
-      const updatedSims = [...simsWithoutToday, newSimEvent].slice(-100);
+      // Não apaga mais os eventos anteriores do dia; acumula no histórico geral.
+      const updatedSims = [...existingSims, newSimEvent].slice(-100);
 
       // 3. Atualiza stats da categoria — preferindo match por ID exato (mais confiável)
       const newCategories = (prev.categories || []).map(cat => {
@@ -472,14 +618,26 @@ export default function AIGeneratedSimulado() {
           const newTopicEntry = { name: assunto, correct, total, taskId };
 
           if (todayIdx !== -1) {
-            // Merge no entry de hoje existente
+            // Merge no entry de hoje existente (Acumula acertos/total se o tópico já existir)
             const existing = { ...history[todayIdx] };
-            const existingTopics = Array.isArray(existing.topics) ? existing.topics.filter(t => {
-              if (taskId && t.taskId) return t.taskId !== taskId;
-              // fallback for legacy without taskId
-              return normalize(t.name) !== normalize(assunto);
-            }) : [];
-            existingTopics.push(newTopicEntry);
+            let topicFound = false;
+            
+            const existingTopics = (Array.isArray(existing.topics) ? existing.topics : []).map(t => {
+              const isMatch = (taskId && t.taskId === taskId) || (!taskId && normalize(t.name) === normalize(assunto));
+              if (isMatch) {
+                topicFound = true;
+                return {
+                  ...t,
+                  correct: (Number(t.correct) || 0) + correct,
+                  total: (Number(t.total) || 0) + total
+                };
+              }
+              return t;
+            });
+            
+            if (!topicFound) {
+              existingTopics.push(newTopicEntry);
+            }
 
             // Recalcular totais do dia
             const dayTotal = existingTopics.reduce((s, t) => s + (t.total || 0), 0);
@@ -565,7 +723,35 @@ export default function AIGeneratedSimulado() {
     const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
     // === SALVA NO SISTEMA (mesma infraestrutura dos simulados) ===
-    await saveAIResultsToSystem(f, correctCount, total, answeredQuestions);
+    if (f.categoryId === 'mixed') {
+      // Agrupa questões por matéria e assunto
+      const groups = {};
+      answeredQuestions.forEach(q => {
+        const key = `${q.materia}|${q.assunto}`;
+        if (!groups[key]) groups[key] = { materia: q.materia, assunto: q.assunto, correct: 0, total: 0, qs: [] };
+        groups[key].qs.push(q);
+        groups[key].total++;
+        if (q.isCorrect) groups[key].correct++;
+      });
+      
+      const cats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
+      
+      for (const g of Object.values(groups)) {
+        const cat = cats.find(c => normalize(c.name) === normalize(g.materia));
+        const tsk = cat?.tasks?.find(t => normalize(t.title || t.text || '') === normalize(g.assunto));
+        
+        const subForm = {
+          ...f,
+          materia: g.materia,
+          assunto: g.assunto,
+          categoryId: cat ? cat.id : null,
+          taskId: tsk ? tsk.id : null,
+        };
+        await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs);
+      }
+    } else {
+      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions);
+    }
 
     setResults({
       correct: correctCount,
@@ -689,20 +875,32 @@ export default function AIGeneratedSimulado() {
               </div>
             </div>
             
-            {/* Stats bar */}
-            <div className="flex items-center gap-5 mt-6 pt-5 border-t border-white/[0.06]">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <Zap size={12} className="text-indigo-400" />
-                <span>Gemini 3 Flash</span>
+            {/* Stats bar & Action */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6 pt-5 border-t border-white/[0.06]">
+              <div className="flex items-center gap-5">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <Zap size={12} className="text-indigo-400" />
+                  <span>Gemini 3 Flash</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <BarChart3 size={12} className="text-purple-400" />
+                  <span>Atualiza Dashboard</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <TrendingUp size={12} className="text-emerald-400" />
+                  <span>Monte Carlo</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <BarChart3 size={12} className="text-purple-400" />
-                <span>Atualiza Dashboard</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <TrendingUp size={12} className="text-emerald-400" />
-                <span>Monte Carlo</span>
-              </div>
+              
+              {/* Botão Simulado Personalizado */}
+              <button
+                onClick={generatePersonalizedSimulado}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50"
+              >
+                <Brain size={16} />
+                SIMULADO PERSONALIZADO
+              </button>
             </div>
           </div>
         </div>
@@ -743,9 +941,22 @@ export default function AIGeneratedSimulado() {
                 <h3 className="text-xl sm:text-2xl font-black text-white tracking-wide mb-3">
                   Sintetizando Simulado Inédito
                 </h3>
-                <p className="text-slate-400 text-[14px] max-w-sm leading-relaxed mb-6">
-                  A Inteligência Artificial está formulando <strong className="text-indigo-300">{form.quantidade} questões</strong> exclusivas de nível <strong className="text-indigo-300">{DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || 'Médio'}</strong> sobre <strong className="text-white">{form.assunto || 'o assunto selecionado'}</strong>.
-                </p>
+                <div className="text-slate-400 text-[14px] max-w-md w-full leading-relaxed mb-6">
+                  A Inteligência Artificial está formulando <strong className="text-indigo-300">{form.quantidade} questões</strong> exclusivas de nível <strong className="text-indigo-300">{DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || 'Médio'}</strong> sobre:
+                  
+                  {form.categoryId === 'mixed' ? (
+                    <ul className="mt-4 text-left space-y-2 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 shadow-inner overflow-hidden">
+                      {(form.assunto || '').split('\n').filter(Boolean).map((line, i) => (
+                        <li key={i} className="text-[12px] flex items-start gap-2 text-slate-300">
+                           <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
+                           <span className="leading-tight">{line.replace(/^- /, '')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="mt-2 font-bold text-white">{form.assunto || 'o assunto selecionado'}</div>
+                  )}
+                </div>
                 
                 <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 bg-indigo-500/10 px-4 py-2.5 rounded-full border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
                   <Sparkles size={14} className="animate-pulse" />
@@ -841,9 +1052,15 @@ export default function AIGeneratedSimulado() {
                     <div className="mt-4 pt-4 border-t border-white/10 flex items-center gap-2 text-sm">
                       <div className="text-slate-500 text-xs uppercase tracking-widest">Selecionado:</div>
                       <div className="font-semibold text-white flex-1 truncate">
-                        {form.materia || '—'} 
-                        {form.assunto && <span className="mx-1.5 text-indigo-400/60">›</span>}
-                        {form.assunto || ''}
+                        {form.categoryId === 'mixed' ? (
+                           <span>Simulado Personalizado <span className="mx-1.5 text-indigo-400/60">›</span> Foco em Múltiplas Fraquezas</span>
+                        ) : (
+                          <>
+                            {form.materia || '—'} 
+                            {form.assunto && <span className="mx-1.5 text-indigo-400/60">›</span>}
+                            {form.assunto || ''}
+                          </>
+                        )}
                       </div>
                       {form.categoryId && form.taskId && (
                         <div className="text-[10px] px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold">PRONTO</div>
@@ -915,9 +1132,9 @@ export default function AIGeneratedSimulado() {
                     <div className="p-1.5 rounded-lg bg-emerald-500/15">
                       <Play size={14} className="text-emerald-400" />
                     </div>
-                    <div className="text-[13px]">
+                    <div className="text-[13px] truncate">
                       <span className="font-semibold text-white">Pronto:</span>{' '}
-                      <span className="text-slate-400">{form.quantidade} questões • {DIFFICULTIES.find(d => d.value === form.dificuldade)?.label} • {form.assunto}</span>
+                      <span className="text-slate-400">{form.quantidade} questões • {DIFFICULTIES.find(d => d.value === form.dificuldade)?.label} • {form.categoryId === 'mixed' ? 'Foco em Fraquezas' : form.assunto}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -1149,80 +1366,88 @@ export default function AIGeneratedSimulado() {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full min-h-[calc(100vh-160px)] flex flex-col"
+        className="w-full min-h-[calc(100vh-160px)] flex flex-col gap-5"
       >
-        {/* ═══ HERO SCORE ═══ */}
-        <div className="relative text-center pt-4 pb-8">
-          {/* Background glow */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-[120px] pointer-events-none" style={{ background: colorMap.glow }} />
+        {/* ═══ HERO: Score + Stats in one premium card ═══ */}
+        <div className="relative rounded-[20px] overflow-hidden" style={{ background: 'linear-gradient(160deg, rgba(30,27,75,0.5) 0%, rgba(15,23,42,0.8) 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          {/* Glow */}
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 w-96 h-48 rounded-full blur-[100px] pointer-events-none opacity-60" style={{ background: colorMap.glow }} />
           
-          <motion.div 
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black tracking-[2px] mb-5"
-            style={{ background: colorMap.bg, color: colorMap.text, border: `1px solid ${colorMap.border}` }}
-          >
-            <Trophy size={14} /> SIMULADO CONCLUÍDO
-          </motion.div>
+          <div className="relative px-6 sm:px-10 pt-8 pb-6">
+            {/* Badge */}
+            <div className="flex justify-center mb-4">
+              <motion.div 
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-[10px] font-black tracking-[2.5px]"
+                style={{ background: colorMap.bg, color: colorMap.text, border: `1px solid ${colorMap.border}` }}
+              >
+                <Trophy size={13} /> SIMULADO CONCLUÍDO
+              </motion.div>
+            </div>
 
-          <div className="flex justify-center items-baseline gap-3 mb-1">
+            {/* Score */}
+            <div className="flex justify-center items-baseline gap-2 mb-1">
+              <motion.div 
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', bounce: 0.5, delay: 0.2 }}
+                className="text-[64px] sm:text-[80px] leading-none font-black tracking-[-4px] text-white tabular-nums"
+                style={{ textShadow: `0 0 50px ${colorMap.glow}` }}
+              >
+                {results.correct}
+              </motion.div>
+              <div className="text-2xl text-slate-600 font-light">/</div>
+              <div className="text-3xl font-black text-slate-600 tracking-tight">{results.total}</div>
+            </div>
+
             <motion.div 
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', bounce: 0.5, delay: 0.2 }}
-              className="text-[72px] sm:text-[96px] leading-none font-black tracking-[-6px] text-white tabular-nums"
-              style={{ textShadow: `0 0 60px ${colorMap.glow}` }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="text-center"
             >
-              {results.correct}
+              <span className="text-3xl font-black tracking-tight" style={{ color: colorMap.text }}>{accuracy}%</span>
+              <span className="text-[11px] font-semibold text-slate-500 ml-2 tracking-[1.5px] uppercase">aproveitamento</span>
             </motion.div>
-            <div className="text-3xl text-slate-700 font-light">/</div>
-            <div className="text-4xl font-black text-slate-600 tracking-tight">{results.total}</div>
           </div>
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="text-4xl font-black tracking-tighter"
-            style={{ color: colorMap.text }}
-          >
-            {accuracy}%
-          </motion.div>
-          <div className="text-[11px] font-semibold text-slate-500 mt-1 tracking-[2px] uppercase">Aproveitamento Geral</div>
-        </div>
 
-        {/* ═══ STATS CARDS ═══ */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-5 mb-6">
-          <div className="rounded-2xl border border-emerald-500/15 p-4 sm:p-6 text-center" style={{ background: 'rgba(16,185,129,0.05)' }}>
-            <div className="text-[36px] sm:text-[44px] leading-none font-black text-emerald-400">{results.correct}</div>
-            <div className="uppercase tracking-[2px] text-[9px] sm:text-[10px] font-bold text-emerald-400/60 mt-2">ACERTOS</div>
-          </div>
-          <div className="rounded-2xl border border-rose-500/15 p-4 sm:p-6 text-center" style={{ background: 'rgba(244,63,94,0.05)' }}>
-            <div className="text-[36px] sm:text-[44px] leading-none font-black text-rose-400">{results.total - results.correct}</div>
-            <div className="uppercase tracking-[2px] text-[9px] sm:text-[10px] font-bold text-rose-400/60 mt-2">ERROS</div>
-          </div>
-          <div className="rounded-2xl border border-white/[0.08] p-4 sm:p-6 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
-            <div className="text-[36px] sm:text-[44px] leading-none font-black" style={{ color: colorMap.text }}>{accuracy}%</div>
-            <div className="uppercase tracking-[2px] text-[9px] sm:text-[10px] font-bold text-slate-500 mt-2">TAXA</div>
+          {/* Stats strip */}
+          <div className="grid grid-cols-3 border-t border-white/[0.06]">
+            <div className="py-4 px-3 text-center border-r border-white/[0.06]">
+              <div className="text-[28px] sm:text-[32px] leading-none font-black text-emerald-400">{results.correct}</div>
+              <div className="uppercase tracking-[2px] text-[9px] font-bold text-emerald-400/50 mt-1.5">ACERTOS</div>
+            </div>
+            <div className="py-4 px-3 text-center border-r border-white/[0.06]">
+              <div className="text-[28px] sm:text-[32px] leading-none font-black text-rose-400">{results.total - results.correct}</div>
+              <div className="uppercase tracking-[2px] text-[9px] font-bold text-rose-400/50 mt-1.5">ERROS</div>
+            </div>
+            <div className="py-4 px-3 text-center">
+              <div className="text-[28px] sm:text-[32px] leading-none font-black" style={{ color: colorMap.text }}>{accuracy}%</div>
+              <div className="uppercase tracking-[2px] text-[9px] font-bold text-slate-500 mt-1.5">TAXA</div>
+            </div>
           </div>
         </div>
 
         {/* ═══ TABS + CONTENT ═══ */}
-        <div className="rounded-[20px] border border-white/[0.06] overflow-hidden flex-1 flex flex-col mb-6" style={{ background: 'linear-gradient(180deg, rgba(30,27,75,0.2), rgba(15,23,42,0.4))' }}>
+        <div className="rounded-[20px] border border-white/[0.06] overflow-hidden flex-1 flex flex-col" style={{ background: 'linear-gradient(180deg, rgba(30,27,75,0.15), rgba(15,23,42,0.35))' }}>
           {/* Tab header */}
-          <div className="flex border-b border-white/[0.06] shrink-0">
+          <div className="flex shrink-0" style={{ background: 'rgba(0,0,0,0.2)' }}>
             <button 
               onClick={() => setShowReview(false)}
-              className={`flex-1 py-3.5 text-[13px] font-bold transition flex items-center justify-center gap-2 ${!showReview ? 'text-white border-b-2 border-indigo-400 bg-white/[0.03]' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex-1 py-3 text-[13px] font-bold transition-all flex items-center justify-center gap-2 relative ${!showReview ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
             >
-              <Award size={15} /> Resumo
+              <Award size={14} /> Resumo
+              {!showReview && <div className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full bg-indigo-400" />}
             </button>
+            <div className="w-px bg-white/[0.06]" />
             <button 
               onClick={() => setShowReview(true)}
-              className={`flex-1 py-3.5 text-[13px] font-bold transition flex items-center justify-center gap-2 ${showReview ? 'text-white border-b-2 border-indigo-400 bg-white/[0.03]' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex-1 py-3 text-[13px] font-bold transition-all flex items-center justify-center gap-2 relative ${showReview ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
             >
-              <ListChecks size={15} /> Revisar Questões
+              <ListChecks size={14} /> Revisar Questões
+              {showReview && <div className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full bg-indigo-400" />}
             </button>
           </div>
 
@@ -1235,24 +1460,26 @@ export default function AIGeneratedSimulado() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  className="p-6 sm:p-8"
+                  className="p-6 sm:p-10 flex flex-col justify-center items-center h-full min-h-[250px]"
                 >
-                  <div className="text-center py-6">
-                    <div className="text-[13px] text-slate-400 mb-6">Detalhamento do seu desempenho</div>
-                    <div className="flex justify-center items-center gap-8 sm:gap-16">
-                      <div>
-                        <div className="text-[48px] sm:text-[56px] leading-none font-black text-emerald-400">{results.correct}</div>
-                        <div className="text-[11px] font-bold text-emerald-400/50 mt-2 tracking-wider uppercase">Corretas</div>
-                      </div>
-                      <div className="w-px h-14 bg-white/[0.06]" />
-                      <div>
-                        <div className="text-[48px] sm:text-[56px] leading-none font-black text-rose-400">{results.total - results.correct}</div>
-                        <div className="text-[11px] font-bold text-rose-400/50 mt-2 tracking-wider uppercase">Incorretas</div>
-                      </div>
-                      <div className="w-px h-14 bg-white/[0.06]" />
-                      <div>
-                        <div className="text-[48px] sm:text-[56px] leading-none font-black" style={{ color: colorMap.text }}>{accuracy}%</div>
-                        <div className="text-[11px] font-bold text-slate-500 mt-2 tracking-wider uppercase">Aproveitamento</div>
+                  <div className="text-[12px] text-slate-500 mb-6 tracking-wider uppercase">Detalhes da Sessão</div>
+                  <div className="grid grid-cols-2 gap-4 w-full max-w-lg">
+                    <div className="text-center p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Matéria</div>
+                      <div className="text-white font-medium text-[15px]">{form.materia || '—'}</div>
+                    </div>
+                    <div className="text-center p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Assunto</div>
+                      <div className="text-white font-medium text-[15px] truncate px-2" title={form.assunto}>{form.assunto || '—'}</div>
+                    </div>
+                    <div className="text-center p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Nível</div>
+                      <div className="text-white font-medium text-[15px] capitalize">{form.dificuldade}</div>
+                    </div>
+                    <div className="text-center p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tempo Gasto</div>
+                      <div className="text-white font-medium text-[15px]">
+                        {Math.floor((45 * 60 - Math.max(0, timeLeft)) / 60)}m {((45 * 60 - Math.max(0, timeLeft)) % 60).toString().padStart(2, '0')}s
                       </div>
                     </div>
                   </div>
@@ -1317,39 +1544,58 @@ export default function AIGeneratedSimulado() {
         </div>
 
         {/* ═══ ACTIONS ═══ */}
-        <div className="shrink-0 space-y-3 pb-4">
-          {/* Primary button — full width, big */}
+        <div className="shrink-0 grid grid-cols-3 gap-3">
+          {/* Refazer — green accent */}
+          <button 
+            onClick={retrySameQuestions} 
+            className="group relative py-4 rounded-2xl text-[14px] font-bold flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden active:scale-[0.97]"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.08))',
+              border: '1px solid rgba(16,185,129,0.3)',
+              boxShadow: '0 4px 20px -4px rgba(16,185,129,0.2)'
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            <RefreshCw size={17} className="text-emerald-400" /> 
+            <span className="text-emerald-300">Refazer</span>
+          </button>
+          
+          {/* Gerar Novo — white/neutral */}
+          <button 
+            onClick={resetAll} 
+            className="group relative py-4 rounded-2xl text-[14px] font-bold flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden active:scale-[0.97]"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
+              border: '1px solid rgba(255,255,255,0.15)',
+              boxShadow: '0 4px 20px -4px rgba(255,255,255,0.05)'
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            <Sparkles size={17} className="text-white/70" /> 
+            <span className="text-white/80">Gerar Novo</span>
+          </button>
+
+          {/* Voltar ao Menu — primary indigo */}
           <button 
             onClick={() => {
               resetAll();
               showToast('Voltando ao menu de simulados', 'info');
             }} 
-            className="w-full py-5 rounded-2xl text-white text-[16px] font-black tracking-wide flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_10px_40px_-10px_rgba(99,102,241,0.6)] hover:shadow-[0_16px_50px_-10px_rgba(99,102,241,0.7)] hover:scale-[1.005] active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, #4338ca 0%, #7c3aed 50%, #6366f1 100%)' }}
+            className="group relative py-4 rounded-2xl text-[14px] font-black flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden active:scale-[0.97]"
+            style={{ 
+              background: 'linear-gradient(135deg, #4338ca 0%, #7c3aed 50%, #6366f1 100%)',
+              border: '1px solid rgba(139,92,246,0.4)',
+              boxShadow: '0 6px 30px -6px rgba(99,102,241,0.5)'
+            }}
           >
-            <BarChart3 size={20} /> Voltar ao Menu
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            <BarChart3 size={17} className="text-white" /> 
+            <span className="text-white">Menu</span>
           </button>
+        </div>
 
-          {/* Secondary buttons — side by side */}
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={retrySameQuestions} 
-              className="py-4 rounded-2xl bg-emerald-500/[0.08] hover:bg-emerald-500/[0.15] border-2 border-emerald-500/25 hover:border-emerald-500/50 text-emerald-300 text-[15px] font-bold flex items-center justify-center gap-2.5 transition-all duration-200 active:scale-[0.97]"
-            >
-              <RefreshCw size={18} /> Refazer Simulado
-            </button>
-            
-            <button 
-              onClick={resetAll} 
-              className="py-4 rounded-2xl border-2 border-white/[0.1] hover:border-white/[0.2] hover:bg-white/[0.05] text-white/80 hover:text-white text-[15px] font-bold flex items-center justify-center gap-2.5 transition-all duration-200 active:scale-[0.97]"
-            >
-              <Sparkles size={18} /> Gerar Novo
-            </button>
-          </div>
-
-          <div className="text-center text-[10px] text-slate-600 tracking-wide pt-1">
-            Resultados salvos • Atualizam estatísticas oficiais e projeções Monte Carlo
-          </div>
+        <div className="text-center text-[10px] text-slate-600 tracking-wide">
+          Resultados salvos • Atualizam estatísticas oficiais e projeções Monte Carlo
         </div>
       </motion.div>
     );

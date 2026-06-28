@@ -101,7 +101,7 @@ const Header = React.memo(function Header({
 
             {/* ─── DESKTOP HEADER ─── */}
             <header className="hidden lg:flex items-center justify-center py-2.5 px-6 sticky top-0 z-[110] backdrop-blur-xl bg-[#0a0f1e]/85 border-b border-white/[0.05] min-h-[64px] transition-all duration-300 w-full">
-                <div className="w-full max-w-[1500px] flex items-center relative h-full">
+                <div className="w-full flex items-center relative h-full">
                     {/* ─── LEFT SIDE ─── */}
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                         {/* Desktop Toggle Button */}

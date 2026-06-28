@@ -62,14 +62,15 @@ function normalizeQuestions(rawQuestions, materia, assunto, dificuldade, qtd) {
       });
       let correta = String(q.alternativa_correta || '').toUpperCase().trim().replace(/[^A-D]/g, '');
       if (!letras.includes(correta)) correta = 'A';
+      const isPersonalizado = materia === 'Simulado Personalizado';
       return {
         id: q.id || `ai-${Date.now()}-${idx}`,
         enunciado: String(q.enunciado).trim(),
         alternativas: alts,
         alternativa_correta: correta,
         justificativa: String(q.justificativa || 'Justificativa não fornecida.').trim(),
-        materia: q.materia || materia,
-        assunto: q.assunto || assunto,
+        materia: isPersonalizado ? (q.materia || materia) : materia,
+        assunto: isPersonalizado ? (q.assunto || assunto) : assunto,
         dificuldade: q.dificuldade || dificuldade
       };
     })
@@ -85,15 +86,18 @@ function normalizeQuestions(rawQuestions, materia, assunto, dificuldade, qtd) {
  * @param {number} params.quantidade
  * @returns {Promise<Array>} Array de questões no formato acima
  */
-export async function generateAIQuestions({ materia, assunto, dificuldade, quantidade = 10 }) {
+export async function generateAIQuestions({ materia, assunto, dificuldade, quantidade = 10, contestName = 'Concurso Público' }) {
   if (!materia || !assunto) {
     throw new Error('Matéria e Assunto são obrigatórios');
   }
 
-  const qtd = Math.min(Math.max(3, parseInt(quantidade, 10) || 10), 20);
+  const qtd = Math.min(Math.max(3, parseInt(quantidade, 10) || 10), 30);
+  const isPersonalizado = materia === 'Simulado Personalizado';
 
-  const systemPrompt = `Você é um gerador de questões focado em concursos públicos brasileiros (CESPE, FCC, FGV, etc).
-As questões geradas DEVEM ser rigorosamente baseadas em provas reais e concursos anteriores. Adapte ou crie enunciados mantendo o exato estilo, jurisprudência atualizada, pegadinhas e o nível de dificuldade das bancas examinadoras oficiais.
+  const systemPrompt = `Você é um gerador de questões especializado e focado no concurso "${contestName}".
+Sua principal tarefa: identifique a banca examinadora mais provável ou atual deste concurso (ex: CEBRASPE/CESPE, FGV, FCC, VUNESP, etc) e crie as questões RIGOROSAMENTE no estilo dessa banca. 
+Adapte o tamanho dos enunciados, a complexidade jurisprudencial, as pegadinhas clássicas e o nível de dificuldade com base no padrão real da banca que realiza este concurso.
+
 Retorne **exclusivamente** um JSON válido no seguinte formato (sem markdown, sem texto fora do JSON):
 {
   "questoes": [
@@ -103,15 +107,16 @@ Retorne **exclusivamente** um JSON válido no seguinte formato (sem markdown, se
       "alternativas": [ { "letra": "A", "texto": "..." }, { "letra": "B", "texto": "..." }, { "letra": "C", "texto": "..." }, { "letra": "D", "texto": "..." } ],
       "alternativa_correta": "A",
       "justificativa": "explicação detalhada, citando lei/doutrina/jurisprudência aplicável",
-      "materia": "${materia}",
-      "assunto": "${assunto}",
+      "materia": "${isPersonalizado ? 'Preencha com a matéria específica da questão' : materia}",
+      "assunto": "${isPersonalizado ? 'Preencha com o assunto específico da questão' : assunto}",
       "dificuldade": "${dificuldade}"
     }
   ]
 }
 Gere exatamente ${qtd} questões baseadas em provas reais.`;
 
-  const userPrompt = `Gere ${qtd} questões de nível ${dificuldade} sobre "${assunto}" na matéria "${materia}".`;
+  const customAssuntoStr = `As questões devem ser distribuídas entre as seguintes matérias e assuntos focais (fraquezas do aluno):\n${assunto}\nCertifique-se de preencher corretamente os campos "materia" e "assunto" no JSON de cada questão de acordo com a lista.`;
+  const userPrompt = `Gere ${qtd} questões de nível ${dificuldade} ${isPersonalizado ? customAssuntoStr : `sobre "${assunto}" na matéria "${materia}"`}.`;
 
   const hasOpenAI = !!import.meta.env.VITE_OPENAI_API_KEY;
   const hasGemini = !!import.meta.env.VITE_GEMINI_API_KEY;

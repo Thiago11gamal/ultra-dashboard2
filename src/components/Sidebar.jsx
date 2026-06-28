@@ -48,7 +48,6 @@ const SECTIONS = [
             { path: '/heatmap', label: 'Atividade', icon: CalendarDays, color: '#2dd4bf' },
             { path: '/retention', label: 'Retenção', icon: Brain, color: '#a78bfa' },
             { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit, color: '#60a5fa' },
-            { path: '/history', label: 'Histórico', icon: History, color: '#94a3b8' },
         ]
     },
     {

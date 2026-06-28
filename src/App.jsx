@@ -351,7 +351,7 @@ function MainLayout() {
 
                 <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
 
-                <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-0 pt-[110px] lg:pt-0 pb-24 lg:pb-12 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
+                <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 mt-0 pt-[110px] lg:pt-0 pb-24 lg:pb-12 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
                   <Motion.div 
                     key={activeContestId}
                     initial={{ opacity: 0.9, y: 4 }}
