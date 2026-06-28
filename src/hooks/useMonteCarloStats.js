@@ -346,7 +346,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         } catch {
             return null;
         }
-    }, [contest?.calibrationEvents]);
+    }, [contest]);
 
     // NEW: Simple model health score (0-1) based on summary + trend
     const modelHealth = useMemo(() => {
@@ -518,7 +518,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 if (setD) setD(c => ({...c, calibrationEvents: backfilled}));
             }
         } catch { /* ignore */ }
-    }, [rawSimuladoRows?.length, maxScore]);
+    }, [rawSimuladoRows, maxScore, contest, statsData?.categoryStats]);
 
     // Motor roda Cego/Puro para prevenir Feedback Loops (usa pureStatsDataRef)
     useEffect(() => {
@@ -717,7 +717,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             cancelled = true;
             clearTimeout(timerId);
         };
-    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs]);
+    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs, dynamicSimulations, modelWeight, rawSimuladoRows, statsData?.estimatedRho]);
  
     const probabilityData = useMemo(() => {
         const rawProbability = simulationData?.data?.probability ?? 0;
@@ -795,7 +795,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             };
         }
         return base;
-    }, [statsData, simulationData, calibrationSummary, healthAdjustedProb]);
+    }, [statsData, simulationData, calibrationSummary, modelHealth, modelWeight]);
 
     const perSubjectProbs = useMemo(() => {
         if (!statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
@@ -888,7 +888,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 };
             })
             .sort((a, b) => a.prob - b.prob);
-    }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays, minScore, modelHealth, modelWeight, rawSimuladoRows, calibrationSummary]);
+    }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays, minScore, modelHealth, modelWeight, rawSimuladoRows, calibrationSummary, dynamicSimulations]);
 
     // NEW: Record per-subject predictions for finer-grained calibration data
     useEffect(() => {
@@ -915,7 +915,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 }
             });
         } catch { /* ignore */ }
-    }, [perSubjectProbs?.length, debouncedTarget]);
+    }, [perSubjectProbs, debouncedTarget, simulationData?.status]);
 
     useEffect(() => {
         if (isFlashing) {
@@ -1019,7 +1019,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             modelHealth,
             modelWeight
         };
-    }, [simulationData?.data, maxScore, minScore, debouncedTarget, projectedMean, calibrationPenalty, currentMean, statsData, timelineDates, probability]);
+    }, [simulationData?.data, maxScore, minScore, debouncedTarget, projectedMean, calibrationPenalty, currentMean, statsData, timelineDates, probability, calibrationSummary, modelHealth, modelWeight]);
 
     // 🎯 RIGOR FIX: Gravação delegada para garantir que todos os dados derivados (CIs) estejam prontos
     useMonteCarloHistoryRecorder({
@@ -1130,6 +1130,6 @@ function useMonteCarloHistoryRecorder({
         simulationData?.status, effectiveSimulateToday, 
         recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, projectedMean, 
         debouncedTarget, activeId, ci95Low, ci95High, pAdjusted,
-        goalDate, projectDays
+        goalDate, projectDays, calibrationSummary, effectiveDrift, modelHealth, modelWeight, trendType
     ]);
 }

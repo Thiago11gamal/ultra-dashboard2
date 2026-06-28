@@ -253,7 +253,7 @@ export default function AIGeneratedSimulado() {
         localStorage.removeItem(AI_SIM_STORAGE_KEY);
       }
     }
-  }, [showToast]);
+  }, [showToast, categories]);
 
   const handleInputChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -531,7 +531,7 @@ export default function AIGeneratedSimulado() {
     }
   }, [questions.length]);
 
-  const saveAIResultsToSystem = async (formData, correct, total, _answeredQs, timeSpentSecs = 0) => {
+  const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0) => {
     const todayKey = getDateKey(normalizeDate(new Date()));
     const materia = (formData.materia || '').trim();
     const assunto = (formData.assunto || '').trim();
@@ -705,7 +705,7 @@ export default function AIGeneratedSimulado() {
         lastUpdated: new Date().toISOString(),
       };
     });
-  };
+  }, [setData]);
 
   const handleFinish = useCallback(async () => {
     // Use refs for the case when called from timer (avoids stale state)
@@ -785,7 +785,7 @@ export default function AIGeneratedSimulado() {
 
     // reset flag (though component will unmount the playing logic)
     setTimeout(() => { isFinishingRef.current = false; }, 0);
-  }, [step]);  // step for the early guard; refs are stable
+  }, [step, answers, questions, saveAIResultsToSystem, showToast, timeLeft]);  // step for the early guard; refs are stable
 
   // Timer effect (declared after handleFinish to avoid TDZ in deps)
   useEffect(() => {
@@ -848,7 +848,7 @@ export default function AIGeneratedSimulado() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [step, currentQuestion, handleFinish, questions.length]);
+  }, [step, currentQuestion, handleFinish, questions.length, goTo, selectAnswer]);
 
   // Loading messages effect
   useEffect(() => {
@@ -858,10 +858,10 @@ export default function AIGeneratedSimulado() {
         setLoadingMsgIdx(prev => (prev < LOADING_MESSAGES.length - 1 ? prev + 1 : prev));
       }, 3500);
     } else {
-      setLoadingMsgIdx(0);
+      setTimeout(() => setLoadingMsgIdx(0), 0);
     }
     return () => clearInterval(interval);
-  }, [isLoading]);
+  }, [isLoading, LOADING_MESSAGES.length]);
 
   // ==================== RENDER ====================
 

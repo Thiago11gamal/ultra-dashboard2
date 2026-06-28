@@ -348,6 +348,8 @@ export default function Coach() {
         data?.settings?.adaptiveCalibrationEnabled,
         userProfile?.targetProbability,
         flashcardDue,
+        flashcardDecks,
+        mcStats,
         persistCalibrationMetric
     ]);
 

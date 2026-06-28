@@ -17,10 +17,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     );
 
     React.useEffect(() => {
-        setLocalRows((propRows && propRows.length > 0)
-            ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
-            : []
-        );
+        setTimeout(() => {
+            setLocalRows((propRows && propRows.length > 0)
+                ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
+                : []
+            );
+        }, 0);
     }, [propRows]);
 
     // Helper to report changes up to parent
@@ -119,7 +121,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         setRows(newRows);
     };
 
-    const handleAnalyze = () => {
+    const handleAnalyze = React.useCallback(() => {
         // 0. Strict Validation: Check if subjects exist in Dashboard
         if (categories && categories.length > 0) {
 
@@ -360,11 +362,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 setLoading(false);
             }
         }, viewMode === 'report' ? 0 : 800); // Remove delay when just viewing report
-    };
+    }, [categories, rows, viewMode, onAnalysisComplete]);
 
     React.useEffect(() => {
         if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading) {
-            handleAnalyze();
+            setTimeout(() => handleAnalyze(), 0);
         }
     }, [viewMode, rows.length, analysisData, loading, handleAnalyze]);
 

@@ -1,7 +1,7 @@
 import React, { useId } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
         const item = payload[0].payload;
         return (
