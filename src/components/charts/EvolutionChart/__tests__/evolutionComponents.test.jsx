@@ -3,6 +3,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MonteCarloEvolutionChart } from '../MonteCarloEvolutionChart';
 import { EvolutionHeatmap } from '../../EvolutionHeatmap';
+import { CriticalTopicsAnalysis } from '../CriticalTopicsAnalysis';
+import { RadarAnalysis } from '../RadarAnalysis';
+import { TimeSpentChart } from '../TimeSpentChart';
 
 vi.mock('recharts', async () => {
   const actual = await vi.importActual('recharts');
@@ -37,5 +40,39 @@ describe('evolution components render contracts', () => {
     expect(html).toContain('Diário');
     expect(html).toContain('Semanal');
     expect(html).toContain('Mensal');
+  });
+
+  it('renders CriticalTopicsAnalysis', () => {
+    const today = new Date().toISOString().split('T')[0];
+    const categories = [{
+      id: 'cat1', name: 'Física', icon: '⚛️', color: '#fff',
+      simuladoStats: {
+        history: [{
+          date: today,
+          total: 10,
+          correct: 2,
+          score: 20,
+          topics: [{ name: 'Cinemática', total: 10, correct: 2, score: 20 }]
+        }]
+      }
+    }];
+    const html = renderToStaticMarkup(<CriticalTopicsAnalysis categories={categories} maxScore={100} />);
+    expect(html).toContain('Índice de Criticidade');
+  });
+
+  it('renders RadarAnalysis', () => {
+    const radarData = [{
+      subject: 'Matemática', score: 80, target: 70
+    }];
+    const html = renderToStaticMarkup(<RadarAnalysis radarData={radarData} maxScore={100} />);
+    expect(html).toContain('Equilíbrio Geral');
+  });
+
+  it('renders TimeSpentChart', () => {
+    const subjectAggData = [{
+      fullName: 'Química', timeSpent: 120, questoes: 10
+    }];
+    const html = renderToStaticMarkup(<TimeSpentChart subjectAggData={subjectAggData} />);
+    expect(html).toContain('Tempo M');
   });
 });
