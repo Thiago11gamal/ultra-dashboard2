@@ -22,6 +22,10 @@ const DIFFICULTIES = [
 ];
 
 const AI_SIM_STORAGE_KEY = 'ai_simulado_draft';
+const AI_GEN_STORAGE_KEY = 'ai_simulado_generating';
+
+// Module-level promise to keep generation alive across component unmounts
+let activeGenerationPromise = null;
 
 export default function AIGeneratedSimulado() {
   const setData = useAppStore(state => state.setData);
@@ -48,6 +52,13 @@ export default function AIGeneratedSimulado() {
   const [timeLeft, setTimeLeft] = useState(45 * 60); // 45 minutes default
   const [timerActive, setTimerActive] = useState(false);
   const [showReview, setShowReview] = useState(false);
+
+  // Track mount state to avoid clearing localStorage after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Refs for latest state (to avoid stale closures in timer / keyboard / auto-finish)
   const latestAnswersRef = useRef(answers);
@@ -77,8 +88,114 @@ export default function AIGeneratedSimulado() {
     }
   }, [step, questions, answers, currentIndex, timeLeft, form]);
 
-  // Load draft on mount
+  // Load draft or completed generation on mount
   useEffect(() => {
+    // 1. Check if there's a completed background generation
+    const genData = localStorage.getItem(AI_GEN_STORAGE_KEY);
+    if (genData) {
+      try {
+        const gen = JSON.parse(genData);
+        if (gen.status === 'done' && gen.questions?.length > 0) {
+          // Generation completed in background — restore it
+          setTimeout(() => {
+            const f = gen.form || {};
+            setForm({
+              categoryId: f.categoryId || '',
+              taskId: f.taskId || '',
+              materia: f.materia || '',
+              assunto: f.assunto || '',
+              dificuldade: f.dificuldade || 'medio',
+              quantidade: f.quantidade || 10,
+            });
+
+            // Normalize with current categories
+            const cat = categories.find(c => c.id === f.categoryId);
+            const tsk = cat?.tasks?.find(t => t.id === f.taskId);
+            const normalizedQuestions = gen.questions.map((q, idx) => ({
+              ...q,
+              id: q.id || `ai-${Date.now()}-${idx}`,
+              categoryId: f.categoryId,
+              taskId: f.taskId,
+              materia: cat?.name || f.materia,
+              assunto: tsk ? (tsk.title || tsk.text || f.assunto) : f.assunto,
+            }));
+
+            isFinishingRef.current = false;
+            setQuestions(normalizedQuestions);
+            setAnswers({});
+            setCurrentIndex(0);
+            setTimeLeft(45 * 60);
+            setStep('playing');
+            setTimerActive(true);
+            setShowReview(false);
+            setIsLoading(false);
+            localStorage.removeItem(AI_GEN_STORAGE_KEY);
+            showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
+          }, 0);
+          return;
+        } else if (gen.status === 'error') {
+          // Generation failed in background
+          setTimeout(() => {
+            showToast(gen.errorMessage || 'Erro ao gerar questões em segundo plano.', 'error');
+            localStorage.removeItem(AI_GEN_STORAGE_KEY);
+            setIsLoading(false);
+          }, 0);
+          return;
+        } else if (gen.status === 'generating') {
+          // Generation still in progress — attach to the module-level promise
+          setTimeout(() => {
+            const f = gen.form || {};
+            setForm({
+              categoryId: f.categoryId || '',
+              taskId: f.taskId || '',
+              materia: f.materia || '',
+              assunto: f.assunto || '',
+              dificuldade: f.dificuldade || 'medio',
+              quantidade: f.quantidade || 10,
+            });
+            setIsLoading(true);
+            setStep('setup');
+
+            if (activeGenerationPromise) {
+              // Attach to the running promise
+              activeGenerationPromise.then((normalizedQuestions) => {
+                if (normalizedQuestions && normalizedQuestions.length > 0) {
+                  isFinishingRef.current = false;
+                  setQuestions(normalizedQuestions);
+                  setAnswers({});
+                  setCurrentIndex(0);
+                  setTimeLeft(45 * 60);
+                  setStep('playing');
+                  setTimerActive(true);
+                  setIsLoading(false);
+                  localStorage.removeItem(AI_GEN_STORAGE_KEY);
+                  showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
+                }
+              }).catch((error) => {
+                setIsLoading(false);
+                localStorage.removeItem(AI_GEN_STORAGE_KEY);
+                showToast(error.message || 'Erro ao gerar questões.', 'error');
+              });
+            } else {
+              // Promise was lost (page reload) but status says generating — check age
+              const age = Date.now() - (gen.startedAt || 0);
+              if (age > 5 * 60 * 1000) {
+                // More than 5 min old, consider it failed
+                localStorage.removeItem(AI_GEN_STORAGE_KEY);
+                setIsLoading(false);
+              }
+              // Otherwise stay in loading state, it might complete
+            }
+          }, 0);
+          return;
+        }
+      } catch (err) {
+        void err;
+        localStorage.removeItem(AI_GEN_STORAGE_KEY);
+      }
+    }
+
+    // 2. Check for a playing draft
     const saved = localStorage.getItem(AI_SIM_STORAGE_KEY);
     if (saved) {
       try {
@@ -164,30 +281,76 @@ export default function AIGeneratedSimulado() {
     }
 
     setIsLoading(true);
-    try {
-      const generated = await generateAIQuestions({
-        materia: form.materia.trim(),
-        assunto: form.assunto.trim(),
-        dificuldade: form.dificuldade,
-        quantidade: form.quantidade,
-      });
 
-      if (!Array.isArray(generated) || generated.length === 0) {
-        throw new Error('A IA não gerou questões válidas.');
+    // Save generating state to localStorage so it persists across navigation
+    const genState = {
+      status: 'generating',
+      form: { ...form },
+      startedAt: Date.now(),
+    };
+    localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify(genState));
+
+    // Create a module-level promise that survives component unmount
+    const currentForm = { ...form };
+    const currentCategories = [...categories];
+
+    activeGenerationPromise = (async () => {
+      try {
+        const generated = await generateAIQuestions({
+          materia: currentForm.materia.trim(),
+          assunto: currentForm.assunto.trim(),
+          dificuldade: currentForm.dificuldade,
+          quantidade: currentForm.quantidade,
+        });
+
+        if (!Array.isArray(generated) || generated.length === 0) {
+          throw new Error('A IA não gerou questões válidas.');
+        }
+
+        // Normaliza + vincula aos IDs exatos da matéria/assunto selecionados
+        const cat = currentCategories.find(c => c.id === currentForm.categoryId);
+        const tsk = cat?.tasks?.find(t => t.id === currentForm.taskId);
+
+        const normalizedQuestions = generated.map((q, idx) => ({
+          ...q,
+          id: q.id || `ai-${Date.now()}-${idx}`,
+          categoryId: currentForm.categoryId,
+          taskId: currentForm.taskId,
+          materia: cat?.name || currentForm.materia,
+          assunto: tsk ? (tsk.title || tsk.text || currentForm.assunto) : currentForm.assunto,
+        }));
+
+        // Save completed results to localStorage
+        localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify({
+          status: 'done',
+          form: currentForm,
+          questions: normalizedQuestions,
+          completedAt: Date.now(),
+        }));
+
+        return normalizedQuestions;
+      } catch (error) {
+        // Save error to localStorage
+        localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify({
+          status: 'error',
+          form: currentForm,
+          errorMessage: error.message || 'Erro ao gerar questões com IA.',
+          failedAt: Date.now(),
+        }));
+        throw error;
       }
+    })();
 
-      // Normaliza + vincula aos IDs exatos da matéria/assunto selecionados
-      const cat = categories.find(c => c.id === form.categoryId);
-      const tsk = cat?.tasks?.find(t => t.id === form.taskId);
+    try {
+      const normalizedQuestions = await activeGenerationPromise;
+      activeGenerationPromise = null;
 
-      const normalizedQuestions = generated.map((q, idx) => ({
-        ...q,
-        id: q.id || `ai-${Date.now()}-${idx}`,
-        categoryId: form.categoryId,
-        taskId: form.taskId,
-        materia: cat?.name || form.materia,
-        assunto: tsk ? (tsk.title || tsk.text || form.assunto) : form.assunto,
-      }));
+      // Only apply results if component is still mounted
+      if (!mountedRef.current) {
+        // Component unmounted — results are already saved in localStorage
+        // They will be picked up on next mount
+        return;
+      }
 
       isFinishingRef.current = false;
       setQuestions(normalizedQuestions);
@@ -196,12 +359,16 @@ export default function AIGeneratedSimulado() {
       setTimeLeft(45 * 60);
       setStep('playing');
       setTimerActive(true);
+      localStorage.removeItem(AI_GEN_STORAGE_KEY);
       showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
     } catch (error) {
+      activeGenerationPromise = null;
+      if (!mountedRef.current) return; // Don't clear localStorage if unmounted
       console.error('Erro na geração IA:', error);
       showToast(error.message || 'Erro ao gerar questões com IA. Tente novamente.', 'error');
+      localStorage.removeItem(AI_GEN_STORAGE_KEY);
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) setIsLoading(false);
     }
   };
 
@@ -982,181 +1149,207 @@ export default function AIGeneratedSimulado() {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-4xl mx-auto"
+        className="w-full min-h-[calc(100vh-160px)] flex flex-col"
       >
         {/* ═══ HERO SCORE ═══ */}
-        <div className="relative text-center mb-10 py-10">
+        <div className="relative text-center pt-4 pb-8">
           {/* Background glow */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: colorMap.glow }} />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-[120px] pointer-events-none" style={{ background: colorMap.glow }} />
           
           <motion.div 
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-[11px] font-black tracking-[2px] mb-8"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black tracking-[2px] mb-5"
             style={{ background: colorMap.bg, color: colorMap.text, border: `1px solid ${colorMap.border}` }}
           >
             <Trophy size={14} /> SIMULADO CONCLUÍDO
           </motion.div>
 
-          <div className="flex justify-center items-baseline gap-3 mb-3">
+          <div className="flex justify-center items-baseline gap-3 mb-1">
             <motion.div 
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: 'spring', bounce: 0.5, delay: 0.2 }}
-              className="text-[96px] sm:text-[120px] leading-none font-black tracking-[-8px] text-white tabular-nums"
+              className="text-[72px] sm:text-[96px] leading-none font-black tracking-[-6px] text-white tabular-nums"
               style={{ textShadow: `0 0 60px ${colorMap.glow}` }}
             >
               {results.correct}
             </motion.div>
-            <div className="text-4xl text-slate-700 font-light">/</div>
-            <div className="text-5xl font-black text-slate-600 tracking-tight">{results.total}</div>
+            <div className="text-3xl text-slate-700 font-light">/</div>
+            <div className="text-4xl font-black text-slate-600 tracking-tight">{results.total}</div>
           </div>
           
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="text-5xl font-black tracking-tighter"
+            className="text-4xl font-black tracking-tighter"
             style={{ color: colorMap.text }}
           >
             {accuracy}%
           </motion.div>
-          <div className="text-[12px] font-semibold text-slate-500 mt-2 tracking-[2px] uppercase">Aproveitamento Geral</div>
+          <div className="text-[11px] font-semibold text-slate-500 mt-1 tracking-[2px] uppercase">Aproveitamento Geral</div>
         </div>
 
-        {/* ═══ TABS ═══ */}
-        <div className="flex justify-center mb-7">
-          <div className="inline-flex p-1 rounded-xl border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.03)' }}>
+        {/* ═══ STATS CARDS ═══ */}
+        <div className="grid grid-cols-3 gap-3 sm:gap-5 mb-6">
+          <div className="rounded-2xl border border-emerald-500/15 p-4 sm:p-6 text-center" style={{ background: 'rgba(16,185,129,0.05)' }}>
+            <div className="text-[36px] sm:text-[44px] leading-none font-black text-emerald-400">{results.correct}</div>
+            <div className="uppercase tracking-[2px] text-[9px] sm:text-[10px] font-bold text-emerald-400/60 mt-2">ACERTOS</div>
+          </div>
+          <div className="rounded-2xl border border-rose-500/15 p-4 sm:p-6 text-center" style={{ background: 'rgba(244,63,94,0.05)' }}>
+            <div className="text-[36px] sm:text-[44px] leading-none font-black text-rose-400">{results.total - results.correct}</div>
+            <div className="uppercase tracking-[2px] text-[9px] sm:text-[10px] font-bold text-rose-400/60 mt-2">ERROS</div>
+          </div>
+          <div className="rounded-2xl border border-white/[0.08] p-4 sm:p-6 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <div className="text-[36px] sm:text-[44px] leading-none font-black" style={{ color: colorMap.text }}>{accuracy}%</div>
+            <div className="uppercase tracking-[2px] text-[9px] sm:text-[10px] font-bold text-slate-500 mt-2">TAXA</div>
+          </div>
+        </div>
+
+        {/* ═══ TABS + CONTENT ═══ */}
+        <div className="rounded-[20px] border border-white/[0.06] overflow-hidden flex-1 flex flex-col mb-6" style={{ background: 'linear-gradient(180deg, rgba(30,27,75,0.2), rgba(15,23,42,0.4))' }}>
+          {/* Tab header */}
+          <div className="flex border-b border-white/[0.06] shrink-0">
             <button 
               onClick={() => setShowReview(false)}
-              className={`px-6 py-2.5 text-[13px] font-bold rounded-[10px] transition flex items-center gap-2 ${!showReview ? 'bg-white text-slate-950 shadow-md' : 'text-slate-500 hover:text-white'}`}
+              className={`flex-1 py-3.5 text-[13px] font-bold transition flex items-center justify-center gap-2 ${!showReview ? 'text-white border-b-2 border-indigo-400 bg-white/[0.03]' : 'text-slate-500 hover:text-slate-300'}`}
             >
               <Award size={15} /> Resumo
             </button>
             <button 
               onClick={() => setShowReview(true)}
-              className={`px-6 py-2.5 text-[13px] font-bold rounded-[10px] transition flex items-center gap-2 ${showReview ? 'bg-white text-slate-950 shadow-md' : 'text-slate-500 hover:text-white'}`}
+              className={`flex-1 py-3.5 text-[13px] font-bold transition flex items-center justify-center gap-2 ${showReview ? 'text-white border-b-2 border-indigo-400 bg-white/[0.03]' : 'text-slate-500 hover:text-slate-300'}`}
             >
-              <ListChecks size={15} /> Revisar
+              <ListChecks size={15} /> Revisar Questões
             </button>
+          </div>
+
+          {/* Tab content */}
+          <div className="flex-1 overflow-auto">
+            <AnimatePresence mode="wait">
+              {!showReview ? (
+                <motion.div 
+                  key="summary"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="p-6 sm:p-8"
+                >
+                  <div className="text-center py-6">
+                    <div className="text-[13px] text-slate-400 mb-6">Detalhamento do seu desempenho</div>
+                    <div className="flex justify-center items-center gap-8 sm:gap-16">
+                      <div>
+                        <div className="text-[48px] sm:text-[56px] leading-none font-black text-emerald-400">{results.correct}</div>
+                        <div className="text-[11px] font-bold text-emerald-400/50 mt-2 tracking-wider uppercase">Corretas</div>
+                      </div>
+                      <div className="w-px h-14 bg-white/[0.06]" />
+                      <div>
+                        <div className="text-[48px] sm:text-[56px] leading-none font-black text-rose-400">{results.total - results.correct}</div>
+                        <div className="text-[11px] font-bold text-rose-400/50 mt-2 tracking-wider uppercase">Incorretas</div>
+                      </div>
+                      <div className="w-px h-14 bg-white/[0.06]" />
+                      <div>
+                        <div className="text-[48px] sm:text-[56px] leading-none font-black" style={{ color: colorMap.text }}>{accuracy}%</div>
+                        <div className="text-[11px] font-bold text-slate-500 mt-2 tracking-wider uppercase">Aproveitamento</div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="review"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="p-4 sm:p-6 space-y-3"
+                >
+                  {results.questions.map((q, idx) => {
+                    const isCorrect = q.isCorrect;
+                    return (
+                      <div key={idx} className="p-5 rounded-2xl border" style={{ 
+                        borderColor: isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)',
+                        background: isCorrect ? 'rgba(16,185,129,0.04)' : 'rgba(244,63,94,0.04)'
+                      }}>
+                        <div className="flex gap-3 mb-3">
+                          <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5 ${isCorrect ? 'bg-emerald-500/80' : 'bg-rose-500/80'}`}>
+                            {isCorrect ? <CheckCircle2 size={14} className="text-white" /> : <XCircle size={14} className="text-white" />}
+                          </div>
+                          <div className="font-medium text-white/90 text-[14px] leading-relaxed flex-1">{idx + 1}. {q.enunciado}</div>
+                        </div>
+
+                        <div className="pl-10 space-y-2 text-sm">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs mb-2">
+                            <span className="font-mono px-2.5 py-0.5 bg-white/[0.04] rounded-md text-slate-400">Sua: <b className="text-white">{q.selected || '—'}</b></span>
+                            {!isCorrect && <span className="font-mono px-2.5 py-0.5 bg-emerald-500/15 text-emerald-400 rounded-md">Correta: <b>{q.alternativa_correta}</b></span>}
+                          </div>
+
+                          {Array.isArray(q.alternativas) && q.alternativas.length > 0 && (
+                            <div className="grid grid-cols-1 gap-0.5 text-[12.5px] pt-1">
+                              {q.alternativas.map((alt, aIdx) => {
+                                const isUserChoice = q.selected === alt.letra;
+                                const isTheCorrect = alt.letra === q.alternativa_correta;
+                                return (
+                                  <div key={aIdx} className={`px-2.5 py-1 rounded-lg flex gap-2 items-start ${isTheCorrect ? 'text-emerald-400 bg-emerald-500/[0.06]' : isUserChoice ? 'text-rose-400 line-through' : 'text-slate-500'}`}>
+                                    <span className="font-bold tabular-nums w-4 shrink-0">{alt.letra}.</span>
+                                    <span className="flex-1">{alt.texto}</span>
+                                    {isTheCorrect && <span className="text-[9px] text-emerald-500/70 font-black shrink-0 mt-0.5">✓</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          
+                          {q.justificativa && (
+                            <div className="text-slate-400 leading-relaxed pt-2 text-[12.5px] border-l-2 border-white/[0.08] pl-3 mt-2">
+                              {q.justificativa}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
-        {/* ═══ CONTENT ═══ */}
-        <AnimatePresence mode="wait">
-          {!showReview ? (
-            <motion.div 
-              key="summary"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="rounded-[24px] border border-white/[0.06] p-8 mb-8"
-              style={{ background: 'linear-gradient(180deg, rgba(30,27,75,0.25), rgba(15,23,42,0.5))' }}
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-center">
-                <div className="bg-white/[0.02] border border-white/[0.04] p-6 rounded-2xl">
-                  <div className="text-[44px] leading-none font-black text-emerald-400">{results.correct}</div>
-                  <div className="uppercase tracking-[2px] text-[10px] font-bold text-emerald-400/60 mt-2">ACERTOS</div>
-                </div>
-                <div className="bg-white/[0.02] border border-white/[0.04] p-6 rounded-2xl">
-                  <div className="text-[44px] leading-none font-black text-rose-400">{results.total - results.correct}</div>
-                  <div className="uppercase tracking-[2px] text-[10px] font-bold text-rose-400/60 mt-2">ERROS</div>
-                </div>
-                <div className="bg-white/[0.02] border border-white/[0.04] p-6 rounded-2xl">
-                  <div className="text-[44px] leading-none font-black" style={{ color: colorMap.text }}>{accuracy}%</div>
-                  <div className="uppercase tracking-[2px] text-[10px] font-bold text-slate-500 mt-2">APROVEITAMENTO</div>
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="review"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="rounded-[24px] border border-white/[0.06] p-5 sm:p-6 mb-8 max-h-[65vh] overflow-auto space-y-2.5"
-              style={{ background: 'linear-gradient(180deg, rgba(30,27,75,0.2), rgba(15,23,42,0.4))' }}
-            >
-              {results.questions.map((q, idx) => {
-                const isCorrect = q.isCorrect;
-                return (
-                  <div key={idx} className="p-5 rounded-2xl border" style={{ 
-                    borderColor: isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)',
-                    background: isCorrect ? 'rgba(16,185,129,0.04)' : 'rgba(244,63,94,0.04)'
-                  }}>
-                    <div className="flex gap-3 mb-3">
-                      <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${isCorrect ? 'bg-emerald-500/80' : 'bg-rose-500/80'}`}>
-                        {isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-                      </div>
-                      <div className="font-medium text-white/90 text-[14px] leading-snug flex-1">{idx + 1}. {q.enunciado}</div>
-                    </div>
-
-                    <div className="pl-9 space-y-1.5 text-sm">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs mb-2">
-                        <span className="font-mono px-2 py-0.5 bg-white/[0.04] rounded-md text-slate-400">Sua: <b className="text-white">{q.selected || '—'}</b></span>
-                        {!isCorrect && <span className="font-mono px-2 py-0.5 bg-emerald-500/15 text-emerald-400 rounded-md">Correta: <b>{q.alternativa_correta}</b></span>}
-                      </div>
-
-                      {Array.isArray(q.alternativas) && q.alternativas.length > 0 && (
-                        <div className="grid grid-cols-1 gap-0.5 text-[12px] pt-1">
-                          {q.alternativas.map((alt, aIdx) => {
-                            const isUserChoice = q.selected === alt.letra;
-                            const isTheCorrect = alt.letra === q.alternativa_correta;
-                            return (
-                              <div key={aIdx} className={`px-2.5 py-1 rounded-lg flex gap-2 items-start ${isTheCorrect ? 'text-emerald-400 bg-emerald-500/[0.06]' : isUserChoice ? 'text-rose-400 line-through' : 'text-slate-500'}`}>
-                                <span className="font-bold tabular-nums w-4 shrink-0">{alt.letra}.</span>
-                                <span className="flex-1">{alt.texto}</span>
-                                {isTheCorrect && <span className="text-[9px] text-emerald-500/70 font-black shrink-0 mt-0.5">✓</span>}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      
-                      {q.justificativa && (
-                        <div className="text-slate-400 leading-relaxed pt-2 text-[12.5px] border-l-2 border-white/[0.06] pl-3 mt-2">
-                          {q.justificativa}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* ═══ ACTIONS ═══ */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-4">
-          <button 
-            onClick={retrySameQuestions} 
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-emerald-500/[0.08] hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-300 text-[13px] font-bold flex items-center justify-center gap-2 transition active:scale-[0.985]"
-          >
-            <RefreshCw size={15} /> Refazer
-          </button>
-          
-          <button 
-            onClick={resetAll} 
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-white/[0.08] hover:bg-white/[0.04] text-white/80 text-[13px] font-bold flex items-center justify-center gap-2 transition"
-          >
-            <Sparkles size={15} /> Gerar Novo
-          </button>
-
+        <div className="shrink-0 space-y-3 pb-4">
+          {/* Primary button — full width, big */}
           <button 
             onClick={() => {
               resetAll();
               showToast('Voltando ao menu de simulados', 'info');
             }} 
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl text-white text-[13px] font-bold flex items-center justify-center gap-2 transition shadow-[0_4px_15px_-4px_rgba(99,102,241,0.4)] hover:scale-[1.02] active:scale-95"
-            style={{ background: 'linear-gradient(135deg, #4f46e5, #6366f1)' }}
+            className="w-full py-5 rounded-2xl text-white text-[16px] font-black tracking-wide flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_10px_40px_-10px_rgba(99,102,241,0.6)] hover:shadow-[0_16px_50px_-10px_rgba(99,102,241,0.7)] hover:scale-[1.005] active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, #4338ca 0%, #7c3aed 50%, #6366f1 100%)' }}
           >
-            <BarChart3 size={15} /> Voltar ao Menu
+            <BarChart3 size={20} /> Voltar ao Menu
           </button>
-        </div>
 
-        <div className="text-center mt-6 text-[10px] text-slate-600 tracking-wide">
-          Resultados salvos • Atualizam estatísticas oficiais e projeções Monte Carlo
+          {/* Secondary buttons — side by side */}
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={retrySameQuestions} 
+              className="py-4 rounded-2xl bg-emerald-500/[0.08] hover:bg-emerald-500/[0.15] border-2 border-emerald-500/25 hover:border-emerald-500/50 text-emerald-300 text-[15px] font-bold flex items-center justify-center gap-2.5 transition-all duration-200 active:scale-[0.97]"
+            >
+              <RefreshCw size={18} /> Refazer Simulado
+            </button>
+            
+            <button 
+              onClick={resetAll} 
+              className="py-4 rounded-2xl border-2 border-white/[0.1] hover:border-white/[0.2] hover:bg-white/[0.05] text-white/80 hover:text-white text-[15px] font-bold flex items-center justify-center gap-2.5 transition-all duration-200 active:scale-[0.97]"
+            >
+              <Sparkles size={18} /> Gerar Novo
+            </button>
+          </div>
+
+          <div className="text-center text-[10px] text-slate-600 tracking-wide pt-1">
+            Resultados salvos • Atualizam estatísticas oficiais e projeções Monte Carlo
+          </div>
         </div>
       </motion.div>
     );
