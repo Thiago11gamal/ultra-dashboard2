@@ -146,13 +146,7 @@ export default function AICoachPlanner() {
         const allAssignedIds = new Set();
         DAYS.forEach(d => (coachPlanner[d.id] || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
         const activeBacklog = (coachPlan || []).filter(t => { if (!t) return false; const sid = getSafeId(t); return !allAssignedIds.has(sid); });
-        // ENHANCED MC INTEGRATION: sort backlog by lowest MC probability first (most urgent projections first)
-        const sortedBacklog = [...activeBacklog].sort((a, b) => {
-            const pa = a?.analysis?.monteCarlo?.probability ?? 100;
-            const pb = b?.analysis?.monteCarlo?.probability ?? 100;
-            return pa - pb;
-        });
-        return { backlog: sortedBacklog, mon: coachPlanner.mon || [], tue: coachPlanner.tue || [], wed: coachPlanner.wed || [], thu: coachPlanner.thu || [], fri: coachPlanner.fri || [], sat: coachPlanner.sat || [], sun: coachPlanner.sun || [] };
+        return { backlog: activeBacklog, mon: coachPlanner.mon || [], tue: coachPlanner.tue || [], wed: coachPlanner.wed || [], thu: coachPlanner.thu || [], fri: coachPlanner.fri || [], sat: coachPlanner.sat || [], sun: coachPlanner.sun || [] };
     }, [coachPlan, coachPlanner]);
 
     const [columns, setColumns] = useState(() => getInitialColumns());

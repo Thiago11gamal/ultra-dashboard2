@@ -169,7 +169,7 @@ export default function Coach() {
                     brierDelta < 0.001 &&
                     eceDelta < 0.001 &&
                     penaltyDelta < 0.001 &&
-                    probabilityDelta < 0.1 &&
+                    probabilityDelta < 0.01 &&
                     !reliabilitySignatureChanged;
 
                 if (shouldSkipPersist) return prev;
@@ -396,7 +396,12 @@ export default function Coach() {
             );
             
             if (newTasks.length) {
-                setData(prev => { if(prev) prev.coachPlan = newTasks; });
+                setData(prev => { 
+                    if(prev) {
+                        prev.coachPlan = newTasks; 
+                        prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+                    }
+                });
                 showToast('Sugestões geradas!', 'success');
             } else {
                 showToast('Nenhuma sugestão necessária.', 'info');
