@@ -97,10 +97,15 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const addTenToAll = () => {
-        const newRows = rows.map(row => ({
-            ...row,
-            total: Math.min(10000, (parseInt(row.total, 10) || 0) + 10)
-        }));
+        const newRows = rows.map(row => {
+            const newTotal = Math.min(10000, (parseInt(row.total, 10) || 0) + 10);
+            const currentCorrect = parseInt(row.correct, 10) || 0;
+            return {
+                ...row,
+                total: newTotal,
+                score: newTotal > 0 ? Math.min(100, (currentCorrect / newTotal) * 100) : 0
+            };
+        });
         setRows(newRows);
     };
 
