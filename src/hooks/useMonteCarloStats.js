@@ -415,6 +415,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
     const [debouncedWeights, setDebouncedWeights] = useState(() => effectiveWeights);
 
+    const lastRecordedGlobalPredRef = useRef('');
+    const lastRecordedSubjectPredsRef = useRef('');
+
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedTarget(targetScore), 300);
         return () => clearTimeout(timer);
@@ -601,20 +604,24 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     try {
                         const setDataFn = useAppStore.getState().setData;
                         if (setDataFn && result?.probability != null) {
-                            const ev = recordPredictionEvent(null, {
-                                timestamp: Date.now(),
-                                probability: Number(result.probability) / 100,
-                                targetScore: debouncedTarget,
-                                sims: result.simulationCount,
-                                effectiveN: result.diagnostics?.effectiveN,
-                                category: 'global'
-                            });
-                            if (ev) {
-                                setDataFn(contest => {
-                                    const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
-                                    evs.push(ev);
-                                    return { ...contest, calibrationEvents: evs.slice(-200) };
+                            const hash = `${debouncedTarget}-${result.probability.toFixed(1)}`;
+                            if (lastRecordedGlobalPredRef.current !== hash) {
+                                lastRecordedGlobalPredRef.current = hash;
+                                const ev = recordPredictionEvent(null, {
+                                    timestamp: Date.now(),
+                                    probability: Number(result.probability) / 100,
+                                    targetScore: debouncedTarget,
+                                    sims: result.simulationCount,
+                                    effectiveN: result.diagnostics?.effectiveN,
+                                    category: 'global'
                                 });
+                                if (ev) {
+                                    setDataFn(contest => {
+                                        const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
+                                        evs.push(ev);
+                                        return { ...contest, calibrationEvents: evs.slice(-200) };
+                                    });
+                                }
                             }
                         }
                     } catch { /* best effort, non blocking */ }
@@ -894,6 +901,10 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     useEffect(() => {
         if (!perSubjectProbs || perSubjectProbs.length === 0 || simulationData?.status !== 'ready') return;
         try {
+            const hash = JSON.stringify(perSubjectProbs.map(s => `${s.name}-${Number(s.prob).toFixed(1)}`));
+            if (lastRecordedSubjectPredsRef.current === hash) return;
+            lastRecordedSubjectPredsRef.current = hash;
+
             const setDataFn = useAppStore.getState().setData;
             if (!setDataFn) return;
             perSubjectProbs.forEach(subj => {

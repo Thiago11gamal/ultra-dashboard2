@@ -90,7 +90,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         simulations = meanOrObj.simulations ?? simulations;
     // NEW: auto-adapt number of simulations for better convergence when not explicitly provided
     if (!meanOrObj?.simulations && !simulations) {
-      const roughProb = Math.max(0.1, Math.min(0.9, (currentMean || safeMean || 70) / 100));
+      const roughProb = Math.max(0.1, Math.min(0.9, (currentMean || mean || 70) / 100));
       simulations = recommendSimulationCount(roughProb);
     }
         seed = meanOrObj.seed ?? seed;
@@ -279,7 +279,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    const raw = Number(s.mean) + zCorr[j] * (Number(s.sd) || 1);
+                    const raw = Number(s.mean) + zCorr[j];
                     const sScore = Math.max(sMin, Math.min(sMax, raw));
                     if (sScore < Number(s.minCutoff)) {
                         passedMins = false;

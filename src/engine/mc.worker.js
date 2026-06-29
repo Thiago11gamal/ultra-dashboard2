@@ -105,6 +105,7 @@ self.onmessage = function(e) {
             // BUG-FIX: Sanitize subjects array to prevent NaN/Infinity from corrupting the simulation.
             const sanitizedSubjects = Array.isArray(payload.subjects)
                 ? payload.subjects.map(s => ({
+                    name: s?.name ? String(s.name) : undefined,
                     mean: safeNum(s?.mean, 0),
                     sd: Math.max(0, safeNum(s?.sd, 1)),
                     minCutoff: safeNum(s?.minCutoff, 0),
