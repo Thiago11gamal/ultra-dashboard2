@@ -388,8 +388,16 @@ export default function EvolutionChart({
         }
 
         const lastPoint = timeline[timeline.length - 1];
-        const raw = lastPoint[`raw_${focusCategory.id}`];
-        const bayesian = lastPoint[`bay_${focusCategory.id}`];
+
+        const getLastValid = (key) => {
+            for (let i = timeline.length - 1; i >= 0; i--) {
+                if (timeline[i][key] != null) return timeline[i][key];
+            }
+            return null;
+        };
+
+        const raw = getLastValid(`raw_${focusCategory.id}`);
+        const bayesian = getLastValid(`bay_${focusCategory.id}`);
         const scale = maxScore / 100;
 
         if (activeEngine === "raw_weekly") {
@@ -528,9 +536,9 @@ export default function EvolutionChart({
         }
 
         if (activeEngine === "stats") {
-            const stats = lastPoint[`stats_${focusCategory.id}`];
+            const stats = getLastValid(`stats_${focusCategory.id}`);
             if (stats == null) return { type: 'info', icon: "📐", title: "Histórico", text: "Sem dados." };
-            const trend = lastPoint[`trend_status_${focusCategory.id}`];
+            const trend = getLastValid(`trend_status_${focusCategory.id}`);
             const gap = bayesian != null ? (bayesian - stats) : null;
             
             return {

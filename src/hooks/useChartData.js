@@ -243,33 +243,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             // (Decoration logic for currentLevels removed as it was unused and violating prop immutability)
 
         });
-        dates.forEach(date => {
-            const d = dataByDate[date];
-            let weightedSum = 0;
-            let totalW = 0;
-            let sumScores = 0;
-            let activeCount = 0;
 
-            activeCategories.forEach(cat => {
-                const rawScore = d[`raw_${cat.id}`];
-                const bayScore = d[`bay_${cat.id}`];
-                const score = (rawScore != null && Number.isFinite(rawScore)) ? rawScore : bayScore;
-                const w = weights[cat.id] ?? weights[cat.name] ?? 0;
-                
-                if (Number.isFinite(score) && score !== null) {
-                    if (w > 0) {
-                        weightedSum += score * w;
-                        totalW += w;
-                    }
-                    // Fallback para média simples (Global se sem pesos habilitados)
-                    sumScores += score;
-                    activeCount++;
-                }
-            });
-
-            const rawGlobal = totalW > 0 ? (weightedSum / totalW) : (activeCount > 0 ? sumScores / activeCount : 0);
-            d.global_pct = Number.isFinite(rawGlobal) ? Math.max(0, Math.min(maxScore, rawGlobal)) : 0;
-        });
 
         return dates.map(d => dataByDate[d]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
