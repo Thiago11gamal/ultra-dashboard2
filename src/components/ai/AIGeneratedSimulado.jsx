@@ -24,8 +24,25 @@ const DIFFICULTIES = [
 const AI_SIM_STORAGE_KEY = 'ai_simulado_draft';
 const AI_GEN_STORAGE_KEY = 'ai_simulado_generating';
 
+// BUG-2 FIX: Moved to module scope to avoid re-creation on every render
+const LOADING_MESSAGES = [
+  "Iniciando Motor Analítico...",
+  "Identificando Banca Examinadora...",
+  "Cruzando Jurisprudências Recentes...",
+  "Formulando Enunciados Inéditos...",
+  "Calibrando Nível de Dificuldade...",
+  "Ajustando Pegadinhas e Casos Práticos...",
+  "Finalizando Pacote de Questões..."
+];
+
 // Module-level promise to keep generation alive across component unmounts
 let activeGenerationPromise = null;
+
+// BUG-11 FIX: More unique ID generator to avoid collisions
+let _aiIdCounter = 0;
+function nextAiId(prefix = 'ai') {
+  return `${prefix}-${Date.now()}-${++_aiIdCounter}-${Math.random().toString(36).slice(2, 7)}`;
+}
 
 export default function AIGeneratedSimulado() {
   const setData = useAppStore(state => state.setData);
@@ -54,18 +71,15 @@ export default function AIGeneratedSimulado() {
   const [showReview, setShowReview] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
 
-  const LOADING_MESSAGES = [
-    "Iniciando Motor Analítico...",
-    "Identificando Banca Examinadora...",
-    "Cruzando Jurisprudências Recentes...",
-    "Formulando Enunciados Inéditos...",
-    "Calibrando Nível de Dificuldade...",
-    "Ajustando Pegadinhas e Casos Práticos...",
-    "Finalizando Pacote de Questões..."
-  ];
+  // BUG-2 FIX: LOADING_MESSAGES moved to module scope (line ~27)
 
   // Track mount state to avoid clearing localStorage after unmount
   const mountedRef = useRef(true);
+  // BUG-8 FIX: Track if initial mount effect already ran to avoid re-running on categories change
+  const didMountRestoreRef = useRef(false);
+  // BUG-9 FIX: Ref for step to avoid stale closure in handleFinish
+  const stepRef = useRef(step);
+  useEffect(() => { stepRef.current = step; }, [step]);
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -101,6 +115,10 @@ export default function AIGeneratedSimulado() {
 
   // Load draft or completed generation on mount
   useEffect(() => {
+    // BUG-8 FIX: Only run restore logic once per mount cycle
+    if (didMountRestoreRef.current) return;
+    didMountRestoreRef.current = true;
+
     // 1. Check if there's a completed background generation
     const genData = localStorage.getItem(AI_GEN_STORAGE_KEY);
     if (genData) {
@@ -124,7 +142,7 @@ export default function AIGeneratedSimulado() {
             const tsk = cat?.tasks?.find(t => t.id === f.taskId);
             const normalizedQuestions = gen.questions.map((q, idx) => ({
               ...q,
-              id: q.id || `ai-${Date.now()}-${idx}`,
+              id: q.id || nextAiId('ai-bg'),
               categoryId: f.categoryId,
               taskId: f.taskId,
               materia: cat?.name || f.materia,
@@ -365,7 +383,7 @@ export default function AIGeneratedSimulado() {
 
         const normalizedQuestions = generated.map((q, idx) => ({
           ...q,
-          id: q.id || `ai-${Date.now()}-${idx}`,
+          id: q.id || nextAiId('ai-pers'),
           categoryId: 'mixed',
           taskId: 'mixed',
         }));
@@ -386,30 +404,32 @@ export default function AIGeneratedSimulado() {
       }
     })();
 
-    if (mountedRef.current) {
-      setTimeout(() => {
-        if (mountedRef.current && isLoading) {
-          activeGenerationPromise.then((normalizedQuestions) => {
-            if (normalizedQuestions && normalizedQuestions.length > 0) {
-              isFinishingRef.current = false;
-              setQuestions(normalizedQuestions);
-              setAnswers({});
-              setCurrentIndex(0);
-              setTimeLeft(45 * 60);
-              setStep('playing');
-              setTimerActive(true);
-              setShowReview(false);
-              setIsLoading(false);
-              localStorage.removeItem(AI_GEN_STORAGE_KEY);
-              showToast(`Personalizado: ${normalizedQuestions.length} questões focadas nas fraquezas!`, 'success');
-            }
-          }).catch((error) => {
-            setIsLoading(false);
-            localStorage.removeItem(AI_GEN_STORAGE_KEY);
-            showToast(error.message || 'Erro ao gerar questões personalizadas.', 'error');
-          });
-        }
-      }, 0);
+    // BUG-1 FIX: Use await directly instead of setTimeout with stale isLoading closure
+    try {
+      const normalizedQuestions = await activeGenerationPromise;
+      activeGenerationPromise = null;
+
+      if (!mountedRef.current) return;
+
+      if (normalizedQuestions && normalizedQuestions.length > 0) {
+        isFinishingRef.current = false;
+        setQuestions(normalizedQuestions);
+        setAnswers({});
+        setCurrentIndex(0);
+        setTimeLeft(45 * 60);
+        setStep('playing');
+        setTimerActive(true);
+        setShowReview(false);
+        setIsLoading(false);
+        localStorage.removeItem(AI_GEN_STORAGE_KEY);
+        showToast(`Personalizado: ${normalizedQuestions.length} questões focadas nas fraquezas!`, 'success');
+      }
+    } catch (error) {
+      activeGenerationPromise = null;
+      if (!mountedRef.current) return;
+      setIsLoading(false);
+      localStorage.removeItem(AI_GEN_STORAGE_KEY);
+      showToast(error.message || 'Erro ao gerar questões personalizadas.', 'error');
     }
   };
 
@@ -455,7 +475,7 @@ export default function AIGeneratedSimulado() {
 
         const normalizedQuestions = generated.map((q, idx) => ({
           ...q,
-          id: q.id || `ai-${Date.now()}-${idx}`,
+          id: q.id || nextAiId('ai-gen'),
           categoryId: currentForm.categoryId,
           taskId: currentForm.taskId,
           materia: cat?.name || currentForm.materia,
@@ -715,22 +735,28 @@ export default function AIGeneratedSimulado() {
 
     if (qList.length === 0) return;
 
+    // BUG-9 FIX: Use ref instead of potentially stale closure value
     // Evita chamadas duplas (timer + clique) usando ref
-    if (isFinishingRef.current || step === 'finished') return;
+    if (isFinishingRef.current || stepRef.current === 'finished') return;
     isFinishingRef.current = true;
 
     let correctCount = 0;
+    let unansweredCount = 0;
     const answeredQuestions = [];
 
     qList.forEach(q => {
       const selected = ansMap[q.id];
-      const isCorrect = selected === q.alternativa_correta;
+      // BUG-5 FIX: Distinguish unanswered from incorrect
+      const wasAnswered = selected !== undefined && selected !== null;
+      const isCorrect = wasAnswered && selected === q.alternativa_correta;
       if (isCorrect) correctCount++;
+      if (!wasAnswered) unansweredCount++;
 
       answeredQuestions.push({
         ...q,
-        selected,
+        selected: selected || null,
         isCorrect,
+        wasAnswered,
       });
     });
 
@@ -785,16 +811,26 @@ export default function AIGeneratedSimulado() {
 
     // reset flag (though component will unmount the playing logic)
     setTimeout(() => { isFinishingRef.current = false; }, 0);
-  }, [step, answers, questions, saveAIResultsToSystem, showToast, timeLeft]);  // step for the early guard; refs are stable
+  }, [answers, questions, saveAIResultsToSystem, showToast, timeLeft]);  // BUG-9 FIX: removed step from deps (using stepRef now)
 
   // Timer effect (declared after handleFinish to avoid TDZ in deps)
+  // BUG-6 FIX: Moved handleFinish call outside of setTimeLeft callback
+  const timerFinishTriggerRef = useRef(false);
+  useEffect(() => {
+    if (timerFinishTriggerRef.current) {
+      timerFinishTriggerRef.current = false;
+      handleFinish();
+    }
+  }, [timeLeft, handleFinish]);
+
   useEffect(() => {
     let interval = null;
     if (timerActive && timeLeft > 0 && step === 'playing') {
       interval = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            handleFinish();
+            // BUG-6 FIX: Set flag to trigger handleFinish on next render, outside setter
+            timerFinishTriggerRef.current = true;
             return 0;
           }
           return prev - 1;
@@ -843,14 +879,18 @@ export default function AIGeneratedSimulado() {
         e.preventDefault();
         if (curIdx < qLen - 1) goTo(curIdx + 1); else handleFinish();
       } else if (e.key.toLowerCase() === 'escape') {
-        e.preventDefault(); setTimerActive(false); setStep('setup');
+        // BUG-4 FIX: Properly cleanup on ESC — clear localStorage and reset state
+        e.preventDefault();
+        resetAll();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // BUG-13 FIX: Use stable refs for goTo/selectAnswer (already using latestCurrentIndexRef/latestQuestionsRef inside)
   }, [step, currentQuestion, handleFinish, questions.length, goTo, selectAnswer]);
 
   // Loading messages effect
+  // BUG-2 FIX: LOADING_MESSAGES is now module-scoped, .length is stable primitive
   useEffect(() => {
     let interval = null;
     if (isLoading) {
@@ -861,7 +901,7 @@ export default function AIGeneratedSimulado() {
       setTimeout(() => setLoadingMsgIdx(0), 0);
     }
     return () => clearInterval(interval);
-  }, [isLoading, LOADING_MESSAGES.length]);
+  }, [isLoading]);
 
   // ==================== RENDER ====================
 
@@ -1376,7 +1416,7 @@ export default function AIGeneratedSimulado() {
 
         <div className="text-center mt-4">
           <button 
-            onClick={() => { setTimerActive(false); localStorage.removeItem(AI_SIM_STORAGE_KEY); setStep('setup'); }} 
+            onClick={resetAll}
             className="text-[11px] text-slate-600 hover:text-slate-400 transition"
           >
             Cancelar e voltar
@@ -1446,14 +1486,20 @@ export default function AIGeneratedSimulado() {
           </div>
 
           {/* Stats strip */}
-          <div className="grid grid-cols-3 border-t border-white/[0.06]">
+          {/* BUG-5 FIX: 4 columns to show unanswered separately */}
+          <div className="grid grid-cols-4 border-t border-white/[0.06]">
             <div className="py-4 px-3 text-center border-r border-white/[0.06]">
               <div className="text-[28px] sm:text-[32px] leading-none font-black text-emerald-400">{results.correct}</div>
               <div className="uppercase tracking-[2px] text-[9px] font-bold text-emerald-400/50 mt-1.5">ACERTOS</div>
             </div>
             <div className="py-4 px-3 text-center border-r border-white/[0.06]">
-              <div className="text-[28px] sm:text-[32px] leading-none font-black text-rose-400">{results.total - results.correct}</div>
+              {/* BUG-5 FIX: Show separate counts for errors and unanswered */}
+              <div className="text-[28px] sm:text-[32px] leading-none font-black text-rose-400">{results.questions.filter(q => q.wasAnswered && !q.isCorrect).length}</div>
               <div className="uppercase tracking-[2px] text-[9px] font-bold text-rose-400/50 mt-1.5">ERROS</div>
+            </div>
+            <div className="py-4 px-3 text-center border-r border-white/[0.06]">
+              <div className="text-[28px] sm:text-[32px] leading-none font-black text-slate-400">{results.questions.filter(q => !q.wasAnswered).length}</div>
+              <div className="uppercase tracking-[2px] text-[9px] font-bold text-slate-500 mt-1.5">EM BRANCO</div>
             </div>
             <div className="py-4 px-3 text-center">
               <div className="text-[28px] sm:text-[32px] leading-none font-black" style={{ color: colorMap.text }}>{accuracy}%</div>
@@ -1540,7 +1586,7 @@ export default function AIGeneratedSimulado() {
 
                         <div className="pl-10 space-y-2 text-sm">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs mb-2">
-                            <span className="font-mono px-2.5 py-0.5 bg-white/[0.04] rounded-md text-slate-400">Sua: <b className="text-white">{q.selected || '—'}</b></span>
+                            <span className="font-mono px-2.5 py-0.5 bg-white/[0.04] rounded-md text-slate-400">Sua: <b className="text-white">{q.wasAnswered ? q.selected : <span className="text-slate-500 italic">em branco</span>}</b></span>
                             {!isCorrect && <span className="font-mono px-2.5 py-0.5 bg-emerald-500/15 text-emerald-400 rounded-md">Correta: <b>{q.alternativa_correta}</b></span>}
                           </div>
 

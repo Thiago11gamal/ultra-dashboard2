@@ -5,6 +5,11 @@
  * IMPORTANTE: 
  * - Configure VITE_OPENAI_API_KEY ou VITE_GEMINI_API_KEY no .env
  * - O prompt força saída em JSON estrito para compatibilidade com o sistema.
+ * 
+ * ⚠️ AVISO DE SEGURANÇA (BUG-14): Chaves com prefixo VITE_ são incluídas
+ * no bundle do cliente e visíveis no DevTools do navegador.
+ * Para produção multi-usuário, use um proxy serverless (ex: Vercel Edge Function).
+ * Para uso pessoal/local, o risco é aceitável.
  */
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
@@ -32,11 +37,27 @@ function extractJson(raw) {
   let s = String(raw).trim();
   // Strip markdown code fences
   s = s.replace(/^```(?:json)?\s*|\s*```$/g, '');
-  // Find first { ... } block
+  // BUG-7 FIX: Support both root-level objects {...} and arrays [{...}]
   const firstBrace = s.indexOf('{');
+  const firstBracket = s.indexOf('[');
   const lastBrace = s.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
+  const lastBracket = s.lastIndexOf(']');
+  
+  // Determine whether the outermost structure is an object or array
+  const objValid = firstBrace !== -1 && lastBrace > firstBrace;
+  const arrValid = firstBracket !== -1 && lastBracket > firstBracket;
+  
+  if (objValid && arrValid) {
+    // Use whichever starts first (outermost structure)
+    if (firstBrace < firstBracket) {
+      s = s.slice(firstBrace, lastBrace + 1);
+    } else {
+      s = s.slice(firstBracket, lastBracket + 1);
+    }
+  } else if (objValid) {
     s = s.slice(firstBrace, lastBrace + 1);
+  } else if (arrValid) {
+    s = s.slice(firstBracket, lastBracket + 1);
   }
   // Remove trailing commas (common LLM issue)
   s = s.replace(/,\s*([}\]])/g, '$1');

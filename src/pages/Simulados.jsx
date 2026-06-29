@@ -100,8 +100,15 @@ export default function Simulados() {
         
         const lastTimestamp = sorted[0].createdAt || sorted[0].date;
         
-        // Pega exclusivamente as linhas que compartilham o MESMO exato milissegundo de criação (mesmo lote)
-        return rows.filter(r => (r.createdAt || r.date) === lastTimestamp);
+        // BUG-10 FIX: Compare by time value (ms) instead of literal string to handle
+        // slight millisecond differences within the same batch
+        const lastTime = new Date(lastTimestamp).getTime();
+        // Consider entries within 2 seconds of the latest as the same batch
+        const BATCH_TOLERANCE_MS = 2000;
+        return rows.filter(r => {
+            const t = new Date(r.createdAt || r.date || 0).getTime();
+            return Math.abs(t - lastTime) <= BATCH_TOLERANCE_MS;
+        });
     }, [data]);
 
     const [mode, setMode] = useState('ai-generator'); // 'ai-generator' | 'analyzer' | 'history'
@@ -232,7 +239,8 @@ export default function Simulados() {
                         source: 'manual',
                         subject: String(r.subject || '').trim(),
                         topic: String(r.topic || '').trim(),
-                        correct: Math.min(Math.max(0, Number(r.total) || 0), Math.max(0, Number(r.correct) || 0)),
+                        // BUG-3 FIX: Clearer clamping — correct must be between 0 and total
+                        correct: Math.max(0, Math.min(Number(r.correct) || 0, Number(r.total) || 0)),
                         total: Math.max(0, Number(r.total) || 0)
                     }))
             ].slice(-300);
