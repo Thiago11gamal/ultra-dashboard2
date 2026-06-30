@@ -841,7 +841,7 @@ export default function AIGeneratedSimulado() {
 
     // reset flag (though component will unmount the playing logic)
     setTimeout(() => { isFinishingRef.current = false; }, 0);
-  }, [answers, questions, saveAIResultsToSystem, showToast, timeLeft]);  // BUG-9 FIX: removed step from deps (using stepRef now)
+  }, [answers, questions, saveAIResultsToSystem, showToast, timeLeft, setData]);  // BUG-9 FIX: removed step from deps (using stepRef now)
 
   // Timer effect (declared after handleFinish to avoid TDZ in deps)
   // BUG-6 FIX: Moved handleFinish call outside of setTimeLeft callback

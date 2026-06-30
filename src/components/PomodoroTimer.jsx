@@ -626,7 +626,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 safeOnFullCycleComplete(finalMinutes, source === 'natural');
             }
         }, 50);
-    }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, activeSubject, safeOnFullCycleComplete, onSessionComplete, syncChannel, isTransitioning, isMuted]);
+    }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, safeOnFullCycleComplete, onSessionComplete, syncChannel, isTransitioning, isMuted]);
 
     // Motor de Animação Blindado e Otimizado (Resiliente a Abas em Segundo Plano)
     // O loop só roda quando isRunning é true, poupando CPU/GPU significativamente.
