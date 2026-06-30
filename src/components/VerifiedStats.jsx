@@ -177,7 +177,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
 
 const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 }) => {
     if (categoryBreakdown.length === 0) return (
-        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 2 simulados em cada matéria para gerar o diagnóstico individual.</div>
+        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 1 simulado em cada matéria para gerar o diagnóstico individual.</div>
     );
 
     const maxSdVal = Math.max(0.25 * maxScore, ...categoryBreakdown.map(c => c.rawSd || 0));

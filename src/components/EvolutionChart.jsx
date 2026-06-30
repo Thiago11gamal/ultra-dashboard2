@@ -205,7 +205,7 @@ export default function EvolutionChart({
             })
             .filter(Boolean).sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
 
-        if (hist.length < 2) return;
+        if (hist.length < 1) return;
 
         let cancelled = false;
 
@@ -611,8 +611,8 @@ export default function EvolutionChart({
 
     const engine = ENGINES.find((e) => e.id === activeEngine) || ENGINES[0];
 
-    const accountHasData = chartData.length >= 2;
-    const filterHasData = filteredChartData.length >= 2;
+    const accountHasData = chartData.length >= 1;
+    const filterHasData = filteredChartData.length >= 1;
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -816,8 +816,8 @@ export default function EvolutionChart({
                     <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
-                            <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>
-                            <p className="text-slate-500 text-sm max-w-xs">Registre pelo menos <span className="text-indigo-400 font-bold">2 simulados</span> na sua conta para desbloquear os gráficos.</p>
+                            <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para exibir o gráfico</p>
+                            <p className="text-slate-500 text-sm max-w-xs">Registre pelo menos <span className="text-indigo-400 font-bold">1 simulado</span> na sua conta para desbloquear os gráficos.</p>
                         </div>
                     </div>
                 ) : !filterHasData ? (
