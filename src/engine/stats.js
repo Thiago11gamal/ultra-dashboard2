@@ -73,10 +73,14 @@ export function pruneHistoryForMemory(history = [], maxPoints = 1500, maxAgeDays
 
     if (older.length <= maxPoints - recentCount) return filtered;
 
-    const step = Math.ceil(older.length / (maxPoints - recentCount));
+    // 🐛 FIX 1: Utilizar interpolação de ponto flutuante em vez de Math.ceil
+    // Garante que recolhemos exatamente as amostras necessárias de forma uniforme, sem saltar dados.
+    const targetCount = maxPoints - recentCount;
+    const factor = older.length / targetCount;
     const sampledOlder = [];
-    for (let i = 0; i < older.length; i += step) {
-        sampledOlder.push(older[i]);
+    
+    for (let i = 0; i < targetCount; i++) {
+        sampledOlder.push(older[Math.floor(i * factor)]);
     }
 
     return [...sampledOlder, ...recent].slice(0, maxPoints);
@@ -354,7 +358,10 @@ export function calcularAssimetria(arr) {
     const cubeDiffs = clean.map(val => Math.pow(val - m, 3));
     const sumCube = kahanSum(cubeDiffs);
     
-    const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.max(1e-9, Math.pow(s, 3)));
+    // FIX 3: Proteção sobre a raiz do desvio e não sobre o produto ao cubo.
+    // Preserva o sinal e a magnitude de desvios padrão pequenos (ex: SD = 0.001)
+    const safeS = Math.max(1e-5, s);
+    const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.pow(safeS, 3));
     
     // Fallback absoluto: Se a divisão gerar valores indefinidos, exporta 0 (Simetria perfeita)
     if (Number.isNaN(skewness) || !Number.isFinite(skewness)) return 0;
@@ -536,24 +543,43 @@ export function computeBayesianLevel(
             const avgTotal = history.length > 0 
                 ? (kahanSum(history.map(hh => Number(hh.total) || 20)) / history.length) 
                 : getSyntheticTotal(safeMaxScore);
+            
+            const stepCap = dynamicAlphaCap; // O limite cognitivo vivo
+
+            // FIX 2: Blindagem contra Wipeout de Volume
+            // Limitamos a inovação (choque diário) ANTES de a somar ao histórico acumulado.
+            // Impede que um dia com 2000 questões destrua o peso das 5000 questões feitas no passado.
             if (isPurePercentage) {
                 const syntheticN = Math.max(0, avgTotal * itemWeight);
-                alpha += pct * syntheticN;
-                beta += (1 - pct) * syntheticN;
+                let alphaHoje = pct * syntheticN;
+                let betaHoje = (1 - pct) * syntheticN;
+                
+                if ((alphaHoje + betaHoje) > stepCap) {
+                    const clampDiario = stepCap / (alphaHoje + betaHoje);
+                    alphaHoje *= clampDiario;
+                    betaHoje *= clampDiario;
+                }
+                alpha += alphaHoje;
+                beta += betaHoje;
             } else {
                 let correct = Math.max(0, Math.round(pct * total));
                 if (total >= 1) {
                     const safeCorrect = Math.max(0, Math.min(total, correct));
-                    const acertosHoje = Math.max(0, safeCorrect * itemWeight);
-                    const errosHoje = Math.max(0, (total - safeCorrect) * itemWeight);
+                    let acertosHoje = Math.max(0, safeCorrect * itemWeight);
+                    let errosHoje = Math.max(0, (total - safeCorrect) * itemWeight);
+                    
+                    if ((acertosHoje + errosHoje) > stepCap) {
+                        const clampDiario = stepCap / (acertosHoje + errosHoje);
+                        acertosHoje *= clampDiario;
+                        errosHoje *= clampDiario;
+                    }
                     alpha += acertosHoje;
                     beta += errosHoje;
                 }
             }
 
-            // 3. Atualizamos o teto global com os novos valores
+            // 3. O teto global atua agora de forma segura (Shrinkage)
             const currentN = alpha + beta;
-            const stepCap = dynamicAlphaCap; // O limite cognitivo vivo
 
             if (currentN > stepCap) {
                 const clampFactor = stepCap / currentN;

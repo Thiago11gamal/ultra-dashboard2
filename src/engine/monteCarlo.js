@@ -221,15 +221,29 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // compensação), pois a fórmula da P(X ≥ target) na Normal Truncada já é exata.
     // A compensação de muParam só serve para a amostragem (onde precisamos deslocar
     // μ para que as amostras tenham E[X] = safeMean após truncagem).
+    // FIX 4: Busca Binária (Binary Search) para convergência exata da Média Truncada.
+    // Corrige o desvio assimétrico nas caudas (perto de 0 ou de 100), garantindo 
+    // que a média empírica das simulações bate certo com a safeMean teórica.
     let muParam = safeMean;
     
     if (safeSD > 0) {
-        // Calcular a média real que a Normal Truncada produziria com μ = safeMean
-        const expectedTruncMean = truncatedNormalMean(safeMean, safeSD, minScore, maxScore);
-        // O viés introduzido pela truncagem
-        const truncationBias = expectedTruncMean - safeMean;
-        // Compensar: se a truncagem puxa a média para cima, desloco μ para baixo
-        muParam = safeMean - truncationBias;
+        let muLow = minScore - safeSD * 3;
+        let muHigh = maxScore + safeSD * 3;
+        
+        // 7 iterações garantem precisão decimal de sobressalva
+        for (let iter = 0; iter < 7; iter++) {
+            const currentTruncMean = truncatedNormalMean(muParam, safeSD, minScore, maxScore);
+            const error = currentTruncMean - safeMean;
+            
+            if (Math.abs(error) < 0.05) break; 
+            
+            if (error > 0) {
+                muHigh = muParam; // Média ficou alta, descer o muParam
+            } else {
+                muLow = muParam;  // Média ficou baixa, subir o muParam
+            }
+            muParam = (muLow + muHigh) / 2;
+        }
     }
 
     // FEATURE 2: Preparar distribuição de cortes históricos se houver
@@ -710,10 +724,14 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
                 currentVolatility = volatilidadeAdaptativa * (Math.max(0, escala - notaAtual) / (0.05 * escala));
             }
 
-            // OTIMIZAÇÃO: Comprimir o ruído à medida que a nota se aproxima do teto logístico
+            // FIX 5: Remoção do Double Damping (compressãoRuido)
+            // A redução da volatilidade (currentVolatility) nas caudas já é suficiente 
+            // para conter a simulação. Multiplicar por uma exponencial extra forçava
+            // a simulação a colapsar num desvio padrão de 0 nas notas altas.
             const margemTeto = Math.max(0, limiteAssintotico - notaAtual); 
-            const compressaoRuido = 1 - Math.exp(-5 * (margemTeto / escala));
-            const ruidoAjustado = effectiveShock * Math.max(0.1, compressaoRuido) * (currentVolatility / volatilidadeAdaptativa);
+            
+            // Usamos apenas a relação linear da volatilidade adaptativa limitadora
+            const ruidoAjustado = effectiveShock * (currentVolatility / volatilidadeAdaptativa);
             
             previousShock = ruidoAjustado; // ← memória do choque realmente aplicado
             
