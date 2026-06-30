@@ -11,17 +11,19 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     // during the render phase whenever r.id was falsy — causing React to see different
     // keys on every render, making inputs lose focus on every keystroke.
     // Using index as stable fallback avoids any mutation during render.
+    const [prevPropRows, setPrevPropRows] = useState(propRows);
     const [rows, setLocalRows] = useState(() => (propRows && propRows.length > 0)
         ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
         : []
     );
 
-    React.useEffect(() => {
+    if (propRows !== prevPropRows) {
+        setPrevPropRows(propRows);
         setLocalRows((propRows && propRows.length > 0)
             ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
             : []
         );
-    }, [propRows]);
+    }
 
     // Helper to report changes up to parent
     const [analysisData, setAnalysisData] = useState(null);

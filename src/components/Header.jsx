@@ -53,11 +53,13 @@ const Header = React.memo(function Header({
     const clockTime = useClock();
 
     const displayName = user?.name ?? 'Estudante';
+    const [prevDisplayName, setPrevDisplayName] = useState(displayName);
     const [localName, setLocalName] = useState(displayName);
 
-    useEffect(() => {
+    if (displayName !== prevDisplayName) {
+        setPrevDisplayName(displayName);
         setLocalName(displayName);
-    }, [displayName]);
+    }
 
     const handleNameChange = (e) => {
         setLocalName(e.target.value);

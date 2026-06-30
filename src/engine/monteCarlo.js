@@ -722,8 +722,7 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
             // A redução da volatilidade (currentVolatility) nas caudas já é suficiente 
             // para conter a simulação. Multiplicar por uma exponencial extra forçava
             // a simulação a colapsar num desvio padrão de 0 nas notas altas.
-            const margemTeto = Math.max(0, limiteAssintotico - notaAtual); 
-            
+
             // Usamos apenas a relação linear da volatilidade adaptativa limitadora
             const ruidoAjustado = effectiveShock * (currentVolatility / volatilidadeAdaptativa);
             
