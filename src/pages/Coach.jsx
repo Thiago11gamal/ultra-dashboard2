@@ -172,7 +172,7 @@ export default function Coach() {
                     probabilityDelta < 0.01 &&
                     !reliabilitySignatureChanged;
 
-                if (shouldSkipPersist) return prev;
+                if (shouldSkipPersist) return;
             }
 
             const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
@@ -362,6 +362,9 @@ export default function Coach() {
             if (metricsTimer) clearTimeout(metricsTimer);
             nestedTimeouts.forEach(clearTimeout);
         };
+    // BUG-1 FIX: mcStats é um objeto com referência nova a cada render.
+    // Usar primitivos estáveis (projectedMean, probability) evita loop de re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         isHydrated,
         data?.categories, 
@@ -373,7 +376,8 @@ export default function Coach() {
         userProfile?.targetProbability,
         flashcardDue,
         flashcardDecks,
-        mcStats,
+        mcStats?.projectedMean,
+        mcStats?.probability,
         persistCalibrationMetric
     ]);
 
@@ -399,6 +403,11 @@ export default function Coach() {
         if (!data?.categories || coachLoading) return;
         setCoachLoading(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        // BUG-2 FIX: Limpar timeouts de calibração pendentes antes de agendar novos
+        if (window._coachGenerationTimeouts) {
+            window._coachGenerationTimeouts.forEach(clearTimeout);
+            window._coachGenerationTimeouts = [];
+        }
         timeoutRef.current = setTimeout(() => {
             const targetScore = userProfile?.targetProbability ?? 85;
             const collectedMetrics = [];
@@ -766,7 +775,7 @@ function RaioXDashboard({ data }) {
                                     <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{Number.isFinite(Number(log?.avgBrier)) ? Number(log.avgBrier).toFixed(3) : '-'}</td>
                                     <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number.isFinite(Number(log?.ece)) ? Number(log.ece).toFixed(3) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
-                                        {toFiniteNumber(log?.calibrationPenalty) > 0 ? `-${Math.max(1, Math.round(toFiniteNumber(log.calibrationPenalty) * 100))}% (shrink)` : '-'}
+                                        {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (shrink)` : '-'}
                                     </td>
                                     <td className="py-3 px-4 text-[10px] text-white font-black whitespace-nowrap">{toPercentLabel(log?.probability)}</td>
                                 </tr>

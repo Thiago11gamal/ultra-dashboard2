@@ -662,12 +662,18 @@ export default function AIGeneratedSimulado() {
               const isMatch = (taskId && t.taskId === taskId) || (!taskId && normalize(t.name) === normalize(assunto));
               if (isMatch) {
                 topicFound = true;
-                return {
-                  ...t,
-                  correct: (Number(t.correct) || 0) + correct,
-                  total: (Number(t.total) || 0) + total,
-                  timeSpent: (Number(t.timeSpent) || 0) + timeSpentSecs
-                };
+                  const newTTotal = (Number(t.total) || 0) + total;
+                  const newTCorrect = (Number(t.correct) || 0) + correct;
+                  const prevTWeight = (Number(t.difficulty) || 1.0) * (Number(t.total) || 0);
+                  const newTWeight = numericDifficulty * total;
+                  
+                  return {
+                    ...t,
+                    correct: newTCorrect,
+                    total: newTTotal,
+                    difficulty: newTTotal > 0 ? (prevTWeight + newTWeight) / newTTotal : 1.0,
+                    timeSpent: (Number(t.timeSpent) || 0) + timeSpentSecs
+                  };
               }
               return t;
             });

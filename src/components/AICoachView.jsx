@@ -377,7 +377,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Penalidade</span>
                                             </div>
                                             <span className={`text-xs font-mono font-bold ${toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400' : 'text-slate-400'}`}>
-                                                -{Math.max(1, Math.round(toFinite(row.avgPenalty) * 100))}%
+                                                {toFinite(row.avgPenalty) > 0.001 ? `-${Math.round(toFinite(row.avgPenalty) * 100)}%` : '-'}
                                             </span>
                                         </div>
                                     </div>

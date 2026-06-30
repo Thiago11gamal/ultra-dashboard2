@@ -191,6 +191,10 @@ export const WeeklyEvolutionView = ({
                         if (!itemsMap[tName.toLowerCase()]) {
                             itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                         }
+                    } else {
+                        if (!itemsMap['geral']) {
+                            itemsMap['geral'] = { name: 'Geral', color: cat.color || '#3b82f6', fullName: 'Geral' };
+                        }
                     }
                 });
             }
@@ -256,6 +260,9 @@ export const WeeklyEvolutionView = ({
                     } else if (h.taskId) {
                         const tId = String(cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto').toLowerCase().trim();
                         processHistory([h], tId);
+                    } else {
+                        // BUG 2 FIX: Se não tem topics nem taskId, agrupar em "geral" para não perder os dados na visualização Foco
+                        processHistory([h], 'geral');
                     }
                 });
             }

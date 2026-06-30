@@ -1097,12 +1097,17 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
         return acc + validVal;
     }, 0);
 
+    // Adiciona entropia baseada nas tarefas e no histórico da própria categoria 
+    // para evitar colisões de cache entre concursos diferentes (BUG 7)
+    const tasksHash = (category.tasks || []).reduce((acc, t) => acc + (t.id || t.text || '').length, 0);
+    const historyLen = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history.length : 0;
+
     // Injeção do volume histórico atua como 'salt' criptográfico para o cache, 
     // garantindo que concursos distintos ou novos dados invalidem o estado corretamente.
     // CORREÇÃO: Injetar entropia temporal (Data Atual ISO) na chave de cache para garantir 
     // que o decaimento por repetição espaçada (SRS) é atualizado dia após dia.
     const todayStr = new Date().toISOString().slice(0, 10);
-    const hash = `${lastSimTimestamp}-${openTasks}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}`; 
+    const hash = `${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}`; 
     const cacheKey = `isolate_${catId}_${hash}`;
 
     if (_topicsCache.has(cacheKey)) {
@@ -1363,113 +1368,96 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         const iterations = tasksPerCategory;
 
-        // Flag para garantir que o alerta global seja emitido apenas uma vez por categoria
-        let alertEmitted = false;
+        const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
+        const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
+        const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
+        const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
+        const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
+
+        // 1. Alertas Críticos (Prioridade Máxima, inseridos antes dos tópicos)
+        if (mc && mc.probabilityRaw < adaptiveDanger) {
+            const probPct = Math.round(mc.probabilityRaw);
+            allGeneratedTasks.push({
+                id: `${cat.id}-mc-danger-${mcProbKey}`,
+                text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Monte Carlo — Zona de Perigo",
+                    details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias.`,
+                    metrics: cat.urgency?.details?.humanReadable || {},
+                    monteCarlo: mc || null,
+                    verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
+                }
+            });
+        }
+        else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE) {
+            const probPct = Math.round(mc.probabilityRaw);
+            allGeneratedTasks.push({
+                id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}`,
+                text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Monte Carlo — Caos Estatístico",
+                    details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)}. Probabilidade: ${probPct}%.`,
+                    metrics: cat.urgency?.details?.humanReadable || {},
+                    monteCarlo: mc || null,
+                    verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível."
+                }
+            });
+        }
+        else if (mc && mc.probabilityRaw >= adaptiveSafe) {
+            const probPct = Math.round(mc.probabilityRaw);
+            allGeneratedTasks.push({
+                id: `${cat.id}-mc-safe-${mcProbKey}`,
+                text: `${cat.name}: ${priorityLabel}[STATUS] 🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%.`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Monte Carlo — Cruzeiro Seguro",
+                    details: `${probPct}% de probabilidade de atingir a meta.`,
+                    metrics: cat.urgency?.details?.humanReadable || {},
+                    monteCarlo: mc || null,
+                    verdict: "Mantenha o ritmo atual para proteger sua posição."
+                }
+            });
+        }
+        else if (cat.urgency?.details?.srsLabel) {
+            const srsKey = cat.urgency?.details?.srsLabel.replace(/\s/g, '').substring(0, 15);
+            allGeneratedTasks.push({
+                id: `${cat.id}-srs-${srsKey}`,
+                text: `${cat.name}: ${priorityLabel}[REVISÃO] 🧠 ${cat.urgency?.details?.srsLabel}.`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Revisão Espaçada (SRS) Ativada",
+                    label: cat.urgency?.details?.srsLabel,
+                    metrics: cat.urgency?.details?.humanReadable || {},
+                    monteCarlo: mc || null,
+                    verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
+                }
+            });
+        }
+        else if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap) {
+            allGeneratedTasks.push({
+                id: `${cat.id}-trap-trap`,
+                text: `${cat.name}: ${priorityLabel}[MÉTODO] ⚠️ ANOMALIA: Teoria excedente detectada.`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Detector de Pseudo-Estudo",
+                    details: "Alta carga horária com baixíssimo volume de exercícios.",
+                    metrics: cat.urgency?.details?.humanReadable || {},
+                    monteCarlo: mc || null,
+                    verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
+                }
+            });
+        }
+
+        // 2. Consumo de Tópicos
         let topicCursor = 0;
-
         for (let i = 0; i < iterations; i++) {
-            const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
-            const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
-            const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
-            const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
-            const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
-
-            // 1. Alertas Críticos (Prioridade Máxima, não consomem tópicos)
-            if (mc && mc.probabilityRaw < adaptiveDanger && !alertEmitted) {
-                alertEmitted = true;
-                const probPct = Math.round(mc.probabilityRaw);
-                allGeneratedTasks.push({
-                    id: `${cat.id}-mc-danger-${mcProbKey}-${i}`,
-                    text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
-                    completed: false,
-                    categoryId: cat.id,
-                    analysis: {
-                        reason: "Monte Carlo — Zona de Perigo",
-                        details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias.`,
-                        metrics: cat.urgency?.details?.humanReadable || {},
-                        monteCarlo: mc || null,
-                        verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
-                    }
-                });
-                i--; continue; // Alerta emitido, passa para próxima iteração
-            }
-
-            if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE && !alertEmitted) {
-                alertEmitted = true;
-                const probPct = Math.round(mc.probabilityRaw);
-                allGeneratedTasks.push({
-                    id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}-${i}`,
-                    text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
-                    completed: false,
-                    categoryId: cat.id,
-                    analysis: {
-                        reason: "Monte Carlo — Caos Estatístico",
-                        details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)}. Probabilidade: ${probPct}%.`,
-                        metrics: cat.urgency?.details?.humanReadable || {},
-                        monteCarlo: mc || null,
-                        verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível."
-                    }
-                });
-                i--; continue;
-            }
-
-            if (mc && mc.probabilityRaw >= adaptiveSafe && !alertEmitted) {
-                alertEmitted = true;
-                const probPct = Math.round(mc.probabilityRaw);
-                allGeneratedTasks.push({
-                    id: `${cat.id}-mc-safe-${mcProbKey}-${i}`,
-                    text: `${cat.name}: ${priorityLabel}[STATUS] 🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%.`,
-                    completed: false,
-                    categoryId: cat.id,
-                    analysis: {
-                        reason: "Monte Carlo — Cruzeiro Seguro",
-                        details: `${probPct}% de probabilidade de atingir a meta.`,
-                        metrics: cat.urgency?.details?.humanReadable || {},
-                        monteCarlo: mc || null,
-                        verdict: "Mantenha o ritmo atual para proteger sua posição."
-                    }
-                });
-                i--; continue;
-            }
-
-            if (cat.urgency?.details?.srsLabel && !alertEmitted) {
-                alertEmitted = true;
-                const srsKey = cat.urgency?.details?.srsLabel.replace(/\s/g, '').substring(0, 15);
-                allGeneratedTasks.push({
-                    id: `${cat.id}-srs-${srsKey}-${i}`,
-                    text: `${cat.name}: ${priorityLabel}[REVISÃO] 🧠 ${cat.urgency?.details?.srsLabel}.`,
-                    completed: false,
-                    categoryId: cat.id,
-                    analysis: {
-                        reason: "Revisão Espaçada (SRS) Ativada",
-                        label: cat.urgency?.details?.srsLabel,
-                        metrics: cat.urgency?.details?.humanReadable || {},
-                        monteCarlo: mc || null,
-                        verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
-                    }
-                });
-                i--; continue;
-            }
-
-            if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap && !alertEmitted) {
-                alertEmitted = true;
-                allGeneratedTasks.push({
-                    id: `${cat.id}-trap-trap-${i}`,
-                    text: `${cat.name}: ${priorityLabel}[MÉTODO] ⚠️ ANOMALIA: Teoria excedente detectada.`,
-                    completed: false,
-                    categoryId: cat.id,
-                    analysis: {
-                        reason: "Detector de Pseudo-Estudo",
-                        details: "Alta carga horária com baixíssimo volume de exercícios.",
-                        metrics: cat.urgency?.details?.humanReadable || {},
-                        monteCarlo: mc || null,
-                        verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
-                    }
-                });
-                i--; continue;
-            }
-
-            // 2. Consumo de Tópicos (Só acontece se não houver alerta pendente nesta iteração)
             const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
             const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[OTIMIZAÇÃO DE BASE] `;
             const uniqueIdSuffix = weakTopic 

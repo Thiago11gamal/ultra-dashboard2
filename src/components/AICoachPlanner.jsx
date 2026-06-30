@@ -190,20 +190,18 @@ export default function AICoachPlanner() {
         if (source.droppableId !== 'backlog') updatedPlanner[source.droppableId] = startList;
         if (destination.droppableId !== 'backlog') updatedPlanner[destination.droppableId] = finishList;
         
-        if (destination.droppableId === 'backlog') {
-            const assignedIds = new Set();
-            Object.entries(updatedPlanner).forEach(([key, dayTasks]) => { 
-                if (key !== 'backlog') {
-                    dayTasks.forEach(t => { 
-                        const sid = getSafeId(t); 
-                        if (sid) assignedIds.add(sid); 
-                    }); 
-                }
-            });
-            
+        if (destination.droppableId === 'backlog' || source.droppableId === 'backlog') {
+            // BUG-5 FIX: Reconstruir o coachPlan usando o estado local sincronizado (newCols)
+            // em vez do coachPlan da store que pode estar stale durante drags rápidos.
             const newCoachPlan = [
-                ...finishList,
-                ...(coachPlan || []).filter(t => assignedIds.has(getSafeId(t))) 
+                ...(newCols.backlog || []),
+                ...(newCols.mon || []),
+                ...(newCols.tue || []),
+                ...(newCols.wed || []),
+                ...(newCols.thu || []),
+                ...(newCols.fri || []),
+                ...(newCols.sat || []),
+                ...(newCols.sun || [])
             ];
             
             setData(prev => {
