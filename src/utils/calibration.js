@@ -2,7 +2,8 @@ import { kahanSum } from '../engine/math/kahan.js';
 
 export function computeBrierScore(probability01, observedBinary) {
     const rawP = Number(probability01);
-    const p = Math.max(0, Math.min(1, Number.isFinite(rawP) ? rawP : 0));
+    if (!Number.isFinite(rawP)) return null;
+    const p = Math.max(0, Math.min(1, rawP));
     const y = observedBinary ? 1 : 0;
     return (p - y) ** 2;
 }
@@ -98,10 +99,10 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
 }
 
 export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct = 50, maxAppliedPenalty = 0.5) {
-    const p = Math.max(0, Math.min(100, Number(probabilityPct) || 0));
-    const limit = Math.max(0, Math.min(1, Number(maxAppliedPenalty) || 0.5));
-    const k = Math.max(0, Math.min(limit, Number(penalty) || 0));
-    const neutral = Math.max(0, Math.min(100, Number(neutralPct) || 50));
+    const p = Math.max(0, Math.min(100, probabilityPct ?? 0));
+    const limit = Math.max(0, Math.min(1, maxAppliedPenalty ?? 0.5));
+    const k = Math.max(0, Math.min(limit, penalty ?? 0));
+    const neutral = Math.max(0, Math.min(100, neutralPct ?? 50));
     return p * (1 - k) + neutral * k;
 }
 
@@ -353,26 +354,26 @@ export function computeStackingWeights(candidateProbs = [], observed = []) {
   const n = Array.isArray(observed) ? observed.length : 0;
   if (n === 0) return new Array(k).fill(1 / k);
 
-        // BUG-LOGLOSS FIX: Usar Cross-Entropy (Log Loss) para o Stacking Weight.
-        // O MSE (Brier) é menos punitivo com "falsas certezas" que a Log Loss.
-        const logLoss = candidateProbs.map(series => {
-            if (!Array.isArray(series) || series.length !== n) return 1e6;
-            let acc = 0;
-            for (let i = 0; i < n; i++) {
-                const p = Math.max(0, Math.min(1, Number(series[i]) || 0));
-                const y = Math.max(0, Math.min(1, Number(observed[i]) || 0));
-                acc += computeLogLoss(p, y);
-            }
-            return acc / n;
-        });
+  // BUG-LOGLOSS FIX: Usar Cross-Entropy (Log Loss) para o Stacking Weight.
+  // O MSE (Brier) é menos punitivo com "falsas certezas" que a Log Loss.
+  const logLoss = candidateProbs.map(series => {
+    if (!Array.isArray(series) || series.length !== n) return 1e6;
+    let acc = 0;
+    for (let i = 0; i < n; i++) {
+      const p = Math.max(0, Math.min(1, Number(series[i]) || 0));
+      const y = Math.max(0, Math.min(1, Number(observed[i]) || 0));
+      acc += computeLogLoss(p, y);
+    }
+    return acc / n;
+  });
 
-        // Peso inversamente proporcional à entropia
-        const minLoss = Math.min(...logLoss);
-        const scores = logLoss.map(l => Math.exp(-(l - minLoss) / 0.08));
-        const z = kahanSum(scores);
-        if (z === 0) return new Array(k).fill(1 / k);
-        return scores.map(s => s / z);
-    };
+  // Peso inversamente proporcional à entropia
+  const minLoss = Math.min(...logLoss);
+  const scores = logLoss.map(l => Math.exp(-(l - minLoss) / 0.08));
+  const z = kahanSum(scores);
+  if (z === 0) return new Array(k).fill(1 / k);
+  return scores.map(s => s / z);
+}
 
 export function buildCalibrationDashboardSeries(events = []) {
   const clean = (events || [])
