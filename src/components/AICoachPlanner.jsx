@@ -37,7 +37,15 @@ const getPortalRoot = () => {
 };
 
 const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro }) => {
-    const fullText = task.text || task.title || '';
+    const sanitizeHtml = (str) => {
+        if (typeof str !== 'string') return '';
+        // Remove completely any HTML tags and their attributes to prevent literal XSS payloads from polluting the UI
+        return str.replace(/<[^>]*>?/gm, '').trim();
+    };
+
+    const rawText = task.text || task.title || '';
+    const fullText = sanitizeHtml(rawText) || rawText.replace(/</g, '').replace(/>/g, ''); // fallback se ficar vazio e não for html puro
+    
     const parts = fullText.split(':');
     const hasDetails = parts.length > 1;
 
