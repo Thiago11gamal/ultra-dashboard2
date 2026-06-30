@@ -228,10 +228,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     
     if (safeSD > 0) {
         let muLow = minScore - safeSD * 3;
-        let muHigh = maxScore + safeSD * 3;
+        let muHigh = maxScore + Math.max(safeSD * 20, (maxScore - minScore) * 2);
         
-        // 7 iterações garantem precisão decimal de sobressalva
-        for (let iter = 0; iter < 7; iter++) {
+        // 30 iterações garantem convergência exata mesmo em caudas extremas
+        for (let iter = 0; iter < 30; iter++) {
             const currentTruncMean = truncatedNormalMean(muParam, safeSD, minScore, maxScore);
             const error = currentTruncMean - safeMean;
             
