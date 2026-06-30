@@ -12,8 +12,9 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
   const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
   const lowerBound = Math.min(safeMinScore, safeMaxScore);
   const upperBound = Math.max(safeMinScore, safeMaxScore);
-  // BUG-5 FIX: Bias proporcional à escala da prova
-  const meanBias = (cfg.meanBiasFactor || 0) * safeMaxScore;
+  
+  // CORREÇÃO B3b: Bias proporcional à amplitude real (Range) e não ao Teto absoluto.
+  const meanBias = (cfg.meanBiasFactor || 0) * (upperBound - lowerBound);
   // BUG-GLOBAL-09 FIX: Ajuste de probabilidade deve ser baseado em 100 (%), não no maxScore.
   // Antes: 0.045 * 200 = 9pp (errado). Agora: 0.045 * 100 = 4.5pp (correto).
   const probMult = (cfg.probMultFactor || 0) * 100;

@@ -60,12 +60,14 @@ export function recommendSimulationCount(targetProb = 0.7, targetSE = TARGET_PRO
 // Ancoramos a semente na volumetria e topologia do histórico, não na flutuação da média.
 function generateStableSeed(historyCount, categoryName, _targetScore) {
     let h = 2166136261;
-    // Extração defensiva para evitar "[object Object]" que colapsa a entropia da semente
+    // Extração defensiva
     const safeCatId = typeof categoryName === 'object' && categoryName !== null 
         ? String(categoryName.id || categoryName.name || 'global') 
         : String(categoryName || 'global');
     
-    const seedStr = `${historyCount}-${safeCatId}`;
+    // CORREÇÃO B1: Injetar efetivamente o _targetScore (o histHash) na geração da semente
+    const safeTarget = _targetScore !== undefined ? _targetScore : 0;
+    const seedStr = `${historyCount}-${safeCatId}-${safeTarget}`;
     
     for(let i = 0; i < seedStr.length; i++) {
         h ^= seedStr.charCodeAt(i);
@@ -141,10 +143,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         }
     }
  
-    // O PULO DO GATO: Shrinkage Bayesiano para safeSD (Bug 1 Fix)
-    // Se temos um histórico curto, não podemos confiar em SD=0.
+    // O PULO DO GATO: Shrinkage Bayesiano para safeSD
     if (!hasExplicitDeterministicSD && historyLength < 15) {
-        const floorVolatility = maxScore * 0.04;
+        // CORREÇÃO B3a: Volatilidade baseia-se na amplitude (Max - Min) e não apenas no valor Máximo
+        const rangeMassa = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
+        const floorVolatility = rangeMassa * 0.04;
+        
         const confidence = historyLength / 15;
         safeSD = (safeSD * confidence) + (floorVolatility * (1 - confidence));
     }
@@ -280,7 +284,18 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
                     const raw = Number(s.mean) + zCorr[j];
-                    const sScore = Math.max(sMin, Math.min(sMax, raw));
+                    
+                    // CORREÇÃO B4: Substituir o Clamping rígido por Reflexão (Folding) 
+                    // para preservar a variância nas caudas multivariadas
+                    let sScore = raw;
+                    if (sScore < sMin) {
+                        sScore = sMin + Math.abs(sMin - sScore);
+                    } else if (sScore > sMax) {
+                        sScore = sMax - Math.abs(sScore - sMax);
+                    }
+                    // Garantia final absoluta
+                    sScore = Math.max(sMin, Math.min(sMax, sScore));
+                    
                     if (sScore < Number(s.minCutoff)) {
                         passedMins = false;
                         break;
@@ -391,10 +406,14 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     
     let truncNormFactor = rawTruncNormFactor;
     if (isUnderflowStress) {
-        // Adiciona escape empírico absoluto: se a variância convergir para zero na borda,
-        // força um fator nominal e delega a decisão para o motor empírico de Monte Carlo
+        // CORREÇÃO B5: Inserir a raiz quadrada de 2PI no divisor da densidade Normal
+        const SQRT_2PI = 2.506628274631;
         const zScoreMin = safeSD > 0 ? (minScore - muParam) / safeSD : 0;
-        const extremeFactor = Math.exp(-0.5 * zScoreMin * zScoreMin) / (Math.abs(zScoreMin) + 1e-6);
+        
+        // Aplicação do Rácio de Mill com PDF regularizada
+        const pdfNormal = Math.exp(-0.5 * zScoreMin * zScoreMin) / SQRT_2PI;
+        const extremeFactor = pdfNormal / (Math.abs(zScoreMin) + 1e-6);
+        
         truncNormFactor = Number.isFinite(extremeFactor) && extremeFactor > 1e-15 ? extremeFactor : 1e-6;
     }
     const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
@@ -605,13 +624,20 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
         return Math.max(max, val);
     }, 0);
     
-    // CORREÇÃO: Triagem heurística adaptável que suporta escalas de faculdade [0 a 10]
+    // CORREÇÃO B2: Triagem heurística adaptável expandida para escalas universitárias e exames extensos
     let escala = 100;
     if (picoHistorico <= 1.0 && picoHistorico > 0) {
         escala = 1.0;
     } else if (picoHistorico > 1.0 && picoHistorico <= 10.0) {
-        // Se todas as notas na vida do aluno couberem entre 0 e 10, protege a curva de saltar para 100.
-        escala = 10;
+        escala = 10.0;
+    } else if (picoHistorico > 10.0 && picoHistorico <= 20.0) {
+        // Suporte para o sistema académico de 20 valores
+        escala = 20.0;
+    } else if (picoHistorico > 20.0 && picoHistorico <= 100.0) {
+        escala = 100.0;
+    } else if (picoHistorico > 100.0) {
+        // Adaptar dinamicamente para exames grandes (SAT, ENEM, etc.) arredondando à centena superior
+        escala = Math.ceil(picoHistorico / 100) * 100;
     } else if (picoHistorico === 0) {
         escala = 100; // Ignorância máxima
     }
