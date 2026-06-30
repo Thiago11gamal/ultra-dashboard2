@@ -116,7 +116,7 @@ export default function EvolutionChart({
         let defaultColorCount = 0;
         return rawCategories.map((cat) => {
             let color = cat.color;
-            if (!color || color.toLowerCase() === '#3b82f6') {
+            if (!color) {
                 color = DEFAULT_PALETTE[defaultColorCount % DEFAULT_PALETTE.length];
                 defaultColorCount++;
             }
@@ -291,6 +291,7 @@ export default function EvolutionChart({
 
                 const rawDate = String(pts[lastIdx].date || '');
                 const dt = new Date(`${rawDate}T12:00:00`);
+                if (Number.isNaN(dt.getTime())) return pts;
                 const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
                 dt.setDate(dt.getDate() + forwardDays);
                 const iso = getDateKey(dt);
@@ -329,7 +330,7 @@ export default function EvolutionChart({
             }
         }
         
-        const primaryKey = activeEngine === "compare" || activeEngine === "mc_density" ? "Futuro Provável" : activeEngine === "raw" ? `raw_${focusCategory?.id}` : activeEngine === "stats" ? `stats_${focusCategory?.id}` : `bay_${focusCategory?.id}`;
+        const primaryKey = activeEngine === "compare" ? "Futuro Provável" : activeEngine === "mc_density" ? `bay_${focusCategory?.id}` : activeEngine === "raw" ? `raw_${focusCategory?.id}` : activeEngine === "stats" ? `stats_${focusCategory?.id}` : `bay_${focusCategory?.id}`;
         return downsampleLTTB(result, 150, "date", primaryKey);
     }, [chartData, timeWindow, activeEngine, focusCategory?.id]);
 
@@ -364,8 +365,7 @@ export default function EvolutionChart({
                     return s + ((normalizedScore - minScore) / range * tot);
                 }, 0));
 
-                let timedQuestoes = 0;
-                const timeSpent = history.reduce((s, h) => {
+                const stats = history.reduce((acc, h) => {
                     let rootTs = Number(h.timeSpent) || 0;
                     
                     let topicsTs = 0;
@@ -384,17 +384,18 @@ export default function EvolutionChart({
                     }
                     
                     if (hasTopicWithTime) {
-                        timedQuestoes += topicsTimedQ;
-                        return s + topicsTs;
+                        return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
                     } else if (rootTs > 0) {
                         let tot = Number(h.total) || 0;
                         if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
-                        timedQuestoes += tot;
-                        return s + rootTs;
+                        return { ts: acc.ts + rootTs, tq: acc.tq + tot };
                     }
                     
-                    return s;
-                }, 0);
+                    return acc;
+                }, { ts: 0, tq: 0 });
+
+                const timedQuestoes = stats.tq;
+                const timeSpent = stats.ts;
 
                 const safeName = String(cat.name || 'Sem nome');
                 const shortName = safeName.length > 18 ? safeName.substring(0, 16) + '…' : safeName;
@@ -637,7 +638,7 @@ export default function EvolutionChart({
             advice: "Mantenha esse ritmo para garantir a aprovação."
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timeline, focusCategory, activeEngine, categories, targetScore, maxScore, unit]);
+    }, [timeline, focusCategory, activeEngine, categories, targetScore, maxScore, unit, categoryLevels, minScore]);
 
     const engine = ENGINES.find((e) => e.id === activeEngine) || ENGINES[0];
 
@@ -689,8 +690,8 @@ export default function EvolutionChart({
 
             <style dangerouslySetInnerHTML={{
                 __html: `
-                 .recharts-wrapper:focus, .recharts-surface:focus { outline: none !important; border: none !important; box-shadow: none !important; }
-                .recharts-wrapper { outline: none !important; }
+                 .recharts-wrapper:focus:not(:focus-visible), .recharts-surface:focus:not(:focus-visible) { outline: none !important; border: none !important; box-shadow: none !important; }
+                .recharts-wrapper:focus:not(:focus-visible) { outline: none !important; }
                 .recharts-cartesian-axis-tick-value { font-family: ui-sans-serif, system-ui, sans-serif; }
                 .recharts-legend-item-text { font-size: 10px !important; font-weight: 600; }
             ` }} />
