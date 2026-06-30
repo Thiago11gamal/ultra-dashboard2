@@ -397,7 +397,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     <div className="absolute top-0 right-4 text-[10px] text-indigo-400/60 font-mono z-10">
                         {uniqueTopics.length} tópicos plotados simultaneamente.
                     </div>
-                    {timeSeriesData.length > 1 ? (
+                    {timeSeriesData.length > 0 ? (
                         <div className="w-full overflow-x-auto custom-scrollbar pb-2">
                             <div className="min-w-[700px] lg:min-w-full">
                                 <ResponsiveContainer width="100%" height={500} minWidth={1}>
