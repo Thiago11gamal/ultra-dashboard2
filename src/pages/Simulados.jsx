@@ -98,17 +98,21 @@ export default function Simulados() {
             return dateB.getTime() - dateA.getTime();
         });
         
-        const lastTimestamp = sorted[0].createdAt || sorted[0].date;
+        const lastRef = sorted[0];
+        if (!lastRef) return [];
         
-        // BUG-10 FIX: Compare by time value (ms) instead of literal string to handle
-        // slight millisecond differences within the same batch
-        const lastTime = new Date(lastTimestamp).getTime();
-        // Consider entries within 2 seconds of the latest as the same batch
-        const BATCH_TOLERANCE_MS = 2000;
-        return rows.filter(r => {
-            const t = new Date(r.createdAt || r.date || 0).getTime();
-            return Math.abs(t - lastTime) <= BATCH_TOLERANCE_MS;
-        });
+        // BUG-10 FIX: Compare safely even if some rows only have YYYY-MM-DD
+        if (lastRef.createdAt) {
+            const lastTime = new Date(lastRef.createdAt).getTime();
+            const BATCH_TOLERANCE_MS = 2000;
+            return rows.filter(r => {
+                if (!r.createdAt) return false;
+                const t = new Date(r.createdAt).getTime();
+                return Math.abs(t - lastTime) <= BATCH_TOLERANCE_MS;
+            });
+        } else {
+            return rows.filter(r => r.date === lastRef.date);
+        }
     }, [data]);
 
     const [mode, setMode] = useState('ai-generator'); // 'ai-generator' | 'analyzer' | 'history'

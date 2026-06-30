@@ -234,25 +234,47 @@ export default function Coach() {
         }
     }, [setData]);
 
-    // BUG-26: Deduplicating history entries by timestamp to prevent duplicate samples
+    // BUG-26 FIX: Deduplicating history entries safely and preventing double-counting.
+    // 'history' represents topic-level rows, 'simulados' represents global test events.
+    // We group legacy topic rows into global events if no 'simulados' exist for that date.
     const combinedHistory = useMemo(() => {
+        const allSimulados = [...(simulados || [])];
+        const hasSimuladoForDate = new Set(allSimulados.map(s => s.date));
+        
+        const rowsByDate = {};
+        (history || []).forEach(r => {
+            const dKey = r.date;
+            if (dKey && !hasSimuladoForDate.has(dKey)) {
+                if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0 };
+                rowsByDate[dKey].correct += (Number(r.correct) || 0);
+                rowsByDate[dKey].total += (Number(r.total) || 0);
+            }
+        });
+        
+        Object.entries(rowsByDate).forEach(([dKey, stats]) => {
+            if (stats.total > 0) {
+                allSimulados.push({
+                    id: `legacy-${dKey}`,
+                    date: dKey,
+                    score: (stats.correct / stats.total) * 100,
+                    type: 'simulado'
+                });
+            }
+        });
+
         const seen = new Set();
-        const all = [];
-        (history || []).forEach(h => {
-            const key = `${h.id ?? ''}|${h.date || h.createdAt}|${Number(h.score)}`;
+        const deduplicated = [];
+        allSimulados.forEach(s => {
+            const sDate = s.date || s.createdAt;
+            const scoreStr = Number(s.score || 0).toFixed(2);
+            const key = `${s.id || ''}|${sDate}|${scoreStr}`;
             if (!seen.has(key)) {
                 seen.add(key);
-                all.push({ ...h, type: 'simulado' });
+                deduplicated.push({ ...s, type: 'simulado' });
             }
         });
-        (simulados || []).forEach(s => {
-            const key = `${s.id ?? ''}|${s.date || s.createdAt}|${Number(s.score)}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                all.push({ ...s, type: 'simulado' });
-            }
-        });
-        return getSortedHistory(all);
+        
+        return getSortedHistory(deduplicated);
     }, [history, simulados]);
 
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
