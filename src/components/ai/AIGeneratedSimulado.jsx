@@ -1203,7 +1203,7 @@ export default function AIGeneratedSimulado() {
                   <ListChecks size={12} /> Questões
                 </label>
                 <div className="flex gap-1.5 flex-wrap">
-                  {[5, 8, 10, 15, 20].map(q => (
+                  {[1, 2, 5, 8, 10, 15, 20].map(q => (
                     <button
                       key={q}
                       type="button"

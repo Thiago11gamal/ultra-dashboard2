@@ -112,7 +112,7 @@ export async function generateAIQuestions({ materia, assunto, dificuldade, quant
     throw new Error('Matéria e Assunto são obrigatórios');
   }
 
-  const qtd = Math.min(Math.max(3, parseInt(quantidade, 10) || 10), 30);
+  const qtd = Math.min(Math.max(1, parseInt(quantidade, 10) || 10), 30);
   const isPersonalizado = materia === 'Simulado Personalizado';
 
   const systemPrompt = `Você é um gerador de questões especializado e focado no concurso "${contestName}".
