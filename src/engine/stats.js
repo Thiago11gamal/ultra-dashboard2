@@ -100,11 +100,14 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
     for(let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
-        const hDate = h.date || h.createdAt;
+        const timeMs = safeDateParse(hDate).getTime();
+        
+        if (Number.isNaN(timeMs)) continue;
+
         const y = getSafeScore(h, maxScore);
         if (!Number.isFinite(y)) continue;
 
-        const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
+        const t = Math.max(0, (now - timeMs) / 86400000);
         
         // Calcula o peso exponencial, mas NUNCA deixa zerar completamente (Bug 2 Fix)
         const EPSILON_WEIGHT = 1e-10;
@@ -178,14 +181,16 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     for (let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
         const hDate = h.date || h.createdAt;
+        const timeMs = safeDateParse(hDate).getTime();
+        if (Number.isNaN(timeMs)) continue;
         const y = getSafeScore(h, maxScore);
-        if (!Number.isFinite(y)) continue; // ← MOVIDO para antes de calcular x
+        if (!Number.isFinite(y)) continue;
 
         // FIX #6: Removido hack de jitter (processedIdx * 1e-5).
         // Tempo puro. Ridge e verificação de det já cuidam de singularidade.
-        const x = ((safeDateParse(hDate).getTime() - t0) / 86400000);
+        const x = ((timeMs - t0) / 86400000);
 
-        const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
+        const t = Math.max(0, (now - timeMs) / 86400000);
         const EPSILON_WEIGHT = 1e-10;
         const w = Math.max(EPSILON_WEIGHT, Math.exp(-lambda * t));
 
@@ -348,8 +353,7 @@ export function calcularAssimetria(arr) {
     const cubeDiffs = clean.map(val => Math.pow(val - m, 3));
     const sumCube = kahanSum(cubeDiffs);
     
-    // Fator de correção de viés estatístico para amostra (Fisher-Pearson G1)
-    const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.pow(s, 3));
+    const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.max(1e-9, Math.pow(s, 3)));
     
     // Fallback absoluto: Se a divisão gerar valores indefinidos, exporta 0 (Simetria perfeita)
     if (Number.isNaN(skewness) || !Number.isFinite(skewness)) return 0;

@@ -718,7 +718,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
 
     const currentPriorityBoost = priorityBoost * crunchMultiplier;
     const currentSrsBoost = srsBoost * crunchMultiplier;
-    const rawScore = (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty;
+    const rawScore = Math.max(0, (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty);
 
     const weightedRaw = rawScore * weightMultiplier; 
 

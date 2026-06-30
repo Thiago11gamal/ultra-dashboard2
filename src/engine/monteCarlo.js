@@ -255,7 +255,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const cutoffSubjects = (subjects || []).filter(s => s && Number(s.minCutoff) > 0);
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
-      const stats = cutoffSubjects.map(s => ({ sd: Number(s.sd) || 1 }));
+      const stats = cutoffSubjects.map(s => ({ 
+          sd: s.sd !== undefined && s.sd !== null ? Number(s.sd) : 1 
+      }));
       const adaptiveRhoContext = (meanOrObj?.simuladoRows) 
         ? { simuladoRows: meanOrObj?.simuladoRows, categoryNames: subjects.map(s => s.name || s) } 
         : null;
@@ -644,8 +646,8 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
     }
     
     const varianciaBase = 0.05 * escala; 
-    
-    const volatilidadeAdaptativa = varianciaBase / Math.sqrt(Math.max(totalQuestoesFeitas, 1));
+    const divisorAdaptativo = Math.min(Math.sqrt(Math.max(totalQuestoesFeitas, 1)), 50);
+    const volatilidadeAdaptativa = varianciaBase / divisorAdaptativo;
     
     // Limite superior adaptativo que respeita notas altíssimas reais sem prender no 1 artificial
     const limiteAssintotico = Math.max(0.96 * escala, Math.min(escala, ultimaNota * 1.05)); 

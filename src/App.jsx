@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -53,6 +53,7 @@ import './components/Loading.css';
 const EMPTY_OBJECT = {};
 
 function MainLayout() {
+  const location = useLocation();
   const { currentUser, loading, logout } = useAuth();
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
 
@@ -354,7 +355,7 @@ function MainLayout() {
 
                 <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 mt-0 pt-[110px] lg:pt-0 pb-24 lg:pb-12 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
                   <Motion.div 
-                    key={activeContestId}
+                    key={`${activeContestId}-${location.pathname}`} 
                     initial={{ opacity: 0.9, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
