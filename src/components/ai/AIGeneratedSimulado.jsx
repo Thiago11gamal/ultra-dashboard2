@@ -580,15 +580,15 @@ export default function AIGeneratedSimulado() {
       timeSpent: timeSpentSecs,
     };
 
-    setData(prev => {
-      if (!prev) return prev;
+    setData(draft => {
+      if (!draft) return;
 
       // 1. Atualiza simuladoRows – ACUMULA os acertos se for o mesmo (categoryId+taskId) ou (subject+topic) do dia
-      const existingRows = prev.simuladoRows || [];
+      if (!draft.simuladoRows) draft.simuladoRows = [];
       let rowFound = false;
-      const updatedRows = existingRows.map(r => {
-        if (!r.isAuto && r.source !== 'ai-generated') return r;
-        if (getDateKey(normalizeDate(r.date || r.createdAt)) !== todayKey) return r;
+      for (const r of draft.simuladoRows) {
+        if (!r.isAuto && r.source !== 'ai-generated') continue;
+        if (getDateKey(normalizeDate(r.date || r.createdAt)) !== todayKey) continue;
 
         // Match by ID (preferred) or by name
         const sameById = categoryId && r.categoryId && r.taskId && 
@@ -602,27 +602,22 @@ export default function AIGeneratedSimulado() {
           const newCorrect = (Number(r.correct) || 0) + correct;
           const newTotal = (Number(r.total) || 0) + total;
           const newTimeSpent = (Number(r.timeSpent) || 0) + timeSpentSecs;
-          return {
-            ...r,
-            correct: newCorrect,
-            total: newTotal,
-            score: newTotal > 0 ? (newCorrect / newTotal) * 100 : 0,
-            timeSpent: newTimeSpent,
-            lastUpdated: new Date().toISOString()
-          };
+          
+          r.correct = newCorrect;
+          r.total = newTotal;
+          r.score = newTotal > 0 ? (newCorrect / newTotal) * 100 : 0;
+          r.timeSpent = newTimeSpent;
+          r.lastUpdated = new Date().toISOString();
         }
-        return r;
-      });
+      }
 
       if (!rowFound) {
-        updatedRows.push(newRow);
+        draft.simuladoRows.push(newRow);
       }
 
       // 2. Atualiza simulados (histórico)
-      const existingSims = Array.isArray(prev.simulados) ? prev.simulados : [];
-      let updatedSims = existingSims;
-      
       if (!preventGlobalEvent) {
+          if (!draft.simulados) draft.simulados = [];
           const newSimEvent = {
             id: generateId('ai-sim'),
             date: todayKey,
@@ -635,16 +630,29 @@ export default function AIGeneratedSimulado() {
             taskId,
             validated: true,
           };
-          updatedSims = [...existingSims, newSimEvent].slice(-100);
+          draft.simulados.push(newSimEvent);
+          // Keep only the last 100
+          if (draft.simulados.length > 100) {
+              draft.simulados = draft.simulados.slice(-100);
+          }
       }
 
       // 3. Atualiza stats da categoria — preferindo match por ID exato (mais confiável)
-      const newCategories = (prev.categories || []).map(cat => {
+      if (!draft.categories) draft.categories = [];
+      for (const cat of draft.categories) {
         const idMatch = categoryId && cat.id === categoryId;
         const nameMatch = !categoryId && normalize(cat.name) === normalize(materia);
+        
         if (idMatch || nameMatch) {
-          const catMaxScore = Number(cat.maxScore) || Number(prev.maxScore) || 100;
-          let history = Array.isArray(cat.simuladoStats?.history) ? [...cat.simuladoStats.history] : [];
+          const catMaxScore = Number(cat.maxScore) || Number(draft.maxScore) || 100;
+          
+          if (!cat.simuladoStats) {
+             cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
+          }
+          if (!Array.isArray(cat.simuladoStats.history)) {
+             cat.simuladoStats.history = [];
+          }
+          let history = cat.simuladoStats.history;
 
           // Melhorias lógicas: 
           // - Não apagar todo o dia se já existir entrada (permite múltiplos tópicos AI no mesmo dia)
@@ -655,49 +663,44 @@ export default function AIGeneratedSimulado() {
 
           if (todayIdx !== -1) {
             // Merge no entry de hoje existente (Acumula acertos/total se o tópico já existir)
-            const existing = { ...history[todayIdx] };
+            const existing = history[todayIdx];
             let topicFound = false;
             
-            const existingTopics = (Array.isArray(existing.topics) ? existing.topics : []).map(t => {
+            if (!Array.isArray(existing.topics)) existing.topics = [];
+            
+            for (const t of existing.topics) {
               const isMatch = (taskId && t.taskId === taskId) || (!taskId && normalize(t.name) === normalize(assunto));
               if (isMatch) {
-                topicFound = true;
+                  topicFound = true;
                   const newTTotal = (Number(t.total) || 0) + total;
                   const newTCorrect = (Number(t.correct) || 0) + correct;
                   const prevTWeight = (Number(t.difficulty) || 1.0) * (Number(t.total) || 0);
                   const newTWeight = numericDifficulty * total;
                   
-                  return {
-                    ...t,
-                    correct: newTCorrect,
-                    total: newTTotal,
-                    difficulty: newTTotal > 0 ? (prevTWeight + newTWeight) / newTTotal : 1.0,
-                    timeSpent: (Number(t.timeSpent) || 0) + timeSpentSecs
-                  };
+                  t.correct = newTCorrect;
+                  t.total = newTTotal;
+                  t.difficulty = newTTotal > 0 ? (prevTWeight + newTWeight) / newTTotal : 1.0;
+                  t.timeSpent = (Number(t.timeSpent) || 0) + timeSpentSecs;
               }
-              return t;
-            });
+            }
             
             if (!topicFound) {
-              existingTopics.push(newTopicEntry);
+              existing.topics.push(newTopicEntry);
             }
 
             // Recalcular totais do dia
-            const dayTotal = existingTopics.reduce((s, t) => s + (t.total || 0), 0);
-            const dayCorrect = existingTopics.reduce((s, t) => s + (t.correct || 0), 0);
+            const dayTotal = existing.topics.reduce((s, t) => s + (t.total || 0), 0);
+            const dayCorrect = existing.topics.reduce((s, t) => s + (t.correct || 0), 0);
 
             const prevWeight = (existing.difficulty || 1.0) * (existing.total || 0);
             const newWeight = numericDifficulty * total;
             const newDiff = dayTotal > 0 ? (prevWeight + newWeight) / dayTotal : 1.0;
 
-            history[todayIdx] = { 
-              ...existing, 
-              correct: dayCorrect, 
-              total: dayTotal, 
-              score: dayTotal > 0 ? Math.min(catMaxScore, (dayCorrect / dayTotal) * catMaxScore) : 0,
-              difficulty: newDiff,
-              topics: existingTopics 
-            };
+            existing.correct = dayCorrect;
+            existing.total = dayTotal;
+            existing.score = dayTotal > 0 ? Math.min(catMaxScore, (dayCorrect / dayTotal) * catMaxScore) : 0;
+            existing.difficulty = newDiff;
+            
           } else {
             history.push({
               date: todayKey,
@@ -710,32 +713,22 @@ export default function AIGeneratedSimulado() {
           }
 
           // Ordenar por data (últimos primeiro ou como esperado)
-          history = history.sort((a, b) => (a.date > b.date ? 1 : -1)).slice(-50);
+          history.sort((a, b) => (a.date > b.date ? 1 : -1));
+          if (history.length > 50) {
+             cat.simuladoStats.history = history.slice(-50);
+             history = cat.simuladoStats.history;
+          }
 
           const statsResult = computeCategoryStats(history, cat.weight || 1, 60, catMaxScore);
 
-          return {
-            ...cat,
-            simuladoStats: {
-              ...(cat.simuladoStats || {}),
-              history: history,
-              average: statsResult ? Number((statsResult.mean || 0).toFixed(2)) : 0,
-              trend: statsResult?.trend || 'stable',
-              lastAttempt: total > 0 ? (correct / total) * catMaxScore : 0,
-              level: statsResult?.level || 'BAIXO',
-            },
-          };
+          cat.simuladoStats.average = statsResult ? Number((statsResult.mean || 0).toFixed(2)) : 0;
+          cat.simuladoStats.trend = statsResult?.trend || 'stable';
+          cat.simuladoStats.lastAttempt = total > 0 ? (correct / total) * catMaxScore : 0;
+          cat.simuladoStats.level = statsResult?.level || 'BAIXO';
         }
-        return cat;
-      });
+      }
 
-      return {
-        ...prev,
-        simuladoRows: updatedRows,
-        simulados: updatedSims,
-        categories: newCategories,
-        lastUpdated: new Date().toISOString(),
-      };
+      draft.lastUpdated = new Date().toISOString();
     });
   }, [setData]);
 
