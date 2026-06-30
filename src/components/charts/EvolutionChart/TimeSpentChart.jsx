@@ -51,7 +51,7 @@ export function TimeSpentChart({ subjectAggData, showOnlyFocus, focusCategory })
  
             <div className="h-[300px] w-full overflow-x-auto custom-scrollbar pb-2">
                 <div className="min-w-[500px] h-full" style={{ width: chartData.length > 5 ? `${chartData.length * 80}px` : '100%' }}>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1}>
                         <BarChart
                             data={chartData}
                             margin={{ top: 25, right: 10, left: -25, bottom: 25 }}

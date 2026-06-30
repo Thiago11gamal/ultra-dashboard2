@@ -40,7 +40,7 @@ export default function DueForecastChart({ data = [], height = 260 }) {
 
     return (
         <div style={{ height }} className="w-full -mx-1" role="img" aria-label="Gráfico de previsão de cartões a vencer por dia">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={1}>
                 <BarChart data={chartData} margin={{ top: 12, right: 4, left: -4, bottom: 8 }} aria-hidden="true">
                     <defs>
                         <linearGradient id={barId} x1="0" y1="0" x2="0" y2="1">

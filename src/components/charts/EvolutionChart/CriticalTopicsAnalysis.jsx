@@ -202,7 +202,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     <p className="text-[9px] sm:text-xs text-slate-500 mb-2 sm:mb-4">Disciplinas com maior Índice de Criticidade (Erros x Ineficiência).</p>
                     <div className="min-h-[220px] sm:min-h-[260px] w-full">
                         {pointLeakageData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)}>
+                            <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)} minWidth={1}>
                                 <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 30, left: -10, bottom: 0 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                     <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
@@ -241,7 +241,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     <p className="text-[9px] sm:text-[11px] text-slate-500 mb-2 sm:mb-4">Tópicos com maior Índice de Criticidade (Erros x Ineficiência).</p>
                     <div className="min-h-[220px] sm:min-h-[260px] w-full">
                         {subtopicsData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)}>
+                            <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)} minWidth={1}>
                                 <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 30, left: -5, bottom: 0 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                     <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />

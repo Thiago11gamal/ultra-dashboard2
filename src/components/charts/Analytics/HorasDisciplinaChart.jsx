@@ -22,7 +22,7 @@ export function HorasDisciplinaChart({ data }) {
 
     return (
         <div className="h-full w-full mt-2 pb-2 transition-all duration-300" style={{ minHeight: `${minChartHeight}px` }}>
-            <ResponsiveContainer width="100%" height="100%" minHeight={minChartHeight - 50}>
+            <ResponsiveContainer width="100%" height="100%" minHeight={minChartHeight - 50} minWidth={1}>
                 <BarChart
                     layout="vertical"
                     data={sortedData}

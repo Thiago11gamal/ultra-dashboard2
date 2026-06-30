@@ -44,7 +44,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, unit = '%' }) {
             </div>
 
             <div className="flex-1 min-h-[260px] sm:min-h-[300px] w-full relative">
-                <ResponsiveContainer width="100%" height="100%" minHeight={260}>
+                <ResponsiveContainer width="100%" height="100%" minHeight={260} minWidth={1}>
                     <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
                         <defs>
                             <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">

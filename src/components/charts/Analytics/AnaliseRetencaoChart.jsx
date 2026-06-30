@@ -16,7 +16,7 @@ export function AnaliseRetencaoChart({ data }) {
 
     return (
         <div className="h-[400px] w-full mt-4">
-            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+            <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={1}>
                 {/* Margens ajustadas para dar respiro aos valores numéricos (left/right) e ao texto inclinado (bottom) */}
                 <ComposedChart data={data} margin={{ top: 20, right: 10, left: 10, bottom: 120 }}>
                     <defs>

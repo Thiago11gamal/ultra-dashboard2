@@ -149,7 +149,7 @@ const WeeklyPerformanceChart = ({
             </div>
 
             <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                <ResponsiveContainer width="100%" height="100%" minHeight={250} minWidth={1}>
                     <ComposedChart
                         data={chartData}
                         margin={{ top: 10, right: 10, left: -15, bottom: 20 }}

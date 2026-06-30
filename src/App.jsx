@@ -94,9 +94,9 @@ function MainLayout() {
   const importTimeoutRef = useRef(null);
 
   // Custom Hooks para lógica global
-  const { toasts, removeToast } = useGlobalToasts();
-  const { levelUpData, clearLevelUp } = useLevelUp();
-  const showToast = useToast();
+    const { toasts, removeToast } = useGlobalToasts();
+    const { levelUpData, clearLevelUp } = useLevelUp();
+    const showToast = useToast();
 
   // --- AUTO-LOGOUT (60 MIN INACTIVITY) ---
   // BUG-FIX: Increased from 20 to 60 to safely handle Pomodoro sessions (25m + break)
