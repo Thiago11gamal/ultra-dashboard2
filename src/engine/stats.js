@@ -100,6 +100,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
     for(let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
+        const hDate = h.date || h.createdAt;
         const timeMs = safeDateParse(hDate).getTime();
         
         if (Number.isNaN(timeMs)) continue;
