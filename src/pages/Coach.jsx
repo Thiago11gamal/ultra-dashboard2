@@ -280,15 +280,17 @@ export default function Coach() {
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
     // BUG-16 FIX: Bind maxScore dynamically to support contests scaled > 100
     const currentMaxScore = data?.maxScore ?? 100;
+    const EMPTY_ARRAY = useMemo(() => [], []);
+    
     const mcStats = useMonteCarloStats({
         categories: categories,
         goalDate: userProfile?.goalDate,
         targetScore: userProfile?.targetProbability ?? 85,
         timeIndex: -1,
-        timelineDates: [],
+        timelineDates: EMPTY_ARRAY,
         minScore: data?.minScore ?? 0,
         maxScore: currentMaxScore,
-        simuladoRows: data?.simuladoRows || []
+        simuladoRows: data?.simuladoRows || EMPTY_ARRAY
     });
 
     const projectedScore = mcStats?.projectedMean ?? 0;

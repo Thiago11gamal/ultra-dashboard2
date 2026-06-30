@@ -138,12 +138,14 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     );
 });
 
-const DEFAULT_PLANNER = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
-
 export default function AICoachPlanner() {
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-    const coachPlanner   = activeContest?.coachPlanner || DEFAULT_PLANNER;
-    const coachPlan      = useMemo(() => activeContest?.coachPlan || [], [activeContest?.coachPlan]);
+    
+    const defaultCoachPlan = useMemo(() => [], []);
+    const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
+
+    const coachPlanner = activeContest?.coachPlanner || defaultCoachPlanner;
+    const coachPlan = useMemo(() => activeContest?.coachPlan || defaultCoachPlan, [activeContest?.coachPlan]);
 
     const setData        = useAppStore(state => state.setData);
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
