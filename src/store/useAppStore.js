@@ -268,7 +268,8 @@ export const useAppStore = create(
                                 ...state.appState.contests[id],
                                 simulados: [],
                                 studyLogs: [],
-                                monteCarloHistory: []
+                                monteCarloHistory: [],
+                                simuladoRows: []
                             };
                             return acc;
                         }, {})

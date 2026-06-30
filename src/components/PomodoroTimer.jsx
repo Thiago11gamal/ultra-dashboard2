@@ -539,9 +539,14 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         const isManual = source !== 'natural';
 
         if (source === 'natural' && safeSettings.soundEnabled && !isMuted) {
-            try { alarmAudioRef.current?.play().catch((error) => {
-                console.error('Failed to play alarm audio:', error);
-            }); } catch (error) {
+            try { 
+                const playPromise = alarmAudioRef.current?.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch((error) => {
+                        console.warn('[Audio] O navegador bloqueou o alarme (Autoplay Policy):', error);
+                    });
+                }
+            } catch (error) {
                 console.error('Critical failure playing alarm:', error);
             }
         }
@@ -573,8 +578,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         const currentAccumulated = Number.isFinite(stateRefs.current.accumulatedMinutes) ? stateRefs.current.accumulatedMinutes : 0;
         const finalMinutes = Number((currentAccumulated + safeSessionMinutes).toFixed(2));
 
-        if (isLastWorkSession && activeSubject) {
-            safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
+        const targetSubject = activeSubjectRef.current;
+
+        if (isLastWorkSession && targetSubject) {
+            safeOnUpdateStudyTime(targetSubject.categoryId, finalMinutes, targetSubject.taskId);
         }
 
         transitionTimeoutRef.current = setTimeout(() => {

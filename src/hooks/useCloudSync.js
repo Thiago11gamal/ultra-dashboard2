@@ -217,8 +217,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             if (mergedCatsMap[c.id]) {
                 const localCat = mergedCatsMap[c.id];
                 const historyMap = new Map();
-                (localCat.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(h.date, h); });
-                (c.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(h.date, h); });
+                const getStableHistoryKey = (h) => h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}`;
+                
+                (localCat.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
+                (c.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
 
                 mergedCatsMap[c.id] = {
                     ...localCat,
