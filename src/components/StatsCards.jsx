@@ -288,7 +288,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             />
                         </div>
                         <div className="text-[10px] sm:text-xs text-purple-400 font-bold leading-normal">
-                            {formatValue(progress.percentage || 0)}% → Nível {progress.level + 1}
+                            {formatValue(progress?.percentage || 0)}% → Nível {(progress?.level || 1) + 1}
                         </div>
                     </div>
                 </div>
@@ -391,11 +391,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 // CORREÇÃO COMPLEMENTAR NO PICKER
                                 if (typeof raw === 'number') {
                                     const d = new Date(raw);
-                                    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+                                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                                 }
                                 if (typeof raw === 'object' && raw.seconds) {
                                     const d = new Date(raw.seconds * 1000);
-                                    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+                                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                                 }
                                 return String(raw).trim().split('T')[0];
                                 } catch (error) {
@@ -431,13 +431,13 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     // CORREÇÃO: Terceira camada de proteção UI esquecida contra inteiros Unix
                                     if (typeof rawDate === 'number') {
                                         const d = new Date(rawDate);
-                                        // Extrai a data baseada no meridiano primário para blindar o timezone (Bug 3.1 Fix)
-                                        return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+                                        // Extrai a data baseada no fuso local
+                                        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
                                     }
                                     
                                     if (typeof rawDate === 'object' && rawDate.seconds) {
                                         const d = new Date(rawDate.seconds * 1000);
-                                        rawDate = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+                                        rawDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                                     }
                                     const raw = String(rawDate).trim().split('T')[0];
                                     const parts = raw.split('-');
@@ -449,7 +449,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     } else {
                                         g = new Date(raw);
                                         if (isNaN(g.getTime())) return 'INVÁLIDA';
-                                        return `${String(g.getUTCDate()).padStart(2, '0')}/${String(g.getUTCMonth() + 1).padStart(2, '0')}/${g.getUTCFullYear()}`;
+                                        return `${String(g.getDate()).padStart(2, '0')}/${String(g.getMonth() + 1).padStart(2, '0')}/${g.getFullYear()}`;
                                     }
                                     } catch (error) {
                                         console.error('Failed to format goalDate for display:', error);

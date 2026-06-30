@@ -558,7 +558,7 @@ export default function EvolutionChart({
                 .filter(h => {
                     if (!h || !h.date) return false;
                     const d = new Date(h.date).getTime();
-                    return !Number.isNaN(d) && (nowMs - d) <= sevenDaysMs;
+                    return !Number.isNaN(d) && (nowMs - d) >= 0 && (nowMs - d) <= sevenDaysMs;
                 })
                 .reduce((sum, h) => {
                     let q = parseInt(h.total, 10) || 0;
