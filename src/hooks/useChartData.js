@@ -16,21 +16,35 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
         if (!key) continue;
 
         const existing = aggregatedHistoryByDateMap.get(key);
-        const total = Number(h.total) || 0;
+        const rawTotal = Number(h.total) || 0;
         const rawCorrect = Number(h.correct) || 0;
         const score = getSafeScore(h, maxScore);
-        const correct = total > 0 ? Math.round((score / maxScore) * total) : rawCorrect;
+        
+        let compTotal = rawTotal;
+        let compCorrect = rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect;
+
+        if (rawTotal === 0 && h.score != null) {
+            compTotal = getSyntheticTotal(maxScore);
+            const pct = Math.min(1, Math.max(0, score / maxScore));
+            compCorrect = Math.round(pct * compTotal);
+        }
 
         if (existing) {
-            if (existing.total + total > 0) {
-                existing.score = ((existing.correct + correct) / (existing.total + total)) * maxScore;
-            } else {
-                existing.score = (existing.score + getSafeScore(h, maxScore)) / 2;
-            }
-            existing.correct += correct;
-            existing.total += total;
+            existing.compCorrect = (existing.compCorrect || 0) + compCorrect;
+            existing.compTotal = (existing.compTotal || 0) + compTotal;
+            existing.total += rawTotal;
+            existing.correct += rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect;
+            existing.score = (existing.compCorrect / existing.compTotal) * maxScore;
         } else {
-            aggregatedHistoryByDateMap.set(key, { ...h, date: key, correct, total, score });
+            aggregatedHistoryByDateMap.set(key, { 
+                ...h, 
+                date: key, 
+                correct: rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect, 
+                total: rawTotal, 
+                compCorrect, 
+                compTotal, 
+                score 
+            });
         }
     }
 
@@ -86,8 +100,9 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
                 }
 
                 // entry já foi declarado acima na linha 55
-                let total   = Number(entry.total)   || 0;
-                let correct = Number(entry.correct) || 0;
+                // Usa os valores computados (com sintéticos) para estabilidade Bayesiana
+                let total   = entry.compTotal !== undefined ? entry.compTotal : (Number(entry.total) || 0);
+                let correct = entry.compCorrect !== undefined ? entry.compCorrect : (Number(entry.correct) || 0);
                 
                 // LOGIC-1 FIX: Fallback para entradas sem total/correct no gráfico
                 // BUG 4 FIX: Use maxScore instead of hardcoded 100.
@@ -202,13 +217,25 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             history.forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
-                if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0 };
-                const tot = Number(h.total) || 0;
+                if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
+                
+                const rawTotal = Number(h.total) || 0;
                 const rawC = Number(h.correct) || 0;
                 const score = getSafeScore(h, maxScore);
-                const corrNorm = tot > 0 ? Math.round((score / maxScore) * tot) : rawC;
+                const corrNorm = rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawC;
+
+                let compTotal = rawTotal;
+                let compCorrect = corrNorm;
+                if (rawTotal === 0 && h.score != null) {
+                    compTotal = getSyntheticTotal(maxScore);
+                    const pct = Math.min(1, Math.max(0, score / maxScore));
+                    compCorrect = Math.round(pct * compTotal);
+                }
+
                 exactByDate[key].correct += corrNorm;
-                exactByDate[key].total   += tot;
+                exactByDate[key].total   += rawTotal;
+                exactByDate[key].compCorrect += compCorrect;
+                exactByDate[key].compTotal   += compTotal;
             });
 
             dates.forEach(date => {
@@ -221,8 +248,8 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
 
-                const rawDailyScore = total >= 1
-                    ? (correct / total) * maxScore
+                const rawDailyScore = exact && exact.compTotal >= 1
+                    ? (exact.compCorrect / exact.compTotal) * maxScore
                     : (exact && snap?.last?.score != null ? getSafeScore(snap.last, maxScore) : null);
 
                 dataByDate[date][`raw_correct_${cat.id}`] = correct;
@@ -326,7 +353,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 // para que a nota participe da Global Accuracy, sem adicionar centenas de questões 
                 // fantasmas ao "Total de Questões" resolvido.
                 if (tot === 0 && h.score != null) {
-                    tot = getSyntheticTotal(maxScore);
+                    tot = 1;
                     corrNorm = Math.round((getSafeScore(h, maxScore) / maxScore) * tot);
                 } else {
                     const raw = Number(h.correct) || 0;
