@@ -219,7 +219,8 @@ const Sidebar = React.memo(function Sidebar({
                         <div id="sidebar-contests-panel" inert={(!contestsExpanded || collapsed) ? "" : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="nested-container space-y-1">
                                 {contestEntries.map(([id, contestData]) => {
-                                    const name = getContestDisplayName(contestData);
+                                    // FIX: Previne explicitamente que 'contestData.user.name' substitua o nome do próprio painel
+                                    const name = contestData?.contestName || contestData?.title || getContestDisplayName(contestData) || "Meu Painel";
                                     const isActive = id === activeContestId;
                                     return (
                                         <div
@@ -287,7 +288,12 @@ const Sidebar = React.memo(function Sidebar({
                             <nav className="space-y-1">
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
-                                    const isActive = isMenuItemActive(location.pathname, item.path);
+                                    
+                                    // FIX: Tratamento rigoroso para rotas-base ('/'), evitando que queries quebrem a indicação de aba ativa.
+                                    const currentPath = location.pathname;
+                                    const isActive = item.path === '/' 
+                                        ? currentPath === '/' || currentPath.startsWith('/?') || currentPath.startsWith('/#')
+                                        : currentPath.startsWith(item.path);
 
                                     return (
                                         <Link

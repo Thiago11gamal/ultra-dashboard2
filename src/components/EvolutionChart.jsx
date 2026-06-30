@@ -690,10 +690,11 @@ export default function EvolutionChart({
 
             <style dangerouslySetInnerHTML={{
                 __html: `
-                 .recharts-wrapper:focus:not(:focus-visible), .recharts-surface:focus:not(:focus-visible) { outline: none !important; border: none !important; box-shadow: none !important; }
-                .recharts-wrapper:focus:not(:focus-visible) { outline: none !important; }
-                .recharts-cartesian-axis-tick-value { font-family: ui-sans-serif, system-ui, sans-serif; }
-                .recharts-legend-item-text { font-size: 10px !important; font-weight: 600; }
+        /* FIX: Preserva o focus-visible para feedback de acessibilidade por teclado */
+        .recharts-wrapper:focus-visible, .recharts-surface:focus-visible { outline: 2px solid #818cf8 !important; outline-offset: 2px; border-radius: 8px; }
+        .recharts-wrapper:focus:not(:focus-visible), .recharts-surface:focus:not(:focus-visible) { outline: none !important; border: none !important; box-shadow: none !important; }
+        .recharts-cartesian-axis-tick-value { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; }
+        .recharts-legend-item-text { font-size: 11px !important; font-weight: 600; }
             ` }} />
 
             <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
@@ -774,8 +775,11 @@ export default function EvolutionChart({
                      </div>
                  </div>
 
-                <div className="relative w-full mb-8">
-                    <div className="flex overflow-x-auto pt-2 pb-4 px-1 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
+                <div 
+                    className="relative w-full mb-8"
+                    style={{ maskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)', WebkitMaskImage: '-webkit-linear-gradient(left, transparent, black 5%, black 95%, transparent)' }}
+                >
+                    <div className="flex overflow-x-auto pt-2 pb-4 px-4 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
                         {ENGINES.map((eng) => {
                             const active = activeEngine === eng.id;
                             return (
@@ -783,19 +787,12 @@ export default function EvolutionChart({
                                     type="button"
                                     key={eng.id}
                                     onClick={() => setActiveEngine(eng.id)}
-                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[118px] h-[78px] rounded-2xl transition-all duration-150 border will-change-transform ${active
-                                        ? 'shadow-md scale-[1.03] z-10'
-                                        : 'bg-white/[0.015] border-white/[0.04] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300 hover:border-white/15 hover:scale-[1.015]'
-                                        }`}
-                                    style={active ? {
-                                        backgroundColor: `${eng.color}12`,
-                                        borderColor: `${eng.color}55`,
-                                        color: eng.color,
-                                        boxShadow: `0 0 20px ${eng.color}20, 0 4px 12px -2px rgba(0,0,0,0.3)`
-                                    } : {}}
+                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[118px] h-[78px] rounded-2xl transition-all duration-150 border will-change-transform ${active ? 'shadow-md scale-[1.03] z-10' : 'bg-white/[0.015] border-white/[0.04] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300 hover:border-white/15 hover:scale-[1.015]'}`}
+                                    style={active ? { backgroundColor: `${eng.color}12`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}20, 0 4px 12px -2px rgba(0,0,0,0.3)` } : {}}
                                 >
                                     <span className="text-[22px] group-hover:scale-105 transition-transform duration-150" style={{ filter: active ? `drop-shadow(0 0 4px ${eng.color})` : 'none' }}>{eng.emoji}</span>
-                                    <span className="text-[9px] uppercase tracking-[0.12em] font-black text-center leading-none px-1">{eng.label}</span>
+                                    {/* FIX: Padronização para text-[10px] e eliminação da mistura entre 9px, 10px e 12px */}
+                                    <span className="text-[10px] uppercase tracking-[0.1em] font-bold text-center leading-none px-1">{eng.label}</span>
                                 </button>
                             );
                         })}
@@ -859,7 +856,8 @@ export default function EvolutionChart({
                             <p className="text-slate-500 text-sm max-w-xs">Não registrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.</p>
                             <button 
                                 onClick={() => setTimeWindow("all")} 
-                                className="mt-4 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-600/40 rounded-2xl font-bold text-xs hover:bg-indigo-600/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+                                // FIX: Borda arredondada consistente (rounded-xl) e estados hover/focus aprimorados 
+                                className="mt-5 px-6 py-2.5 bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 rounded-xl font-bold text-xs hover:bg-indigo-600/30 hover:text-indigo-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:scale-95 shadow-lg shadow-indigo-900/20"
                             >
                                 Ver Todo o Histórico
                             </button>
