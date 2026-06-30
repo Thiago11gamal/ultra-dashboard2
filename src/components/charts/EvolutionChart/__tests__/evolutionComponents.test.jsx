@@ -70,7 +70,7 @@ describe('evolution components render contracts', () => {
 
   it('renders TimeSpentChart', () => {
     const subjectAggData = [{
-      fullName: 'Química', timeSpent: 120, questoes: 10
+      fullName: 'Química', timeSpent: 120, questoes: 10, timedQuestoes: 10
     }];
     const html = renderToStaticMarkup(<TimeSpentChart subjectAggData={subjectAggData} />);
     expect(html).toContain('Tempo M');
