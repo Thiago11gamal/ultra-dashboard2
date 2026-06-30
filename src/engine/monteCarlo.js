@@ -524,7 +524,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         currentMean: (currentMean ?? safeMean),
         projectedMean,
         projectedSD,
-        kdeData: generateKDE(allScores, displayMean, projectedSD, safeSimulations, minScore, maxScore),
+        kdeData: generateKDE(sortedScores, displayMean, projectedSD, safeSimulations, minScore, maxScore),
         drift: 0,
         volatility: safeSD,
         minScore,
