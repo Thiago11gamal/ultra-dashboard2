@@ -11,9 +11,9 @@ export function TimeSpentChart({ subjectAggData, showOnlyFocus, focusCategory })
     const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
 
     const chartData = safeSubjectAggData
-        .filter(d => d.questoes > 0 && d.timeSpent >= 0)
+        .filter(d => d.timedQuestoes > 0 && d.timeSpent > 0)
         .map((d) => {
-            const avgSeconds = Math.round(d.timeSpent / d.questoes);
+            const avgSeconds = Math.round(d.timeSpent / d.timedQuestoes);
             return { 
                 ...d, 
                 avgSeconds,
@@ -27,7 +27,7 @@ export function TimeSpentChart({ subjectAggData, showOnlyFocus, focusCategory })
             <div className="h-[300px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30 w-full mt-2">
                 <span className="text-5xl">⏳</span>
                 <div className="text-center">
-                    <p className="text-slate-300 font-bold text-base mb-1">Coletando Dados de Agilidade</p>
+                    <p className="text-slate-300 font-bold text-base mb-1">Coletando Dados de Agilidade AI</p>
                     <p className="text-slate-500 text-sm max-w-sm px-4">
                         O sistema começou a registrar seus tempos hoje. Faça um <span className="text-cyan-400 font-bold">novo Simulado IA</span> para que seu gráfico de agilidade apareça aqui!
                     </p>
@@ -41,7 +41,7 @@ export function TimeSpentChart({ subjectAggData, showOnlyFocus, focusCategory })
             <div className="flex items-center justify-between mb-3 sm:mb-5 min-w-0">
                 <div className="min-w-0 flex-1">
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 flex items-center gap-1.5">
-                        <Clock size={12} className="text-cyan-400" /> Agilidade
+                        <Clock size={12} className="text-cyan-400" /> Agilidade AI
                     </p>
                     <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
                         ⏳ {showOnlyFocus ? `Tempo Médio por Questão — ${focusCategory?.name}` : "Tempo Médio por Matéria (Mais Lentas)"}
@@ -94,7 +94,7 @@ export function TimeSpentChart({ subjectAggData, showOnlyFocus, focusCategory })
                                                     <span className="text-slate-300 text-xs">Média:</span>
                                                     <span className="text-white font-bold text-xs">{d.avgFormatted}</span>
                                                 </div>
-                                                <p className="text-[10px] text-slate-500 mt-2">Baseado em {d.questoes} questões</p>
+                                                <p className="text-[10px] text-slate-500 mt-2">Baseado em {d.timedQuestoes} questões</p>
                                             </div>
                                         );
                                     }

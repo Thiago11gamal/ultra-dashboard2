@@ -91,8 +91,8 @@ const ENGINES = [
         explain: { titulo: "Acelerômetro Semanal de Desempenho", simples: "Calcula a tração do seu estudo comparando diretamente os ganhos ou perdas (delta) da semana atual em relação à semana imediatamente anterior.", dica: "Aviso Antecipado: Semanas com deltas negativos acentuados alertam para esquecimento (curva do esquecimento). Revise a teoria destas disciplinas antes que a perda se torne definitiva." },
     },
     {
-        id: "time_spent", label: "Agilidade", emoji: "⏳", color: "#06b6d4", prefix: null, style: "linear",
-        explain: { titulo: "Rastreador de Agilidade", simples: "Analisa o tempo médio gasto por questão em cada matéria, ajudando você a encontrar gargalos que roubam minutos preciosos no dia da prova.", dica: "Matérias muito lentas podem te reprovar mesmo se você souber o conteúdo. Foque nelas para ganhar resistência." },
+        id: "time_spent", label: "Agilidade AI", emoji: "⏳", color: "#06b6d4", prefix: null, style: "linear",
+        explain: { titulo: "Rastreador de Agilidade AI", simples: "Analisa o tempo médio gasto por questão em cada matéria nos Simulados IA, ajudando você a encontrar gargalos que roubam minutos preciosos no dia da prova.", dica: "Matérias muito lentas podem te reprovar mesmo se você souber o conteúdo. Foque nelas para ganhar resistência." },
     },
 ];
 
@@ -364,17 +364,41 @@ export default function EvolutionChart({
                     return s + ((normalizedScore - minScore) / range * tot);
                 }, 0));
 
+                let timedQuestoes = 0;
                 const timeSpent = history.reduce((s, h) => {
-                    let ts = Number(h.timeSpent) || 0;
-                    if (ts === 0 && Array.isArray(h.topics)) {
-                        ts = h.topics.reduce((acc, t) => acc + (Number(t.timeSpent) || 0), 0);
+                    let rootTs = Number(h.timeSpent) || 0;
+                    
+                    let topicsTs = 0;
+                    let topicsTimedQ = 0;
+                    let hasTopicWithTime = false;
+                    
+                    if (Array.isArray(h.topics)) {
+                        for (const t of h.topics) {
+                            const tTs = Number(t.timeSpent) || 0;
+                            if (tTs > 0) {
+                                topicsTs += tTs;
+                                topicsTimedQ += (Number(t.total) || 0);
+                                hasTopicWithTime = true;
+                            }
+                        }
                     }
-                    return s + ts;
+                    
+                    if (hasTopicWithTime) {
+                        timedQuestoes += topicsTimedQ;
+                        return s + topicsTs;
+                    } else if (rootTs > 0) {
+                        let tot = Number(h.total) || 0;
+                        if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
+                        timedQuestoes += tot;
+                        return s + rootTs;
+                    }
+                    
+                    return s;
                 }, 0);
 
                 const safeName = String(cat.name || 'Sem nome');
                 const shortName = safeName.length > 18 ? safeName.substring(0, 16) + '…' : safeName;
-                return { name: shortName, fullName: safeName, questoes: totalQ, acertos: totalCorrect, timeSpent, color: cat.color, id: cat.id };
+                return { name: shortName, fullName: safeName, questoes: totalQ, timedQuestoes, acertos: totalCorrect, timeSpent, color: cat.color, id: cat.id };
             })
             .filter(d => d.questoes > 0)
             .sort((a, b) => b.questoes - a.questoes);
