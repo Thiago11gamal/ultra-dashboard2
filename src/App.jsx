@@ -147,6 +147,7 @@ function MainLayout() {
   // --- THEME SYNC ---
   useThemeSync(headerData.settings?.darkMode);
 
+
   // --- RESCUE NOTIFICATION & DASHBOARD RESCUE ---
   useEffect(() => {
     if (typeof window !== 'undefined' && window.__ULTRA_RESCUE_SUCCESS) {

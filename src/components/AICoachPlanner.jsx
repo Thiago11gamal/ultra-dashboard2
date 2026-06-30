@@ -162,10 +162,7 @@ export default function AICoachPlanner() {
 
     useEffect(() => {
         if (!isDragging) {
-            const timer = setTimeout(() => {
-                setColumns(getInitialColumns());
-            }, 0);
-            return () => clearTimeout(timer);
+            setColumns(getInitialColumns());
         }
     }, [currentHash, isDragging, getInitialColumns]);
 

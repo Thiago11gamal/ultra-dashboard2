@@ -411,11 +411,28 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         </div>
 
                         {hasPlan ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                {coachPlan.map((task, idx) => (
-                                    <AICoachCard key={getSafeId(task) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
-                                ))}
-                            </div>
+                            (() => {
+                                const allAssignedIds = new Set();
+                                Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
+                                const cardTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
+                                
+                                if (cardTasks.length === 0) {
+                                    return (
+                                        <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                                            <Target size={32} className="text-slate-600 mx-auto mb-4" />
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco pendente fora do planner</p>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                        {cardTasks.map((task, idx) => (
+                                            <AICoachCard key={getSafeId(task) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
+                                        ))}
+                                    </div>
+                                );
+                            })()
                         ) : (
                             <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
                                 <Target size={32} className="text-slate-600 mx-auto mb-4" />
