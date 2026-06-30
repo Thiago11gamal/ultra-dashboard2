@@ -364,7 +364,13 @@ export default function EvolutionChart({
                     return s + ((normalizedScore - minScore) / range * tot);
                 }, 0));
 
-                const timeSpent = history.reduce((s, h) => s + (Number(h.timeSpent) || 0), 0);
+                const timeSpent = history.reduce((s, h) => {
+                    let ts = Number(h.timeSpent) || 0;
+                    if (ts === 0 && Array.isArray(h.topics)) {
+                        ts = h.topics.reduce((acc, t) => acc + (Number(t.timeSpent) || 0), 0);
+                    }
+                    return s + ts;
+                }, 0);
 
                 const safeName = String(cat.name || 'Sem nome');
                 const shortName = safeName.length > 18 ? safeName.substring(0, 16) + '…' : safeName;

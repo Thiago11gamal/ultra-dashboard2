@@ -11,7 +11,7 @@ export function TimeSpentChart({ subjectAggData, showOnlyFocus, focusCategory })
     const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
 
     const chartData = safeSubjectAggData
-        .filter(d => d.questoes > 0 && d.timeSpent > 0)
+        .filter(d => d.questoes > 0 && d.timeSpent >= 0)
         .map((d) => {
             const avgSeconds = Math.round(d.timeSpent / d.questoes);
             return { 
