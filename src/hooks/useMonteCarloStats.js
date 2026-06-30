@@ -1053,7 +1053,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         recordMonteCarloSnapshot
     });
 
-    return {
+    return useMemo(() => ({
         statsData, // Contains calibrated variances
         simulationData: effectiveSimulationData,
         perSubjectProbs,
@@ -1077,7 +1077,27 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         effectiveDrift: derivedMetrics.effectiveDrift,
         modelHealth: derivedMetrics.modelHealth,
         modelWeight: derivedMetrics.modelWeight
-    };
+    }), [
+        statsData,
+        effectiveSimulationData,
+        perSubjectProbs,
+        isFlashing,
+        projectDays,
+        debouncedTarget,
+        effectiveWeights,
+        setWeights,
+        probability,
+        projectedMean,
+        currentMean,
+        healthAdjustedProb,
+        derivedMetrics,
+        equalWeightsMode,
+        setEqualWeightsMode,
+        calibrationPenalty,
+        calibrationSummary,
+        modelHealth,
+        modelWeight
+    ]);
 }
 
 // 🎯 EFFECT: Persistência de Histórico de Projeção (Snapshots)
