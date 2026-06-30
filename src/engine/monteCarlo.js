@@ -352,9 +352,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const displayMean = bayesianCI ? safeMean : projectedMean;
 
     // FORÇAR INCERTEZA MÍNIMA: Evitar que o cone colapse num traço liso na UI
-    // MATH FIX: Tornar o spread proporcional à escala total do concurso (0.5% do maxScore)
-    // Garante que o cone não fique gigante num teste de 10 pontos ou invisível num de 1000.
-    const MIN_SPREAD = Math.max(0.5, maxScore * 0.005);
+    // CORREÇÃO: Usar amplitude real em vez do maxScore absoluto. 
+    // Impede que bases acima do zero (ex: Testes SAT 400-1600) criem cones mastodônticos.
+    const range = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
+    const MIN_SPREAD = Math.max(0.5, range * 0.005);
     
     // FIX BUG 2: Prender a média visual dentro dos limites da prova
     const clampedDisplayMean = Math.max(minScore, Math.min(maxScore, displayMean));
@@ -703,7 +704,8 @@ export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuest
                 currentVolatility = volatilidadeAdaptativa * (notaAtual / (0.05 * escala)); // Volatilidade cai a zero
             } else if (notaAtual >= (0.95 * escala) && driftDiario > 0) {
                 effectiveDrift = driftDiario * 0.1;
-                currentVolatility = volatilidadeAdaptativa * ((escala - notaAtual) / (0.05 * escala));
+                // CORREÇÃO: Impedir volatilidade negativa forçando o valor a zero ou positivo
+                currentVolatility = volatilidadeAdaptativa * (Math.max(0, escala - notaAtual) / (0.05 * escala));
             }
 
             // OTIMIZAÇÃO: Comprimir o ruído à medida que a nota se aproxima do teto logístico

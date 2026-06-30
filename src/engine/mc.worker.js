@@ -60,7 +60,7 @@ self.onmessage = function(e) {
                     currentMean: input.currentMean !== undefined ? safeNum(input.currentMean, undefined) : undefined,
                     minScore: input.minScore !== undefined ? safeNum(input.minScore, 0) : undefined,
                     maxScore: input.maxScore !== undefined ? safeNum(input.maxScore, 100) : undefined,
-                    historicalCutoffs: input.historicalCutoffs !== undefined ? (Array.isArray(input.historicalCutoffs) ? input.historicalCutoffs.map(v => safeNum(v, 0)) : []) : undefined,
+                    historicalCutoffs: input.historicalCutoffs !== undefined ? (Array.isArray(input.historicalCutoffs) ? input.historicalCutoffs.map(Number).filter(Number.isFinite) : []) : undefined,
                 };
                 result = runMonteCarloAnalysis(sanitizedInput);
             } else if (Array.isArray(payload.inputOrMean)) {
@@ -127,7 +127,7 @@ self.onmessage = function(e) {
                 maxScore,
                 historyLength: safeNum(payload.historyLength, 0),
                 subjects: sanitizedSubjects,
-                historicalCutoffs: payload.historicalCutoffs !== undefined ? (Array.isArray(payload.historicalCutoffs) ? payload.historicalCutoffs.map(v => safeNum(v, 0)) : []) : undefined,
+                historicalCutoffs: payload.historicalCutoffs !== undefined ? (Array.isArray(payload.historicalCutoffs) ? payload.historicalCutoffs.map(Number).filter(Number.isFinite) : []) : undefined,
             });
         } else {
             self.postMessage({ id, type: 'error', error: `Tipo de mensagem desconhecido: ${type}` });

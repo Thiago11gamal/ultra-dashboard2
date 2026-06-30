@@ -28,18 +28,22 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
   });
 }
 
-export function classifyScenarioSignal(data = [], maxScore = 100) {
+export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) {
   if (!data.length) return null;
   const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const range = Math.max(1, safeMaxScore - safeMinScore); // Prevenção de divisão por zero
+  
   const latest = data[data.length - 1];
   const high = Number(latest?.ciRange?.[1]);
   const low = Number(latest?.ciRange?.[0]);
   const width = Number.isFinite(high) && Number.isFinite(low) ? Math.max(0, high - low) : Number.POSITIVE_INFINITY;
 
-  if (data.length < 4 || width >= Math.max(12, safeMaxScore * 0.18)) {
+  // CORREÇÃO: Eliminar os valores estáticos (12, 6) e usar proporções matemáticas do range (12% e 6%)
+  if (data.length < 4 || width >= (range * 0.18)) {
     return { label: 'Sinal Fraco', color: 'text-amber-300 border-amber-500/40 bg-amber-500/10' };
   }
-  if (width <= Math.max(6, safeMaxScore * 0.1) && data.length >= 8) {
+  if (width <= (range * 0.10) && data.length >= 8) {
     return { label: 'Sinal Forte', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' };
   }
   return { label: 'Sinal Médio', color: 'text-sky-300 border-sky-500/40 bg-sky-500/10' };
