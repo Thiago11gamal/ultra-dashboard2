@@ -551,7 +551,7 @@ export default function AIGeneratedSimulado() {
     }
   }, [questions.length]);
 
-  const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0) => {
+  const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0, preventGlobalEvent = false) => {
     const todayKey = getDateKey(normalizeDate(new Date()));
     const materia = (formData.materia || '').trim();
     const assunto = (formData.assunto || '').trim();
@@ -619,22 +619,24 @@ export default function AIGeneratedSimulado() {
       }
 
       // 2. Atualiza simulados (histórico)
-      const newSimEvent = {
-        id: generateId('ai-sim'),
-        date: todayKey,
-        score: total > 0 ? Math.round((correct / total) * 100) : 0,
-        total,
-        correct,
-        type: 'ai-simulado',
-        subject: materia,
-        categoryId,
-        taskId,
-        validated: true,
-      };
-
       const existingSims = Array.isArray(prev.simulados) ? prev.simulados : [];
-      // Não apaga mais os eventos anteriores do dia; acumula no histórico geral.
-      const updatedSims = [...existingSims, newSimEvent].slice(-100);
+      let updatedSims = existingSims;
+      
+      if (!preventGlobalEvent) {
+          const newSimEvent = {
+            id: generateId('ai-sim'),
+            date: todayKey,
+            score: total > 0 ? Math.round((correct / total) * 100) : 0,
+            total,
+            correct,
+            type: 'ai-simulado',
+            subject: materia,
+            categoryId,
+            taskId,
+            validated: true,
+          };
+          updatedSims = [...existingSims, newSimEvent].slice(-100);
+      }
 
       // 3. Atualiza stats da categoria — preferindo match por ID exato (mais confiável)
       const newCategories = (prev.categories || []).map(cat => {
@@ -678,13 +680,17 @@ export default function AIGeneratedSimulado() {
             const dayTotal = existingTopics.reduce((s, t) => s + (t.total || 0), 0);
             const dayCorrect = existingTopics.reduce((s, t) => s + (t.correct || 0), 0);
 
-            history[todayIdx] = {
-              ...existing,
-              correct: dayCorrect,
-              total: dayTotal,
+            const prevWeight = (existing.difficulty || 1.0) * (existing.total || 0);
+            const newWeight = numericDifficulty * total;
+            const newDiff = dayTotal > 0 ? (prevWeight + newWeight) / dayTotal : 1.0;
+
+            history[todayIdx] = { 
+              ...existing, 
+              correct: dayCorrect, 
+              total: dayTotal, 
               score: dayTotal > 0 ? Math.min(catMaxScore, (dayCorrect / dayTotal) * catMaxScore) : 0,
-              topics: existingTopics,
-              // Mantém difficulty do último ou podemos média
+              difficulty: newDiff,
+              topics: existingTopics 
             };
           } else {
             history.push({
@@ -790,8 +796,32 @@ export default function AIGeneratedSimulado() {
           taskId: tsk ? tsk.id : null,
         };
         const topicTime = totalQuestionsInMixed > 0 ? Math.round(timeSpentSeconds * (g.total / totalQuestionsInMixed)) : 0;
-        await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime);
+        await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true);
       }
+      
+      const todayKey = getDateKey(normalizeDate(new Date()));
+      const globalMixedEvent = {
+        id: generateId('ai-sim'),
+        date: todayKey,
+        score: totalQuestionsInMixed > 0 ? Math.round((correctCount / totalQuestionsInMixed) * 100) : 0,
+        total: totalQuestionsInMixed,
+        correct: correctCount,
+        type: 'ai-simulado',
+        subject: 'Simulado Misto (IA)',
+        categoryId: 'mixed',
+        taskId: null,
+        validated: true,
+      };
+      
+      setData(prev => {
+         if (!prev) return prev;
+         const existingSims = Array.isArray(prev.simulados) ? prev.simulados : [];
+         return {
+            ...prev,
+            simulados: [...existingSims, globalMixedEvent].slice(-100),
+            lastUpdated: new Date().toISOString()
+         };
+      });
     } else {
       await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, timeSpentSeconds);
     }

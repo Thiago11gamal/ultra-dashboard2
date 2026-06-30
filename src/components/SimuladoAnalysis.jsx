@@ -17,12 +17,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     );
 
     React.useEffect(() => {
-        setTimeout(() => {
-            setLocalRows((propRows && propRows.length > 0)
-                ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
-                : []
-            );
-        }, 0);
+        setLocalRows((propRows && propRows.length > 0)
+            ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
+            : []
+        );
     }, [propRows]);
 
     // Helper to report changes up to parent
@@ -59,7 +57,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             if (field === 'correct') {
                 const currentTotal = parseInt(rows[index]?.total, 10) || 0;
                 // Enforce: Correct cannot exceed Total (unless Total is empty/0)
-                if (currentTotal > 0 && val !== '' && val > currentTotal) finalValue = currentTotal;
+                if (val !== '' && val > currentTotal) finalValue = currentTotal;
                 else finalValue = val;
             } else if (field === 'total') {
                 const currentCorrect = parseInt(rows[index]?.correct, 10) || 0;

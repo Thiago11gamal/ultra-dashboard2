@@ -270,8 +270,9 @@ export default function Simulados() {
             }
 
             // 3. Fix Global Event Score (Ghost Rows Issue)
-            const totalQ = manualSubmittedRows.reduce((acc, r) => acc + (parseInt(r?.total, 10) || 0), 0);
-            const totalC = manualSubmittedRows.reduce((acc, r) => acc + (parseInt(r?.correct, 10) || 0), 0);
+            const todayValidatedRows = validatedRows.filter(r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey);
+            const totalQ = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.total, 10) || 0), 0);
+            const totalC = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.correct, 10) || 0), 0);
             const globalPct = totalQ > 0 ? Number(((totalC / totalQ) * 100).toFixed(2)) : 0;
             
             const newSimuladoEvent = {

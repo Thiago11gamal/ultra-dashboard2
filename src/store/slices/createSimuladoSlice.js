@@ -37,34 +37,40 @@ export const createSimuladoSlice = (set) => ({
         }
 
         if (activeData.categories) {
-            activeData.categories.forEach(c => {
+            activeData.categories = activeData.categories.map(c => {
                 // 🎯 BUGFIX: Usar a pontuação máxima específica da categoria (ou do concurso como fallback)
                 const catMaxScore = Number(c.maxScore) || Number(activeData.maxScore) || 100;
 
                 if (c.simuladoStats?.history) {
                     // Filtra o simulado excluído
                     const safeHistory = Array.isArray(c.simuladoStats.history) ? c.simuladoStats.history : Object.values(c.simuladoStats.history || {});
-                    c.simuladoStats.history = safeHistory.filter(h => !matchesDate(h.date));
+                    const newHistory = safeHistory.filter(h => !matchesDate(h.date));
+                    
+                    const newStatsObj = { ...c.simuladoStats, history: newHistory };
                     
                     // 🎯 RECOMPUTAÇÃO IMEDIATA PÓS-EXCLUSÃO
-                    if (c.simuladoStats.history.length > 0) {
-                        const newStats = computeCategoryStats(c.simuladoStats.history, c.weight || 1, 60, catMaxScore);
+                    if (newHistory.length > 0) {
+                        const newStats = computeCategoryStats(newHistory, c.weight || 1, 60, catMaxScore);
                         if (newStats) {
-                            const last = c.simuladoStats.history[c.simuladoStats.history.length - 1];
-                            c.simuladoStats.average = Number((newStats.mean || 0).toFixed(2));
-                            c.simuladoStats.trend = newStats.trend || 'stable';
+                            const last = newHistory[newHistory.length - 1];
+                            newStatsObj.average = Number((newStats.mean || 0).toFixed(2));
+                            newStatsObj.trend = newStats.trend || 'stable';
                             // Garante o cálculo do último score baseado na escala correta
-                            c.simuladoStats.lastAttempt = Number(last?.score ?? ((Number(last?.total) > 0) ? (Number(last?.correct || 0) / Number(last?.total)) * catMaxScore : 0));
-                            c.simuladoStats.level = newStats.level || 'BAIXO';
+                            newStatsObj.lastAttempt = Number(last?.score ?? ((Number(last?.total) > 0) ? (Number(last?.correct || 0) / Number(last?.total)) * catMaxScore : 0));
+                            newStatsObj.level = newStats.level || 'BAIXO';
                         }
                     } else {
                         // Se não sobrou nenhum simulado, zera as métricas
-                        c.simuladoStats.average = 0;
-                        c.simuladoStats.trend = 'stable';
-                        c.simuladoStats.lastAttempt = 0;
-                        c.simuladoStats.level = 'BAIXO';
+                        newStatsObj.average = 0;
+                        newStatsObj.trend = 'stable';
+                        newStatsObj.lastAttempt = 0;
+                        newStatsObj.level = 'BAIXO';
                     }
+                    
+                    return { ...c, simuladoStats: newStatsObj };
                 }
+                
+                return c;
             });
         }
         
