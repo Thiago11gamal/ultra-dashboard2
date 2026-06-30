@@ -145,7 +145,7 @@ export default function AICoachPlanner() {
     const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
 
     const coachPlanner = activeContest?.coachPlanner || defaultCoachPlanner;
-    const coachPlan = useMemo(() => activeContest?.coachPlan || defaultCoachPlan, [activeContest?.coachPlan]);
+    const coachPlan = useMemo(() => activeContest?.coachPlan || defaultCoachPlan, [activeContest?.coachPlan, defaultCoachPlan]);
 
     const setData        = useAppStore(state => state.setData);
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
