@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { RotateCcw, CloudDownload, LayoutDashboard, Menu } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -53,8 +53,14 @@ const Header = React.memo(function Header({
     const clockTime = useClock();
 
     const displayName = user?.name ?? 'Estudante';
+    const [localName, setLocalName] = useState(displayName);
+
+    useEffect(() => {
+        setLocalName(displayName);
+    }, [displayName]);
 
     const handleNameChange = (e) => {
+        setLocalName(e.target.value);
         if (onUpdateName) onUpdateName(e.target.value);
     };
 
@@ -88,7 +94,7 @@ const Header = React.memo(function Header({
                 <div className="border-l-[2px] border-purple-500 pl-3 bg-white/[0.02] rounded-r-lg py-1">
                     <input
                         type="text"
-                        value={displayName}
+                        value={localName}
                         onChange={handleNameChange}
                         placeholder="Seu nome..."
                         className="w-full bg-transparent text-lg font-black neon-text placeholder:text-slate-700 focus:outline-none leading-tight"
@@ -161,7 +167,7 @@ const Header = React.memo(function Header({
                         <div className="relative w-full">
                             <input
                                 type="text"
-                                value={displayName}
+                                value={localName}
                                 onChange={handleNameChange}
                                 placeholder="Nome do utilizador..."
                                 className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0.5 leading-[1.35] w-full text-ellipsis overflow-hidden whitespace-nowrap"

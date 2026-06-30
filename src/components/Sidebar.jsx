@@ -87,6 +87,7 @@ const Sidebar = React.memo(function Sidebar({
     const [contestToDelete, setContestToDelete] = React.useState(null);
     const contestEntries = React.useMemo(() => Object.entries(contests || {}), [contests]);
     const isSingleContest = contestEntries.length <= 1;
+    const sidebarRef = React.useRef(null);
 
     React.useEffect(() => {
         // Garantir que as configurações comecem fechadas ao expandir o menu
@@ -117,9 +118,8 @@ const Sidebar = React.memo(function Sidebar({
         const handleClickOutside = (e) => {
             // Se for desktop (lg: >= 1024px) e estiver expandido (!collapsed)
             if (window.innerWidth >= 1024 && !collapsed) {
-                const sidebar = document.querySelector('.sidebar');
-                // Se o clique foi fora da sidebar
-                if (sidebar && !sidebar.contains(e.target)) {
+                // Usar a referência real do React em vez de querySelector
+                if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
                     // Verifica se o clique não foi no botão de toggle do header
                     const toggleBtn = e.target.closest('[aria-label="Expandir Menu"], [aria-label="Recolher Menu"]');
                     if (!toggleBtn) {
@@ -146,10 +146,10 @@ const Sidebar = React.memo(function Sidebar({
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {
             try {
+                await logout();
                 useAppStore.getState().resetStore();
                 await del('ultra-dashboard-storage');
-                localStorage.removeItem('ultra-dashboard-storage');
-                await logout();
+                localStorage.clear();
             } catch (err) {
                 console.error("Erro ao sair", err);
             }
@@ -168,7 +168,7 @@ const Sidebar = React.memo(function Sidebar({
                 />
             )}
 
-            <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}>
+            <aside ref={sidebarRef} className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}>
                 {/* Logo Area */}
                 <div className="flex items-center justify-between mb-3 px-1">
                     <div className="sidebar-logo">
@@ -216,7 +216,7 @@ const Sidebar = React.memo(function Sidebar({
                             <span className={`text-xs transition-transform ${contestsExpanded ? 'rotate-180' : ''} text-slate-400`}>▼</span>
                         </button>
 
-                        <div id="sidebar-contests-panel" className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div id="sidebar-contests-panel" inert={(!contestsExpanded || collapsed) ? "" : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="nested-container space-y-1">
                                 {contestEntries.map(([id, contestData]) => {
                                     const name = getContestDisplayName(contestData);
@@ -338,7 +338,7 @@ const Sidebar = React.memo(function Sidebar({
                                 <span className="font-semibold text-sm">Configurações</span>
                             </button>
 
-                            <div id="sidebar-settings-panel" className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div id="sidebar-settings-panel" inert={(!settingsExpanded || collapsed) ? "" : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
                                     <button
                                         type="button"

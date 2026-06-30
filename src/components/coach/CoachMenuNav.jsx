@@ -12,7 +12,7 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label
             aria-controls={panelId}
             aria-disabled={disabled}
             id={tabId}
-            tabIndex={active ? 0 : -1}
+            tabIndex={active ? 0 : disabled ? -1 : -1}
             className={`group relative overflow-hidden min-w-0 rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 border transition-all duration-200 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e] focus-visible:ring-indigo-400/80
                 ${active
                     ? 'bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-600 border-white/20 text-white shadow-[0_10px_30px_rgba(79,70,229,0.35)] ring-1 ring-white/20 scale-[1.02]'
@@ -74,8 +74,16 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
 
         const safeIndex = currentIndex >= 0 ? currentIndex : 0;
         const dir = isRight ? 1 : -1;
-        const nextIndex = (safeIndex + dir + availableTabs.length) % availableTabs.length;
-        activateTab(availableTabs[nextIndex]);
+        let nextIndex = (safeIndex + dir + availableTabs.length) % availableTabs.length;
+        
+        // CORREÇÃO: Evitar ciclo que force abas bloqueadas (Se houver regra de Premium)
+        let nextTabKey = availableTabs[nextIndex];
+        if (!isPremium && nextTabKey === 'insights_avancados') { 
+            nextIndex = (nextIndex + dir + availableTabs.length) % availableTabs.length;
+            nextTabKey = availableTabs[nextIndex];
+        }
+        
+        activateTab(nextTabKey);
     };
 
     const handleActivateInsights = () => activateTab('insights');
