@@ -301,16 +301,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
                     const raw = Number(s.mean) + zCorr[j];
                     
-                    // CORREÇÃO B4: Substituir o Clamping rígido por Reflexão (Folding) 
-                    // para preservar a variância nas caudas multivariadas
-                    let sScore = raw;
-                    if (sScore < sMin) {
-                        sScore = sMin + Math.abs(sMin - sScore);
-                    } else if (sScore > sMax) {
-                        sScore = sMax - Math.abs(sScore - sMax);
-                    }
-                    // Garantia final absoluta
-                    sScore = Math.max(sMin, Math.min(sMax, sScore));
+                    // FIX: Replaced folding reflection with Clamping.
+                    // Reflection (folding) at the bounds inverts the sign of the correlated variable,
+                    // mathematically destroying the covariance matrix (turns positive correlation into negative).
+                    const sScore = Math.max(sMin, Math.min(sMax, raw));
                     
                     if (sScore < Number(s.minCutoff)) {
                         passedMins = false;

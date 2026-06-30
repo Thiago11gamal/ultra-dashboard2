@@ -43,10 +43,10 @@ function _mean(arr) {
 
 function _variance(arr, mu = null) {
   if (!arr || arr.length < 2) return 0;
-  const m = mu !== null ? mu : _mean(arr);
   // Use kahanSum for sum of squared devs for better precision
   const clean = arr.filter(v => Number.isFinite(v));
   if (clean.length < 2) return 0;
+  const m = mu !== null ? mu : _mean(clean);
   const devs = clean.map(v => (v - m) ** 2);
   return kahanSum(devs) / (clean.length - 1);
 }
@@ -278,7 +278,8 @@ export function computeKLDivergenceNormal(mu1, sd1, mu2, sd2) {
 export function computeEbbinghausRetention(daysSince, stabilityDays) {
   const t = Math.max(0, Number(daysSince) || 0);
   const S = Math.max(0.1, Number(stabilityDays) || 7);
-  const retention = Math.exp(-t / S);
+  // Power-Law FSRS formula unified across the platform
+  const retention = 1.0 / (1.0 + (t / (9 * S)));
   return Math.max(0.1, Math.min(1.0, retention));
 }
 

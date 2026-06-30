@@ -173,7 +173,10 @@ export function analyzeProgressState(scores, config = {}) {
         // BUG-GLOBAL-06 FIX: Usar Coeficiente de Variação (CV) em vez de variância bruta.
         // Antes: variance > 25*scaleFactor² era calibrado para window_size=10 e falha com n diferentes.
         // CV > 15% é invariante ao n e à escala da prova.
-        const cv = mean > 1e-6 ? Math.sqrt(variance) / mean : 0;
+        // FIX: Adicionado amortecimento Bayesiano no denominador (max(mean, 30 * scaleFactor))
+        // Impede que alunos iniciantes (com média baixa) sejam falsamente diagnosticados como "Erráticos"
+        // apenas por causa do ruído normal da nota (ex: oscilar 3 pontos numa média de 15 dava CV = 20%).
+        const cv = mean > 1e-6 ? Math.sqrt(variance) / Math.max(mean, 30 * scaleFactor) : 0;
         const isVeryUnstable = cv > 0.15;
 
         // FIX 3.2 (Visual e Lógica): A instabilidade não deve proteger um aluno em queda livre.
