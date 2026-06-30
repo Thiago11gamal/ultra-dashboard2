@@ -140,7 +140,7 @@ export default function AIGeneratedSimulado() {
             // Normalize with current categories
             const cat = categories.find(c => c.id === f.categoryId);
             const tsk = cat?.tasks?.find(t => t.id === f.taskId);
-            const normalizedQuestions = gen.questions.map((q, idx) => ({
+            const normalizedQuestions = gen.questions.map((q) => ({
               ...q,
               id: q.id || nextAiId('ai-bg'),
               categoryId: f.categoryId,
@@ -381,7 +381,7 @@ export default function AIGeneratedSimulado() {
           throw new Error('A IA não gerou questões válidas.');
         }
 
-        const normalizedQuestions = generated.map((q, idx) => ({
+        const normalizedQuestions = generated.map((q) => ({
           ...q,
           id: q.id || nextAiId('ai-pers'),
           categoryId: 'mixed',
@@ -473,7 +473,7 @@ export default function AIGeneratedSimulado() {
         const cat = currentCategories.find(c => c.id === currentForm.categoryId);
         const tsk = cat?.tasks?.find(t => t.id === currentForm.taskId);
 
-        const normalizedQuestions = generated.map((q, idx) => ({
+        const normalizedQuestions = generated.map((q) => ({
           ...q,
           id: q.id || nextAiId('ai-gen'),
           categoryId: currentForm.categoryId,
@@ -741,7 +741,6 @@ export default function AIGeneratedSimulado() {
     isFinishingRef.current = true;
 
     let correctCount = 0;
-    let unansweredCount = 0;
     const answeredQuestions = [];
 
     qList.forEach(q => {
@@ -750,7 +749,6 @@ export default function AIGeneratedSimulado() {
       const wasAnswered = selected !== undefined && selected !== null;
       const isCorrect = wasAnswered && selected === q.alternativa_correta;
       if (isCorrect) correctCount++;
-      if (!wasAnswered) unansweredCount++;
 
       answeredQuestions.push({
         ...q,

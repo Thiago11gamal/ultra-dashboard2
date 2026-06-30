@@ -1095,8 +1095,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         setEqualWeightsMode,
         calibrationPenalty,
         calibrationSummary,
-        modelHealth,
-        modelWeight
+        modelHealth
     ]);
 }
 
