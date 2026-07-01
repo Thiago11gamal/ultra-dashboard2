@@ -1107,7 +1107,8 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     // CORREÇÃO: Injetar entropia temporal (Data Atual ISO) na chave de cache para garantir 
     // que o decaimento por repetição espaçada (SRS) é atualizado dia após dia.
     const todayStr = new Date().toISOString().slice(0, 10);
-    const hash = `${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}`; 
+    const userId = category?.userId || simulados[0]?.userId || 'default';
+    const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}`; 
     const cacheKey = `isolate_${catId}_${hash}`;
 
     if (_topicsCache.has(cacheKey)) {
@@ -1152,13 +1153,14 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
 
     sortedTopicsHistory.forEach(entry => {
         if (!entry) return;
-        const entryDate = new Date(entry.date || entry.createdAt || 0);
-        const entryTime = entryDate.getTime();
+        let entryTime = todayForTopics.getTime();
+        if (entry.date || entry.createdAt) {
+            entryTime = new Date(entry.date || entry.createdAt).getTime();
+        }
         
         // CORREÇÃO: Se a data não fizer sentido estatístico, assume-se tempo presente (0 dias)
         // para que a nota seja contabilizada de forma neutra em vez de ser aniquilada por NaNs.
-        // Se a data for inválida, assume um tempo nulo (passado distante) para não falsificar recência
-        const safeEntryTime = Number.isFinite(entryTime) && entryTime > 0 ? entryTime : 0;
+        const safeEntryTime = Number.isFinite(entryTime) && entryTime > 0 ? entryTime : todayForTopics.getTime();
         
         const daysOld = Math.max(0, (todayForTopics.getTime() - safeEntryTime) / (1000 * 60 * 60 * 24));
         const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));

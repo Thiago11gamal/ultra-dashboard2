@@ -302,7 +302,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     
     // CORREÇÃO: Injetar impressão digital do motor adaptativo na chave de Cache
     const adaptiveHash = adaptive ? `${adaptive.mcSimulations || 0}-${adaptive.decayK || 0}` : 'no-adapt';
-    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}`;
+    const userId = cfg?.userId || 'default';
+    const hash = `${userId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}`;
     
     if (mcCache.has(hash)) {
         // LRU: move to most recent on access (improves cache memory efficiency)
@@ -344,7 +345,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                 cfg.MC_BACKTEST_HORIZON || 3,
                 Math.min(Number(cfg.MC_BACKTEST_HORIZON_MAX) || 6, Math.floor(history.length / 3))
             );
-            const horizon = Math.min(dynamicHorizon, history.length - (cfg.MC_MIN_DATA_POINTS || 5));
+            const isLowPerformance = typeof navigator !== 'undefined' && (navigator.hardwareConcurrency <= 4 || /Mobi|Android/i.test(navigator.userAgent));
+            const horizon = isLowPerformance ? 0 : Math.min(dynamicHorizon, history.length - (cfg.MC_MIN_DATA_POINTS || 5));
             const brierScores = [];
             for (let i = 1; i <= horizon; i++) {
                 const train = history.slice(0, history.length - i);

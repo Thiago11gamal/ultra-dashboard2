@@ -40,11 +40,11 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     const sanitizeHtml = (str) => {
         if (typeof str !== 'string') return '';
         // Remove completely any HTML tags and their attributes to prevent literal XSS payloads from polluting the UI
-        return str.replace(/<[^>]*>?/gm, '').trim();
+        return str.trim();
     };
 
     const rawText = task.text || task.title || '';
-    const fullText = sanitizeHtml(rawText) || rawText.replace(/</g, '').replace(/>/g, ''); // fallback se ficar vazio e não for html puro
+    const fullText = sanitizeHtml(rawText) || rawText; // fallback se ficar vazio e não for html puro
     
     const parts = fullText.split(':');
     const hasDetails = parts.length > 1;
@@ -204,18 +204,9 @@ export default function AICoachPlanner() {
                 ...(newCols.sun || [])
             ];
             
-            setData(prev => {
-                if (prev) {
-                    prev.coachPlanner = updatedPlanner;
-                    prev.coachPlan = newCoachPlan;
-                }
-            });
+            setData(prev => prev ? { ...prev, coachPlanner: updatedPlanner, coachPlan: newCoachPlan } : prev);
         } else {
-            setData(prev => {
-                if (prev) {
-                    prev.coachPlanner = updatedPlanner;
-                }
-            });
+            setData(prev => prev ? { ...prev, coachPlanner: updatedPlanner } : prev);
         }
         setIsDragging(false);
     };
