@@ -4,7 +4,7 @@ import {
     ResponsiveContainer, LabelList, Cell
 } from "recharts";
 import { normalizeDate } from "../../../utils/dateHelper";
-import { getSafeScore } from "../../../utils/scoreHelper";
+import { getSafeScore, getSyntheticTotal } from "../../../utils/scoreHelper";
 
 const CustomTooltipStyle = {
     backgroundColor: '#0a0f1e',
@@ -68,8 +68,12 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     const key = n.toLowerCase();
                     if (!topicMap[key]) topicMap[key] = { name: n, total: 0, correct: 0, criticidade: 0 };
 
-                    const total = parseInt(t.total, 10) || 0;
-                    if (total === 0) return;
+                    let total = parseInt(t.total, 10) || 0;
+                    if (total === 0 && t.score != null) {
+                        total = getSyntheticTotal(maxScore);
+                    } else if (total === 0) {
+                        return;
+                    }
                     
                     const score = t.score != null ? Number(t.score) : getSafeScore(t, maxScore);
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
@@ -126,8 +130,12 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             });
             const range = Math.max(1e-9, maxScore - minScore);
             for (const h of recentHistory) {
-                const t = parseInt(h.total, 10) || 0;
-                if (t === 0) continue;
+                let t = parseInt(h.total, 10) || 0;
+                if (t === 0 && h.score != null) {
+                    t = getSyntheticTotal(maxScore);
+                } else if (t === 0) {
+                    continue;
+                }
                 
                 const score = h.score != null ? Number(h.score) : getSafeScore(h, maxScore);
                 const normalizedScore = Math.max(minScore, Math.min(maxScore, score));

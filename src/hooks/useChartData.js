@@ -354,7 +354,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 // fantasmas ao "Total de Questões" resolvido.
                 if (tot === 0 && h.score != null) {
                     tot = 1;
-                    corrNorm = Math.round((getSafeScore(h, maxScore) / maxScore) * tot);
+                    corrNorm = (getSafeScore(h, maxScore) / maxScore) * tot;
                 } else {
                     const raw = Number(h.correct) || 0;
                     corrNorm = tot > 0 

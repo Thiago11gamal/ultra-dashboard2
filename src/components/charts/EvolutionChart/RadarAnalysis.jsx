@@ -22,7 +22,7 @@ const CustomTooltipStyle = {
  * A comprehensive disciplinary cross-section (Raio-X) using a Radar chart.
  * Compares current performance levels against target scores.
  */
-export function RadarAnalysis({ radarData, maxScore = 100, unit = '%' }) {
+export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = '%' }) {
     const rawId = useId();
     const glowId = `ra_glow-${rawId.replace(/:/g, '')}`;
 
@@ -61,9 +61,9 @@ export function RadarAnalysis({ radarData, maxScore = 100, unit = '%' }) {
                         {/* FIX: Ocultar o tick do "0" central para manter o gráfico limpo */}
                         <PolarRadiusAxis 
                             angle={30} 
-                            domain={[0, maxScore]} 
+                            domain={[minScore, maxScore]} 
                             tick={{ fill: '#475569', fontSize: 9 }} 
-                            tickFormatter={(v) => v === 0 ? '' : v} 
+                            tickFormatter={(v) => v === minScore ? '' : v} 
                             axisLine={false} 
                         />
 

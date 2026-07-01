@@ -5,7 +5,7 @@ import {
     ResponsiveContainer, LabelList
 } from "recharts";
 
-export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit: _unit = '%', maxScore: _maxScore = 100 }) {
+export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit = '%', maxScore = 100 }) {
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;
@@ -119,9 +119,9 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                                             </span>
                                                             <span className="text-[11px] font-black text-red-300">{d.erros}</span>
                                                         </div>
-                                                        <div className="flex justify-between items-center gap-4 pt-1 border-t border-white/5">
-                                                            <span className="text-[9px] text-slate-500 uppercase font-bold">Aproveitamento</span>
-                                                            <span className="text-[11px] font-black text-white">{rendPct}%</span>
+                                                        <div className="flex justify-between items-center gap-4 mb-2">
+                                                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Rendimento</span>
+                                                            <span className="text-[11px] font-black text-white">{rendPct}{unit}</span>
                                                         </div>
                                                     </div>
                                                 </div>
