@@ -1161,6 +1161,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         // CORREÇÃO: Se a data não fizer sentido estatístico, assume-se tempo presente (0 dias)
         // para que a nota seja contabilizada de forma neutra em vez de ser aniquilada por NaNs.
         const safeEntryTime = Number.isFinite(entryTime) && entryTime > 0 ? entryTime : todayForTopics.getTime();
+        const entryDate = new Date(safeEntryTime);
         
         const daysOld = Math.max(0, (todayForTopics.getTime() - safeEntryTime) / (1000 * 60 * 60 * 24));
         const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));
