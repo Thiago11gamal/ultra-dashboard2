@@ -28,7 +28,7 @@ import { useAuth } from '../context/useAuth';
 import './Sidebar.css';
 import { del } from 'idb-keyval';
 import { useAppStore } from '../store/useAppStore';
-import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
+import { getContestDisplayName } from './sidebarUtils';
 
 const SECTIONS = [
     {
