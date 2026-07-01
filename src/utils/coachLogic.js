@@ -543,6 +543,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         mssdVolatility,
         mcProbability,
         mcHasData,
+        mcResult,
         maxScore,
         globalProjectedMean
     } = metrics;
