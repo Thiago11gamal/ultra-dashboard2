@@ -10,6 +10,20 @@ import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
 import DueForecast from './DueForecast';
 
+// FIX 1.1: Mapa estático de cores para evitar que o Tailwind purge elimine classes geradas dinamicamente via .replace()
+const TAILWIND_COLOR_MAP = {
+    'text-green-400':  { bg20: 'bg-green-400/20',  bar: 'bg-green-400',  shadow: 'shadow-green-400/30',  bgSolid: 'bg-green-500' },
+    'text-red-400':    { bg20: 'bg-red-400/20',    bar: 'bg-red-400',    shadow: 'shadow-red-400/30',    bgSolid: 'bg-red-500' },
+    'text-blue-400':   { bg20: 'bg-blue-400/20',   bar: 'bg-blue-400',   shadow: 'shadow-blue-400/30',   bgSolid: 'bg-blue-500' },
+    'text-violet-400': { bg20: 'bg-violet-400/20', bar: 'bg-violet-400', shadow: 'shadow-violet-400/30', bgSolid: 'bg-violet-500' },
+    'text-orange-400': { bg20: 'bg-orange-400/20', bar: 'bg-orange-400', shadow: 'shadow-orange-400/30', bgSolid: 'bg-orange-500' },
+    'text-slate-400':  { bg20: 'bg-slate-400/20',  bar: 'bg-slate-400',  shadow: 'shadow-slate-400/30',  bgSolid: 'bg-slate-500' },
+};
+const getColorClasses = (textColor) => TAILWIND_COLOR_MAP[textColor] || TAILWIND_COLOR_MAP['text-slate-400'];
+
+// FIX 1.4: Mapa unificado de prioridade de estados (usado para sorting E para mediana)
+const STATE_PRIORITY = { regression: 0, stagnation_negative: 1, unstable: 2, stagnation_neutral: 3, progression: 4, stagnation_positive: 5, mastery: 6 };
+
 const InfoTooltip = React.memo(({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
         <HelpCircle size={14} className="text-slate-600 hover:text-purple-400 transition-colors cursor-help" />
@@ -48,7 +62,7 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
             <div className="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
                 <div className="flex items-baseline gap-0.5">
-                    <span className="text-sm sm:text-base font-black text-slate-200">{targetScore ?? 90}</span>
+                    <span className="text-sm sm:text-base font-black text-slate-200">{targetScore ?? 70}</span>
                     <span className="text-[10px] text-slate-500 font-bold">%</span>
                 </div>
             </div>
@@ -85,7 +99,7 @@ const ConsistencyCard = React.memo(({ consistency }) => (
     <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${consistency.bgBorder}`}>
         <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded-lg border bg-opacity-20 ${consistency.color.replace('text-', 'bg-')}/20 ${consistency.bgBorder}`}>
+                <div className={`p-1.5 rounded-lg border bg-opacity-20 ${getColorClasses(consistency.color).bg20} ${consistency.bgBorder}`}>
                     <Activity size={18} className={consistency.color} />
                 </div>
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
@@ -100,14 +114,14 @@ const ConsistencyCard = React.memo(({ consistency }) => (
             <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
                 <span className={`text-sm font-black ${consistency.status !== 'Dados Insuficientes' ? consistency.color : 'text-slate-500'}`}>
-                    {consistency.status !== 'Dados Insuficientes' && !isNaN(parseFloat(consistency.sd)) ? `±${consistency.sd}%` : '---'}
+                    {consistency.status !== 'Dados Insuficientes' && !isNaN(parseFloat(consistency.sd)) ? `±${consistency.sd}` : '---'}
                 </span>
             </div>
             <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
                 <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
                     {consistency.status === 'Dados Insuficientes' ? 'Pendente' :
-                        (['EXCELENTE', 'EM EVOLUÇÃO'].includes(consistency.status) ? 'Alta Estabilidade' :
+                        (['EXCELENTE', 'EM EVOLUÇÃO', 'DOMÍNIO'].includes(consistency.status) ? 'Alta Estabilidade' :
                             (['EM QUEDA', 'INSTÁVEL'].includes(consistency.status) ? 'Alta Variação' : 'Variação Média'))}
                 </span>
             </div>
@@ -128,13 +142,15 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const deltaNum = Number.isFinite(parseFloat(cat.delta)) ? parseFloat(cat.delta) : 0;
     const safeColor = typeof cat.color === 'string' ? cat.color : 'text-slate-400';
     const safeBgBorder = typeof cat.bgBorder === 'string' ? cat.bgBorder : 'border-slate-500/30';
-    const sdBarColor = safeColor.replace('text-', 'bg-');
-    const sdBarGlow = safeColor.replace('text-', 'shadow-') + '/30';
+    // FIX 1.1: Usar mapa estático em vez de .replace() dinâmico (Tailwind purge-safe)
+    const colorClasses = getColorClasses(safeColor);
+    const sdBarColor = colorClasses.bar;
+    const sdBarGlow = colorClasses.shadow;
 
     return (
         <div className={`grid grid-cols-[1fr_auto_100px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] overflow-hidden ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
             <div className="col-span-1 md:col-span-3 flex items-center gap-2 min-w-0">
-                <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${safeBgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
+                <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${getColorClasses(safeColor).bgSolid}`} />
                 <span className="text-xs sm:text-sm font-bold text-slate-200 break-words line-clamp-2">{cat.name}</span>
             </div>
             <div className="flex justify-center md:col-span-2">
@@ -380,8 +396,10 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // 0. Aggregate by Day
         const dailyMap = {};
+        // FIX 1.3: Hoisted Intl.DateTimeFormat fora do loop para evitar centenas de instâncias por render
+        const dayFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit' });
         allHistory.forEach(h => {
-            const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(h.date)).split('/');
+            const parts = dayFormatter.format(new Date(h.date)).split('/');
             const dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
             if (!dailyMap[dateStr]) {
                 dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: h.date };
@@ -395,7 +413,8 @@ export default function VerifiedStats({ categories = [], user }) {
         const dailyHistory = Object.values(dailyMap)
             .map(d => ({ 
                 // BUG-01 FIX: Converte a string YYYY-MM-DD de volta para ms local para o motor (calculateSlope)
-                date: new Date(getDateKey(new Date(d.date)) + 'T12:00:00').getTime(), 
+                // FIX 2.3: Usar normalizeDate para evitar shift de dia por ambiguidade UTC/local
+                date: normalizeDate(getDateKey(new Date(d.date)))?.getTime() ?? d.date, 
                 score: d.scoreSum / d.weightSum,
                 weight: d.weightSum // BUG-01 FIX: Preservamos o volume para evitar Paradoxo de Simpson em médias posteriores
             }))
@@ -526,8 +545,8 @@ export default function VerifiedStats({ categories = [], user }) {
                             return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Manaus' });
                         };
 
-                        prediction = `${fmt(dateMin)} - ${fmt(dateMax)}`;
-                        predictionSubtext = `Previsão de alcance (${target}%)`;
+                        prediction = `${fmt(dateMin)} — ${fmt(dateMax)}`;
+                        predictionSubtext = `Previsão de alcance (${target}${maxScore === 100 ? '%' : ` de ${maxScore}`})`;  // FIX 1.5: Unidade dinâmica
                         predictionStatus = "good";
                     }
                 }
@@ -677,8 +696,8 @@ export default function VerifiedStats({ categories = [], user }) {
         });
 
         // Sort: Worst states first (regression > stagnation_negative > unstable > others)
-        const statePriority = { regression: 0, stagnation_negative: 1, unstable: 2, stagnation_neutral: 3, progression: 4, stagnation_positive: 5 };
-        categoryBreakdown.sort((a, b) => (statePriority[a.state] || 6) - (statePriority[b.state] || 6));
+        // FIX 1.4: Usar mapa unificado STATE_PRIORITY (inclui mastery)
+        categoryBreakdown.sort((a, b) => (STATE_PRIORITY[a.state] ?? 6) - (STATE_PRIORITY[b.state] ?? 6));
 
         // Consolidate for Global Card
         if (categoryAnalyses.length > 0) {
@@ -687,15 +706,12 @@ export default function VerifiedStats({ categories = [], user }) {
 
             // D-03 FIX: Usar MEDIANA dos estados em vez da pior matéria.
             // Antes, 1 matéria em queda deixava o card global vermelho mesmo com 4/5 indo bem.
-            const stateScores = {
-                regression: 0, stagnation_negative: 1, unstable: 2,
-                stagnation_neutral: 3, progression: 4, stagnation_positive: 5, mastery: 6
-            };
-            const stateValues = categoryBreakdown.map(c => stateScores[c.state] ?? 3);
+            // FIX 1.4: Usar STATE_PRIORITY unificado (constante extraída no topo do ficheiro)
+            const stateValues = categoryBreakdown.map(c => STATE_PRIORITY[c.state] ?? 3);
             stateValues.sort((a, b) => a - b);
             const medIdx = Math.floor(stateValues.length / 2);
             const medianValue = stateValues[medIdx];
-            const medianState = Object.entries(stateScores).find(([, v]) => v === medianValue)?.[0] || 'unstable';
+            const medianState = Object.entries(STATE_PRIORITY).find(([, v]) => v === medianValue)?.[0] || 'unstable';
             const uiState = stateMap[medianState] || stateMap.insufficient_data;
             const medianCat = categoryBreakdown.find(c => c.state === medianState) ?? categoryBreakdown[0];
 

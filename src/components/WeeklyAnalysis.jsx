@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BookOpen, Zap, Activity } from 'lucide-react';
-import { normalizeDate, formatDuration, getDateKey, formatDatePtBR } from '../utils/dateHelper';
+import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE } from '../utils/dateHelper';
 
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
@@ -44,7 +44,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             y.setDate(y.getDate() - 1);
             const yesterday = formatDatePtBR(y);
             let dayLabel = dateStr;
-            const rawWeekday = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Manaus', weekday: 'long' }).format(dateObj);
+            const rawWeekday = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, weekday: 'long' }).format(dateObj);
             const weekDayName = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1).split('-')[0];
 
             let isToday = false;
@@ -61,7 +61,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             }
 
             const uniqueDayKey = getDateKey(dateObj) || dateStr;
-            const manausDayStr = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Manaus', day: 'numeric' }).format(dateObj);
+            const manausDayStr = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, day: 'numeric' }).format(dateObj);
 
             if (!grouped[uniqueDayKey]) grouped[uniqueDayKey] = {
                 label: dayLabel,
@@ -185,8 +185,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
             {/* Timeline Content */}
             <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[34px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
-                {groups.map((dayGroup) => (
-                    <div key={dayGroup.dateObj.toISOString()} className="relative z-10">
+                {groups.map((dayGroup, idx) => (
+                    <div key={dayGroup.dateObj?.toISOString?.() ?? `day-${idx}`} className="relative z-10">
                         {/* Day Marker */}
                         <div className="absolute -left-[47px] sm:-left-[73px] top-0 flex flex-col items-center w-7 sm:w-14">
                             <div className={`w-7 h-7 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl flex flex-col items-center justify-center shadow-xl border-2 sm:border-4 ${dayGroup.isToday

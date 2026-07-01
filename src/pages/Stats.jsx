@@ -50,13 +50,18 @@ export default function Stats() {
                     </div>
                 </div>
 
-                <VerifiedStats categories={categories} user={user} />
+                {hasSimuladoHistory && <VerifiedStats categories={categories} user={user} />}
 
                 {!hasData ? (
-                    <div className="flex items-center justify-center min-h-[30vh]">
-                        <div className="text-center text-slate-400">
-                            <p className="font-bold uppercase tracking-wider text-xs">Aguardando dados</p>
-                            <p className="text-[11px] text-slate-500 mt-1">Registre horas de estudo ou simulados para gerar relatórios.</p>
+                    <div className="flex items-center justify-center min-h-[45vh] p-4">
+                        <div className="glass p-8 sm:p-12 text-center rounded-2xl border border-slate-800/80 bg-slate-900/50 shadow-2xl max-w-md w-full">
+                            <div className="text-5xl mb-4 opacity-80">📊</div>
+                            <p className="font-black uppercase tracking-wider text-sm text-slate-200 mb-2">
+                                Aguardando dados
+                            </p>
+                            <p className="text-xs text-slate-400 mb-0 leading-relaxed">
+                                Registe horas de estudo ou simulados para gerar relatórios e análises detalhadas.
+                            </p>
                         </div>
                     </div>
                 ) : (
