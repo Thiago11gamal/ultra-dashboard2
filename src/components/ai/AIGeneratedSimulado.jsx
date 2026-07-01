@@ -840,7 +840,7 @@ export default function AIGeneratedSimulado() {
     showToast(`Simulado finalizado! ${correctCount}/${total} acertos`, 'success');
 
     // reset flag (though component will unmount the playing logic)
-    setTimeout(() => { isFinishingRef.current = false; }, 0);
+    // Removed setTimeout to prevent race condition
   }, [answers, questions, saveAIResultsToSystem, showToast, timeLeft, setData]);  // BUG-9 FIX: removed step from deps (using stepRef now)
 
   // Timer effect (declared after handleFinish to avoid TDZ in deps)

@@ -153,8 +153,9 @@ export const SubtopicsPerformanceChart = React.memo(({
                     
                     const score = getSafeScore(t, maxScore);
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+                    const range = Math.max(1e-9, maxScore - minScore);
                     const correctCount = total > 0
-                        ? ((normalizedScore - minScore) / (maxScore - minScore)) * total
+                        ? ((normalizedScore - minScore) / range) * total
                         : (Number(t.correct) || 0);
 
                     topicMap[key].total += total;
@@ -215,8 +216,9 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                     const score = getSafeScore(t, maxScore);
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+                    const range = Math.max(1e-9, maxScore - minScore);
                     const correct = total > 0
-                        ? ((normalizedScore - minScore) / (maxScore - minScore)) * total
+                        ? ((normalizedScore - minScore) / range) * total
                         : (Number(t.correct) || 0);
 
                     const totKey = `${topicName}_total`;

@@ -53,7 +53,8 @@ export const mapRetentionData = (categories = []) => {
             // Assuntos consolidados (muitas questões ou alta precisão) esquecem mais devagar.
             const totalQ = toFiniteNumber(cat.simuladoStats?.totalQuestions, 0);
             const maxScore = Math.max(1, toFiniteNumber(cat.maxScore, 100));
-            const accuracy = cat.bayesianStats?.mean ? (toFiniteNumber(cat.bayesianStats.mean, 0) / maxScore) : 0;
+            const accuracyData = cat.bayesianStats?.mean || cat.simuladoStats?.average;
+            const accuracy = accuracyData ? (toFiniteNumber(accuracyData, 0) / maxScore) : 0;
             const qNorm = Math.max(0, Math.min(1, totalQ / 120));
             const accNorm = Math.max(0, Math.min(1, (accuracy - 0.5) / 0.4));
             const masterySignal = (0.6 * qNorm) + (0.4 * accNorm);

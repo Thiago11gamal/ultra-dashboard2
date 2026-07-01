@@ -588,7 +588,7 @@ export default function EvolutionChart({
             const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
                 .filter(h => {
                     if (!h || !h.date) return false;
-                    const d = new Date(h.date).getTime();
+                    const d = toDateMs(h.date);
                     return !Number.isNaN(d) && (nowMs - d) >= 0 && (nowMs - d) <= sevenDaysMs;
                 })
                 .reduce((sum, h) => {

@@ -311,11 +311,11 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 let raw = Number(h.correct) || 0;
                 let corrNorm;
                 const score = getSafeScore(h, maxScore);
-                if (h.isPercentage && h.score != null && tot === 0) {
+                if (h.score != null && tot === 0) {
                     // BUG 4 FIX: No heatmap, não injetamos volume sintético para não sujar o visual
                     // de questões totais, mas mostramos a cor/porcentagem calculada.
                     tot = 1; // Volume mínimo para exibir a cor
-                    corrNorm = Math.round((score / maxScore) * tot);
+                    corrNorm = score / maxScore; // Sem Math.round para preservar a exatidão (ex: 0.75 -> 75%)
                 } else {
                     corrNorm = tot > 0 ? Math.round((score / maxScore) * tot) : raw;
                 }
