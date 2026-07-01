@@ -415,16 +415,17 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             Dados do Simulado
                         </h3>
                         <div className="flex gap-2">
-                            <button onClick={addTenToAllCorrect} title="+10 Acertos"
-                                className="text-[10px] font-black bg-green-500/10 text-green-400 hover:bg-green-500/20 px-2 py-1 rounded-lg border border-green-500/20 transition-all hover:scale-105 active:scale-95">
-                                +10 ✓
+                            <button onClick={addTenToAllCorrect} title="Adicionar +10 acertos a todas as matérias"
+                                className="text-[11px] font-bold bg-emerald-500/15 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 px-3 py-1.5 rounded-lg border border-emerald-500/20 hover:border-emerald-400 transition-all hover:scale-[1.03] active:scale-95 shadow-sm flex items-center gap-1">
+                                <span>+10</span>
+                                <span className="font-extrabold text-[10px]">✓</span>
                             </button>
-                            <button onClick={addTenToAll} title="+10 Total"
-                                className="text-[10px] font-black text-slate-300 hover:text-white bg-transparent hover:bg-white/10 px-2 py-1 rounded-lg border border-slate-500 hover:border-slate-300 shadow-sm transition-all hover:scale-105 active:scale-95">
+                            <button onClick={addTenToAll} title="Adicionar +10 questões no total a todas as matérias"
+                                className="text-[11px] font-bold bg-blue-500/15 hover:bg-blue-500 text-blue-400 hover:text-slate-950 px-3 py-1.5 rounded-lg border border-blue-500/20 hover:border-blue-400 transition-all hover:scale-[1.03] active:scale-95 shadow-sm">
                                 +10 Total
                             </button>
-                            <button onClick={resetScores}
-                                className="text-[10px] text-slate-500 hover:text-yellow-400 transition-colors px-2 py-1 rounded-lg hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20">
+                            <button onClick={resetScores} title="Limpar acertos e totais"
+                                className="text-[11px] font-bold bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white px-3 py-1.5 rounded-lg border border-rose-500/20 hover:border-rose-400 transition-all hover:scale-[1.03] active:scale-95">
                                 Zerar
                             </button>
                         </div>
