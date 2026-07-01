@@ -40,9 +40,14 @@ export function TimeSpentChart({ subjectAggData, showOnlyFocus, focusCategory })
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0 mt-6">
             <div className="flex items-center justify-between mb-3 sm:mb-5 min-w-0">
                 <div className="min-w-0 flex-1">
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 flex items-center gap-1.5">
-                        <Clock size={12} className="text-cyan-400" /> Agilidade AI
-                    </p>
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                            <Clock size={12} className="text-cyan-400" /> Agilidade AI
+                        </p>
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-wider">
+                            Apenas Simulado IA
+                        </span>
+                    </div>
                     <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
                         ⏳ {showOnlyFocus ? `Tempo Médio por Questão — ${focusCategory?.name}` : "Tempo Médio por Matéria (Mais Lentas)"}
                     </h3>

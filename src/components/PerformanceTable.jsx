@@ -49,7 +49,7 @@ const PerformanceTable = ({ categories = [] }) => {
                             <th className="p-5 text-center w-28 md:w-32"><div className="flex items-center justify-center gap-2"><Hash size={12} className="text-slate-600" /> Volume</div></th>
                             <th className="p-5 text-center w-32 md:w-40"><div className="flex items-center justify-center gap-2"><Target size={12} className="text-slate-600" /> Desempenho</div></th>
                             <th className="p-5 text-center w-32 md:w-36 border-l border-white/5"><div className="flex items-center justify-center gap-2"><Wallet size={12} className="text-slate-600" /> Saldo</div></th>
-                            <th className="p-5 text-center w-24 md:w-28">Taxa</th>
+                            <th className="p-5 text-center w-24 md:w-28">Acertos%</th>
                             <th className="p-5 text-center w-24 md:w-28 lg:w-32 rounded-tr-xl border-l border-white/5">Tendência</th>
                         </tr>
                     </thead>
