@@ -164,7 +164,19 @@ export function deriveBacktestWeights(scores = [], maxScore = 100) {
   const rankQuality = scores.filter(s => s >= (maxScore * 0.7)).length / n;
   const instabilityWeight = Math.max(0.8, Math.min(1.25, 1 - rankQuality * 0.15 + (uplift < 0 ? 0.15 : -0.05)));
 
-  return { scoreWeight, recencyWeight, instabilityWeight, rankQuality, uplift };
+  const weighted = scores.map((_, i) => Math.exp(-0.015 * (n - i)));
+  const sumW = kahanSum(weighted);
+  const sumW2 = kahanSum(weighted.map(w => w * w));
+  const effectiveN = sumW2 > 1e-9 ? (sumW * sumW) / sumW2 : scores.length;
+
+  return { 
+      scoreWeight, 
+      recencyWeight, 
+      instabilityWeight, 
+      rankQuality, 
+      uplift,
+      effectiveN: Number(effectiveN.toFixed(2))
+  };
 }
 
 /**
@@ -447,13 +459,14 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         const ciLow = Number(result.ci95Low) || 0;
         const ciHigh = Number(result.ci95High) || 0;
         const ciMid = (ciLow + ciHigh) / 2;
-        const ciExpand = isLowSample ? (1 + extraLowSampleShrink * 1.8) : 1;
+        const ciExpand = isLowSample ? (1 + Math.max(0, extraLowSampleShrink * 1.8)) : 1;
         const widenedCiLow = Math.max(0, ciMid - ((ciMid - ciLow) * ciExpand));
         const widenedCiHigh = Math.min(maxScore, ciMid + ((ciHigh - ciMid) * ciExpand));
 
         const conformal = conformalizedCalibrationInterval(stackedProb01, predObsPairs, 0.1);
 
         const finalResult = {
+            diagnostics: result?.diagnostics || null,
             probability: adjustedProbability,
             volatility: (Number(result.volatility) || 0) * (1 + (enableAdaptiveCalibration ? calibrationPenalty * 0.8 : 0)),
             mean: result.mean,

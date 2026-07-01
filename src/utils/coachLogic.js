@@ -586,7 +586,13 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
 
     let mcUrgencyBoost = 0;
     let mcRiskLabel = null;
-    const adaptiveRisk = deriveAdaptiveRiskThresholds(lastNScores, mssdVolatility, cfg, maxScore);
+    const adaptiveRisk = deriveAdaptiveRiskThresholds(
+        lastNScores, 
+        mssdVolatility, 
+        cfg, 
+        maxScore, 
+        mcResult?.predObsPairs || []
+    );
 
     if (mcHasData && mcProbability !== null) {
         const continuous = computeContinuousMcBoost(
@@ -901,6 +907,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 effectiveMCDays: Number(effectiveMCDays),
                 // From global MC stats when provided by Coach page (better integration)
                 globalProjectedMean: globalProjectedMean != null ? Number(globalProjectedMean.toFixed(1)) : null,
+                diagnostics: mcResult?.diagnostics || null,
                 ci95Low: Number(mcResult.ci95Low.toFixed(2)),
                 ci95High: Number(mcResult.ci95High.toFixed(2)),
                 urgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
@@ -1080,11 +1087,11 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     let historyVolume = 0; // Novo marcador de entropia
     if (simulados.length > 0) {
         const lastSim = simulados.reduce((latest, current) => {
-            const latestTime = new Date(latest.date || latest.createdAt || 0).getTime();
-            const currTime = new Date(current.date || current.createdAt || 0).getTime();
+            const latestTime = (normalizeDate(latest.date || latest.createdAt) || new Date(0)).getTime();
+            const currTime = (normalizeDate(current.date || current.createdAt) || new Date(0)).getTime();
             return currTime > latestTime ? current : latest;
         }, simulados[0]);
-        lastSimTimestamp = new Date(lastSim.date || lastSim.createdAt || 0).getTime();
+        lastSimTimestamp = (normalizeDate(lastSim.date || lastSim.createdAt) || new Date(0)).getTime();
         historyVolume = simulados.length;
     }
 
@@ -1146,8 +1153,8 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
     // CORREÇÃO: Aplicar blindagem temporal ao motor de ordenação (sort).
     // Impede o colapso estrutural da lista se uma data do servidor vier ilegível.
     const sortedTopicsHistory = [...history].sort((a, b) => {
-        const timeA = new Date(a.date || a.createdAt || 0).getTime();
-        const timeB = new Date(b.date || b.createdAt || 0).getTime();
+        const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
+        const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
         return (Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0);
     });
 
@@ -1155,7 +1162,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         if (!entry) return;
         let entryTime = todayForTopics.getTime();
         if (entry.date || entry.createdAt) {
-            entryTime = new Date(entry.date || entry.createdAt).getTime();
+            entryTime = (normalizeDate(entry.date || entry.createdAt) || new Date(0)).getTime();
         }
         
         // CORREÇÃO: Se a data não fizer sentido estatístico, assume-se tempo presente (0 dias)
