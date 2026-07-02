@@ -1478,7 +1478,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         });
         const avgSeconds = totalTimedQuestions > 0 ? Math.round(totalTimeSpent / totalTimedQuestions) : 0;
         const targetSeconds = 120; // Meta fixa de 2 minutos por questão (pode ser ajustada por dificuldade depois)
-        const isAgilityProblem = (avgSeconds > targetSeconds + 30) && (cat.urgency?.details?.averageScore >= 75); 
+        // BUG FIX: averageScore was raw score. We must use normalizedScore to properly check if the user is > 75% accuracy!
+        const isAgilityProblem = (avgSeconds > targetSeconds + 30) && (cat.urgency?.normalizedScore >= 75); 
 
         if (isAgilityProblem) {
             allGeneratedTasks.push({
