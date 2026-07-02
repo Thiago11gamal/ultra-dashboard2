@@ -139,6 +139,7 @@ export function TodayVsGeneralChart({
             month6: { correct: 0, total: 0 }
         };
 
+        // eslint-disable-next-line react-hooks/purity
         const now = Date.now();
         const todayKey = getDateKey(new Date());
         const ms1Week = 7 * 24 * 60 * 60 * 1000;
@@ -206,6 +207,21 @@ export function TodayVsGeneralChart({
         ];
     }, [activeCategories, maxScore]);
 
+    const lastMetric = temporalMetrics.find(t => t.id === 'last');
+    const latestAcc = lastMetric?.val ?? null;
+
+    const chartData = useMemo(() => {
+        if (!dailyData || dailyData.length === 0) return [];
+        const data = dailyData.map(d => ({ ...d }));
+        if (latestAcc !== null) {
+            const lastIdx = data.length - 1;
+            const prevAcc = data.length > 1 ? data[lastIdx - 1].accuracy : data[0].accuracy;
+            data[lastIdx].lastTestAcc = latestAcc;
+            data[lastIdx].lastTestColor = latestAcc < prevAcc ? COLORS.gaugeFillDanger : COLORS.gaugeFillValid;
+        }
+        return data;
+    }, [dailyData, latestAcc]);
+
     if (!dailyData || dailyData.length === 0) {
         return (
             <div className="h-[300px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
@@ -221,25 +237,10 @@ export function TodayVsGeneralChart({
     const isPositive = delta >= 0;
 
     const todayMetric = temporalMetrics.find(t => t.id === 'today');
-    const lastMetric = temporalMetrics.find(t => t.id === 'last');
-    
     const todayAcc = todayMetric?.val ?? null;
-    const latestAcc = lastMetric?.val ?? null;
 
     const deltaLastVsToday = (latestAcc != null && todayAcc != null) ? latestAcc - todayAcc : null;
     const isLastPositive = deltaLastVsToday >= 0;
-
-    const chartData = useMemo(() => {
-        if (!dailyData || dailyData.length === 0) return [];
-        const data = dailyData.map(d => ({ ...d }));
-        if (latestAcc !== null) {
-            const lastIdx = data.length - 1;
-            const prevAcc = data.length > 1 ? data[lastIdx - 1].accuracy : data[0].accuracy;
-            data[lastIdx].lastTestAcc = latestAcc;
-            data[lastIdx].lastTestColor = latestAcc < prevAcc ? COLORS.gaugeFillDanger : COLORS.gaugeFillValid;
-        }
-        return data;
-    }, [dailyData, latestAcc]);
 
     const getColor = (val) => {
         if (val == null) return 'transparent';
