@@ -27,6 +27,7 @@ import { SubtopicsPerformanceChart } from "./charts/EvolutionChart/SubtopicsPerf
 import { MonteCarloEvolutionChart } from "./charts/EvolutionChart/MonteCarloEvolutionChart";
 import { WeeklyEvolutionView } from "./charts/EvolutionChart/WeeklyEvolutionView";
 import { TimeSpentChart } from "./charts/EvolutionChart/TimeSpentChart";
+import { TodayVsGeneralChart } from "./charts/EvolutionChart/TodayVsGeneralChart";
 
 const EMPTY_ARRAY = [];
 
@@ -89,6 +90,10 @@ const ENGINES = [
     {
         id: "weekly_diff", label: "Semanal", emoji: "📆", color: "#10b981", prefix: null, style: "linear",
         explain: { titulo: "Acelerômetro Semanal de Desempenho", simples: "Calcula a tração do seu estudo comparando diretamente os ganhos ou perdas (delta) da semana atual em relação à semana imediatamente anterior.", dica: "Aviso Antecipado: Semanas com deltas negativos acentuados alertam para esquecimento (curva do esquecimento). Revise a teoria destas disciplinas antes que a perda se torne definitiva." },
+    },
+    {
+        id: "today_vs_general", label: "Hoje vs Geral", emoji: "⚖️", color: "#a855f7", prefix: null, style: "linear",
+        explain: { titulo: "Comparativo Diário vs. Histórico Geral", simples: "Analise seu desempenho de hoje em relação à sua média geral de estudos.", dica: "Use esta visão para calibrar seu foco diário." },
     },
     {
         id: "time_spent", label: "Agilidade AI", emoji: "⏳", color: "#06b6d4", prefix: null, style: "linear",
@@ -820,6 +825,7 @@ export default function EvolutionChart({
                 ) : activeEngine === "time_spent" ? (
                     <TimeSpentChart 
                         subjectAggData={subjectAggData} 
+                        activeCategories={activeCategories}
                         showOnlyFocus={showOnlyFocus}
                         focusCategory={focusCategory}
                     />
@@ -837,6 +843,14 @@ export default function EvolutionChart({
                         studyLogs={studyLogs}
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
+                        maxScore={maxScore}
+                        unit={unit}
+                    />
+                ) : activeEngine === "today_vs_general" ? (
+                    <TodayVsGeneralChart
+                        activeCategories={activeCategories}
+                        globalMetrics={globalMetrics}
+                        targetScore={targetScore}
                         maxScore={maxScore}
                         unit={unit}
                     />
