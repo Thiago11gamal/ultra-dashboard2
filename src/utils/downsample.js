@@ -1,3 +1,5 @@
+import { toDateMs } from './dateHelper';
+
 /**
  * Downsamples data using Largest Triangle Three Buckets (LTTB)
  * @param {Array} data - Array of objects
@@ -13,7 +15,7 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
     const getX = (item) => {
         const val = item[xKey];
         if (typeof val === "string" && val.includes("-")) {
-            return new Date(val).getTime();
+            return toDateMs(val);
         }
         return Number(val) || 0;
     };

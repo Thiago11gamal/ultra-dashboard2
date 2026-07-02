@@ -1,5 +1,7 @@
+import { normalizeDate } from './dateHelper';
+
 export function getMondayKey(rawKey = '') {
-  const dt = /^\d{4}-\d{2}-\d{2}$/.test(rawKey) ? new Date(`${rawKey}T12:00:00`) : new Date(rawKey);
+  const dt = normalizeDate(rawKey) || new Date(0);
   if (Number.isNaN(dt.getTime())) return `sem-${rawKey || 'na'}`;
   const day = dt.getDay();
   const diff = dt.getDate() - day + (day === 0 ? -6 : 1);

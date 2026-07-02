@@ -1,3 +1,5 @@
+import { toDateMs } from './dateHelper';
+
 export function computeTopRegressions({ viewMode, chartData = [], keys = [], activeKeys = {}, hiddenKeys = {} }) {
   if (viewMode !== 'variation' || !Array.isArray(chartData) || chartData.length === 0) return [];
   const latestWeekWithDelta = [...chartData].reverse().find(point =>
@@ -42,7 +44,7 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
     let lastTime = null;
 
     windowData.forEach((week) => {
-      const currentTime = new Date(week.week + 'T12:00:00').getTime();
+      const currentTime = toDateMs(week.week);
       const deltaT = lastTime ? Math.max(1, (currentTime - lastTime) / 86400000) : 1;
       
       const alpha = 1 - Math.pow(1 - alphaBase, deltaT);
