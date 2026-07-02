@@ -77,20 +77,22 @@ function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, summary =
         // que por sua vez altera a projeção, disparando novo salvamento.
         if (snapshot.date === todayKey) return;
 
-        const snapTime = new Date(snapshot.date).getTime();
+        // DATE FIX: Usar normalizeDate para evitar que strings "YYYY-MM-DD" percam
+        // um dia inteiro por causa do timezone offset (UTC 00:00 = 20:00 do dia anterior).
+        const snapTime = normalizeDate(snapshot.date)?.getTime() || NaN;
         if (isNaN(snapTime)) return;
         
         // BUG-AUDIT-11 & CALIBRATION-HORIZON FIX: 
         // A validação (actual) não pode ser o dia seguinte. Tem de ser o score alcançado na data alvo (targetDate), 
         // ou a nota mais próxima do fim do horizonte de projeção disponível.
-        const targetTime = snapshot.targetDate ? new Date(snapshot.targetDate).getTime() : null;
+        const targetTime = snapshot.targetDate ? normalizeDate(snapshot.targetDate)?.getTime() : null;
         
         let actual = null;
         if (targetTime && !isNaN(targetTime)) {
             // Busca a nota mais próxima do horizonte (targetDate) para validar a previsão de longo prazo
             let minDiff = Infinity;
             globalHistory.forEach(h => {
-                const hTime = new Date(h.date).getTime();
+                const hTime = normalizeDate(h.date)?.getTime() || NaN;
                 if (hTime > snapTime) {
                     const diff = Math.abs(hTime - targetTime);
                     if (diff < minDiff) {
@@ -102,7 +104,7 @@ function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, summary =
         } else {
             // Fallback: Se não há targetDate, usamos a nota mais RECENTE do histórico (último dado disponível)
             // em vez da primeira nota após o snapshot, para respeitar o conceito de horizonte de proficiência.
-            actual = [...globalHistory].reverse().find(h => new Date(h.date).getTime() > snapTime);
+            actual = [...globalHistory].reverse().find(h => (normalizeDate(h.date)?.getTime() || NaN) > snapTime);
         }
 
         if (!actual) return;
