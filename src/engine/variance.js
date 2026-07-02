@@ -242,11 +242,14 @@ export function estimateInterSubjectCorrelation(
     const overlaps = pairwise.map(p => p.n);
     const avgOverlap = kahanSum(overlaps) / overlaps.length;
     const essPairs = computeEffectiveSampleSizeFromWeights(pairwise.map(p => Math.max(1, p.n - 3)));
-    // Shrinkage empírico-bayesiano: usa overlap médio e ESS para evitar overfit em poucos pares.
+    
+    // Shrinkage empírico-bayesiano
     const shrink = Math.max(0, Math.min(1, (avgOverlap / (avgOverlap + 10)) * (essPairs / (essPairs + 6))));
     const blended = (shrink * empirical) + ((1 - shrink) * fallback);
 
-    return Math.max(-1, Math.min(1, blended));
+    // PATCH: Limite inferior blindado (-0.15) para garantir estabilidade da Matriz PSD.
+    // Impede falhas matemáticas no motor de Monte Carlo se duas matérias divergirem radicalmente.
+    return Math.max(-0.15, Math.min(0.85, blended));
 }
 
 /**

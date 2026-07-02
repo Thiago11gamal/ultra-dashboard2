@@ -18,6 +18,9 @@ import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
 import { kahanSum } from '../engine/math/kahan.js';
 export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights, clearMcCache, runCoachMonteCarlo };
 
+// LRU Cache for urgency calculations
+const _urgencyCache = new Map();
+
 const sanitizeMinutes = (mins) => Math.min(720, Math.max(0, Number(mins) || 0));
 
 
@@ -963,6 +966,18 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
 
 export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {
     try {
+        const catId = category?.id || 'unknown';
+        const simCount = simulados.length;
+        const logCount = studyLogs.length;
+        // Entropia temporal: Invalida o cache a cada novo dia ou mudança de volume
+        const todayStr = new Date().toISOString().slice(0, 10);
+        
+        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${todayStr}`;
+        
+        if (_urgencyCache.has(cacheKey)) {
+            return _urgencyCache.get(cacheKey);
+        }
+
         const metrics = extractMetrics(category, simulados, studyLogs, options);
         const scoreInfo = calculateUrgencyScore(metrics, options);
         const result = generateCoachStrings(scoreInfo.weightedRaw, scoreInfo.normalized, metrics, scoreInfo, options);
@@ -971,14 +986,22 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             try { options.logger({ categoryId: metrics.categoryId, name: metrics.safeCategory?.name, urgency: result }); } catch { /* ignore */ }
         }
 
+        // Prevenção de OOM (Out Of Memory) no navegador do aluno
+        if (_urgencyCache.size > 80) {
+            const oldestKey = _urgencyCache.keys().next().value;
+            _urgencyCache.delete(oldestKey);
+        }
+        
+        _urgencyCache.set(cacheKey, result);
         return result;
+        
     } catch (err) {
         console.error("[CoachLogic] Critical error in calculateUrgency:", err);
         return {
             score: 0,
             normalizedScore: 0,
             recommendation: "Erro no cálculo: " + err.message,
-            details: { hasData: false, daysSinceLastStudy: 0, error: err.message, stack: err.stack, humanReadable: { "Status": "Erro" } }
+            details: { hasData: false, daysSinceLastStudy: 0, error: err.message, humanReadable: { "Status": "Erro" } }
         };
     }
 };
