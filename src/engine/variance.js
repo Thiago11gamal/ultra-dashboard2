@@ -291,7 +291,7 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
     const getDateStr = (h) => {
         const d = h.date || h.createdAt;
         if (!d) return null;
-        try { return new Date(d).toISOString().split('T')[0]; } catch(e) { return null; }
+        try { return new Date(d).toISOString().split('T')[0]; } catch { return null; }
     };
 
     const mapA = new Map();

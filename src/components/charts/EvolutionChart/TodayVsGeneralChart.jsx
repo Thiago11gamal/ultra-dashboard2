@@ -16,6 +16,23 @@ const COLORS = {
     neonLine: '#c084fc',   // purple-400
 };
 
+const CustomTooltipTimeline = ({ active, payload, unit }) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        return (
+            <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl">
+                <p className="text-slate-300 text-xs font-bold mb-1">{data.displayDate}</p>
+                <p className="text-white text-sm font-black flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.neonLine }}></span>
+                    Média: {data.accuracy.toFixed(1)}{unit}
+                </p>
+                <p className="text-slate-500 text-[10px] mt-1 uppercase tracking-wider">{data.total} questões</p>
+            </div>
+        );
+    }
+    return null;
+};
+
 export function TodayVsGeneralChart({ 
     activeCategories = [], 
     globalMetrics = {}, 
@@ -103,22 +120,7 @@ export function TodayVsGeneralChart({
     if (focusAccuracy >= targetScore) gaugeColor = COLORS.gaugeFillSuccess; // Verde se bateu a meta absoluta
     else if (focusAccuracy < generalAccuracy - (5 * scale)) gaugeColor = COLORS.gaugeFillDanger; // Vermelho se muito abaixo do normal
 
-    const CustomTooltipTimeline = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            const data = payload[0].payload;
-            return (
-                <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl">
-                    <p className="text-slate-300 text-xs font-bold mb-1">{data.displayDate}</p>
-                    <p className="text-white text-sm font-black flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.neonLine }}></span>
-                        Média: {data.accuracy.toFixed(1)}{unit}
-                    </p>
-                    <p className="text-slate-500 text-[10px] mt-1 uppercase tracking-wider">{data.total} questões</p>
-                </div>
-            );
-        }
-        return null;
-    };
+
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 w-full items-stretch relative min-h-[350px]">
@@ -227,7 +229,7 @@ export function TodayVsGeneralChart({
                                 axisLine={false} 
                                 tickFormatter={(v) => `${v}${unit === '%' ? '' : unit}`} 
                             />
-                            <Tooltip content={<CustomTooltipTimeline />} cursor={{ stroke: '#ffffff1a', strokeWidth: 2 }} />
+                            <Tooltip content={<CustomTooltipTimeline unit={unit} />} cursor={{ stroke: '#ffffff1a', strokeWidth: 2 }} />
                             
                             {/* Linha de Referência da Média Geral */}
                             <ReferenceLine 

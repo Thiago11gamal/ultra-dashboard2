@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
     computeCategoryStats
 } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
-import { getDateKey, normalizeDate, toDateMs } from "../utils/dateHelper";
+import { getDateKey, toDateMs } from "../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";

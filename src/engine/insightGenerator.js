@@ -7,8 +7,7 @@ export function generateEvolutionInsights({
     activeEngine,
     categories,
     unit = '%',
-    maxScore = 100,
-    minScore = 0
+    maxScore = 100
 }) {
     const defaultTitle = "Análise do Sistema";
 
@@ -85,7 +84,6 @@ export function generateEvolutionInsights({
         if (scores.length < 2) return { type: 'info', icon: "📊", title: "Análise de Volatilidade", text: `Nota: ${raw.toFixed(1)}${unit}.` };
 
         const recentScores = scores.slice(-5);
-        const avg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
         const maxSwing = Math.max(...recentScores) - Math.min(...recentScores);
 
         if (maxSwing > 25 * scale) return { type: 'warning', icon: "⚠️", title: "Alta Volatilidade Detectada", text: `Variação de ${maxSwing.toFixed(0)}${unit}.`, advice: "Oscilações altas indicam 'chute' ou gaps de base." };

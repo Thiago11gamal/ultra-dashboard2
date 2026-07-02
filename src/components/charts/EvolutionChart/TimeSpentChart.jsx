@@ -4,7 +4,7 @@ import {
     ResponsiveContainer, LabelList, Cell
 } from "recharts";
 import { Clock } from 'lucide-react';
-import { getDateKey, toDateMs } from '../../../utils/dateHelper';
+import { toDateMs } from '../../../utils/dateHelper';
 import { getSyntheticTotal } from '../../../utils/scoreHelper';
 
 export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory }) {
@@ -69,7 +69,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             const displaySeconds = recentAvgSeconds !== null ? recentAvgSeconds : avgSeconds;
             const hasRecentData = recentAvgSeconds !== null;
             
-            const speedIcon = displaySeconds >= 150 ? '🐢' : displaySeconds <= 75 ? '⚡' : '⏱️';
             const formatTime = (s) => {
                 const m = Math.floor(s / 60);
                 const sec = s % 60;
@@ -77,7 +76,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             };
             
             const timeStr = formatTime(displaySeconds);
-            const qstSuffix = `(${d.timedQuestoes} qst)`;
             
             let deltaStr = "";
             let deltaSeconds = 0;
