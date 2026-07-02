@@ -12,6 +12,17 @@ import { useToast } from '../hooks/useToast';
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
+function renderBoldText(text) {
+    const safeText = String(text || '');
+    const parts = safeText.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+    return parts.map((part, idx) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={`bold-${idx}`} className="text-white font-black">{part.slice(2, -2)}</strong>;
+        }
+        return <React.Fragment key={`bold-${idx}`}>{part}</React.Fragment>;
+    });
+}
+
 function AICoachCard({ task, idx, onStartPomodoro }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const fullText = task.text || task.title || '';
@@ -19,36 +30,42 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     const hasDetails = separatorIndex !== -1;
 
     let subjectPart = hasDetails ? fullText.slice(0, separatorIndex) : fullText;
-    let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : 'Revisão Geral';
+    let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : '';
     subjectPart = subjectPart.replace(/Foco em /i, '').trim();
 
     let topicPart = '';
     const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
-    if (topicMatch) { topicPart = topicMatch[1]; actionPart = topicMatch[2].trim(); }
+    if (topicMatch) { 
+        topicPart = topicMatch[1].trim(); 
+        actionPart = topicMatch[2].trim(); 
+    }
 
     const truncateGrapheme = (text, max = 50) => {
         const chars = Array.from(text || '');
         return chars.length > max ? `${chars.slice(0, max - 3).join('')}…` : text;
     };
-    const displayAssunto = topicPart && topicPart.length > 3 ? topicPart : truncateGrapheme(actionPart, 50);
-    const displayMeta = topicPart ? actionPart : (actionPart !== 'Revisão Geral' ? actionPart : 'Foco em exercícios e revisão');
+    
+    const displayAssunto = topicPart || truncateGrapheme(actionPart || 'Revisão Recomendada', 50);
+    const displayMeta = topicPart ? actionPart : null;
 
     const CARD_COLORS = [
-        { accent: 'border-l-violet-500', dot: 'bg-violet-500', badge: 'bg-violet-500/10 text-violet-300' },
-        { accent: 'border-l-cyan-500', dot: 'bg-cyan-500', badge: 'bg-cyan-500/10 text-cyan-300' },
-        { accent: 'border-l-emerald-500', dot: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-300' },
-        { accent: 'border-l-rose-500', dot: 'bg-rose-500', badge: 'bg-rose-500/10 text-rose-300' },
-        { accent: 'border-l-amber-500', dot: 'bg-amber-500', badge: 'bg-amber-500/10 text-amber-300' },
+        { accent: 'border-l-violet-500', dot: 'bg-violet-500', badge: 'bg-violet-500/10 text-violet-300 border-violet-500/20', glow: 'from-violet-900/20', btnHover: 'hover:bg-violet-600 hover:text-white hover:border-violet-500 hover:shadow-[0_0_20px_-3px_rgba(139,92,246,0.4)]' },
+        { accent: 'border-l-cyan-500', dot: 'bg-cyan-500', badge: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20', glow: 'from-cyan-900/20', btnHover: 'hover:bg-cyan-600 hover:text-white hover:border-cyan-500 hover:shadow-[0_0_20px_-3px_rgba(6,182,212,0.4)]' },
+        { accent: 'border-l-emerald-500', dot: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20', glow: 'from-emerald-900/20', btnHover: 'hover:bg-emerald-600 hover:text-white hover:border-emerald-500 hover:shadow-[0_0_20px_-3px_rgba(16,185,129,0.4)]' },
+        { accent: 'border-l-rose-500', dot: 'bg-rose-500', badge: 'bg-rose-500/10 text-rose-300 border-rose-500/20', glow: 'from-rose-900/20', btnHover: 'hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_20px_-3px_rgba(244,63,94,0.4)]' },
+        { accent: 'border-l-amber-500', dot: 'bg-amber-500', badge: 'bg-amber-500/10 text-amber-300 border-amber-500/20', glow: 'from-amber-900/20', btnHover: 'hover:bg-amber-500 hover:text-amber-950 hover:border-amber-400 hover:shadow-[0_0_20px_-3px_rgba(245,158,11,0.4)]' },
     ];
     const col = CARD_COLORS[idx % CARD_COLORS.length];
 
     return (
         <div
-            className={`group relative flex flex-col p-6 sm:p-8 rounded-3xl bg-[#0a0c14] border border-white/[0.06] border-l-8 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-hidden shadow-xl`}
+            className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent} transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10`}
         >
-            <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-6 gap-4">
+            {/* Efeito Glassmorphism de Brilho no Fundo (Hover) */}
+            <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] via-[#0a0c14]/0 to-transparent ${col.glow}`} />
+            <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-5 gap-4">
                 <div className="flex flex-col items-start gap-2 min-w-0">
-                    <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border border-white/20 max-w-full overflow-hidden shrink-0`}>
+                    <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full overflow-hidden shrink-0`}>
                         <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
                         <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart)}</span>
                     </div>
@@ -58,69 +75,93 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                         e.stopPropagation();
                         onStartPomodoro(task);
                     }}
-                    className="w-10 h-10 shrink-0 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white transition-all shadow-xl"
+                    className={`shrink-0 flex items-center gap-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-slate-300 w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${col.btnHover}`}
                 >
-                    <Play size={14} fill="currentColor" />
+                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Iniciar</span>
+                    <Play size={13} fill="currentColor" className="transition-colors" />
                 </button>
             </div>
-            <div className="relative z-10 flex-1 mb-4">
-                <h3 className="text-lg sm:text-xl font-black text-white leading-[1.32] mb-2 tracking-tighter">
+            <div className="relative z-10 flex-1 mb-5">
+                <h3 className="text-[17px] sm:text-xl font-black text-white leading-[1.2] mb-1.5 tracking-tighter line-clamp-2">
                     {displayAssunto}
                 </h3>
-                <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed font-medium">{displayMeta}</p>
+                {displayMeta && (
+                    <div className="relative">
+                        <p className="text-[11px] sm:text-[12px] text-slate-400/80 leading-relaxed font-medium line-clamp-2 pr-2">{displayMeta}</p>
+                    </div>
+                )}
             </div>
 
             {/* Exposição Visual dos KPIs Matemáticos */}
             {task.analysis?.monteCarlo && (
-                <div className="relative z-10 grid grid-cols-2 gap-2 mb-4">
-                    <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-2.5 flex items-center justify-between">
-                        <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
-                        <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(task.analysis.monteCarlo.probability)}%</span>
+                <div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative overflow-hidden group/kpi hover:bg-white/[0.04] transition-colors">
+                        <div className="flex items-center justify-between z-10 relative">
+                            <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
+                            <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(task.analysis.monteCarlo.probability)}%</span>
+                        </div>
+                        <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
+                            <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, Math.max(0, task.analysis.monteCarlo.probability))}%` }} />
+                        </div>
                     </div>
-                    <div className={`border rounded-xl p-2.5 flex items-center justify-between ${task.analysis.monteCarlo.volatility > 8 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-slate-500/10 border-slate-500/20'}`}>
-                        <span className={`text-[9px] font-black tracking-widest uppercase ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
-                        <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{task.analysis.monteCarlo.volatility > 0 && task.analysis.monteCarlo.volatility < 0.5 ? '<1' : Math.round(task.analysis.monteCarlo.volatility)}</span>
+                    <div className={`bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative overflow-hidden group/kpi transition-colors hover:bg-white/[0.04]`}>
+                        <div className="flex items-center justify-between z-10 relative">
+                            <span className={`text-[9px] font-black tracking-widest uppercase ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
+                            <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{task.analysis.monteCarlo.volatility > 0 && task.analysis.monteCarlo.volatility < 0.5 ? '<1' : Math.round(task.analysis.monteCarlo.volatility)}</span>
+                        </div>
+                        <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
+                            <div className={`h-full rounded-full transition-all duration-1000 ${task.analysis.monteCarlo.volatility > 8 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (task.analysis.monteCarlo.volatility / 20) * 100))}%` }} />
+                        </div>
                     </div>
                 </div>
             )}
             {task.analysis && (
-                <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.06]">
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors py-1 leading-none w-full">
-                        <span className="inline-flex h-4 w-4 items-center justify-center shrink-0"><span className="h-2.5 w-2.5 rounded-full bg-violet-500/80" /></span>
-                        <span>Detalhes do Coach</span>
-                        <span className={`inline-flex h-4 w-4 items-center justify-center shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}><ChevronDown size={13} /></span>
+                <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.04]">
+                    <button 
+                        onClick={() => setIsExpanded(!isExpanded)} 
+                        className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-300 outline-none focus:outline-none ${isExpanded ? 'bg-white/[0.04] border-white/10' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'}`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                                <BrainCircuit size={12} className="text-indigo-400" />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Análise do Coach</span>
+                        </div>
+                        <ChevronDown size={14} className={`text-slate-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                     </button>
                     <AnimatePresence>
                         {isExpanded && (
-                            <motion.div 
+                            <Motion.div 
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
                                 className="overflow-hidden"
                             >
-                                <div className="pt-4 space-y-3">
-                                    <p className="text-[11px] text-slate-400 leading-relaxed bg-black/40 p-4 rounded-2xl border border-white/5 font-medium">{task.analysis.reason}</p>
+                                <div className="pt-3 pb-2 space-y-3">
+                                    <div className="text-[11px] sm:text-xs text-slate-300 leading-relaxed bg-[#06070a]/50 p-5 rounded-xl border border-white/[0.05] font-medium whitespace-pre-wrap shadow-inner font-mono tracking-tight">
+                                        {renderBoldText(task.analysis.reason)}
+                                    </div>
                                     {task.analysis.metrics && (
                                         <div className="flex flex-wrap gap-2 pt-1">
                                             {Object.entries(task.analysis.metrics).map(([key, value], idx) => (
-                                                <div key={`metric-${key}-${idx}`} className="bg-white/[0.03] border border-white/5 px-3 py-2 rounded-xl flex items-center gap-2">
-                                                    <span className="text-[9px] text-slate-600 uppercase tracking-widest font-black">{key}</span>
-                                                    <span className="text-[11px] font-mono text-slate-300 font-bold">{value}</span>
+                                                <div key={`metric-${key}-${idx}`} className="bg-white/[0.02] border border-white/5 px-3 py-2 rounded-xl flex flex-col gap-0.5">
+                                                    <span className="text-[8px] text-slate-500 uppercase tracking-widest font-black">{key}</span>
+                                                    <span className="text-[10px] font-mono text-slate-300 font-bold">{value}</span>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
                                     {task.analysis.monteCarlo?.calibrationPenalty >= 0.005 && (
-                                        <div className="mt-2 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
-                                            <Zap size={14} className="text-amber-400 mt-0.5 shrink-0" />
-                                            <p className="text-[10px] text-amber-300/90 leading-relaxed">
-                                                <span className="font-black text-amber-400 uppercase tracking-tighter mr-2">Ajuste de Calibração:</span> 
-                                                -{Math.max(1, Math.round((Number.isFinite(Number(task.analysis.monteCarlo.calibrationPenalty)) ? Number(task.analysis.monteCarlo.calibrationPenalty) : 0) * 100))}%
+                                        <div className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5">
+                                            <Zap size={12} className="text-amber-400 mt-0.5 shrink-0" />
+                                            <p className="text-[9px] text-amber-300/90 leading-relaxed uppercase tracking-widest">
+                                                <span className="font-black text-amber-400 mr-2">Ajuste de Calibração:</span> 
+                                                <span className="font-mono font-bold text-[10px]">-{Math.max(1, Math.round((Number.isFinite(Number(task.analysis.monteCarlo.calibrationPenalty)) ? Number(task.analysis.monteCarlo.calibrationPenalty) : 0) * 100))}%</span>
                                             </p>
                                         </div>
                                     )}
                                 </div>
-                            </motion.div>
+                            </Motion.div>
                         )}
                     </AnimatePresence>
                 </div>
@@ -247,26 +288,18 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('planner')}
-                                    className={`px-3.5 py-1 rounded-[10px] text-[9px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1 ${viewMode === 'planner' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'planner' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <LayoutGrid size={12} className="shrink-0" />
+                                    <LayoutGrid size={14} className="shrink-0" />
                                     Planner
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setViewMode('cards')}
-                                    className={`px-3.5 py-1 rounded-[10px] text-[9px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1 ${viewMode === 'cards' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <Sparkles size={12} className="shrink-0" />
-                                    Cards
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setViewMode('list')}
-                                    className={`px-3.5 py-1 rounded-[10px] text-[9px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1 ${viewMode === 'list' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
-                                >
-                                    <List size={12} className="shrink-0" />
-                                    Lista
+                                    <Sparkles size={14} className="shrink-0" />
+                                    Pendências
                                 </button>
                             </div>
                             
@@ -341,45 +374,75 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         {calibrationSummary.map(row => {
                             const op = calibrationOps[row.categoryId] || {};
                             return (
-                                <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-6 hover:bg-slate-800/60 transition-all duration-200">
-                                    <div className="flex justify-between items-start mb-5 gap-4">
-                                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                                            <div className={`w-2 h-2 shrink-0 rounded-full ${op.degraded ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                                            <p className="text-sm sm:text-[15px] text-white font-semibold tracking-tight truncate">{displaySubject(row.label)}</p>
-                                        </div>
-                                        <div className="shrink-0 flex flex-col items-end gap-1">
-                                            <div className={`px-2.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                                                {op.degraded ? 'Degradado' : 'Estável'}
-                                            </div>
-                                            <span className="text-[9px] font-mono text-slate-500">n={row.count}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="space-y-5">
-                                        <div>
-                                            <div className="flex justify-between text-[9px] mb-1.5 px-0.5">
-                                                <span className="text-slate-500 font-bold uppercase tracking-widest">Erro (Brier)</span>
-                                                <span className={`font-mono font-bold ${toFinite(row.avgBrier) > 0.18 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                    {toFinite(row.avgBrier).toFixed(3)}
-                                                </span>
-                                            </div>
-                                            <div className="h-1.5 bg-slate-800/60 rounded-full overflow-hidden">
-                                                <div className={`h-full transition-all duration-700 ${
-                                                    toFinite(row.avgBrier) >= 0.25 ? 'bg-rose-500' :
-                                                    toFinite(row.avgBrier) > 0.18 ? 'bg-amber-500' : 'bg-emerald-500'
-                                                }`} style={{ width: `${Math.min(100, (toFinite(row.avgBrier) / 0.35) * 100)}%` }} />
+                                <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between">
+                                    <div className="flex justify-between items-start gap-4 mb-4">
+                                        <div className="flex flex-col min-w-0 flex-1">
+                                            <p className="text-sm sm:text-[15px] text-white font-black tracking-tight truncate mb-1.5">
+                                                {displaySubject(row.label)}
+                                            </p>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-inner ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${op.degraded ? 'bg-rose-400' : 'bg-emerald-400'} animate-pulse shadow-[0_0_8px_currentColor]`} />
+                                                    {op.degraded ? 'Degradado' : 'Estável'}
+                                                </div>
+                                                <span className="text-[9px] font-mono text-slate-500 font-bold bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded-md">n={row.count}</span>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between p-3 rounded-xl bg-black/50 border border-white/[0.04]">
-                                            <div className="flex items-center gap-2">
-                                                <Zap size={14} className={toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400' : 'text-slate-500'} />
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Penalidade</span>
-                                            </div>
-                                            <span className={`text-xs font-mono font-bold ${toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400' : 'text-slate-400'}`}>
-                                                {toFinite(row.avgPenalty) > 0.001 ? `-${Math.round(toFinite(row.avgPenalty) * 100)}%` : '-'}
-                                            </span>
+                                        {/* Gráfico Radial Compacto */}
+                                        <div className="shrink-0 relative w-12 h-12 flex items-center justify-center">
+                                            {(() => {
+                                                const avgBrier = toFinite(row.avgBrier);
+                                                const brierPct = Math.min(100, (avgBrier / 0.35) * 100);
+                                                const radius = 14;
+                                                const circ = 2 * Math.PI * radius;
+                                                const offset = circ - (brierPct / 100) * circ;
+                                                const colorClass = avgBrier >= 0.25 ? 'text-rose-500' : (avgBrier > 0.18 ? 'text-amber-500' : 'text-emerald-500');
+                                                return (
+                                                    <>
+                                                        <svg className="w-full h-full -rotate-90 transform drop-shadow-md" viewBox="0 0 36 36">
+                                                            <circle cx="18" cy="18" r={radius} fill="none" className="stroke-black/40" strokeWidth="3" />
+                                                            <circle 
+                                                                cx="18" cy="18" r={radius} fill="none" 
+                                                                className={`stroke-current ${colorClass} transition-all duration-1000 ease-out`} 
+                                                                strokeWidth="3" 
+                                                                strokeDasharray={circ} 
+                                                                strokeDashoffset={offset}
+                                                                strokeLinecap="round" 
+                                                            />
+                                                        </svg>
+                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                            <span className={`text-[10px] font-black font-mono tracking-tighter ${colorClass}`}>
+                                                                {avgBrier.toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
+                                    </div>
+                                    
+                                    {/* Rodapé Compacto */}
+                                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.05] mt-auto">
+                                        <div className="group/tooltip relative flex items-center gap-1 cursor-help">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover/tooltip:text-slate-300 transition-colors border-b border-dashed border-slate-600">Desvio (Brier)</span>
+                                            {/* Tooltip */}
+                                            <div className="absolute bottom-full left-0 mb-2 w-48 p-2.5 bg-[#0a0c14] text-[10px] font-medium text-slate-300 rounded-lg shadow-2xl border border-white/10 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50">
+                                                <strong className="text-white font-black block mb-1">Score de Brier</strong>
+                                                Mede a precisão das projeções Monte Carlo. Quanto menor o valor (verde), mais assertivo está o motor.
+                                            </div>
+                                        </div>
+                                        
+                                        {(() => {
+                                            const pen = toFinite(row.avgPenalty);
+                                            if (pen <= 0.001) return null;
+                                            return (
+                                                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/20 bg-amber-500/10">
+                                                    <Zap size={10} className="text-amber-400" />
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">Pena: <span className="font-mono">-{Math.round(pen * 100)}%</span></span>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             );
