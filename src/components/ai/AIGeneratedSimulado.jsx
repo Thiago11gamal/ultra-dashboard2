@@ -692,6 +692,7 @@ export default function AIGeneratedSimulado() {
             const dayTotal = existing.topics.reduce((s, t) => s + (t.total || 0), 0);
             const dayCorrect = existing.topics.reduce((s, t) => s + (t.correct || 0), 0);
             const dayTimeSpent = existing.topics.reduce((s, t) => s + (Number(t.timeSpent) || 0), 0);
+            const dayTimedQuestoes = existing.topics.reduce((s, t) => s + (Number(t.timeSpent) > 0 ? (t.total || 0) : 0), 0);
 
             const prevWeight = (existing.difficulty || 1.0) * (existing.total || 0);
             const newWeight = numericDifficulty * total;
@@ -702,6 +703,7 @@ export default function AIGeneratedSimulado() {
             existing.score = dayTotal > 0 ? Math.min(catMaxScore, (dayCorrect / dayTotal) * catMaxScore) : 0;
             existing.difficulty = newDiff;
             existing.timeSpent = dayTimeSpent;
+            existing.timedQuestoes = dayTimedQuestoes;
             
           } else {
             history.push({
@@ -709,6 +711,7 @@ export default function AIGeneratedSimulado() {
               correct,
               total,
               timeSpent: timeSpentSecs,
+              timedQuestoes: timeSpentSecs > 0 ? total : 0,
               score: total > 0 ? Math.min(catMaxScore, (correct / total) * catMaxScore) : 0,
               difficulty: formData.dificuldade === 'facil' ? 0.7 : formData.dificuldade === 'medio' ? 1.0 : formData.dificuldade === 'dificil' ? 1.3 : 1.6,
               topics: [newTopicEntry],

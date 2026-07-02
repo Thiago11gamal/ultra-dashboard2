@@ -204,6 +204,10 @@ export default function Simulados() {
 
                     const finalC = todayRows.reduce((sum, r) => sum + (Number(r.correct) || 0), 0);
                     const finalQ = todayRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
+                    
+                    // FEAT: Consolidate time spent for Agilidade AI / Monte Carlo Penalty
+                    const finalTimeSpent = todayRows.reduce((sum, r) => sum + (Number(r.timeSpent) || 0), 0);
+                    const finalTimedQuestoes = todayRows.reduce((sum, r) => sum + (Number(r.timeSpent) > 0 ? (Number(r.total) || 0) : 0), 0);
 
                     // Topics from today's rows
                     const topicsMap = {};
@@ -238,6 +242,8 @@ export default function Simulados() {
                             total: finalQ,
                             difficulty: Number(avgDifficulty.toFixed(2)),
                             score: Math.min(maxScore, Math.max(0, (finalC / finalQ) * maxScore)),
+                            timeSpent: finalTimeSpent,
+                            timedQuestoes: finalTimedQuestoes,
                             topics: finalTopics
                         });
                     }
