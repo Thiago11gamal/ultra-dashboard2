@@ -5,6 +5,8 @@
  * evolution, regression, and instability.
  */
 
+import { toDateMs } from './dateHelper';
+
 const DEFAULT_CONFIG = {
     window_size: 10,
     stagnation_threshold: 5.0, // Alinhado com estabilidade de 5% da escala (rigoroso)
@@ -57,7 +59,7 @@ export function analyzeProgressState(scores, config = {}) {
     // CORREÇÃO: Gerar a âncora sintética ANTES de ordenar para preservar o eixo cronológico verdadeiro
     const syntheticNow = Date.now();
     const sortedScores = [...scores].map((d, index) => {
-        let time = typeof d === 'object' ? new Date(d.date).getTime() : NaN;
+        let time = typeof d === 'object' ? toDateMs(d.date) : NaN;
         if (Number.isNaN(time)) time = syntheticNow - ((scores.length - index) * 86400000);
         return { original: d, safeTime: time };
     }).sort((a, b) => a.safeTime - b.safeTime)
@@ -73,7 +75,7 @@ export function analyzeProgressState(scores, config = {}) {
     // FIX: Prevenir a contaminação matemática por 'NaN' se a data for inválida ou inexistente.
     const recentDates = recentData.map((d, index) => {
         if (typeof d === 'object') {
-            const time = new Date(d.date).getTime();
+            const time = toDateMs(d.date);
             // CORREÇÃO: Puxar datas inválidas para o PASSADO (-), e não para o FUTURO (+)
             // Isso impede que provas corrompidas invertam o declive da linha de tendência
             return isNaN(time) ? syntheticNow - ((recentData.length - index) * 86400000) : time; 
