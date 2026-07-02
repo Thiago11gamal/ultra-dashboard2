@@ -83,16 +83,16 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             let deltaSeconds = 0;
             if (hasRecentData) {
                 deltaSeconds = recentAvgSeconds - avgSeconds;
-                if (deltaSeconds > 0) {
+                if (deltaSeconds > 1) {
                     deltaStr = `🐢 +${deltaSeconds}s`;
-                } else if (deltaSeconds < 0) {
+                } else if (deltaSeconds < -1) {
                     deltaStr = `⚡ ${deltaSeconds}s`;
                 } else {
-                    deltaStr = `⚖️ =`;
+                    deltaStr = `✨ Estável`;
                 }
             }
             
-            const qstStr = `${d.timedQuestoes} qst`;
+            const qstStr = `(${d.timedQuestoes} questões)`;
             const parts = [timeStr, deltaStr, qstStr].filter(Boolean);
             
             return { 
@@ -104,7 +104,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 deltaSeconds,
                 avgFormatted: timeStr,
                 generalFormatted: formatTime(avgSeconds),
-                avgLabelWithDetails: parts.join("  •  ")
+                avgLabelWithDetails: parts.join("   |   ")
             };
         })
         .sort((a, b) => sortOrder === 'slower' ? b.displaySeconds - a.displaySeconds : a.displaySeconds - b.displaySeconds);
