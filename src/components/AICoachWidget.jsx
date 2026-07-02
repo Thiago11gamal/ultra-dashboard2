@@ -109,7 +109,7 @@ function MonteCarloGauge({ mc }) {
         <Motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-3 p-4 rounded-2xl bg-black/40 border border-white/10 relative overflow-hidden"
+            className="mt-3 p-4 bg-black/40 border border-white/10 relative overflow-hidden"
         >
             <div className="absolute top-0 right-0 p-3 text-white/5">
                 <BrainCircuit size={48} />
@@ -304,7 +304,7 @@ export default function AICoachWidget({ suggestion }) {
                                 )}
 
                                 {suggestion.urgency?.details?.monteCarlo?.diagnostics && (
-                                    <div className="text-[8px] bg-slate-900/50 border border-white/5 rounded-md p-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-400 font-mono">
+                                    <div className="text-[8px] bg-slate-900/50 border border-white/5 p-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-400 font-mono">
                                         <div className="flex justify-between col-span-2">
                                             <span>MC</span>
                                             <span className="text-emerald-300">{suggestion.urgency.details.monteCarlo.diagnostics.simulationCount} sims</span>
