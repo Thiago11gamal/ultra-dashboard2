@@ -801,7 +801,16 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const popVar = Math.pow(POPULATION_SD, 2);
         // O piso da variância do aluno não pode ser zero absoluto (1e-6) 
         const safeStudentVar = Math.max(popVar * 0.05, sampleVar); 
-        const KAPPA = Math.max(0.1, Math.min(3.0, popVar / safeStudentVar)); // Teto reduzido para 3.0
+        let KAPPA = Math.max(0.1, Math.min(3.0, popVar / safeStudentVar)); // Teto reduzido para 3.0
+
+        // PATCH 1: Acelerador de Confiança
+        const firstDateMs = new Date(historyToUse[0].date || historyToUse[0].createdAt).getTime();
+        const lastDateMs = new Date(historyToUse[historyToUse.length - 1].date || historyToUse[historyToUse.length - 1].createdAt).getTime();
+        const timeSpreadDays = Math.max(0, (lastDateMs - firstDateMs) / (1000 * 60 * 60 * 24));
+        
+        if (historyToUse.length >= 2 && sampleVar < (0.0004 * safeMaxScore * safeMaxScore) && timeSpreadDays > 7) {
+            KAPPA = KAPPA * Math.exp(-timeSpreadDays / 14); 
+        }
 
         // 🎯 Kish Effective Sample Size (Fix): Usa o volume de questões real para o shrinkage bayesiano
         // em vez da contagem bruta de simulados.

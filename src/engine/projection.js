@@ -707,6 +707,14 @@ export function monteCarloSimulation(
       subjectCholesky = choleskyDecomposition(psdCov);
     }
 
+    function calculateSkewness(residuals, mean, sd) {
+        if (!residuals || residuals.length < 3 || sd === 0) return 0;
+        const n = residuals.length;
+        const m3 = residuals.reduce((acc, val) => acc + Math.pow(val - mean, 3), 0) / n;
+        return m3 / Math.pow(sd, 3);
+    }
+    const residualsSkew = calculateSkewness(safeResiduals, 0, volatility);
+
     const minCutoffFailures = [];
 
     for (let i = 0; i < safeSimulations; i++) {
@@ -741,7 +749,18 @@ export function monteCarloSimulation(
             // CORREÇÃO: Padrão Ouro de Filtered Historical Simulation (FHS)
             // O choque empírico tem de ser escalado para a volatilidade GARCH atual
             let shock = 0;
-            if (safeResiduals.length > 5 && rng() > 0.3) {
+            if (safeResiduals.length >= 15) {
+                // 90% Bootstrap (Histórico Empírico) / 10% Gaussiano Assimétrico (Black Swan)
+                if (rng() > 0.10) {
+                    const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
+                    shock = (rawEmpirical / standardizer) * adaptiveVol; 
+                } else {
+                    // PATCH: Gaussian Skew Adjustment
+                    const z = normalRng();
+                    const skewCorrection = 1 + (residualsSkew * z) / 6.0; 
+                    shock = z * adaptiveVol * skewCorrection;
+                }
+            } else if (safeResiduals.length > 5 && rng() > 0.3) {
                 const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
                 shock = (rawEmpirical / standardizer) * adaptiveVol; 
             } else {

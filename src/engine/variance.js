@@ -273,6 +273,59 @@ export function getVarianceBreakdown(stats, totalWeight) {
 }
 
 /**
+ * PATCH: Calcula a correlação de Pearson empírica entre duas séries de notas.
+ * Emparelha os dados apenas onde o usuário estudou ambas as matérias num intervalo <= 24h.
+ */
+function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
+    if (!historyA || !historyB) return fallback;
+    let sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
+    let pairedCount = 0;
+
+    const getScore = (h) => {
+        const s = Number(h.score ?? h.percent ?? h.correct / h.total * 100);
+        return Number.isFinite(s) ? s : 0;
+    };
+    const getDateStr = (h) => {
+        const d = h.date || h.createdAt;
+        if (!d) return null;
+        try { return new Date(d).toISOString().split('T')[0]; } catch(e) { return null; }
+    };
+
+    const mapA = new Map();
+    historyA.forEach(h => {
+        if (!h) return;
+        const d = getDateStr(h);
+        if (d) mapA.set(d, getScore(h));
+    });
+
+    historyB.forEach(h => {
+        if (!h) return;
+        const d = getDateStr(h);
+        if (d && mapA.has(d)) {
+            const scoreA = mapA.get(d);
+            const scoreB = getScore(h);
+            
+            sumA += scoreA;
+            sumB += scoreB;
+            sumAB += (scoreA * scoreB);
+            sumA2 += (scoreA * scoreA);
+            sumB2 += (scoreB * scoreB);
+            pairedCount++;
+        }
+    });
+
+    if (pairedCount < 5) return fallback;
+
+    const n = pairedCount;
+    const numerator = (n * sumAB) - (sumA * sumB);
+    const denominator = Math.sqrt(((n * sumA2) - (sumA * sumA)) * ((n * sumB2) - (sumB * sumB)));
+
+    if (denominator === 0) return fallback;
+    const pearsonR = numerator / denominator;
+    return Math.max(-0.3, Math.min(0.8, pearsonR));
+}
+
+/**
  * Constrói a Matriz de Covariância completa NxN a partir dos desvios padrão
  * individuais e do fator de correlação (Rho). Necessária para alimentar
  * o Cholesky Decomposition para Monte Carlo multidimensional.
@@ -302,7 +355,13 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
                     const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
                     const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : effectiveDefaultRho;
                     
-                    const currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
+                    let currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
+
+                    // PATCH 3: Covariância Dinâmica Inter-Matérias
+                    if (stats[i]?.simuladoStats?.history && stats[j]?.simuladoStats?.history) {
+                        currentRho = calculateDynamicCorrelation(stats[i].simuladoStats.history, stats[j].simuladoStats.history, currentRho);
+                    }
+
                     matrix[i][j] = currentRho * sdI * sdJ; // Covariância
             }
         }
