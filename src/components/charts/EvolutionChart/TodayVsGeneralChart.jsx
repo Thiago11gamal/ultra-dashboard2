@@ -3,7 +3,7 @@ import {
     ResponsiveContainer, PieChart, Pie, Cell, 
     LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
 } from 'recharts';
-import { getDateKey } from '../../../utils/dateHelper';
+import { getDateKey, toDateMs } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
 import { Zap, Target, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -94,6 +94,86 @@ export function TodayVsGeneralChart({
         return { dailyData: result, lastActiveEntry: lastEntry, isToday: _isToday };
     }, [activeCategories, maxScore]);
 
+    // Extrair histórico acumulado em múltiplos recortes de tempo
+    const temporalMetrics = useMemo(() => {
+        let maxTime = 0;
+        let latestAcc = null;
+
+        const buckets = {
+            today: { correct: 0, total: 0 },
+            week: { correct: 0, total: 0 },
+            month: { correct: 0, total: 0 },
+            month3: { correct: 0, total: 0 },
+            month6: { correct: 0, total: 0 }
+        };
+
+        const now = Date.now();
+        const todayKey = getDateKey(new Date());
+        const ms1Week = 7 * 24 * 60 * 60 * 1000;
+        const ms1Month = 30 * 24 * 60 * 60 * 1000;
+        const ms3Months = 90 * 24 * 60 * 60 * 1000;
+        const ms6Months = 180 * 24 * 60 * 60 * 1000;
+
+        activeCategories.forEach(cat => {
+            const history = Object.values(cat.simuladoStats?.history || {});
+            history.forEach(h => {
+                const time = toDateMs(h.date || h.createdAt);
+                if (!time) return;
+                
+                const score = getSafeScore(h, maxScore);
+                const hDateKey = getDateKey(h.date || h.createdAt);
+                
+                if (time > maxTime) {
+                    maxTime = time;
+                    latestAcc = score;
+                }
+
+                let tot = Number(h.total) || 0;
+                let corr = Number(h.correct) || 0;
+                if (tot === 0 && h.score != null) {
+                    tot = getSyntheticTotal(maxScore);
+                    corr = Math.round((score / maxScore) * tot);
+                } else if (tot > 0) {
+                    corr = Math.round((score / maxScore) * tot);
+                }
+
+                if (tot === 0) return;
+
+                if (hDateKey === todayKey) {
+                    buckets.today.correct += corr;
+                    buckets.today.total += tot;
+                }
+                if (now - time <= ms1Week) {
+                    buckets.week.correct += corr;
+                    buckets.week.total += tot;
+                }
+                if (now - time <= ms1Month) {
+                    buckets.month.correct += corr;
+                    buckets.month.total += tot;
+                }
+                if (now - time <= ms3Months) {
+                    buckets.month3.correct += corr;
+                    buckets.month3.total += tot;
+                }
+                if (now - time <= ms6Months) {
+                    buckets.month6.correct += corr;
+                    buckets.month6.total += tot;
+                }
+            });
+        });
+
+        const getAcc = (b) => b.total > 0 ? (b.correct / b.total) * maxScore : null;
+
+        return [
+            { id: 'month6', label: '6 Meses', val: getAcc(buckets.month6), rIn: 70, rOut: 74 },
+            { id: 'month3', label: '3 Meses', val: getAcc(buckets.month3), rIn: 77, rOut: 81 },
+            { id: 'month', label: '1 Mês', val: getAcc(buckets.month), rIn: 84, rOut: 88 },
+            { id: 'week', label: 'Semana', val: getAcc(buckets.week), rIn: 91, rOut: 95 },
+            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 98, rOut: 102 },
+            { id: 'last', label: 'Último', val: latestAcc, rIn: 105, rOut: 109 }
+        ];
+    }, [activeCategories, maxScore]);
+
     if (!dailyData || dailyData.length === 0) {
         return (
             <div className="h-[300px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
@@ -108,17 +188,16 @@ export function TodayVsGeneralChart({
     const deltaAbs = Math.abs(delta);
     const isPositive = delta >= 0;
 
-    // Configuração do Gauge
-    const gaugeValue = Math.max(0, Math.min(focusAccuracy, maxScore)); // clamp
-    const gaugeData = [
-        { name: 'Desempenho', value: gaugeValue },
-        { name: 'Faltante', value: maxScore - gaugeValue }
-    ];
+    const getColor = (val) => {
+        if (val == null) return 'transparent';
+        if (val >= targetScore) return COLORS.gaugeFillSuccess;
+        if (val < targetScore - (15 * scale)) return COLORS.gaugeFillDanger;
+        return '#facc15';
+    };
 
-    // Cor dinâmica do Gauge baseada na relação com a Média Geral e Meta
-    let gaugeColor = COLORS.gaugeFillValid; // Roxo padrão
-    if (focusAccuracy >= targetScore) gaugeColor = COLORS.gaugeFillSuccess; // Verde se bateu a meta absoluta
-    else if (focusAccuracy < generalAccuracy - (5 * scale)) gaugeColor = COLORS.gaugeFillDanger; // Vermelho se muito abaixo do normal
+    // Usaremos a cor do arco 'Hoje' para o texto central, ou a cor geral.
+    const todayMetric = temporalMetrics.find(t => t.id === 'today');
+    const centerColor = getColor(focusAccuracy);
 
 
 
@@ -135,30 +214,67 @@ export function TodayVsGeneralChart({
                     </span>
                 </div>
 
+                {/* Legenda dos Anéis */}
+                <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+                    {temporalMetrics.slice().reverse().map(metric => {
+                        if (metric.val == null) {
+                            return (
+                                <div key={metric.id} className="flex items-center gap-1.5 opacity-40">
+                                    <span className="text-[7px] text-slate-500 uppercase tracking-widest font-black">{metric.label}</span>
+                                    <span className="text-[10px] font-black tracking-tighter text-slate-600">--{unit}</span>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-800"></div>
+                                </div>
+                            );
+                        }
+                        const c = getColor(metric.val);
+                        return (
+                            <div key={metric.id} className="flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity">
+                                <span className="text-[7px] text-slate-500 uppercase tracking-widest font-black">{metric.label}</span>
+                                <span className="text-[10px] font-black tracking-tighter" style={{ color: c }}>
+                                    {metric.val.toFixed(1)}{unit}
+                                </span>
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, filter: `drop-shadow(0 0 4px ${c}80)` }}></div>
+                            </div>
+                        );
+                    })}
+                </div>
+
                 <div className="relative w-[220px] h-[120px] mt-8 flex justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                            <Pie
-                                data={gaugeData}
-                                cx="50%"
-                                cy="100%"
-                                startAngle={180}
-                                endAngle={0}
-                                innerRadius={70}
-                                outerRadius={90}
-                                paddingAngle={0}
-                                dataKey="value"
-                                stroke="none"
-                            >
-                                <Cell key="cell-0" fill={gaugeColor} style={{ filter: `drop-shadow(0 0 12px ${gaugeColor}80)` }} />
-                                <Cell key="cell-1" fill={COLORS.gaugeBg} />
-                            </Pie>
+                            {temporalMetrics.map((metric) => {
+                                const isNull = metric.val == null;
+                                const val = isNull ? 0 : Math.max(0, Math.min(metric.val, maxScore));
+                                const arcColor = isNull ? 'transparent' : getColor(metric.val);
+                                const arcData = [
+                                    { name: metric.label, value: val },
+                                    { name: 'Faltante', value: maxScore - val }
+                                ];
+                                return (
+                                    <Pie
+                                        key={metric.id}
+                                        data={arcData}
+                                        cx="50%"
+                                        cy="100%"
+                                        startAngle={180}
+                                        endAngle={0}
+                                        innerRadius={metric.rIn}
+                                        outerRadius={metric.rOut}
+                                        paddingAngle={0}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        <Cell key={`cell-${metric.id}-0`} fill={arcColor} style={{ filter: isNull ? 'none' : `drop-shadow(0 0 6px ${arcColor}60)` }} />
+                                        <Cell key={`cell-${metric.id}-1`} fill={COLORS.gaugeBg} />
+                                    </Pie>
+                                );
+                            })}
                         </PieChart>
                     </ResponsiveContainer>
                     
                     {/* Texto Central do Gauge */}
                     <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end pb-1 pointer-events-none">
-                        <span className="text-4xl font-black text-white tracking-tighter" style={{ textShadow: `0 0 20px ${gaugeColor}50` }}>
+                        <span className="text-4xl font-black text-white tracking-tighter" style={{ textShadow: `0 0 20px ${centerColor}50` }}>
                             {focusAccuracy.toFixed(1)}<span className="text-xl text-slate-400 ml-1">{unit}</span>
                         </span>
                         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">Acertos(%) hoje</span>
