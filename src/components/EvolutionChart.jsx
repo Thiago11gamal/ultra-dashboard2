@@ -29,7 +29,62 @@ import { WeeklyEvolutionView } from "./charts/EvolutionChart/WeeklyEvolutionView
 import { TimeSpentChart } from "./charts/EvolutionChart/TimeSpentChart";
 import { TodayVsGeneralChart } from "./charts/EvolutionChart/TodayVsGeneralChart";
 
+import { generateEvolutionInsights } from '../engine/insightGenerator';
+
 const EMPTY_ARRAY = [];
+
+// Coloque esta função FORA do escopo do componente EvolutionChart
+function buildPredictiveCompareData(timeline, focusCategory, categoryLevels, activeMcProjectionSeries, projectDays, minScore, maxScore) {
+    if (!focusCategory) return timeline;
+    
+    // 1. Prepara os dados históricos mapeando as chaves para leitura no gráfico
+    let pts = timeline.map((d) => ({
+        ...d,
+        "Nota Bruta": d[`raw_${focusCategory.id}`],
+        "Nível Bayesiano": d[`bay_${focusCategory.id}`],
+        "Banda Bayesiana": d[`bay_ci_low_${focusCategory.id}`] != null && Number.isFinite(d[`bay_ci_low_${focusCategory.id}`]) 
+            ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]] 
+            : null,
+        "Média Histórica": d[`stats_${focusCategory.id}`]
+    }));
+
+    // 2. Acopla os pontos futuros do Monte Carlo
+    if (activeMcProjectionSeries && pts.length > 0) {
+        const lastIdx = pts.length - 1;
+        const rawLevel = pts[lastIdx]["Nível Bayesiano"] ?? categoryLevels[focusCategory?.id] ?? activeMcProjectionSeries?.mc_p50 ?? 0;
+        const currentLevel = Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 0;
+        
+        const futurePoints = [];
+        const steps = 6;
+        const bounded = (v) => Math.max(minScore, Math.min(maxScore, v));
+        
+        for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const weight = Math.sqrt(t);
+            const val = bounded(currentLevel + (activeMcProjectionSeries.mc_p50 - currentLevel) * t);
+            const bandLow = bounded(currentLevel + (activeMcProjectionSeries.mc_band[0] - currentLevel) * weight);
+            const bandHigh = bounded(currentLevel + (activeMcProjectionSeries.mc_band[1] - currentLevel) * weight);
+
+            const dt = new Date(`${String(pts[lastIdx].date || '')}T12:00:00`);
+            if (Number.isNaN(dt.getTime())) return pts;
+            
+            const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
+            dt.setDate(dt.getDate() + forwardDays);
+            const iso = getDateKey(dt);
+
+            futurePoints.push({
+                date: iso,
+                displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "",
+                "Futuro Provável": val,
+                "Cenário Range": [bandLow, bandHigh]
+            });
+        }
+
+        pts[lastIdx] = { ...pts[lastIdx], "Futuro Provável": currentLevel, "Cenário Range": [currentLevel, currentLevel] };
+        pts = [...pts, ...futurePoints];
+    }
+    return pts;
+}
 
 // M3 FIX: Função pura extraída para fora do componente — evita recriação a cada render.
 function parseGoalDateLocal(input) {
@@ -290,52 +345,15 @@ export default function EvolutionChart({
     const activeMcProjectionSeries = mcProjectionSeries?.categoryId === focusCategory?.id ? mcProjectionSeries : null;
 
     const compareData = useMemo(() => {
-        if (!focusCategory) return timeline;
-        let pts = timeline.map((d) => ({
-            ...d,
-            "Nota Bruta": d[`raw_${focusCategory.id}`],
-            "Nível Bayesiano": d[`bay_${focusCategory.id}`],
-            "Bay CI Low": d[`bay_ci_low_${focusCategory.id}`],
-            "Bay CI High": d[`bay_ci_high_${focusCategory.id}`],
-            "Banda Bayesiana": d[`bay_ci_low_${focusCategory.id}`] != null && Number.isFinite(d[`bay_ci_low_${focusCategory.id}`]) 
-                ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]] 
-                : null,
-            "Média Histórica": d[`stats_${focusCategory.id}`]
-        }));
-
-        if (activeMcProjectionSeries && pts.length > 0) {
-            const lastIdx = pts.length - 1;
-            const rawLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? activeMcProjectionSeries?.mc_p50 ?? 0;
-            const currentLevel = Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 0;
-            const futurePoints = [];
-            const steps = 6;
-            const bounded = (v) => Math.max(minScore, Math.min(maxScore, v));
-            for (let i = 1; i <= steps; i++) {
-                const t = i / steps;
-                const weight = Math.sqrt(t);
-                const val = bounded(currentLevel + (activeMcProjectionSeries.mc_p50 - currentLevel) * t);
-                const bandLow = bounded(currentLevel + (activeMcProjectionSeries.mc_band[0] - currentLevel) * weight);
-                const bandHigh = bounded(currentLevel + (activeMcProjectionSeries.mc_band[1] - currentLevel) * weight);
-
-                const rawDate = String(pts[lastIdx].date || '');
-                const dt = new Date(`${rawDate}T12:00:00`);
-                if (Number.isNaN(dt.getTime())) return pts;
-                const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
-                dt.setDate(dt.getDate() + forwardDays);
-                const iso = getDateKey(dt);
-
-                futurePoints.push({
-                    date: iso,
-                    displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "",
-                    "Futuro Provável": val,
-                    "Cenário Range": [bandLow, bandHigh]
-                });
-            }
-
-            pts[lastIdx] = { ...pts[lastIdx], "Futuro Provável": currentLevel, "Cenário Range": [currentLevel, currentLevel] };
-            pts = [...pts, ...futurePoints];
-        }
-        return pts;
+        return buildPredictiveCompareData(
+            timeline, 
+            focusCategory, 
+            categoryLevels, 
+            activeMcProjectionSeries, 
+            projectDays, 
+            minScore, 
+            maxScore
+        );
     }, [timeline, focusCategory, activeMcProjectionSeries, categoryLevels, projectDays, minScore, maxScore]);
 
     const chartData = activeEngine === "compare" ? compareData : timeline;
@@ -433,240 +451,17 @@ export default function EvolutionChart({
             .sort((a, b) => b.questoes - a.questoes);
     }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore]);
 
-    const getInsight = useCallback(() => {
-        const defaultTitle = "Análise do Sistema";
-
-        if (!timeline.length || !focusCategory) {
-            return {
-                type: 'info',
-                icon: "📊",
-                title: defaultTitle,
-                text: "Ainda não existem dados suficientes.",
-                details: "Continue realizando simulados para desbloquear insights avançados."
-            };
-        }
-
-        const lastPoint = timeline[timeline.length - 1];
-
-        const getLastValid = (key) => {
-            for (let i = timeline.length - 1; i >= 0; i--) {
-                if (timeline[i][key] != null) return timeline[i][key];
-            }
-            return null;
-        };
-
-        const raw = getLastValid(`raw_${focusCategory.id}`);
-        const bayesian = getLastValid(`bay_${focusCategory.id}`);
-        const scale = maxScore / 100;
-
-        if (activeEngine === "raw_weekly") {
-            const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-            const dayStats = {};
-            const now = new Date();
-            
-            categories.forEach(cat => {
-                const history = cat.simuladoStats?.history || [];
-                const rawHistory = history
-                    .filter(h => {
-                        const d = normalizeDate(h.date);
-                        return d && d.getTime() <= now.getTime();
-                    })
-                    .map(h => ({ ...h, score: getSafeScore(h, maxScore) }))
-                    .sort((a, b) => (normalizeDate(a.date)?.getTime() || 0) - (normalizeDate(b.date)?.getTime() || 0));
-
-                rawHistory.forEach(h => {
-                    const d = normalizeDate(h.date);
-                    if (!d) return;
-                    const dow = d.getDay();
-                    if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
-                    dayStats[dow].correct += (h.score / maxScore * (Number(h.total) || 0));
-                    dayStats[dow].total += (Number(h.total) || 0);
-                });
-            });
-
-            const dayEntries = Object.entries(dayStats)
-                .filter(([, s]) => s.total >= 5)
-                .map(([dow, s]) => ({ dow: Number(dow), pct: (s.correct / s.total) * 100, total: s.total }));
-
-            if (dayEntries.length >= 2) {
-                dayEntries.sort((a, b) => b.pct - a.pct);
-                const best = dayEntries[0];
-                const worst = dayEntries[dayEntries.length - 1];
-                
-                return {
-                    type: 'success',
-                    icon: "📅",
-                    title: "Padrão Semanal de Rendimento",
-                    text: `Seu rendimento de pico ocorre aos ${DAY_NAMES[best.dow]}s.`,
-                    details: `Melhor dia: ${DAY_NAMES[best.dow]} (${best.pct.toFixed(1)}%, ${best.total}q). Pior dia: ${DAY_NAMES[worst.dow]} (${worst.pct.toFixed(1)}%, ${worst.total}q).`,
-                    advice: "Alinhe seus simulados mais densos ao dia de melhor rendimento."
-                };
-            }
-            return {
-                type: 'info',
-                icon: "📅",
-                title: "Mapa de Calor",
-                text: "Visualize sua constância semanal.",
-                details: "Células verdes indicam desempenho acima da meta, vermelhas indicam necessidade de atenção."
-            };
-        }
-
-        if (activeEngine === "raw") {
-            if (raw == null) return { type: 'info', icon: "📊", title: "Realidade Bruta", text: "Ainda não existem dados suficientes para esta matéria." };
-            const history = focusCategory.simuladoStats?.history || [];
-            const scores = history.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
-            
-            if (scores.length < 2) {
-                return {
-                    type: 'info',
-                    icon: "📊",
-                    title: "Análise de Volatilidade",
-                    text: `Nota atual: ${raw.toFixed(1)}${unit}.`,
-                    details: "Realize mais simulados para mapear sua oscilação estatística."
-                };
-            }
-
-            const recentScores = scores.slice(-5);
-            const avg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
-            const maxSwing = Math.max(...recentScores) - Math.min(...recentScores);
-
-            if (maxSwing > 25 * scale) {
-                return {
-                    type: 'warning',
-                    icon: "⚠️",
-                    title: "Alta Volatilidade Detectada",
-                    text: `Seus resultados oscilam ${maxSwing.toFixed(0)}${unit}.`,
-                    details: `Intervalo: ${Math.min(...recentScores).toFixed(0)}${unit} a ${Math.max(...recentScores).toFixed(0)}${unit}.`,
-                    advice: "Revise a consistência do seu estudo. Oscilações altas indicam 'chute' ou gaps de base."
-                };
-            }
-            if (maxSwing < 8 * scale) {
-                return {
-                    type: 'success',
-                    icon: "✅",
-                    title: "Consistência Sólida",
-                    text: `Variação de apenas ${maxSwing.toFixed(0)}${unit} nos últimos simulados.`,
-                    details: `Média recente: ${avg.toFixed(1)}${unit}.`,
-                    advice: "Você está pronto para subir o nível de dificuldade."
-                };
-            }
-            return {
-                type: 'info',
-                icon: "📊",
-                title: "Desempenho Estável",
-                text: `Volatilidade moderada (${maxSwing.toFixed(0)}${unit}).`,
-                details: `Média recente: ${avg.toFixed(1)}${unit}.`
-            };
-        }
-
-        if (activeEngine === "bayesian") {
-            if (bayesian == null) return { type: 'info', icon: "🧠", title: "Nível Bayesiano", text: "Aguardando mais dados..." };
-            const ciLow = lastPoint[`bay_ci_low_${focusCategory.id}`];
-            const ciHigh = lastPoint[`bay_ci_high_${focusCategory.id}`];
-            const ciWidth = (ciHigh != null && ciLow != null) ? (ciHigh - ciLow) : null;
-
-            if (ciWidth != null && ciWidth < 5 * scale) {
-                return {
-                    type: 'success',
-                    icon: "🎯",
-                    title: "Alta Precisão Bayesiana",
-                    text: `Seu nível real é ${bayesian.toFixed(1)}${unit}.`,
-                    details: `IC 95%: [${ciLow.toFixed(1)}, ${ciHigh.toFixed(1)}] (banda de ${ciWidth.toFixed(1)}${unit}).`,
-                    advice: "Modelo estatístico com convergência máxima. Seus dados são altamente confiáveis."
-                };
-            }
-            if (ciWidth != null && ciWidth > 20 * scale) {
-                return {
-                    type: 'warning',
-                    icon: "🧠",
-                    title: "Incerteza Elevada",
-                    text: `Nível estimado: ${bayesian.toFixed(1)}${unit}.`,
-                    details: `A banda de confiança é larga (${ciWidth.toFixed(1)}${unit}).`,
-                    advice: "Faça mais simulados focados nesta matéria para estreitar a estimativa."
-                };
-            }
-            return {
-                type: 'info',
-                icon: "🧠",
-                title: "Estimativa Bayesiana",
-                text: `Nível Real: ${bayesian.toFixed(1)}${unit}.`,
-                details: ciWidth != null ? `Margem: ${ciLow.toFixed(1)} a ${ciHigh.toFixed(1)}.` : ""
-            };
-        }
-
-        if (activeEngine === "stats") {
-            const stats = getLastValid(`stats_${focusCategory.id}`);
-            if (stats == null) return { type: 'info', icon: "📐", title: "Histórico", text: "Sem dados." };
-            const trend = getLastValid(`trend_status_${focusCategory.id}`);
-            const gap = bayesian != null ? (bayesian - stats) : null;
-            
-            return {
-                type: trend === 'up' ? 'success' : trend === 'down' ? 'warning' : 'info',
-                icon: trend === 'up' ? "📈" : trend === 'down' ? "📉" : "📐",
-                title: "Tendência Histórica",
-                text: `Média de ${stats.toFixed(1)}${unit} com tendência de ${trend === 'up' ? 'ALTA' : trend === 'down' ? 'QUEDA' : 'ESTABILIDADE'}.`,
-                details: gap != null ? `Gap vs Bayesiano: ${gap > 0 ? '+' : ''}${gap.toFixed(1)}${unit}.` : "",
-                advice: trend === 'up' ? "Sua curva de aprendizado está em aceleração." : trend === 'down' ? "Recomendamos revisão imediata de base." : "Consistência sólida mantida."
-            };
-        }
-
-        if (raw != null && bayesian != null) {
-            const nowMs = new Date().getTime();
-            const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-            const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
-                .filter(h => {
-                    if (!h || !h.date) return false;
-                    const d = toDateMs(h.date);
-                    return !Number.isNaN(d) && (nowMs - d) >= 0 && (nowMs - d) <= sevenDaysMs;
-                })
-                .reduce((sum, h) => {
-                    let q = parseInt(h.total, 10) || 0;
-                    if (q === 0 && h.score != null) q = getSyntheticTotal(maxScore);
-                    return sum + q;
-                }, 0);
-
-            if (recentVolumeAlert > 40 && raw < bayesian - 10 * scale) {
-                return {
-                    type: 'danger',
-                    icon: "🚨",
-                    title: "Alerta de Burnout",
-                    text: `Volume alto (${recentVolumeAlert}q), mas nota (${raw.toFixed(1)}${unit}) em queda livre.`,
-                    details: "O cansaço cognitivo está prejudicando sua performance real.",
-                    advice: "Dê um passo atrás. Uma pausa de 24h recuperará mais pontos que 10h de estudo hoje."
-                };
-            }
-            if (raw > bayesian + 8 * scale) {
-                return {
-                    type: 'success',
-                    icon: "💡",
-                    title: "Conhecimento Consolidado",
-                    text: `Sua última nota (${raw.toFixed(1)}${unit}) estourou a previsão estatística.`,
-                    details: `Nível Bayesiano: ${bayesian.toFixed(1)}${unit}.`,
-                    advice: "O conhecimento assentou de vez. Você está performando acima do seu histórico."
-                };
-            }
-            if (raw < bayesian - 8 * scale) {
-                return {
-                    type: 'warning',
-                    icon: "⚖️",
-                    title: "Desvio Atípico",
-                    text: `Nota pontual baixa (${raw.toFixed(1)}${unit}), mas nível real sólido (${bayesian.toFixed(1)}${unit}).`,
-                    details: "A estatística garante que isso foi apenas um ruído temporário.",
-                    advice: "Não deixe um resultado isolado abalar seu psicológico."
-                };
-            }
-        }
-
-        return {
-            type: 'info',
-            icon: "✅",
-            title: "Rendimento de Mestre",
-            text: `Nível medido (${raw?.toFixed(1) ?? '0'}${unit}) alinhado ao domínio real (${bayesian?.toFixed(1) ?? '0'}${unit}).`,
-            details: "Você está operando na sua zona de máxima eficiência.",
-            advice: "Mantenha esse ritmo para garantir a aprovação."
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timeline, focusCategory, activeEngine, categories, targetScore, maxScore, unit, categoryLevels, minScore]);
+    const insight = useMemo(() => {
+        return generateEvolutionInsights({
+            timeline,
+            focusCategory,
+            activeEngine,
+            categories,
+            unit,
+            maxScore,
+            minScore
+        });
+    }, [timeline, focusCategory, activeEngine, categories, unit, maxScore, minScore]);
 
     const engine = ENGINES.find((e) => e.id === activeEngine) || ENGINES[0];
 
@@ -1019,7 +814,6 @@ export default function EvolutionChart({
 
             <div className="pt-20 relative z-0">
             {(() => {
-                const insight = getInsight();
                 const typeColors = {
                     success: {
                         border: 'border-emerald-500/30',
