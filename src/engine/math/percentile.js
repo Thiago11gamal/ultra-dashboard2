@@ -117,3 +117,30 @@ function partition(arr, left, right) {
     return storeIndex;
 }
 
+export function findScoreForPercentile(targetPercentile, minScore, maxScore, cdfFunction, tolerance = 0.0001) {
+  let low = minScore;
+  let high = maxScore;
+  let maxIter = 100; // Bailout / Trava de segurança
+  
+  // Tratamento de ponta (Edge case high performers)
+  if (targetPercentile >= 0.9999) return maxScore;
+  if (targetPercentile <= 0.0001) return minScore;
+
+  for (let i = 0; i < maxIter; i++) {
+    const mid = low + (high - low) / 2;
+    const currentPercentile = cdfFunction(mid);
+    
+    if (Math.abs(currentPercentile - targetPercentile) <= tolerance) {
+      return mid;
+    }
+    
+    if (currentPercentile < targetPercentile) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+  
+  return low + (high - low) / 2; // Retorna a melhor aproximação ao atingir maxIter
+}
+

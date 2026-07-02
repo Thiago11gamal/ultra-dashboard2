@@ -799,7 +799,7 @@ export function monteCarloSimulation(
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    const raw = Number(s.mean) + zCorr[j] * (Number(s.sd) || 1);
+                    const raw = Number(s.mean) + zCorr[j];
                     const subjScore = Math.max(sMin, Math.min(sMax, raw));
                     if (subjScore < Number(s.minCutoff)) {
                         passedMins = false;

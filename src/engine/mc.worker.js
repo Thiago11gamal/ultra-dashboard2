@@ -1,5 +1,6 @@
 import { monteCarloSimulation } from './projection.js';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from './monteCarlo.js';
+import { resetGaussianCache } from './math/gaussian.js';
 
 function safeNum(val, fallback = 0) {
     if (val === undefined || val === null) return fallback;
@@ -42,6 +43,7 @@ function sanitizeOptions(options) {
 
 self.onmessage = function(e) {
     const { type, payload, id } = e.data;
+    resetGaussianCache(); // Limpar a cache gaussiana ao iniciar um novo ciclo para garantir determinismo
     try {
         let result;
         if (type === 'runMonteCarloAnalysis') {
