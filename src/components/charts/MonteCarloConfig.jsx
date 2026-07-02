@@ -1,11 +1,11 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo, startTransition } from 'react';
 import { Settings2, Check, Minus, Plus, Activity, Clock, Hash, ChevronUp, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
     const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
     return (
-        <div key={cat.id || cat.name} className={`bg-slate-800/40 backdrop-blur-md p-3 rounded-2xl border border-white/[0.03] flex flex-col sm:flex-row items-center gap-4 hover:border-indigo-500/20 transition-all ${weight === 0 ? 'opacity-50 grayscale' : ''}`}>
+        <div className={`bg-slate-800/40 backdrop-blur-md p-3 rounded-2xl border border-white/[0.03] flex flex-col sm:flex-row items-center gap-4 hover:border-indigo-500/20 transition-all ${weight === 0 ? 'opacity-50 grayscale' : ''}`}>
             <div className="flex items-center gap-4 w-full sm:w-auto">
                 <div className="min-w-[40px] h-10 px-2 rounded-xl flex items-center justify-center text-sm shadow-inner shrink-0 whitespace-nowrap overflow-hidden" style={{ backgroundColor: `${cat.color || '#3b82f6'}15`, border: `1px solid ${cat.color || '#3b82f6'}20` }}>{cat.icon || '📚'}</div>
                 <div className="flex-1 sm:hidden">
@@ -39,6 +39,8 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
     );
 });
 
+WeightRow.displayName = 'WeightRow';
+
 export const MonteCarloConfig = ({
     show, onClose, targetScore, setTargetScore,
     equalWeightsMode, setEqualWeightsMode, getEqualWeights,
@@ -47,18 +49,18 @@ export const MonteCarloConfig = ({
     minScore = 0, maxScore = 100
 }) => {
     const savedCustomWeights = useRef(null);
-    const [newCutoff, setNewCutoff] = React.useState('');
+    const [newCutoff, setNewCutoff] = useState('');
 
-    // BUG FIX: usar o hook reativo em vez de useAppStore.getState()
+    // Seletores Reativos da Store
     const examDurationMinutes = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.examDurationMinutes || 240);
     const examTotalQuestions = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.examTotalQuestions || 100);
     const setExamConfig = useAppStore(state => state.setExamConfig);
 
-    const examDurationLabel = (() => {
+    const examDurationLabel = useMemo(() => {
         const h = Math.floor(examDurationMinutes / 60);
         const m = examDurationMinutes % 60;
         return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
-    })();
+    }, [examDurationMinutes]);
 
     const updateExamDurationMinutes = (delta) => {
         const newMins = Math.max(30, Math.min(720, examDurationMinutes + delta));
@@ -69,59 +71,75 @@ export const MonteCarloConfig = ({
         const q = parseInt(e.target.value, 10);
         if (!isNaN(q) && q > 0 && setExamConfig) setExamConfig(examDurationMinutes, q);
     };
-    
-    // 🔒 PADRÃO CONTROLADO: O componente agora é 'burro'. 
-    // A lógica de trava (lock) e debounce reside no pai (VerifiedStats).
 
-    // FIX: Permitir que o peso manual possa ser 0 sem assumir Math.max(1)
     const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore ? Number(maxScore) : Math.max(safeMinScore + 1, 100);
     const sliderMin = Math.max(safeMinScore, Math.round(safeMaxScore * 0.1));
     const sliderRange = Math.max(1, safeMaxScore - sliderMin);
     const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number(targetScore) || sliderMin));
     
-    const [localTarget, setLocalTarget] = React.useState(clampedTarget);
+    const [localTarget, setLocalTarget] = useState(clampedTarget);
     const isDragging = useRef(false);
     const debounceTimeout = useRef(null);
     const dragTimeout = useRef(null);
     const sliderRef = useRef(null);
 
-    React.useEffect(() => {
+    // Otimização O(N) via useMemo para evitar loop no render do slider
+    const manualTotal = useMemo(() => {
+        if (!Array.isArray(categories)) return 0;
+        return categories.reduce((acc, cat) => {
+            const val = weights?.[cat.id || cat.name];
+            return acc + Math.max(0, parseInt(val !== undefined ? val : 1, 10) || 0);
+        }, 0);
+    }, [categories, weights]);
+
+    useEffect(() => {
         if (!isDragging.current) {
             setLocalTarget(clampedTarget);
             if (sliderRef.current && sliderRef.current.value !== String(clampedTarget)) {
-                sliderRef.current.value = clampedTarget;
+                sliderRef.current.value = String(clampedTarget);
             }
         }
     }, [clampedTarget]);
 
-    React.useEffect(() => {
-        if (show) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
+    useEffect(() => {
+        document.body.style.overflow = show ? 'hidden' : '';
         return () => {
             if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+            if (dragTimeout.current) clearTimeout(dragTimeout.current);
             document.body.style.overflow = '';
         };
     }, [show]);
 
-    const displayTarget = localTarget;
-    const sliderPercent = ((displayTarget - sliderMin) / sliderRange) * 100;
+    const sliderPercent = ((localTarget - sliderMin) / sliderRange) * 100;
 
-    const manualTotal = categories.reduce((acc, cat) => {
-        const val = weights?.[cat.id || cat.name];
-        return acc + Math.max(0, parseInt(val !== undefined ? val : 1, 10) || 0);
-    }, 0);
+    const handleSliderChange = (e) => {
+        const val = parseInt(e.target.value, 10);
+        setLocalTarget(val);
+        
+        isDragging.current = true;
+        if (dragTimeout.current) clearTimeout(dragTimeout.current);
+        dragTimeout.current = setTimeout(() => { isDragging.current = false; }, 500);
+
+        if (setTargetScore) {
+            if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+            debounceTimeout.current = setTimeout(() => {
+                if (startTransition) {
+                    startTransition(() => {
+                        setTargetScore(val);
+                    });
+                } else {
+                    setTargetScore(val);
+                }
+            }, 40);
+        }
+    };
+
+    if (!show) return null;
 
     return (
-        <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300"
-            style={{ display: show ? 'flex' : 'none' }}
-        >
-            {/* Backdrop com clique para fechar opcional (stopPropagation adicionado para evitar bubbling ao fundo) */}
-            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); onClose(false); }} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
+            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => onClose(false)} />
 
             <div className="relative w-full max-w-2xl h-full max-h-[90vh] bg-slate-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-white/5">
@@ -136,10 +154,7 @@ export const MonteCarloConfig = ({
                     </div>
                     <button
                         type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onClose(false);
-                        }}
+                        onClick={() => onClose(false)}
                         className="shrink-0 flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 group/close focus:outline-none focus:ring-2 focus:ring-emerald-300/70"
                         title="Salvar e Fechar"
                     >
@@ -148,6 +163,7 @@ export const MonteCarloConfig = ({
                     </button>
                 </div>
 
+                {/* REMOVIDO DUPLO SCROLL - Mantido apenas o container de conteúdo flex-1 */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pt-2">
                     <div className="bg-slate-950/40 backdrop-blur-xl p-6 rounded-3xl mb-8 border border-white/[0.03] shadow-2xl relative overflow-hidden group/target">
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover/target:opacity-20 transition-opacity">
@@ -157,7 +173,7 @@ export const MonteCarloConfig = ({
                             <div>
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-1">Target Achievement</span>
                                 <span className="text-3xl font-black text-white tracking-tighter italic">
-                                    <span>{displayTarget}</span>
+                                    <span>{localTarget}</span>
                                     <span className="text-blue-500">%</span>
                                 </span>
                             </div>
@@ -174,39 +190,11 @@ export const MonteCarloConfig = ({
                                 max={safeMaxScore}
                                 step="1"
                                 defaultValue={clampedTarget}
-                                onChange={(e) => {
-                                    const val = parseInt(e.target.value, 10);
-                                    setLocalTarget(val);
-                                    
-                                    isDragging.current = true;
-                                    if (dragTimeout.current) clearTimeout(dragTimeout.current);
-                                    dragTimeout.current = setTimeout(() => { isDragging.current = false; }, 500);
-
-                                    if (setTargetScore) {
-                                        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-                                        debounceTimeout.current = setTimeout(() => {
-                                            if (React.startTransition) {
-                                                React.startTransition(() => {
-                                                    setTargetScore(val);
-                                                });
-                                            } else {
-                                                setTargetScore(val);
-                                            }
-                                        }, 40);
-                                    }
-                                }}
-                                onPointerDown={() => {
-                                    isDragging.current = true;
-                                }}
-                                onPointerUp={() => {
-                                    isDragging.current = false;
-                                    if (dragTimeout.current) clearTimeout(dragTimeout.current);
-                                }}
+                                onChange={handleSliderChange}
+                                onPointerDown={() => { isDragging.current = true; }}
+                                onPointerUp={() => { isDragging.current = false; }}
                                 onTouchStart={() => { isDragging.current = true; }}
-                                onTouchEnd={() => {
-                                    isDragging.current = false;
-                                    if (dragTimeout.current) clearTimeout(dragTimeout.current);
-                                }}
+                                onTouchEnd={() => { isDragging.current = false; }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
                                 style={{
                                     background: `linear-gradient(to right, #3b82f6 ${sliderPercent}%, rgba(255,255,255,0.1) ${sliderPercent}%)`,
@@ -299,7 +287,6 @@ export const MonteCarloConfig = ({
                         </div>
                     </div>
 
-                    {/* FEAT: Time Penalty Configuration */}
                     <div className="bg-slate-950/40 p-5 rounded-md mb-8 border border-white/[0.03] shadow-inner relative overflow-hidden">
                         <div className="flex items-center gap-2 mb-4">
                             <Clock size={18} className="text-emerald-400" />
@@ -348,10 +335,10 @@ export const MonteCarloConfig = ({
                     </div>
 
                     <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium bg-black/20 p-3 rounded-md border border-white/[0.02]">
-                            Se você inserir notas aqui, o motor Monte Carlo irá <b>sortear a nota de corte alvo</b> a cada simulação a partir de uma Distribuição Normal baseada nestes valores, ignorando o Target fixo do slider. Isso gera previsões hiper-realistas para bancas voláteis.
-                        </p>
+                        Se você inserir notas aqui, o motor Monte Carlo irá <b>sortear a nota de corte alvo</b> a cada simulação a partir de uma Distribuição Normal baseada nestes valores, ignorando o Target fixo do slider. Isso gera previsões hiper-realistas para bancas voláteis.
+                    </p>
 
-                    <div className="bg-slate-800/50 p-1 rounded-xl flex flex-col sm:flex-row mb-6 border border-white/5 gap-1 sm:gap-0">
+                    <div className="bg-slate-800/50 p-1 rounded-xl flex flex-col sm:flex-row my-6 border border-white/5 gap-1 sm:gap-0">
                         <button
                             type="button"
                             onClick={() => {
@@ -382,9 +369,10 @@ export const MonteCarloConfig = ({
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                    {/* CONTEXTO SECUNDÁRIO DE LISTAGEM DE MATÉRIAS */}
+                    <div className="space-y-3">
                         {equalWeightsMode ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                            <div className="py-10 flex flex-col items-center justify-center text-center opacity-50">
                                 <Minus size={40} className="text-slate-600 mb-2" />
                                 <p className="text-sm text-slate-500 px-10">No modo automático, todas as matérias possuem o mesmo peso de relevância.</p>
                             </div>
@@ -400,7 +388,7 @@ export const MonteCarloConfig = ({
                                     />
                                 ))
                             ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-center opacity-50 space-y-2 py-10">
+                                <div className="py-10 flex flex-col items-center justify-center text-center opacity-50 space-y-2">
                                     <Activity size={40} className="text-slate-600 mb-2" />
                                     <p className="text-sm text-slate-500 px-10">Nenhuma matéria encontrada no concurso atual.</p>
                                     <p className="text-[10px] text-slate-600">Adicione matérias na Planilha ou menu Categorias para configurar os pesos.</p>
