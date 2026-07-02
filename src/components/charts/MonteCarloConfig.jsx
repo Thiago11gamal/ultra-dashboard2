@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Settings2, Check, Minus, Plus, Activity, Clock, Hash } from 'lucide-react';
-import { useAppStore } from '../store/useAppStore';
+import { Settings2, Check, Minus, Plus, Activity, Clock, Hash, ChevronUp, ChevronDown } from 'lucide-react';
+import { useAppStore } from '../../store/useAppStore';
 
 const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
     const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
@@ -294,29 +294,37 @@ export const MonteCarloConfig = ({
                                     <div className="pl-3 pr-2 py-2.5 text-slate-500">
                                         <Clock size={16} />
                                     </div>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="12"
-                                        step="0.5"
-                                        value={(() => {
-                                            const activeId = useAppStore.getState().appState?.activeId;
-                                            const contest = useAppStore.getState().appState?.contests?.[activeId];
-                                            return contest?.examDurationMinutes ? contest.examDurationMinutes / 60 : 4;
-                                        })()}
-                                        onChange={(e) => {
-                                            const hours = parseFloat(e.target.value);
-                                            if (!isNaN(hours) && hours > 0) {
-                                                const mins = Math.round(hours * 60);
-                                                const store = useAppStore.getState();
-                                                const activeId = store.appState?.activeId;
-                                                const contest = store.appState?.contests?.[activeId];
+                                    {(() => {
+                                        const store = useAppStore.getState();
+                                        const activeId = store.appState?.activeId;
+                                        const contest = store.appState?.contests?.[activeId];
+                                        const currentMins = contest?.examDurationMinutes || 240;
+                                        const h = Math.floor(currentMins / 60);
+                                        const m = currentMins % 60;
+                                        const label = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+
+                                        const updateMins = (delta) => {
+                                            const newMins = Math.max(30, Math.min(720, currentMins + delta));
+                                            if (newMins !== currentMins) {
                                                 const currentQ = contest?.examTotalQuestions || 100;
-                                                if (store.setExamConfig) store.setExamConfig(mins, currentQ);
+                                                if (store.setExamConfig) store.setExamConfig(newMins, currentQ);
                                             }
-                                        }}
-                                        className="bg-transparent text-white font-bold text-sm w-full outline-none py-2.5 pr-3 placeholder:text-slate-600"
-                                    />
+                                        };
+
+                                        return (
+                                            <div className="flex items-center justify-between w-full pr-1 py-1">
+                                                <span className="bg-transparent text-white font-bold text-sm select-none">{label}</span>
+                                                <div className="flex flex-col gap-0.5">
+                                                    <button type="button" onClick={() => updateMins(30)} className="text-slate-500 hover:text-white hover:bg-white/10 rounded px-1 transition-colors" title="Aumentar 30min">
+                                                        <ChevronUp size={12} strokeWidth={4} />
+                                                    </button>
+                                                    <button type="button" onClick={() => updateMins(-30)} className="text-slate-500 hover:text-white hover:bg-white/10 rounded px-1 transition-colors" title="Diminuir 30min">
+                                                        <ChevronDown size={12} strokeWidth={4} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                             <div>
@@ -354,7 +362,6 @@ export const MonteCarloConfig = ({
                     <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium bg-black/20 p-3 rounded-md border border-white/[0.02]">
                             Se você inserir notas aqui, o motor Monte Carlo irá <b>sortear a nota de corte alvo</b> a cada simulação a partir de uma Distribuição Normal baseada nestes valores, ignorando o Target fixo do slider. Isso gera previsões hiper-realistas para bancas voláteis.
                         </p>
-                    </div>
 
                     <div className="bg-slate-800/50 p-1 rounded-xl flex flex-col sm:flex-row mb-6 border border-white/5 gap-1 sm:gap-0">
                         <button
