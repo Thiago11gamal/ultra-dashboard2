@@ -525,6 +525,29 @@ export function monteCarloSimulation(
     }
     baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * maxScore)));
 
+    // FEAT: Time Penalty (Simulação de Prova Real)
+    let timePenaltyApplied = false;
+    let timePenaltyScoreDrop = 0;
+    let projectedTotalTimeSeconds = options.projectedTotalTimeSeconds || 0;
+    let examDurationMinutes = options.examDurationMinutes || 0;
+    let overflowRatio = 0;
+
+    if (examDurationMinutes > 0 && projectedTotalTimeSeconds > 0) {
+        const examLimitSeconds = examDurationMinutes * 60;
+        if (projectedTotalTimeSeconds > examLimitSeconds) {
+            overflowRatio = (projectedTotalTimeSeconds - examLimitSeconds) / projectedTotalTimeSeconds;
+            
+            // O aluno só consegue resolver com qualidade (1 - overflowRatio) da prova.
+            // O restante (overflowRatio) será chutado, com probabilidade de acerto de 20% (1/5).
+            const guessScore = 0.2 * (maxScore - minScore) + minScore; // 20% na escala correta
+            const newBaseline = (baselineScore * (1 - overflowRatio)) + (guessScore * overflowRatio);
+            
+            timePenaltyScoreDrop = baselineScore - newBaseline;
+            baselineScore = newBaseline;
+            timePenaltyApplied = true;
+        }
+    }
+
     // IMPROVED mean reversion (from Coach+MC analysis): give stronger weight to historical mean when performance is declining.
     // This prevents the projection from collapsing too aggressively on negative drift.
     const histScores = sortedHistory.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
@@ -805,6 +828,10 @@ export function monteCarloSimulation(
         // UI e componentes de display devem formatar quando necessário.
         probability: empiricalProb,
         analyticalProbability: analyticalProb,
+        timePenaltyApplied,
+        timePenaltyScoreDrop,
+        projectedTotalTimeSeconds: options.projectedTotalTimeSeconds || 0,
+        examDurationMinutes: options.examDurationMinutes || 0,
         mean: meanResult,
         projectedMean: meanResult, // Standardized for EvolutionChart
         sd: finalSD,

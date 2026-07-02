@@ -1466,6 +1466,36 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             });
         }
 
+        // FEAT: Motor de Agilidade AI (Time Spent)
+        const histArray = (cat.simuladoStats && Array.isArray(cat.simuladoStats.history)) ? cat.simuladoStats.history : [];
+        let totalTimeSpent = 0;
+        let totalTimedQuestions = 0;
+        histArray.forEach(h => {
+            if (h.timeSpent && h.timedQuestoes) {
+                totalTimeSpent += Number(h.timeSpent);
+                totalTimedQuestions += Number(h.timedQuestoes);
+            }
+        });
+        const avgSeconds = totalTimedQuestions > 0 ? Math.round(totalTimeSpent / totalTimedQuestions) : 0;
+        const targetSeconds = 120; // Meta fixa de 2 minutos por questão (pode ser ajustada por dificuldade depois)
+        const isAgilityProblem = (avgSeconds > targetSeconds + 30) && (cat.urgency?.details?.averageScore >= 75); 
+
+        if (isAgilityProblem) {
+            allGeneratedTasks.push({
+                id: `${cat.id}-agility-${avgSeconds}`,
+                text: `${cat.name}: ${priorityLabel}[AGILIDADE AI] ⚡ TREINO RÁPIDO: Reduza seu tempo de resolução.`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Motor de Agilidade AI",
+                    details: `Seu tempo médio (${avgSeconds}s/questão) está alto, embora sua taxa de acertos seja excelente.`,
+                    metrics: cat.urgency?.details?.humanReadable || {},
+                    monteCarlo: mc || null,
+                    verdict: `Faça baterias curtas com cronômetro para reduzir o seu tempo de ${avgSeconds}s para a meta de ${targetSeconds}s por questão.`
+                }
+            });
+        }
+
         // 2. Consumo de Tópicos
         let topicCursor = 0;
         for (let i = 0; i < iterations; i++) {
