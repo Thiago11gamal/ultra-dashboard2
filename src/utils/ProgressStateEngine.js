@@ -5,7 +5,7 @@
  * evolution, regression, and instability.
  */
 
-import { toDateMs } from './dateHelper';
+import { toDateMs } from './dateHelper.js';
 
 const DEFAULT_CONFIG = {
     window_size: 10,

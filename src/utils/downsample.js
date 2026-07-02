@@ -1,4 +1,4 @@
-import { toDateMs } from './dateHelper';
+import { toDateMs } from './dateHelper.js';
 
 /**
  * Downsamples data using Largest Triangle Three Buckets (LTTB)

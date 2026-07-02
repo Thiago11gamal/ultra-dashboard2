@@ -1,4 +1,4 @@
-import { toDateMs } from './dateHelper';
+import { toDateMs } from './dateHelper.js';
 
 export function computeTopRegressions({ viewMode, chartData = [], keys = [], activeKeys = {}, hiddenKeys = {} }) {
   if (viewMode !== 'variation' || !Array.isArray(chartData) || chartData.length === 0) return [];

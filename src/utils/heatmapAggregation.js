@@ -1,4 +1,4 @@
-import { normalizeDate } from './dateHelper';
+import { normalizeDate } from './dateHelper.js';
 
 export function getMondayKey(rawKey = '') {
   const dt = normalizeDate(rawKey) || new Date(0);
