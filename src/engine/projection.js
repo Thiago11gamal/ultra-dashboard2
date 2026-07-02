@@ -551,7 +551,14 @@ export function monteCarloSimulation(
     // IMPROVED mean reversion (from Coach+MC analysis): give stronger weight to historical mean when performance is declining.
     // This prevents the projection from collapsing too aggressively on negative drift.
     const histScores = sortedHistory.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
-    const historicalMean = histScores.length > 0 ? kahanMean(histScores) : baselineScore;
+    let historicalMean = histScores.length > 0 ? kahanMean(histScores) : baselineScore;
+
+    // BUG FIX: The historicalMean MUST also receive the Time Penalty, otherwise the Ornstein-Uhlenbeck 
+    // mean reversion engine will aggressively pull the projection back up, effectively erasing the time penalty!
+    if (timePenaltyApplied && overflowRatio > 0) {
+        const guessScore = 0.2 * (maxScore - minScore) + minScore;
+        historicalMean = (historicalMean * (1 - overflowRatio)) + (guessScore * overflowRatio);
+    }
     
     // When current baseline is below historical, increase reversion pull towards history.
     const belowHistorical = baselineScore < historicalMean;
