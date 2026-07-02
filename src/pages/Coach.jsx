@@ -76,6 +76,7 @@ export default function Coach() {
     const [coachLoading, setCoachLoading] = useState(false);
     const [suggestedFocus, setSuggestedFocus] = useState(null);
     const timeoutRef = useRef(null);
+    const generationTimeoutsRef = useRef([]);
     const lastPushedScoreRef = useRef(null);
     const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
     const isMountedRef = useRef(true);
@@ -238,9 +239,18 @@ export default function Coach() {
     // 'history' represents topic-level rows, 'simulados' represents global test events.
     // We group legacy topic rows into global events if no 'simulados' exist for that date.
     const combinedHistory = useMemo(() => {
+        const deduplicatedMap = new Map();
         const allSimulados = [...(simulados || [])];
+        
+        // Adiciona os simulados oficiais ao map
+        allSimulados.forEach(s => {
+            const key = `${s.id || ''}|${s.date || s.createdAt}|${Number(s.score || 0).toFixed(2)}`;
+            deduplicatedMap.set(key, { ...s, type: 'simulado' });
+        });
+
         const hasSimuladoForDate = new Set(allSimulados.map(s => s.date));
         
+        // Agrupa e adiciona o histórico legado
         const rowsByDate = {};
         (history || []).forEach(r => {
             const dKey = r.date;
@@ -250,31 +260,18 @@ export default function Coach() {
                 rowsByDate[dKey].total += (Number(r.total) || 0);
             }
         });
-        
+
         Object.entries(rowsByDate).forEach(([dKey, stats]) => {
             if (stats.total > 0) {
-                allSimulados.push({
-                    id: `legacy-${dKey}`,
-                    date: dKey,
-                    score: (stats.correct / stats.total) * 100,
-                    type: 'simulado'
-                });
+                const score = (stats.correct / stats.total) * 100;
+                const key = `legacy-${dKey}|${dKey}|${score.toFixed(2)}`;
+                if (!deduplicatedMap.has(key)) {
+                    deduplicatedMap.set(key, { id: `legacy-${dKey}`, date: dKey, score, type: 'simulado' });
+                }
             }
         });
 
-        const seen = new Set();
-        const deduplicated = [];
-        allSimulados.forEach(s => {
-            const sDate = s.date || s.createdAt;
-            const scoreStr = Number(s.score || 0).toFixed(2);
-            const key = `${s.id || ''}|${sDate}|${scoreStr}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                deduplicated.push({ ...s, type: 'simulado' });
-            }
-        });
-        
-        return getSortedHistory(deduplicated);
+        return getSortedHistory(Array.from(deduplicatedMap.values()));
     }, [history, simulados]);
 
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
@@ -304,6 +301,13 @@ export default function Coach() {
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore), [combinedHistory, currentMaxScore]);
     const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
 
+    const mcStatsContext = useMemo(() => ({
+        projectedMean: mcStats?.projectedMean,
+        probability: mcStats?.probability,
+        statsData: mcStats?.statsData,
+        sd: mcStats?.sd
+    }), [mcStats?.projectedMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
+
     useEffect(() => {
         if (!data?.categories || !isHydrated) return;
 
@@ -329,7 +333,7 @@ export default function Coach() {
                     flashcardDue,
                     onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                     // Pass global MC stats for richer integration (see analysis of Coach + MC)
-                    globalMcStats: mcStats,
+                    globalMcStats: mcStatsContext,
                     config: {
                         MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
                     }
@@ -337,10 +341,10 @@ export default function Coach() {
             );
 
             // BEST: enrich the suggestion with global MC context for the UI
-            if (result && mcStats && mcStats.projectedMean != null) {
+            if (result && mcStatsContext && mcStatsContext.projectedMean != null) {
                 result.globalMcContext = {
-                    projectedMean: Number(mcStats.projectedMean.toFixed(1)),
-                    probability: mcStats.probability != null ? Number(mcStats.probability.toFixed(1)) : null,
+                    projectedMean: Number(mcStatsContext.projectedMean.toFixed(1)),
+                    probability: mcStatsContext.probability != null ? Number(mcStatsContext.probability.toFixed(1)) : null,
                     source: 'useMonteCarloStats'
                 };
             }
@@ -362,9 +366,6 @@ export default function Coach() {
             if (metricsTimer) clearTimeout(metricsTimer);
             nestedTimeouts.forEach(clearTimeout);
         };
-    // BUG-1 FIX: mcStats é um objeto com referência nova a cada render.
-    // Usar primitivos estáveis (projectedMean, probability) evita loop de re-renders.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         isHydrated,
         data?.categories, 
@@ -376,8 +377,7 @@ export default function Coach() {
         userProfile?.targetProbability,
         flashcardDue,
         flashcardDecks,
-        mcStats?.projectedMean,
-        mcStats?.probability,
+        mcStatsContext,
         persistCalibrationMetric
     ]);
 
@@ -403,12 +403,15 @@ export default function Coach() {
         if (!data?.categories || coachLoading) return;
         setCoachLoading(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        // BUG-2 FIX: Limpar timeouts de calibração pendentes antes de agendar novos
-        if (window._coachGenerationTimeouts) {
-            window._coachGenerationTimeouts.forEach(clearTimeout);
-            window._coachGenerationTimeouts = [];
+        
+        if (generationTimeoutsRef.current.length > 0) {
+            generationTimeoutsRef.current.forEach(clearTimeout);
+            generationTimeoutsRef.current = [];
         }
+
         timeoutRef.current = setTimeout(() => {
+            if (!isMountedRef.current) return;
+
             const targetScore = userProfile?.targetProbability ?? 85;
             const collectedMetrics = [];
 
@@ -435,21 +438,21 @@ export default function Coach() {
                         prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
                     }
                 });
-                showToast('Sugestões geradas!', 'success');
+                showToastRef.current('Sugestões geradas!', 'success');
             } else {
-                showToast('Nenhuma sugestão necessária.', 'info');
+                showToastRef.current('Nenhuma sugestão necessária.', 'info');
             }
 
             collectedMetrics.forEach((metric, i) => {
                 const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
-                if (window._coachGenerationTimeouts) window._coachGenerationTimeouts.push(t);
+                generationTimeoutsRef.current.push(t);
             });
             setCoachLoading(false);
             // LOGIC-TIMEOUT-NULL FIX: zerar a ref após a execução para não manter
             // um ID de timeout expirado que mascararia novos agendamentos.
             timeoutRef.current = null;
         }, 1500);
-    }, [data, coachLoading, setData, showToast, persistCalibrationMetric, userProfile?.targetProbability]);
+    }, [data, coachLoading, setData, persistCalibrationMetric, userProfile?.targetProbability]);
 
     const handleClearHistory = useCallback(() => {
         setData(prev => { if (prev) prev.coachPlan = []; });
@@ -457,15 +460,14 @@ export default function Coach() {
     }, [setData]);
 
     useEffect(() => {
-        window._coachGenerationTimeouts = [];
         return () => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
                 timeoutRef.current = null;
             }
-            if (window._coachGenerationTimeouts) {
-                window._coachGenerationTimeouts.forEach(clearTimeout);
-                window._coachGenerationTimeouts = [];
+            if (generationTimeoutsRef.current) {
+                generationTimeoutsRef.current.forEach(clearTimeout);
+                generationTimeoutsRef.current = [];
             }
         };
     }, []);
