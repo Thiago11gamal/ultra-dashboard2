@@ -225,7 +225,7 @@ export function TodayVsGeneralChart({
                                 fontSize={10} 
                                 tickLine={false} 
                                 axisLine={false} 
-                                tickFormatter={(v) => `${v}${unit === '%' ? '' : ''}`} 
+                                tickFormatter={(v) => `${v}${unit === '%' ? '' : unit}`} 
                             />
                             <Tooltip content={<CustomTooltipTimeline />} cursor={{ stroke: '#ffffff1a', strokeWidth: 2 }} />
                             

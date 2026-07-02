@@ -337,9 +337,8 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
       const elasticGrowth = 1 + 2 * Math.pow(1 - currentRetention, 2);
       stability *= elasticGrowth;
     } else {
-      // BUG FIX: O esquecimento deve ser proporcional à retenção. 
-      // Falhar num simulado imediato não deve destruir a estabilidade inteira, mas falhar após muito tempo sim.
-      const dynamicDecay = Math.max(0.3, DECAY_FACTOR + (0.4 * currentRetention)); 
+      // currentRetention ∈ [0.1, 1.0]. Recalibrado para varrer [0.3, 1.0] de fato.
+      const dynamicDecay = Math.max(0.3, 0.3 + (0.7 * currentRetention)); 
       stability *= dynamicDecay;
       stability = Math.max(1, stability);
     }

@@ -48,6 +48,27 @@ export const MonteCarloConfig = ({
 }) => {
     const savedCustomWeights = useRef(null);
     const [newCutoff, setNewCutoff] = React.useState('');
+
+    // BUG FIX: usar o hook reativo em vez de useAppStore.getState()
+    const examDurationMinutes = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.examDurationMinutes || 240);
+    const examTotalQuestions = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.examTotalQuestions || 100);
+    const setExamConfig = useAppStore(state => state.setExamConfig);
+
+    const examDurationLabel = (() => {
+        const h = Math.floor(examDurationMinutes / 60);
+        const m = examDurationMinutes % 60;
+        return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+    })();
+
+    const updateExamDurationMinutes = (delta) => {
+        const newMins = Math.max(30, Math.min(720, examDurationMinutes + delta));
+        if (newMins !== examDurationMinutes && setExamConfig) setExamConfig(newMins, examTotalQuestions);
+    };
+
+    const updateExamTotalQuestions = (e) => {
+        const q = parseInt(e.target.value, 10);
+        if (!isNaN(q) && q > 0 && setExamConfig) setExamConfig(examDurationMinutes, q);
+    };
     
     // 🔒 PADRÃO CONTROLADO: O componente agora é 'burro'. 
     // A lógica de trava (lock) e debounce reside no pai (VerifiedStats).
@@ -294,37 +315,17 @@ export const MonteCarloConfig = ({
                                     <div className="pl-3 pr-2 py-2.5 text-slate-500">
                                         <Clock size={16} />
                                     </div>
-                                    {(() => {
-                                        const store = useAppStore.getState();
-                                        const activeId = store.appState?.activeId;
-                                        const contest = store.appState?.contests?.[activeId];
-                                        const currentMins = contest?.examDurationMinutes || 240;
-                                        const h = Math.floor(currentMins / 60);
-                                        const m = currentMins % 60;
-                                        const label = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
-
-                                        const updateMins = (delta) => {
-                                            const newMins = Math.max(30, Math.min(720, currentMins + delta));
-                                            if (newMins !== currentMins) {
-                                                const currentQ = contest?.examTotalQuestions || 100;
-                                                if (store.setExamConfig) store.setExamConfig(newMins, currentQ);
-                                            }
-                                        };
-
-                                        return (
-                                            <div className="flex items-center justify-between w-full pr-1 py-1">
-                                                <span className="bg-transparent text-white font-bold text-sm select-none">{label}</span>
-                                                <div className="flex flex-col gap-0.5">
-                                                    <button type="button" onClick={() => updateMins(30)} className="text-slate-500 hover:text-white hover:bg-white/10 rounded px-1 transition-colors" title="Aumentar 30min">
-                                                        <ChevronUp size={12} strokeWidth={4} />
-                                                    </button>
-                                                    <button type="button" onClick={() => updateMins(-30)} className="text-slate-500 hover:text-white hover:bg-white/10 rounded px-1 transition-colors" title="Diminuir 30min">
-                                                        <ChevronDown size={12} strokeWidth={4} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
+                                    <div className="flex items-center justify-between w-full pr-1 py-1">
+                                        <span className="bg-transparent text-white font-bold text-sm select-none">{examDurationLabel}</span>
+                                        <div className="flex flex-col gap-0.5">
+                                            <button type="button" onClick={() => updateExamDurationMinutes(30)} className="text-slate-500 hover:text-white hover:bg-white/10 rounded px-1 transition-colors" title="Aumentar 30min">
+                                                <ChevronUp size={12} strokeWidth={4} />
+                                            </button>
+                                            <button type="button" onClick={() => updateExamDurationMinutes(-30)} className="text-slate-500 hover:text-white hover:bg-white/10 rounded px-1 transition-colors" title="Diminuir 30min">
+                                                <ChevronDown size={12} strokeWidth={4} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div>
@@ -337,21 +338,8 @@ export const MonteCarloConfig = ({
                                         type="number"
                                         min="10"
                                         max="500"
-                                        value={(() => {
-                                            const activeId = useAppStore.getState().appState?.activeId;
-                                            const contest = useAppStore.getState().appState?.contests?.[activeId];
-                                            return contest?.examTotalQuestions || 100;
-                                        })()}
-                                        onChange={(e) => {
-                                            const q = parseInt(e.target.value, 10);
-                                            if (!isNaN(q) && q > 0) {
-                                                const store = useAppStore.getState();
-                                                const activeId = store.appState?.activeId;
-                                                const contest = store.appState?.contests?.[activeId];
-                                                const currentMins = contest?.examDurationMinutes || 240;
-                                                if (store.setExamConfig) store.setExamConfig(currentMins, q);
-                                            }
-                                        }}
+                                        value={examTotalQuestions}
+                                        onChange={updateExamTotalQuestions}
                                         className="bg-transparent text-white font-bold text-sm w-full outline-none py-2.5 pr-3 placeholder:text-slate-600"
                                     />
                                 </div>

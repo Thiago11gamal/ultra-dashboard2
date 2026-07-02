@@ -217,6 +217,8 @@ export default function EvolutionChart({
         const workerDebounceTimeout = setTimeout(async () => {
             setMcLoading(true);
             try {
+                const currentLevel = focusCategory ? categoryLevels[focusCategory.id] : undefined;
+
                 // FEAT: Time Penalty Injection (Subject Level)
                 let totalTimeSpent = 0;
                 let totalTimedQuestions = 0;
