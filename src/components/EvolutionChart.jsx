@@ -217,7 +217,26 @@ export default function EvolutionChart({
         const workerDebounceTimeout = setTimeout(async () => {
             setMcLoading(true);
             try {
-                const currentLevel = focusCategory ? categoryLevels[focusCategory.id] : undefined;
+                // FEAT: Time Penalty Injection (Subject Level)
+                let totalTimeSpent = 0;
+                let totalTimedQuestions = 0;
+                hist.forEach(h => {
+                    const rawH = historyArray.find(r => getDateKey(r.date) === h.date);
+                    if (rawH && rawH.timeSpent && rawH.timedQuestoes) {
+                        totalTimeSpent += Number(rawH.timeSpent);
+                        totalTimedQuestions += Number(rawH.timedQuestoes);
+                    }
+                });
+                const avgSeconds = totalTimedQuestions > 0 ? (totalTimeSpent / totalTimedQuestions) : 0;
+                
+                // Get from store
+                const store = useAppStore.getState();
+                const activeId = store.appState?.activeId;
+                const contest = store.appState?.contests?.[activeId];
+                const defaultExamTotalQuestions = contest?.examTotalQuestions || 100;
+                const examDurationMinutes = contest?.examDurationMinutes || 240;
+                const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
+
                 const result = await runAnalysis({
                     values: hist.map(h => h.score),
                     dates: hist.map(h => h.date),
@@ -226,7 +245,9 @@ export default function EvolutionChart({
                     minScore,
                     maxScore,
                     currentMean: currentLevel,
-                    forcedBaseline: currentLevel
+                    forcedBaseline: currentLevel,
+                    projectedTotalTimeSeconds,
+                    examDurationMinutes
                 });
 
                 if (cancelled || !result) return;

@@ -551,6 +551,28 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         minScore: minScore
                     }));
 
+                    // FEAT: Time Penalty Injection
+                    let totalGlobalTimeSpent = 0;
+                    let totalGlobalTimedQuestions = 0;
+                    pureStatsData.categoryStats.forEach(c => {
+                        const histArray = (c.simuladoStats && Array.isArray(c.simuladoStats.history)) ? c.simuladoStats.history : [];
+                        histArray.forEach(h => {
+                            if (h.timeSpent && h.timedQuestoes) {
+                                totalGlobalTimeSpent += Number(h.timeSpent);
+                                totalGlobalTimedQuestions += Number(h.timedQuestoes);
+                            }
+                        });
+                    });
+                    const globalAvgSeconds = totalGlobalTimedQuestions > 0 ? (totalGlobalTimeSpent / totalGlobalTimedQuestions) : 0;
+                    
+                    const store = useAppStore.getState();
+                    const activeId = store.appState?.activeId;
+                    const cData = store.appState?.contests?.[activeId];
+                    const defaultExamTotalQuestions = cData?.examTotalQuestions || 100;
+                    const examDurationMinutes = cData?.examDurationMinutes || 240;
+                    
+                    const projectedTotalTimeSeconds = defaultExamTotalQuestions * globalAvgSeconds;
+
                     result = await runAnalysis({
                         values: pureStatsData.globalHistory.map(h => h.score),
                         dates: pureStatsData.globalHistory.map(h => h.date),
@@ -563,6 +585,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         minScore,
                         maxScore,
                         subjects: subjectsOpts,
+                        projectedTotalTimeSeconds,
+                        examDurationMinutes
                     });
                 } else {
                     const subjectsOpts = pureStatsData.categoryStats.map(c => ({

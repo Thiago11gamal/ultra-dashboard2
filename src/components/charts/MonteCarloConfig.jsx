@@ -1,5 +1,6 @@
-import React, { useRef } from 'react';
-import { Settings2, Check, Minus, Plus, Activity } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Settings2, Check, Minus, Plus, Activity, Clock, Hash } from 'lucide-react';
+import { useAppStore } from '../store/useAppStore';
 
 const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
     const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
@@ -249,38 +250,108 @@ export const MonteCarloConfig = ({
                                         setNewCutoff('');
                                     }
                                 }}
-                                className="bg-purple-600 hover:bg-purple-500 text-white rounded-md px-4 py-2.5 transition-all shadow-lg shadow-purple-500/20 shrink-0 font-black flex items-center justify-center active:scale-95"
+                                className="bg-purple-600 hover:bg-purple-500 text-white font-black text-xs px-5 py-2.5 rounded-md shadow-lg shadow-purple-500/20 transition-all active:scale-95"
                             >
-                                <Plus size={20} />
+                                Inserir
                             </button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {historicalCutoffs.length === 0 ? (
-                                <p className="text-xs font-bold text-slate-500 italic w-full text-center py-2 bg-slate-900/50 rounded-md">
-                                    Adicione notas de corte anteriores para simular incerteza real na prova.
-                                </p>
-                            ) : (
-                                historicalCutoffs.map((cutoff, idx) => (
-                                    <div key={idx} className="bg-slate-800/80 border border-white/5 rounded-md px-3 py-1.5 flex items-center gap-2 group/tag shrink-0 whitespace-nowrap">
-                                        <span className="text-sm font-black text-slate-200">{cutoff}{maxScore === 100 ? '%' : ''}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const newArr = [...historicalCutoffs];
-                                                newArr.splice(idx, 1);
-                                                if (typeof setHistoricalCutoffs === 'function') {
-                                                    setHistoricalCutoffs(newArr);
-                                                }
-                                            }}
-                                            className="text-slate-500 hover:text-red-400 opacity-50 group-hover/tag:opacity-100 transition-all shrink-0"
-                                        >
-                                            <Minus size={14} />
-                                        </button>
-                                    </div>
-                                ))
+                            {historicalCutoffs.map((c, i) => (
+                                <div key={i} className="flex items-center gap-1.5 bg-slate-900 border border-purple-500/30 px-3 py-1.5 rounded-full group">
+                                    <span className="text-xs font-black text-purple-300">{c}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (typeof setHistoricalCutoffs === 'function') {
+                                                setHistoricalCutoffs(historicalCutoffs.filter((_, idx) => idx !== i));
+                                            }
+                                        }}
+                                        className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                    >
+                                        <Minus size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                            {historicalCutoffs.length === 0 && (
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Nenhum corte cadastrado</span>
                             )}
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium bg-black/20 p-3 rounded-md border border-white/[0.02]">
+                    </div>
+
+                    {/* FEAT: Time Penalty Configuration */}
+                    <div className="bg-slate-950/40 p-5 rounded-md mb-8 border border-white/[0.03] shadow-inner relative overflow-hidden">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Clock size={18} className="text-emerald-400" />
+                            <div>
+                                <h4 className="text-sm font-black text-white uppercase tracking-tight">Time Penalty (Agilidade)</h4>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Penalidade por Estouro de Tempo</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Tempo de Prova (Horas)</label>
+                                <div className="flex items-center bg-slate-900 border border-white/10 rounded-md focus-within:border-emerald-500/50 transition-colors">
+                                    <div className="pl-3 pr-2 py-2.5 text-slate-500">
+                                        <Clock size={16} />
+                                    </div>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="12"
+                                        step="0.5"
+                                        value={(() => {
+                                            const activeId = useAppStore.getState().appState?.activeId;
+                                            const contest = useAppStore.getState().appState?.contests?.[activeId];
+                                            return contest?.examDurationMinutes ? contest.examDurationMinutes / 60 : 4;
+                                        })()}
+                                        onChange={(e) => {
+                                            const hours = parseFloat(e.target.value);
+                                            if (!isNaN(hours) && hours > 0) {
+                                                const mins = Math.round(hours * 60);
+                                                const store = useAppStore.getState();
+                                                const activeId = store.appState?.activeId;
+                                                const contest = store.appState?.contests?.[activeId];
+                                                const currentQ = contest?.examTotalQuestions || 100;
+                                                if (store.setExamConfig) store.setExamConfig(mins, currentQ);
+                                            }
+                                        }}
+                                        className="bg-transparent text-white font-bold text-sm w-full outline-none py-2.5 pr-3 placeholder:text-slate-600"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Total de Questões</label>
+                                <div className="flex items-center bg-slate-900 border border-white/10 rounded-md focus-within:border-emerald-500/50 transition-colors">
+                                    <div className="pl-3 pr-2 py-2.5 text-slate-500">
+                                        <Hash size={16} />
+                                    </div>
+                                    <input
+                                        type="number"
+                                        min="10"
+                                        max="500"
+                                        value={(() => {
+                                            const activeId = useAppStore.getState().appState?.activeId;
+                                            const contest = useAppStore.getState().appState?.contests?.[activeId];
+                                            return contest?.examTotalQuestions || 100;
+                                        })()}
+                                        onChange={(e) => {
+                                            const q = parseInt(e.target.value, 10);
+                                            if (!isNaN(q) && q > 0) {
+                                                const store = useAppStore.getState();
+                                                const activeId = store.appState?.activeId;
+                                                const contest = store.appState?.contests?.[activeId];
+                                                const currentMins = contest?.examDurationMinutes || 240;
+                                                if (store.setExamConfig) store.setExamConfig(currentMins, q);
+                                            }
+                                        }}
+                                        className="bg-transparent text-white font-bold text-sm w-full outline-none py-2.5 pr-3 placeholder:text-slate-600"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium bg-black/20 p-3 rounded-md border border-white/[0.02]">
                             Se você inserir notas aqui, o motor Monte Carlo irá <b>sortear a nota de corte alvo</b> a cada simulação a partir de uma Distribuição Normal baseada nestes valores, ignorando o Target fixo do slider. Isso gera previsões hiper-realistas para bancas voláteis.
                         </p>
                     </div>
