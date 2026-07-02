@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalCDF_complement, asymmetricGaussian, inverseNormalCDF, sampleTruncatedNormal, choleskyDecomposition, generateGaussianPoints, generateKDE, applyCovariance } from '../src/engine/math/gaussian.js';
+import { normalCDF_complement, asymmetricGaussian, inverseNormalCDF, sampleTruncatedNormal, choleskyDecomposition, generateGaussianPoints, generateKDE, applyCovariance, truncatedNormalMean, ensurePositiveSemiDefinite } from '../src/engine/math/gaussian.js';
 
 describe('Motor Matemático: Distribuição Gaussiana', () => {
     
@@ -92,7 +92,51 @@ describe('Motor Matemático: Distribuição Gaussiana', () => {
         });
     });
 
+    describe('Média da Normal Truncada', () => {
+        it('Deve calcular a média exata da distribuição truncada', () => {
+            // Distribuição simétrica cortada simetricamente: a média não muda
+            expect(truncatedNormalMean(50, 10, 0, 100)).toBeCloseTo(50, 5);
+            
+            // Cortada assimetricamente: a média deve ser puxada para longe do corte mais próximo
+            expect(truncatedNormalMean(50, 10, 50, 100)).toBeGreaterThan(50);
+            expect(truncatedNormalMean(50, 10, 0, 50)).toBeLessThan(50);
+        });
+
+        it('Deve lidar com variância zero ou negativa fazendo clamp da média', () => {
+            expect(truncatedNormalMean(120, 0, 0, 100)).toBe(100);
+            expect(truncatedNormalMean(-10, -5, 0, 100)).toBe(0);
+        });
+
+        it('Deve lidar com underflow extremo clampando a média', () => {
+            // Média 1000, limites [0, 100], SD 1. A massa em [0, 100] é quase nula.
+            expect(truncatedNormalMean(1000, 1, 0, 100)).toBe(100);
+            expect(truncatedNormalMean(-1000, 1, 0, 100)).toBe(0);
+        });
+    });
+
     describe('Álgebra Linear (Cholesky e Covariância)', () => {
+        it('Deve aplicar regularização (Jitter) para garantir estabilidade da matriz PSD', () => {
+            const matrix = [
+                [0, 0],
+                [0, 0]
+            ];
+            const jittered = ensurePositiveSemiDefinite(matrix, 1e-9);
+            expect(jittered[0][0]).toBeGreaterThan(0);
+            expect(jittered[1][1]).toBeGreaterThan(0);
+            expect(jittered[0][1]).toBe(0);
+        });
+
+        it('Deve adaptar o jitter à escala da matriz', () => {
+            const matrix = [
+                [1e8, 0],
+                [0, 1e8]
+            ];
+            const jittered = ensurePositiveSemiDefinite(matrix, 1e-9);
+            // O jitter adaptativo deve ser de ~ 1e8 * 1e-8 = 1.0
+            // Então 1e8 + ~1.0 ou baseJitter. Como o max(1e-9, 1.0) é 1.0
+            expect(jittered[0][0] - matrix[0][0]).toBeGreaterThan(0.5);
+        });
+
         it('Deve decompor uma matriz de covariância', () => {
             const matrix = [
                 [1, 0.5],
