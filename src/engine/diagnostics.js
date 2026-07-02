@@ -314,10 +314,11 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
   let stability = 3.0;
   const DECAY_FACTOR = 0.6;
   
-  // O sucesso dinâmico é a própria média do aluno ou no mínimo 50% da prova.
-  // Se o baseline não for passado, calcula a média do próprio history
+  // O sucesso dinâmico é a própria média do aluno, com mínimo de 50% e MÁXIMO de 70%.
+  // BUG FIX: Se o usuário tiver média de 95%, qualquer simulado de 90% faria a memória "decair"
+  // antes deste cap de 0.7. Acertar >70% é sempre sucesso na retenção de memória.
   const safeBaseline = baselineScore !== null ? baselineScore : _mean(sorted.map(h => getSafeScore(h, maxScore)));
-  const dynamicSuccessThreshold = Math.max(0.5, safeBaseline / maxScore);
+  const dynamicSuccessThreshold = Math.min(0.7, Math.max(0.5, safeBaseline / maxScore));
 
   for (let i = 0; i < sorted.length; i++) {
     const h = sorted[i];
@@ -336,7 +337,10 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
       const elasticGrowth = 1 + 2 * Math.pow(1 - currentRetention, 2);
       stability *= elasticGrowth;
     } else {
-      stability *= DECAY_FACTOR;
+      // BUG FIX: O esquecimento deve ser proporcional à retenção. 
+      // Falhar num simulado imediato não deve destruir a estabilidade inteira, mas falhar após muito tempo sim.
+      const dynamicDecay = Math.max(0.3, DECAY_FACTOR + (0.4 * currentRetention)); 
+      stability *= dynamicDecay;
       stability = Math.max(1, stability);
     }
 
