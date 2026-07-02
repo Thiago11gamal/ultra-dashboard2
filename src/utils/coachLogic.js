@@ -19,7 +19,8 @@ import { kahanSum } from '../engine/math/kahan.js';
 export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights, clearMcCache, runCoachMonteCarlo };
 
 // LRU Cache for urgency calculations
-const _urgencyCache = new Map();
+export const _urgencyCache = new Map();
+export const clearUrgencyCache = () => _urgencyCache.clear();
 
 const sanitizeMinutes = (mins) => Math.min(720, Math.max(0, Number(mins) || 0));
 
@@ -972,7 +973,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // Entropia temporal: Invalida o cache a cada novo dia ou mudança de volume
         const todayStr = new Date().toISOString().slice(0, 10);
         
-        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${todayStr}`;
+        // Improve cache key for tests that modify options or use the same count but different data
+        const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
+        const lastSim = simCount > 0 ? (simulados[simCount-1].date || simulados[simCount-1].createdAt || '') : '';
+        const lastLog = logCount > 0 ? (studyLogs[logCount-1].date || studyLogs[logCount-1].createdAt || '') : '';
+        
+        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${todayStr}${optKey}_${lastSim}_${lastLog}`;
         
         if (_urgencyCache.has(cacheKey)) {
             return _urgencyCache.get(cacheKey);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateUrgency, getCrunchMultiplier } from '../src/utils/coachLogic.js';
+import { calculateUrgency, getCrunchMultiplier, clearUrgencyCache } from '../src/utils/coachLogic.js';
 import { simuladosToHistory } from '../src/utils/coachAdaptive.js';
 
 const baseCategory = { id: 'test-cat', name: 'Matemática', weight: 8 };
@@ -60,6 +60,8 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         // Caso A: Aluno com performance baixa (10%)
         const resLow = calculateUrgency(baseCategory, [{ subject: 'Matemática', score: 10, total: 100, date: '2026-01-01' }], studyLogs, { maxScore: 100 });
         
+        clearUrgencyCache();
+
         // Caso B: Aluno com performance alta (90%)
         const resHigh = calculateUrgency(baseCategory, [{ subject: 'Matemática', score: 90, total: 100, date: '2026-01-01' }], studyLogs, { maxScore: 100 });
         
