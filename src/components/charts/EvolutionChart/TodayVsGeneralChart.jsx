@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { 
     ResponsiveContainer, PieChart, Pie, Cell, 
-    LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
+    ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
 } from 'recharts';
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
@@ -22,11 +22,43 @@ const CustomTooltipTimeline = ({ active, payload, unit }) => {
         return (
             <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl">
                 <p className="text-slate-300 text-xs font-bold mb-1">{data.displayDate}</p>
+                
                 <p className="text-white text-sm font-black flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.neonLine }}></span>
                     Média: {data.accuracy.toFixed(1)}{unit}
                 </p>
-                <p className="text-slate-500 text-[10px] mt-1 uppercase tracking-wider">{data.total} questões</p>
+                
+                {data.lastTestAcc != null && (
+                    <p className="text-white text-sm font-black flex items-center gap-2 mt-1">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.lastTestColor || COLORS.gaugeFillValid }}></span>
+                        Último: {data.lastTestAcc.toFixed(1)}{unit}
+                    </p>
+                )}
+
+                <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-wider">{data.total} questões</p>
+            </div>
+        );
+    }
+    return null;
+};
+
+const CustomTooltipPie = ({ active, payload, unit }) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        if (data.trueValue == null) return null; // Não mostra se o arco for vazio/sem dados
+        
+        return (
+            <div 
+                className="bg-slate-900 border border-slate-700 p-2 rounded-xl shadow-xl z-50 pointer-events-none"
+                style={{ transform: 'translate(-50%, -130%)', width: 'max-content' }}
+            >
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.baseColor }}></span>
+                    <span className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">{data.name.replace(' (Restante)', '')}</span>
+                </div>
+                <p className="text-white text-sm font-black mt-1">
+                    {data.trueValue.toFixed(1)}{unit}
+                </p>
             </div>
         );
     }
@@ -165,12 +197,12 @@ export function TodayVsGeneralChart({
         const getAcc = (b) => b.total > 0 ? (b.correct / b.total) * maxScore : null;
 
         return [
-            { id: 'month6', label: '6 Meses', val: getAcc(buckets.month6), rIn: 70, rOut: 74 },
-            { id: 'month3', label: '3 Meses', val: getAcc(buckets.month3), rIn: 77, rOut: 81 },
-            { id: 'month', label: '1 Mês', val: getAcc(buckets.month), rIn: 84, rOut: 88 },
-            { id: 'week', label: 'Semana', val: getAcc(buckets.week), rIn: 91, rOut: 95 },
-            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 98, rOut: 102 },
-            { id: 'last', label: 'Último', val: latestAcc, rIn: 105, rOut: 109 }
+            { id: 'month6', label: '6 Meses', val: getAcc(buckets.month6), rIn: 70, rOut: 80 },
+            { id: 'month3', label: '3 Meses', val: getAcc(buckets.month3), rIn: 82, rOut: 92 },
+            { id: 'month', label: '1 Mês', val: getAcc(buckets.month), rIn: 94, rOut: 103 },
+            { id: 'week', label: 'Semana', val: getAcc(buckets.week), rIn: 105, rOut: 113 },
+            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 115, rOut: 122 },
+            { id: 'last', label: 'Último', val: latestAcc, rIn: 124, rOut: 130 }
         ];
     }, [activeCategories, maxScore]);
 
@@ -188,6 +220,27 @@ export function TodayVsGeneralChart({
     const deltaAbs = Math.abs(delta);
     const isPositive = delta >= 0;
 
+    const todayMetric = temporalMetrics.find(t => t.id === 'today');
+    const lastMetric = temporalMetrics.find(t => t.id === 'last');
+    
+    const todayAcc = todayMetric?.val ?? null;
+    const latestAcc = lastMetric?.val ?? null;
+
+    const deltaLastVsToday = (latestAcc != null && todayAcc != null) ? latestAcc - todayAcc : null;
+    const isLastPositive = deltaLastVsToday >= 0;
+
+    const chartData = useMemo(() => {
+        if (!dailyData || dailyData.length === 0) return [];
+        const data = dailyData.map(d => ({ ...d }));
+        if (latestAcc !== null) {
+            const lastIdx = data.length - 1;
+            const prevAcc = data.length > 1 ? data[lastIdx - 1].accuracy : data[0].accuracy;
+            data[lastIdx].lastTestAcc = latestAcc;
+            data[lastIdx].lastTestColor = latestAcc < prevAcc ? COLORS.gaugeFillDanger : COLORS.gaugeFillValid;
+        }
+        return data;
+    }, [dailyData, latestAcc]);
+
     const getColor = (val) => {
         if (val == null) return 'transparent';
         if (val >= targetScore) return COLORS.gaugeFillSuccess;
@@ -196,7 +249,6 @@ export function TodayVsGeneralChart({
     };
 
     // Usaremos a cor do arco 'Hoje' para o texto central, ou a cor geral.
-    const todayMetric = temporalMetrics.find(t => t.id === 'today');
     const centerColor = getColor(focusAccuracy);
 
 
@@ -239,7 +291,7 @@ export function TodayVsGeneralChart({
                     })}
                 </div>
 
-                <div className="relative w-[220px] h-[120px] mt-8 flex justify-center">
+                <div className="relative w-[260px] h-[140px] mt-6 flex justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             {temporalMetrics.map((metric) => {
@@ -247,8 +299,8 @@ export function TodayVsGeneralChart({
                                 const val = isNull ? 0 : Math.max(0, Math.min(metric.val, maxScore));
                                 const arcColor = isNull ? 'transparent' : getColor(metric.val);
                                 const arcData = [
-                                    { name: metric.label, value: val },
-                                    { name: 'Faltante', value: maxScore - val }
+                                    { name: metric.label, value: val, trueValue: metric.val, baseColor: arcColor },
+                                    { name: `${metric.label} (Restante)`, value: maxScore - val, trueValue: metric.val, baseColor: arcColor }
                                 ];
                                 return (
                                     <Pie
@@ -269,6 +321,7 @@ export function TodayVsGeneralChart({
                                     </Pie>
                                 );
                             })}
+                            <Tooltip content={<CustomTooltipPie unit={unit} />} cursor={false} offset={0} isAnimationActive={false} />
                         </PieChart>
                     </ResponsiveContainer>
                     
@@ -281,15 +334,29 @@ export function TodayVsGeneralChart({
                     </div>
                 </div>
 
-                {/* Badge de Comparação (Delta) */}
-                <div className={`mt-6 px-4 py-2 rounded-2xl flex items-center gap-2 border shadow-lg ${isPositive ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
-                    {isPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                    <div className="flex flex-col">
-                        <span className="text-xs font-black">
-                            {isPositive ? '+' : '-'}{deltaAbs.toFixed(1)}{unit}
-                        </span>
-                        <span className="text-[8px] uppercase tracking-wider opacity-70">vs Média Geral</span>
+                {/* Badges de Comparação (Deltas) */}
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
+                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${isPositive ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
+                        {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                        <div className="flex flex-col">
+                            <span className="text-xs font-black">
+                                {isPositive ? '+' : '-'}{deltaAbs.toFixed(1)}{unit}
+                            </span>
+                            <span className="text-[7px] uppercase tracking-wider opacity-70">Geral</span>
+                        </div>
                     </div>
+
+                    {deltaLastVsToday !== null && (
+                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${isLastPositive ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'bg-orange-500/10 border-orange-500/30 text-orange-400'}`}>
+                            {isLastPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                            <div className="flex flex-col">
+                                <span className="text-xs font-black">
+                                    {isLastPositive ? '+' : ''}{deltaLastVsToday.toFixed(1)}{unit}
+                                </span>
+                                <span className="text-[7px] uppercase tracking-wider opacity-70">Ritmo (Hoje)</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 
                 {/* Info adicional da Meta */}
@@ -320,7 +387,7 @@ export function TodayVsGeneralChart({
                 
                 <div className="flex-1 w-full min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={dailyData} margin={{ top: 20, right: 20, left: -20, bottom: 10 }}>
+                        <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: -20, bottom: 10 }}>
                             <defs>
                                 <linearGradient id="neonGradient" x1="0" y1="0" x2="1" y2="0">
                                     <stop offset="0%" stopColor={COLORS.neonLine} stopOpacity={0.4} />
@@ -378,7 +445,23 @@ export function TodayVsGeneralChart({
                                     fontWeight={700}
                                 />
                             </Line>
-                        </LineChart>
+
+                            {/* Barra do Último Simulado (aparece apenas no último dia) */}
+                            <Bar dataKey="lastTestAcc" barSize={16} radius={[4,4,0,0]} isAnimationActive={true} animationDuration={1200} fill={COLORS.gaugeFillValid}>
+                                {chartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.lastTestColor || COLORS.gaugeFillValid} style={{ filter: entry.lastTestColor ? `drop-shadow(0 0 6px ${entry.lastTestColor}80)` : 'none' }} />
+                                ))}
+                                <LabelList 
+                                    dataKey="lastTestAcc" 
+                                    position="right" 
+                                    offset={10} 
+                                    formatter={(v) => v ? Math.round(v) : ''} 
+                                    fill="#fff" 
+                                    fontSize={10}
+                                    fontWeight={900}
+                                />
+                            </Bar>
+                        </ComposedChart>
                     </ResponsiveContainer>
                 </div>
             </div>
