@@ -61,6 +61,7 @@ export default defineConfig({
     environment: 'node',        // engine puro — sem DOM
     globals: true,              // describe/it/expect sem import
     include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'src/**/*.spec.js', 'tests/**/*.test.js'],
+    globalTeardown: './tests/teardown.js',
     coverage: {
       provider: 'v8',
       include: ['src/engine/**', 'src/utils/coachLogic.js'],
