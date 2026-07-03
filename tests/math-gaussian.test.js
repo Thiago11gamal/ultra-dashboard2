@@ -62,8 +62,8 @@ describe('Motor Matemático: Distribuição Gaussiana', () => {
             expect(val).toBeLessThanOrEqual(100);
         });
 
-        it('Deve lançar erro se RNG não for fornecido', () => {
-            expect(() => sampleTruncatedNormal(70, 10, 0, 100)).toThrow('STRICT_DETERMINISM');
+        it('Deve lançar erro se RNG não for fornecido em modo estrito', () => {
+            expect(() => sampleTruncatedNormal(70, 10, 0, 100, undefined, { strict: true })).toThrow('STRICT_DETERMINISM');
         });
 
         it('Deve lidar com SD muito baixo retornando a média clampada', () => {

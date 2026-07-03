@@ -313,7 +313,7 @@ export function inverseNormalCDF(p) {
  * Amostragem Estrita para Normal Truncada
  * Garante números exclusivamente entre [min, max] mantendo a suavidade da curva.
  */
-export function sampleTruncatedNormal(mean, sd, min, max, rng) {
+export function sampleTruncatedNormal(mean, sd, min, max, rng, options = {}) {
     // 1. NOVA PROTEÇÃO: Rejeitar dados não finitos para evitar corrupção do Monte Carlo
     if (!Number.isFinite(mean) || !Number.isFinite(sd) || !Number.isFinite(min) || !Number.isFinite(max)) {
         const lo = Number.isFinite(min) ? min : 0;
@@ -342,10 +342,11 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
         return Math.max(min, Math.min(max, mean));
     }
 
-    // 3. NOVA PROTEÇÃO: STRICT DETERMINISM - Falha imediatamente se não houver RNG determinístico
-    // Backwards-compatible fallback: if caller didn't provide RNG, fallback to Math.random()
-    // but warn once to encourage deterministic usage in tests/CI.
+    const strictDeterminism = options && options.strict === true;
     if (typeof rng !== 'function') {
+        if (strictDeterminism) {
+            throw new Error('STRICT_DETERMINISM: sampleTruncatedNormal requires a deterministic RNG function');
+        }
         if (!globalThis.__MC_WARNED_FALLBACK_RNG__) {
             // eslint-disable-next-line no-console
             console.warn('sampleTruncatedNormal: no RNG provided, falling back to Math.random() (non-deterministic)');
