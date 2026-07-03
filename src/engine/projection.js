@@ -878,7 +878,8 @@ export function monteCarloSimulation(
             effectiveDriftSlope: typeof effectiveDriftSlope !== 'undefined' ? effectiveDriftSlope : 0,
             conformalCoverage: 0.9,
             simulationCount: safeSimulations,
-            historicalMean: historicalMean || null
+            historicalMean: historicalMean || null,
+            effectiveN: Math.max(1, sortedHistory.length)
         }
     };
 }

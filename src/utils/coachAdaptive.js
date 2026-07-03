@@ -358,7 +358,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                 Math.min(Number(cfg.MC_BACKTEST_HORIZON_MAX) || 6, Math.floor(history.length / 3))
             );
             const isLowPerformance = typeof navigator !== 'undefined' && (navigator.hardwareConcurrency <= 4 || /Mobi|Android/i.test(navigator.userAgent));
-            const horizon = isLowPerformance ? 0 : Math.min(dynamicHorizon, history.length - (cfg.MC_MIN_DATA_POINTS || 5));
+            const defaultHorizon = Math.min(dynamicHorizon, history.length - (cfg.MC_MIN_DATA_POINTS || 5));
+            const horizon = isLowPerformance ? Math.min(3, defaultHorizon) : defaultHorizon;
             const brierScores = [];
             for (let i = 1; i <= horizon; i++) {
                 const train = history.slice(0, history.length - i);

@@ -159,7 +159,7 @@ function MonteCarloGauge({ mc }) {
     );
 }
 
-export default function AICoachWidget({ suggestion }) {
+export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
     const [showMatrix, setShowMatrix] = useState(false);
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
 
@@ -224,6 +224,16 @@ export default function AICoachWidget({ suggestion }) {
                             <TierIcon size={12} className="shrink-0" />
                             <span className="whitespace-nowrap">{tier === 'Standard' ? 'Padrão' : tier}</span>
                         </div>
+                        {onGenerateGoals && (
+                            <button 
+                                onClick={onGenerateGoals}
+                                disabled={loading}
+                                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flame className="w-3.5 h-3.5" />}
+                                {loading ? 'Calculando...' : 'Recalcular'}
+                            </button>
+                        )}
                     </div>
                 </div>
 

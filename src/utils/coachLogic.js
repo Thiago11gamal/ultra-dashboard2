@@ -2,7 +2,7 @@
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
-import { safeDateParse as _safeDateParse, normalizeDate } from './dateHelper.js';
+import { safeDateParse as _safeDateParse, normalizeDate, getDateKey } from './dateHelper.js';
 import { normalize } from './normalization.js';
 import { computeRollingCalibrationParams } from './calibration.js';
 import { 
@@ -576,7 +576,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const normalizedAvg = (averageScore / maxScore) * 100;
     const scoreComponent = Math.max(0, Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100)));
 
-    const effectiveRiskDays = daysSinceLastStudy; 
+    const effectiveRiskDays = recencyUnknown ? cfg.RECENCY_MAX : daysSinceLastStudy; 
     const crunchMultiplier = getCrunchMultiplier(daysToExam, rootActivityDate, metrics.referenceDate);
     
     let instabilityComponent = mssdVolatility * (dynamicInstabilityMax / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
@@ -971,7 +971,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const simCount = simulados.length;
         const logCount = studyLogs.length;
         // Entropia temporal: Invalida o cache a cada novo dia ou mudança de volume
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const todayStr = getDateKey(new Date());
         
         // Improve cache key for tests that modify options or use the same count but different data
         const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
@@ -1143,7 +1143,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     // garantindo que concursos distintos ou novos dados invalidem o estado corretamente.
     // CORREÇÃO: Injetar entropia temporal (Data Atual ISO) na chave de cache para garantir 
     // que o decaimento por repetição espaçada (SRS) é atualizado dia após dia.
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getDateKey(new Date());
     const userId = category?.userId || simulados[0]?.userId || 'default';
     const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}`; 
     const cacheKey = `isolate_${catId}_${hash}`;
