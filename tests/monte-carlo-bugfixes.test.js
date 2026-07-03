@@ -22,10 +22,10 @@ describe('Monte Carlo Bugfixes Validation', () => {
         const history = [80, 85, 90];
         const res = runMonteCarloAnalysis({ values: history, simulations: 1000 });
         
-        expect(res.p50).toBeGreaterThan(80);
-        expect(res.p50).toBeLessThan(90);
-        expect(res.p10).toBeLessThan(res.p50);
-        expect(res.p90).toBeGreaterThan(res.p50);
+        expect(res.mean).toBeGreaterThan(80);
+        expect(res.mean).toBeLessThan(90);
+        expect(res.ci95Low).toBeLessThan(res.mean);
+        expect(res.ci95High).toBeGreaterThan(res.mean);
     });
 
     it('Bug 3: calculateVolatility deve retornar fallback de 5% (não NaN) com N=1', () => {
