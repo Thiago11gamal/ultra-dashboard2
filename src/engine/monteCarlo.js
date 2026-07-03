@@ -7,7 +7,7 @@ import { kahanMean, kahanSum } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
-
+import { getDateKey } from '../utils/dateHelper.js';
 export { getPercentile };
 
 const DEFAULT_SIMULATIONS = 5000;
@@ -583,7 +583,7 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
                 const isNuloOuVazio = score === null || score === undefined || String(score).trim() === '';
                 return {
                     score: isNuloOuVazio ? NaN : Number(score),
-                    date: safeDates[index] || new Date().toISOString().slice(0, 10)
+                    date: safeDates[index] || getDateKey(new Date())
                 };
             })
             .filter((row) => Number.isFinite(row.score));

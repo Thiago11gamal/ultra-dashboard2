@@ -4,7 +4,7 @@
 // ==========================================
 
 import { mulberry32, makeNormalRng } from './random.js';
-import { safeDateParse } from '../utils/dateHelper.js';
+import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
 import { conformalPredictionInterval } from './math/bootstrap.js';
@@ -308,7 +308,7 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
             const recentRaw = validScores.slice(-4);
             const recentAsObjects = recentRaw.map((s, idx) => ({
                 score: s,
-                date: new Date(Date.now() - (recentRaw.length - 1 - idx) * 7 * 86400000).toISOString().slice(0, 10)
+                date: getDateKey(new Date(Date.now() - (recentRaw.length - 1 - idx) * 7 * 86400000))
             }));
             const recentSlope = calculateSlope(recentAsObjects, maxScore);
             const slopeMultiplier = recentSlope > 0 ? Math.min(1, recentSlope / (maxScore * 0.01)) : 0;

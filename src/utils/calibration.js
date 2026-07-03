@@ -1,4 +1,5 @@
 import { kahanSum } from '../engine/math/kahan.js';
+import { getDateKey } from './dateHelper.js';
 
 export function computeBrierScore(probability01, observedBinary) {
     const rawP = Number(probability01);
@@ -404,7 +405,7 @@ export function buildCalibrationDashboardSeries(events = []) {
 
   const trend = clean.map(e => ({
     timestamp: e.timestamp,
-    date: new Date(e.timestamp).toISOString().slice(0, 10),
+    date: getDateKey(new Date(e.timestamp)),
     avgBrier: Number.isFinite(e.avgBrier) ? e.avgBrier : null,
     ece: Number.isFinite(e.ece) ? e.ece : null,
     penalty: Number.isFinite(e.calibrationPenalty) ? e.calibrationPenalty : null,
