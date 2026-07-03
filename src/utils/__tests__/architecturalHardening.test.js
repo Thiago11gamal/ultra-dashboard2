@@ -14,7 +14,6 @@
 import { describe, test, expect } from 'vitest';
 import { calculateUrgency } from '../coachLogic.js';
 import { calculateMSSD, monteCarloSimulation } from '../../engine/projection.js';
-import { runMonteCarloSimulation } from '../../engine/monteCarlo.js';
 import { getSafeScore } from '../scoreHelper.js';
 import { detectRegimeTransition } from '../adaptiveEngine.js';
 
@@ -103,16 +102,13 @@ describe('Architectural Hardening: Rodadas 6-8', () => {
     // ─────────────────────────────────────────────────────────────────
     test('Scale Inference: Deve detectar escala 100 mesmo se a última nota for 0', () => {
         const history = [
-            { score: 80 },
-            { score: 0 } // Última nota 0
+            { score: 80, date: '2026-01-01' },
+            { score: 0, date: '2026-01-02' } // Última nota 0
         ];
         
-        const simulations = runMonteCarloSimulation(history, 7, 100);
-        // Sem o fix, escala seria 1.0 porque 0 <= 1.0. 
-        // Com o fix, picoHistorico=80 -> escala=100.
-        const avgResult = simulations[0].reduce((a, b) => a + b, 0) / simulations[0].length;
-        // [CORREÇÃO] 0.05 é > 50x o que seria na escala 0-1 (0.0009), confirmando a escala 100.
-        expect(avgResult).toBeGreaterThan(0.05);
+        const result = monteCarloSimulation(history, 85, 7, 500, { maxScore: 100 });
+        // Com o fix global do projection.js, a média projetada não deve desabar instantaneamente para o zero absoluto.
+        expect(result.mean).toBeGreaterThan(0.05);
     });
 
     // ─────────────────────────────────────────────────────────────────

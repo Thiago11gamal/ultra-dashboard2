@@ -533,272 +533,68 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     };
 }
 
-export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, options = {}) {
-    // NOTE: This function has overloaded signatures for backwards compat:
-    // - object: rich input from useMonteCarloStats etc.
-    // - array: runMonteCarloAnalysis(hist, target, days, options) -- pooledSD param is actually target, targetScore param is days
-    // - numbers: simulateNormalDistribution(mean, sd, target, options)
-    if (typeof inputOrMean === 'object' && inputOrMean !== null && !Array.isArray(inputOrMean)) {
-        const {
-            values = [],
-            dates = [],
-            meta = 0,
-            targetScore: objTargetScore,
-            simulations = 5000,
-            projectionDays = 90,
-            forcedVolatility: objForcedVolatility,
-            forcedBaseline: objForcedBaseline,
-            currentMean: objCurrentMean,
-            minScore: objMinScore,
-            maxScore: objMaxScore,
-            subjects: objSubjects,
-            historicalCutoffs: objHistoricalCutoffs,
-        } = inputOrMean;
-
-        const safeDomain = sanitizeDomain(objMinScore, objMaxScore);
-        const domainMin = safeDomain.minScore;
-        const domainMax = safeDomain.maxScore;
-        const rawResolvedTarget = objTargetScore ?? Number(meta || 0);
-        const resolvedTarget = clamp(toFiniteNumber(rawResolvedTarget, domainMin), domainMin, domainMax);
-        const safeSimulations = sanitizeSimulations(simulations);
-        const safeProjectionDays = Math.max(1, Math.floor(toFiniteNumber(projectionDays, 90)));
-
-        const mergedOptions = {
-            forcedVolatility: objForcedVolatility,
-            forcedBaseline: objForcedBaseline,
-            currentMean: objCurrentMean,
-            minScore: domainMin,
-            maxScore: domainMax,
-            subjects: objSubjects,
-            historicalCutoffs: objHistoricalCutoffs,
-            ...options,
-        };
-
-        const safeDates = dates || [];
-        const safeValues = values || [];
-
-        const history = safeValues
-            .map((score, index) => {
-                // Impede que null, arrays vazios ou strings vazias se transformem no número 0
-                const isNuloOuVazio = score === null || score === undefined || String(score).trim() === '';
-                return {
-                    score: isNuloOuVazio ? NaN : Number(score),
-                    date: safeDates[index] || getDateKey(new Date())
-                };
-            })
-            .filter((row) => Number.isFinite(row.score));
-
-        return monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
+export function runMonteCarloAnalysis(params = {}) {
+    // [STAFF-FIX] Unificação Estrita de Contrato: 
+    // Remove o anti-pattern de overload de array/number.
+    if (!params || typeof params !== 'object' || Array.isArray(params)) {
+        console.warn("[MC Engine] Fallback acionado. 'runMonteCarloAnalysis' requer objeto. Ignorando chamada bruta.");
+        return monteCarloSimulation([], 85, 90, 5000, {});
     }
 
-    if (Array.isArray(inputOrMean)) {
-        // Legacy/Evolution path: runMonteCarloAnalysis(historyArray, targetScore, projectionDays, options)
-        // Note param shift: second arg (pooledSD) is actually target, third (targetScore) is days
-        const hist = inputOrMean;
-        const actualTargetScore = Number.isFinite(pooledSD) ? pooledSD : 85;
-        const projectDays = Number.isFinite(targetScore) ? targetScore : 90;
-        return monteCarloSimulation(hist, actualTargetScore, projectDays, options.simulations || 5000, options);
-    }
+    const {
+        values = [],
+        dates = [],
+        meta = 0,
+        targetScore: objTargetScore,
+        simulations = 5000,
+        projectionDays = 90,
+        forcedVolatility: objForcedVolatility,
+        forcedBaseline: objForcedBaseline,
+        currentMean: objCurrentMean,
+        minScore: objMinScore,
+        maxScore: objMaxScore,
+        subjects: objSubjects,
+        historicalCutoffs: objHistoricalCutoffs,
+        ...options
+    } = params;
 
-    const safeDomain = sanitizeDomain(options.minScore, options.maxScore);
+    const safeDomain = sanitizeDomain(objMinScore, objMaxScore);
+    const domainMin = safeDomain.minScore;
+    const domainMax = safeDomain.maxScore;
+    const rawResolvedTarget = objTargetScore ?? Number(meta || 0);
+    const resolvedTarget = clamp(toFiniteNumber(rawResolvedTarget, domainMin), domainMin, domainMax);
+    const safeSimulations = sanitizeSimulations(simulations);
+    const safeProjectionDays = Math.max(1, Math.floor(toFiniteNumber(projectionDays, 90)));
 
-    return simulateNormalDistribution({
-        mean: toFiniteNumber(inputOrMean, 0),
-        sd: toFiniteNumber(pooledSD, 0),
-        targetScore: clamp(toFiniteNumber(targetScore, safeDomain.minScore), safeDomain.minScore, safeDomain.maxScore),
-        simulations: sanitizeSimulations(options.simulations),
-        seed: options.seed,
-        currentMean: options.currentMean,
-        categoryName: options.categoryName,
-        bayesianCI: options.bayesianCI,
-        minScore: safeDomain.minScore,
-        maxScore: safeDomain.maxScore,
-        historyLength: (options.history || []).length,
-        subjects: options.subjects,
-        historicalCutoffs: options.historicalCutoffs
-    });
+    const mergedOptions = {
+        forcedVolatility: objForcedVolatility,
+        forcedBaseline: objForcedBaseline,
+        currentMean: objCurrentMean,
+        minScore: domainMin,
+        maxScore: domainMax,
+        subjects: objSubjects,
+        historicalCutoffs: objHistoricalCutoffs,
+        ...options,
+    };
+
+    const safeDates = dates || [];
+    const safeValues = values || [];
+
+    const history = safeValues
+        .map((score, index) => {
+            const isNuloOuVazio = score === null || score === undefined || String(score).trim() === '';
+            return {
+                score: isNuloOuVazio ? NaN : Number(score),
+                date: safeDates[index] || getDateKey(new Date())
+            };
+        })
+        .filter((row) => Number.isFinite(row.score));
+
+    return monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
 }
 
 export default {
     runMonteCarloAnalysis
 };
-/**
- * Motor Estocástico com Teto Logístico e Heteroscedasticidade
- */
-export const runMonteCarloSimulation = (historicoNotas, diasProjecao, totalQuestoesFeitas, numSimulations = 1000) => {
-    const ultimoRegisto = historicoNotas.length > 0 ? historicoNotas[historicoNotas.length - 1] : 0.5;
-    // Forçar extração numérica segura do objeto, ou manter o valor se já for numérico
-    const ultimaNota = typeof ultimoRegisto === 'object' && ultimoRegisto !== null 
-        ? Number(ultimoRegisto.score || 0) 
-        : Number(ultimoRegisto);
-    
-    // [CORREÇÃO] Em vez de olhar apenas para a última nota, procurar no histórico inteiro (Bug 1.2 Fix)
-    // Se o aluno obteve 0 na última prova, o motor não pode assumir que o exame vale 1.0.
-    const picoHistorico = historicoNotas.reduce((max, reg) => {
-        const val = typeof reg === 'object' && reg !== null ? Number(reg.score || 0) : Number(reg);
-        return Math.max(max, val);
-    }, 0);
-    
-    // CORREÇÃO B2: Triagem heurística adaptável expandida para escalas universitárias e exames extensos
-    let escala = 100;
-    if (picoHistorico <= 1.0 && picoHistorico > 0) {
-        escala = 1.0;
-    } else if (picoHistorico > 1.0 && picoHistorico <= 10.0) {
-        escala = 10.0;
-    } else if (picoHistorico > 10.0 && picoHistorico <= 20.0) {
-        // Suporte para o sistema académico de 20 valores
-        escala = 20.0;
-    } else if (picoHistorico > 20.0 && picoHistorico <= 100.0) {
-        escala = 100.0;
-    } else if (picoHistorico > 100.0) {
-        // Adaptar dinamicamente para exames grandes (SAT, ENEM, etc.) arredondando à centena superior
-        escala = Math.ceil(picoHistorico / 100) * 100;
-    } else if (picoHistorico === 0) {
-        escala = 100; // Ignorância máxima
-    }
-    
-    const varianciaBase = 0.05 * escala; 
-    const divisorAdaptativo = Math.min(Math.sqrt(Math.max(totalQuestoesFeitas, 1)), 50);
-    const volatilidadeAdaptativa = varianciaBase / divisorAdaptativo;
-    
-    // Limite superior adaptativo que respeita notas altíssimas reais sem prender no 1 artificial
-    const limiteAssintotico = Math.max(0.96 * escala, Math.min(escala, ultimaNota * 1.05)); 
-    const taxaCrescimento = 0.005; 
-    
-    let simulacoes = [];
-    const n0 = Math.max(0.01 * escala, ultimaNota);
-    
-    const stableSeed = generateStableSeed(historicoNotas.length, "monteCarloSimulation", totalQuestoesFeitas);
-    const rng = mulberry32(stableSeed);
-
-    // [BUG-1A FIX] Pré-calcular o drift logístico fora do loop de simulações (determinístico)
-    const driftsDiarios = new Float64Array(diasProjecao + 1);
-    const mediasDiarias = new Float64Array(diasProjecao + 1);
-    for (let d = 1; d <= diasProjecao; d++) {
-        const logisticaOntem = limiteAssintotico / (1 + Math.exp(-taxaCrescimento * (d - 1)) * ((limiteAssintotico - n0) / n0));
-        const logisticaHoje  = limiteAssintotico / (1 + Math.exp(-taxaCrescimento * d) * ((limiteAssintotico - n0) / n0));
-        driftsDiarios[d] = logisticaHoje - logisticaOntem;
-        mediasDiarias[d] = logisticaHoje;
-    }
-    
-    // [BUG-3 & 4 FIX] Injetar Memória Estocástica (AR-1) e Absorção Fria (Piso/Teto)
-    const PHI_AR1 = 0.35; // 35% do choque de ontem se transfere para hoje
-
-    const safeNumSim = Math.max(100, Math.min(MAX_SIMULATIONS, Math.floor(numSimulations) || 1000));
-    for(let sim = 0; sim < safeNumSim; sim++) {
-        let caminho = [ultimaNota];
-        let notaAtual = ultimaNota;
-        let previousShock = 0; 
-        
-        for(let dia = 1; dia <= diasProjecao; dia++) {
-            const z0 = generateGaussian(rng);
-            
-            // 1. Inércia Cognitiva (Processo AR-1 Verdadeiro)
-            // CORREÇÃO: Escalar o ruído de inovação para preservar a variância incondicional.
-            // Sem isto, a variância final seria inflacionada em (1 / (1 - PHI^2)).
-            const ar1Correction = Math.sqrt(1 - Math.pow(PHI_AR1, 2));
-            const pureNoise = (z0 * volatilidadeAdaptativa) * ar1Correction;
-            
-            // O choque efetivo soma o ruído de hoje com a inércia de ontem
-            const effectiveShock = pureNoise + (PHI_AR1 * previousShock);
-            
-            const driftDiario = driftsDiarios[dia];
-            
-            // 2. Absorção Fria (Piso e Teto Físicos) e Gravidade
-            let effectiveDrift = driftDiario;
-            let currentVolatility = volatilidadeAdaptativa;
-            
-            // CORREÇÃO: Âncora de estabilização estocástica (Ornstein-Uhlenbeck simplificado).
-            // Impede que o desvio padrão cresça indefinidamente sob a raiz do tempo.
-            const forcaGravitacional = 0.05 * (mediasDiarias[dia] - notaAtual);
-            effectiveDrift += forcaGravitacional;
-
-            if (notaAtual <= (0.05 * escala) && driftDiario < 0) {
-                effectiveDrift = driftDiario * 0.1; // O Drift afunda contra o chão
-                currentVolatility = volatilidadeAdaptativa * (notaAtual / (0.05 * escala)); // Volatilidade cai a zero
-            } else if (notaAtual >= (0.95 * escala) && driftDiario > 0) {
-                effectiveDrift = driftDiario * 0.1;
-                // CORREÇÃO: Impedir volatilidade negativa forçando o valor a zero ou positivo
-                currentVolatility = volatilidadeAdaptativa * (Math.max(0, escala - notaAtual) / (0.05 * escala));
-            }
-
-            // FIX 5: Remoção do Double Damping (compressãoRuido)
-            // A redução da volatilidade (currentVolatility) nas caudas já é suficiente 
-            // para conter a simulação. Multiplicar por uma exponencial extra forçava
-            // a simulação a colapsar num desvio padrão de 0 nas notas altas.
-
-            // Usamos apenas a relação linear da volatilidade adaptativa limitadora
-            const ruidoAjustado = effectiveShock * (currentVolatility / volatilidadeAdaptativa);
-            
-            previousShock = ruidoAjustado; // ← memória do choque realmente aplicado
-            
-            notaAtual = Math.max(0, Math.min(limiteAssintotico, notaAtual + effectiveDrift + ruidoAjustado));
-            caminho.push(notaAtual);
-        }
-        simulacoes.push(caminho);
-    }
-    
-    return simulacoes;
-};
-
-/**
- * Interface simplificada para Backtesting e Regressão
- * Suporta o formato do teste coach-math-regressions.test.js
- */
-export function simularMonteCarlo(metricas, simulacoes = 1000) {
-    if (metricas && metricas.volumeSemanasAnteriores) {
-        const history = metricas.volumeSemanasAnteriores;
-        if (!history || history.length === 0) return { p50: 0, p10: 0, p90: 0 };
-        
-        const avgVal = kahanMean(history);
-        // CORREÇÃO: Impedir SD = 0 que corrompe o gerador de Monte Carlo
-        const sd = metricas.focoMedio 
-            ? Math.max(1e-5, (1 - metricas.focoMedio) * avgVal) 
-            : avgVal * 0.1;
-        
-        const results = new Float64Array(simulacoes);
-        const histHash = metricas.volumeSemanasAnteriores
-            ? kahanSum(metricas.volumeSemanasAnteriores.map((v, i) => v * (i + 1)))
-            : 0;
-        const rng = mulberry32(generateStableSeed(history.length, "simularMC", histHash)); 
-
-        const maxScore = metricas.maxScore || 100;
-        const minScore = metricas.minScore || 0;
-
-        for (let i = 0; i < simulacoes; i++) {
-            // SUBSTITUIÇÃO: Remoção do while loop amador. Uso da matemática correta para Normal Truncada.
-            results[i] = sampleTruncatedNormal(avgVal, sd, minScore, maxScore, rng);
-        }
-        
-        // MELHORIA-5: Ordenação única em vez de 3× quickSelect com .slice()
-        // Cada .slice() em Float64Array criava uma cópia; agora 1 sort + 3 leituras.
-        const sorted = new Float64Array(results);
-        sorted.sort();
-        const i10 = Math.floor(sorted.length * 0.1);
-        const i50 = Math.floor(sorted.length * 0.5);
-        const i90 = Math.floor(sorted.length * 0.9);
-
-        return {
-            p50: sorted[i50],
-            p10: sorted[i10],
-            p90: sorted[i90]
-        };
-    }
-    // FALLBACK SEGURO: Preservar o contrato de interface (Object com Quantis) em vez de devolver Array bruto.
-    if (!Array.isArray(metricas)) return { p50: 0, p10: 0, p90: 0 };
-    const caminhos = runMonteCarloSimulation(metricas, 7, 100);
-    const finais = new Float64Array(caminhos.length);
-    for(let c = 0; c < caminhos.length; c++) finais[c] = caminhos[c][caminhos[c].length - 1];
-    
-    // MELHORIA-5: Ordenação única em vez de 3× quickSelect com .slice()
-    finais.sort();
-    const i10 = Math.floor(finais.length * 0.1);
-    const i50 = Math.floor(finais.length * 0.5);
-    const i90 = Math.floor(finais.length * 0.9);
-
-    return {
-        p50: finais[i50],
-        p10: finais[i10],
-        p90: finais[i90]
-    };
-}
+// [STAFF-FIX] Removido funções legadas (runMonteCarloSimulation e simularMonteCarlo)
+// O sistema agora opera 100% sobre o monteCarloSimulation do projection.js

@@ -17,158 +17,38 @@ import { createSettingsSlice } from './slices/createSettingsSlice';
 import { createMonteCarloSlice } from './slices/createMonteCarloSlice';
 import { clearMcCache } from '../utils/coachAdaptive';
 
-// --- IndexedDB Adapter with localStorage Migration ---
-// --- Otimização de Persistência: Debounced IndexedDB Adapter ---
-const saveTimeouts = {}; 
-const DEBOUNCE_TIME = 100; // ms
-const activeWrites = new Set(); // Gestor de concorrência para evitar ressuscitar estado zombie
-
-const flushPendingIDBSaves = () => {
-    Object.entries(saveTimeouts).forEach(([name, timeoutId]) => {
-        if (timeoutId) {
-            // REMOVIDO: clearTimeout(timeoutId); Não estrangule o IDB! Deixa a Promise do IndexedDB correr
-            const stateToRescue = useAppStore.getState();
-            
-            // FILTRO SÍNCRONO RÁPIDO O(1) antes da serialização
-            // CORREÇÃO: Injetar flag de segurança para avisar o bootloader que este estado está castrado
-            const slimState = { ...stateToRescue.appState, trash: [], _isTruncatedFallback: true };
-            
-            // Remove matrizes matemáticas não essenciais antes de estrangular a CPU
-            if (slimState.contests) {
-                slimState.contests = { ...slimState.contests };
-                Object.keys(slimState.contests).forEach(id => {
-                    if (slimState.contests[id]) {
-                        slimState.contests[id] = { ...slimState.contests[id] };
-                        delete slimState.contests[id].monteCarloHistory;
-                        delete slimState.contests[id].simuladoRows; // Se recarregável via IDB
-                    }
-                });
-            }
-
-            // FIX BUG: Separate localStorage and IDB try-catch blocks
-            // If localStorage throws QuotaExceededError, we MUST still attempt to save to IDB.
-            try {
-                const serializedSlim = JSON.stringify({ state: { appState: slimState } });
-                if (serializedSlim.length < 4000000) { // Limite de segurança de 4MB
-                    localStorage.setItem(name, serializedSlim);
-                } else {
-                    console.warn("[Storage] Estado muito grande para LocalStorage (>4MB). Salvamento delegado exclusivamente ao IDB.");
-                }
-            } catch (err) {
-                console.error("[Storage] Falha no fallback localStorage.", err);
-            }
-            
-            try { 
-                const fullState = { state: { appState: stateToRescue.appState } };
-                idbSet(name, JSON.stringify(fullState)); 
-            } catch { /* best-effort */ }
-        }
-    });
-};
-
-if (typeof window !== 'undefined') {
-    // visibilitychange é a API moderna e fiável para dispositivos móveis e desktop
-    window.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') {
-            flushPendingIDBSaves();
-        }
-    });
-}
+// --- IndexedDB Adapter (Clean & Async) ---
+const saveTimeouts = {};
 
 const idbStorage = {
     getItem: async (name) => {
-        // --- SYNC ENGINE FIX: Comparação Atômica entre IDB e LocalStorage ---
-        // Se houver divergência (ex: refresh rápido antes do debounce do IDB), 
-        // escolhemos o storage que possuir a versão ou timestamp mais recente.
-        const idbValue = await idbGet(name);
-        const localValue = localStorage.getItem(name);
-
-        if (!idbValue && !localValue) return null;
-
-        // Se só existe em um deles, retorna o existente
-        if (!idbValue) return localValue;
-        if (!localValue) return idbValue;
-
-        // Se existem em ambos, precisamos decodificar e comparar versões
         try {
-            const idbParsed = JSON.parse(idbValue);
-            const localParsed = JSON.parse(localValue);
-            
-            const idbVer = idbParsed?.state?.appState?.version || 0;
-            const localVer = localParsed?.state?.appState?.version || 0;
-            const idbTime = new Date(idbParsed?.state?.appState?.lastUpdated || 0).getTime();
-            const localTime = new Date(localParsed?.state?.appState?.lastUpdated || 0).getTime();
-
-            // CORREÇÃO: Se o LocalStorage é um fallback truncado de emergência, JAMAIS pode sobrescrever o IDB
-            if (localParsed?.state?.appState?._isTruncatedFallback && idbValue) {
-                console.warn("[Storage] LocalStorage contém um estado truncado. Protegendo a integridade do IDB.");
-                return idbValue;
-            }
-
-            // Prioridade: Versão > Timestamp
-            if (localVer > idbVer || (localVer === idbVer && localTime > idbTime)) {
-                console.warn("[Storage] LocalStorage é mais recente que IDB. Recuperando backup.");
-                // Sincroniza IDB com o backup mais novo
-                await idbSet(name, localValue);
-                return localValue;
-            }
-            
-            // Se o IDB for mais recente, o backup no LocalStorage será atualizado
-            // naturalmente na próxima gravação (setItem). Não apagamos agora para
-            // garantir redundância contínua caso o usuário feche a página.
-
-            return idbValue;
-        } catch {
-            // Fallback para IDB em caso de erro de parsing
-            return idbValue;
+            const val = await idbGet(name);
+            return val || null;
+        } catch (e) {
+            console.warn('[Storage] Falha ao ler IDB:', e);
+            return null;
         }
     },
     setItem: (name, value) => {
-        try {
-            // Limite de segurança reduzido para evitar bloqueios de thread (Storage Quota)
-            if (value.length < 2000000) { 
-                localStorage.setItem(name, value);
-            }
-        } catch {
-            console.warn("[Storage] LocalStorage cheio. Delegação exclusiva ao IDB.");
-        }
-
-        if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
-        
-        saveTimeouts[name] = setTimeout(async () => {
-            try {
-                activeWrites.add(name);
-                await idbSet(name, value);
-            } catch (err) {
-                console.error("[Storage] Critical IDB save failure.", err);
-            } finally {
-                activeWrites.delete(name);
-                saveTimeouts[name] = null;
-            }
-        }, DEBOUNCE_TIME); 
-
-        return Promise.resolve();
+        return new Promise((resolve) => {
+            if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
+            saveTimeouts[name] = setTimeout(async () => {
+                try {
+                    await idbSet(name, value);
+                } catch (e) {
+                    console.error('[Storage] Falha ao escrever no IDB:', e);
+                }
+                resolve();
+            }, 250); // 250ms debounce para proteger a CPU
+        });
     },
     removeItem: async (name) => {
-        if (saveTimeouts[name]) {
-            clearTimeout(saveTimeouts[name]);
-            delete saveTimeouts[name];
-        }
-        
-        // Espera que operações de gravação em curso terminem antes de apagar
-        while (activeWrites.has(name)) {
-            await new Promise(resolve => setTimeout(resolve, 10));
-        }
-
-        try {
-            localStorage.removeItem(name);
-        } catch {
-            console.warn("[Storage] LocalStorage removeItem failed.");
-        }
+        if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
         try {
             await idbDel(name);
-        } catch {
-            console.error("[Storage] Failed to remove from IndexedDB.");
+        } catch (e) {
+            console.warn('[Storage] Falha ao remover do IDB:', e);
         }
     },
 };

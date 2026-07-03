@@ -67,16 +67,32 @@ self.onmessage = function(e) {
                 result = runMonteCarloAnalysis(sanitizedInput);
             } else if (Array.isArray(payload.inputOrMean)) {
                 const hist = sanitizeHistory(payload.inputOrMean);
-                const targetScore = safeNum(payload.pooledSD, 0);
-                const projectDays = safeNum(payload.targetScore, 30);
                 const options = sanitizeOptions(payload.options);
-                result = runMonteCarloAnalysis(hist, targetScore, projectDays, options);
+                const sanitizedInput = {
+                    values: hist.map(h => typeof h === 'object' ? h.score : h),
+                    dates: hist.map(h => typeof h === 'object' ? h.date : ''),
+                    targetScore: safeNum(payload.pooledSD, 0),
+                    projectionDays: safeNum(payload.targetScore, 90),
+                    ...options
+                };
+                result = runMonteCarloAnalysis(sanitizedInput);
             } else {
-                const mean = safeNum(payload.inputOrMean, 0);
-                const sd = safeNum(payload.pooledSD, 0);
-                const targetScore = safeNum(payload.targetScore, 0);
                 const options = sanitizeOptions(payload.options);
-                result = runMonteCarloAnalysis(mean, sd, targetScore, options);
+                result = simulateNormalDistribution({
+                    mean: safeNum(payload.inputOrMean, 0),
+                    sd: safeNum(payload.pooledSD, 0),
+                    targetScore: safeNum(payload.targetScore, 0),
+                    simulations: safeNum(options.simulations, 5000),
+                    seed: options.seed,
+                    currentMean: options.currentMean,
+                    categoryName: options.categoryName,
+                    bayesianCI: options.bayesianCI,
+                    minScore: safeNum(options.minScore, 0),
+                    maxScore: safeNum(options.maxScore, 100),
+                    historyLength: (options.history || []).length,
+                    subjects: options.subjects,
+                    historicalCutoffs: options.historicalCutoffs
+                });
             }
         } else if (type === 'monteCarloSimulation') {
             const history = sanitizeHistory(payload.history);
