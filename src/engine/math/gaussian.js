@@ -209,15 +209,14 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     const invBandwidth = 1 / bandwidth;
 
-
-
     // FIX MATEMÁTICO: A normalização usa a base total de simulações para 
     // evitar inflar o pico visual quando há muitos outliers fora da tela.
-    // FIX: Adicionar proteção contra divisão por zero e underflow
-    const normFactor = 1 / (Math.max(1, safeSimCount) * Math.max(1e-10, bandwidth) * Math.sqrt(2 * Math.PI));
+    const normFactor = 1 / (Math.max(1, safeSimCount) * Math.max(1e-10, bandwidth) * 2.506628274631); // Math.sqrt(2 * Math.PI)
 
+    // OTIMIZAÇÃO: Arrays tipados para evitar Garbage Collection na Main Thread
+    const xOut = new Float64Array(plotSteps + 1);
+    const densityOut = new Float64Array(plotSteps + 1);
     let maxY = 0;
-    const rawData = [];
 
     // FASE 1: Calcular densidades brutas
     for (let i = 0; i <= plotSteps; i++) {
@@ -241,34 +240,38 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         }
         density *= normFactor;
 
-        // FIX BUG 5: Remover o Hard-Cut da densidade.
-        // O algoritmo Silverman's Reflection Kernel já cuida de não deixar a densidade vazar 
-        // mantendo a integral igual a 1. Forçar a zero destrói a suavização vetorial (SVG) do UI.
-        // REMOVIDO: if (x < minScore || x > maxScore) density = 0;
-
         if (density > maxY) maxY = density;
-        rawData.push({ x, density });
+        xOut[i] = x;
+        densityOut[i] = density;
     }
 
-    // BUGFIX B5: Normalizar integral da densidade para 1.0 (Reflexão de fronteira infla a integral)
-    // Use Kahan for precise trapezoidal integration (better for large sim counts)
-    const trapAreas = [];
-    for (let i = 1; i < rawData.length; i++) {
-        trapAreas.push( (rawData[i].density + rawData[i-1].density) * stepSize / 2 );
+    // FASE 2: Integração Kahan in-line (evita criar milhares de objetos para trapAreas)
+    let totalArea = 0;
+    let kahanC = 0;
+    for (let i = 1; i <= plotSteps; i++) {
+        const area = (densityOut[i] + densityOut[i-1]) * stepSize * 0.5;
+        const y = area - kahanC;
+        const t = totalArea + y;
+        kahanC = (t - totalArea) - y;
+        totalArea = t;
     }
-    const totalArea = kahanSum(trapAreas);
         
     // CORREÇÃO: Proteção rígida contra underflow do IEEE 754. 
-    // Se a área for residual/atómica (< 1e-15), evitamos inflar lixo numérico para a interface.
     const normFactor2 = totalArea > 1e-15 ? 1 / totalArea : 1;
+    const invMaxY = maxY > 1e-15 ? 1 / maxY : 0;
 
-    // FASE 2: Formatar (y: 0-1 para visualização, density: área=1 para probabilidades)
-    return rawData.map(d => ({
-        x: Number(d.x.toFixed(2)),
-        // Proteção extra na exportação do vetor Y:
-        y: maxY > 1e-15 ? Number((Math.max(0, d.density) / maxY).toFixed(4)) : 0, 
-        density: Math.max(0, d.density * normFactor2)
-    }));
+    // FASE 3: Exportar o vetor formatado no final
+    const finalPlot = new Array(plotSteps + 1);
+    for (let i = 0; i <= plotSteps; i++) {
+        const den = Math.max(0, densityOut[i]);
+        finalPlot[i] = {
+            x: Number(xOut[i].toFixed(2)),
+            y: Number((den * invMaxY).toFixed(4)), 
+            density: den * normFactor2
+        };
+    }
+    
+    return finalPlot;
 }
 
 /**
