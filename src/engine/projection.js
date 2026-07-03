@@ -175,26 +175,35 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
     }
-    const scores = safeHistory.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
-    const n = scores.length;
-    if (n < 2) {
+    
+    const firstDateObj = safeDateParse(safeHistory[0].date || safeHistory[0].createdAt);
+    const t0 = firstDateObj ? firstDateObj.getTime() : Date.now();
+    
+    // BUG-FIX #1: Create aligned pairs to prevent index misalignment
+    const validPairs = [];
+    for (let i = 0; i < safeHistory.length; i++) {
+        const h = safeHistory[i];
+        const score = getSafeScore(h, maxScore);
+        const dateObj = safeDateParse(h.date || h.createdAt);
+        const t = dateObj ? dateObj.getTime() : NaN;
+        
+        if (Number.isFinite(score) && Number.isFinite(t)) {
+            validPairs.push({
+                score: score,
+                timeX: (t - t0) / 86400000
+            });
+        }
+    }
+    
+    const fn = validPairs.length;
+    if (fn < 2) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
     }
     
-    // CORREÇÃO: Blindagem contra corrupção de base de dados (TypeError nulo/undefined)
-    const firstDateObj = safeDateParse(safeHistory[0].date || safeHistory[0].createdAt);
-    const t0 = firstDateObj ? firstDateObj.getTime() : Date.now();
+    const scores = validPairs.map(p => p.score);
+    const timeX = validPairs.map(p => p.timeX);
     
-    // Align timeX length with filtered scores (skip invalid dates too)
-    const timeXRaw = safeHistory.map(h => {
-        const dateObj = safeDateParse(h.date || h.createdAt);
-        const t = dateObj ? dateObj.getTime() : NaN;
-        return (Number.isFinite(t) ? t - t0 : 0) / 86400000;
-    });
-    const timeX = timeXRaw.filter((_, idx) => Number.isFinite(getSafeScore(safeHistory[idx], maxScore)));
-    
-    const fn = Math.min(n, timeX.length);
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     for(let i = 0; i < fn; i++) {
         const tx = timeX[i];

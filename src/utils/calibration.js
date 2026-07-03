@@ -222,17 +222,24 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
       return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3, confidenceFactor: 0 };
   }
   
-  // BUG-CALIB-01 FIX: ponderação exponencial pelo tempo (λ ≈ meia-vida 14 dias)
-  // Antes: média simples — dados de 60 dias atrás pesavam igual aos de hoje
+  // BUG-FIX #2: Compute Brier from probability/observed pairs (h.avgBrier doesn't exist)
+  // Exponential weighting by time (λ ≈ half-life ~14 days)
   const now = Date.now();
   const MS_PER_DAY_CALIB = 24 * 60 * 60 * 1000;
-  const LAMBDA_CALIB = Math.log(2) / (14 * MS_PER_DAY_CALIB); // decaimento por ms (meia-vida ~14 dias)
+  const LAMBDA_CALIB = Math.log(2) / (14 * MS_PER_DAY_CALIB);
   let sumWeightedBrier = 0;
   let sumCalibWeights = 0;
   recent.forEach(h => {
     const age = Math.max(0, now - (h.timestamp || now));
     const w = Math.exp(-LAMBDA_CALIB * age);
-    sumWeightedBrier += (Number(h.avgBrier) || 0) * w;
+    
+    // Compute Brier from probability and observed if available
+    let brier = 0;
+    if (Number.isFinite(h.probability) && (h.observed === 0 || h.observed === 1)) {
+      brier = (h.probability - h.observed) ** 2;
+    }
+    
+    sumWeightedBrier += brier * w;
     sumCalibWeights += w;
   });
   const avgBrier = sumCalibWeights > 0 ? sumWeightedBrier / sumCalibWeights : 0;

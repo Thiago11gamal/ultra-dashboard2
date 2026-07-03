@@ -144,12 +144,14 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     }
  
     // O PULO DO GATO: Shrinkage Bayesiano para safeSD
-    if (!hasExplicitDeterministicSD && historyLength < 15) {
-        // CORREÇÃO B3a: Volatilidade baseia-se na amplitude (Max - Min) e não apenas no valor Máximo
+    // BUG-FIX #4: Only apply shrinkage to empirical SD, not to provided bayesianCI
+    if (!hasExplicitDeterministicSD && historyLength < 15 && !bayesianCI) {
+        // Volatilidade baseia-se na amplitude (Max - Min)
         const rangeMassa = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
         const floorVolatility = rangeMassa * 0.04;
         
-        const confidence = historyLength / 15;
+        // Use gentler shrinkage curve: 8 samples instead of 15
+        const confidence = Math.min(1, historyLength / 8);
         safeSD = (safeSD * confidence) + (floorVolatility * (1 - confidence));
     }
 
@@ -376,21 +378,23 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     
     const wasVisualCIClamped = (rawHigh - rawLow < MIN_SPREAD);
     if (wasVisualCIClamped) {
-        // FIX BUG 6: Compensação assimétrica.
-        // Se bater no teto, o recuo do MIN_SPREAD tem de ser integralmente descontado do piso,
-        // garantindo que o spread final nunca seja menor que MIN_SPREAD.
-        rawLow = Math.max(minScore, clampedDisplayMean - MIN_SPREAD / 2);
-        rawHigh = Math.min(maxScore, clampedDisplayMean + MIN_SPREAD / 2);
-
-        if (rawHigh === maxScore) {
-            rawLow = Math.max(minScore, maxScore - MIN_SPREAD);
-        } else if (rawLow === minScore) {
-            rawHigh = Math.min(maxScore, minScore + MIN_SPREAD);
-        }
-
-        if (rawLow > rawHigh) {
+        const availableSpan = maxScore - minScore;
+        
+        // BUG-FIX #3: If domain is too small to fit MIN_SPREAD, use full domain
+        if (availableSpan < MIN_SPREAD) {
             rawLow = minScore;
             rawHigh = maxScore;
+        } else {
+            // Try to center on mean first
+            rawLow = Math.max(minScore, clampedDisplayMean - MIN_SPREAD / 2);
+            rawHigh = Math.min(maxScore, clampedDisplayMean + MIN_SPREAD / 2);
+            
+            // Adjust if one side hit boundary - ensure MIN_SPREAD is maintained
+            if (rawHigh === maxScore && rawLow < maxScore - MIN_SPREAD) {
+                rawLow = maxScore - MIN_SPREAD;
+            } else if (rawLow === minScore && rawHigh > minScore + MIN_SPREAD) {
+                rawHigh = minScore + MIN_SPREAD;
+            }
         }
     }
 
