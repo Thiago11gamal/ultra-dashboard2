@@ -12,7 +12,7 @@ export function getSyntheticTotal(_maxScore = 100) {
 
 export const normalizePercentInput = (value) => {
     const n = Number(value);
-    if (!Number.isFinite(n)) return 0;
+    if (!Number.isFinite(n)) return NaN;
     
     // Remova a inferência perigosa baseada em startsWith('0.'). 
     // O backend ou o form deve dizer explicitamente se é decimal.

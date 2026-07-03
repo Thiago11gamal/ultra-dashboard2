@@ -213,12 +213,16 @@ export function computeHurstExponent(scores) {
 
   if (logRS.length < 3) return fallback;
 
-  const muX = _mean(logN);
-  const muY = _mean(logRS);
-  const cleanLogN = logN.filter(Number.isFinite);
-  const cleanLogRS = logRS.filter(Number.isFinite);
-  const Sxy = kahanSum(cleanLogN.map((x, i) => (x - muX) * (cleanLogRS[i] - muY)));
-  const Sxx = kahanSum(cleanLogN.map((x) => (x - muX) ** 2));
+  const cleanPairs = logN.map((x, i) => ({ x, y: logRS[i] }))
+                         .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+  
+  if (cleanPairs.length < 3) return fallback;
+
+  const muX = _mean(cleanPairs.map(p => p.x));
+  const muY = _mean(cleanPairs.map(p => p.y));
+  
+  const Sxy = kahanSum(cleanPairs.map(p => (p.x - muX) * (p.y - muY)));
+  const Sxx = kahanSum(cleanPairs.map(p => (p.x - muX) ** 2));
   
   const H = Sxx > 1e-10 ? Sxy / Sxx : 0.5;
   const clampedH = Math.max(0.1, Math.min(0.9, H));

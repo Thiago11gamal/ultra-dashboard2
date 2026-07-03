@@ -229,7 +229,7 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     const variance = (rss / sumW) * (effectiveN / (effectiveN - 2));
     const det = sumW * sumWXX - sumWX * sumWX;
 
-    if (Math.abs(det) < 1e-6) return 1.5 * (maxScore / 100);
+    if (det <= 1e-6) return 1.5 * (maxScore / 100);
     return Math.sqrt(Math.max(0, (variance * sumW) / det));
 }
 
