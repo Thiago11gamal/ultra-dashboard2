@@ -483,8 +483,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         mcAdaptive,
         effectiveMCDays
     );
-    const mcProbability = mcResult ? mcResult.probability : null;
-    const mcHasData = mcResult !== null;
+    const mcProbability = mcResult?.probability ?? null;
+    const mcHasData = mcResult != null;
 
     return {
         cfg,

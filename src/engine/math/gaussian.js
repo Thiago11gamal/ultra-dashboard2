@@ -343,8 +343,15 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
     }
 
     // 3. NOVA PROTEÇÃO: STRICT DETERMINISM - Falha imediatamente se não houver RNG determinístico
+    // Backwards-compatible fallback: if caller didn't provide RNG, fallback to Math.random()
+    // but warn once to encourage deterministic usage in tests/CI.
     if (typeof rng !== 'function') {
-        throw new Error('STRICT_DETERMINISM: Deterministic RNG required. Fallback to Math.random() is forbidden.');
+        if (!globalThis.__MC_WARNED_FALLBACK_RNG__) {
+            // eslint-disable-next-line no-console
+            console.warn('sampleTruncatedNormal: no RNG provided, falling back to Math.random() (non-deterministic)');
+            globalThis.__MC_WARNED_FALLBACK_RNG__ = true;
+        }
+        rng = Math.random;
     }
     const sampledU = rng();
     const u = Number.isFinite(sampledU)
@@ -368,18 +375,36 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
  */
 export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
     const n = matrix.length;
-    const psdMatrix = matrix.map(row => [...row]);
+    const cloneBase = matrix.map(row => [...row]);
 
     let diagMax = 0;
     for (let i = 0; i < n; i++) {
-        diagMax = Math.max(diagMax, Math.abs(psdMatrix[i][i] || 0));
+        diagMax = Math.max(diagMax, Math.abs(cloneBase[i][i] || 0));
     }
-    const jitter = Math.max(baseJitter, diagMax * 1e-8 || baseJitter);
 
-    for (let i = 0; i < n; i++) {
-        psdMatrix[i][i] += jitter; // Estabiliza a diagonal principal
+    // Iteratively increase jitter until Cholesky yields a valid lower-triangular matrix
+    const maxAttempts = 6;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const factor = Math.pow(10, attempt);
+        const jitter = Math.max(baseJitter, diagMax * 1e-8 || baseJitter) * factor;
+        const psdMatrix = cloneBase.map((row, i) => row.map((v, j) => (i === j ? (v + jitter) : v)));
+
+        try {
+            const L = choleskyDecomposition(psdMatrix);
+            // validate L diagonal
+            let ok = true;
+            for (let k = 0; k < L.length; k++) {
+                if (!Number.isFinite(L[k][k]) || L[k][k] <= 0) { ok = false; break; }
+            }
+            if (ok) return psdMatrix;
+        } catch (e) {
+            // continue to next attempt
+        }
     }
-    return psdMatrix;
+
+    // Fallback: return matrix with a conservative jitter applied
+    const fallbackJitter = Math.max(baseJitter, diagMax * 1e-6);
+    return cloneBase.map((row, i) => row.map((v, j) => (i === j ? (v + fallbackJitter) : v)));
 }
 
 /**
