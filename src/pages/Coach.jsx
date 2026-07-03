@@ -12,7 +12,7 @@ import {
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
-import { calculateAdaptiveSlope, getSortedHistory } from '../engine/projection.js';
+import { calculateAdaptiveSlope } from '../engine/projection.js';
 import PageHeader from '../components/header/PageHeader';
 import AICoachView from '../components/AICoachView';
 import CoachMenuNav from '../components/coach/CoachMenuNav';
@@ -21,7 +21,7 @@ import ReliabilityCurveChart from '../components/charts/ReliabilityCurveChart';
 import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { useSubscription } from '../hooks/useSubscription';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import { getSuggestedFocus, generateDailyGoals, clearMcCache } from '../utils/coachLogic';
+import { getSuggestedFocus, generateDailyGoals, clearMcCache, getCombinedHistory } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
@@ -238,41 +238,7 @@ export default function Coach() {
     // BUG-26 FIX: Deduplicating history entries safely and preventing double-counting.
     // 'history' represents topic-level rows, 'simulados' represents global test events.
     // We group legacy topic rows into global events if no 'simulados' exist for that date.
-    const combinedHistory = useMemo(() => {
-        const deduplicatedMap = new Map();
-        const allSimulados = [...(simulados || [])];
-        
-        // Adiciona os simulados oficiais ao map
-        allSimulados.forEach(s => {
-            const key = `${s.id || ''}|${s.date || s.createdAt}|${Number(s.score || 0).toFixed(2)}`;
-            deduplicatedMap.set(key, { ...s, type: 'simulado' });
-        });
-
-        const hasSimuladoForDate = new Set(allSimulados.map(s => s.date));
-        
-        // Agrupa e adiciona o histórico legado
-        const rowsByDate = {};
-        (history || []).forEach(r => {
-            const dKey = r.date;
-            if (dKey && !hasSimuladoForDate.has(dKey)) {
-                if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0 };
-                rowsByDate[dKey].correct += (Number(r.correct) || 0);
-                rowsByDate[dKey].total += (Number(r.total) || 0);
-            }
-        });
-
-        Object.entries(rowsByDate).forEach(([dKey, stats]) => {
-            if (stats.total > 0) {
-                const score = (stats.correct / stats.total) * 100;
-                const key = `legacy-${dKey}|${dKey}|${score.toFixed(2)}`;
-                if (!deduplicatedMap.has(key)) {
-                    deduplicatedMap.set(key, { id: `legacy-${dKey}`, date: dKey, score, type: 'simulado' });
-                }
-            }
-        });
-
-        return getSortedHistory(Array.from(deduplicatedMap.values()));
-    }, [history, simulados]);
+    const combinedHistory = useMemo(() => getCombinedHistory(history, simulados), [history, simulados]);
 
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
     // BUG-16 FIX: Bind maxScore dynamically to support contests scaled > 100

@@ -65,16 +65,10 @@ export function truncatedNormalMean(mean, sd, a, b) {
 /**
  * Gerador de ruído gaussiano (Normal(0,1)) usando a Transformada de Box-Muller.
  * [BUG-BOX-MULLER FIX] Proteção contra u1=0 que causaria Math.log(0) = -Infinity.
+ * [STATELESS FIX] O cache global foi removido para garantir pureza da função e 
+ * total determinismo em simulações paralelas de Monte Carlo.
  */
-let generateGaussianCache = null;
-
 export const generateGaussian = (rng = Math.random) => {
-    if (generateGaussianCache !== null) {
-        const result = generateGaussianCache;
-        generateGaussianCache = null;
-        return result;
-    }
-
     let u1 = 0, u2 = 0;
     let attempts = 0;
     
@@ -89,14 +83,15 @@ export const generateGaussian = (rng = Math.random) => {
     
     const mag = Math.sqrt(-2.0 * Math.log(u1));
     const z0 = mag * Math.cos(2.0 * Math.PI * u2);
-    const z1 = mag * Math.sin(2.0 * Math.PI * u2);
-
-    generateGaussianCache = z1; // Salva o segundo valor para a próxima chamada
+    
+    // Optamos por descartar z1 em prol de uma função 100% pura e stateless, 
+    // essencial para reprodutibilidade de testes com seeds fixas.
     return z0;
 };
 
 export function resetGaussianCache() {
-    generateGaussianCache = null;
+    // Deprecated: mantido apenas por retrocompatibilidade de API.
+    // A função generateGaussian agora é 100% stateless.
 }
 
 /**

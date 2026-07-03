@@ -1,5 +1,5 @@
 // ==================== CONSTANTES ====================
-import { calculateMSSD, calculateSlope } from '../engine/projection.js';
+import { calculateMSSD, calculateSlope, getSortedHistory } from '../engine/projection.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { safeDateParse as _safeDateParse, normalizeDate, getDateKey } from './dateHelper.js';
@@ -1747,3 +1747,44 @@ export function getCoachInsight(activeSubject, stats) {
         iconType: 'Brain'
     };
 }
+
+/**
+ * Deduplicates and combines history rows and simulado rows, returning a sorted history.
+ * Groups legacy topic rows into global events if no 'simulados' exist for that date.
+ */
+export function getCombinedHistory(history, simulados) {
+    const deduplicatedMap = new Map();
+    const allSimulados = [...(simulados || [])];
+    
+    // Adiciona os simulados oficiais ao map
+    allSimulados.forEach(s => {
+        const key = `${s.id || ''}|${s.date || s.createdAt}|${Number(s.score || 0).toFixed(2)}`;
+        deduplicatedMap.set(key, { ...s, type: 'simulado' });
+    });
+
+    const hasSimuladoForDate = new Set(allSimulados.map(s => s.date));
+    
+    // Agrupa e adiciona o histórico legado
+    const rowsByDate = {};
+    (history || []).forEach(r => {
+        const dKey = r.date;
+        if (dKey && !hasSimuladoForDate.has(dKey)) {
+            if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0 };
+            rowsByDate[dKey].correct += (Number(r.correct) || 0);
+            rowsByDate[dKey].total += (Number(r.total) || 0);
+        }
+    });
+
+    Object.entries(rowsByDate).forEach(([dKey, stats]) => {
+        if (stats.total > 0) {
+            const score = (stats.correct / stats.total) * 100;
+            const key = `legacy-${dKey}|${dKey}|${score.toFixed(2)}`;
+            if (!deduplicatedMap.has(key)) {
+                deduplicatedMap.set(key, { id: `legacy-${dKey}`, date: dKey, score, type: 'simulado' });
+            }
+        }
+    });
+
+    return getSortedHistory(Array.from(deduplicatedMap.values()));
+}
+

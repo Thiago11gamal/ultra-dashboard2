@@ -12,12 +12,12 @@ let hasFailures = false;
 
 function resetTimeout() {
   if (timeoutId) clearTimeout(timeoutId);
-  // If no new output for 10 seconds, assume hanging and force exit
+  // If no new output for 45 seconds, assume hanging and force exit
   timeoutId = setTimeout(() => {
-    console.log('\n[Safe-Runner] No output for 10 seconds. Assuming hanging process due to unclosed handles.');
+    console.log('\n[Safe-Runner] No output for 45 seconds. Assuming hanging process due to unclosed handles.');
     console.log('[Safe-Runner] Forcing exit. Has failures:', hasFailures);
     process.exit(hasFailures ? 1 : 0);
-  }, 10000);
+  }, 45000);
 }
 
 child.stdout.on('data', (data) => {
