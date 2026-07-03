@@ -321,7 +321,9 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
 
     const n = pairedCount;
     const numerator = (n * sumAB) - (sumA * sumB);
-    const denominator = Math.sqrt(((n * sumA2) - (sumA * sumA)) * ((n * sumB2) - (sumB * sumB)));
+    const varA = Math.max(0, (n * sumA2) - (sumA * sumA));
+    const varB = Math.max(0, (n * sumB2) - (sumB * sumB));
+    const denominator = Math.sqrt(varA * varB);
 
     if (denominator === 0) return fallback;
     const pearsonR = numerator / denominator;
