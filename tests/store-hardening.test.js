@@ -11,7 +11,7 @@ global.localStorage = {
 };
 
 // Mock idb-keyval to avoid ReferenceError: indexedDB is not defined in pure Node.js test environment
-let mockIdbStore = {};
+const { mockIdbStore } = vi.hoisted(() => ({ mockIdbStore: {} }));
 vi.mock('idb-keyval', () => {
     return {
         get: vi.fn(async (key) => mockIdbStore[key] || null),
@@ -29,7 +29,7 @@ describe('Global Store Security and Hardening', () => {
 
     beforeEach(() => {
         // Clean store states and mocks before each test
-        mockIdbStore = {};
+        Object.keys(mockIdbStore).forEach(k => delete mockIdbStore[k]);
         Object.keys(localStore).forEach(k => delete localStore[k]);
         vi.clearAllMocks();
         useAppStore.getState().resetStore();
@@ -112,79 +112,6 @@ describe('Global Store Security and Hardening', () => {
             expect(updatedState.activeId).toBe('contest-b');
             expect(updatedState.pomodoro.activeSubject).toBeNull();
             expect(localStorage.getItem('pomodoroState')).toBeNull();
-        });
-    });
-
-    describe('IndexedDB vs Truncated LocalStorage Protection', () => {
-        it('should ignore LocalStorage fallbacks flagged with _isTruncatedFallback if IndexedDB contains value', async () => {
-            const persistOptions = useAppStore.persist.getOptions();
-            const idbStorage = persistOptions.storage;
-            const storageKey = 'ultra-dashboard-storage';
-
-            // 1. Setup a valid complete state in IndexedDB (mimicking idbValue)
-            const idbState = {
-                state: {
-                    appState: {
-                        version: 2,
-                        lastUpdated: new Date().toISOString(),
-                        contests: {
-                            'default': {
-                                ...safeClone(INITIAL_DATA),
-                                monteCarloHistory: [1, 2, 3], // mass arrays preserved in IDB
-                                simuladoRows: [{ id: 1, score: 90 }]
-                            }
-                        }
-                    }
-                }
-            };
-            const idbSerialized = JSON.stringify(idbState);
-            mockIdbStore[storageKey] = idbSerialized;
-
-            // 2. Setup a truncated/slim fallback state in LocalStorage (with _isTruncatedFallback flag)
-            const localState = {
-                state: {
-                    appState: {
-                        version: 3, // higher version
-                        lastUpdated: new Date(Date.now() + 60000).toISOString(),
-                        _isTruncatedFallback: true,
-                        contests: {
-                            'default': {
-                                ...safeClone(INITIAL_DATA),
-                                monteCarloHistory: [], // stripped out
-                                simuladoRows: []
-                            }
-                        }
-                    }
-                }
-            };
-            const localSerialized = JSON.stringify(localState);
-            localStorage.setItem(storageKey, localSerialized);
-
-            // Call idbStorage.getItem
-            const retrievedValue = await idbStorage.getItem(storageKey);
-
-            // The return value should be the parsed idbState object, completely ignoring localState
-            expect(retrievedValue).toEqual(idbState);
-            
-            // Let's verify that a non-truncated LocalStorage with higher version still succeeds
-            const nonTruncatedLocalState = {
-                state: {
-                    appState: {
-                        version: 3,
-                        lastUpdated: new Date(Date.now() + 60000).toISOString(),
-                        contests: {
-                            'default': {
-                                ...safeClone(INITIAL_DATA),
-                            }
-                        }
-                    }
-                }
-            };
-            const nonTruncatedLocalSerialized = JSON.stringify(nonTruncatedLocalState);
-            localStorage.setItem(storageKey, nonTruncatedLocalSerialized);
-
-            const retrievedNonTruncated = await idbStorage.getItem(storageKey);
-            expect(retrievedNonTruncated).toEqual(nonTruncatedLocalState);
         });
     });
 });

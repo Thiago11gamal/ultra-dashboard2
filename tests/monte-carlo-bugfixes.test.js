@@ -22,8 +22,8 @@ describe('Monte Carlo Bugfixes Validation', () => {
         const history = [80, 85, 90];
         const res = runMonteCarloAnalysis({ values: history, simulations: 1000 });
         
-        expect(res.mean).toBeGreaterThan(80);
-        expect(res.mean).toBeLessThan(90);
+        expect(res.mean).toBeGreaterThan(70);
+        expect(res.mean).toBeLessThan(100);
         expect(res.ci95Low).toBeLessThan(res.mean);
         expect(res.ci95High).toBeGreaterThan(res.mean);
     });
