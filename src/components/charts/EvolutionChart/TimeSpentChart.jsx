@@ -7,6 +7,42 @@ import { Clock } from 'lucide-react';
 import { toDateMs } from '../../../utils/dateHelper';
 import { getSyntheticTotal } from '../../../utils/scoreHelper';
 
+function ComparisonLineShape(props) {
+    const { x, y, width, height, payload, fill, radius = [0, 0, 0, 0] } = props;
+
+    if (!payload || !Number.isFinite(width) || width <= 0) {
+        return null;
+    }
+
+    const baseWidth = Math.max(0, width);
+    const avgSeconds = Number(payload.displaySeconds) || 0;
+    const latestSeconds = Number(payload.latestSeconds) || 0;
+    const lineY = y + height;
+    const comparisonWidth = avgSeconds > 0 ? Math.max(0, Math.min(baseWidth * 1.35, (latestSeconds / avgSeconds) * baseWidth)) : 0;
+    const avgX = x + baseWidth;
+    const latestX = x + comparisonWidth;
+
+    const [topLeftRadius, topRightRadius] = Array.isArray(radius) ? radius : [0, 0, 0, 0];
+    const rx = topRightRadius || topLeftRadius || 0;
+
+    return (
+        <g>
+            <rect x={x} y={y} width={baseWidth} height={height} rx={rx} ry={rx} fill={fill} />
+            {latestSeconds > avgSeconds ? (
+                <>
+                    <line x1={x} y1={lineY} x2={avgX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="butt" />
+                    <line x1={avgX} y1={lineY} x2={latestX} y2={lineY} stroke="#10b981" strokeWidth={3.5} strokeLinecap="butt" />
+                </>
+            ) : latestSeconds > 0 ? (
+                <>
+                    <line x1={x} y1={lineY} x2={latestX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="butt" />
+                    <line x1={latestX} y1={lineY} x2={avgX} y2={lineY} stroke="#ef4444" strokeWidth={3.5} strokeLinecap="butt" />
+                </>
+            ) : null}
+        </g>
+    );
+}
+
 export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory }) {
     const instanceId = useId().replace(/:/g, "");
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
@@ -68,6 +104,39 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             // Define qual métrica usaremos como base (Recente tem prioridade para a barra visual)
             const displaySeconds = recentAvgSeconds !== null ? recentAvgSeconds : avgSeconds;
             const hasRecentData = recentAvgSeconds !== null;
+            let latestSeconds = null;
+
+            if (cat) {
+                const history = Object.values(cat.simuladoStats?.history || {});
+                const latestEntry = history[history.length - 1];
+                if (latestEntry) {
+                    let rootTs = Number(latestEntry.timeSpent) || 0;
+                    let topicsTs = 0;
+                    let topicsTimedQ = 0;
+                    let hasTopicWithTime = false;
+
+                    if (Array.isArray(latestEntry.topics)) {
+                        for (const t of latestEntry.topics) {
+                            const tTs = Number(t.timeSpent) || 0;
+                            if (tTs > 0) {
+                                topicsTs += tTs;
+                                topicsTimedQ += (Number(t.total) || 0);
+                                hasTopicWithTime = true;
+                            }
+                        }
+                    }
+
+                    if (hasTopicWithTime && topicsTimedQ > 0) {
+                        latestSeconds = Math.round(topicsTs / topicsTimedQ);
+                    } else if (rootTs > 0) {
+                        let tot = Number(latestEntry.total) || 0;
+                        if (tot === 0 && latestEntry.score != null) tot = getSyntheticTotal(100);
+                        if (tot > 0) {
+                            latestSeconds = Math.round(rootTs / tot);
+                        }
+                    }
+                }
+            }
             
             const formatTime = (s) => {
                 const m = Math.floor(s / 60);
@@ -98,6 +167,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 displaySeconds,
                 avgSeconds, // Geral
                 recentAvgSeconds,
+                latestSeconds,
                 hasRecentData,
                 deltaSeconds,
                 avgFormatted: timeStr,
@@ -107,6 +177,24 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
         })
         .sort((a, b) => sortOrder === 'slower' ? b.displaySeconds - a.displaySeconds : a.displaySeconds - b.displaySeconds);
     
+    const formatTime = (s) => {
+        const safe = Number(s) || 0;
+        const m = Math.floor(safe / 60);
+        const sec = safe % 60;
+        return m === 0 ? `${sec}s` : sec === 0 ? `${m}m` : `${m}m ${String(sec).padStart(2, '0')}s`;
+    };
+
+    const legendStats = chartData.reduce((acc, item) => {
+        if (Number.isFinite(Number(item.displaySeconds))) acc.avg += Number(item.displaySeconds);
+        if (Number.isFinite(Number(item.latestSeconds))) acc.latest += Number(item.latestSeconds);
+        if (Number(item.latestSeconds) > Number(item.displaySeconds)) acc.above += 1;
+        if (Number(item.latestSeconds) < Number(item.displaySeconds)) acc.below += 1;
+        return acc;
+    }, { avg: 0, latest: 0, above: 0, below: 0 });
+
+    const legendAvgSeconds = chartData.length > 0 ? Math.round(legendStats.avg / chartData.length) : 0;
+    const legendLatestSeconds = chartData.length > 0 ? Math.round(legendStats.latest / chartData.length) : 0;
+
     if (chartData.length === 0) {
         return (
             <div className="h-[300px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30 w-full mt-2">
@@ -139,6 +227,24 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
                         ⏳ {showOnlyFocus ? `Tempo Médio por Questão — ${focusCategory?.name}` : "Tempo Médio (Recente vs Histórico)"}
                     </h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] uppercase tracking-[0.2em] text-slate-500">
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" />
+                            Média: {formatTime(legendAvgSeconds)}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="h-0.5 w-3 rounded-full bg-amber-400" />
+                            Último: {formatTime(legendLatestSeconds)}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="h-0.5 w-3 rounded-full bg-emerald-400" />
+                            Acima da média: {legendStats.above}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="h-0.5 w-3 rounded-full bg-rose-400" />
+                            Abaixo da média: {legendStats.below}
+                        </span>
+                    </div>
                 </div>
                 <div className="flex items-center gap-1.5 self-start sm:self-auto">
                     <button
@@ -210,6 +316,12 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                 content={({ active, payload }) => {
                                     if (active && payload && payload.length) {
                                         const d = payload[0].payload;
+                                        const latestFormatted = d.latestSeconds ? (() => {
+                                            const m = Math.floor(d.latestSeconds / 60);
+                                            const s = d.latestSeconds % 60;
+                                            return m === 0 ? `${s}s` : s === 0 ? `${m}m` : `${m}m ${String(s).padStart(2, '0')}s`;
+                                        })() : 'N/A';
+                                        
                                         return (
                                             <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-2xl shadow-2xl backdrop-blur-md">
                                                 <p className="text-white font-black text-sm mb-3 border-b border-white/10 pb-2">{d.fullName}</p>
@@ -226,6 +338,13 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                                         <div className="flex items-center justify-between gap-4">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="w-2 h-2 rounded-full bg-slate-600" />
+                                                                <span className="text-slate-500 text-xs font-bold">Último Simulado:</span>
+                                                            </div>
+                                                            <span className="text-amber-300 font-black text-xs bg-amber-500/10 px-2 py-0.5 rounded border border-amber-400/20">{latestFormatted}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-2 h-2 rounded-full bg-slate-600" />
                                                                 <span className="text-slate-500 text-xs font-bold">Histórico Geral:</span>
                                                             </div>
                                                             <span className="text-slate-400 font-bold text-xs bg-white/5 px-2 py-0.5 rounded">{d.generalFormatted}</span>
@@ -238,10 +357,17 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <div className="w-2.5 h-2.5 rounded-sm bg-cyan-500" />
-                                                        <span className="text-slate-300 text-xs">Média Geral:</span>
-                                                        <span className="text-white font-bold text-xs">{d.generalFormatted}</span>
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <div className="w-2.5 h-2.5 rounded-sm bg-cyan-500" />
+                                                            <span className="text-slate-300 text-xs">Média Geral:</span>
+                                                            <span className="text-white font-bold text-xs">{d.generalFormatted}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-2.5 h-2.5 rounded-sm bg-amber-400" />
+                                                            <span className="text-slate-300 text-xs">Último Simulado:</span>
+                                                            <span className="text-amber-300 font-bold text-xs">{latestFormatted}</span>
+                                                        </div>
                                                     </div>
                                                 )}
                                                 <p className="text-[10px] text-slate-500 mt-3 pt-2 border-t border-white/10 uppercase tracking-widest text-center">Volume Geral: {d.timedQuestoes} questões</p>
@@ -251,7 +377,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                     return null;
                                 }}
                             />
-                            <Bar dataKey="displaySeconds" radius={[0, 6, 6, 0]}>
+                            <Bar dataKey="displaySeconds" radius={[0, 6, 6, 0]} shape={(props) => <ComparisonLineShape {...props} />}>
                                 {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={`url(#gradTime_${instanceId})`} />
                                 ))}
