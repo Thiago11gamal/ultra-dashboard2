@@ -27,13 +27,6 @@ const CustomTooltipTimeline = ({ active, payload, unit }) => {
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.neonLine }}></span>
                     Média: {data.accuracy.toFixed(1)}{unit}
                 </p>
-                
-                {data.lastTestAcc != null && (
-                    <p className="text-white text-sm font-black flex items-center gap-2 mt-1">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.lastTestColor || COLORS.gaugeFillValid }}></span>
-                        Último: {data.lastTestAcc.toFixed(1)}{unit}
-                    </p>
-                )}
 
                 <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-wider">{data.total} questões</p>
             </div>
@@ -197,30 +190,14 @@ export function TodayVsGeneralChart({
 
         const getAcc = (b) => b.total > 0 ? (b.correct / b.total) * maxScore : null;
 
-        return [
-            { id: 'month6', label: '6 Meses', val: getAcc(buckets.month6), rIn: 70, rOut: 80 },
-            { id: 'month3', label: '3 Meses', val: getAcc(buckets.month3), rIn: 82, rOut: 92 },
-            { id: 'month', label: '1 Mês', val: getAcc(buckets.month), rIn: 94, rOut: 103 },
-            { id: 'week', label: 'Semana', val: getAcc(buckets.week), rIn: 105, rOut: 113 },
-            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 115, rOut: 122 },
-            { id: 'last', label: 'Último', val: latestAcc, rIn: 124, rOut: 130 }
+            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 115, rOut: 122 }
         ];
     }, [activeCategories, maxScore]);
 
-    const lastMetric = temporalMetrics.find(t => t.id === 'last');
-    const latestAcc = lastMetric?.val ?? null;
-
     const chartData = useMemo(() => {
         if (!dailyData || dailyData.length === 0) return [];
-        const data = dailyData.map(d => ({ ...d }));
-        if (latestAcc !== null) {
-            const lastIdx = data.length - 1;
-            const prevAcc = data.length > 1 ? data[lastIdx - 1].accuracy : data[0].accuracy;
-            data[lastIdx].lastTestAcc = latestAcc;
-            data[lastIdx].lastTestColor = latestAcc < prevAcc ? COLORS.gaugeFillDanger : COLORS.gaugeFillValid;
-        }
-        return data;
-    }, [dailyData, latestAcc]);
+        return dailyData.map(d => ({ ...d }));
+    }, [dailyData]);
 
     if (!dailyData || dailyData.length === 0) {
         return (
@@ -238,9 +215,6 @@ export function TodayVsGeneralChart({
 
     const todayMetric = temporalMetrics.find(t => t.id === 'today');
     const todayAcc = todayMetric?.val ?? null;
-
-    const deltaLastVsToday = (latestAcc != null && todayAcc != null) ? latestAcc - todayAcc : null;
-    const isLastPositive = deltaLastVsToday >= 0;
 
     const getColor = (val) => {
         if (val == null) return 'transparent';
@@ -347,17 +321,6 @@ export function TodayVsGeneralChart({
                         </div>
                     </div>
 
-                    {deltaLastVsToday !== null && (
-                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${isLastPositive ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'bg-orange-500/10 border-orange-500/30 text-orange-400'}`}>
-                            {isLastPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                            <div className="flex flex-col">
-                                <span className="text-xs font-black">
-                                    {isLastPositive ? '+' : ''}{deltaLastVsToday.toFixed(1)}{unit}
-                                </span>
-                                <span className="text-[7px] uppercase tracking-wider opacity-70">Ritmo (Hoje)</span>
-                            </div>
-                        </div>
-                    )}
                 </div>
                 
                 {/* Info adicional da Meta */}
@@ -447,21 +410,6 @@ export function TodayVsGeneralChart({
                                 />
                             </Line>
 
-                            {/* Barra do Último Simulado (aparece apenas no último dia) */}
-                            <Bar dataKey="lastTestAcc" barSize={16} radius={[4,4,0,0]} isAnimationActive={true} animationDuration={1200} fill={COLORS.gaugeFillValid}>
-                                {chartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.lastTestColor || COLORS.gaugeFillValid} style={{ filter: entry.lastTestColor ? `drop-shadow(0 0 6px ${entry.lastTestColor}80)` : 'none' }} />
-                                ))}
-                                <LabelList 
-                                    dataKey="lastTestAcc" 
-                                    position="right" 
-                                    offset={10} 
-                                    formatter={(v) => v ? Math.round(v) : ''} 
-                                    fill="#fff" 
-                                    fontSize={10}
-                                    fontWeight={900}
-                                />
-                            </Bar>
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>
