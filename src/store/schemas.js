@@ -54,8 +54,15 @@ const repairContestHistory = (data) => {
     const currentUniqueDays = new Set(currentHistory.map(h => getDateKey(h.date))).size;
 
     // Verificação da flag isPercentage desativada como gatilho de perda (gerava falsos positivos)
-    const hasCorruptedHistory = false;
-    
+    // BUG-FIX LETHAL 1: Detectar se o array de histórico foi interpolado com lixo (ex: [null, undefined, { score: NaN }])
+    const hasCorruptedHistory = currentHistory.some(h => 
+        !h || 
+        typeof h !== 'object' || 
+        !h.date || 
+        (h.total === undefined && h.score === undefined && h.correct === undefined) ||
+        Number.isNaN(Number(h.score)) ||
+        Number.isNaN(Number(h.total))
+    );
     // BUG-FIX LETHAL 2: Detecta se o histórico atual foi esmagado em 1 único dia, enquanto a base de dados
     // original possui vários dias (causado pelo bug antigo de priorizar o createdAt do DB em vez do date do usuário).
     const dateCompressionBug = uniqueDaysInLogs > 1 && currentUniqueDays <= 1 && currentHistory.length > 0;

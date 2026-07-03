@@ -156,14 +156,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             if (item.id) return item.id;
             return `${item.date || ''}-${item.categoryId || ''}-${item.taskId || JSON.stringify(item)}`;
         };
-        (arr1 || []).forEach(item => map.set(getStableKey(item), item));
-        (arr2 || []).forEach(item => map.set(getStableKey(item), item));
-        return Array.from(map.values());
+        (arr1 || []).forEach(item => { if (item) map.set(getStableKey(item), item); });
+        (arr2 || []).forEach(item => { if (item) map.set(getStableKey(item), item); });
+        return Array.from(map.values()).filter(Boolean);
     };
 
     const mergeMonteCarloHistory = (localMC = [], cloudMC = []) => {
         const mcMap = new Map();
-        [...localMC, ...cloudMC].forEach(item => {
+        [...localMC, ...cloudMC].filter(Boolean).forEach(item => {
             if (item?.date) {
                 const sanitized = {
                     ...item,
@@ -172,7 +172,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 mcMap.set(item.date, sanitized);
             }
         });
-        return Array.from(mcMap.values()).sort((a, b) => {
+        return Array.from(mcMap.values()).filter(Boolean).sort((a, b) => {
             const aMs = new Date(a?.date || 0).getTime();
             const bMs = new Date(b?.date || 0).getTime();
             return (Number.isFinite(aMs) ? aMs : 0) - (Number.isFinite(bMs) ? bMs : 0);
@@ -192,12 +192,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             return (Number.isFinite(aTime) ? aTime : 0) >= (Number.isFinite(bTime) ? bTime : 0) ? a : b;
         };
 
-        [...localTasks, ...cloudTasks].forEach(task => {
-            if (!task) return;
-            const key = taskKey(task);
-            taskMap.set(key, pickWinner(taskMap.get(key), task));
+        [...localTasks, ...cloudTasks].filter(Boolean).forEach(t => {
+            const key = taskKey(t);
+            if (key) {
+                taskMap.set(key, pickWinner(taskMap.get(key), t));
+            }
         });
-        return Array.from(taskMap.values());
+        return Array.from(taskMap.values()).filter(Boolean);
     };
 
     const mergeContestCategories = (localCats = [], cloudCats = []) => {

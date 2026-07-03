@@ -1,4 +1,5 @@
 // src/services/aiQuestionService.js
+import logger from '../utils/logger.js';
 /**
  * Serviço de Geração de Questões via IA (OpenAI / Gemini compatível)
  * 
@@ -193,7 +194,7 @@ Gere exatamente ${qtd} questões baseadas em provas reais.`;
       if (hasGemini) {
         const fullPrompt = `${systemPrompt}\n\n${userPrompt}\n\nResponda APENAS com o JSON.`;
 
-        console.log('[AI Service] Chamando Gemini API...');
+        logger.info('[AI Service] Chamando Gemini API...');
         
         const response = await fetch(`${GEMINI_API_URL}?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
           method: 'POST',
@@ -233,7 +234,7 @@ Gere exatamente ${qtd} questões baseadas em provas reais.`;
           textContent = parts.find(p => p.text)?.text || '{}';
         }
         
-        console.log('[AI Service] Gemini respondeu com', textContent.length, 'chars');
+        logger.info('[AI Service] Gemini respondeu com', textContent.length, 'chars');
         
         const cleaned = extractJson(textContent);
         const parsed = JSON.parse(cleaned);

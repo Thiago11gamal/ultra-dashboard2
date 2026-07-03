@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import logger from '../utils/logger.js';
 
 // 1. Otimização da função clean
 const clean = (val) => {
@@ -94,9 +95,9 @@ if (isLocalMode) {
             })
         });
         auth = getAuth(app);
-        console.log(`%c[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
+        logger.styled(`[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
     } catch (err) {
-        console.error("[Firebase] Erro na inicialização:", err);
+        logger.error("[Firebase] Erro na inicialização:", err);
     }
 }
 
