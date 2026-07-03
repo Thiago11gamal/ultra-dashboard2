@@ -21,8 +21,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             
             // Média Recente (Últimos 7 dias)
             let recentAvgSeconds = null;
-            let latestAcc = null;
-            let generalAcc = null;
             const cat = activeCategories.find(c => c.id === d.id);
             if (cat) {
                 const nowMs = new Date().getTime();
@@ -65,44 +63,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 if (recentStats.tq > 0) {
                     recentAvgSeconds = Math.round(recentStats.ts / recentStats.tq);
                 }
-
-                // Score calculations
-                let latestTimeMs = 0;
-                let totCorrect = 0;
-                let totQ = 0;
-                
-                history.forEach(h => {
-                    const maxScore = 100;
-                    const time = toDateMs(h.date || h.createdAt);
-                    if (!time) return;
-                    
-                    let hScore = Number(h.score);
-                    if (!Number.isFinite(hScore) && h.total > 0) {
-                        hScore = (Number(h.correct) / Number(h.total)) * maxScore;
-                    }
-
-                    let tot = Number(h.total) || 0;
-                    let corr = Number(h.correct) || 0;
-                    
-                    if (tot === 0 && hScore != null) {
-                        tot = getSyntheticTotal(maxScore);
-                        corr = Math.round((hScore / maxScore) * tot);
-                    } else if (tot > 0 && hScore != null) {
-                        corr = Math.round((hScore / maxScore) * tot);
-                    }
-                    
-                    if (tot > 0) {
-                        totCorrect += corr;
-                        totQ += tot;
-                    }
-                    
-                    if (time > latestTimeMs && hScore != null) {
-                        latestTimeMs = time;
-                        latestAcc = hScore;
-                    }
-                });
-                
-                if (totQ > 0) generalAcc = (totCorrect / totQ) * 100;
             }
 
             // Define qual métrica usaremos como base (Recente tem prioridade para a barra visual)
@@ -140,8 +100,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 recentAvgSeconds,
                 hasRecentData,
                 deltaSeconds,
-                latestAcc,
-                generalAcc,
                 avgFormatted: timeStr,
                 generalFormatted: formatTime(avgSeconds),
                 avgLabelWithDetails: parts.join("   |   ")
@@ -226,7 +184,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} stroke="rgba(255,255,255,0.04)" />
                             <XAxis 
-                                xAxisId="time"
                                 type="number"
                                 domain={[0, dataMax => Math.max(120, Math.ceil(dataMax * 1.1))]}
                                 axisLine={false} 
@@ -238,12 +195,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                     if (m === 0) return `${s}s`;
                                     return s === 0 ? `${m}m` : `${m}m ${s}s`;
                                 }}
-                            />
-                            <XAxis 
-                                xAxisId="score"
-                                type="number"
-                                domain={[0, 100]}
-                                hide
                             />
                             <YAxis 
                                 type="category"
@@ -293,17 +244,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                                         <span className="text-white font-bold text-xs">{d.generalFormatted}</span>
                                                     </div>
                                                 )}
-                                                {d.latestAcc != null && (
-                                                    <div className="pt-2 mt-2 border-t border-white/5 flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className={`w-2 h-2 rounded-full ${d.latestAcc < d.generalAcc ? 'bg-red-500' : 'bg-green-500'}`} />
-                                                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Último Score:</span>
-                                                        </div>
-                                                        <span className="text-xs font-black px-2 py-0.5 rounded-lg bg-white/5 text-white">
-                                                            {d.latestAcc.toFixed(1)}% <span className="text-slate-500 font-normal text-[10px] ml-1">(Média: {d.generalAcc?.toFixed(1)}%)</span>
-                                                        </span>
-                                                    </div>
-                                                )}
                                                 <p className="text-[10px] text-slate-500 mt-3 pt-2 border-t border-white/10 uppercase tracking-widest text-center">Volume Geral: {d.timedQuestoes} questões</p>
                                             </div>
                                         );
@@ -311,7 +251,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                     return null;
                                 }}
                             />
-                            <Bar dataKey="displaySeconds" xAxisId="time" radius={[0, 6, 6, 0]}>
+                            <Bar dataKey="displaySeconds" radius={[0, 6, 6, 0]}>
                                 {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={`url(#gradTime_${instanceId})`} />
                                 ))}
@@ -323,11 +263,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                     fontWeight={600}
                                     offset={10}
                                 />
-                            </Bar>
-                            <Bar dataKey="latestAcc" xAxisId="score" barSize={3} radius={[0, 2, 2, 0]}>
-                                {chartData.map((entry, index) => (
-                                    <Cell key={`cell-score-${index}`} fill={(entry.latestAcc != null && entry.generalAcc != null) ? (entry.latestAcc < entry.generalAcc ? '#ef4444' : '#22c55e') : 'transparent'} />
-                                ))}
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
