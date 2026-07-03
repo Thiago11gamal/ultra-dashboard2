@@ -1,5 +1,6 @@
 import { kahanSum } from '../engine/math/kahan.js';
 import { getDateKey } from './dateHelper.js';
+import { getSafeScore } from './scoreHelper.js';
 
 export function computeBrierScore(probability01, observedBinary) {
     const rawP = Number(probability01);
@@ -180,7 +181,7 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
     const subj = row.subject || row.categoryName;
     if (!subj) return;
 
-    const score = Number(row.score ?? ((row.correct / row.total) * (row.maxScore || maxScore)));
+    const score = getSafeScore(row, maxScore);
     if (!Number.isFinite(score)) return;
 
     // Find recent global or per-subject predictions that might match this simulado

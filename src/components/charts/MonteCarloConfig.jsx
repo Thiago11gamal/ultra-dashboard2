@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, startTransition } from 'react';
 import { Settings2, Check, Minus, Plus, Activity, Clock, Hash, ChevronUp, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
+import { formatDuration } from '../../utils/dateHelper';
 
 const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
     const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
@@ -57,9 +58,7 @@ export const MonteCarloConfig = ({
     const setExamConfig = useAppStore(state => state.setExamConfig);
 
     const examDurationLabel = useMemo(() => {
-        const h = Math.floor(examDurationMinutes / 60);
-        const m = examDurationMinutes % 60;
-        return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+        return formatDuration(examDurationMinutes / 60);
     }, [examDurationMinutes]);
 
     const updateExamDurationMinutes = (delta) => {

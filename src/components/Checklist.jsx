@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Plus, Trash2, TrendingUp, TrendingDown, Minus, BarChart2, Play, Settings, Download, X } from 'lucide-react';
 import PromptModal from './PromptModal';
 import CategoryEditor from './CategoryEditor';
+import { formatDuration } from '../utils/dateHelper';
 
 const priorityColors = {
     high: { bg: 'bg-red-500/20', border: 'border-red-500/50', text: 'text-red-400' },
@@ -224,7 +225,7 @@ const CategoryAccordion = React.memo(({ category, onToggleTask, onDeleteTask, on
                             </h3>
                             {category.totalMinutes > 0 && (
                                 <span className="text-yellow-400/80 text-[9px] sm:text-[10px] font-black whitespace-nowrap border border-yellow-400/20 px-1 sm:px-1.5 py-0.5 rounded-sm leading-normal">
-                                    {Math.floor(category.totalMinutes / 60)}h{String(category.totalMinutes % 60).padStart(2, '0')}m
+                                    {formatDuration(category.totalMinutes / 60)}
                                 </span>
                             )}
                         </div>

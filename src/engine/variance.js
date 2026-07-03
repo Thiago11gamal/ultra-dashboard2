@@ -5,6 +5,8 @@
  * All formulas are statistically correct and auditable
  */
 import { kahanSum } from './math/kahan.js';
+import { getDateKey } from '../utils/dateHelper.js';
+import { getSafeScore } from '../utils/scoreHelper.js';
 
 /**
  * Compute weighted variance from category statistics
@@ -43,11 +45,11 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
     // Build aligned score rows: one object per "simulado day" { "Matematica": 82, "Direito": 71, ... }
     const byDate = {};
     simuladoRows.forEach(row => {
-      const dateKey = row.date || (row.createdAt ? new Date(row.createdAt).toISOString().slice(0,10) : null);
+      const dateKey = getDateKey(row.date || row.createdAt);
       if (!dateKey) return;
       const subj = row.subject || row.categoryName || row.name;
       if (!subj) return;
-      const score = Number(row.score ?? row.percent ?? row.correct / row.total * 100);
+      const score = getSafeScore(row);
       if (!Number.isFinite(score)) return;
 
       if (!byDate[dateKey]) byDate[dateKey] = {};
@@ -285,13 +287,11 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
     let pairedCount = 0;
 
     const getScore = (h) => {
-        const s = Number(h.score ?? h.percent ?? h.correct / h.total * 100);
+        const s = getSafeScore(h);
         return Number.isFinite(s) ? s : 0;
     };
     const getDateStr = (h) => {
-        const d = h.date || h.createdAt;
-        if (!d) return null;
-        try { return new Date(d).toISOString().split('T')[0]; } catch { return null; }
+        return getDateKey(h.date || h.createdAt);
     };
 
     const mapA = new Map();

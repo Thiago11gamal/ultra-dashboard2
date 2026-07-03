@@ -1,18 +1,10 @@
 import React, { useMemo } from 'react';
 import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
-import { normalizeDate } from '../utils/dateHelper'; // IMPORTAÇÃO NECESSÁRIA
+import { normalizeDate, formatDuration as globalFormatDuration } from '../utils/dateHelper';
 
-// Format minutes to hours:minutes
-// E-01 FIX: Math.round() evita minutos fracionários (ex: 25.5 → "26min")
-// CORREÇÃO 4: Formatação de horas exatas
 const formatDuration = (minutes) => {
-    const total = Math.round(minutes || 0);
-    const hours = Math.floor(total / 60);
-    const mins = total % 60;
-    if (hours === 0) return `${mins}min`;
-    if (mins === 0) return `${hours}h`; // Evita exibir "1h 0min"
-    return `${hours}h ${mins}min`;
+    return globalFormatDuration((minutes || 0) / 60);
 };
 
 // Get day name in Portuguese - Full names to avoid browser translation bugs (Sex -> Gender)
