@@ -636,11 +636,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                 <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
                                                     <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
                                                         <Target size={12} className={t.iconColor} />
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(alertTask.analysis.monteCarlo.probabilityRaw)}%</span></span>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Number.isFinite(Number(alertTask.analysis.monteCarlo.probabilityRaw)) ? Number(alertTask.analysis.monteCarlo.probabilityRaw) : (alertTask.analysis.monteCarlo.probability || 0))}%</span></span>
                                                     </div>
                                                     <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
                                                         <Activity size={12} className={t.iconColor} />
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">{alertTask.analysis.monteCarlo.volatility.toFixed(2)}</span></span>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">{(Number.isFinite(Number(alertTask.analysis.monteCarlo.volatility)) ? Number(alertTask.analysis.monteCarlo.volatility) : 0).toFixed(2)}</span></span>
                                                     </div>
                                                     {alertTask.analysis.monteCarlo.calibrationPenalty > 0.01 && (
                                                         <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>

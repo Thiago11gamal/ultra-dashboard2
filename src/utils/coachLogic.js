@@ -162,7 +162,7 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
     // (NaN) em vez de injetar Zeros absolutos que arruínam a variância empírica.
     const validScores = history
         .map(h => getSafeScore(h, maxScore))
-        .filter(s => !Number.isNaN(s));
+        .filter(s => Number.isFinite(s));
         
     const validN = validScores.length;
     if (validN < 2) return fallbackVol;

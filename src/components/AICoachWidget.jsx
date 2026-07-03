@@ -97,9 +97,12 @@ function UrgencyBar({ score, cfg }) {
 function MonteCarloGauge({ mc }) {
     if (!mc || !mc.probability) return null;
     
-    const prob = Math.min(100, Math.max(0, mc.probability));
-    const low = Math.min(100, Math.max(0, mc.ci95Low || prob - 5));
-    const high = Math.min(100, Math.max(0, mc.ci95High || prob + 5));
+    const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
+    const prob = Math.min(100, Math.max(0, rawProb));
+    const rawLow = Number.isFinite(Number(mc.ci95Low)) ? Number(mc.ci95Low) : prob - 5;
+    const low = Math.min(100, Math.max(0, rawLow));
+    const rawHigh = Number.isFinite(Number(mc.ci95High)) ? Number(mc.ci95High) : prob + 5;
+    const high = Math.min(100, Math.max(0, rawHigh));
 
     // Define a cor baseada na zona de risco (lógica exata do seu motor)
     const isCritical = prob < (mc.thresholds?.danger || 30);
