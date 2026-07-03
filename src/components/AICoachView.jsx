@@ -405,107 +405,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 )}
             </div>
 
-            {systemAlerts.length > 0 && (
-                <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {systemAlerts.map(alertTask => {
-                        const cleanText = alertTask.text.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
-                        const separatorIndex = cleanText.indexOf(':');
-                        const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
-                        const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
-                        
-                        let type = 'info';
-                        let titlePart = message;
-                        let descPart = '';
-                        let actionDesc = '';
-                        
-                        if (/VETOR CRÍTICO/i.test(message)) {
-                            type = 'danger';
-                            titlePart = "Vetor Crítico";
-                            descPart = message.replace(/🚨 VETOR CRÍTICO!?\s*/i, '');
-                            actionDesc = "Conclua os focos pendentes desta matéria hoje para frear a queda imediata de rendimento.";
-                        } else if (/OSCILAÇÃO/i.test(message)) {
-                            type = 'warning';
-                            titlePart = "Oscilação Estatística";
-                            descPart = message.replace(/🌪️ OSCILAÇÃO ESTATÍSTICA:?\s*/i, '');
-                            actionDesc = "Revisite os tópicos sugeridos abaixo para estabilizar sua taxa de acertos e reduzir a imprevisibilidade.";
-                        } else if (/CRUZEIRO SEGURO/i.test(message)) {
-                            type = 'success';
-                            titlePart = "Cruzeiro Seguro";
-                            descPart = message.replace(/🏆 CRUZEIRO SEGURO:?\s*/i, '');
-                            actionDesc = "Mantenha a constância atual. Resolva apenas as manutenções leves sugeridas para não perder o ritmo.";
-                        }
 
-                        const t = {
-                            danger: { bg: 'bg-[#1a0b12]', border: 'border-rose-500/20', iconBg: 'bg-rose-500/10', iconColor: 'text-rose-500', titleColor: 'text-rose-100', descColor: 'text-rose-200/70', badgeBg: 'bg-rose-500/10 border-rose-500/30 text-rose-300', verdictBg: 'bg-rose-500/5 text-rose-400', glowColor: 'bg-rose-600', Icon: AlertCircle, isCritical: true },
-                            warning: { bg: 'bg-[#171109]', border: 'border-amber-500/20', iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', titleColor: 'text-amber-100', descColor: 'text-amber-200/70', badgeBg: 'bg-amber-500/10 border-amber-500/30 text-amber-300', verdictBg: 'bg-amber-500/5 text-amber-400', glowColor: 'bg-amber-600', Icon: Activity, isCritical: false },
-                            success: { bg: 'bg-[#06140e]', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', titleColor: 'text-emerald-100', descColor: 'text-emerald-200/70', badgeBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300', verdictBg: 'bg-emerald-500/5 text-emerald-400', glowColor: 'bg-emerald-600', Icon: Trophy, isCritical: false },
-                            info: { bg: 'bg-slate-900/50', border: 'border-slate-500/20', iconBg: 'bg-slate-500/10', iconColor: 'text-slate-400', titleColor: 'text-slate-100', descColor: 'text-slate-400', badgeBg: 'bg-slate-500/10 border-slate-500/30 text-slate-300', verdictBg: 'bg-slate-500/5 text-slate-400', glowColor: 'bg-slate-600', Icon: AlertCircle, isCritical: false }
-                        }[type];
-
-                        return (
-                            <div key={alertTask.id} className={`relative overflow-hidden p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
-                                <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
-                                
-                                <div className="flex items-start gap-4">
-                                    <div className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
-                                        <t.Icon size={24} className={t.isCritical ? "animate-pulse" : ""} />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md border ${t.badgeBg}`}>
-                                                {subjectName}
-                                            </span>
-                                            {t.isCritical && (
-                                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">
-                                                    Intervenção Exigida
-                                                </span>
-                                            )}
-                                        </div>
-                                        <span className={`text-sm sm:text-base font-black tracking-tight leading-snug uppercase ${t.titleColor}`}>
-                                            {titlePart}
-                                        </span>
-                                        <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
-                                            {descPart}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {alertTask.analysis?.monteCarlo && (
-                                    <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
-                                        <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
-                                            <Target size={12} className={t.iconColor} />
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(alertTask.analysis.monteCarlo.probabilityRaw)}%</span></span>
-                                        </div>
-                                        <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
-                                            <Activity size={12} className={t.iconColor} />
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">{alertTask.analysis.monteCarlo.volatility.toFixed(2)}</span></span>
-                                        </div>
-                                        {alertTask.analysis.monteCarlo.calibrationPenalty > 0.01 && (
-                                            <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
-                                                <Zap size={12} className="text-amber-400" />
-                                                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(alertTask.analysis.monteCarlo.calibrationPenalty * 100)}%</span></span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {alertTask.analysis?.verdict && (
-                                    <div className="flex flex-col gap-2 mt-1">
-                                        <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-[11px] font-bold ${t.verdictBg} ${t.border}`}>
-                                            <BrainCircuit size={14} className="shrink-0 mt-0.5" />
-                                            <span className="leading-relaxed">{alertTask.analysis.verdict}</span>
-                                        </div>
-                                        <div className="pt-3 border-t border-white/5 mt-1">
-                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">Ação Sugerida</span>
-                                            <p className={`text-xs font-bold ${t.titleColor} opacity-90`}>{actionDesc}</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
 
             {calibrationSummary.length > 0 && (
                 <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 shadow-inner">
@@ -661,6 +561,107 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
                     >
+                        {systemAlerts.length > 0 && (
+                            <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {systemAlerts.map(alertTask => {
+                                    const cleanText = alertTask.text.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
+                                    const separatorIndex = cleanText.indexOf(':');
+                                    const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
+                                    const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
+                                    
+                                    let type = 'info';
+                                    let titlePart = message;
+                                    let descPart = '';
+                                    let actionDesc = '';
+                                    
+                                    if (/VETOR CRÍTICO/i.test(message)) {
+                                        type = 'danger';
+                                        titlePart = "Vetor Crítico";
+                                        descPart = message.replace(/🚨 VETOR CRÍTICO!?\s*/i, '');
+                                        actionDesc = "Conclua os focos pendentes desta matéria hoje para frear a queda imediata de rendimento.";
+                                    } else if (/OSCILAÇÃO/i.test(message)) {
+                                        type = 'warning';
+                                        titlePart = "Oscilação Estatística";
+                                        descPart = message.replace(/🌪️ OSCILAÇÃO ESTATÍSTICA:?\s*/i, '');
+                                        actionDesc = "Revisite os tópicos sugeridos abaixo para estabilizar sua taxa de acertos e reduzir a imprevisibilidade.";
+                                    } else if (/CRUZEIRO SEGURO/i.test(message)) {
+                                        type = 'success';
+                                        titlePart = "Cruzeiro Seguro";
+                                        descPart = message.replace(/🏆 CRUZEIRO SEGURO:?\s*/i, '');
+                                        actionDesc = "Mantenha a constância atual. Resolva apenas as manutenções leves sugeridas para não perder o ritmo.";
+                                    }
+
+                                    const t = {
+                                        danger: { bg: 'bg-[#1a0b12]', border: 'border-rose-500/20', iconBg: 'bg-rose-500/10', iconColor: 'text-rose-500', titleColor: 'text-rose-100', descColor: 'text-rose-200/70', badgeBg: 'bg-rose-500/10 border-rose-500/30 text-rose-300', verdictBg: 'bg-rose-500/5 text-rose-400', glowColor: 'bg-rose-600', Icon: AlertCircle, isCritical: true },
+                                        warning: { bg: 'bg-[#171109]', border: 'border-amber-500/20', iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', titleColor: 'text-amber-100', descColor: 'text-amber-200/70', badgeBg: 'bg-amber-500/10 border-amber-500/30 text-amber-300', verdictBg: 'bg-amber-500/5 text-amber-400', glowColor: 'bg-amber-600', Icon: Activity, isCritical: false },
+                                        success: { bg: 'bg-[#06140e]', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', titleColor: 'text-emerald-100', descColor: 'text-emerald-200/70', badgeBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300', verdictBg: 'bg-emerald-500/5 text-emerald-400', glowColor: 'bg-emerald-600', Icon: Trophy, isCritical: false },
+                                        info: { bg: 'bg-slate-900/50', border: 'border-slate-500/20', iconBg: 'bg-slate-500/10', iconColor: 'text-slate-400', titleColor: 'text-slate-100', descColor: 'text-slate-400', badgeBg: 'bg-slate-500/10 border-slate-500/30 text-slate-300', verdictBg: 'bg-slate-500/5 text-slate-400', glowColor: 'bg-slate-600', Icon: AlertCircle, isCritical: false }
+                                    }[type];
+
+                                    return (
+                                        <div key={alertTask.id} className={`relative overflow-hidden p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
+                                            <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
+                                            
+                                            <div className="flex items-start gap-4">
+                                                <div className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
+                                                    <t.Icon size={24} className={t.isCritical ? "animate-pulse" : ""} />
+                                                </div>
+                                                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md border ${t.badgeBg}`}>
+                                                            {subjectName}
+                                                        </span>
+                                                        {t.isCritical && (
+                                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">
+                                                                Intervenção Exigida
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className={`text-sm sm:text-base font-black tracking-tight leading-snug uppercase ${t.titleColor}`}>
+                                                        {titlePart}
+                                                    </span>
+                                                    <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
+                                                        {descPart}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {alertTask.analysis?.monteCarlo && (
+                                                <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
+                                                    <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
+                                                        <Target size={12} className={t.iconColor} />
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(alertTask.analysis.monteCarlo.probabilityRaw)}%</span></span>
+                                                    </div>
+                                                    <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
+                                                        <Activity size={12} className={t.iconColor} />
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">{alertTask.analysis.monteCarlo.volatility.toFixed(2)}</span></span>
+                                                    </div>
+                                                    {alertTask.analysis.monteCarlo.calibrationPenalty > 0.01 && (
+                                                        <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
+                                                            <Zap size={12} className="text-amber-400" />
+                                                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(alertTask.analysis.monteCarlo.calibrationPenalty * 100)}%</span></span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {alertTask.analysis?.verdict && (
+                                                <div className="flex flex-col gap-2 mt-1">
+                                                    <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-[11px] font-bold ${t.verdictBg} ${t.border}`}>
+                                                        <BrainCircuit size={14} className="shrink-0 mt-0.5" />
+                                                        <span className="leading-relaxed">{alertTask.analysis.verdict}</span>
+                                                    </div>
+                                                    <div className="pt-3 border-t border-white/5 mt-1">
+                                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">Ação Sugerida</span>
+                                                        <p className={`text-xs font-bold ${t.titleColor} opacity-90`}>{actionDesc}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                         <AICoachPlanner />
                     </Motion.div>
                 )}
