@@ -40,6 +40,8 @@ import {
     generateAnalyticsStats
 } from '../engine/analyticsStats.js';
 const EMPTY_ARRAY = [];
+const BASE_SIMULATIONS = 5000;
+const LOG_DAMPING_FACTOR = 45;
 
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, effectiveSimulateToday, simuladoRows: propSimuladoRows }) {
     const activeId = useAppStore(state => state.appState?.activeId);
