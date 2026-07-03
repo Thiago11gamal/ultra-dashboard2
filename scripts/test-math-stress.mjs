@@ -1,5 +1,5 @@
 import { calcularVariancia } from '../src/engine/variance.js';
-import { runMonteCarloSimulation as simularMonteCarlo } from '../src/engine/monteCarlo.js'; // Ajustado conforme exportação real
+import { runMonteCarloAnalysis } from '../src/engine/monteCarlo.js';
 
 console.log('🔥 Iniciando Testes de Estresse e Fuzzing...\n');
 

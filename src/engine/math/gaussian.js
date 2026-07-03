@@ -64,11 +64,18 @@ export function truncatedNormalMean(mean, sd, a, b) {
 
 /**
  * Gerador de ruído gaussiano (Normal(0,1)) usando a Transformada de Box-Muller.
- * [BUG-BOX-MULLER FIX] Proteção contra u1=0 que causaria Math.log(0) = -Infinity.
- * [STATELESS FIX] O cache global foi removido para garantir pureza da função e 
- * total determinismo em simulações paralelas de Monte Carlo.
+ * O cache por instância de RNG (WeakMap) garante pureza, determinismo para
+ * testes paralelos com seeds fixas e máxima performance (sem descartar z1).
  */
+const rngCache = new WeakMap();
+
 export const generateGaussian = (rng = Math.random) => {
+    if (rngCache.has(rng)) {
+        const result = rngCache.get(rng);
+        rngCache.delete(rng);
+        return result;
+    }
+
     let u1 = 0, u2 = 0;
     let attempts = 0;
     
@@ -83,15 +90,14 @@ export const generateGaussian = (rng = Math.random) => {
     
     const mag = Math.sqrt(-2.0 * Math.log(u1));
     const z0 = mag * Math.cos(2.0 * Math.PI * u2);
+    const z1 = mag * Math.sin(2.0 * Math.PI * u2);
     
-    // Optamos por descartar z1 em prol de uma função 100% pura e stateless, 
-    // essencial para reprodutibilidade de testes com seeds fixas.
+    rngCache.set(rng, z1);
     return z0;
 };
 
 export function resetGaussianCache() {
-    // Deprecated: mantido apenas por retrocompatibilidade de API.
-    // A função generateGaussian agora é 100% stateless.
+    // Mantido por retrocompatibilidade de API, mas o WeakMap se auto-gerencia.
 }
 
 /**

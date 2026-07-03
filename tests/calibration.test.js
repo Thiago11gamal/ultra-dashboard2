@@ -38,8 +38,17 @@ describe('Calibration Utilities', () => {
     });
 
     it('computeRollingCalibrationParams adapts baseline and cap from history', () => {
-        const hist = [{ avgBrier: 0.22 }, { avgBrier: 0.3 }, { avgBrier: 0.24 }, { avgBrier: 0.18 }];
+        const now = Date.now();
+        const hist = [
+            { avgBrier: 0.22, timestamp: now }, 
+            { avgBrier: 0.3, timestamp: now - 86400000 }, 
+            { avgBrier: 0.24, timestamp: now - 2 * 86400000 }, 
+            { avgBrier: 0.18, timestamp: now - 3 * 86400000 }
+        ];
         const params = computeRollingCalibrationParams(hist, { baseline: 0.18, maxPenalty: 0.25 });
+        
+        // Assert confidenceFactor is not 0 (meaning we hit the time-decay branch)
+        expect(params.confidenceFactor).toBeGreaterThan(0);
         expect(params.baseline).toBeGreaterThanOrEqual(0.12);
         expect(params.baseline).toBeLessThanOrEqual(0.3);
         expect(params.maxPenalty).toBeGreaterThanOrEqual(0.12);

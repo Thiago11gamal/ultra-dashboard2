@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { simulateNormalDistribution, simularMonteCarlo } from '../src/engine/monteCarlo.js';
+import { simulateNormalDistribution, runMonteCarloAnalysis } from '../src/engine/monteCarlo.js';
 import { calculateVolatility, monteCarloSimulation } from '../src/engine/projection.js';
 
 describe('Monte Carlo Bugfixes Validation', () => {
@@ -18,9 +18,9 @@ describe('Monte Carlo Bugfixes Validation', () => {
         expect(res.volatility).toBeGreaterThan(3.5);
     });
 
-    it('Bug 2: simularMonteCarlo deve usar ordenação otimizada com Float64Array (implicitamente validado por não travar)', () => {
+    it('Bug 2: runMonteCarloAnalysis deve usar ordenação otimizada com Float64Array (implicitamente validado por não travar)', () => {
         const history = [80, 85, 90];
-        const res = simularMonteCarlo({ volumeSemanasAnteriores: history }, 1000);
+        const res = runMonteCarloAnalysis({ values: history, simulations: 1000 });
         
         expect(res.p50).toBeGreaterThan(80);
         expect(res.p50).toBeLessThan(90);
