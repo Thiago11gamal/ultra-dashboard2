@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useId, useRef } from 'react';
+import React, { useMemo, useState, useId, useRef, useEffect } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian';
 import { formatDuration } from '../../utils/dateHelper';
 import { formatValue } from '../../utils/scoreHelper';
@@ -29,6 +29,15 @@ export const GaussianPlot = ({
     const [hover, setHover] = useState(null);
     const hoverRafRef = useRef(null);
     const pendingHoverRef = useRef(null);
+
+    // LEAK-FIX: Cleanup de requestAnimationFrame pendente se o componente desmontar durante o hover
+    useEffect(() => {
+        return () => {
+            if (hoverRafRef.current != null) {
+                cancelAnimationFrame(hoverRafRef.current);
+            }
+        };
+    }, []);
 
     const instanceId = useId().replace(/:/g, '');
     const ID = {
