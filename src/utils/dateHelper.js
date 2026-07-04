@@ -117,8 +117,6 @@ export const normalizeDate = (raw) => {
 
     if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
 
-    // Corrige apenas datas sem hora explícita para evitar distorcer timestamps reais.
-    if (isDateOnly) d.setHours(12, 0, 0, 0);
     return d;
 };
 

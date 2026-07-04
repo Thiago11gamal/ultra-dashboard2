@@ -4,7 +4,7 @@ import {
     ResponsiveContainer, LabelList, Cell
 } from "recharts";
 import { Clock } from 'lucide-react';
-import { toDateMs } from '../../../utils/dateHelper';
+import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 import { getSyntheticTotal } from '../../../utils/scoreHelper';
 
 function ComparisonLineShape(props) {
@@ -31,12 +31,12 @@ function ComparisonLineShape(props) {
             {latestSeconds > avgSeconds ? (
                 <>
                     <line x1={x} y1={lineY} x2={avgX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="butt" />
-                    <line x1={avgX} y1={lineY} x2={latestX} y2={lineY} stroke="#10b981" strokeWidth={3.5} strokeLinecap="butt" />
+                    <line x1={avgX} y1={lineY} x2={latestX} y2={lineY} stroke="#ef4444" strokeWidth={3.5} strokeLinecap="butt" />
                 </>
             ) : latestSeconds > 0 ? (
                 <>
                     <line x1={x} y1={lineY} x2={latestX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="butt" />
-                    <line x1={latestX} y1={lineY} x2={avgX} y2={lineY} stroke="#ef4444" strokeWidth={3.5} strokeLinecap="butt" />
+                    <line x1={latestX} y1={lineY} x2={avgX} y2={lineY} stroke="#10b981" strokeWidth={3.5} strokeLinecap="butt" />
                 </>
             ) : null}
         </g>
@@ -60,12 +60,14 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             const cat = activeCategories.find(c => c.id === d.id);
             if (cat) {
                 const nowMs = new Date().getTime();
+                const todayKey = getDateKey(new Date());
                 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
                 const history = Object.values(cat.simuladoStats?.history || {});
                 
                 const recentStats = history.reduce((acc, h) => {
                     const hDateMs = toDateMs(h.date || h.createdAt);
-                    if (Number.isNaN(hDateMs) || (nowMs - hDateMs) > sevenDaysMs || (nowMs - hDateMs) < 0) {
+                    const hKey = getDateKey(h.date || h.createdAt);
+                    if (Number.isNaN(hDateMs) || (nowMs - hDateMs) > sevenDaysMs || hKey > todayKey) {
                         return acc;
                     }
                     
@@ -185,15 +187,26 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
     };
 
     const legendStats = chartData.reduce((acc, item) => {
-        if (Number.isFinite(Number(item.displaySeconds))) acc.avg += Number(item.displaySeconds);
-        if (Number.isFinite(Number(item.latestSeconds))) acc.latest += Number(item.latestSeconds);
-        if (Number(item.latestSeconds) > Number(item.displaySeconds)) acc.above += 1;
-        if (Number(item.latestSeconds) < Number(item.displaySeconds)) acc.below += 1;
-        return acc;
-    }, { avg: 0, latest: 0, above: 0, below: 0 });
+        if (Number.isFinite(Number(item.displaySeconds))) {
+            acc.avg += Number(item.displaySeconds);
+            acc.avgCount += 1;
+        }
 
-    const legendAvgSeconds = chartData.length > 0 ? Math.round(legendStats.avg / chartData.length) : 0;
-    const legendLatestSeconds = chartData.length > 0 ? Math.round(legendStats.latest / chartData.length) : 0;
+        if (item.latestSeconds !== null && Number.isFinite(Number(item.latestSeconds))) {
+            acc.latest += Number(item.latestSeconds);
+            acc.latestCount += 1;
+
+            if (Number(item.latestSeconds) > Number(item.displaySeconds)) acc.above += 1;
+            if (Number(item.latestSeconds) < Number(item.displaySeconds)) acc.below += 1;
+        }
+        return acc;
+    }, { avg: 0, latest: 0, above: 0, below: 0, avgCount: 0, latestCount: 0 });
+
+    const legendAvgSeconds = legendStats.avgCount > 0
+        ? Math.round(legendStats.avg / legendStats.avgCount) : 0;
+
+    const legendLatestSeconds = legendStats.latestCount > 0
+        ? Math.round(legendStats.latest / legendStats.latestCount) : 0;
 
     if (chartData.length === 0) {
         return (
@@ -237,11 +250,11 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                             Último: {formatTime(legendLatestSeconds)}
                         </span>
                         <span className="inline-flex items-center gap-1.5">
-                            <span className="h-0.5 w-3 rounded-full bg-emerald-400" />
+                            <span className="h-0.5 w-3 rounded-full bg-rose-400" />
                             Acima da média: {legendStats.above}
                         </span>
                         <span className="inline-flex items-center gap-1.5">
-                            <span className="h-0.5 w-3 rounded-full bg-rose-400" />
+                            <span className="h-0.5 w-3 rounded-full bg-emerald-400" />
                             Abaixo da média: {legendStats.below}
                         </span>
                     </div>
