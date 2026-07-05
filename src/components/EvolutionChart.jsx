@@ -416,7 +416,7 @@ export default function EvolutionChart({
                     const score = getSafeScore(h, maxScore);
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                     return Math.round(s + ((normalizedScore - minScore) / range * tot));
-                }, 0);
+                }, 0));
 
                     const stats = history.reduce((acc, h) => {
                     let rootTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
