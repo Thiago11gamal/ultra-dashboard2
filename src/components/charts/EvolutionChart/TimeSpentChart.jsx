@@ -10,27 +10,37 @@ import { getSyntheticTotal } from '../../../utils/scoreHelper';
 function ComparisonLineShape(props) {
     const { x, y, width, height, payload, fill, radius = [0, 0, 0, 0] } = props;
 
-    if (!payload || !Number.isFinite(width) || width <= 0) {
+    if (!payload || !Number.isFinite(width)) {
         return null;
     }
 
     const baseWidth = Math.max(0, width);
     const avgSeconds = Number(payload.displaySeconds) || 0;
     const latestSeconds = Number(payload.latestSeconds) || 0;
-    const lineY = y + height;
-    const comparisonWidth = avgSeconds > 0 ? Math.max(0, Math.min(baseWidth * 1.35, (latestSeconds / avgSeconds) * baseWidth)) : 0;
-    const avgX = x + baseWidth;
-    const latestX = x + comparisonWidth;
+    const maxSeconds = Number(payload.maxSeconds) || 0;
+    const visualLatestSeconds = Number(payload.visualLatestSeconds) || 0;
+    
+    const pxPerSec = maxSeconds > 0 ? baseWidth / maxSeconds : 0;
+    
+    const avgX = x + (avgSeconds * pxPerSec);
+    const latestX = x + (visualLatestSeconds * pxPerSec);
 
     const [topLeftRadius, topRightRadius] = Array.isArray(radius) ? radius : [0, 0, 0, 0];
     const rx = topRightRadius || topLeftRadius || 0;
 
+    const lineY = y + height;
+
     return (
         <g>
-            <rect x={x} y={y} width={baseWidth} height={height} rx={rx} ry={rx} fill={fill} />
+            {avgSeconds > 0 && (
+                <rect x={x} y={y} width={avgSeconds * pxPerSec} height={height} rx={rx} ry={rx} fill={fill} />
+            )}
+            
             {latestSeconds > avgSeconds ? (
                 <>
-                    <line x1={x} y1={lineY} x2={avgX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="butt" />
+                    {avgSeconds > 0 && (
+                        <line x1={x} y1={lineY} x2={avgX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="butt" />
+                    )}
                     <line x1={avgX} y1={lineY} x2={latestX} y2={lineY} stroke="#ef4444" strokeWidth={3.5} strokeLinecap="butt" />
                 </>
             ) : latestSeconds > 0 ? (
@@ -174,12 +184,19 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             const qstStr = `(${d.timedQuestoes} questões)`;
             const parts = [timeStr, deltaStr, qstStr].filter(Boolean);
             
+            const latestSecs = latestSeconds || 0;
+            const visualLatestSeconds = displaySeconds > 0 
+                ? Math.min(latestSecs, displaySeconds * 1.35)
+                : Math.min(latestSecs, 180); // Capped at 3 mins if display is 0
+
             return { 
                 ...d, 
                 displaySeconds,
                 avgSeconds, // Geral
                 recentAvgSeconds,
                 latestSeconds,
+                visualLatestSeconds,
+                maxSeconds: Math.max(displaySeconds, visualLatestSeconds),
                 hasRecentData,
                 deltaSeconds,
                 avgFormatted: timeStr,
@@ -400,7 +417,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                     return null;
                                 }}
                             />
-                            <Bar dataKey="displaySeconds" radius={[0, 6, 6, 0]} shape={(props) => <ComparisonLineShape {...props} />}>
+                            <Bar dataKey="maxSeconds" radius={[0, 6, 6, 0]} shape={(props) => <ComparisonLineShape {...props} />}>
                                 {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={`url(#gradTime_${instanceId})`} />
                                 ))}
