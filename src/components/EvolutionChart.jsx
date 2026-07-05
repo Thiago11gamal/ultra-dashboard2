@@ -416,8 +416,8 @@ export default function EvolutionChart({
                     return s + ((normalizedScore - minScore) / range * tot);
                 }, 0));
 
-                const stats = history.reduce((acc, h) => {
-                    let rootTs = Number(h.timeSpent) || 0;
+                    const stats = history.reduce((acc, h) => {
+                    let rootTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
                     
                     let topicsTs = 0;
                     let topicsTimedQ = 0;
@@ -425,10 +425,10 @@ export default function EvolutionChart({
                     
                     if (Array.isArray(h.topics)) {
                         for (const t of h.topics) {
-                            const tTs = Number(t.timeSpent) || 0;
+                            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
                             const tTot = Number(t.total) || 0;
                             // M3 FIX: Omissão de 0 segundos / fast skips
-                            if (tTs >= 0 && tTot > 0) {
+                            if (tTs !== null && tTs >= 0 && tTot > 0) {
                                 topicsTs += tTs;
                                 topicsTimedQ += tTot;
                                 hasTopicWithTime = true;
@@ -438,10 +438,10 @@ export default function EvolutionChart({
                     
                     if (hasTopicWithTime) {
                         return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-                    } else if (rootTs >= 0 && Number(h.total) > 0) {
+                    } else if (rootTs !== null && rootTs >= 0 && Number(h.total) > 0) {
                         // M3 FIX: Fallback seguro mantendo o target
                         return { ts: acc.ts + rootTs, tq: acc.tq + Number(h.total) };
-                    } else if (rootTs >= 0 && h.score != null) {
+                    } else if (rootTs !== null && rootTs >= 0 && h.score != null) {
                         return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(maxScore) };
                     }
                     
