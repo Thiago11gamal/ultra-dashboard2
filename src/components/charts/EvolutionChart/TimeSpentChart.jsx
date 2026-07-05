@@ -79,9 +79,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     if (Array.isArray(h.topics)) {
                         for (const t of h.topics) {
                             const tTs = Number(t.timeSpent) || 0;
-                            if (tTs > 0) {
+                            const tTot = Number(t.total) || 0;
+                            if (tTs >= 0 && tTot > 0) { // BUG FIX: Inclui tempos de 0 segundos
                                 topicsTs += tTs;
-                                topicsTimedQ += (Number(t.total) || 0);
+                                topicsTimedQ += tTot;
                                 hasTopicWithTime = true;
                             }
                         }
@@ -89,10 +90,12 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     
                     if (hasTopicWithTime) {
                         return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-                    } else if (rootTs > 0) {
+                    } else {
                         let tot = Number(h.total) || 0;
                         if (tot === 0 && h.score != null) tot = getSyntheticTotal(100);
-                        return { ts: acc.ts + rootTs, tq: acc.tq + tot };
+                        if (tot > 0 && rootTs >= 0) {
+                            return { ts: acc.ts + rootTs, tq: acc.tq + tot };
+                        }
                     }
                     
                     return acc;
@@ -109,8 +112,14 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             let latestSeconds = null;
 
             if (cat) {
-                const history = Object.values(cat.simuladoStats?.history || {});
-                const latestEntry = history[history.length - 1];
+                // BUG FIX: Garante que o histórico é ordenado cronologicamente antes de buscar o "último"
+                const sortedHistory = Object.values(cat.simuladoStats?.history || {}).sort((a, b) => {
+                    const da = toDateMs(a.date || a.createdAt) || 0;
+                    const db = toDateMs(b.date || b.createdAt) || 0;
+                    return da - db;
+                });
+                
+                const latestEntry = sortedHistory[sortedHistory.length - 1];
                 if (latestEntry) {
                     let rootTs = Number(latestEntry.timeSpent) || 0;
                     let topicsTs = 0;
@@ -120,9 +129,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     if (Array.isArray(latestEntry.topics)) {
                         for (const t of latestEntry.topics) {
                             const tTs = Number(t.timeSpent) || 0;
-                            if (tTs > 0) {
+                            const tTot = Number(t.total) || 0;
+                            if (tTs >= 0 && tTot > 0) { // BUG FIX: Inclui tempos de 0 segundos
                                 topicsTs += tTs;
-                                topicsTimedQ += (Number(t.total) || 0);
+                                topicsTimedQ += tTot;
                                 hasTopicWithTime = true;
                             }
                         }
@@ -130,10 +140,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
                     if (hasTopicWithTime && topicsTimedQ > 0) {
                         latestSeconds = Math.round(topicsTs / topicsTimedQ);
-                    } else if (rootTs > 0) {
+                    } else {
                         let tot = Number(latestEntry.total) || 0;
                         if (tot === 0 && latestEntry.score != null) tot = getSyntheticTotal(100);
-                        if (tot > 0) {
+                        if (tot > 0 && rootTs >= 0) {
                             latestSeconds = Math.round(rootTs / tot);
                         }
                     }
@@ -329,7 +339,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                 content={({ active, payload }) => {
                                     if (active && payload && payload.length) {
                                         const d = payload[0].payload;
-                                        const latestFormatted = d.latestSeconds ? (() => {
+                                        const latestFormatted = d.latestSeconds != null ? (() => {
                                             const m = Math.floor(d.latestSeconds / 60);
                                             const s = d.latestSeconds % 60;
                                             return m === 0 ? `${s}s` : s === 0 ? `${m}m` : `${m}m ${String(s).padStart(2, '0')}s`;

@@ -642,18 +642,24 @@ export default function AIGeneratedSimulado() {
     if (f.categoryId === 'mixed') {
       // Agrupa questões por matéria e assunto
       const groups = {};
+      let exactTimeSpentMixed = 0;
+      
       answeredQuestions.forEach(q => {
         const key = `${q.materia}|${q.assunto}`;
         if (!groups[key]) groups[key] = { materia: q.materia, assunto: q.assunto, correct: 0, total: 0, qs: [], timeSpent: 0 };
         groups[key].qs.push(q);
         groups[key].total++;
         if (q.isCorrect) groups[key].correct++;
+        
         // SOMA INDIVIDUAL DOS RELÓGIOS DE CADA MATÉRIA
-        groups[key].timeSpent += (latestTimePerQuestionRef.current[q.id] || 0);
+        const spent = latestTimePerQuestionRef.current[q.id] || 0;
+        groups[key].timeSpent += spent;
+        exactTimeSpentMixed += spent;
       });
       
       const cats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
       const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
+      const isExactClockValid = exactTimeSpentMixed > 0;
       
       for (const g of Object.values(groups)) {
         const cat = cats.find(c => normalize(c.name) === normalize(g.materia));
@@ -666,8 +672,12 @@ export default function AIGeneratedSimulado() {
           categoryId: cat ? cat.id : null,
           taskId: tsk ? tsk.id : null,
         };
-        // Passa o tempo exato aglomerado
-        const topicTime = g.timeSpent > 0 ? g.timeSpent : Math.round(fallbackTimeSpent * (g.total / totalQuestionsInMixed));
+        
+        // Correção do Bug de Inflação de Tempo
+        const topicTime = isExactClockValid 
+          ? g.timeSpent 
+          : Math.round(fallbackTimeSpent * (g.total / totalQuestionsInMixed));
+          
         await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true);
       }
       
