@@ -99,7 +99,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         return acc;
                     }
                     
-                    let rootTs = Number(h.timeSpent) || 0;
+                    let rootTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
                     let topicsTs = 0;
                     let topicsTimedQ = 0;
                     let hasTopicWithTime = false;
@@ -121,7 +121,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     } else {
                         let tot = Number(h.total) || 0;
                         if (tot === 0 && h.score != null) tot = getSyntheticTotal(100);
-                        if (tot > 0 && rootTs >= 0) {
+                        if (tot > 0 && rootTs !== null && rootTs >= 0) {
                             return { ts: acc.ts + rootTs, tq: acc.tq + tot };
                         }
                     }
@@ -149,7 +149,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 
                 const latestEntry = sortedHistory[sortedHistory.length - 1];
                 if (latestEntry) {
-                    let rootTs = Number(latestEntry.timeSpent) || 0;
+                    let rootTs = typeof latestEntry.timeSpent === 'number' ? latestEntry.timeSpent : null;
                     let topicsTs = 0;
                     let topicsTimedQ = 0;
                     let hasTopicWithTime = false;
@@ -171,7 +171,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     } else {
                         let tot = Number(latestEntry.total) || 0;
                         if (tot === 0 && latestEntry.score != null) tot = getSyntheticTotal(100);
-                        if (tot > 0 && rootTs >= 0) {
+                        if (tot > 0 && rootTs !== null && rootTs >= 0) {
                             latestSeconds = Math.round(rootTs / tot);
                         }
                     }
@@ -200,11 +200,12 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             }
             
             const qstStr = `(${d.timedQuestoes} questões)`;
-            const parts = [timeStr, deltaStr, qstStr].filter(Boolean);
+            const latestStr = latestSeconds !== null ? `Último: ${formatTime(latestSeconds)}` : "";
+            const parts = [timeStr, latestStr, deltaStr, qstStr].filter(Boolean);
             
             const latestSecs = latestSeconds || 0;
             const visualLatestSeconds = displaySeconds > 0 
-                ? Math.min(latestSecs, displaySeconds * 1.35)
+                ? Math.min(latestSecs, Math.max(displaySeconds * 2.5, 120))
                 : Math.min(latestSecs, 180); // Capped at 3 mins if display is 0
 
             return { 
@@ -330,15 +331,15 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
             </div>
  
-            <div className="w-full mt-4 pb-2 transition-all duration-300" style={{ minHeight: `${Math.max(120, chartData.length * 40)}px` }}>
+            <div className="w-full mt-4 pb-2 transition-all duration-300" style={{ minHeight: `${Math.max(120, chartData.length * 55)}px` }}>
                 <div className="w-full h-full">
-                    <ResponsiveContainer width="100%" height="100%" minHeight={Math.max(120, chartData.length * 40)} minWidth={1}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={Math.max(120, chartData.length * 55)} minWidth={1}>
                         <BarChart
                             layout="vertical"
                             data={chartData}
                             margin={{ top: 10, right: 140, left: 0, bottom: 5 }}
-                            barSize={14}
-                            barGap={2}
+                            barSize={28}
+                            barGap={6}
                         >
                             <defs>
                                 <linearGradient id={`gradTime_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
@@ -349,7 +350,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} stroke="rgba(255,255,255,0.04)" />
                             <XAxis 
                                 type="number"
-                                domain={[0, dataMax => Math.max(120, Math.ceil(dataMax * 1.1))]}
+                                domain={[0, dataMax => Math.max(2, Math.ceil(dataMax * 1.05))]}
                                 axisLine={false} 
                                 tickLine={false} 
                                 tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
