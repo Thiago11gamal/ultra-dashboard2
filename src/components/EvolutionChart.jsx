@@ -399,7 +399,9 @@ export default function EvolutionChart({
         return categories
             .filter(cat => !showOnlyFocus || cat.id === focusCategory?.id)
             .map(cat => {
-                const history = cat.simuladoStats?.history || [];
+                // Ignora os simulados personalizados para honrar o dashboard 'Apenas Simulado IA'
+                const history = (cat.simuladoStats?.history || [])
+                    .filter(h => h.materia !== 'Simulado Personalizado');
 
                 const totalQ = history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
@@ -413,8 +415,8 @@ export default function EvolutionChart({
                     const range = Math.max(1e-9, maxScore - minScore);
                     const score = getSafeScore(h, maxScore);
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
-                    return s + ((normalizedScore - minScore) / range * tot);
-                }, 0));
+                    return Math.round(s + ((normalizedScore - minScore) / range * tot));
+                }, 0);
 
                     const stats = history.reduce((acc, h) => {
                     let rootTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;

@@ -139,7 +139,7 @@ export const MonteCarloEvolutionChart = ({
         () => applyScenarioAdjustments(formattedData, scenario, maxScore, minScore),
         [formattedData, scenario, maxScore, minScore]
     );
-    const qualitySignal = useMemo(() => classifyScenarioSignal(scenarioAdjustedData, maxScore), [scenarioAdjustedData, maxScore]);
+    const qualitySignal = useMemo(() => classifyScenarioSignal(scenarioAdjustedData, maxScore, minScore), [scenarioAdjustedData, maxScore, minScore]);
 
     const mcAssumptions = useMemo(() => {
         if (!scenarioAdjustedData.length) return null;
@@ -289,9 +289,11 @@ export const MonteCarloEvolutionChart = ({
                                 dataKey="date"
                                 tickFormatter={(val) => {
                                     if (!val) return '';
-                                    const d = new Date(val);
-                                    if (isNaN(d.getTime())) return val;
-                                    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                    const parts = val.split('-');
+                                    if (parts.length === 3) {
+                                        return `${parts[2]}/${parts[1]}`;
+                                    }
+                                    return val;
                                 }}
                                 stroke="#475569"
                                 fontSize={9}
