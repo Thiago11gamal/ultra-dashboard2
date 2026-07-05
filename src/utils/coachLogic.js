@@ -1500,7 +1500,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         let totalTimeSpent = 0;
         let totalTimedQuestions = 0;
         histArray.forEach(h => {
-            if (h.timeSpent && h.timedQuestoes) {
+            // BUG FIX: Agilidade não pode ignorar questões respondidas em 0s (fast skips).
+            if (h.timeSpent != null && h.timedQuestoes != null) {
                 totalTimeSpent += Number(h.timeSpent);
                 totalTimedQuestions += Number(h.timedQuestoes);
             }
