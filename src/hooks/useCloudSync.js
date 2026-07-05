@@ -128,12 +128,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 const mergedTasks = [...(winner.tasks || []), ...(loser.tasks || [])];
                 const mergedHistory = [...(winner.simuladoStats?.history || []), ...(loser.simuladoStats?.history || [])];
                 
-                // Remover duplicados por ID e Data (para não dobrar dados legítimos)
                 // CORREÇÃO: Evitar aniquilação de tarefas "draft" que ainda não possuam ID injetado
                 // Usando fallback semântico em vez de JSON.stringify() que pode quebrar a desduplicação se
                 // a ordem das propriedades das tarefas divergir entre ambientes.
+                // BUG FIX: Tarefas não têm t.name ou t.score! Usar t.text/t.title e t.priority.
                 winner.tasks = Array.from(new Map(
-                    mergedTasks.map(t => [t.id || `${t.name}-${t.date || ''}-${t.score || ''}`, t])
+                    mergedTasks.map(t => [t.id || `${t.text || t.title || ''}-${t.priority || ''}`, t])
                 ).values());
                 
                 if (winner.simuladoStats) {
