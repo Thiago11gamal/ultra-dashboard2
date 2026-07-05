@@ -174,7 +174,11 @@ export const MonteCarloEvolutionChart = ({
                 {/* 🎯 FIX: Ajustado h-32 para h-40 para que o minHeight=150 não estoure as bordas do pai */}
                 <div className="w-full max-w-md h-40 opacity-20 pointer-events-none">
                     <ResponsiveContainer width="100%" height="100%" minWidth={120} minHeight={150}>
-                        <AreaChart data={[{ date: '1', mean: 40 }, { date: '2', mean: 60 }, { date: '3', mean: 85 }]}>
+                        <AreaChart data={[
+                            { date: '1', mean: minScore + (maxScore - minScore) * 0.4 }, 
+                            { date: '2', mean: minScore + (maxScore - minScore) * 0.6 }, 
+                            { date: '3', mean: minScore + (maxScore - minScore) * 0.85 }
+                        ]}>
                             <XAxis dataKey="date" hide />
                             <YAxis hide domain={[minScore, maxScore]} />
                             <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={true} animationDuration={1500} animationEasing="ease-in-out" />
@@ -364,6 +368,7 @@ export const MonteCarloEvolutionChart = ({
                     <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
                     <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={1}>
                         <AreaChart data={[{ mean: minScore }, { mean: scenarioAdjustedData[0]?.mean ?? minScore }, { mean: minScore }]}>
+                            <YAxis hide domain={[minScore, maxScore]} />
                             <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
                         </AreaChart>
                     </ResponsiveContainer>
