@@ -16,39 +16,57 @@ function ComparisonLineShape(props) {
 
     const baseWidth = Math.max(0, width);
     const avgSeconds = Number(payload.displaySeconds) || 0;
-    const latestSeconds = Number(payload.latestSeconds) || 0;
+    const hasLatest = payload.latestSeconds !== null && payload.latestSeconds !== undefined;
+    const latestSeconds = hasLatest ? Number(payload.latestSeconds) : null;
     const maxSeconds = Number(payload.maxSeconds) || 0;
     const visualLatestSeconds = Number(payload.visualLatestSeconds) || 0;
     
     const pxPerSec = maxSeconds > 0 ? baseWidth / maxSeconds : 0;
     
     const avgX = x + (avgSeconds * pxPerSec);
-    const latestX = x + (visualLatestSeconds * pxPerSec);
+    const latestX = hasLatest ? x + (visualLatestSeconds * pxPerSec) : null;
 
     const [topLeftRadius, topRightRadius] = Array.isArray(radius) ? radius : [0, 0, 0, 0];
     const rx = topRightRadius || topLeftRadius || 0;
 
     const lineY = y + height;
+    const latestColor = hasLatest ? (latestSeconds > avgSeconds ? "#ef4444" : "#10b981") : null;
 
     return (
         <g>
+            {/* Background Bar (Average) */}
             {avgSeconds > 0 && (
                 <rect x={x} y={y} width={avgSeconds * pxPerSec} height={height} rx={rx} ry={rx} fill={fill} />
             )}
             
-            {latestSeconds > avgSeconds ? (
+            {/* Trend Lines */}
+            {hasLatest && latestSeconds > avgSeconds ? (
                 <>
                     {avgSeconds > 0 && (
-                        <line x1={x} y1={lineY} x2={avgX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="butt" />
+                        <line x1={x} y1={lineY} x2={avgX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="round" />
                     )}
-                    <line x1={avgX} y1={lineY} x2={latestX} y2={lineY} stroke="#ef4444" strokeWidth={3.5} strokeLinecap="butt" />
+                    <line x1={avgX} y1={lineY} x2={latestX} y2={lineY} stroke="#ef4444" strokeWidth={3.5} strokeLinecap="round" />
                 </>
-            ) : latestSeconds > 0 ? (
+            ) : hasLatest ? (
                 <>
-                    <line x1={x} y1={lineY} x2={latestX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="butt" />
-                    <line x1={latestX} y1={lineY} x2={avgX} y2={lineY} stroke="#10b981" strokeWidth={3.5} strokeLinecap="butt" />
+                    {latestX > x && (
+                        <line x1={x} y1={lineY} x2={latestX} y2={lineY} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="round" />
+                    )}
+                    <line x1={Math.max(x, latestX)} y1={lineY} x2={avgX} y2={lineY} stroke="#10b981" strokeWidth={3.5} strokeLinecap="round" />
                 </>
             ) : null}
+            
+            {/* Marker Dot for Latest Score */}
+            {hasLatest && (
+                <circle 
+                    cx={latestX} 
+                    cy={lineY} 
+                    r={3.5} 
+                    fill={latestColor} 
+                    stroke="#0f172a" 
+                    strokeWidth={1.5} 
+                />
+            )}
         </g>
     );
 }
@@ -377,10 +395,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                                         </div>
                                                         <div className="flex items-center justify-between gap-4">
                                                             <div className="flex items-center gap-2">
-                                                                <div className="w-2 h-2 rounded-full bg-slate-600" />
-                                                                <span className="text-slate-500 text-xs font-bold">Último Simulado:</span>
+                                                                <div className={`w-2 h-2 rounded-full ${d.latestSeconds > d.displaySeconds ? 'bg-rose-400' : 'bg-emerald-400'}`} />
+                                                                <span className="text-slate-200 text-xs font-bold">Último Simulado:</span>
                                                             </div>
-                                                            <span className="text-amber-300 font-black text-xs bg-amber-500/10 px-2 py-0.5 rounded border border-amber-400/20">{latestFormatted}</span>
+                                                            <span className="text-white font-black text-xs bg-white/10 px-2 py-0.5 rounded border border-white/5">{latestFormatted}</span>
                                                         </div>
                                                         <div className="flex items-center justify-between gap-4">
                                                             <div className="flex items-center gap-2">
@@ -404,9 +422,9 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                                             <span className="text-white font-bold text-xs">{d.generalFormatted}</span>
                                                         </div>
                                                         <div className="flex items-center gap-2">
-                                                            <div className="w-2.5 h-2.5 rounded-sm bg-amber-400" />
-                                                            <span className="text-slate-300 text-xs">Último Simulado:</span>
-                                                            <span className="text-amber-300 font-bold text-xs">{latestFormatted}</span>
+                                                            <div className={`w-2.5 h-2.5 rounded-sm ${d.latestSeconds > d.displaySeconds ? 'bg-rose-400' : 'bg-emerald-400'}`} />
+                                                            <span className="text-slate-300 text-xs font-bold">Último Simulado:</span>
+                                                            <span className="text-white font-bold text-xs">{latestFormatted}</span>
                                                         </div>
                                                     </div>
                                                 )}
