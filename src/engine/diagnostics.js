@@ -107,7 +107,8 @@ export function detectDataAnomalies(history = [], maxScore = 100) {
   }
 
   // 4. Date anomalies: future dates or negative gaps (impossible)
-  const times = finites.map(p => p.t).filter(t => t != null).sort((a,b)=>a-b);
+  // FIX: Remover .sort() para poder detetar gaps negativos reais no histórico cronológico inserido
+  const times = finites.map(p => p.t).filter(t => t != null);
   if (times.length >= 2) {
     let negGaps = 0;
     for (let i=1; i<times.length; i++) {
@@ -360,7 +361,10 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
 export function computeOptimalReviewInterval(stability, targetRetention = 0.7, mssdVolatility = null, effectiveN = null, maxScore = 100, currentMean = null) {
   const S = Math.max(0.5, Number(stability) || 7);
   const R = Math.max(0.05, Math.min(0.99, Number(targetRetention) || 0.7));
-  let baseInterval = Math.max(1, -S * Math.log(R));
+  // BUG FIX: O sistema usa a fórmula FSRS Power-Law para a retenção, 
+  // portanto o inverso matemático também deve ser o Power-Law (t = 9 * S * (1/R - 1)).
+  // Utilizar Exponencial Negativa (-S * ln(R)) encurta o intervalo em 10x acidentalmente!
+  let baseInterval = Math.max(1, 9 * S * ((1 / R) - 1));
 
   // --- LÓGICA DE MSSD E VOLATILIDADE ROBUSTA ---
   if (mssdVolatility !== null && effectiveN !== null) {
@@ -533,6 +537,7 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
   const totalCorrect = relevantSims.reduce((acc, s) => {
     const total = Number(s?.total) || 0;
     if (total === 0) return acc;
+    if (s?.correct != null) return acc + Number(s.correct); // FIX: Preserva acertos absolutos originais sem conversão float
     const score = Math.min(1, Math.max(0, (Number(s?.score) || 0) / maxScore));
     return acc + score * total;
   }, 0);
