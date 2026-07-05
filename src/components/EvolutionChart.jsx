@@ -255,6 +255,8 @@ export default function EvolutionChart({
         ? focusCategory.simuladoStats.history
         : EMPTY_ARRAY;
 
+    const currentFocusLevel = focusCategory ? categoryLevels[focusCategory.id] : undefined;
+
     useEffect(() => {
         if (!Array.isArray(historyArray) || historyArray.length === 0) {
             const t = setTimeout(() => setMcLoading(false), 0);
@@ -278,14 +280,11 @@ export default function EvolutionChart({
         const workerDebounceTimeout = setTimeout(async () => {
             setMcLoading(true);
             try {
-                const currentLevel = focusCategory ? categoryLevels[focusCategory.id] : undefined;
-
                 // FEAT: Time Penalty Injection (Subject Level)
                 let totalTimeSpent = 0;
                 let totalTimedQuestions = 0;
-                hist.forEach(h => {
-                    const rawH = historyArray.find(r => getDateKey(r.date) === h.date);
-                    if (rawH && rawH.timeSpent && rawH.timedQuestoes) {
+                historyArray.forEach(rawH => {
+                    if (rawH && rawH.timeSpent != null && rawH.timedQuestoes != null) {
                         totalTimeSpent += Number(rawH.timeSpent);
                         totalTimedQuestions += Number(rawH.timedQuestoes);
                     }
@@ -307,8 +306,8 @@ export default function EvolutionChart({
                     projectionDays: projectDays,
                     minScore,
                     maxScore,
-                    currentMean: currentLevel,
-                    forcedBaseline: currentLevel,
+                    currentMean: currentFocusLevel,
+                    forcedBaseline: currentFocusLevel,
                     projectedTotalTimeSeconds,
                     examDurationMinutes
                 });
@@ -345,7 +344,7 @@ export default function EvolutionChart({
             cancelled = true; 
             clearTimeout(workerDebounceTimeout);
         };
-    }, [focusCategory, focusCategory?.id, categoryLevels, historyArray, targetScore, projectDays, runAnalysis, minScore, maxScore]);
+    }, [focusCategory, focusCategory?.id, currentFocusLevel, historyArray, targetScore, projectDays, runAnalysis, minScore, maxScore]);
 
     const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;
     const activeMcProjectionSeries = mcProjectionSeries?.categoryId === focusCategory?.id ? mcProjectionSeries : null;
@@ -427,9 +426,11 @@ export default function EvolutionChart({
                     if (Array.isArray(h.topics)) {
                         for (const t of h.topics) {
                             const tTs = Number(t.timeSpent) || 0;
-                            if (tTs > 0) {
+                            const tTot = Number(t.total) || 0;
+                            // M3 FIX: Omissão de 0 segundos / fast skips
+                            if (tTs >= 0 && tTot > 0) {
                                 topicsTs += tTs;
-                                topicsTimedQ += (Number(t.total) || 0);
+                                topicsTimedQ += tTot;
                                 hasTopicWithTime = true;
                             }
                         }
@@ -437,10 +438,11 @@ export default function EvolutionChart({
                     
                     if (hasTopicWithTime) {
                         return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-                    } else if (rootTs > 0) {
-                        let tot = Number(h.total) || 0;
-                        if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
-                        return { ts: acc.ts + rootTs, tq: acc.tq + tot };
+                    } else if (rootTs >= 0 && Number(h.total) > 0) {
+                        // M3 FIX: Fallback seguro mantendo o target
+                        return { ts: acc.ts + rootTs, tq: acc.tq + Number(h.total) };
+                    } else if (rootTs >= 0 && h.score != null) {
+                        return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(maxScore) };
                     }
                     
                     return acc;

@@ -98,7 +98,8 @@ export function TodayVsGeneralChart({
                 if (tot === 0 && h.score != null) {
                     tot = getSyntheticTotal(maxScore);
                     corr = Math.round((score / maxScore) * tot);
-                } else if (tot > 0) {
+                } else if (tot > 0 && h.correct == null) {
+                    // M4 FIX: Preserva o h.correct absoluto para evitar erros de precisão flutuante!
                     corr = Math.round((score / maxScore) * tot);
                 }
                 
@@ -166,7 +167,8 @@ export function TodayVsGeneralChart({
                 if (tot === 0 && h.score != null) {
                     tot = getSyntheticTotal(maxScore);
                     corr = Math.round((score / maxScore) * tot);
-                } else if (tot > 0) {
+                } else if (tot > 0 && h.correct == null) {
+                    // M4 FIX: Idem - não sobrescreve os acertos reais.
                     corr = Math.round((score / maxScore) * tot);
                 }
 
