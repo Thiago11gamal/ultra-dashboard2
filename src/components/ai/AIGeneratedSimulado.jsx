@@ -99,6 +99,9 @@ export default function AIGeneratedSimulado() {
   // NOVO: Ref para garantir leitura fresca no timer
   const latestTimePerQuestionRef = useRef(timePerQuestion);
 
+  // BUG FIX: Ref para o relógio absoluto do sistema, impedindo que o setInterval throttle perca o tempo
+  const simStartMsRef = useRef(null);
+
   // Keep refs in sync
   useEffect(() => { latestAnswersRef.current = answers; }, [answers]);
   useEffect(() => { latestQuestionsRef.current = questions; }, [questions]);
@@ -273,6 +276,7 @@ export default function AIGeneratedSimulado() {
             setTimeLeft(draft.timeLeft || 45 * 60);
             setStep('playing');
             setTimerActive(true);
+            simStartMsRef.current = Date.now();
             setShowReview(false);
             showToast('Simulado AI retomado do rascunho', 'info');
             // Keep draft until explicit finish/cancel so user can resume multiple times if needed
@@ -432,6 +436,7 @@ export default function AIGeneratedSimulado() {
         setTimeLeft(45 * 60);
         setStep('playing');
         setTimerActive(true);
+        simStartMsRef.current = Date.now();
         setShowReview(false);
         setIsLoading(false);
         localStorage.removeItem(AI_GEN_STORAGE_KEY);
@@ -535,6 +540,7 @@ export default function AIGeneratedSimulado() {
       setTimeLeft(45 * 60);
       setStep('playing');
       setTimerActive(true);
+      simStartMsRef.current = Date.now();
       localStorage.removeItem(AI_GEN_STORAGE_KEY);
       showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
     } catch (error) {
@@ -610,6 +616,10 @@ export default function AIGeneratedSimulado() {
     const f = latestFormRef.current;
 
     if (qList.length === 0) return;
+
+    // Timer absoluto do sistema (evita problemas de tab inativa ou click rápido)
+    const absoluteElapsedSecs = simStartMsRef.current ? Math.round((Date.now() - simStartMsRef.current) / 1000) : 0;
+    const fallbackTimeSpent = Math.max(absoluteElapsedSecs, (45 * 60) - timeLeft);
 
     // BUG-9 FIX: Use ref instead of potentially stale closure value
     // Evita chamadas duplas (timer + clique) usando ref
