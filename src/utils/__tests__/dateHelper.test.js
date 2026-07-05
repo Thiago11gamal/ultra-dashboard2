@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { normalizeDate, formatTimeAgo } from '../dateHelper';
+import { normalizeDate, formatTimeAgo, getDateKey, toDateMs } from '../dateHelper';
 
 describe('dateHelper normalizeDate', () => {
   it('preserva hora para timestamps completos', () => {
@@ -14,6 +14,35 @@ describe('dateHelper normalizeDate', () => {
     // 12:00 em Manaus (UTC-4) é 16:00 no fuso UTC.
     // Isto garante que o agrupamento será sempre fiel à região.
     expect(d.toISOString()).toBe('2026-05-08T16:00:00.000Z');
+  });
+
+  it('não reaplica setHours local em datas YYYY-MM-DD (evita drift em UTC)', () => {
+    const d = normalizeDate('2026-05-08');
+    expect(d.toISOString()).toBe('2026-05-08T16:00:00.000Z');
+    expect(d.getUTCHours()).toBe(16);
+  });
+
+  it('normaliza DD/MM/YYYY para meio-dia Manaus', () => {
+    const d = normalizeDate('08/05/2026');
+    expect(d).not.toBeNull();
+    expect(d.toISOString()).toBe('2026-05-08T16:00:00.000Z');
+  });
+});
+
+describe('dateHelper getDateKey', () => {
+  it('ancora YYYY-MM-DD ao dia de calendário em Manaus', () => {
+    expect(getDateKey('2026-05-08')).toBe('2026-05-08');
+  });
+
+  it('converte timestamp UTC para chave no fuso Manaus', () => {
+    // 02:00 UTC = 22:00 do dia anterior em Manaus (UTC-4)
+    expect(getDateKey('2026-05-08T02:00:00.000Z')).toBe('2026-05-07');
+  });
+});
+
+describe('dateHelper toDateMs', () => {
+  it('retorna instante UTC correto para data pura', () => {
+    expect(toDateMs('2026-05-08')).toBe(Date.parse('2026-05-08T16:00:00.000Z'));
   });
 });
 

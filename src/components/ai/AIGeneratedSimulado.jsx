@@ -72,6 +72,9 @@ export default function AIGeneratedSimulado() {
   const [showReview, setShowReview] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
 
+  // NOVO: Estado para o relógio invisível individual
+  const [timePerQuestion, setTimePerQuestion] = useState({});
+
   // BUG-2 FIX: LOADING_MESSAGES moved to module scope (line ~27)
 
   // Track mount state to avoid clearing localStorage after unmount
@@ -92,12 +95,16 @@ export default function AIGeneratedSimulado() {
   const latestFormRef = useRef(form);
   const isFinishingRef = useRef(false);
   const latestCurrentIndexRef = useRef(0);
+  
+  // NOVO: Ref para garantir leitura fresca no timer
+  const latestTimePerQuestionRef = useRef(timePerQuestion);
 
   // Keep refs in sync
   useEffect(() => { latestAnswersRef.current = answers; }, [answers]);
   useEffect(() => { latestQuestionsRef.current = questions; }, [questions]);
   useEffect(() => { latestFormRef.current = form; }, [form]);
   useEffect(() => { latestCurrentIndexRef.current = currentIndex; }, [currentIndex]);
+  useEffect(() => { latestTimePerQuestionRef.current = timePerQuestion; }, [timePerQuestion]);
 
   // Persist draft to localStorage
   useEffect(() => {
@@ -108,11 +115,12 @@ export default function AIGeneratedSimulado() {
         answers,
         currentIndex,
         timeLeft,
+        timePerQuestion, // Guardar os relógios individuais
         savedAt: Date.now()
       };
       localStorage.setItem(AI_SIM_STORAGE_KEY, JSON.stringify(draft));
     }
-  }, [step, questions, answers, currentIndex, timeLeft, form]);
+  }, [step, questions, answers, currentIndex, timeLeft, form, timePerQuestion]);
 
   // Load draft or completed generation on mount
   useEffect(() => {
@@ -153,6 +161,7 @@ export default function AIGeneratedSimulado() {
             isFinishingRef.current = false;
             setQuestions(normalizedQuestions);
             setAnswers({});
+            setTimePerQuestion({});
             setCurrentIndex(0);
             setTimeLeft(45 * 60);
             setStep('playing');
@@ -193,6 +202,7 @@ export default function AIGeneratedSimulado() {
                   isFinishingRef.current = false;
                   setQuestions(normalizedQuestions);
                   setAnswers({});
+                  setTimePerQuestion({});
                   setCurrentIndex(0);
                   setTimeLeft(45 * 60);
                   setStep('playing');
@@ -258,6 +268,7 @@ export default function AIGeneratedSimulado() {
             setForm(restoredForm);
             setQuestions(draft.questions);
             setAnswers(draft.answers || {});
+            setTimePerQuestion(draft.timePerQuestion || {});
             setCurrentIndex(draft.currentIndex || 0);
             setTimeLeft(draft.timeLeft || 45 * 60);
             setStep('playing');
@@ -416,6 +427,7 @@ export default function AIGeneratedSimulado() {
         isFinishingRef.current = false;
         setQuestions(normalizedQuestions);
         setAnswers({});
+        setTimePerQuestion({});
         setCurrentIndex(0);
         setTimeLeft(45 * 60);
         setStep('playing');
@@ -518,6 +530,7 @@ export default function AIGeneratedSimulado() {
       isFinishingRef.current = false;
       setQuestions(normalizedQuestions);
       setAnswers({});
+      setTimePerQuestion({});
       setCurrentIndex(0);
       setTimeLeft(45 * 60);
       setStep('playing');
@@ -623,8 +636,7 @@ export default function AIGeneratedSimulado() {
 
     const total = qList.length;
     const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
-
-    const timeSpentSeconds = (45 * 60) - timeLeft;
+    const fallbackTimeSpent = (45 * 60) - timeLeft;
 
     // === SALVA NO SISTEMA (mesma infraestrutura dos simulados) ===
     if (f.categoryId === 'mixed') {
@@ -632,10 +644,12 @@ export default function AIGeneratedSimulado() {
       const groups = {};
       answeredQuestions.forEach(q => {
         const key = `${q.materia}|${q.assunto}`;
-        if (!groups[key]) groups[key] = { materia: q.materia, assunto: q.assunto, correct: 0, total: 0, qs: [] };
+        if (!groups[key]) groups[key] = { materia: q.materia, assunto: q.assunto, correct: 0, total: 0, qs: [], timeSpent: 0 };
         groups[key].qs.push(q);
         groups[key].total++;
         if (q.isCorrect) groups[key].correct++;
+        // SOMA INDIVIDUAL DOS RELÓGIOS DE CADA MATÉRIA
+        groups[key].timeSpent += (latestTimePerQuestionRef.current[q.id] || 0);
       });
       
       const cats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
@@ -652,7 +666,8 @@ export default function AIGeneratedSimulado() {
           categoryId: cat ? cat.id : null,
           taskId: tsk ? tsk.id : null,
         };
-        const topicTime = totalQuestionsInMixed > 0 ? Math.round(timeSpentSeconds * (g.total / totalQuestionsInMixed)) : 0;
+        // Passa o tempo exato aglomerado
+        const topicTime = g.timeSpent > 0 ? g.timeSpent : Math.round(fallbackTimeSpent * (g.total / totalQuestionsInMixed));
         await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true);
       }
       
@@ -680,7 +695,10 @@ export default function AIGeneratedSimulado() {
          };
       });
     } else {
-      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, timeSpentSeconds);
+      // Soma real baseada no relógio invisível
+      const exactTimeSpent = answeredQuestions.reduce((acc, q) => acc + (latestTimePerQuestionRef.current[q.id] || 0), 0);
+      const timeSpentToSave = exactTimeSpent > 0 ? exactTimeSpent : fallbackTimeSpent;
+      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, timeSpentToSave);
     }
 
     setResults({
@@ -720,6 +738,17 @@ export default function AIGeneratedSimulado() {
           }
           return prev - 1;
         });
+
+        // ⏱️ O RELÓGIO INVISÍVEL
+        // A cada segundo contabiliza o tempo na questão atual, para gerar a barra fina exata de comparação de agilidade
+        const currentQ = latestQuestionsRef.current[latestCurrentIndexRef.current];
+        if (currentQ) {
+            setTimePerQuestion(prev => ({
+                ...prev,
+                [currentQ.id]: (prev[currentQ.id] || 0) + 1
+            }));
+        }
+
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -730,6 +759,7 @@ export default function AIGeneratedSimulado() {
     setStep('setup');
     setQuestions([]);
     setAnswers({});
+    setTimePerQuestion({});
     setCurrentIndex(0);
     setResults(null);
     setTimeLeft(45 * 60);
@@ -742,6 +772,7 @@ export default function AIGeneratedSimulado() {
   const retrySameQuestions = () => {
     isFinishingRef.current = false;
     setAnswers({});
+    setTimePerQuestion({});
     setCurrentIndex(0);
     setResults(null);
     setTimeLeft(45 * 60);
