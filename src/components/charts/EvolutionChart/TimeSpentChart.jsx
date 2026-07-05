@@ -60,7 +60,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
     const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
 
     const chartData = safeSubjectAggData
-        .filter(d => d.timedQuestoes > 0 && d.timeSpent > 0)
+        .filter(d => d.timedQuestoes > 0 && d.timeSpent >= 0)
         .map((d) => {
             // Média Geral
             const avgSeconds = Math.round(d.timeSpent / d.timedQuestoes);

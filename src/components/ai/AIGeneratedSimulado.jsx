@@ -724,7 +724,7 @@ export default function AIGeneratedSimulado() {
 
     // reset flag (though component will unmount the playing logic)
     // Removed setTimeout to prevent race condition
-  }, [answers, questions, saveAIResultsToSystem, showToast, timeLeft, setData]);  // BUG-9 FIX: removed step from deps (using stepRef now)
+  }, [saveAIResultsToSystem, showToast, setData]); // Removed highly volatile deps, relying on refs instead
 
   // Timer effect (declared after handleFinish to avoid TDZ in deps)
   // BUG-6 FIX: Moved handleFinish call outside of setTimeLeft callback
@@ -734,7 +734,7 @@ export default function AIGeneratedSimulado() {
       timerFinishTriggerRef.current = false;
       handleFinish();
     }
-  }, [timeLeft, handleFinish]);
+  }); // Run on every render to check the ref (safer than stale deps)
 
   useEffect(() => {
     let interval = null;
@@ -762,7 +762,7 @@ export default function AIGeneratedSimulado() {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [timerActive, timeLeft, step, handleFinish]);
+  }, [timerActive, step]); // Removed timeLeft to prevent recreating interval every second
 
   const resetAll = () => {
     isFinishingRef.current = false;
