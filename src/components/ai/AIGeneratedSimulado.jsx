@@ -646,7 +646,6 @@ export default function AIGeneratedSimulado() {
 
     const total = qList.length;
     const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
-    const fallbackTimeSpent = (45 * 60) - timeLeft;
 
     // === SALVA NO SISTEMA (mesma infraestrutura dos simulados) ===
     if (f.categoryId === 'mixed') {
