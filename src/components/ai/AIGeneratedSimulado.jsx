@@ -647,11 +647,14 @@ export default function AIGeneratedSimulado() {
     const total = qList.length;
     const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
+    // BUG FIX: Calcula e consolida o tempo real absoluto antes de salvar
+    const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (latestTimePerQuestionRef.current[q.id] || 0), 0);
+    const finalTimeSpent = exactTotalTime > 0 ? exactTotalTime : fallbackTimeSpent;
+
     // === SALVA NO SISTEMA (mesma infraestrutura dos simulados) ===
     if (f.categoryId === 'mixed') {
       // Agrupa questões por matéria e assunto
       const groups = {};
-      let exactTimeSpentMixed = 0;
       
       answeredQuestions.forEach(q => {
         const key = `${q.materia}|${q.assunto}`;
@@ -663,12 +666,11 @@ export default function AIGeneratedSimulado() {
         // SOMA INDIVIDUAL DOS RELÓGIOS DE CADA MATÉRIA
         const spent = latestTimePerQuestionRef.current[q.id] || 0;
         groups[key].timeSpent += spent;
-        exactTimeSpentMixed += spent;
       });
       
       const cats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
       const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
-      const isExactClockValid = exactTimeSpentMixed > 0;
+      const isExactClockValid = exactTotalTime > 0;
       
       for (const g of Object.values(groups)) {
         const cat = cats.find(c => normalize(c.name) === normalize(g.materia));
@@ -714,10 +716,7 @@ export default function AIGeneratedSimulado() {
          };
       });
     } else {
-      // Soma real baseada no relógio invisível
-      const exactTimeSpent = answeredQuestions.reduce((acc, q) => acc + (latestTimePerQuestionRef.current[q.id] || 0), 0);
-      const timeSpentToSave = exactTimeSpent > 0 ? exactTimeSpent : fallbackTimeSpent;
-      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, timeSpentToSave);
+      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, finalTimeSpent);
     }
 
     setResults({
@@ -725,6 +724,7 @@ export default function AIGeneratedSimulado() {
       total,
       scorePercent,
       questions: answeredQuestions,
+      timeSpentSecs: finalTimeSpent,
     });
     setStep('finished');
     setTimerActive(false);
@@ -1492,7 +1492,7 @@ export default function AIGeneratedSimulado() {
                     <div className="text-center p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tempo Gasto</div>
                       <div className="text-white font-medium text-[15px]">
-                        {Math.floor((45 * 60 - Math.max(0, timeLeft)) / 60)}m {((45 * 60 - Math.max(0, timeLeft)) % 60).toString().padStart(2, '0')}s
+                        {Math.floor((results?.timeSpentSecs || 0) / 60)}m {((results?.timeSpentSecs || 0) % 60).toString().padStart(2, '0')}s
                       </div>
                     </div>
                   </div>
