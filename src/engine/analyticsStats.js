@@ -179,11 +179,21 @@ export function generateAnalyticsStats({
                 maxScoreByKey[weightKey] = catMaxScore;
 
                 history.forEach(h => {
+                    const currentScore = getSafeScore(h, catMaxScore);
+                    
+                    // RIGOR FIX: Proteção contra Corrupção de Dados e o "0s Bug".
+                    // 1. Evita que um NaN vicie a média do dia e destrua o dia inteiro.
+                    if (!Number.isFinite(currentScore)) return;
+                    
+                    // 2. Filtramos o infame "0s bug" originário do simulado timer
+                    // para não desabar artificialmente a projeção do Monte Carlo.
+                    const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
+                    if (tTs !== null && tTs <= 0 && currentScore === 0) return;
+
                     const dk = getDateKey(getHistoryDate(h));
                     if (dk) {
                         if (!scoresByDate[dk]) scoresByDate[dk] = {};
                         const existing = scoresByDate[dk][weightKey];
-                        const currentScore = getSafeScore(h, catMaxScore);
                         const currentTotal = Number(h.total) || 0;
                         const currentCorrect = Number(h.correct) || 0;
 
