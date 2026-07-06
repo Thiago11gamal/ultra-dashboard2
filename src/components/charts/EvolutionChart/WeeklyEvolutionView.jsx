@@ -29,7 +29,8 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
                         const meta = entry.payload[`meta_${baseKey}`];
 
                         if (isDelta) {
-                            const color = entry.payload[`deltaColor_${baseKey}`] || (val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
+                            const isStable = Math.abs(val) <= 2;
+                            const color = entry.payload[`deltaColor_${baseKey}`] || (isStable ? '#eab308' : val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
                             const prefix = val > 0 ? '+' : '';
                             const currentPct = Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey];
 
@@ -292,8 +293,9 @@ export const WeeklyEvolutionView = ({
                         const prevPct = memoryByItem[id].pct;
                         const delta = Number((currentPct - prevPct).toFixed(2));
 
+                        const isStable = Math.abs(delta) <= 2;
                         dataPoint[`delta_${id}`] = delta;
-                        dataPoint[`deltaColor_${id}`] = delta > 0 ? '#10b981' : delta < 0 ? '#ef4444' : '#94a3b8';
+                        dataPoint[`deltaColor_${id}`] = isStable ? '#eab308' : (delta > 0 ? '#10b981' : '#ef4444');
 
                         dataPoint[`meta_${id}`] = {
                             currTot: currentData.total,
