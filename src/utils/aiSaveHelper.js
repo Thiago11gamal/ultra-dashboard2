@@ -142,6 +142,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           existing.difficulty = newDiff;
           existing.timeSpent = dayTimeSpent;
           existing.timedQuestoes = dayTimedQuestoes;
+          existing.lastSessionTimeSpent = timeSpentSecs;
+          existing.lastSessionTotal = total;
           
         } else {
           history.push({
@@ -150,6 +152,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
             total,
             timeSpent: timeSpentSecs,
             timedQuestoes: timeSpentSecs >= 0 ? total : 0,
+            lastSessionTimeSpent: timeSpentSecs,
+            lastSessionTotal: total,
             score: total > 0 ? Math.min(catMaxScore, (correct / total) * catMaxScore) : 0,
             difficulty: formData.dificuldade === 'facil' ? 0.7 : formData.dificuldade === 'medio' ? 1.0 : formData.dificuldade === 'dificil' ? 1.3 : 1.6,
             topics: [newTopicEntry],
