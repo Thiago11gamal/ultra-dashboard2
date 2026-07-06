@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 import { Clock } from 'lucide-react';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
@@ -20,7 +20,7 @@ function HalfMoonGauge({ data }) {
     const r = 80;
     const strokeWidth = 14;
 
-    const localMax = Math.max(30, data.displaySeconds || 0, data.latestSeconds || 0, data.absoluteLatestSeconds || 0);
+    const localMax = Math.max(30, data.displaySeconds || 0, data.visualLatestSeconds || data.latestSeconds || 0, data.visualAbsoluteSeconds || data.absoluteLatestSeconds || 0);
     const gaugeMax = localMax * 1.2;
 
     const getCoordinatesForValue = (val) => {
@@ -72,14 +72,14 @@ function HalfMoonGauge({ data }) {
                     
                     {/* Track Latest Average (Solid) */}
                     {hasLatest && data.latestSeconds > 0 && (
-                        <path d={makeArc(0, data.latestSeconds)} fill="none" stroke={latestColor} strokeWidth={strokeWidth} strokeLinecap="round" />
+                        <path d={makeArc(0, data.visualLatestSeconds || data.latestSeconds)} fill="none" stroke={latestColor} strokeWidth={strokeWidth} strokeLinecap="round" />
                     )}
                     
                     {/* Absolute Marker (Pin) */}
                     {hasAbsolute && (
                         <g>
                             {(() => {
-                                const pos = getCoordinatesForValue(data.absoluteLatestSeconds);
+                                const pos = getCoordinatesForValue(data.visualAbsoluteSeconds || data.absoluteLatestSeconds);
                                 return (
                                     <>
                                         <circle cx={pos.x} cy={pos.y} r={6} fill="#ffffff" stroke={absoluteColor} strokeWidth={2.5} className="shadow-lg drop-shadow-md" />
@@ -126,11 +126,12 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
     const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
 
-    const chartData = safeSubjectAggData
-        .filter(d => d.timedQuestoes > 0 && d.timeSpent >= 0)
-        .map((d) => {
-            // Média Geral
-            const avgSeconds = Math.round(d.timeSpent / d.timedQuestoes);
+    const chartData = useMemo(() => {
+        return safeSubjectAggData
+            .filter(d => d.timedQuestoes > 0 && d.timeSpent >= 0)
+            .map((d) => {
+                // Média Geral
+                const avgSeconds = Math.round(d.timeSpent / d.timedQuestoes);
 
             // Média Recente (Últimos 7 dias)
             let recentAvgSeconds = null;
@@ -279,9 +280,11 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             };
         })
         .sort((a, b) => sortOrder === 'slower' ? b.displaySeconds - a.displaySeconds : a.displaySeconds - b.displaySeconds);
+    }, [safeSubjectAggData, activeCategories, sortOrder]);
 
-    const legendStats = chartData.reduce((acc, item) => {
-        if (Number.isFinite(Number(item.displaySeconds))) {
+    const legendStats = useMemo(() => {
+        return chartData.reduce((acc, item) => {
+            if (Number.isFinite(Number(item.displaySeconds))) {
             acc.avg += Number(item.displaySeconds);
             acc.avgCount += 1;
         }
@@ -295,6 +298,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
         }
         return acc;
     }, { avg: 0, latest: 0, above: 0, below: 0, avgCount: 0, latestCount: 0 });
+    }, [chartData]);
 
     const legendAvgSeconds = legendStats.avgCount > 0
         ? Math.round(legendStats.avg / legendStats.avgCount) : 0;
