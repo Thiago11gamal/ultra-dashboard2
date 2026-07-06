@@ -94,10 +94,11 @@ export default function AIGeneratedSimulado() {
   const latestQuestionsRef = useRef(questions);
   const latestFormRef = useRef(form);
   const isFinishingRef = useRef(false);
-  const latestCurrentIndexRef = useRef(0);
+  const latestCurrentIndexRef = useRef(currentIndex);
   
   // NOVO: Ref para garantir leitura fresca no timer
   const latestTimePerQuestionRef = useRef(timePerQuestion);
+  const latestTimeLeftRef = useRef(timeLeft);
 
   // BUG FIX: Ref para o relógio absoluto do sistema, impedindo que o setInterval throttle perca o tempo
   const simStartMsRef = useRef(null);
@@ -108,6 +109,7 @@ export default function AIGeneratedSimulado() {
   useEffect(() => { latestFormRef.current = form; }, [form]);
   useEffect(() => { latestCurrentIndexRef.current = currentIndex; }, [currentIndex]);
   useEffect(() => { latestTimePerQuestionRef.current = timePerQuestion; }, [timePerQuestion]);
+  useEffect(() => { latestTimeLeftRef.current = timeLeft; }, [timeLeft]);
 
   // Persist draft to localStorage
   useEffect(() => {
@@ -169,6 +171,7 @@ export default function AIGeneratedSimulado() {
             setTimeLeft(45 * 60);
             setStep('playing');
             setTimerActive(true);
+            simStartMsRef.current = Date.now();
             setShowReview(false);
             setIsLoading(false);
             localStorage.removeItem(AI_GEN_STORAGE_KEY);
@@ -210,6 +213,7 @@ export default function AIGeneratedSimulado() {
                   setTimeLeft(45 * 60);
                   setStep('playing');
                   setTimerActive(true);
+                  simStartMsRef.current = Date.now();
                   setIsLoading(false);
                   localStorage.removeItem(AI_GEN_STORAGE_KEY);
                   showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
@@ -619,7 +623,7 @@ export default function AIGeneratedSimulado() {
 
     // Timer absoluto do sistema (evita problemas de tab inativa ou click rápido)
     const absoluteElapsedSecs = simStartMsRef.current ? Math.round((Date.now() - simStartMsRef.current) / 1000) : 0;
-    const fallbackTimeSpent = Math.max(absoluteElapsedSecs, (45 * 60) - timeLeft);
+    const fallbackTimeSpent = Math.max(absoluteElapsedSecs, (45 * 60) - latestTimeLeftRef.current);
 
     // BUG-9 FIX: Use ref instead of potentially stale closure value
     // Evita chamadas duplas (timer + clique) usando ref
