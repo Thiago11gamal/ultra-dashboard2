@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
-import { Zap, Target, TrendingUp, TrendingDown } from 'lucide-react';
+import { Zap, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 const COLORS = {
     gaugeBg: '#1e293b',    // slate-800
@@ -219,7 +219,15 @@ export function TodayVsGeneralChart({
             const lastIdx = data.length - 1;
             const prevAcc = data.length > 1 ? data[lastIdx - 1].accuracy : data[0].accuracy;
             data[lastIdx].lastTestAcc = latestAcc;
-            data[lastIdx].lastTestColor = latestAcc < prevAcc ? COLORS.gaugeFillDanger : COLORS.gaugeFillValid;
+            
+            const marginLine = 2; // 2% margin for stability
+            if (latestAcc < prevAcc - marginLine) {
+                data[lastIdx].lastTestColor = COLORS.gaugeFillDanger;
+            } else if (latestAcc > prevAcc + marginLine) {
+                data[lastIdx].lastTestColor = COLORS.gaugeFillValid;
+            } else {
+                data[lastIdx].lastTestColor = '#eab308'; // Stable / Yellow
+            }
         }
         return data;
     }, [dailyData, latestAcc]);
@@ -236,13 +244,22 @@ export function TodayVsGeneralChart({
     const focusAccuracy = lastActiveEntry ? lastActiveEntry.accuracy : 0;
     const delta = focusAccuracy - generalAccuracy;
     const deltaAbs = Math.abs(delta);
-    const isPositive = delta >= 0;
+    
+    // Stable Margin logic for delta
+    const marginDelta = 2; // 2% margin
+    let deltaStatus = 'stable';
+    if (delta > marginDelta) deltaStatus = 'positive';
+    else if (delta < -marginDelta) deltaStatus = 'negative';
 
     const todayMetric = temporalMetrics.find(t => t.id === 'today');
     const todayAcc = todayMetric?.val ?? null;
 
     const deltaLastVsToday = (latestAcc != null && todayAcc != null) ? latestAcc - todayAcc : null;
-    const isLastPositive = deltaLastVsToday >= 0;
+    let lastVsTodayStatus = 'stable';
+    if (deltaLastVsToday !== null) {
+        if (deltaLastVsToday > marginDelta) lastVsTodayStatus = 'positive';
+        else if (deltaLastVsToday < -marginDelta) lastVsTodayStatus = 'negative';
+    }
 
     const getColor = (val) => {
         if (val == null) return 'transparent';
@@ -333,28 +350,42 @@ export function TodayVsGeneralChart({
                         <span className="text-4xl font-black text-white tracking-tighter" style={{ textShadow: `0 0 20px ${centerColor}50` }}>
                             {focusAccuracy.toFixed(1)}<span className="text-xl text-slate-400 ml-1">{unit}</span>
                         </span>
-                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">Acertos(%) hoje</span>
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">
+                            {isToday ? "Acertos(%) hoje" : "Acertos(%) no dia"}
+                        </span>
                     </div>
                 </div>
 
                 {/* Badges de Comparação (Deltas) */}
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
-                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${isPositive ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
-                        {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${
+                        deltaStatus === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+                        deltaStatus === 'negative' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' :
+                        'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                    }`}>
+                        {deltaStatus === 'positive' ? <TrendingUp size={14} /> : 
+                         deltaStatus === 'negative' ? <TrendingDown size={14} /> : 
+                         <Minus size={14} />}
                         <div className="flex flex-col">
                             <span className="text-xs font-black">
-                                {isPositive ? '+' : '-'}{deltaAbs.toFixed(1)}{unit}
+                                {delta > 0 ? '+' : ''}{deltaAbs.toFixed(1)}{unit}
                             </span>
                             <span className="text-[7px] uppercase tracking-wider opacity-70">Geral</span>
                         </div>
                     </div>
 
                     {deltaLastVsToday !== null && (
-                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${isLastPositive ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'bg-orange-500/10 border-orange-500/30 text-orange-400'}`}>
-                            {isLastPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${
+                            lastVsTodayStatus === 'positive' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' :
+                            lastVsTodayStatus === 'negative' ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' :
+                            'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                        }`}>
+                            {lastVsTodayStatus === 'positive' ? <TrendingUp size={14} /> : 
+                             lastVsTodayStatus === 'negative' ? <TrendingDown size={14} /> : 
+                             <Minus size={14} />}
                             <div className="flex flex-col">
                                 <span className="text-xs font-black">
-                                    {isLastPositive ? '+' : ''}{deltaLastVsToday.toFixed(1)}{unit}
+                                    {deltaLastVsToday > 0 ? '+' : ''}{Math.abs(deltaLastVsToday).toFixed(1)}{unit}
                                 </span>
                                 <span className="text-[7px] uppercase tracking-wider opacity-70">Ritmo (Hoje)</span>
                             </div>
