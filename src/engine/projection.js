@@ -614,10 +614,17 @@ export function monteCarloSimulation(
         driftUncertainty *= (1 + 0.4 * nFactor);
     }
 
-    const volatility = forcedVolatility !== undefined 
+    let volatility = forcedVolatility !== undefined 
         ? forcedVolatility 
         : calculateRobustVolatility(sortedHistory, maxScore, minScore, options);
     
+    // AGILIDADE AI: Inflaciona a volatilidade se o aluno for lento, 
+    // achatando a Gaussiana e derrubando a probabilidade de aprovação real
+    if (options.agilityPenalty) {
+        const safePenalty = Math.max(0, Math.min(0.4, Number(options.agilityPenalty) || 0));
+        volatility = volatility * (1 + safePenalty * 1.5);
+    }
+
     const scoreRangeOU = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
     const normalizedVolOU = (volatility / scoreRangeOU) * 100;
     
