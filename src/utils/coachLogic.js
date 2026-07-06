@@ -477,6 +477,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const agilityData = computeAgilityMetrics(safeCategory.simuladoStats?.history || []);
     const agilityPenalty = agilityData.agilityPenalty || 0;
+    const avgSeconds = agilityData.avgSeconds || 0;
 
     const mcResult = runCoachMonteCarlo(
         simuladosWithMaxScore, 
@@ -529,7 +530,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         mcProbability,
         mcHasData,
         globalProjectedMean,
-        agilityPenalty // NEW
+        agilityPenalty, // NEW
+        avgSeconds
     };
 };
 
@@ -812,7 +814,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         mcResult,
         mcProbability,
         mcHasData,
-        globalProjectedMean
+        globalProjectedMean,
+        agilityPenalty // NEW: propaga pro details
     } = metrics;
 
     const {
@@ -906,6 +909,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             srsLabel,
             isBurnoutRisk,
             crunchMultiplier: Number(crunchMultiplier.toFixed(2)),
+            agilityPenalty: agilityPenalty !== undefined ? Number(agilityPenalty.toFixed(4)) : 0, // NEW
+            avgSeconds: metrics.avgSeconds || 0, // NEW
             monteCarlo: mcHasData ? {
                 probability: Number(mcProbability.toFixed(2)),
                 probabilityRaw: mcProbability,
