@@ -414,7 +414,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
             
             // PSEUDO-TRI: Rebalanceamento por dificuldade global
             if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0) {
-                const globalMean = options.globalBaselinePct * maxScore;
+                const globalMean = (options.globalBaselinePct / 100) * maxScore;
                 if (globalMean > 0) {
                     // Se o aluno tira 80 e a média global é 50, a nota "efetiva" puxa o EMA para cima
                     // Limitado a um bônus/punição máximo de 5% para não distorcer a realidade
@@ -541,7 +541,7 @@ export function monteCarloSimulation(
 
             // PSEUDO-TRI: Rebalanceamento por dificuldade global
             if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0) {
-                const globalMean = options.globalBaselinePct * maxScore;
+                const globalMean = (options.globalBaselinePct / 100) * maxScore;
                 if (globalMean > 0) {
                     const difficultyDiff = (currentPoint - globalMean) / maxScore;
                     currentPoint = currentPoint + (difficultyDiff * maxScore * 0.05); 
