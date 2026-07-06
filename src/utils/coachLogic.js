@@ -609,6 +609,15 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         mcResult?.predObsPairs || []
     );
 
+    // EFEITO HALO (Covariância Simples): Se a performance global projetada do aluno 
+    // for notavelmente maior que a matéria atual, o sistema assume que a inteligência 
+    // geral dele resolverá a deficiência mais rápido, facilitando os thresholds de Monte Carlo.
+    if (globalProjectedMean != null && globalProjectedMean > (averageScore + maxScore * 0.1)) {
+        const haloBoost = Math.min(10, (globalProjectedMean - averageScore) * 0.3); // max 10%
+        adaptiveRisk.danger = Math.min(99, adaptiveRisk.danger + haloBoost);
+        adaptiveRisk.safe = Math.min(99, adaptiveRisk.safe + haloBoost);
+    }
+
     if (mcHasData && mcProbability !== null) {
         const continuous = computeContinuousMcBoost(
             mcProbability,

@@ -185,7 +185,7 @@ export function deriveBacktestWeights(scores = [], maxScore = 100) {
 export function simuladosToHistory(simulados, maxScore = 100) {
     if (!simulados || !Array.isArray(simulados)) return [];
     
-    return simulados
+    const sorted = simulados
         .map((s, idx) => {
             const parsed = Date.parse(s.date || s.createdAt);
             return {
@@ -199,8 +199,31 @@ export function simuladosToHistory(simulados, maxScore = 100) {
             // Usa os milissegundos precisos para a ordenação, garantindo ordem intra-dia perfeita
             if (a.rawTimestamp !== b.rawTimestamp) return a.rawTimestamp - b.rawTimestamp;
             return a._idx - b._idx;
-        })
-        .map(({ score, date }) => ({ score, date }))
+        });
+
+    // FATIGUE FILTER: Varrer o array ordenado para detectar quedas de performance sob alto volume
+    let burstCount = 1;
+    for (let i = 1; i < sorted.length; i++) {
+        const current = sorted[i];
+        const prev = sorted[i - 1];
+        
+        // Se a diferença de tempo for menor que 2 horas (7200000 ms)
+        if (current.rawTimestamp - prev.rawTimestamp < 7200000 && current.rawTimestamp > 0) {
+            burstCount++;
+        } else {
+            burstCount = 1; // Reseta se houver descanso longo
+        }
+        
+        // Se fez mais de 3 testes sem descanso e a nota começou a cair, perdoa a queda (Fatigue Flag)
+        if (burstCount >= 3 && current.score < prev.score) {
+            current.fatigueFlag = true;
+        } else {
+            current.fatigueFlag = false;
+        }
+    }
+
+    return sorted
+        .map(({ score, date, fatigueFlag }) => ({ score, date, fatigueFlag }))
         .filter(item => typeof item.date === 'string' && item.date.length === 10);
 }
 
@@ -337,7 +360,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             safeTargetScore,
             days,
             safeSimulations,
-            { maxScore, agilityPenalty } // INTEGRAÇÃO AGILIDADE AI
+            { maxScore, agilityPenalty, globalBaselinePct: cfg.MC_CALIBRATION_NEUTRAL_PCT } // INTEGRAÇÃO AGILIDADE AI + PSEUDO-TRI
         );
 
         // NOTE from Coach+MC analysis: when globalMcStats are passed from useMonteCarloStats (in Coach page),

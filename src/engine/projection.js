@@ -190,7 +190,8 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
         if (Number.isFinite(score) && Number.isFinite(t)) {
             validPairs.push({
                 score: score,
-                timeX: (t - t0) / 86400000
+                timeX: (t - t0) / 86400000,
+                fatigueFlag: h.fatigueFlag // NEW: Propaga a flag de fadiga do coachAdaptive
             });
         }
     }
@@ -224,7 +225,10 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     for (let i = 1; i < dn; i++) {
         const diff = detrendedScores[i] - detrendedScores[i - 1];
         if (Number.isFinite(diff)) {
-            sumSqDiff += Math.pow(diff, 2);
+            // Filtro de Fadiga: se houve queda e a flag está ativa, corta o peso da variância pela metade (25% do impacto squared)
+            const isFatigueDrop = diff < 0 && validPairs[i]?.fatigueFlag;
+            const effectiveDiff = isFatigueDrop ? diff * 0.5 : diff;
+            sumSqDiff += Math.pow(effectiveDiff, 2);
             validTransitions++;
         }
     }
@@ -406,7 +410,20 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         let ema = Number.isFinite(rawScore) ? rawScore : 0;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
-            const currentPoint = getSafeScore(sortedHistory[i], maxScore);
+            let currentPoint = getSafeScore(sortedHistory[i], maxScore);
+            
+            // PSEUDO-TRI: Rebalanceamento por dificuldade global
+            if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0) {
+                const globalMean = options.globalBaselinePct * maxScore;
+                if (globalMean > 0) {
+                    // Se o aluno tira 80 e a média global é 50, a nota "efetiva" puxa o EMA para cima
+                    // Limitado a um bônus/punição máximo de 5% para não distorcer a realidade
+                    const difficultyDiff = (currentPoint - globalMean) / maxScore;
+                    currentPoint = currentPoint + (difficultyDiff * maxScore * 0.05); 
+                    currentPoint = Math.max(minScore, Math.min(maxScore, currentPoint));
+                }
+            }
+
             if (!Number.isNaN(currentPoint)) {
                 // CORREÇÃO: Limitar a inércia a 15 eventos para evitar o congelamento permanente do EMA
                 ema = calculateDynamicEMA(currentPoint, ema, Math.min(i + 1, 15), daysSinceLast);
@@ -520,7 +537,18 @@ export function monteCarloSimulation(
         let ema = Number.isFinite(rawScore) ? rawScore : 0;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
-            const currentPoint = getSafeScore(sortedHistory[i], maxScore);
+            let currentPoint = getSafeScore(sortedHistory[i], maxScore);
+
+            // PSEUDO-TRI: Rebalanceamento por dificuldade global
+            if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0) {
+                const globalMean = options.globalBaselinePct * maxScore;
+                if (globalMean > 0) {
+                    const difficultyDiff = (currentPoint - globalMean) / maxScore;
+                    currentPoint = currentPoint + (difficultyDiff * maxScore * 0.05); 
+                    currentPoint = Math.max(minScore, Math.min(maxScore, currentPoint));
+                }
+            }
+
             if (!Number.isNaN(currentPoint)) {
                 // CORREÇÃO: Limitar a inércia a 15 eventos para evitar o congelamento permanente do EMA
                 ema = calculateDynamicEMA(currentPoint, ema, Math.min(i + 1, 15), daysSinceLast);
