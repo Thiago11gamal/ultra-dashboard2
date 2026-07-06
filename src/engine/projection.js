@@ -440,7 +440,13 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         : 7; // fallback para 7 se só houver 1 teste
         
     // Volatilidade POR EVENTO (sem assumir semanas mágicas)
-    const eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
+    let eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
+    
+    // AGILIDADE AI: Punição de Volatilidade baseada no tempo de resposta lento
+    if (options.agilityPenalty) {
+        const safePenalty = Math.max(0, Math.min(0.4, Number(options.agilityPenalty) || 0));
+        eventVolatility = eventVolatility * (1 + safePenalty * 1.5);
+    }
     
     // A incerteza do Random Walk espalha-se com a raiz do número de EVENTOS ESPERADOS, não dos dias.
     const expectedFutureEvents = Math.max(1, projectDays / Math.max(0.5, avgGapDays));

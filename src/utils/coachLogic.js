@@ -16,6 +16,7 @@ import {
 } from './coachAdaptive.js';
 import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
 import { kahanSum } from '../engine/math/kahan.js';
+import { computeAgilityMetrics } from '../engine/stats.js';
 export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights, clearMcCache, runCoachMonteCarlo };
 
 // LRU Cache for urgency calculations
@@ -474,6 +475,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         MC_CALIBRATION_NEUTRAL_PCT: globalBaselinePct 
     };
 
+    const agilityData = computeAgilityMetrics(safeCategory.simuladoStats?.history || []);
+    const agilityPenalty = agilityData.agilityPenalty || 0;
+
     const mcResult = runCoachMonteCarlo(
         simuladosWithMaxScore, 
         effectiveMCTarget, 
@@ -481,7 +485,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         categoryId, 
         maxScore, 
         mcAdaptive,
-        effectiveMCDays
+        effectiveMCDays,
+        agilityPenalty // NEW: pass agilityPenalty down to runCoachMonteCarlo
     );
     const mcProbability = mcResult?.probability ?? null;
     const mcHasData = mcResult != null;
@@ -523,7 +528,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         mcResult,
         mcProbability,
         mcHasData,
-        globalProjectedMean
+        globalProjectedMean,
+        agilityPenalty // NEW
     };
 };
 
@@ -549,7 +555,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         mcHasData,
         mcResult,
         maxScore,
-        globalProjectedMean
+        globalProjectedMean,
+        agilityPenalty
     } = metrics;
 
     const forgetting = computeForgettingRisk(
@@ -558,7 +565,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         averageScore,
         mssdVolatility,
         backtestWeights?.effectiveN || simuladosWithMaxScore.length,
-        recencyUnknown ? null : daysSinceLastStudy
+        recencyUnknown ? null : daysSinceLastStudy,
+        agilityPenalty // INTEGRAÇÃO AGILIDADE AI
     );
     const performanceDeficit = Math.max(0, metrics.targetScore - averageScore);
     const memoryRisk = forgetting.risk === 'critical' ? 40 : (forgetting.risk === 'high' ? 20 : 5);
@@ -1497,21 +1505,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         }
 
         // FEAT: Motor de Agilidade AI (Time Spent)
-        const histArray = (cat.simuladoStats && Array.isArray(cat.simuladoStats.history)) ? cat.simuladoStats.history : [];
-        let totalTimeSpent = 0;
-        let totalTimedQuestions = 0;
-        histArray.forEach(h => {
-            // BUG FIX: Agilidade não pode ignorar questões respondidas em 0s (fast skips).
-            if (h.timeSpent != null && h.timedQuestoes != null) {
-                const ts = Number(h.timeSpent);
-                const tq = Number(h.timedQuestoes);
-                if (Number.isFinite(ts) && Number.isFinite(tq)) {
-                    totalTimeSpent += ts;
-                    totalTimedQuestions += tq;
-                }
-            }
-        });
-        const avgSeconds = totalTimedQuestions > 0 ? Math.round(totalTimeSpent / totalTimedQuestions) : 0;
+        // Agora usa as métricas unificadas, garantindo consistência com o restante do core matemático
+        const agilityData = cat.urgency?.details?.agilityPenalty !== undefined 
+            ? { avgSeconds: cat.urgency?.details?.avgSeconds || 0, agilityPenalty: cat.urgency?.details?.agilityPenalty || 0 }
+            : computeAgilityMetrics((cat.simuladoStats && Array.isArray(cat.simuladoStats.history)) ? cat.simuladoStats.history : []);
+            
+        const avgSeconds = agilityData.avgSeconds;
         const targetSeconds = 120; // Meta fixa de 2 minutos por questão (pode ser ajustada por dificuldade depois)
         // BUG FIX: averageScore was raw score. We must use normalizedScore to properly check if the user is > 75% accuracy!
         const isAgilityProblem = (avgSeconds > targetSeconds + 30) && (cat.urgency?.normalizedScore >= 75); 

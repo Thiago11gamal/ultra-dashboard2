@@ -358,7 +358,7 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
 }
 
 // ATUALIZAÇÃO 1: Injeção de Inteligência no Cálculo do Intervalo
-export function computeOptimalReviewInterval(stability, targetRetention = 0.7, mssdVolatility = null, effectiveN = null, maxScore = 100, currentMean = null) {
+export function computeOptimalReviewInterval(stability, targetRetention = 0.7, mssdVolatility = null, effectiveN = null, maxScore = 100, currentMean = null, agilityPenalty = 0) {
   const S = Math.max(0.5, Number(stability) || 7);
   const R = Math.max(0.05, Math.min(0.99, Number(targetRetention) || 0.7));
   // BUG FIX: O sistema usa a fórmula FSRS Power-Law para a retenção, 
@@ -395,11 +395,15 @@ export function computeOptimalReviewInterval(stability, targetRetention = 0.7, m
       baseInterval = baseInterval * fragilityPenalty * crystallizationBonus;
   }
 
+  // Agilidade AI Penaliza o tempo de revisão (força revisão mais cedo para ganhar velocidade)
+  const safeAgilityPenalty = Math.max(0, Math.min(0.4, Number(agilityPenalty) || 0));
+  baseInterval = baseInterval * (1 - safeAgilityPenalty);
+
   return Math.max(1, Math.round(baseInterval));
 }
 
 // ATUALIZAÇÃO 2: Passagem de Parâmetros na Avaliação de Risco
-export function computeForgettingRisk(history, maxScore = 100, baselineScore = null, mssdVolatility = null, effectiveN = null, daysSinceOverride = null) {
+export function computeForgettingRisk(history, maxScore = 100, baselineScore = null, mssdVolatility = null, effectiveN = null, daysSinceOverride = null, agilityPenalty = 0) {
   const noData = { risk: 'low', retentionPct: 100, stabilityDays: 3, optimalIntervalDays: 3, daysSinceLast: 0 };
   const normalized = _normalizeDiagnosticHistory(history, maxScore);
   if (normalized.length === 0) return noData;
@@ -414,7 +418,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   // Calcula a média empírica para validar a Cristalização do Conhecimento
   const currentMean = _mean(sorted.map(h => getSafeScore(h, maxScore)));
 
-  const optimalIntervalDays = computeOptimalReviewInterval(stability, 0.7, mssdVolatility, effectiveN, maxScore, currentMean);
+  const optimalIntervalDays = computeOptimalReviewInterval(stability, 0.7, mssdVolatility, effectiveN, maxScore, currentMean, agilityPenalty);
 
   let risk;
   if (retentionPct < 30) risk = 'critical';

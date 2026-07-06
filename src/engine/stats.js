@@ -1020,3 +1020,33 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
         };
     });
 }
+
+// INTEGRAÇÃO AGILIDADE AI: Extrai a velocidade do histórico e calcula a penalidade
+export function computeAgilityMetrics(history) {
+    if (!Array.isArray(history) || history.length === 0) return { avgSeconds: 0, agilityPenalty: 0 };
+    
+    let totalTimeSpent = 0;
+    let totalTimedQuestions = 0;
+    
+    for (const h of history) {
+        if (h.timeSpent != null && h.timedQuestoes != null) {
+            const ts = Number(h.timeSpent);
+            const tq = Number(h.timedQuestoes);
+            if (Number.isFinite(ts) && Number.isFinite(tq) && ts > 0 && tq > 0) {
+                totalTimeSpent += ts;
+                totalTimedQuestions += tq;
+            }
+        }
+    }
+    
+    const avgSeconds = totalTimedQuestions > 0 ? totalTimeSpent / totalTimedQuestions : 0;
+    
+    // Alvo é 120 segundos. Exceder o alvo aciona penalidade escalar até 40% (max em ~180s ou mais)
+    // agilityPenalty varia de 0 (rápido) a 0.4 (muito lento)
+    const agilityPenalty = avgSeconds > 120 ? Math.min(0.4, (avgSeconds - 120) / 150) : 0;
+    
+    return {
+        avgSeconds: Math.round(avgSeconds),
+        agilityPenalty: Number(agilityPenalty.toFixed(4))
+    };
+}
