@@ -41,19 +41,22 @@ function HalfMoonGauge({ data }) {
     const displayColor = "#0ea5e9";
     const hasLatest = data.latestSeconds != null;
     const hasAbsolute = data.absoluteLatestSeconds != null;
+    const margin = Math.max(1, Math.round((data.displaySeconds || 0) * 0.05));
     
     let latestColor = null;
     if (hasLatest) {
         if (data.latestSeconds === 0) latestColor = "#94a3b8";
-        else if (data.latestSeconds > data.displaySeconds) latestColor = "#ef4444";
-        else latestColor = "#10b981";
+        else if (data.latestSeconds > data.displaySeconds + margin) latestColor = "#ef4444";
+        else if (data.latestSeconds < data.displaySeconds - margin) latestColor = "#10b981";
+        else latestColor = "#eab308";
     }
 
     let absoluteColor = null;
     if (hasAbsolute) {
         if (data.absoluteLatestSeconds === 0) absoluteColor = "#94a3b8";
-        else if (data.absoluteLatestSeconds > data.displaySeconds) absoluteColor = "#ef4444";
-        else absoluteColor = "#10b981";
+        else if (data.absoluteLatestSeconds > data.displaySeconds + margin) absoluteColor = "#ef4444";
+        else if (data.absoluteLatestSeconds < data.displaySeconds - margin) absoluteColor = "#10b981";
+        else absoluteColor = "#eab308";
     }
 
     return (
@@ -103,13 +106,13 @@ function HalfMoonGauge({ data }) {
                 {hasAbsolute && (
                     <div className="flex justify-between items-center text-xs">
                         <span className="text-slate-500">Último Exato</span>
-                        <span className={`font-bold ${absoluteColor === '#ef4444' ? 'text-rose-500' : (absoluteColor === '#10b981' ? 'text-emerald-500' : 'text-slate-400')}`}>{formatTime(data.absoluteLatestSeconds)}</span>
+                        <span className={`font-bold ${absoluteColor === '#ef4444' ? 'text-rose-500' : (absoluteColor === '#10b981' ? 'text-emerald-500' : (absoluteColor === '#eab308' ? 'text-yellow-500' : 'text-slate-400'))}`}>{formatTime(data.absoluteLatestSeconds)}</span>
                     </div>
                 )}
                 {hasLatest && (
                     <div className="flex justify-between items-center text-xs">
                         <span className="text-slate-500">Média Dia</span>
-                        <span className={`font-bold ${latestColor === '#ef4444' ? 'text-rose-400' : (latestColor === '#10b981' ? 'text-emerald-400' : 'text-slate-400')}`}>{formatTime(data.latestSeconds)}</span>
+                        <span className={`font-bold ${latestColor === '#ef4444' ? 'text-rose-400' : (latestColor === '#10b981' ? 'text-emerald-400' : (latestColor === '#eab308' ? 'text-yellow-400' : 'text-slate-400'))}`}>{formatTime(data.latestSeconds)}</span>
                     </div>
                 )}
                 <div className="flex justify-between items-center text-xs">
@@ -239,9 +242,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             let deltaSeconds = 0;
             if (hasRecentData) {
                 deltaSeconds = recentAvgSeconds - avgSeconds;
-                if (deltaSeconds > 1) {
+                const margin = Math.max(1, Math.round(avgSeconds * 0.05));
+                if (deltaSeconds > margin) {
                     deltaStr = `🐢 +${deltaSeconds}s`;
-                } else if (deltaSeconds < -1) {
+                } else if (deltaSeconds < -margin) {
                     deltaStr = `⚡ ${deltaSeconds}s`;
                 } else {
                     deltaStr = `✨ Estável`;
@@ -352,11 +356,15 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                             <span className="h-2 w-2 rounded-full bg-white ring-1 ring-slate-400" />
                             Último Exato
                         </span>
-                        <span className="inline-flex items-center gap-1.5" title="Cor vermelha significa que você foi mais lento">
+                        <span className="inline-flex items-center gap-1.5" title="Cor vermelha significa que você foi mais lento além da margem">
                             <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
                             Lento (Piorou)
                         </span>
-                        <span className="inline-flex items-center gap-1.5" title="Cor verde significa que você foi mais rápido">
+                        <span className="inline-flex items-center gap-1.5" title="Cor amarela significa tempo mantido">
+                            <span className="h-2 w-2 rounded-full bg-[#eab308]" />
+                            Estável (Manteve)
+                        </span>
+                        <span className="inline-flex items-center gap-1.5" title="Cor verde significa que você foi mais rápido além da margem">
                             <span className="h-2 w-2 rounded-full bg-[#10b981]" />
                             Rápido (Melhorou)
                         </span>
