@@ -1242,6 +1242,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             }
 
             // Limpeza final de limites matemáticos
+            if (Number.isNaN(topicCorrect)) return; // FIX NaN Poisoning!
             topicCorrect = Math.max(0, topicCorrect);
 
             topicMap[name].total += (topicTotal * timeWeight);
@@ -1502,8 +1503,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         histArray.forEach(h => {
             // BUG FIX: Agilidade não pode ignorar questões respondidas em 0s (fast skips).
             if (h.timeSpent != null && h.timedQuestoes != null) {
-                totalTimeSpent += Number(h.timeSpent);
-                totalTimedQuestions += Number(h.timedQuestoes);
+                const ts = Number(h.timeSpent);
+                const tq = Number(h.timedQuestoes);
+                if (Number.isFinite(ts) && Number.isFinite(tq)) {
+                    totalTimeSpent += ts;
+                    totalTimedQuestions += tq;
+                }
             }
         });
         const avgSeconds = totalTimedQuestions > 0 ? Math.round(totalTimeSpent / totalTimedQuestions) : 0;
