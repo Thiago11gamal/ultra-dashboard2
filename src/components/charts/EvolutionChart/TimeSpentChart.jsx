@@ -161,7 +161,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         for (const t of h.topics) {
                             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
                             const tTot = Number(t.total) || 0;
-                            if (tTs !== null && tTs >= 0 && tTot > 0) { // BUG FIX: Inclui tempos de 0s APENAS se explicitamente numéricos
+                            if (tTs !== null && tTs > 0 && tTot > 0) { // BUG FIX: Ignora tempos exatos de 0s (origem de banco de dados antigo corrompido)
                                 topicsTs += tTs;
                                 topicsTimedQ += tTot;
                                 hasTopicWithTime = true;
@@ -174,7 +174,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     } else {
                         let tot = Number(h.total) || 0;
                         if (tot === 0 && h.score != null) tot = getSyntheticTotal(100);
-                        if (tot > 0 && rootTs !== null && rootTs >= 0) {
+                        if (tot > 0 && rootTs !== null && rootTs > 0) {
                             return { ts: acc.ts + rootTs, tq: acc.tq + tot };
                         }
                     }
@@ -212,7 +212,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         for (const t of latestEntry.topics) {
                             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
                             const tTot = Number(t.total) || 0;
-                            if (tTs !== null && tTs >= 0 && tTot > 0) { // BUG FIX: Inclui tempos de 0s APENAS se explicitamente numéricos
+                            if (tTs !== null && tTs > 0 && tTot > 0) { // BUG FIX: Ignora tempos exatos de 0s (origem de banco de dados antigo corrompido)
                                 topicsTs += tTs;
                                 topicsTimedQ += tTot;
                                 hasTopicWithTime = true;
@@ -225,7 +225,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     } else {
                         let tot = Number(latestEntry.total) || 0;
                         if (tot === 0 && latestEntry.score != null) tot = getSyntheticTotal(100);
-                        if (tot > 0 && rootTs !== null && rootTs >= 0) {
+                        if (tot > 0 && rootTs !== null && rootTs > 0) {
                             latestSeconds = Math.round(rootTs / tot);
                         }
                     }
