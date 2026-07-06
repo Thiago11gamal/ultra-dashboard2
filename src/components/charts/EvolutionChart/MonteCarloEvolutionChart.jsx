@@ -3,9 +3,9 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine
 } from 'recharts';
 import { Target, TrendingUp, AlertCircle } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatDuration } from '../../../utils/dateHelper';
+import { formatDuration, normalizeDate } from '../../../utils/dateHelper';
 import { formatValue, formatPercent } from '../../../utils/scoreHelper';
 import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario.js';
 
@@ -102,7 +102,7 @@ export const MonteCarloEvolutionChart = ({
         if (!data || !Array.isArray(data)) return [];
         return data
             .filter(d => d?.date)
-            .map(d => ({ ...d, parsedDate: parseISO(d.date) }))
+            .map(d => ({ ...d, parsedDate: normalizeDate(d.date) }))
             .filter(d => isValid(d.parsedDate))
             .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
             .map(d => {
