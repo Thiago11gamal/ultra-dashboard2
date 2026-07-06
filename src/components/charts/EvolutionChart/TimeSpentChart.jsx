@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import React, { useState } from 'react';
 
 import { Clock } from 'lucide-react';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
@@ -122,7 +122,6 @@ function HalfMoonGauge({ data }) {
 }
 
 export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory }) {
-    const instanceId = useId().replace(/:/g, "");
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
     const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
