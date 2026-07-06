@@ -200,7 +200,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             }
             
             const qstStr = `(${d.timedQuestoes} questões)`;
-            const latestStr = latestSeconds !== null ? `Último: ${formatTime(latestSeconds)}` : "";
+            const latestStr = latestSeconds !== null ? `Média Dia: ${formatTime(latestSeconds)}` : "";
             const parts = [timeStr, latestStr, deltaStr, qstStr].filter(Boolean);
             
             const latestSecs = latestSeconds || 0;
@@ -397,7 +397,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                                         <div className="flex items-center justify-between gap-4">
                                                             <div className="flex items-center gap-2">
                                                                 <div className={`w-2 h-2 rounded-full ${d.latestSeconds > d.displaySeconds ? 'bg-rose-400' : 'bg-emerald-400'}`} />
-                                                                <span className="text-slate-200 text-xs font-bold">Último Simulado:</span>
+                                                                <span className="text-slate-200 text-xs font-bold">Média Último Dia:</span>
                                                             </div>
                                                             <span className="text-white font-black text-xs bg-white/10 px-2 py-0.5 rounded border border-white/5">{latestFormatted}</span>
                                                         </div>
@@ -424,7 +424,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <div className={`w-2.5 h-2.5 rounded-sm ${d.latestSeconds > d.displaySeconds ? 'bg-rose-400' : 'bg-emerald-400'}`} />
-                                                            <span className="text-slate-300 text-xs font-bold">Último Simulado:</span>
+                                                            <span className="text-slate-300 text-xs font-bold">Média Último Dia:</span>
                                                             <span className="text-white font-bold text-xs">{latestFormatted}</span>
                                                         </div>
                                                     </div>
