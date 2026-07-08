@@ -102,12 +102,12 @@ describe('TimeSpentChart bug fixes', () => {
       <TimeSpentChart subjectAggData={subjectAggData} activeCategories={activeCategories} />
     );
 
-    const aboveIdx = html.indexOf('Acima da média');
-    const belowIdx = html.indexOf('Abaixo da média');
+    const aboveIdx = html.indexOf('ACIMA DA MÉDIA');
+    const belowIdx = html.indexOf('ABAIXO DA MÉDIA');
     expect(aboveIdx).toBeGreaterThan(-1);
     expect(belowIdx).toBeGreaterThan(-1);
-    expect(html.lastIndexOf('bg-rose-400', aboveIdx)).toBeGreaterThan(-1);
-    expect(html.lastIndexOf('bg-emerald-400', belowIdx)).toBeGreaterThan(-1);
+    expect(html.indexOf('text-rose-400', aboveIdx)).toBeGreaterThan(-1);
+    expect(html.indexOf('text-emerald-400', belowIdx)).toBeGreaterThan(-1);
   });
 
   it('não distorce média da legenda quando latestSeconds é null', () => {
@@ -136,7 +136,7 @@ describe('TimeSpentChart bug fixes', () => {
     );
 
     // Apenas cat1 tem último tempo (9s); cat2 com null não deve puxar a média para 5s
-    expect(html).toContain('Último: 9s');
-    expect(html).not.toContain('Último: 5s');
+    expect(html).toContain('ÚLTIMO GERAL: <span class="font-bold text-slate-300">9s</span>');
+    expect(html).not.toContain('ÚLTIMO GERAL: <span class="font-bold text-slate-300">5s</span>');
   });
 });

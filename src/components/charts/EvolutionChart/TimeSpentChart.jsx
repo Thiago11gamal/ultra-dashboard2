@@ -148,7 +148,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 const recentStats = history.reduce((acc, h) => {
                     const hDateMs = toDateMs(h.date || h.createdAt);
                     const hKey = getDateKey(h.date || h.createdAt);
-                    if (Number.isNaN(hDateMs) || (nowMs - hDateMs) > sevenDaysMs || hDateMs > nowMs) {
+                    if (Number.isNaN(hDateMs) || (nowMs - hDateMs) > sevenDaysMs || hKey > todayKey) {
                         return acc;
                     }
 
