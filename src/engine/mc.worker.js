@@ -2,10 +2,16 @@ import { monteCarloSimulation } from './projection.js';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from './monteCarlo.js';
 import { resetGaussianCache } from './math/gaussian.js';
 
-function safeNum(val, fallback = 0) {
-    if (val === undefined || val === null) return fallback;
+// FIX APLICADO: Remove default parameters para respeitar passagem explícita de `undefined`.
+function safeNum(val, fallback) {
+    // Se nenhum fallback foi passado na chamada, usamos 0.
+    // Caso contrário, respeitamos o que foi passado, mesmo que seja undefined.
+    const fb = arguments.length > 1 ? fallback : 0;
+    
+    if (val === undefined || val === null) return fb;
+    
     const num = Number(val);
-    return Number.isFinite(num) ? num : fallback;
+    return Number.isFinite(num) ? num : fb;
 }
 
 function sanitizeHistory(history) {

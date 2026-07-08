@@ -751,7 +751,13 @@ export function monteCarloSimulation(
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
       const stats = cutoffSubjects.map(s => ({ sd: Number(s.sd) || 1 }));
-      const adaptiveRhoContext = options?.simuladoRows ? { simuladoRows: options.simuladoRows, categoryNames: stats.map(s => s.name) } : null;
+      
+      // FIX APLICADO: Utilizando cutoffSubjects para resgatar os nomes corretamente
+      const adaptiveRhoContext = options?.simuladoRows ? { 
+          simuladoRows: options.simuladoRows, 
+          categoryNames: cutoffSubjects.map(s => s.name) 
+      } : null;
+      
       const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
       const psdCov = ensurePositiveSemiDefinite(cov);
       subjectCholesky = choleskyDecomposition(psdCov);

@@ -69,7 +69,17 @@ export function useMonteCarloWorker() {
         const worker = workerRef.current;
         
         if (!worker) {
-            return runMonteCarloAnalysis(...args);
+            // FIX APLICADO: Garantindo que o motor síncrono receba um objeto único
+            if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
+                return runMonteCarloAnalysis(args[0]);
+            } else {
+                return runMonteCarloAnalysis({
+                    mean: args[0],
+                    sd: args[1],
+                    targetScore: args[2],
+                    ...(args[3] || {})
+                });
+            }
         }
 
         const id = ++requestIdRef.current;

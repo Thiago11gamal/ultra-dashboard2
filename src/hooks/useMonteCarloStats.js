@@ -415,7 +415,10 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             minScore: minScore
                         }));
 
-                        result = runMonteCarloAnalysis(pureStatsData.bayesianMean, pureStatsData.pooledSD, debouncedTarget, {
+                        result = runMonteCarloAnalysis({
+                            mean: pureStatsData.bayesianMean,
+                            sd: pureStatsData.pooledSD,
+                            targetScore: debouncedTarget,
                             simulations: Math.min(dynamicSimulations, 2000),
                             currentMean: pureStatsData.bayesianMean,
                             bayesianCI: pureStatsData.bayesianCI,
