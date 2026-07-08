@@ -19,6 +19,7 @@ import { clearMcCache } from '../utils/coachAdaptive';
 
 // --- IndexedDB Adapter (Clean & Async) ---
 const saveTimeouts = {};
+let isStorageLocked = false; // FAIL-SAFE: Prevent IDB overwrite if read fails
 
 const idbStorage = {
     getItem: async (name) => {
@@ -26,12 +27,18 @@ const idbStorage = {
             const val = await idbGet(name);
             return val || null;
         } catch (e) {
-            console.warn('[Storage] Falha ao ler IDB:', e);
+            console.error('[Storage] Falha CRÍTICA ao ler IDB. Ativando LOCK de emergência:', e);
+            isStorageLocked = true; // Impede sobrescrever os dados corrompidos
             return null;
         }
     },
     setItem: (name, value) => {
         return new Promise((resolve, reject) => {
+            if (isStorageLocked) {
+                console.warn('[Storage] Operação ignorada. Lock de emergência ativo.');
+                resolve();
+                return;
+            }
             if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
             saveTimeouts[name] = setTimeout(async () => {
                 try {

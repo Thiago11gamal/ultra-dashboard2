@@ -58,7 +58,7 @@ export function recommendSimulationCount(targetProb = 0.7, targetSE = TARGET_PRO
 
 // CORREÇÃO VISUAL E MATEMÁTICA: Geração de semente estável (FNV-1a Hash)
 // Ancoramos a semente na volumetria e topologia do histórico, não na flutuação da média.
-function generateStableSeed(historyCount, categoryName, _targetScore) {
+function generateStableSeed(historyCount, categoryName, _targetScore, _currentMean) {
     let h = 2166136261;
     // Extração defensiva
     const safeCatId = typeof categoryName === 'object' && categoryName !== null 
@@ -67,7 +67,9 @@ function generateStableSeed(historyCount, categoryName, _targetScore) {
     
     // CORREÇÃO B1: Injetar efetivamente o _targetScore (o histHash) na geração da semente
     const safeTarget = _targetScore !== undefined ? _targetScore : 0;
-    const seedStr = `${historyCount}-${safeCatId}-${safeTarget}`;
+    // AUDIT FIX: Injetar a média atual na semente para invalidar o "gelo" visual se o aluno editar uma nota antiga.
+    const safeMeanInt = _currentMean !== undefined ? Math.floor(Number(_currentMean) * 10) : 0;
+    const seedStr = `${historyCount}-${safeCatId}-${safeTarget}-${safeMeanInt}`;
     
     for(let i = 0; i < seedStr.length; i++) {
         h ^= seedStr.charCodeAt(i);

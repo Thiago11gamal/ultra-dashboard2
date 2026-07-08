@@ -70,8 +70,8 @@ export function safeClone(value, fallback = null) {
       });
       return sanitized;
     } catch (jsonError) {
-      console.error('[SafeClone] Falha crítica ao clonar objeto. Usando fallback.', jsonError);
-      return fallback;
+      console.error('[SafeClone] Falha crítica ao clonar objeto. Usando fallback seguro.', jsonError);
+      return fallback !== null ? fallback : (typeof value === 'object' && value !== null ? { ...value } : value);
     }
   }
 }
