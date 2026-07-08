@@ -416,7 +416,9 @@ export default function EvolutionChart({
                     const range = Math.max(1e-9, maxScore - minScore);
                     const score = getSafeScore(h, maxScore);
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
-                    return Math.round(s + ((normalizedScore - minScore) / range * tot));
+                    // BUG FIX: Acumulamos o valor float real em 's' e removemos o Math.round() prematuro
+                    // para evitar o cumulative rounding error (perda catastrófica de precisão).
+                    return s + ((normalizedScore - minScore) / range * tot);
                 }, 0));
 
                     const stats = history.reduce((acc, h) => {

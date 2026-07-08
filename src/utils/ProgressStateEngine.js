@@ -62,26 +62,19 @@ export function analyzeProgressState(scores, config = {}) {
         let time = typeof d === 'object' ? toDateMs(d.date) : NaN;
         if (Number.isNaN(time)) time = syntheticNow - ((scores.length - index) * 86400000);
         return { original: d, safeTime: time };
-    }).sort((a, b) => a.safeTime - b.safeTime)
-      .map(item => item.original);
+    }).sort((a, b) => a.safeTime - b.safeTime);
 
     const validSortedScores = sortedScores.filter(d => {
-        const score = typeof d === 'object' ? d.score : d;
+        const score = typeof d.original === 'object' ? d.original.score : d.original;
         return Number.isFinite(score);
     });
+    
     const recentData = validSortedScores.slice(-safeWindowSize);
-    const finiteRecentScores = recentData.map(d => typeof d === 'object' ? d.score : d);
-
-    // FIX: Prevenir a contaminação matemática por 'NaN' se a data for inválida ou inexistente.
-    const recentDates = recentData.map((d, index) => {
-        if (typeof d === 'object') {
-            const time = toDateMs(d.date);
-            // CORREÇÃO: Puxar datas inválidas para o PASSADO (-), e não para o FUTURO (+)
-            // Isso impede que provas corrompidas invertam o declive da linha de tendência
-            return isNaN(time) ? syntheticNow - ((recentData.length - index) * 86400000) : time; 
-        }
-        return syntheticNow - ((recentData.length - index) * 86400000); 
-    });
+    const finiteRecentScores = recentData.map(d => typeof d.original === 'object' ? d.original.score : d.original);
+    
+    // BUG FIX: Em vez de recalcular as datas e arruinar a ordem cronológica, 
+    // extraímos a safeTime validada no bloco anterior, preservando o eixo-X perfeitamente.
+    const recentDates = recentData.map(d => d.safeTime);
 
     // 4.1 Safety Check after filtering invalid scores
     if (finiteRecentScores.length < safeWindowSize) {

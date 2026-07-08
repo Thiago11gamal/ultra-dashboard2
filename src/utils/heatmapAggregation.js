@@ -80,5 +80,11 @@ export const calculateSubjectMastery = (subtopics) => {
         totalQuestoes += total;
     });
 
-    return totalQuestoes > 0 ? (totalAcertos / totalQuestoes) * 100 : 0;
+    if (totalQuestoes === 0) return 0;
+
+    // BUG FIX: Aplicação autêntica do Shrinkage Bayesiano (K=5, Prior=0.5) 
+    // conforme documentado, para evitar anomalias de baixo volume (ex: 1/1 -> 100%).
+    const K = 5;
+    const prior = 0.5;
+    return ((totalAcertos + K * prior) / (totalQuestoes + K)) * 100;
 };
