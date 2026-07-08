@@ -576,15 +576,7 @@ export default function AIGeneratedSimulado() {
   }, [questions.length]);
 
   const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0, preventGlobalEvent = false) => {
-    const todayKey = getDateKey(normalizeDate(new Date()));
-    const materia = (formData.materia || '').trim();
-    const assunto = (formData.assunto || '').trim();
-    const categoryId = formData.categoryId || null;
-    const taskId = formData.taskId || null;
 
-    const computedScore = total > 0 ? Math.round((correct / total) * 100) : 0;
-    const diffMap = { facil: 0.7, medio: 1.0, dificil: 1.3, expert: 1.6 };
-    const numericDifficulty = diffMap[formData.dificuldade] || 1.0;
 
 
 
