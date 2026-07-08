@@ -40,6 +40,7 @@ export function safeClone(value, fallback = null) {
 
     try {
       const seen = new WeakSet();
+      const isoDateFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d*)?(?:[-+]\d{2}:?\d{2}|Z)?$/;
       const sanitized = JSON.parse(JSON.stringify(value, function(key, val) {
         if (typeof val === 'function' || typeof val === 'symbol') return undefined;
         
@@ -61,7 +62,12 @@ export function safeClone(value, fallback = null) {
           }
         }
         return val;
-      }));
+      }), function(key, val) {
+        if (typeof val === 'string' && isoDateFormat.test(val)) {
+            return new Date(val);
+        }
+        return val;
+      });
       return sanitized;
     } catch (jsonError) {
       console.error('[SafeClone] Falha crítica ao clonar objeto. Usando fallback.', jsonError);

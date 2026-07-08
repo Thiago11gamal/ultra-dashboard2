@@ -1150,10 +1150,12 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     // Adicione uma soma de controlo (checksum) das notas reais ao hash para invalidar o cache sempre que uma pontuação for alterada internamente.
     // CORREÇÃO: Utilizar o extrator resiliente (getSafeScore) para o Checksum, 
     // garantindo que a entropia numérica varia corretamente a cada edição do utilizador.
-    const scoreChecksum = simulados.reduce((acc, s) => {
+    const scoreChecksum = simulados.reduce((acc, s, index) => {
         const parsed = getSafeScore(s, maxScore);
         const validVal = Number.isNaN(parsed) ? 0 : parsed;
-        return acc + validVal;
+        // Injeção de assimetria posicional (index + 1) e ruído primo leve (1.17)
+        // para garantir que [30, 70] possua um Hash distinto de [70, 30].
+        return acc + (validVal * (index + 1) * 1.17);
     }, 0);
 
     // Adiciona entropia baseada nas tarefas e no histórico da própria categoria 

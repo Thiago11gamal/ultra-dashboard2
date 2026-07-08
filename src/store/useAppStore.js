@@ -31,15 +31,16 @@ const idbStorage = {
         }
     },
     setItem: (name, value) => {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
             saveTimeouts[name] = setTimeout(async () => {
                 try {
                     await idbSet(name, value);
+                    resolve();
                 } catch (e) {
-                    console.error('[Storage] Falha ao escrever no IDB:', e);
+                    console.error('[Storage] Falha crítica ao escrever no IDB:', e);
+                    reject(e);
                 }
-                resolve();
             }, 250); // 250ms debounce para proteger a CPU
         });
     },

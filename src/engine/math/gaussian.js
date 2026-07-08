@@ -386,8 +386,8 @@ export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
     // Iteratively increase jitter until Cholesky yields a valid lower-triangular matrix
     const maxAttempts = 6;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const factor = Math.pow(10, attempt);
-        const jitter = Math.max(baseJitter, diagMax * 1e-8 || baseJitter) * factor;
+        const factor = attempt === 0 ? 0 : attempt * 10;
+        const jitter = Math.max(baseJitter, (diagMax * 1e-8)) + (baseJitter * factor);
         const psdMatrix = cloneBase.map((row, i) => row.map((v, j) => (i === j ? (v + jitter) : v)));
 
         try {

@@ -347,8 +347,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // MELHORIA-3: Ordenação única em vez de 5× quickSelect (que criava 5 cópias de Float64Array).
     // Para N=5000, isso reduz de ~125KB de alocações para ~40KB (1 cópia ordenada).
     // A ordenação nativa de Float64Array usa radix sort no V8 (O(N)), tão rápida quanto quickSelect.
-    const sortedScores = new Float64Array(allScores);
-    sortedScores.sort();
+    allScores.sort();
+    const sortedScores = allScores;
     
     // Leitura usando função de percentil interpolada para consistência matemática no sistema
     const statisticalCi95Low = getPercentile(sortedScores, 0.025, true);
