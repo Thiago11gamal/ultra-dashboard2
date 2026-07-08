@@ -684,6 +684,7 @@ export default function AIGeneratedSimulado() {
         categoryId: 'mixed',
         taskId: null,
         validated: true,
+        isPercentage: true,
       };
       
       setData(prev => {

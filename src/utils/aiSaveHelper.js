@@ -30,6 +30,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
       source: 'ai-generated',
       difficulty: numericDifficulty,
       timeSpent: timeSpentSecs,
+      isPercentage: true,
     };
 
     if (!draft.simuladoRows) draft.simuladoRows = [];
@@ -53,6 +54,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         r.correct = newCorrect;
         r.total = newTotal;
         r.score = newTotal > 0 ? (newCorrect / newTotal) * 100 : 0;
+        r.isPercentage = true;
         r.timeSpent = newTimeSpent;
         r.lastUpdated = new Date().toISOString();
       }
@@ -75,6 +77,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           categoryId,
           taskId,
           validated: true,
+          isPercentage: true,
         };
         draft.simulados.push(newSimEvent);
         if (draft.simulados.length > 100) {
