@@ -127,9 +127,8 @@ function HalfMoonGauge({ data }) {
 export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
-    const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
-
     const chartData = useMemo(() => {
+        const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
         return safeSubjectAggData
             .filter(d => d.timedQuestoes > 0 && d.timeSpent >= 0)
             .map((d) => {
@@ -284,7 +283,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             };
         })
         .sort((a, b) => sortOrder === 'slower' ? b.displaySeconds - a.displaySeconds : a.displaySeconds - b.displaySeconds);
-    }, [safeSubjectAggData, activeCategories, sortOrder]);
+    }, [subjectAggData, activeCategories, sortOrder, maxScore]);
 
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {

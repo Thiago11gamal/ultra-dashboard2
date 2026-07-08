@@ -7,7 +7,7 @@ import { useToast } from '../../hooks/useToast';
 import { getDateKey, normalizeDate } from '../../utils/dateHelper';
 import { generateId } from '../../utils/idGenerator';
 import { normalize } from '../../utils/normalization';
-import { computeCategoryStats } from '../../engine';
+
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
 import { 
   BookOpen, ListChecks, Target, Clock, Award, CheckCircle2, XCircle, 
@@ -586,23 +586,7 @@ export default function AIGeneratedSimulado() {
     const diffMap = { facil: 0.7, medio: 1.0, dificil: 1.3, expert: 1.6 };
     const numericDifficulty = diffMap[formData.dificuldade] || 1.0;
 
-    const newRow = {
-      id: generateId('ai-row'),
-      subject: materia,
-      topic: assunto,
-      categoryId,
-      taskId,
-      correct,
-      total,
-      score: computedScore,   // for compatibility with getSafeScore and filters
-      date: todayKey,
-      createdAt: new Date().toISOString(),
-      isAuto: false,
-      validated: true,        // treat AI played results as valid (like manual analyzer)
-      source: 'ai-generated',
-      difficulty: numericDifficulty,
-      timeSpent: timeSpentSecs,
-    };
+
 
     setData(draft => {
       if (!draft) return;
@@ -737,6 +721,7 @@ export default function AIGeneratedSimulado() {
 
     // reset flag (though component will unmount the playing logic)
     // Removed setTimeout to prevent race condition
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveAIResultsToSystem, showToast, setData]); // Removed highly volatile deps, relying on refs instead
 
   // Timer effect (declared after handleFinish to avoid TDZ in deps)
@@ -775,6 +760,7 @@ export default function AIGeneratedSimulado() {
       }, 1000);
     }
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerActive, step]); // Removed timeLeft to prevent recreating interval every second
 
   const resetAll = () => {

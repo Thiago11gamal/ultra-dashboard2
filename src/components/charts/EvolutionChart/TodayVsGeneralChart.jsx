@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
     ResponsiveContainer, PieChart, Pie, Cell, 
     ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
@@ -75,12 +75,12 @@ export function TodayVsGeneralChart({
     // 1. Média Geral (Absoluta)
     const generalAccuracy = globalMetrics?.globalAccuracy || 0;
     const scale = maxScore / 100;
+    const [nowMs] = useState(() => Date.now());
+    const [todayKey] = useState(() => getDateKey(new Date()));
 
     // 2. Extrair dados diários agregados (Últimos 14 dias)
     const { dailyData, lastActiveEntry, isToday } = useMemo(() => {
         const dayMap = {};
-        const now = new Date();
-        const todayKey = getDateKey(now);
         
         activeCategories.forEach(cat => {
             const history = Object.values(cat.simuladoStats?.history || {});
@@ -125,7 +125,7 @@ export function TodayVsGeneralChart({
         const _isToday = lastEntry ? lastEntry.date === todayKey : false;
 
         return { dailyData: result, lastActiveEntry: lastEntry, isToday: _isToday };
-    }, [activeCategories, maxScore]);
+    }, [activeCategories, maxScore, todayKey]);
 
     // Extrair histórico acumulado em múltiplos recortes de tempo
     const temporalMetrics = useMemo(() => {
@@ -140,9 +140,7 @@ export function TodayVsGeneralChart({
             month6: { correct: 0, total: 0 }
         };
 
-        const nowRef = Date.now();
-        const now = nowRef;
-        const todayKey = getDateKey(new Date());
+        const now = nowMs;
         const ms1Week = 7 * 24 * 60 * 60 * 1000;
         const ms1Month = 30 * 24 * 60 * 60 * 1000;
         const ms3Months = 90 * 24 * 60 * 60 * 1000;
@@ -207,7 +205,7 @@ export function TodayVsGeneralChart({
             { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 115, rOut: 122 },
             { id: 'last', label: 'Último', val: latestAcc, rIn: 124, rOut: 130 }
         ];
-    }, [activeCategories, maxScore]);
+    }, [activeCategories, maxScore, nowMs, todayKey]);
 
     const lastMetric = temporalMetrics.find(t => t.id === 'last');
     const latestAcc = lastMetric?.val ?? null;
