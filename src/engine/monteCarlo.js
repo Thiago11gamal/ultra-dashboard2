@@ -203,7 +203,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     // SUBSTITUIÇÃO DA LÓGICA DE SEMENTE ANTIGA:
     // Remover o hash fraco (Math.floor(safeMean * 10000)) que causava o layout shift.
-    const stableSeed = seed ?? generateStableSeed(historyLength, categoryName, targetScore);
+    const stableSeed = seed ?? generateStableSeed(historyLength, categoryName, targetScore, currentMean ?? safeMean);
 
     const rng = mulberry32(stableSeed);
     let success = 0;
