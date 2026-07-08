@@ -140,8 +140,8 @@ export function TodayVsGeneralChart({
             month6: { correct: 0, total: 0 }
         };
 
-        // eslint-disable-next-line react-hooks/purity
-        const now = Date.now();
+        const nowRef = Date.now();
+        const now = nowRef;
         const todayKey = getDateKey(new Date());
         const ms1Week = 7 * 24 * 60 * 60 * 1000;
         const ms1Month = 30 * 24 * 60 * 60 * 1000;
@@ -368,7 +368,7 @@ export function TodayVsGeneralChart({
                          <Minus size={14} />}
                         <div className="flex flex-col">
                             <span className="text-xs font-black">
-                                {delta > 0 ? '+' : ''}{deltaAbs.toFixed(1)}{unit}
+                                {delta > 0 ? '+' : delta < 0 ? '−' : ''}{deltaAbs.toFixed(1)}{unit}
                             </span>
                             <span className="text-[7px] uppercase tracking-wider opacity-70">Geral</span>
                         </div>

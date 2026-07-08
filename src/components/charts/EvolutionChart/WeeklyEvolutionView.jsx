@@ -456,6 +456,7 @@ export const WeeklyEvolutionView = ({
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
                         maxScore={maxScore}
+                        minScore={minScore}
                         unit={unit}
                     />
                 ) : (

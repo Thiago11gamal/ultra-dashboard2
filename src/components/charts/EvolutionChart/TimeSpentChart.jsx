@@ -124,7 +124,7 @@ function HalfMoonGauge({ data }) {
     );
 }
 
-export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory }) {
+export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
     const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
@@ -148,7 +148,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 const recentStats = history.reduce((acc, h) => {
                     const hDateMs = toDateMs(h.date || h.createdAt);
                     const hKey = getDateKey(h.date || h.createdAt);
-                    if (Number.isNaN(hDateMs) || (nowMs - hDateMs) > sevenDaysMs || hKey > todayKey) {
+                    if (Number.isNaN(hDateMs) || (nowMs - hDateMs) > sevenDaysMs || hDateMs > nowMs) {
                         return acc;
                     }
 
@@ -173,7 +173,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
                     } else {
                         let tot = Number(h.total) || 0;
-                        if (tot === 0 && h.score != null) tot = getSyntheticTotal(100);
+                        if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
                         if (tot > 0 && rootTs !== null && rootTs > 0) {
                             return { ts: acc.ts + rootTs, tq: acc.tq + tot };
                         }
@@ -224,7 +224,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         latestSeconds = Math.round(topicsTs / topicsTimedQ);
                     } else {
                         let tot = Number(latestEntry.total) || 0;
-                        if (tot === 0 && latestEntry.score != null) tot = getSyntheticTotal(100);
+                        if (tot === 0 && latestEntry.score != null) tot = getSyntheticTotal(maxScore);
                         if (tot > 0 && rootTs !== null && rootTs > 0) {
                             latestSeconds = Math.round(rootTs / tot);
                         }

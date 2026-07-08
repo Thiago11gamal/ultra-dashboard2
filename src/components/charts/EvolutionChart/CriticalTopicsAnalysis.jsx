@@ -50,7 +50,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         const topicMap = {};
 
         categories.forEach(cat => {
-            const history = cat.simuladoStats?.history || [];
+            const history = Object.values(cat.simuladoStats?.history || {});
             if (!history.length) return;
 
             const recentHistory = history.filter(h => {
@@ -122,7 +122,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         const rawData = categories.map(cat => {
             let total = 0;
             let correct = 0;
-            const history = cat.simuladoStats?.history || [];
+            const history = Object.values(cat.simuladoStats?.history || {});
 
             const recentHistory = history.filter(h => {
                 const d = normalizeDate(h.date);

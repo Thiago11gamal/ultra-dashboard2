@@ -48,8 +48,12 @@ export function generateEvolutionInsights({
                 if (!d) return;
                 const dow = d.getDay();
                 if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
-                dayStats[dow].correct += (h.score / maxScore * (Number(h.total) || 0));
-                dayStats[dow].total += (Number(h.total) || 0);
+                let tot = Number(h.total) || 0;
+                if (tot === 0 && h.score != null) {
+                    tot = getSyntheticTotal(maxScore);
+                }
+                dayStats[dow].correct += (h.score / maxScore * tot);
+                dayStats[dow].total += tot;
             });
         });
 

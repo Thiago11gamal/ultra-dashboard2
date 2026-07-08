@@ -10,7 +10,7 @@ import { formatValue } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke } = props;
-    if (!cx || !cy) return null;
+    if (cx == null || cy == null) return null;
     return (
         <g>
             {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}

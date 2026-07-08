@@ -291,7 +291,8 @@ export default function EvolutionChart({
                 });
                 const avgSeconds = totalTimedQuestions > 0 ? (totalTimeSpent / totalTimedQuestions) : 0;
                 
-                // Get from store
+                // Get from store (reactive selectors extracted at component level would be ideal,
+                // but getState() snapshot is acceptable within debounced async callback)
                 const store = useAppStore.getState();
                 const activeId = store.appState?.activeId;
                 const contest = store.appState?.contests?.[activeId];
@@ -344,7 +345,7 @@ export default function EvolutionChart({
             cancelled = true; 
             clearTimeout(workerDebounceTimeout);
         };
-    }, [focusCategory, focusCategory?.id, currentFocusLevel, historyArray, targetScore, projectDays, runAnalysis, minScore, maxScore]);
+    }, [focusCategory?.id, currentFocusLevel, historyArray, targetScore, projectDays, runAnalysis, minScore, maxScore]);
 
     const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;
     const activeMcProjectionSeries = mcProjectionSeries?.categoryId === focusCategory?.id ? mcProjectionSeries : null;
@@ -430,7 +431,7 @@ export default function EvolutionChart({
                             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
                             const tTot = Number(t.total) || 0;
                             // M3 FIX: Omissão de 0 segundos / fast skips
-                            if (tTs !== null && tTs >= 0 && tTot > 0) {
+                            if (tTs !== null && tTs > 0 && tTot > 0) {
                                 topicsTs += tTs;
                                 topicsTimedQ += tTot;
                                 hasTopicWithTime = true;
@@ -656,6 +657,7 @@ export default function EvolutionChart({
                         activeCategories={activeCategories}
                         showOnlyFocus={showOnlyFocus}
                         focusCategory={focusCategory}
+                        maxScore={maxScore}
                     />
                 ) : activeEngine === "mc_density" ? (
                     <MonteCarloEvolutionChart

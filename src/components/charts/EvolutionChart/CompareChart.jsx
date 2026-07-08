@@ -8,7 +8,7 @@ import { ChartTooltip } from "../ChartTooltip";
 
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke } = props;
-    if (!cx || !cy) return null;
+    if (cx == null || cy == null) return null;
     return (
         <g>
             {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}
@@ -191,7 +191,7 @@ export function CompareChart({
         if (Number.isFinite(Number(baseCandidate))) {
             gainBase = Number(baseCandidate);
             // BUG-3 FIX: Não exibir área verde de "ganho" se a projeção final está ABAIXO do nível atual
-            const lastPt = filteredChartData[chartData.length - 1];
+            const lastPt = chartData[chartData.length - 1];
             const lastProjection = lastPt?.["Futuro Provável"];
             if (Number.isFinite(Number(lastProjection)) && Number(lastProjection) < gainBase) {
                 showGainArea = false;

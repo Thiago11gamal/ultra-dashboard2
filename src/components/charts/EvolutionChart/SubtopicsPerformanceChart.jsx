@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useId } from 'react';
+import React, { useMemo, useState, useId, useCallback } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, LabelList, Cell, ReferenceLine,
@@ -103,6 +103,12 @@ export const SubtopicsPerformanceChart = React.memo(({
     
     const range = maxScore - minScore;
     const targetScorePct = range > 0 ? ((targetScore - minScore) / range) * 100 : 0;
+
+    // M1 FIX: Stable callback for Tooltip — inline arrow function would break Recharts memoization.
+    const renderLineTooltip = useCallback(
+        (props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />,
+        [targetScorePct]
+    );
 
     const limitMs = useMemo(() => {
         const now = new Date();
@@ -431,7 +437,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                                         <Tooltip
                                             offset={40}
-                                            content={(props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />}
+                                            content={renderLineTooltip}
                                             cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
                                         />
 
