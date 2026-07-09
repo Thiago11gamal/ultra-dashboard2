@@ -60,8 +60,21 @@ function HalfMoonGauge({ data }) {
     }
 
     return (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col items-center h-full shadow-lg hover:border-slate-700 transition-all group">
-            <h4 className="text-slate-200 font-bold text-sm text-center mb-4 truncate w-full" title={data.fullName}>{data.fullName}</h4>
+        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col items-center h-full shadow-lg hover:border-slate-700 transition-all group relative">
+            {hasAbsolute && data.absoluteTotalTime != null && (
+                <div 
+                    className={`absolute top-2 right-2 text-[10px] text-white font-bold px-1.5 py-0.5 rounded border bg-slate-950/50 ${
+                        absoluteColor === '#ef4444' ? 'border-rose-500/40' : 
+                        (absoluteColor === '#10b981' ? 'border-emerald-500/40' : 
+                        (absoluteColor === '#eab308' ? 'border-yellow-500/40' : 
+                        'border-slate-600'))
+                    }`}
+                    title="Tempo Absoluto do Último Simulado"
+                >
+                    {formatTime(data.absoluteTotalTime)}
+                </div>
+            )}
+            <h4 className="text-slate-200 font-bold text-sm text-center mb-4 truncate w-full px-6" title={data.fullName}>{data.fullName}</h4>
             
             <div className="relative w-[200px] h-[110px]">
                 <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
@@ -191,6 +204,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             const hasRecentData = recentAvgSeconds !== null;
             let latestSeconds = null;
             let absoluteLatestSeconds = null;
+            let absoluteTotalTime = null;
 
             if (cat) {
                 // BUG FIX: Garante que o histórico é ordenado cronologicamente antes de buscar o "último"
@@ -231,6 +245,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
                     if (latestEntry.lastSessionTimeSpent != null && latestEntry.lastSessionTotal > 0) {
                         absoluteLatestSeconds = Math.round(latestEntry.lastSessionTimeSpent / latestEntry.lastSessionTotal);
+                        absoluteTotalTime = latestEntry.lastSessionTimeSpent;
                     }
                 }
             }
@@ -272,6 +287,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 recentAvgSeconds,
                 latestSeconds,
                 absoluteLatestSeconds,
+                absoluteTotalTime,
                 visualLatestSeconds,
                 visualAbsoluteSeconds,
                 maxSeconds: Math.max(displaySeconds, visualLatestSeconds, visualAbsoluteSeconds),
