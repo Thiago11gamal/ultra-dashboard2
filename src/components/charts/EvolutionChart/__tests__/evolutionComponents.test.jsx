@@ -75,7 +75,7 @@ describe('evolution components render contracts', () => {
     }];
     const html = renderToStaticMarkup(<TimeSpentChart subjectAggData={subjectAggData} />);
     expect(html).toContain('Tempo M');
-    expect(html).toContain('Último');
+    expect(html).toContain('Última Média');
   });
 
   it('renders CriticalTopicsAnalysis com suporte a synthetic total (nova matematica)', () => {
