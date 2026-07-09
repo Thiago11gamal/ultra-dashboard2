@@ -380,7 +380,7 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
         intercept: logitIntercept, 
         isLogistic: true, 
         L, 
-        t0: safeDateParse(sorted[0].date || sorted[0].createdAt).getTime() 
+        t0: getSafeTime(sorted[0].date || sorted[0].createdAt) 
     };
 }
 

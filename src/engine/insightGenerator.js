@@ -88,6 +88,10 @@ export function generateEvolutionInsights({
         if (scores.length < 2) return { type: 'info', icon: "📊", title: "Análise de Volatilidade", text: `Nota: ${raw.toFixed(1)}${unit}.` };
 
         const recentScores = scores.slice(-5);
+        
+        // CORREÇÃO M4: Guarda contra array vazio (Math.max(...[]) = -Infinity → crash)
+        if (recentScores.length < 2) return { type: 'info', icon: "📊", title: "Análise de Volatilidade", text: `Nota: ${raw.toFixed(1)}${unit}.` };
+        
         const maxSwing = Math.max(...recentScores) - Math.min(...recentScores);
 
         if (maxSwing > 25 * scale) return { type: 'warning', icon: "⚠️", title: "Alta Volatilidade Detectada", text: `Variação de ${maxSwing.toFixed(0)}${unit}.`, advice: "Oscilações altas indicam 'chute' ou gaps de base." };

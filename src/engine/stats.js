@@ -437,7 +437,7 @@ export function computeBayesianLevel(
         }
     }
     // CORREÇÃO: Impedir que a micro-frequência crie inércia infinita (Assuma mínimo de meio dia) (Bug 1.2 Fix)
-    const safeAvgGap = Math.max(0.5, gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 7);
+    const safeAvgGap = Math.max(0.5, gaps.length > 0 ? kahanSum(gaps) / gaps.length : 7);
     const baseCapacity = 250 / safeAvgGap;
 
     const totalQuestionsHist = history ? kahanSum(history.map(h => Number(h.total) || 20)) : 0;
@@ -813,8 +813,10 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         let KAPPA = Math.max(0.1, Math.min(3.0, popVar / safeStudentVar)); // Teto reduzido para 3.0
 
         // PATCH 1: Acelerador de Confiança
-        const firstDateMs = new Date(historyToUse[0].date || historyToUse[0].createdAt).getTime();
-        const lastDateMs = new Date(historyToUse[historyToUse.length - 1].date || historyToUse[historyToUse.length - 1].createdAt).getTime();
+        const firstDateParsed = safeDateParse(historyToUse[0].date || historyToUse[0].createdAt);
+        const lastDateParsed = safeDateParse(historyToUse[historyToUse.length - 1].date || historyToUse[historyToUse.length - 1].createdAt);
+        const firstDateMs = firstDateParsed && !Number.isNaN(firstDateParsed.getTime()) ? firstDateParsed.getTime() : Date.now();
+        const lastDateMs = lastDateParsed && !Number.isNaN(lastDateParsed.getTime()) ? lastDateParsed.getTime() : Date.now();
         const timeSpreadDays = Math.max(0, (lastDateMs - firstDateMs) / (1000 * 60 * 60 * 24));
         
         if (historyToUse.length >= 2 && sampleVar < (0.0004 * safeMaxScore * safeMaxScore) && timeSpreadDays > 7) {
@@ -1014,8 +1016,9 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
         // Média ajustada empiricamente (Bayes)
         const bayesianMean = B * globalMean + (1 - B) * cat.mean;
         
-        // Atualizamos também o SD, que pode ser afetado, mas na implementação simples mantemos o localSD
-        const bayesianSd = localSD;
+        // CORREÇÃO: Aplicar shrinkage também ao SD para consistência com a média ajustada.
+        // bayesianSd reflete a incerteza ponderada entre a variância populacional e a individual.
+        const bayesianSd = Math.sqrt(B * popVar + (1 - B) * Math.pow(localSD, 2));
         
         return {
             ...cat,
@@ -1027,7 +1030,7 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
 }
 
 // INTEGRAÇÃO AGILIDADE AI: Extrai a velocidade do histórico e calcula a penalidade
-export function computeAgilityMetrics(history) {
+export function computeAgilityMetrics(history, targetSeconds = 120) {
     if (!Array.isArray(history) || history.length === 0) return { avgSeconds: 0, agilityPenalty: 0 };
     
     let totalTimeSpent = 0;
@@ -1046,9 +1049,10 @@ export function computeAgilityMetrics(history) {
     
     const avgSeconds = totalTimedQuestions > 0 ? totalTimeSpent / totalTimedQuestions : 0;
     
-    // Alvo é 120 segundos. Exceder o alvo aciona penalidade escalar até 40% (max em ~180s ou mais)
+    // MELHORIA: O alvo agora é parametrizável por disciplina (Matemática ~180s, Direito ~60s).
     // agilityPenalty varia de 0 (rápido) a 0.4 (muito lento)
-    const agilityPenalty = avgSeconds > 120 ? Math.min(0.4, (avgSeconds - 120) / 150) : 0;
+    const safeTarget = Math.max(30, Number(targetSeconds) || 120);
+    const agilityPenalty = avgSeconds > safeTarget ? Math.min(0.4, (avgSeconds - safeTarget) / (safeTarget * 1.25)) : 0;
     
     return {
         avgSeconds: Math.round(avgSeconds),
@@ -1059,19 +1063,37 @@ export function computeAgilityMetrics(history) {
 
 export function calculateTrend(history) {
     if (!history || history.length < 2) return 0;
-    const firstDate = new Date(history[0].date).getTime();
+    
+    // CORREÇÃO B1+B4: Usar safeDateParse e getSafeScore para blindagem total contra NaN.
+    // Suporte a createdAt para consistência com o ecossistema.
+    const firstParsed = safeDateParse(history[0].date || history[0].createdAt);
+    const firstDate = (firstParsed && !Number.isNaN(firstParsed.getTime())) ? firstParsed.getTime() : 0;
+    
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-    const n = history.length;
-    for (let i = 0; i < n; i++) {
-        const x = (new Date(history[i].date).getTime() - firstDate) / (1000 * 60 * 60 * 24);
-        const y = history[i].score;
+    let validN = 0;
+    
+    for (let i = 0; i < history.length; i++) {
+        const h = history[i];
+        const dateParsed = safeDateParse(h.date || h.createdAt);
+        if (!dateParsed || Number.isNaN(dateParsed.getTime())) continue;
+        
+        const x = (dateParsed.getTime() - firstDate) / 86400000;
+        const y = getSafeScore(h, 100);
+        if (!Number.isFinite(y)) continue;
+        
         sumX += x;
         sumY += y;
         sumXY += x * y;
         sumX2 += x * x;
+        validN++;
     }
-    const denominator = (n * sumX2) - (sumX * sumX);
-    if (denominator === 0) return 0;
-    const slopePerDay = ((n * sumXY) - (sumX * sumY)) / denominator;
-    return slopePerDay * 10;
+    
+    if (validN < 2) return 0;
+    const denominator = (validN * sumX2) - (sumX * sumX);
+    if (Math.abs(denominator) < 1e-12) return 0;
+    const slopePerDay = ((validN * sumXY) - (sumX * sumY)) / denominator;
+    
+    // Guarda final: se o resultado não for finito, retorna 0
+    const result = slopePerDay * 10;
+    return Number.isFinite(result) ? result : 0;
 }

@@ -147,7 +147,9 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
  * drasticamente o cone de incerteza no longo prazo.
  */
 export function computePooledSD(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
-    const validRho = Number.isFinite(rho) ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
+    // CORREÇÃO B2: Alinhado o clamp com computeWeightedVariance [-0.15, 0.85]
+    // para não destruir correlações negativas legítimas entre disciplinas.
+    const validRho = Number.isFinite(rho) ? Math.max(-0.15, Math.min(0.85, rho)) : INTER_SUBJECT_CORRELATION;
     const weightedVariance = computeWeightedVariance(stats, totalWeight, validRho);
     return Math.sqrt(weightedVariance);
 }
