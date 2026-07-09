@@ -105,7 +105,7 @@ function HalfMoonGauge({ data }) {
             <div className="w-full mt-auto pt-3 border-t border-slate-800/50 flex flex-col gap-1.5">
                 {hasAbsolute && (
                     <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500">Último Exato</span>
+                        <span className="text-slate-500" title="Sua média de tempo por questão apenas na última sessão">Última Média</span>
                         <span className={`font-bold ${absoluteColor === '#ef4444' ? 'text-rose-500' : (absoluteColor === '#10b981' ? 'text-emerald-500' : (absoluteColor === '#eab308' ? 'text-yellow-500' : 'text-slate-400'))}`}>{formatTime(data.absoluteLatestSeconds)}</span>
                     </div>
                 )}
@@ -340,7 +340,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         </span>
                     </div>
                     <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
-                        ⏳ {showOnlyFocus ? `Tempo Médio por Questão — ${focusCategory?.name}` : "Tempo Médio (Recente vs Histórico)"}
+                        ⏳ {showOnlyFocus ? `Tempo Médio por Questão — ${focusCategory?.name}` : "Tempo Médio por Questão (Recente vs Histórico)"}
                     </h3>
                     <div className="mt-2 flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] uppercase tracking-[0.2em] text-slate-500">
                         <span className="inline-flex items-center gap-1.5" title="Sua média de tempo nos últimos 7 dias">
@@ -351,9 +351,9 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                             <span className="h-0.5 w-3 rounded-[2px] bg-[#10b981]" />
                             Média do Dia
                         </span>
-                        <span className="inline-flex items-center gap-1.5" title="Marcador do seu tempo exato no último simulado">
+                        <span className="inline-flex items-center gap-1.5" title="Marcador da sua média exata por questão no último simulado (sessão)">
                             <span className="h-2 w-2 rounded-full bg-white ring-1 ring-slate-400" />
-                            Último Exato
+                            Última Média
                         </span>
                         <span className="inline-flex items-center gap-1.5" title="Cor vermelha significa que você foi mais lento além da margem">
                             <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
