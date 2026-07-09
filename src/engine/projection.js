@@ -18,7 +18,11 @@ import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js'
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 export { weightedRegression, calculateSlopeStdError, getSortedHistory };
 
-
+// 1. Blindagem de Datas: Adicione este helper no topo do arquivo (após os imports)
+const getSafeTime = (dateInput) => {
+    const parsed = safeDateParse(dateInput);
+    return (parsed && !Number.isNaN(parsed.getTime())) ? parsed.getTime() : Date.now();
+};
 
 // -----------------------------
 // Volatilidade Robusta (MSSD + MAD Blended)
@@ -33,16 +37,16 @@ export function computeNonLinearTrend(history, maxScore = 100, lambda = 0.08) {
   if (sorted.length < 4) return { slope: 0, intercept: 50, type: 'linear' };
 
   const now = Date.now();
-  const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt).getTime() || now;
+  const t0 = getSafeTime(sorted[0].date || sorted[0].createdAt);
 
   // Fit simple model: y ~ a + b * log(1 + days)
   let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
 
   sorted.forEach(h => {
     const y = getSafeScore(h, maxScore);
-    const t = Math.max(0, (safeDateParse(h.date || h.createdAt).getTime() - t0) / 86400000);
+    const t = Math.max(0, (getSafeTime(h.date || h.createdAt) - t0) / 86400000);
     const x = Math.log(1 + t + 1); // log time
-    const w = Math.exp(-lambda * Math.max(0, (now - safeDateParse(h.date || h.createdAt).getTime()) / 86400000));
+    const w = Math.exp(-lambda * Math.max(0, (now - getSafeTime(h.date || h.createdAt)) / 86400000));
 
     sumW += w;
     sumWX += w * x;
@@ -344,9 +348,9 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
     sorted.forEach(h => {
         const hDate = h.date || h.createdAt;
-        const t = Math.max(0, (now - safeDateParse(hDate).getTime()) / 86400000);
+        const t = Math.max(0, (now - getSafeTime(hDate)) / 86400000);
         const w = Math.exp(-0.08 * t);
-        const x = (safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000;
+        const x = (getSafeTime(hDate) - getSafeTime(sorted[0].date || sorted[0].createdAt)) / 86400000;
         
         let y = getSafeScore(h, maxScore);
         y = Math.max(maxScore * 0.01, Math.min(maxScore, y));
@@ -592,17 +596,14 @@ export function monteCarloSimulation(
     // IMPROVED mean reversion (from Coach+MC analysis): give stronger weight to historical mean when performance is declining.
     // This prevents the projection from collapsing too aggressively on negative drift.
     const histScores = sortedHistory.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
-    const historicalMean = histScores.length > 0 ? kahanMean(histScores) : baselineScore;
+    let historicalMean = histScores.length > 0 ? kahanMean(histScores) : baselineScore;
 
-    // NOTA: o Time Penalty é aplicado somente ao baselineScore (ponto de partida "hoje").
-    // Propositalmente NÃO aplicamos ao historicalMean/stableMeanTarget: esse valor é o alvo
-    // de reversão (meanReversionTarget) usado em TODOS os simulationDays e safeSimulations,
-    // ou seja, é o "equilíbrio" de longo prazo do horizonte inteiro. Se ele também fosse
-    // penalizado pelo overflowRatio de hoje, o atraso de ritmo atual passaria a suprimir
-    // permanentemente toda a projeção futura (semanas/meses) — contradizendo o próprio motor
-    // de Agilidade AI, cujo objetivo é justamente reduzir esse atraso ao longo do tempo.
-    
-    // When current baseline is below historical, increase reversion pull towards history.
+    // Aplica o esmagamento da métrica no equilíbrio de longo prazo também
+    if (timePenaltyApplied && overflowRatio > 0) {
+        const guessScore = 0.2 * (maxScore - minScore) + minScore;
+        historicalMean = (historicalMean * (1 - overflowRatio)) + (guessScore * overflowRatio);
+    }
+
     const belowHistorical = baselineScore < historicalMean;
     const histWeight = belowHistorical ? 0.95 : 0.80;
     const stableMeanTarget = Math.max(minScore, Math.min(maxScore, (historicalMean * histWeight + baselineScore * (1 - histWeight))));

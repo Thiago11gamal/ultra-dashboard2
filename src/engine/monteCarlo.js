@@ -4,32 +4,30 @@ import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
 import { getPercentile } from './math/percentile.js';
 
-// Algoritmo Quickselect in-place
 function quickselect(arr, k, left = 0, right = arr.length - 1) {
     while (left <= right) {
-        let pivotIndex = partition(arr, left, right);
-        if (pivotIndex === k) return arr[k];
-        if (pivotIndex < k) left = pivotIndex + 1;
-        else right = pivotIndex - 1;
+        // Partição 3-way (Dutch National Flag) para lidar com N valores duplicados em O(N)
+        let pivotIndex = left + Math.floor(Math.random() * (right - left + 1));
+        let pivot = arr[pivotIndex];
+        let lt = left, gt = right, i = left;
+        
+        while (i <= gt) {
+            if (arr[i] < pivot) {
+                let temp = arr[lt]; arr[lt] = arr[i]; arr[i] = temp;
+                lt++; i++;
+            } else if (arr[i] > pivot) {
+                let temp = arr[gt]; arr[gt] = arr[i]; arr[i] = temp;
+                gt--;
+            } else {
+                i++;
+            }
+        }
+        
+        if (k >= lt && k <= gt) return arr[k];
+        if (k < lt) right = lt - 1;
+        else left = gt + 1;
     }
     return arr[k];
-}
-
-function partition(arr, left, right) {
-    let pivot = arr[right];
-    let i = left;
-    for (let j = left; j < right; j++) {
-        if (arr[j] <= pivot) {
-            let temp = arr[i];
-            arr[i] = arr[j];
-            arr[j] = temp;
-            i++;
-        }
-    }
-    let temp = arr[i];
-    arr[i] = arr[right];
-    arr[right] = temp;
-    return i;
 }
 import { kahanMean, kahanSum } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
@@ -449,31 +447,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // garantindo que a matemática analítica sobrevive a amostras estatisticamente extremas.
     const rawTruncNormFactor = phiMin - phiMax;
     const isUnderflowStress = rawTruncNormFactor < 1e-15;
-    
-    let truncNormFactor = rawTruncNormFactor;
-    if (isUnderflowStress) {
-        // CORREÇÃO B5: Inserir a raiz quadrada de 2PI no divisor da densidade Normal
-        const SQRT_2PI = 2.506628274631;
-        const zScoreMin = safeSD > 0 ? (minScore - muParam) / safeSD : 0;
-        
-        // Aplicação do Rácio de Mill com PDF regularizada
-        const pdfNormal = Math.exp(-0.5 * zScoreMin * zScoreMin) / SQRT_2PI;
-        const extremeFactor = pdfNormal / (Math.abs(zScoreMin) + 1e-6);
-        
-        truncNormFactor = Number.isFinite(extremeFactor) && extremeFactor > 1e-15 ? extremeFactor : 1e-6;
-    }
+
     const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
+    const truncNormFactor = isUnderflowStress ? 1e-6 : rawTruncNormFactor;
 
     let analyticalProbability;
-    if (effectiveTarget >= maxScore) {
+    if (effectiveTarget >= maxScore && !hasCutoffs) {
         analyticalProbability = 0;
-    } else if (effectiveTarget <= minScore) {
+    } else if (effectiveTarget <= minScore && !hasCutoffs) {
         analyticalProbability = 100;
     } else {
-        // CORREÇÃO: Se houve stress de underflow (valores atómicos irreais),
-        // abdicamos do integral analítico para não gerar falsos Zeros (0/1e-15)
-        // e confiamos 100% no motor de Monte Carlo bruto (Empírico).
-        analyticalProbability = isUnderflowStress 
+        // Se houver cutoffs dinâmicos ou stress de underflow, abdicamos do integral analítico
+        // que diverge e elegemos a empírica convergida como fonte da verdade.
+        analyticalProbability = (isUnderflowStress || hasCutoffs) 
             ? empiricalProbability 
             : ((clampedPhiTarget - phiMax) / truncNormFactor) * 100; 
     }

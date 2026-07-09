@@ -19,7 +19,8 @@ import { clearMcCache } from '../utils/coachAdaptive';
 
 // --- IndexedDB Adapter (Clean & Async) ---
 const saveTimeouts = {};
-let isStorageLocked = false; // FAIL-SAFE: Prevent IDB overwrite if read fails
+const savePromises = {}; // Novo rastreador de promises
+let isStorageLocked = false;
 
 const idbStorage = {
     getItem: async (name) => {
@@ -28,7 +29,7 @@ const idbStorage = {
             return val || null;
         } catch (e) {
             console.error('[Storage] Falha CRÍTICA ao ler IDB. Ativando LOCK de emergência:', e);
-            isStorageLocked = true; // Impede sobrescrever os dados corrompidos
+            isStorageLocked = true;
             return null;
         }
     },
@@ -36,23 +37,39 @@ const idbStorage = {
         return new Promise((resolve, reject) => {
             if (isStorageLocked) {
                 console.warn('[Storage] Operação ignorada. Lock de emergência ativo.');
-                resolve();
-                return;
+                return resolve();
             }
-            if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
+            
+            // Rejeita a promise pendente anterior para evitar dangling promises (Memory Leak)
+            if (saveTimeouts[name]) {
+                clearTimeout(saveTimeouts[name]);
+                if (savePromises[name]) {
+                    savePromises[name].reject(new Error('Debounced'));
+                }
+            }
+            
+            savePromises[name] = { resolve, reject };
+            
             saveTimeouts[name] = setTimeout(async () => {
                 try {
                     await idbSet(name, value);
-                    resolve();
+                    savePromises[name].resolve();
                 } catch (e) {
                     console.error('[Storage] Falha crítica ao escrever no IDB:', e);
-                    reject(e);
+                    savePromises[name].reject(e);
+                } finally {
+                    delete savePromises[name];
+                    delete saveTimeouts[name];
                 }
-            }, 250); // 250ms debounce para proteger a CPU
+            }, 250);
+        }).catch(err => {
+            // Ignora o erro se foi intencionalmente cancelado pelo debounce
+            if (err.message !== 'Debounced') throw err;
         });
     },
     removeItem: async (name) => {
         if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
+        if (savePromises[name]) savePromises[name].reject(new Error('Removed'));
         try {
             await idbDel(name);
         } catch (e) {

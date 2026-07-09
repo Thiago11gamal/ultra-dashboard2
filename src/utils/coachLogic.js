@@ -995,12 +995,19 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // Entropia temporal: Invalida o cache a cada novo dia ou mudança de volume
         const todayStr = getDateKey(new Date());
         
-        // Improve cache key for tests that modify options or use the same count but different data
+        // Substitua o bloco de criação do `cacheKey` dentro da função `calculateUrgency`
+        const scoreChecksum = simulados.reduce((acc, s, index) => {
+            const parsed = getSafeScore(s, options.maxScore || 100);
+            const validVal = Number.isNaN(parsed) ? 0 : parsed;
+            return acc + (validVal * (index + 1) * 1.17); // Assimetria posicional
+        }, 0).toFixed(2);
+
         const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
         const lastSim = simCount > 0 ? (simulados[simCount-1].date || simulados[simCount-1].createdAt || '') : '';
         const lastLog = logCount > 0 ? (studyLogs[logCount-1].date || studyLogs[logCount-1].createdAt || '') : '';
-        
-        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${todayStr}${optKey}_${lastSim}_${lastLog}`;
+
+        // Checksum injetado garante que qualquer edição recalcule a urgência
+        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}_${lastSim}_${lastLog}`;
         
         if (_urgencyCache.has(cacheKey)) {
             return _urgencyCache.get(cacheKey);
