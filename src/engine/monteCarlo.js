@@ -2,33 +2,7 @@ import { mulberry32 } from './random.js';
 import { normalCDF_complement, generateKDE, sampleTruncatedNormal, truncatedNormalMean, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance } from './math/gaussian.js';
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
-import { getPercentile } from './math/percentile.js';
-
-function quickselect(arr, k, left = 0, right = arr.length - 1) {
-    while (left <= right) {
-        // Partição 3-way (Dutch National Flag) para lidar com N valores duplicados em O(N)
-        let pivotIndex = left + Math.floor(Math.random() * (right - left + 1));
-        let pivot = arr[pivotIndex];
-        let lt = left, gt = right, i = left;
-        
-        while (i <= gt) {
-            if (arr[i] < pivot) {
-                let temp = arr[lt]; arr[lt] = arr[i]; arr[i] = temp;
-                lt++; i++;
-            } else if (arr[i] > pivot) {
-                let temp = arr[gt]; arr[gt] = arr[i]; arr[i] = temp;
-                gt--;
-            } else {
-                i++;
-            }
-        }
-        
-        if (k >= lt && k <= gt) return arr[k];
-        if (k < lt) right = lt - 1;
-        else left = gt + 1;
-    }
-    return arr[k];
-}
+import { getPercentile, quickSelect } from './math/percentile.js';
 import { kahanSum } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
@@ -385,11 +359,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // BUG-FIX: Remoção do sort O(S log S) por quickselect O(S)
     const nScores = allScores.length;
     
-    const statisticalCi95Low = quickselect(allScores, Math.floor(nScores * 0.025));
-    const statisticalCi95High = quickselect(allScores, Math.floor(nScores * 0.975));
-    const empMedian = quickselect(allScores, Math.floor(nScores * 0.5));
-    const rawLeft = quickselect(allScores, Math.floor(nScores * 0.16));
-    const rawRight = quickselect(allScores, Math.floor(nScores * 0.84));
+    const statisticalCi95Low = quickSelect(allScores, Math.floor(nScores * 0.025));
+    const statisticalCi95High = quickSelect(allScores, Math.floor(nScores * 0.975));
+    const empMedian = quickSelect(allScores, Math.floor(nScores * 0.5));
+    const rawLeft = quickSelect(allScores, Math.floor(nScores * 0.16));
+    const rawRight = quickSelect(allScores, Math.floor(nScores * 0.84));
 
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;
