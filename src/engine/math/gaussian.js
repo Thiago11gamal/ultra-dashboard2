@@ -348,7 +348,6 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng, options = {}) {
             throw new Error('STRICT_DETERMINISM: sampleTruncatedNormal requires a deterministic RNG function');
         }
         if (!globalThis.__MC_WARNED_FALLBACK_RNG__) {
-            // eslint-disable-next-line no-console
             console.warn('sampleTruncatedNormal: no RNG provided, falling back to Math.random() (non-deterministic)');
             globalThis.__MC_WARNED_FALLBACK_RNG__ = true;
         }
