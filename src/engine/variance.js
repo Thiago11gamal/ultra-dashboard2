@@ -381,20 +381,23 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
 
 export function calcularVariancia(arr) {
     if (!Array.isArray(arr) || arr.length <= 1) return 0;
-    const clean = arr.map(Number).filter(Number.isFinite);
-    if (clean.length <= 1) return 0;
 
     // Welford online: estável para magnitudes extremas (evita overflow em v²)
     let count = 0;
     let mean = 0;
     let m2 = 0;
-    for (const raw of clean) {
+    
+    for (let i = 0; i < arr.length; i++) {
+        const raw = Number(arr[i]);
+        if (!Number.isFinite(raw)) continue;
+        
         count += 1;
         const delta = raw - mean;
         mean += delta / count;
         const delta2 = raw - mean;
         m2 += delta * delta2;
     }
+    
     const variance = count > 1 ? m2 / (count - 1) : 0;
     return Number.isFinite(variance) ? Math.max(0, variance) : 0;
 }
