@@ -115,7 +115,9 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
 
     if (effectiveTotalWeight === 0) return 0;
 
-    const validRho = Math.max(0, Math.min(1, rho));
+    // FIX 2: Sincronização do piso com o estimateInterSubjectCorrelation.
+    // Permite que o motor explore a variância de disciplinas com correlação inversa.
+    const validRho = Math.max(-0.15, Math.min(0.85, rho));
     const rawWeights = stats.map(cat => toFiniteNonNegative(cat?.weight));
     const adjustedSDs = stats.map(cat => toFiniteSd(cat?.sd));
 
@@ -350,25 +352,26 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
       );
     }
     
+    // FIX 5: Estrutura O(N^2) reduzida via simetria de matriz
     for (let i = 0; i < n; i++) {
-        for (let j = 0; j < n; j++) {
-            const sdI = Number.isFinite(stats[i]?.sd) ? stats[i].sd : 0;
+        const sdI = Number.isFinite(stats[i]?.sd) ? stats[i].sd : 0;
+        matrix[i][i] = sdI * sdI; // A variância pura ocupa apenas a diagonal principal
+
+        for (let j = i + 1; j < n; j++) {
             const sdJ = Number.isFinite(stats[j]?.sd) ? stats[j].sd : 0;
-            if (i === j) {
-                matrix[i][j] = sdI * sdJ; // Variância pura na diagonal
-            } else {
-                    const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
-                    const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : effectiveDefaultRho;
-                    
-                    let currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
+            
+            const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
+            const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : effectiveDefaultRho;
+            
+            let currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
 
-                    // PATCH 3: Covariância Dinâmica Inter-Matérias
-                    if (stats[i]?.simuladoStats?.history && stats[j]?.simuladoStats?.history) {
-                        currentRho = calculateDynamicCorrelation(stats[i].simuladoStats.history, stats[j].simuladoStats.history, currentRho);
-                    }
-
-                    matrix[i][j] = currentRho * sdI * sdJ; // Covariância
+            if (stats[i]?.simuladoStats?.history && stats[j]?.simuladoStats?.history) {
+                currentRho = calculateDynamicCorrelation(stats[i].simuladoStats.history, stats[j].simuladoStats.history, currentRho);
             }
+
+            const covariance = currentRho * sdI * sdJ;
+            matrix[i][j] = covariance; 
+            matrix[j][i] = covariance; // Espelho simétrico, poupa dupla iteração.
         }
     }
     return matrix;

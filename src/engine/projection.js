@@ -266,12 +266,18 @@ export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast 
 // -----------------------------
 // Drift Clampeado
 // -----------------------------
-export function calculateSlope(trend, options = {}) {
+export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options = {}) {
+    if (Array.isArray(trendOrHistory)) {
+        const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
+        const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
+        return calculateAdaptiveSlope(trendOrHistory, maxScore, opts);
+    }
+
     // Tetos estatísticos ajustados conforme plano de implementação
     const absoluteMax = 0.4; 
     const baseLimit = 0.4;   
     
-    let slope = trend;
+    let slope = Number(trendOrHistory) || 0;
     
     // Clamp absoluto
     if (slope > absoluteMax) slope = absoluteMax;
@@ -283,7 +289,7 @@ export function calculateSlope(trend, options = {}) {
 
 export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
     const trend = calculateTrend(history);
-    return calculateSlope(trend, options);
+    return calculateSlope(trend, maxScore, options);
 }
 
 // -----------------------------

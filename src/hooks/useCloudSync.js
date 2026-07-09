@@ -133,7 +133,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 // a ordem das propriedades das tarefas divergir entre ambientes.
                 // BUG FIX: Tarefas não têm t.name ou t.score! Usar t.text/t.title e t.priority.
                 winner.tasks = Array.from(new Map(
-                    mergedTasks.map(t => [t.id || `${t.text || t.title || ''}-${t.priority || ''}`, t])
+                    mergedTasks.map((t, idx) => [t.id || `${t.text || t.title || ''}-${t.priority || ''}-${idx}`, t])
                 ).values());
                 
                 if (winner.simuladoStats) {
@@ -729,7 +729,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 } catch(err) { logger.warn('[Sync] Beacon error:', err); }
             }
 
-            performEmergencySync();
+            // REMOVIDO: performEmergencySync(); 
+            // Os browsers trucidam Promises geradas na desmontagem. Confiamos agora unicamente no Beacon API.
         };
 
         window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -779,11 +780,23 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             let lastError = null;
 
             // Helper to prevent Firebase SDK hanging indefinitely on mobile network drops
+            // FIX 3.3: Prevenção da Condição de Corrida no syncToCloud
+            // O Promise.race não interrompe a escrita subjacente do Firebase. 
+            // Esta abordagem anula bloqueios de estado e delega a fila offline nativamente ao SDK.
             const setDocWithTimeout = (docRef, data, timeoutMs = 15000) => {
-                return Promise.race([
-                    setDoc(docRef, data),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs))
-                ]);
+                return new Promise((resolve, reject) => {
+                    let isResolved = false;
+                    const timer = setTimeout(() => {
+                        isResolved = true;
+                        reject(new Error('timeout_ignore_queue'));
+                    }, timeoutMs);
+
+                    setDoc(docRef, data).then(() => {
+                        if (!isResolved) { clearTimeout(timer); resolve(); }
+                    }).catch(err => {
+                        if (!isResolved) { clearTimeout(timer); reject(err); }
+                    });
+                });
             };
 
             setInternalSyncing(true);

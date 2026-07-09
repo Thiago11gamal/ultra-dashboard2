@@ -54,6 +54,11 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     });
     
     const contest = useAppStore(state => state.appState?.contests?.[activeId]);
+    
+    // FIX 4: Extração reativa no nível principal para que mudanças na UI acionem recálculos.
+    const examDurationMinutes = useAppStore(state => state.appState?.contests?.[activeId]?.examDurationMinutes || 240);
+    const defaultExamTotalQuestions = useAppStore(state => state.appState?.contests?.[activeId]?.examTotalQuestions || 100);
+
     const rawSimuladoRows = useMemo(() => {
         if (propSimuladoRows) return propSimuladoRows;
         return (contest?.simuladoRows) || [];
@@ -287,12 +292,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     });
                     const globalAvgSeconds = totalGlobalTimedQuestions > 0 ? (totalGlobalTimeSpent / totalGlobalTimedQuestions) : 0;
                     
-                    const store = useAppStore.getState();
-                    const activeId = store.appState?.activeId;
-                    const cData = store.appState?.contests?.[activeId];
-                    const defaultExamTotalQuestions = cData?.examTotalQuestions || 100;
-                    const examDurationMinutes = cData?.examDurationMinutes || 240;
-                    
                     const projectedTotalTimeSeconds = defaultExamTotalQuestions * globalAvgSeconds;
 
                     result = await runAnalysis({
@@ -473,7 +472,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             cancelled = true;
             clearTimeout(timerId);
         };
-    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs, dynamicSimulations, modelWeight, rawSimuladoRows, statsData?.estimatedRho]);
+    // FIX 4: Na dependência final do useEffect cego, anexar os observadores:
+    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs, dynamicSimulations, modelWeight, rawSimuladoRows, statsData?.estimatedRho, examDurationMinutes, defaultExamTotalQuestions]);
  
     const probabilityData = useMemo(() => {
         const rawProbability = simulationData?.data?.probability ?? 0;

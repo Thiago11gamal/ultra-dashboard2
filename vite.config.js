@@ -58,8 +58,10 @@ export default defineConfig({
 
   // ─── VITEST ───────────────────────────────────────────────────────────────
   test: {
-    environment: 'node',        // engine puro — sem DOM
-    globals: true,              // describe/it/expect sem import
+    // FIX 6: Transição para jsdom, libertando o acesso a APIs de browser (window, document)
+    // requeridas imperativamente por ficheiros 'src/**/*.test.jsx' que testam componentes React.
+    environment: 'jsdom',        
+    globals: true,              
     include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'src/**/*.spec.js', 'tests/**/*.test.js'],
     globalTeardown: './tests/teardown.js',
     coverage: {

@@ -154,22 +154,25 @@ export const calcSlopeWithSignificance = (dados) => {
     if (!Array.isArray(dados)) return { slope: 0, se: 0, tStat: 0 };
 
     const n = dados.length;
-    
-    // N < 3 não tem graus de liberdade (df = n-2) para calcular erro padrão
     if (n < 3) return { slope: 0, se: 0, tStat: 0 };
     
-    // CORREÇÃO: Blindagem estrita de tipo para evitar concatenação destrutiva de strings no somatório
-    const Xs = dados.map((d, i) => {
+    // Extração bruta
+    const rawXs = dados.map((d, i) => {
         const rawX = (d && typeof d === 'object' && d.x !== undefined) ? d.x : i;
         const x = Number(rawX);
         return Number.isFinite(x) ? x : i;
     });
+    
     const Ys = dados.map(d => {
         const val = typeof d === 'number' ? d : (d && typeof d === 'object' ? d.y : 0);
         return Number.isFinite(Number(val)) ? Number(val) : 0;
     });
+
+    // FIX 1: Centralização dos eixos X (Mean Centering) para anular a perda de precisão
+    // em matrizes de ponto flutuante durante a elevação ao quadrado de datas gigantes.
+    const minX = Math.min(...rawXs);
+    const Xs = rawXs.map(x => x - minX);
     
-    // Use Kahan for precise accumulation in regression (improved precision)
     const sumX = kahanSum(Xs);
     const sumY = kahanSum(Ys);
     const sumXY = kahanSum(Xs.map((x, i) => x * Ys[i]));
@@ -185,7 +188,7 @@ export const calcSlopeWithSignificance = (dados) => {
     const ssRes = kahanSum(Ys.map((y, i) => Math.pow(y - predYs[i], 2)));
     const ssX = kahanSum(Xs.map(x => Math.pow(x - meanX, 2)));
     
-    const varRes = ssRes / (n - 2); // Variância residual
+    const varRes = ssRes / (n - 2);
     const seSlope = ssX > 0 ? Math.sqrt(varRes / ssX) : 0;
     const tStat = seSlope > 0 ? slope / seSlope : 0;
     
