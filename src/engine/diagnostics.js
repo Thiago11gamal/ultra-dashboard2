@@ -470,6 +470,7 @@ export function computeLearningVelocity(history, maxScore = 100) {
 
   // CORREÇÃO: Alinhado o teto de crescimento potencial ao platô assintótico calculado, 
   // impedindo que alunos avançados estáveis sejam marcados incorretamente como "Lentos".
+  const currentScore = data[data.length - 1].y;
   const roomToGrow = Math.max(1, plateauEst - currentScore);
   const relativeVelocity = vPerMonth / roomToGrow;
 

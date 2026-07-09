@@ -398,7 +398,7 @@ export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
                 if (!Number.isFinite(L[k][k]) || L[k][k] <= 0) { ok = false; break; }
             }
             if (ok) return psdMatrix;
-        } catch (e) {
+        } catch {
             // continue to next attempt
         }
     }

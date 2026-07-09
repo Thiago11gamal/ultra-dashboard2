@@ -87,12 +87,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         pomodoroBreak: toPositiveMinutes(settings?.pomodoroBreak, 5),
         pomodoroLongBreak: toPositiveMinutes(settings?.pomodoroLongBreak, 15),
         soundEnabled: settings?.soundEnabled ?? true
-    }), [
-        settings?.pomodoroWork, 
-        settings?.pomodoroBreak, 
-        settings?.pomodoroLongBreak, 
-        settings?.soundEnabled
-    ]);
+    }), [settings]);
 
     const [savedState] = useState(() => {
         if (typeof window === 'undefined') return null;

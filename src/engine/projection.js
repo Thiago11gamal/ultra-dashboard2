@@ -279,7 +279,6 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
 
     // Tetos estatísticos ajustados conforme plano de implementação
     const absoluteMax = 0.4; 
-    const baseLimit = 0.4;   
     
     let slope = Number(trendOrHistory) || 0;
     
@@ -402,7 +401,6 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     } else {
         let trend = calculateTrend(sortedHistory);
         let linearSlope = calculateSlope(trend, options);
-        let finalProjectedRaw;
         
         // Removemos a mistura corrompida. O EMA continuará a usar o `linearSlope`
         // para projetar o futuro no Random Walk.
@@ -776,7 +774,6 @@ export function monteCarloSimulation(
     // CORREÇÃO GC THRASHING: Alocação estática fora do loop de Monte Carlo
     const choleskySize = cutoffSubjects.length;
     const zVecStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
-    const zCorrStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
 
     for (let i = 0; i < safeSimulations; i++) {
         // CORREÇÃO: O truncamento normal tem de respeitar o driftLimit dinâmico e não hardcodes de 1%.

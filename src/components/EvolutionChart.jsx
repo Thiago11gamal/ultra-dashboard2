@@ -185,13 +185,12 @@ export default function EvolutionChart({
     }, [rawCategories]);
 
     const [activeEngine, setActiveEngine] = useState("bayesian");
-    const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
+    const [selectedSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
+    
     // Ensure focusSubjectId is valid when categories update (avoid stale/undefined focus)
-    useEffect(() => {
-        if (!categories || categories.length === 0) return;
-        const exists = focusSubjectId && categories.some(c => c.id === focusSubjectId);
-        if (!exists) setFocusSubjectId(categories[0].id);
-    }, [categories, focusSubjectId]);
+    const focusSubjectId = (categories && categories.some(c => c.id === selectedSubjectId)) 
+        ? selectedSubjectId 
+        : categories?.[0]?.id;
     
 
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado

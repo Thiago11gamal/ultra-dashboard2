@@ -29,7 +29,7 @@ function quickselect(arr, k, left = 0, right = arr.length - 1) {
     }
     return arr[k];
 }
-import { kahanMean, kahanSum } from './math/kahan.js';
+import { kahanSum } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';

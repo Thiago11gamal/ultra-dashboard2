@@ -1,24 +1,13 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
-import { 
-    computeCategoryStats, 
-    computeBayesianLevel, 
-    computeWeightedVariance, 
-    calculateVolatility, 
-    getAdaptiveInterSubjectCorrelation,
-    computeHierarchicalAdjustment
-} from '../engine';
+
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
 import { computeNonLinearTrend } from '../engine/projection';
-import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
+
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { normalCDF_complement } from '../engine/math/gaussian';
-import { 
-    getConfidenceMultiplier, 
-    winsorizeSeries, 
-    computeAdaptiveSignal 
-} from '../utils/adaptiveMath.js';
+
 import { shrinkProbabilityToNeutral, recordPredictionEvent, backfillObservedFromSimulados, computeCalibrationSummary } from '../utils/calibration.js';
 import { 
     getConfidenceTier, 
@@ -34,7 +23,7 @@ import {
     MAX_CALIBRATION_PENALTY,
     CALIBRATION_LAMBDA_DAYS,
     sanitizeWeightUnit,
-    getHistoryDate,
+
     regularizeVolatility,
     computeCalibrationPenalty,
     generateAnalyticsStats
