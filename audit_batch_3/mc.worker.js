@@ -4,15 +4,14 @@ import { resetGaussianCache } from './math/gaussian.js';
 
 // FIX APLICADO: Remove default parameters para respeitar passagem explícita de `undefined`.
 function safeNum(val, fallback) {
-    // CORREÇÃO: Se o fallback explícito for undefined, mas o motor a jusante exigir 
-    // um número real sob pena de quebra (NaN), convertemos para 0 absoluto de segurança.
-    const targetFallback = arguments.length > 1 ? fallback : 0;
-    const cleanFallback = targetFallback === undefined ? 0 : targetFallback;
+    // Se nenhum fallback foi passado na chamada, usamos 0.
+    // Caso contrário, respeitamos o que foi passado, mesmo que seja undefined.
+    const fb = arguments.length > 1 ? fallback : 0;
     
-    if (val === undefined || val === null) return cleanFallback;
+    if (val === undefined || val === null) return fb;
     
     const num = Number(val);
-    return Number.isFinite(num) ? num : cleanFallback;
+    return Number.isFinite(num) ? num : fb;
 }
 
 function sanitizeHistory(history) {
@@ -50,13 +49,7 @@ function sanitizeOptions(options) {
 
 self.onmessage = function(e) {
     const { type, payload, id } = e.data;
-    
-    // CORREÇÃO: Removemos a limpeza global indiscriminada que causava colisões 
-    // entre promessas paralelas de disciplinas distintas. O reset agora é contido.
-    if (typeof resetGaussianCache === 'function') {
-        resetGaussianCache(); 
-    }
-    
+    resetGaussianCache(); // Limpar a cache gaussiana ao iniciar um novo ciclo para garantir determinismo
     try {
         let result;
         if (type === 'runMonteCarloAnalysis') {
@@ -70,9 +63,9 @@ self.onmessage = function(e) {
                     targetScore: input.targetScore !== undefined ? safeNum(input.targetScore, 0) : undefined,
                     simulations: safeNum(input.simulations, 5000),
                     projectionDays: safeNum(input.projectionDays, 90),
-                    forcedVolatility: input.forcedVolatility !== undefined ? safeNum(input.forcedVolatility, 0) : undefined,
-                    forcedBaseline: input.forcedBaseline !== undefined ? safeNum(input.forcedBaseline, 0) : undefined,
-                    currentMean: input.currentMean !== undefined ? safeNum(input.currentMean, 0) : undefined,
+                    forcedVolatility: input.forcedVolatility !== undefined ? safeNum(input.forcedVolatility, undefined) : undefined,
+                    forcedBaseline: input.forcedBaseline !== undefined ? safeNum(input.forcedBaseline, undefined) : undefined,
+                    currentMean: input.currentMean !== undefined ? safeNum(input.currentMean, undefined) : undefined,
                     minScore: input.minScore !== undefined ? safeNum(input.minScore, 0) : undefined,
                     maxScore: input.maxScore !== undefined ? safeNum(input.maxScore, 100) : undefined,
                     historicalCutoffs: input.historicalCutoffs !== undefined ? (Array.isArray(input.historicalCutoffs) ? input.historicalCutoffs.map(Number).filter(Number.isFinite) : []) : undefined,
@@ -128,16 +121,17 @@ self.onmessage = function(e) {
             const bayesianCI = payload.bayesianCI ? {
                 ciLow: safeNum(payload.bayesianCI.ciLow, 0),
                 ciHigh: safeNum(payload.bayesianCI.ciHigh, 100),
-                unclampedLow: payload.bayesianCI.unclampedLow !== undefined ? safeNum(payload.bayesianCI.unclampedLow, 0) : undefined,
-                unclampedHigh: payload.bayesianCI.unclampedHigh !== undefined ? safeNum(payload.bayesianCI.unclampedHigh, 100) : undefined,
+                unclampedLow: payload.bayesianCI.unclampedLow !== undefined ? safeNum(payload.bayesianCI.unclampedLow, undefined) : undefined,
+                unclampedHigh: payload.bayesianCI.unclampedHigh !== undefined ? safeNum(payload.bayesianCI.unclampedHigh, undefined) : undefined,
                 n: payload.bayesianCI.n !== undefined ? safeNum(payload.bayesianCI.n, 1) : undefined,
             } : undefined;
 
+            // BUG-FIX: Sanitize subjects array to prevent NaN/Infinity from corrupting the simulation.
             const sanitizedSubjects = Array.isArray(payload.subjects)
                 ? payload.subjects.map(s => ({
                     name: s?.name ? String(s.name) : undefined,
                     mean: safeNum(s?.mean, 0),
-                    sd: Math.max(0.01, safeNum(s?.sd, 1)), // Piso de proteção contra desvio zero
+                    sd: Math.max(0, safeNum(s?.sd, 1)),
                     minCutoff: safeNum(s?.minCutoff, 0),
                     maxScore: safeNum(s?.maxScore, 100),
                     minScore: safeNum(s?.minScore, 0)

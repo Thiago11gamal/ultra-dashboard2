@@ -106,19 +106,16 @@ export function detectDataAnomalies(history = [], maxScore = 100) {
     }
   }
 
-  // CORREÇÃO: Ordenar uma cópia temporal para evitar falsos positivos de "gaps negativos" 
-  // quando os dados estão apenas desordenados no array de entrada, mudando para aviso de ordenação.
+  // 4. Date anomalies: future dates or negative gaps (impossible)
+  // FIX: Remover .sort() para poder detetar gaps negativos reais no histórico cronológico inserido
   const times = finites.map(p => p.t).filter(t => t != null);
   if (times.length >= 2) {
-    let unsortedGaps = 0;
-    for (let i = 1; i < times.length; i++) {
-      if (times[i] < times[i - 1]) unsortedGaps++;
+    let negGaps = 0;
+    for (let i=1; i<times.length; i++) {
+      if (times[i] < times[i-1]) negGaps++;
     }
-    if (unsortedGaps > 0) {
-      issues.push({ type: 'data', severity: 'info', msg: `${unsortedGaps} registros inseridos fora de ordem cronológica (serão ordenados internamente).`, count: unsortedGaps });
-    }
+    if (negGaps > 0) issues.push({ type: 'data', severity: 'error', msg: `${negGaps} registros com datas fora de ordem (gaps negativos).`, count: negGaps });
   }
-  
   const future = finites.filter(p => p.t && p.t > Date.now() + 86400000*2).length; // allow slight clock skew
   if (future > 0) issues.push({ type: 'data', severity: 'warning', msg: `${future} registros com data futura.`, count: future });
 
@@ -340,12 +337,13 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
     }
 
     if (pct >= dynamicSuccessThreshold) {
+      // Crescimento FSRS-Lite: Reforço forte apenas quando a retenção é baixa.
+      // Se a retenção é alta (ex: 95%), o ganho é ínfimo. Se for baixa (ex: 30%), o ganho é acentuado (~2x).
       const elasticGrowth = 1 + 2 * Math.pow(1 - currentRetention, 2);
       stability *= elasticGrowth;
     } else {
-      // CORREÇÃO: Inversão matemática corrigida. Falhar quando a retenção esperada era ALTA (1.0) 
-      // indica colapso de base (decaimento agressivo de 0.4). Falhar com retenção baixa (0.1) penaliza menos (0.94).
-      const dynamicDecay = Math.max(0.3, 1.0 - (0.6 * currentRetention)); 
+      // currentRetention ∈ [0.1, 1.0]. Recalibrado para varrer [0.3, 1.0] de fato.
+      const dynamicDecay = Math.max(0.3, 0.3 + (0.7 * currentRetention)); 
       stability *= dynamicDecay;
       stability = Math.max(1, stability);
     }
@@ -468,11 +466,12 @@ export function computeLearningVelocity(history, maxScore = 100) {
   let velocityLabel;
   const vPerMonth = velocity * 30;
 
-  // CORREÇÃO: Alinhado o teto de crescimento potencial ao platô assintótico calculado, 
-  // impedindo que alunos avançados estáveis sejam marcados incorretamente como "Lentos".
-  const roomToGrow = Math.max(1, plateauEst - currentScore);
-  const relativeVelocity = vPerMonth / roomToGrow;
+  // 🎯 Calcula a velocidade em "Percentual do Espaço que Faltava" (Growth Potential)
+  const currentScore = data[data.length - 1].y;
+  const roomToGrow = Math.max(1, maxScore - currentScore);
+  const relativeVelocity = vPerMonth / roomToGrow; // Escala Normalizada de Esforço
 
+  // Agora a exigência é dinâmica: fechar 15% do abismo por mês é Acelerado.
   if (relativeVelocity > 0.15) velocityLabel = `Acelerado (Alta Tração Logística)`;
   else if (relativeVelocity > 0.05) velocityLabel = `Constante (Fechando lacunas ativamente)`;
   else if (relativeVelocity > 0.01) velocityLabel = `Lento (Requer revisão de método)`;
@@ -644,10 +643,7 @@ export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {
     for (const h of hist) {
       if (!h?.date) continue;
       const key = String(h.date).slice(0, 7);
-      
-      // CORREÇÃO: Substituição da conversão ingénua pelo extrator oficial resiliente do ecossistema
-      const s = getSafeScore(h, maxScore) / maxScore;
-      
+      const s = Math.max(0, Math.min(maxScore, Number(h.score) || 0)) / maxScore;
       if (!byMonth[key]) byMonth[key] = [];
       byMonth[key].push(s);
     }
