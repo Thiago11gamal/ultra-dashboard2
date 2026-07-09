@@ -1018,6 +1018,7 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
         
         // CORREÇÃO: Aplicar shrinkage também ao SD para consistência com a média ajustada.
         // bayesianSd reflete a incerteza ponderada entre a variância populacional e a individual.
+        const popVar = Math.pow(pooledSD || 15, 2);
         const bayesianSd = Math.sqrt(B * popVar + (1 - B) * Math.pow(localSD, 2));
         
         return {
