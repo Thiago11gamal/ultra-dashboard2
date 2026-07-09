@@ -87,8 +87,12 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         pomodoroBreak: toPositiveMinutes(settings?.pomodoroBreak, 5),
         pomodoroLongBreak: toPositiveMinutes(settings?.pomodoroLongBreak, 15),
         soundEnabled: settings?.soundEnabled ?? true
-    // toPositiveMinutes é estável (nível de módulo), não precisa estar nas deps.
-    }), [settings]);
+    }), [
+        settings?.pomodoroWork, 
+        settings?.pomodoroBreak, 
+        settings?.pomodoroLongBreak, 
+        settings?.soundEnabled
+    ]);
 
     const [savedState] = useState(() => {
         if (typeof window === 'undefined') return null;
@@ -131,10 +135,12 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             return localStorage.getItem('pomodoro_muted') === 'true';
         } catch { return false; }
     });
+    const isMutedRef = useRef(isMuted); // NOVA REF
 
     const toggleMute = () => {
         setIsMuted(prev => {
             const newVal = !prev;
+            isMutedRef.current = newVal; // Atualiza a Ref síncronamente
             try { 
                 localStorage.setItem('pomodoro_muted', String(newVal)); 
                 syncChannel?.postMessage({ type: 'TOGGLE_MUTE', isMuted: newVal, tabId: STABLE_TAB_ID });
@@ -464,6 +470,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
                 case 'TOGGLE_MUTE':
                     setIsMuted(event.data.isMuted);
+                    isMutedRef.current = event.data.isMuted;
                     break;
             }
         };
@@ -538,7 +545,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
         const isManual = source !== 'natural';
 
-        if (source === 'natural' && safeSettings.soundEnabled && !isMuted) {
+        // Em transitionSession, mude de `!isMuted` para `!isMutedRef.current`
+        if (source === 'natural' && safeSettings.soundEnabled && !isMutedRef.current) {
             try { 
                 const playPromise = alarmAudioRef.current?.play();
                 if (playPromise !== undefined) {
@@ -626,7 +634,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 safeOnFullCycleComplete(finalMinutes, source === 'natural');
             }
         }, 50);
-    }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, safeOnFullCycleComplete, onSessionComplete, syncChannel, isTransitioning, isMuted]);
+    }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, safeOnFullCycleComplete, onSessionComplete, syncChannel, isTransitioning]);
 
     // Motor de Animação Blindado e Otimizado (Resiliente a Abas em Segundo Plano)
     // O loop só roda quando isRunning é true, poupando CPU/GPU significativamente.

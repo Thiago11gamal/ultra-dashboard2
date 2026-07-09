@@ -1,4 +1,12 @@
 
+import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
+import { normalizeDate, safeDateParse } from '../utils/dateHelper.js';
+import { calculateSlope } from './projection.js';
+import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
+import { kahanSum, kahanMean } from './math/kahan.js';
+import { computeAdaptiveLambda } from './diagnostics.js';
+import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
+
 export const BAYESIAN_DECAY_FACTOR = 0.985;
 
 // NEW: Multi-timescale decay for better retention modeling
@@ -15,33 +23,27 @@ export function computeImprovedRetentionProbability(historyLength, lastGapDays =
   const blended = 0.6 * shortDecay + 0.4 * longDecay;
   return Math.max(0.15, Math.min(maxAlpha, blended * maxAlpha));
 }
-import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
-import { normalizeDate } from '../utils/dateHelper.js';
-// BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
-import { calculateSlope } from './projection.js';
-import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
-import { kahanSum, kahanMean } from './math/kahan.js';
-import { safeDateParse } from '../utils/dateHelper.js';
-
-import { computeAdaptiveLambda } from './diagnostics.js';
-import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {
     if (!Array.isArray(history)) return [];
-    
-    // OTIMIZAÇÃO DE MEMÓRIA (Schwartzian Transform): 
-    // Evita instanciar objetos Date O(N log N) vezes dentro do .sort()
+
     return history
-        .map(h => ({ 
-            original: h, 
-            time: h && (h.date || h.createdAt) ? safeDateParse(h.date || h.createdAt).getTime() : NaN 
-        }))
+        .map((h, index) => {
+            // Suporte para arrays puramente numéricos (Polimorfismo)
+            if (typeof h === 'number') {
+                return { original: h, time: index }; // Usa o index cronológico base
+            }
+            const t = h && (h.date || h.createdAt) ? safeDateParse(h.date || h.createdAt).getTime() : NaN;
+            return { 
+                original: h, 
+                time: Number.isFinite(t) ? t : index // Fallback seguro
+            };
+        })
         .filter(item => !Number.isNaN(item.time))
         .sort((a, b) => {
             if (a.time !== b.time) return a.time - b.time;
-            // Desempate determinístico
-            return (a.original.id || "").localeCompare(b.original.id || "");
+            return (a.original?.id || "").localeCompare(b.original?.id || "");
         })
         .map(item => item.original);
 }
@@ -95,6 +97,10 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
 
     const now = options.referenceDate || Date.now();
+    
+    // OTIMIZAÇÃO: Cache do tempo do elemento zero (Marco Zero Temporal)
+    const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt).getTime();
+
     // Kahan summation imperativo (Inline Performance Pura) - [BUG-MEMORY-01 FIX]
     let sumW = 0, cW = 0;
     let sumWX = 0, cWX = 0;
@@ -119,10 +125,8 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         const rawWeight = Math.exp(-lambda * t);
         const w = Math.max(EPSILON_WEIGHT, rawWeight);
 
-        // FIX #6: Removido hack de jitter (processedIdx * 1e-5).
-        // Usar tempo puro em dias. A ridge penalty já estabiliza matrizes singulares
-        // ou com x duplicados. O desempate temporal fica por conta do sort estável em getSortedHistory.
-        const x = ((safeDateParse(hDate).getTime() - safeDateParse(sorted[0].date || sorted[0].createdAt).getTime()) / 86400000);
+        // Utilizando o t0 cacheado (Evita O(N) execuções de safeDateParse)
+        const x = (timeMs - t0) / 86400000;
 
         // Kahan summation imperativo para evitar O(N) alocações de map
         const yW = w - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
@@ -469,6 +473,11 @@ export function computeBayesianLevel(
 
     const globalEmpiricalPrior = _computeEmpiricalPrior(historySortedForGaps, safeMaxScore, options);
 
+    // 1. Calcule o avgTotal UMA ÚNICA VEZ antes de entrar no loop do histórico
+    const avgTotal = history && history.length > 0 
+        ? (kahanSum(history.map(hh => Number(hh.total) || 20)) / history.length) 
+        : getSyntheticTotal(safeMaxScore);
+
     if (history && history.length > 0) {
         const sortedHistory = historySortedForGaps;
         
@@ -537,12 +546,7 @@ export function computeBayesianLevel(
             // Acertos em questões difíceis pesam mais na subida do nível.
             const itemWeight = Math.max(0.001, Number(h.weight || h.difficulty || 1.0));
             
-            // FIX #5: Synthetic N mais inteligente
-            // Em vez de fixo em 20, usa média dos totais reais do histórico quando disponível.
-            // Isso evita sub ou superestimar "equivalente de questões" para entradas de % pura.
-            const avgTotal = history.length > 0 
-                ? (kahanSum(history.map(hh => Number(hh.total) || 20)) / history.length) 
-                : getSyntheticTotal(safeMaxScore);
+            // FIX #5: Synthetic N mais inteligente (Agora cacheado em O(1))
             
             const stepCap = dynamicAlphaCap; // O limite cognitivo vivo
 
@@ -841,11 +845,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     // que o último ponto (lastScore) é matematicamente viável e não corrompe a regressão.
     const validHistoryForTrend = historyToUse.filter(h => !Number.isNaN(getSafeScore(h, safeMaxScore)));
     
-    const sortedForTrendCap = [...validHistoryForTrend].sort((a, b) => {
-        const timeA = safeDateParse(a.date || a.createdAt).getTime();
-        const timeB = safeDateParse(b.date || b.createdAt).getTime();
-        return (Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0);
-    });
+    const sortedForTrendCap = getSortedHistory(validHistoryForTrend);
     
     const lastScore = sortedForTrendCap.length > 0
         ? getSafeScore(sortedForTrendCap[sortedForTrendCap.length - 1], safeMaxScore)

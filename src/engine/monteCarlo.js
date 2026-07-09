@@ -92,13 +92,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         sd = meanOrObj.sd ?? sd;
         targetScore = meanOrObj.targetScore ?? targetScore;
         simulations = meanOrObj.simulations ?? simulations;
-    // NEW: auto-adapt number of simulations for better convergence when not explicitly provided
-    if (!meanOrObj?.simulations && !simulations) {
-      const roughProb = Math.max(0.1, Math.min(0.9, (currentMean || mean || 70) / 100));
-      simulations = recommendSimulationCount(roughProb);
-    }
         seed = meanOrObj.seed ?? seed;
-        currentMean = meanOrObj.currentMean ?? currentMean;
+        currentMean = meanOrObj.currentMean ?? currentMean; // Agora é lido corretamente!
         categoryName = meanOrObj.categoryName ?? categoryName;
         bayesianCI = meanOrObj.bayesianCI ?? bayesianCI;
         minScore = meanOrObj.minScore ?? minScore;
@@ -106,6 +101,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         historyLength = meanOrObj.historyLength ?? 0;
         subjects = meanOrObj.subjects ?? [];
         historicalCutoffs = meanOrObj.historicalCutoffs ?? [];
+    }
+
+    // NEW: auto-adapt number of simulations for better convergence when not explicitly provided
+    if (!meanOrObj?.simulations && !simulations) {
+        const roughProb = Math.max(0.1, Math.min(0.9, (currentMean || mean || 70) / 100));
+        simulations = recommendSimulationCount(roughProb);
     }
 
     const safeDomain = sanitizeDomain(minScore, maxScore);
