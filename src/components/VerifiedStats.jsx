@@ -148,7 +148,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const sdBarGlow = colorClasses.shadow;
 
     return (
-        <div className={`grid grid-cols-[1fr_auto_100px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] overflow-hidden ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
+        <div className={`grid grid-cols-[1fr_auto_100px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
             <div className="col-span-1 md:col-span-3 flex items-center gap-2 min-w-0">
                 <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${getColorClasses(safeColor).bgSolid}`} />
                 <span className="text-xs sm:text-sm font-bold text-slate-200 break-words line-clamp-2">{cat.name}</span>
@@ -175,11 +175,11 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
                     <span className="text-[10px] font-bold text-slate-600">—</span>
                 )}
             </div>
-            <div className="hidden md:flex md:col-span-2 flex-col justify-center gap-0.5 min-w-0 pr-1">
+            <div className="hidden md:flex md:col-span-2 flex-col justify-center gap-0.5 min-w-0 pr-3">
                 {cat.villains && cat.villains.length > 0 ? (
                     cat.villains.slice(0, 2).map((v) => (
-                        <div key={v.name} className="flex items-center justify-between gap-1 text-[12px] leading-tight min-h-[14px] w-full px-1">
-                            <span className="text-slate-400 truncate font-semibold" title={v.name}>{v.name}</span>
+                        <div key={v.name} className="flex items-center justify-between gap-1 text-[12px] leading-tight min-h-[14px] w-full min-w-0 px-1">
+                            <span className="text-slate-400 truncate font-semibold min-w-0" title={v.name}>{v.name}</span>
                             <span className="text-red-400 font-mono font-black shrink-0">±{v.sd.toFixed(0)}</span>
                         </div>
                     ))
