@@ -495,7 +495,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             clearTimeout(timerId);
         };
     // FIX 4: Na dependência final do useEffect cego, anexar os observadores:
-    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs, dynamicSimulations, modelWeight, rawSimuladoRows, statsData?.estimatedRho, examDurationMinutes, defaultExamTotalQuestions]);
+    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs, dynamicSimulations, modelWeight, rawSimuladoRows, statsData?.estimatedRho, examDurationMinutes, defaultExamTotalQuestions, flashcardDecks]);
  
     const probabilityData = useMemo(() => {
         const rawProbability = simulationData?.data?.probability ?? 0;

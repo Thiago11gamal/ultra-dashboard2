@@ -508,7 +508,7 @@ export function monteCarloSimulation(
     simulations = 5000,
     options = {}
 ) {
-    const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean, minScore = 0, maxScore = 100, scenario = 'base' } = options;
+    const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean, minScore = 0, maxScore = 100, scenario = 'base', flashcardImmunity = 1.0 } = options;
     const scenarioCfg = SCENARIO_CONFIG[scenario] || SCENARIO_CONFIG.base;
     const sortedHistory = getSortedHistory(history);
     const safeSimulations = Math.max(1, simulations);
@@ -650,6 +650,11 @@ export function monteCarloSimulation(
         volatility = volatility * (1 + safePenalty * 1.5);
     }
 
+    // NEW: Flashcard Immunity Shield — reduz volatilidade global no caminho de projeção
+    if (flashcardImmunity < 1.0) {
+        volatility = volatility * Math.max(0.80, flashcardImmunity);
+    }
+
     const scoreRangeOU = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
     const normalizedVolOU = (volatility / scoreRangeOU) * 100;
     
@@ -748,7 +753,9 @@ export function monteCarloSimulation(
     const cutoffSubjects = (options.subjects || []).filter(s => s && Number(s.minCutoff) > 0);
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
-      const stats = cutoffSubjects.map(s => ({ sd: Number(s.sd) || 1 }));
+      const stats = cutoffSubjects.map(s => ({
+          sd: (Number(s.sd) || 1) * Math.max(0.80, s.immunityFactor || 1.0)
+      }));
       
       // FIX APLICADO: Utilizando cutoffSubjects para resgatar os nomes corretamente
       const adaptiveRhoContext = options?.simuladoRows ? { 
@@ -872,7 +879,8 @@ export function monteCarloSimulation(
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    const subjScore = sampleTruncatedNormal(s.mean, s.sd, sMin, sMax, rng);
+                    const effSd = s.sd * Math.max(0.80, s.immunityFactor || 1.0);
+                    const subjScore = sampleTruncatedNormal(s.mean, effSd, sMin, sMax, rng);
                     if (subjScore < s.minCutoff) {
                         passedMins = false;
                         break;
