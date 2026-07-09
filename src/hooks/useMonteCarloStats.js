@@ -17,6 +17,8 @@ import {
     validatePrediction
 } from '../utils/explanationEngine.js';
 
+import { getFlashcardImmunity } from '../utils/analytics.js';
+
 import {
     VOLATILITY_REGULARIZATION_FACTOR,
     INFORMATIVE_PRIOR_MAX_STRENGTH,
@@ -37,6 +39,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
     const mcHistory = useAppStore(state => state.appState?.contests?.[activeId]?.monteCarloHistory || EMPTY_ARRAY);
+    const flashcardDecks = useAppStore(state => state.appState?.contests?.[activeId]?.flashcardDecks || EMPTY_ARRAY);
     const historicalCutoffs = useAppStore(state => {
         const arr = state.appState?.contests?.[activeId]?.historicalCutoffs;
         return Array.isArray(arr) ? arr : EMPTY_ARRAY;
@@ -251,6 +254,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         let cancelled = false;
         const isFuture = projectDays > 0;
  
+        const { globalImmunityFactor, subjectImmunityMap } = getFlashcardImmunity(flashcardDecks);
+
         // Mecanismo de Throttling/Debouncing (150ms) para proteger contra re-execuções excessivas em tempo real
         const doAnalysis = async () => {
             try {
@@ -259,13 +264,19 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     const domain = maxScore - minScore;
                     const regularizedSD = regularizeVolatility(pureStatsData.dailySD, projectDays, pureStatsData.globalHistory.length, domain);
  
-                    const subjectsOpts = pureStatsData.categoryStats.map(c => ({
-                        mean: c.bayesianMean ?? c.mean,
-                        sd: c.volatility ?? c.sd,
-                        minCutoff: c.minCutoff || 0,
-                        maxScore: c.maxScore || maxScore,
-                        minScore: minScore
-                    }));
+                    const subjectsOpts = pureStatsData.categoryStats.map(c => {
+                        const subjName = c.name || c.key || '';
+                        const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+                        return {
+                            name: subjName,
+                            mean: c.bayesianMean ?? c.mean,
+                            sd: c.volatility ?? c.sd,
+                            minCutoff: c.minCutoff || 0,
+                            maxScore: c.maxScore || maxScore,
+                            minScore: minScore,
+                            immunityFactor: immunity
+                        };
+                    });
 
                     // FEAT: Time Penalty Injection
                     let totalGlobalTimeSpent = 0;
@@ -296,16 +307,23 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         maxScore,
                         subjects: subjectsOpts,
                         projectedTotalTimeSeconds,
-                        examDurationMinutes
+                        examDurationMinutes,
+                        flashcardImmunity: globalImmunityFactor
                     });
                 } else {
-                    const subjectsOpts = pureStatsData.categoryStats.map(c => ({
-                        mean: c.bayesianMean ?? c.mean,
-                        sd: c.bayesianSd ?? c.sd,
-                        minCutoff: c.minCutoff || 0,
-                        maxScore: c.maxScore || maxScore,
-                        minScore: minScore
-                    }));
+                    const subjectsOpts = pureStatsData.categoryStats.map(c => {
+                        const subjName = c.name || c.key || '';
+                        const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+                        return {
+                            name: subjName,
+                            mean: c.bayesianMean ?? c.mean,
+                            sd: c.bayesianSd ?? c.sd,
+                            minCutoff: c.minCutoff || 0,
+                            maxScore: c.maxScore || maxScore,
+                            minScore: minScore,
+                            immunityFactor: immunity
+                        };
+                    });
 
                     result = await runAnalysis(pureStatsData.bayesianMean, pureStatsData.pooledSD, debouncedTarget, {
                         simulations: dynamicSimulations,
@@ -314,6 +332,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         minScore,
                         maxScore,
                         subjects: subjectsOpts,
+                        flashcardImmunity: globalImmunityFactor
                     });
                 }
  
@@ -370,13 +389,19 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         : pureStatsData.dailySD;
 
                     if (isFuture && pureStatsData.globalHistory?.length > 0) {
-                        const subjectsOpts = pureStatsData.categoryStats.map(c => ({
-                            mean: c.bayesianMean ?? c.mean,
-                            sd: c.volatility ?? c.sd,
-                            minCutoff: c.minCutoff || 0,
-                            maxScore: c.maxScore || maxScore,
-                            minScore: minScore
-                        }));
+                        const subjectsOpts = pureStatsData.categoryStats.map(c => {
+                            const subjName = c.name || c.key || '';
+                            const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+                            return {
+                                name: subjName,
+                                mean: c.bayesianMean ?? c.mean,
+                                sd: c.volatility ?? c.sd,
+                                minCutoff: c.minCutoff || 0,
+                                maxScore: c.maxScore || maxScore,
+                                minScore: minScore,
+                                immunityFactor: immunity
+                            };
+                        });
 
                         result = runMonteCarloAnalysis({
                             values: pureStatsData.globalHistory.map(h => h.score),
@@ -392,16 +417,23 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             subjects: subjectsOpts,
                             // Pass for adaptive rho
                             simuladoRows: rawSimuladoRows,
-                            categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key)
+                            categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key),
+                            flashcardImmunity: globalImmunityFactor
                         });
                     } else {
-                        const subjectsOpts = pureStatsData.categoryStats.map(c => ({
-                            mean: c.bayesianMean ?? c.mean,
-                            sd: c.bayesianSd ?? c.sd,
-                            minCutoff: c.minCutoff || 0,
-                            maxScore: c.maxScore || maxScore,
-                            minScore: minScore
-                        }));
+                        const subjectsOpts = pureStatsData.categoryStats.map(c => {
+                            const subjName = c.name || c.key || '';
+                            const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+                            return {
+                                name: subjName,
+                                mean: c.bayesianMean ?? c.mean,
+                                sd: c.bayesianSd ?? c.sd,
+                                minCutoff: c.minCutoff || 0,
+                                maxScore: c.maxScore || maxScore,
+                                minScore: minScore,
+                                immunityFactor: immunity
+                            };
+                        });
 
                         result = runMonteCarloAnalysis({
                             mean: pureStatsData.bayesianMean,
@@ -416,7 +448,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             maxScore,
                             // For adaptive correlation
                             simuladoRows: rawSimuladoRows,
-                            categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key)
+                            categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key),
+                            flashcardImmunity: globalImmunityFactor
                         });
                     }
                     if (result) {

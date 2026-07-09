@@ -76,6 +76,7 @@ self.onmessage = function(e) {
                     minScore: input.minScore !== undefined ? safeNum(input.minScore, 0) : undefined,
                     maxScore: input.maxScore !== undefined ? safeNum(input.maxScore, 100) : undefined,
                     historicalCutoffs: input.historicalCutoffs !== undefined ? (Array.isArray(input.historicalCutoffs) ? input.historicalCutoffs.map(Number).filter(Number.isFinite) : []) : undefined,
+                    flashcardImmunity: input.flashcardImmunity !== undefined ? safeNum(input.flashcardImmunity, 1.0) : undefined,
                 };
                 result = runMonteCarloAnalysis(sanitizedInput);
             } else if (Array.isArray(payload.inputOrMean)) {
@@ -104,7 +105,8 @@ self.onmessage = function(e) {
                     maxScore: safeNum(options.maxScore, 100),
                     historyLength: (options.history || []).length,
                     subjects: options.subjects,
-                    historicalCutoffs: options.historicalCutoffs
+                    historicalCutoffs: options.historicalCutoffs,
+                    flashcardImmunity: options.flashcardImmunity
                 });
             }
         } else if (type === 'monteCarloSimulation') {
@@ -140,7 +142,8 @@ self.onmessage = function(e) {
                     sd: Math.max(0.01, safeNum(s?.sd, 1)), // Piso de proteção contra desvio zero
                     minCutoff: safeNum(s?.minCutoff, 0),
                     maxScore: safeNum(s?.maxScore, 100),
-                    minScore: safeNum(s?.minScore, 0)
+                    minScore: safeNum(s?.minScore, 0),
+                    immunityFactor: safeNum(s?.immunityFactor, 1.0)
                 }))
                 : undefined;
 
@@ -158,6 +161,7 @@ self.onmessage = function(e) {
                 historyLength: safeNum(payload.historyLength, 0),
                 subjects: sanitizedSubjects,
                 historicalCutoffs: payload.historicalCutoffs !== undefined ? (Array.isArray(payload.historicalCutoffs) ? payload.historicalCutoffs.map(Number).filter(Number.isFinite) : []) : undefined,
+                flashcardImmunity: payload.flashcardImmunity !== undefined ? safeNum(payload.flashcardImmunity, 1.0) : undefined,
             });
         } else {
             self.postMessage({ id, type: 'error', error: `Tipo de mensagem desconhecido: ${type}` });

@@ -828,6 +828,50 @@ export function getFlashcardMasteryPct(decks = []) {
   return total > 0 ? Math.round((mastered / total) * 100) : 0;
 }
 
+export function getFlashcardImmunity(decks = []) {
+  const immunityMap = {};
+  let globalTotal = 0;
+  let globalMastered = 0;
+
+  (Array.isArray(decks) ? decks : []).forEach(deck => {
+    const subject = deck.subject ? String(deck.subject).toLowerCase().trim() : 'geral';
+    
+    let total = 0, mastered = 0;
+    (deck.cards || []).forEach(card => {
+      total++;
+      if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 21) mastered++;
+    });
+    
+    globalTotal += total;
+    globalMastered += mastered;
+    
+    if (total > 0) {
+      if (!immunityMap[subject]) immunityMap[subject] = { total: 0, mastered: 0 };
+      immunityMap[subject].total += total;
+      immunityMap[subject].mastered += mastered;
+    }
+  });
+
+  const finalImmunityMap = {};
+  for (const [subj, data] of Object.entries(immunityMap)) {
+    if (data.total >= 5) {
+      const mastery = data.mastered / data.total;
+      finalImmunityMap[subj] = 1.0 - (mastery * 0.20);
+    } else {
+      finalImmunityMap[subj] = 1.0;
+    }
+  }
+
+  const globalImmunityFactor = globalTotal >= 10 
+    ? 1.0 - ((globalMastered / globalTotal) * 0.20) 
+    : 1.0;
+
+  return {
+    globalImmunityFactor,
+    subjectImmunityMap: finalImmunityMap
+  };
+}
+
 export function getFlashcardTotalCards(decks = []) {
   return (Array.isArray(decks) ? decks : []).reduce((sum, d) => sum + (d.cards?.length || 0), 0);
 }

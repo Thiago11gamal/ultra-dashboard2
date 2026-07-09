@@ -112,6 +112,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // regardless of whether meanOrObj is an object or a number.
     let subjects = [];
     let historicalCutoffs = [];
+    let flashcardImmunity = 1.0;
 
     if (typeof meanOrObj === 'object' && meanOrObj !== null) {
         mean = meanOrObj.mean ?? mean;
@@ -127,6 +128,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         historyLength = meanOrObj.historyLength ?? 0;
         subjects = meanOrObj.subjects ?? [];
         historicalCutoffs = meanOrObj.historicalCutoffs ?? [];
+        flashcardImmunity = meanOrObj.flashcardImmunity ?? 1.0;
     }
 
     // NEW: auto-adapt number of simulations for better convergence when not explicitly provided
@@ -182,6 +184,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         // Use gentler shrinkage curve: 8 samples instead of 15
         const confidence = Math.min(1, historyLength / 8);
         safeSD = (safeSD * confidence) + (floorVolatility * (1 - confidence));
+    }
+
+    // NEW: Flashcard Immunity Shield
+    if (flashcardImmunity < 1.0 && safeSD > 0) {
+        safeSD = safeSD * Math.max(0.80, flashcardImmunity);
     }
 
     // MATH-05/10 FIX: Use same effective target for empirical and analytic
@@ -304,9 +311,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const cutoffSubjects = (subjects || []).filter(s => s && Number(s.minCutoff) > 0);
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
-      const stats = cutoffSubjects.map(s => ({ 
-          sd: s.sd !== undefined && s.sd !== null ? Number(s.sd) : 1 
-      }));
+      const stats = cutoffSubjects.map(s => {
+          const rawSd = s.sd !== undefined && s.sd !== null ? Number(s.sd) : 1;
+          return { sd: rawSd * Math.max(0.80, s.immunityFactor || 1.0) };
+      });
       const adaptiveRhoContext = (meanOrObj?.simuladoRows) 
         ? { simuladoRows: meanOrObj?.simuladoRows, categoryNames: subjects.map(s => s.name || s) } 
         : null;
@@ -352,7 +360,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    const sScore = sampleTruncatedNormal(s.mean, s.sd, sMin, sMax, rng);
+                    const effSd = s.sd * Math.max(0.80, s.immunityFactor || 1.0);
+                    const sScore = sampleTruncatedNormal(s.mean, effSd, sMin, sMax, rng);
                     if (sScore < s.minCutoff) {
                         passedMins = false;
                         break;
@@ -509,7 +518,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         achievedSE: Number(empiricalStdErr.toFixed(4)),
         sufficient: empiricalStdErr < TARGET_PROB_SE * 1.5
       },
-      policy: lowSimulation ? 'low_sample' : (highTruncationStress ? 'truncated' : 'standard')
+      policy: lowSimulation ? 'low_sample' : (highTruncationStress ? 'truncated' : 'standard'),
+      flashcardImmunityApplied: flashcardImmunity < 1.0 ? Number(flashcardImmunity.toFixed(3)) : null
     };
 
     return {
