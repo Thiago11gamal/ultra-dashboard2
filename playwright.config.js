@@ -6,6 +6,9 @@ if (process.platform === 'win32' && !process.env.HOME) {
     process.env.HOME = process.env.USERPROFILE || os.homedir();
 }
 
+// Remove hardcode para previnir quebras se o Vite pular para 5174
+const baseURL = process.env.BASE_URL || 'http://localhost:5173';
+
 export default defineConfig({
     testDir: './e2e',
     fullyParallel: true,
@@ -14,7 +17,7 @@ export default defineConfig({
     workers: process.env.CI ? 1 : undefined,
     reporter: 'html',
     use: {
-        baseURL: 'http://localhost:5173',
+        baseURL: baseURL,
         trace: 'on-first-retry',
     },
     projects: [

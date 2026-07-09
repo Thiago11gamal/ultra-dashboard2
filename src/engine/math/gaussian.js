@@ -106,7 +106,7 @@ export function resetGaussianCache() {
 export function asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor = 1) {
     const rawSd = x < mean ? sdLeft : sdRight;
     // Previne divisão por zero se sdLeft/sdRight vierem corrompidos
-    const currentSd = Number.isFinite(rawSd) && rawSd > 0 ? rawSd : 1e-6;
+    const currentSd = Math.max(1e-6, rawSd);
     return heightFactor * Math.exp(-0.5 * Math.pow((x - mean) / currentSd, 2));
 }
 

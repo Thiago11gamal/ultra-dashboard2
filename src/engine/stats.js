@@ -477,6 +477,11 @@ export function computeBayesianLevel(
     const avgTotal = history && history.length > 0 
         ? (kahanSum(history.map(hh => Number(hh.total) || 20)) / history.length) 
         : getSyntheticTotal(safeMaxScore);
+    
+    // CORREÇÃO: Cache da base adaptativa fora do loop (O(N) vs O(N²))
+    const baseAdaptiveLambda = (history && history.length > 0) 
+        ? computeAdaptiveLambda(historySortedForGaps) 
+        : 0.08;
 
     if (history && history.length > 0) {
         const sortedHistory = historySortedForGaps;
@@ -515,8 +520,8 @@ export function computeBayesianLevel(
                 ? Math.max(0, Math.floor((timeEntry - timePrev) / 86400000)) 
                 : 0;
 
-            const adaptiveLambdaBase = computeAdaptiveLambda(sortedHistory);
-            const rawLambda = adaptiveLambdaBase * Math.exp(-0.15 * i);
+            // CORREÇÃO: Utilizar a constante pré-calculada
+            const rawLambda = baseAdaptiveLambda * Math.exp(-0.15 * i);
             const lambda = Math.max(0.005, rawLambda); 
             const entryDecay = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
 
@@ -1049,4 +1054,24 @@ export function computeAgilityMetrics(history) {
         avgSeconds: Math.round(avgSeconds),
         agilityPenalty: Number(agilityPenalty.toFixed(4))
     };
+}
+
+
+export function calculateTrend(history) {
+    if (!history || history.length < 2) return 0;
+    const firstDate = new Date(history[0].date).getTime();
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    const n = history.length;
+    for (let i = 0; i < n; i++) {
+        const x = (new Date(history[i].date).getTime() - firstDate) / (1000 * 60 * 60 * 24);
+        const y = history[i].score;
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumX2 += x * x;
+    }
+    const denominator = (n * sumX2) - (sumX * sumX);
+    if (denominator === 0) return 0;
+    const slopePerDay = ((n * sumXY) - (sumX * sumY)) / denominator;
+    return slopePerDay * 10;
 }

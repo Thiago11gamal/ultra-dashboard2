@@ -3,6 +3,34 @@ import { normalCDF_complement, generateKDE, sampleTruncatedNormal, truncatedNorm
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
 import { getPercentile } from './math/percentile.js';
+
+// Algoritmo Quickselect in-place
+function quickselect(arr, k, left = 0, right = arr.length - 1) {
+    while (left <= right) {
+        let pivotIndex = partition(arr, left, right);
+        if (pivotIndex === k) return arr[k];
+        if (pivotIndex < k) left = pivotIndex + 1;
+        else right = pivotIndex - 1;
+    }
+    return arr[k];
+}
+
+function partition(arr, left, right) {
+    let pivot = arr[right];
+    let i = left;
+    for (let j = left; j < right; j++) {
+        if (arr[j] <= pivot) {
+            let temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+            i++;
+        }
+    }
+    let temp = arr[i];
+    arr[i] = arr[right];
+    arr[right] = temp;
+    return i;
+}
 import { kahanMean, kahanSum } from './math/kahan.js';
 import { generateGaussian } from './math/gaussian.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
@@ -347,18 +375,14 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const projectedMean = welfordMean;
     const projectedSD = Math.sqrt(Math.max(0, welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0));
 
-    // MELHORIA-3: Ordenação única em vez de 5× quickSelect (que criava 5 cópias de Float64Array).
-    // Para N=5000, isso reduz de ~125KB de alocações para ~40KB (1 cópia ordenada).
-    // A ordenação nativa de Float64Array usa radix sort no V8 (O(N)), tão rápida quanto quickSelect.
-    allScores.sort();
-    const sortedScores = allScores;
+    // BUG-FIX: Remoção do sort O(S log S) por quickselect O(S)
+    const nScores = allScores.length;
     
-    // Leitura usando função de percentil interpolada para consistência matemática no sistema
-    const statisticalCi95Low = getPercentile(sortedScores, 0.025, true);
-    const statisticalCi95High = getPercentile(sortedScores, 0.975, true);
-    const empMedian = getPercentile(sortedScores, 0.5, true);
-    const rawLeft = getPercentile(sortedScores, 0.16, true);
-    const rawRight = getPercentile(sortedScores, 0.84, true);
+    const statisticalCi95Low = quickselect(allScores, Math.floor(nScores * 0.025));
+    const statisticalCi95High = quickselect(allScores, Math.floor(nScores * 0.975));
+    const empMedian = quickselect(allScores, Math.floor(nScores * 0.5));
+    const rawLeft = quickselect(allScores, Math.floor(nScores * 0.16));
+    const rawRight = quickselect(allScores, Math.floor(nScores * 0.84));
 
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;
@@ -529,7 +553,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         currentMean: (currentMean ?? safeMean),
         projectedMean,
         projectedSD,
-        kdeData: generateKDE(sortedScores, displayMean, projectedSD, safeSimulations, minScore, maxScore),
+        kdeData: generateKDE(allScores, displayMean, projectedSD, safeSimulations, minScore, maxScore),
         drift: 0,
         volatility: safeSD,
         minScore,

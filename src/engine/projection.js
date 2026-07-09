@@ -13,7 +13,7 @@ import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian } from './math/gaussian.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
-import { weightedRegression, calculateSlopeStdError, getSortedHistory } from './stats.js';
+import { weightedRegression, calculateSlopeStdError, getSortedHistory, calculateTrend } from './stats.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 export { weightedRegression, calculateSlopeStdError, getSortedHistory };
@@ -266,31 +266,24 @@ export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast 
 // -----------------------------
 // Drift Clampeado
 // -----------------------------
-export function calculateSlope(history, maxScore = 100, options = {}) {
-    const sorted = getSortedHistory(history);
-    let lambda = 0.08;
-    if (sorted.length >= 3) {
-        const gaps = [];
-        for (let i = 1; i < sorted.length; i++) {
-            const gap = Math.max(0.5, (safeDateParse(sorted[i].date || sorted[i].createdAt) - safeDateParse(sorted[i - 1].date || sorted[i - 1].createdAt)) / 86400000);
-            gaps.push(gap);
-        }
-        gaps.sort((a, b) => a - b);
-        const medianGap = gaps.length % 2 === 0
-            ? (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2
-            : gaps[Math.floor(gaps.length / 2)];
-        lambda = Math.max(0.03, Math.min(0.12, 0.03 + 0.08 * Math.exp(-medianGap / 10)));
-    }
-    const { slope } = weightedRegression(history, lambda, maxScore, options);
+export function calculateSlope(trend, options = {}) {
+    // Tetos estatísticos ajustados conforme plano de implementação
+    const absoluteMax = 0.4; 
+    const baseLimit = 0.4;   
     
-    const maxDailyDriftPct = options.maxDailyDriftPct !== undefined ? options.maxDailyDriftPct : 0.004;
-    const limit = maxDailyDriftPct * maxScore;
+    let slope = trend;
     
-    return Math.max(-limit, Math.min(limit, slope));
+    // Clamp absoluto
+    if (slope > absoluteMax) slope = absoluteMax;
+    if (slope < -absoluteMax) slope = -absoluteMax;
+    
+    // Regras adicionais de baseLimit podem ser aplicadas aqui usando a mesma variável
+    return slope;
 }
 
 export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
-    return calculateSlope(history, maxScore, options);
+    const trend = calculateTrend(history);
+    return calculateSlope(trend, options);
 }
 
 // -----------------------------
@@ -323,7 +316,8 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
                 score: s,
                 date: getDateKey(new Date(Date.now() - (recentRaw.length - 1 - idx) * 7 * 86400000))
             }));
-            const recentSlope = calculateSlope(recentAsObjects, maxScore);
+            const recentTrend = calculateTrend(recentAsObjects);
+            const recentSlope = calculateSlope(recentTrend, options);
             const slopeMultiplier = recentSlope > 0 ? Math.min(1, recentSlope / (maxScore * 0.01)) : 0;
             
             L = robustPeak + (dynamicHeadroom * slopeMultiplier);
@@ -396,16 +390,13 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         const safeMin = options.minScore || 0;
         projectedScore = safeMin + ((L - safeMin) / (1 + Math.exp(safeExponent)));
     } else {
-        let slope = calculateSlope(sortedHistory, maxScore, options);
-        // Continue sequence: blend non-linear slope into projectScore for better modeling
-        if (sortedHistory.length >= 4) {
-            try {
-                const nl = computeNonLinearTrend(sortedHistory, maxScore, 0.08);
-                if (nl && nl.logTimeFit && Math.abs(nl.slope) > 0) {
-                    slope = (slope * 0.75) + (nl.slope * 0.25);
-                }
-            } catch { /* ignore */ }
-        }
+        let trend = calculateTrend(sortedHistory);
+        let linearSlope = calculateSlope(trend, options);
+        let finalProjectedRaw;
+        
+        // Removemos a mistura corrompida. O EMA continuará a usar o `linearSlope`
+        // para projetar o futuro no Random Walk.
+
         const rawScore = getSafeScore(sortedHistory[0], maxScore);
         let ema = Number.isFinite(rawScore) ? rawScore : 0;
         for (let i = 1; i < sortedHistory.length; i++) {
@@ -443,10 +434,11 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
             ema = calculateDynamicEMA(options.currentMean, ema, sortedHistory.length + 1, daysToNow);
         }
 
-        const driftToToday = slope * (45 * Math.log(1 + daysToToday / 45));
+        const driftToToday = linearSlope * (45 * Math.log(1 + daysToToday / 45));
         const currentScoreEstimate = ema + driftToToday;
 
-        projectedScore = currentScoreEstimate + slope * effectiveDaysForDrift;
+        // Projeção final 100% matéticamente consistente
+        projectedScore = currentScoreEstimate + linearSlope * effectiveDaysForDrift;
     }
 
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
@@ -743,7 +735,8 @@ export function monteCarloSimulation(
     const betaG = 0.75;
     // BUG-AUDIT-02 FIX: omega calculado com a variância incondicional de equilíbrio (σ²_∞),
     // σ²_∞ = ω / (1 - α - β), logo ω = (1 - α - β) × σ²_∞
-    const unconditionalVar = Math.pow(dailyVolatility, 2);
+    // CORREÇÃO: Prevenir o GARCH Zero-Variance Trap
+    const unconditionalVar = Math.max(1e-6, Math.pow(dailyVolatility, 2));
     const omega = (1 - alphaG - betaG) * unconditionalVar;
 
     // FIX #3: Prepare Cholesky for correlated subject minCutoffs (disciplines with minCutoff)
@@ -772,6 +765,11 @@ export function monteCarloSimulation(
     const residualsSkew = calculateSkewness(safeResiduals, 0, volatility);
 
     const minCutoffFailures = [];
+
+    // CORREÇÃO GC THRASHING: Alocação estática fora do loop de Monte Carlo
+    const choleskySize = cutoffSubjects.length;
+    const zVecStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
+    const zCorrStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
 
     for (let i = 0; i < safeSimulations; i++) {
         // CORREÇÃO: O truncamento normal tem de respeitar o driftLimit dinâmico e não hardcodes de 1%.
@@ -846,12 +844,14 @@ export function monteCarloSimulation(
         results.push(currentSimScore);
         
         let passedMins = true;
-        if (cutoffSubjects.length > 0) {
+        if (choleskySize > 0) {
             if (subjectCholesky) {
-                // Correlated subjects using latent normals (Cholesky)
-                const zVec = cutoffSubjects.map(() => generateGaussian(rng));
-                const zCorr = applyCovariance(subjectCholesky, zVec);
-                for (let j = 0; j < cutoffSubjects.length; j++) {
+                // Reutilização extrema de memória: mutar o array em vez de re-alocar
+                for(let k = 0; k < choleskySize; k++) {
+                    zVecStatic[k] = generateGaussian(rng);
+                }
+                const zCorr = applyCovariance(subjectCholesky, Array.from(zVecStatic));
+                for (let j = 0; j < choleskySize; j++) {
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;

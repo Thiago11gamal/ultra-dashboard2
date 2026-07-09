@@ -310,14 +310,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     React.useLayoutEffect(() => {
         if (!isMountedRef.current) return;
 
-        // 🛡️ [FIX-STALE-SYNC] Usar variáveis de estado (mode, sessions, timeLeft) diretamente 
-        // em vez de stateRefs.current, pois o useLayoutEffect ocorre ANTES do useEffect 
-        // que atualiza as refs. Isso evita que as barras fiquem desfasadas em transições rápidas.
+        // O LayoutEffect repara a IU para o momento zero de uma nova fase.
+        // O requestAnimationFrame (no outro hook) lidará com as interpolações da barra de 100% a 0%.
         const currentMode = mode;
         const currentSessions = sessions;
-        const currentTime = timeLeft;
-        const currentTotal = currentMode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (currentMode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60);
-        const fraction = currentTime / (currentTotal || 1);
 
         // Sincroniza as barras de trabalho (bottom)
         workFillsRef.current.forEach((el, i) => {
@@ -325,7 +321,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (i < currentSessions - 1 || (i === currentSessions - 1 && currentMode !== 'work')) {
                 el.style.width = '100%';
             } else if (i === currentSessions - 1 && currentMode === 'work') {
-                el.style.width = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
+                el.style.width = '0%';
             } else {
                 el.style.width = '0%';
             }
@@ -337,7 +333,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (i < currentSessions - 1) {
                 el.style.height = '100%';
             } else if (i === currentSessions - 1 && (currentMode === 'break' || currentMode === 'long_break')) {
-                el.style.height = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
+                el.style.height = '0%';
             } else {
                 el.style.height = '0%';
             }
@@ -345,9 +341,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
         // 🛡️ [FIX-CIRCLE-SYNC] Sincroniza também a barra circular do relógio
         if (svgCircleRef.current) {
-            svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110) * fraction;
+            svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
         }
-    }, [mode, sessions, timeLeft, isRunning, targetCycles, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak]);
+    }, [mode, sessions, targetCycles, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak]);
 
     const [uiPosition] = useState(() => {
         try {
