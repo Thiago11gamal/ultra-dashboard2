@@ -303,15 +303,16 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     if (sorted.length < 4) return { isLogistic: false };
 
     const now = options.referenceDate || Date.now();
-    const historicalScores = sorted.map(h => getSafeScore(h, maxScore));
+    const historicalScores = sorted.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
+    if (historicalScores.length < 4) return { isLogistic: false };
+    
     const meanVal = kahanSum(historicalScores) / Math.max(1, historicalScores.length);
     const devs = historicalScores.map(b => Math.pow(b - meanVal, 2));
     const currentVariance = Math.sqrt(kahanSum(devs) / Math.max(1, historicalScores.length - 1));
 
     let L = maxScore;
-    if (sorted.length >= 4) {
-        const validScores = sorted.map(h => getSafeScore(h, maxScore)).filter(s => !Number.isNaN(s));
-        
+    if (historicalScores.length >= 4) {
+        const validScores = historicalScores;
         if (validScores.length >= 4) {
             const sortedScores = [...validScores].sort((a, b) => a - b);
             const peak1 = sortedScores[sortedScores.length - 1];
@@ -352,6 +353,8 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
         const x = (getSafeTime(hDate) - getSafeTime(sorted[0].date || sorted[0].createdAt)) / 86400000;
         
         let y = getSafeScore(h, maxScore);
+        if (!Number.isFinite(y)) return;
+        
         y = Math.max(maxScore * 0.01, Math.min(maxScore, y));
 
         const safeMin = options.minScore || 0;
