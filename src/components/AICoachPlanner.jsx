@@ -153,7 +153,13 @@ export default function AICoachPlanner() {
     const getInitialColumns = React.useCallback(() => {
         const allAssignedIds = new Set();
         DAYS.forEach(d => (coachPlanner[d.id] || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
-        const activeBacklog = (coachPlan || []).filter(t => { if (!t) return false; const sid = getSafeId(t); return !allAssignedIds.has(sid); });
+        const activeBacklog = (coachPlan || []).filter(t => { 
+            if (!t) return false; 
+            // Exclude system alerts from being rendered in the draggable planner
+            if (/\[ALERTA MESTRE\]|\[STATUS\]/i.test(t.text)) return false;
+            const sid = getSafeId(t); 
+            return !allAssignedIds.has(sid); 
+        });
         return { backlog: activeBacklog, mon: coachPlanner.mon || [], tue: coachPlanner.tue || [], wed: coachPlanner.wed || [], thu: coachPlanner.thu || [], fri: coachPlanner.fri || [], sat: coachPlanner.sat || [], sun: coachPlanner.sun || [] };
     }, [coachPlan, coachPlanner]);
 
@@ -191,7 +197,11 @@ export default function AICoachPlanner() {
         if (destination.droppableId === 'backlog' || source.droppableId === 'backlog') {
             // BUG-5 FIX: Reconstruir o coachPlan usando o estado local sincronizado (newCols)
             // em vez do coachPlan da store que pode estar stale durante drags rápidos.
+            // Preserve system alerts that were filtered out of the draggable columns
+            const systemAlerts = (coachPlan || []).filter(t => t && /\[ALERTA MESTRE\]|\[STATUS\]/i.test(t.text));
+
             const newCoachPlan = [
+                ...systemAlerts,
                 ...(newCols.backlog || []),
                 ...(newCols.mon || []),
                 ...(newCols.tue || []),
