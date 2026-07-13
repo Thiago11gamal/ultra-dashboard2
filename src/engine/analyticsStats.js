@@ -259,7 +259,7 @@ export function generateAnalyticsStats({
     const globalHistory = rawGlobalHistory;
 
     const winsorizedScores = winsorizeSeries(
-        globalHistory.map(h => h.score),
+        globalHistory.map(h => getSafeScore(h, maxScore)),
         adaptiveSignal.adaptiveWinsor.low,
         adaptiveSignal.adaptiveWinsor.high
     );
@@ -269,9 +269,9 @@ export function generateAnalyticsStats({
 
     const avgCV = totalWeight > 0 ? categoryStats.reduce((acc, cat) => acc + ((cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0) * (cat.weight / totalWeight)), 0) : 0;
 
-    const hLen = globalHistory.length;
-    const firstScore = hLen > 0 ? globalHistory[0].score.toFixed(4) : '0';
-    const lastScore = hLen > 0 ? globalHistory[hLen - 1].score.toFixed(4) : '0';
+    const hLen = robustGlobalHistory.length;
+    const firstScore = hLen > 0 ? (robustGlobalHistory[0].score || 0).toFixed(4) : '0';
+    const lastScore = hLen > 0 ? (robustGlobalHistory[hLen - 1].score || 0).toFixed(4) : '0';
     const scoreFingerprint = `${hLen}-${firstScore}-${lastScore}`;
     const cutoffs = categoryStats.map(c => c.minCutoff || 0).join('-');
     const statsHash = `${bayesianMean.toFixed(4)}-${pooledSD.toFixed(4)}-${minScore}-${maxScore}-${scoreFingerprint}-cutoffs[${cutoffs}]`;

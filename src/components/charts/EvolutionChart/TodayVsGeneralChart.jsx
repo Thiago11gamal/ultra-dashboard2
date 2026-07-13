@@ -271,7 +271,6 @@ export function TodayVsGeneralChart({
     };
 
     // Usaremos a cor do arco 'Hoje' para o texto central, ou a cor geral.
-    const centerColor = getColor(focusAccuracy);
 
     // Helper for safe rendering
     const safeFix = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0).toFixed(1);

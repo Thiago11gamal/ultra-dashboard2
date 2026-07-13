@@ -757,7 +757,7 @@ export default function AIGeneratedSimulado() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerActive, step]); // Removed timeLeft to prevent recreating interval every second
 
-  const resetAll = () => {
+  const resetAll = useCallback(() => {
     isFinishingRef.current = false;
     setStep('setup');
     setQuestions([]);
@@ -770,7 +770,7 @@ export default function AIGeneratedSimulado() {
     setShowReview(false);
     localStorage.removeItem(AI_SIM_STORAGE_KEY);
     // mantém o form para nova geração rápida
-  };
+  }, [form.quantidade]);
 
   const retrySameQuestions = () => {
     isFinishingRef.current = false;
@@ -806,7 +806,7 @@ export default function AIGeneratedSimulado() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // BUG-13 FIX: Use stable refs for goTo/selectAnswer (already using latestCurrentIndexRef/latestQuestionsRef inside)
-  }, [step, currentQuestion, handleFinish, questions.length, goTo, selectAnswer]);
+  }, [step, currentQuestion, handleFinish, questions.length, goTo, selectAnswer, resetAll]);
 
   // Loading messages effect
   // BUG-2 FIX: LOADING_MESSAGES is now module-scoped, .length is stable primitive
