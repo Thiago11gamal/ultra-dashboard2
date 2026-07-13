@@ -209,8 +209,8 @@ const CategoryAccordion = React.memo(({ category, onToggleTask, onDeleteTask, on
         : 0;
 
     return (
-        <div className="glass overflow-hidden shadow-lg transition-all duration-500 hover:shadow-purple-500/5 hover:-translate-y-1 relative group border border-white/5">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/[0.02] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="glass overflow-visible shadow-lg transition-all duration-500 hover:shadow-purple-500/5 hover:-translate-y-1 relative group border border-white/5 rounded-2xl">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/[0.02] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
             {/* Header */}
             <div className="w-full flex items-center gap-2 p-3 sm:p-5 hover:bg-white/5 transition-colors">
                 <div

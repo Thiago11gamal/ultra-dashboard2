@@ -38,7 +38,7 @@ export default function PriorityProgress({ categories = [] }) {
     return (
         <div className="space-y-4">
             {/* Barra de Progresso Global Maior */}
-            <div className="p-6 sm:p-7 rounded-2xl border border-purple-500/20 bg-purple-500/5 backdrop-blur-xl transition-all duration-500 group shadow-lg relative overflow-hidden mx-1">
+            <div className="p-6 sm:p-7 rounded-2xl border border-purple-500/20 bg-purple-500/5 backdrop-blur-xl transition-all duration-500 group shadow-lg relative overflow-visible mx-1">
                 <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                     <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-500/20 rounded-full blur-[60px] opacity-30 transition-all duration-700 group-hover:bg-purple-400/30" />
                 </div>
