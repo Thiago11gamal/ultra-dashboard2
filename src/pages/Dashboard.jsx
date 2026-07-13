@@ -49,6 +49,7 @@ export default function Dashboard() {
         if (filter === 'all') return categories || [];
         return (categories || []).map(cat => ({
             ...cat,
+            originalTasks: cat.tasks || [],
             tasks: (cat.tasks || []).filter(task => {
                 if (filter === 'active') return !task.completed;
                 if (filter === 'completed') return task.completed;
@@ -142,14 +143,14 @@ export default function Dashboard() {
 
             <div className="tour-step-5">
                 <NextGoalCard
-                    categories={filteredCategories}
+                    categories={data.categories}
                     simulados={data.simuladoRows || []}
                     studyLogs={data.studyLogs || []}
                     onStartStudying={handleStartStudying}
                 />
             </div>
 
-            <PriorityProgress categories={filteredCategories} />
+            <PriorityProgress categories={data.categories} />
 
             <div className="mt-4 tour-step-6">
                 <Checklist
