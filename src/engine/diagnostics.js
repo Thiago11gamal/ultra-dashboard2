@@ -8,11 +8,14 @@ import { getSafeScore } from '../utils/scoreHelper.js';
 import { kahanMean, kahanSum } from './math/kahan.js';
 import { pruneHistoryForMemory } from './stats.js';
 
+import { safeDateParse } from '../utils/dateHelper.js';
+import { getSortedHistory } from './stats.js';
+
 function _getEntryDate(entry) {
   const raw = entry?.date || entry?.createdAt;
   if (!raw) return null;
-  const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const parsed = safeDateParse(raw);
+  return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
 }
 
 function _normalizeDiagnosticHistory(history, maxScore = 100) {
@@ -153,7 +156,7 @@ export function detectDataAnomalies(history = [], maxScore = 100) {
 function _interSessionGaps(history) {
   if (!Array.isArray(history) || history.length < 2) return [];
   const times = history
-    .map((h) => (h?.date ? new Date(h.date).getTime() : null))
+    .map((h) => { const d = _getEntryDate(h); return d ? d.getTime() : null; })
     .filter((t) => t !== null && Number.isFinite(t))
     .sort((a, b) => a - b);
 
@@ -317,7 +320,7 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
   const normalized = _normalizeDiagnosticHistory(history, maxScore);
   if (normalized.length === 0) return 3;
 
-  const sorted = [...normalized].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const sorted = getSortedHistory(normalized);
 
   let stability = 3.0;
   const DECAY_FACTOR = 0.6;
@@ -335,7 +338,7 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
     // Calcula quanto tempo passou desde a última revisão para saber a retenção atual
     let currentRetention = 1.0;
     if (i > 0) {
-      const gap = (new Date(h.date) - new Date(sorted[i - 1].date)) / 86400000;
+      const gap = (_getEntryDate(h).getTime() - _getEntryDate(sorted[i - 1]).getTime()) / 86400000;
       currentRetention = computeEbbinghausRetention(gap, stability);
     }
 
@@ -410,9 +413,9 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   const normalized = _normalizeDiagnosticHistory(history, maxScore);
   if (normalized.length === 0) return noData;
 
-  const sorted = [...normalized].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const sorted = getSortedHistory(normalized).reverse();
 
-  const daysSinceLast = daysSinceOverride !== null ? daysSinceOverride : Math.max(0, (Date.now() - new Date(sorted[0].date).getTime()) / 86400000);
+  const daysSinceLast = daysSinceOverride !== null ? daysSinceOverride : Math.max(0, (Date.now() - _getEntryDate(sorted[0]).getTime()) / 86400000);
   const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore);
   const retention = computeEbbinghausRetention(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));
@@ -435,15 +438,13 @@ export function computeLearningVelocity(history, maxScore = 100) {
   const fallback = { velocity: 0, velocityLabel: 'Dados insuficientes', plateau: maxScore * 0.7, timeToPlateauDays: null };
   if (!Array.isArray(history) || history.length < 4) return fallback;
 
-  const sorted = [...history]
-    .filter((h) => h?.date && !Number.isNaN(new Date(h.date).getTime()))
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const sorted = getSortedHistory(history);
 
   if (sorted.length < 4) return fallback;
 
-  const t0 = new Date(sorted[0].date).getTime();
+  const t0 = _getEntryDate(sorted[0]).getTime();
   const data = sorted.map((h) => ({
-    t: (new Date(h.date).getTime() - t0) / 86400000,
+    t: (_getEntryDate(h).getTime() - t0) / 86400000,
     y: Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore))),
   })).filter(d => Number.isFinite(d.y));
 
@@ -491,9 +492,7 @@ export function computeConsistencyIndex(history, maxScore = 100) {
   const fallback = { index: 0.5, label: 'Dados insuficientes' };
   if (!Array.isArray(history) || history.length < 4) return fallback;
 
-  const sorted = [...history]
-    .filter((h) => h?.date && !Number.isNaN(new Date(h.date).getTime()))
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const sorted = getSortedHistory(history);
 
   if (sorted.length < 4) return fallback;
 

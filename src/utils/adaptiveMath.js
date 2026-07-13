@@ -3,6 +3,7 @@
  */
 import { bootstrapCI } from '../engine/math/bootstrap.js';
 import { kahanSum, kahanMean } from '../engine/math/kahan.js';
+import { safeDateParse } from './dateHelper.js';
 
 // t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
 // Evita subestimar IC quando n é baixo.
@@ -201,7 +202,8 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     // Extrai scores e datas
     const parsedData = historyOrScores.map((item, i) => {
         if (isObjectHistory) {
-            const rawTime = new Date(item.date || item.createdAt).getTime();
+            const rawDate = safeDateParse(item.date || item.createdAt);
+            const rawTime = rawDate ? rawDate.getTime() : NaN;
             return {
                 score: Number(item.score ?? item.value ?? 0),
                 time: Number.isFinite(rawTime) ? rawTime : Date.now() - (historyOrScores.length - i) * 86400000
