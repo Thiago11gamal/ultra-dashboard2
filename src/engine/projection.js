@@ -437,7 +437,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         
         // CORREÇÃO: Driftar a EMA da data do último teste até o dia de HOJE, 
         // para alinhar a origem do vetor temporal com a realidade atual.
-        const lastHistoryDate = safeDateParse(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt).getTime();
+        const lastHistoryDate = getSafeTime(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt);
         const daysToToday = Math.max(0, (now - lastHistoryDate) / 86400000);
 
         if (options.currentMean !== undefined) {

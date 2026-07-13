@@ -60,8 +60,8 @@ const repairContestHistory = (data) => {
         typeof h !== 'object' || 
         !h.date || 
         (h.total === undefined && h.score === undefined && h.correct === undefined) ||
-        Number.isNaN(Number(h.score)) ||
-        Number.isNaN(Number(h.total))
+        (h.score !== undefined && h.score !== null && Number.isNaN(Number(h.score))) ||
+        (h.total !== undefined && h.total !== null && Number.isNaN(Number(h.total)))
     );
     // BUG-FIX LETHAL 2: Detecta se o histórico atual foi esmagado em 1 único dia, enquanto a base de dados
     // original possui vários dias (causado pelo bug antigo de priorizar o createdAt do DB em vez do date do usuário).

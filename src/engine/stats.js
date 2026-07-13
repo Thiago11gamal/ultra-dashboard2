@@ -34,7 +34,7 @@ export function getSortedHistory(history) {
             if (typeof h === 'number') {
                 return { original: h, time: index }; // Usa o index cronológico base
             }
-            const t = h && (h.date || h.createdAt) ? safeDateParse(h.date || h.createdAt).getTime() : NaN;
+            const t = h && (h.date || h.createdAt) ? safeDateParse(h.date || h.createdAt)?.getTime() ?? NaN : NaN;
             return { 
                 original: h, 
                 time: Number.isFinite(t) ? t : index // Fallback seguro
@@ -62,7 +62,7 @@ export function pruneHistoryForMemory(history = [], maxPoints = 1500, maxAgeDays
 
     // Filter by age
     let filtered = sorted.filter(h => {
-        const t = safeDateParse(h.date || h.createdAt).getTime();
+        const t = safeDateParse(h.date || h.createdAt)?.getTime() ?? NaN;
         return Number.isFinite(t) && t >= cutoff;
     });
 
@@ -99,7 +99,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     const now = options.referenceDate || Date.now();
     
     // OTIMIZAÇÃO: Cache do tempo do elemento zero (Marco Zero Temporal)
-    const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt).getTime();
+    const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt)?.getTime() ?? NaN;
 
     // Kahan summation imperativo (Inline Performance Pura) - [BUG-MEMORY-01 FIX]
     let sumW = 0, cW = 0;
@@ -111,7 +111,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     for(let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
         const hDate = h.date || h.createdAt;
-        const timeMs = safeDateParse(hDate).getTime();
+        const timeMs = safeDateParse(hDate)?.getTime() ?? NaN;
         
         if (Number.isNaN(timeMs)) continue;
 
@@ -178,7 +178,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
 export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options = {}) {
     const now = options.referenceDate || Date.now();
-    const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt).getTime();
+    const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt)?.getTime() ?? NaN;
     
     // Kahan summation para precisão institucional O(N)
     let sumW = 0, cW = 0;
@@ -190,7 +190,7 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     for (let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
         const hDate = h.date || h.createdAt;
-        const timeMs = safeDateParse(hDate).getTime();
+        const timeMs = safeDateParse(hDate)?.getTime() ?? NaN;
         if (Number.isNaN(timeMs)) continue;
         const y = getSafeScore(h, maxScore);
         if (!Number.isFinite(y)) continue;
