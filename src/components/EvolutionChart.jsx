@@ -523,14 +523,13 @@ export default function EvolutionChart({
                 </button>
             </div>
 
-            <style dangerouslySetInnerHTML={{
-                __html: `
+            <style>{`
         /* FIX: Preserva o focus-visible para feedback de acessibilidade por teclado */
         .recharts-wrapper:focus-visible, .recharts-surface:focus-visible { outline: 2px solid #818cf8 !important; outline-offset: 2px; border-radius: 8px; }
         .recharts-wrapper:focus:not(:focus-visible), .recharts-surface:focus:not(:focus-visible) { outline: none !important; border: none !important; box-shadow: none !important; }
         .recharts-cartesian-axis-tick-value { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; }
         .recharts-legend-item-text { font-size: 11px !important; font-weight: 600; }
-            ` }} />
+            `}</style>
 
             <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
                 <KpiCard value={safeGlobalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />

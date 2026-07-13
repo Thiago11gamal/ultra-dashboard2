@@ -125,15 +125,23 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
     const sumRawWeights = kahanSum(rawWeights);
     if (!Number.isFinite(sumRawWeights) || sumRawWeights <= 0) return 0;
     
-    const weights = preserveScale 
-        ? rawWeights 
-        : rawWeights.map(w => w / sumRawWeights);
+    // Bug 3.2 Fix: Explosão Dimensional na Variância Ponderada
+    // Se preserveScale estivesse ativo, os pesos em bruto (e.g. 100) seriam elevados ao quadrado,
+    // explodindo a variância (10,000 * SD^2). Normalizamos sempre internamente para manter 
+    // estabilidade nas combinações de SDs independentes e coerentes.
+    const normalizedWeights = rawWeights.map(w => w / sumRawWeights);
 
-    const independentVar = kahanSum(weights.map((w, i) => Math.pow(w, 2) * Math.pow(adjustedSDs[i], 2)));
-    const weightedSumSD = kahanSum(weights.map((w, i) => w * adjustedSDs[i]));
+    const independentVar = kahanSum(normalizedWeights.map((w, i) => Math.pow(w, 2) * Math.pow(adjustedSDs[i], 2)));
+    const weightedSumSD = kahanSum(normalizedWeights.map((w, i) => w * adjustedSDs[i]));
     const coherentVar = Math.pow(weightedSumSD, 2);
 
     let finalVar = (1 - validRho) * independentVar + (validRho * coherentVar);
+
+    // Se preserveScale for pedido, escalonamos a variância final linearmente pelo 
+    // peso efetivo, prevenindo o colapso quadrático anterior que quebrava o motor.
+    if (preserveScale) {
+        finalVar *= effectiveTotalWeight;
+    }
 
     return finalVar;
 }

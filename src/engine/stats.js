@@ -231,9 +231,19 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     if (effectiveN <= 2.1) return 1.5 * scaleFactorFallback;
 
     const variance = (rss / sumW) * (effectiveN / (effectiveN - 2));
-    const det = sumW * sumWXX - sumWX * sumWX;
+    
+    // Bug 1.2 Fix: Colapso do Erro Padrão.
+    // Usar a variância da variável independente (tempo) para evitar a singularidade,
+    // em vez de verificar o pseudo-determinante cru que decai por causa do Shrinkage dos Pesos (w).
+    const varX = (sumWXX - (sumWX * sumWX) / sumW) / sumW;
+    
+    // Se a variação temporal for minúscula (todos os simulados no mesmo dia), 
+    // a inclinação é matematicamente indeterminada. Recorremos ao standard error básico da média.
+    if (varX <= 1e-8) {
+        return Math.sqrt(Math.max(0, rss / sumW)) / Math.sqrt(effectiveN);
+    }
 
-    if (det <= 1e-6) return 1.5 * (maxScore / 100);
+    const det = sumW * sumWXX - sumWX * sumWX;
     return Math.sqrt(Math.max(0, (variance * sumW) / det));
 }
 

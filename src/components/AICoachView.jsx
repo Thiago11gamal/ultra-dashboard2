@@ -14,7 +14,10 @@ import { useToast } from '../hooks/useToast';
 
 function renderBoldText(text) {
     const safeText = String(text || '');
-    const parts = safeText.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+    // BUG-04 FIX: Robustness against markdown nesting/formatting
+    // Usando `.*?` em vez de `[^*]+` garante que **texto com caracteres especiais** 
+    // ou pontuações seja capturado de forma non-greedy sem quebrar o split.
+    const parts = safeText.split(/(\*\*.*?\*\*)/g).filter(Boolean);
     return parts.map((part, idx) => {
         if (part.startsWith('**') && part.endsWith('**')) {
             return <strong key={`bold-${idx}`} className="text-white font-black">{part.slice(2, -2)}</strong>;

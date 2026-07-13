@@ -76,13 +76,8 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         const dir = isRight ? 1 : -1;
         let nextIndex = (safeIndex + dir + availableTabs.length) % availableTabs.length;
         
-        // CORREÇÃO: Evitar ciclo que force abas bloqueadas (Se houver regra de Premium)
-        let nextTabKey = availableTabs[nextIndex];
-        if (!isPremium && nextTabKey === 'insights_avancados') { 
-            nextIndex = (nextIndex + dir + availableTabs.length) % availableTabs.length;
-            nextTabKey = availableTabs[nextIndex];
-        }
-        
+        // Simples round-robin para as abas disponíveis
+        const nextTabKey = availableTabs[nextIndex];
         activateTab(nextTabKey);
     };
 

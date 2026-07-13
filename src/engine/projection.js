@@ -393,6 +393,11 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const logisticFit = logisticRegression(sortedHistory, maxScore, options);
     let projectedScore;
     const now = options.referenceDate || Date.now();
+    
+    // Hoist variables that are needed both for asymptotic damping inside the random walk
+    // and for the margin of error calculation outside the block, avoiding redundant O(N) regressions.
+    const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
+    let eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
 
     if (logisticFit.isLogistic && logisticFit.k > 0) {
         const { k, intercept, L, t0 } = logisticFit;
@@ -432,8 +437,19 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
             }
         }
 
-        const safeProjectDays = Math.max(0, projectDays);
-        const effectiveDaysForDrift = 45 * Math.log(1 + safeProjectDays / 45);
+        // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
+        // O `projectScore` agora partilha do mesmo amortecedor de volatilidade adaptativa (dampingBase)
+        // do Motor de Monte Carlo, estabilizando as trajetórias de UX que divergiam do back-end GARCH.
+        const dampingBase = computeAdaptiveDampingBase({
+            sampleSize: sortedHistory.length,
+            drift: linearSlope,
+            driftUncertainty: slopeStdError,
+            scaleFactor: maxScore / 100,
+            normalizedVol: (eventVolatility / (maxScore - minScore > 0 ? maxScore - minScore : maxScore)) * 100
+        });
+
+        const maxEffectiveDays = dampingBase * Math.log(1 + projectDays / dampingBase);
+        const effectiveDaysForDrift = Math.min(projectDays, maxEffectiveDays);
         
         // CORREÇÃO: Driftar a EMA da data do último teste até o dia de HOJE, 
         // para alinhar a origem do vetor temporal com a realidade atual.
@@ -445,23 +461,17 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
             ema = calculateDynamicEMA(options.currentMean, ema, sortedHistory.length + 1, daysToNow);
         }
 
-        const driftToToday = linearSlope * (45 * Math.log(1 + daysToToday / 45));
+        const driftToToday = linearSlope * (dampingBase * Math.log(1 + daysToToday / dampingBase));
         const currentScoreEstimate = ema + driftToToday;
 
         // Projeção final 100% matéticamente consistente
         projectedScore = currentScoreEstimate + linearSlope * effectiveDaysForDrift;
     }
 
-    const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
-    
-    // CORREÇÃO: Descobrir o gap temporal médio verdadeiro do aluno
     const avgGapDays = sortedHistory.length > 1 
         ? ((safeDateParse(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt) - safeDateParse(sortedHistory[0].date || sortedHistory[0].createdAt)) / 86400000) / (sortedHistory.length - 1)
         : 7; // fallback para 7 se só houver 1 teste
         
-    // Volatilidade POR EVENTO (sem assumir semanas mágicas)
-    let eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
-    
     // AGILIDADE AI: Punição de Volatilidade baseada no tempo de resposta lento
     if (options.agilityPenalty) {
         const safePenalty = Math.max(0, Math.min(0.4, Number(options.agilityPenalty) || 0));
@@ -654,9 +664,10 @@ export function monteCarloSimulation(
         ? forcedVolatility 
         : calculateRobustVolatility(sortedHistory, maxScore, minScore, options);
     
-    // AGILIDADE AI: Inflaciona a volatilidade se o aluno for lento, 
-    // achatando a Gaussiana e derrubando a probabilidade de aprovação real
-    if (options.agilityPenalty) {
+    // Bug 2.2 Fix: Double Jeopardy (Evita dupla penalização se o overflowRatio já trucidou a média)
+    // Se o timePenaltyApplied estiver ativo, já absorvemos o abalo do tempo, inflar a variância
+    // agora atiraria o cone do Monte Carlo para um cenário irrealista de descalabro.
+    if (options.agilityPenalty && !timePenaltyApplied) {
         const safePenalty = Math.max(0, Math.min(0.4, Number(options.agilityPenalty) || 0));
         volatility = volatility * (1 + safePenalty * 1.5);
     }
