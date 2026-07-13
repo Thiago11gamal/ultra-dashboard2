@@ -303,6 +303,7 @@ export const calculateForgettingCurve = (lastStudyDate, lambda = 0.03) => {
     
     const now = Date.now();
     const lastTime = new Date(lastStudyDate).getTime();
+    if (Number.isNaN(lastTime)) return 1.0;
     
     // CAUSALIDADE: O delta T não pode ser negativo. Se for o futuro, 
     // consideramos o gap como 0 (acabou de estudar). (Bug 5 Fix)

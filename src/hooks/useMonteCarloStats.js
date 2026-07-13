@@ -219,8 +219,10 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     // C3 FIX: Ref que sempre aponta para o pureStatsData mais recente.
     // Isso permite que o useEffect abaixo leia os dados sem precisar declará-los
     // como dependência — quem controla QUANDO o effect roda é apenas pureStatsHash.
+    // ATUALIZADO: Usamos useLayoutEffect para atualização síncrona pós-render,
+    // evitando a race condition de useEffect e respeitando o linter do React.
     const pureStatsDataRef = useRef(pureStatsData);
-    useEffect(() => { pureStatsDataRef.current = pureStatsData; }, [pureStatsData]);
+    React.useLayoutEffect(() => { pureStatsDataRef.current = pureStatsData; }, [pureStatsData]);
 
     const { runAnalysis } = useMonteCarloWorker();
     const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });

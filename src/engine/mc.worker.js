@@ -85,8 +85,8 @@ self.onmessage = function(e) {
                 const sanitizedInput = {
                     values: hist.map(h => typeof h === 'object' ? h.score : h),
                     dates: hist.map(h => typeof h === 'object' ? h.date : ''),
-                    targetScore: safeNum(payload.pooledSD, 0),
-                    projectionDays: safeNum(payload.targetScore, 90),
+                    targetScore: safeNum(payload.targetScore, 0),
+                    projectionDays: safeNum(payload.projectionDays, 90),
                     ...options
                 };
                 result = runMonteCarloAnalysis(sanitizedInput);
