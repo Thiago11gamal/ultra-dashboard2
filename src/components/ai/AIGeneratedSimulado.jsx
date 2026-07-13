@@ -168,7 +168,7 @@ export default function AIGeneratedSimulado() {
             setAnswers({});
             setTimePerQuestion({});
             setCurrentIndex(0);
-            setTimeLeft(45 * 60);
+            setTimeLeft(normalizedQuestions.length * 3 * 60);
             setStep('playing');
             setTimerActive(true);
             simStartMsRef.current = Date.now();
@@ -210,7 +210,7 @@ export default function AIGeneratedSimulado() {
                   setAnswers({});
                   setTimePerQuestion({});
                   setCurrentIndex(0);
-                  setTimeLeft(45 * 60);
+                  setTimeLeft(normalizedQuestions.length * 3 * 60);
                   setStep('playing');
                   setTimerActive(true);
                   simStartMsRef.current = Date.now();
@@ -277,7 +277,7 @@ export default function AIGeneratedSimulado() {
             setAnswers(draft.answers || {});
             setTimePerQuestion(draft.timePerQuestion || {});
             setCurrentIndex(draft.currentIndex || 0);
-            setTimeLeft(draft.timeLeft || 45 * 60);
+            setTimeLeft(draft.timeLeft || draft.questions.length * 3 * 60);
             setStep('playing');
             setTimerActive(true);
             simStartMsRef.current = Date.now();
@@ -437,7 +437,7 @@ export default function AIGeneratedSimulado() {
         setAnswers({});
         setTimePerQuestion({});
         setCurrentIndex(0);
-        setTimeLeft(45 * 60);
+        setTimeLeft(normalizedQuestions.length * 3 * 60);
         setStep('playing');
         setTimerActive(true);
         simStartMsRef.current = Date.now();
@@ -541,7 +541,7 @@ export default function AIGeneratedSimulado() {
       setAnswers({});
       setTimePerQuestion({});
       setCurrentIndex(0);
-      setTimeLeft(45 * 60);
+      setTimeLeft(normalizedQuestions.length * 3 * 60);
       setStep('playing');
       setTimerActive(true);
       simStartMsRef.current = Date.now();
@@ -599,7 +599,8 @@ export default function AIGeneratedSimulado() {
 
     // Timer absoluto do sistema (evita problemas de tab inativa ou click rápido)
     const absoluteElapsedSecs = simStartMsRef.current ? Math.round((Date.now() - simStartMsRef.current) / 1000) : 0;
-    const fallbackTimeSpent = Math.max(absoluteElapsedSecs, (45 * 60) - latestTimeLeftRef.current);
+    const totalAllowedTime = qList.length * 3 * 60;
+    const fallbackTimeSpent = Math.max(absoluteElapsedSecs, totalAllowedTime - latestTimeLeftRef.current);
 
     // BUG-9 FIX: Use ref instead of potentially stale closure value
     // Evita chamadas duplas (timer + clique) usando ref
@@ -764,7 +765,7 @@ export default function AIGeneratedSimulado() {
     setTimePerQuestion({});
     setCurrentIndex(0);
     setResults(null);
-    setTimeLeft(45 * 60);
+    setTimeLeft(form.quantidade * 3 * 60);
     setTimerActive(false);
     setShowReview(false);
     localStorage.removeItem(AI_SIM_STORAGE_KEY);
@@ -777,7 +778,7 @@ export default function AIGeneratedSimulado() {
     setTimePerQuestion({});
     setCurrentIndex(0);
     setResults(null);
-    setTimeLeft(45 * 60);
+    setTimeLeft(questions.length * 3 * 60);
     setTimerActive(true);
     setShowReview(false);
     setStep('playing');

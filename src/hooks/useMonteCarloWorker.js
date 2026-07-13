@@ -108,21 +108,22 @@ export function useMonteCarloWorker() {
                     console.warn(`[MC Worker] Request ${id} timed out. Recycling worker thread.`);
                     
                     // LEAK-02 FIX: Kill the zombie worker AND clean up ALL its pending requests.
-                    // Previously only the timed-out request was cleaned; other requests from
-                    // the same worker stayed in the Map with live timeouts, creating orphaned closures.
-                    if (workerRef.current) {
-                        const dyingWorker = workerRef.current;
-                        
-                        // Clean ALL pending requests from the dying worker
-                        for (const [pendingId, pending] of pendingRequestsRef.current) {
-                            if (pending.worker === dyingWorker) {
-                                clearTimeout(pending.timeoutId);
-                                pending.reject(new Error('Worker recycled due to timeout'));
-                                pendingRequestsRef.current.delete(pendingId);
-                            }
+                    // We must terminate the specific worker from the closure that timed out,
+                    // not necessarily workerRef.current, which might have already been recycled.
+                    const dyingWorker = worker;
+                    
+                    // Clean ALL pending requests from the dying worker
+                    for (const [pendingId, pending] of pendingRequestsRef.current) {
+                        if (pending.worker === dyingWorker) {
+                            clearTimeout(pending.timeoutId);
+                            pending.reject(new Error('Worker recycled due to timeout'));
+                            pendingRequestsRef.current.delete(pendingId);
                         }
-                        
-                        dyingWorker.terminate();
+                    }
+                    
+                    dyingWorker.terminate();
+                    
+                    if (workerRef.current === dyingWorker) {
                         workerRef.current = null;
                         
                         // Instantiate a fresh worker for subsequent requests.
