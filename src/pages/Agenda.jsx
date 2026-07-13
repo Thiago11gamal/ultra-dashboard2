@@ -57,7 +57,7 @@ export default function Agenda() {
     const todayStr = getDateKey(new Date()) || format(new Date(), 'yyyy-MM-dd');
     return agenda
       .filter(e => e.date >= todayStr)
-      .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''))
+      .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''))
       .slice(0, 6);
   }, [agenda]);
 
