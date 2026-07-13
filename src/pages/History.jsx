@@ -13,7 +13,8 @@ export default function History() {
             studySessions: contest.studySessions
         };
     }));
-    const { deleteSession, deleteSimulado } = useAppStore();
+    const deleteSession = useAppStore(state => state.deleteSession);
+    const deleteSimulado = useAppStore(state => state.deleteSimulado);
 
     return (<PageErrorBoundary pageName="Histórico">
         <StudyHistory

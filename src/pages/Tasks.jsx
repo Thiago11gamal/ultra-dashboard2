@@ -11,7 +11,7 @@ import { useToast } from '../hooks/useToast';
 export default function Tasks() {
     // FIX: Adicionado '?.' antes de '.categories' para evitar crash de hidratação
     const categories = useAppStore(state => Array.isArray(state.appState.contests[state.appState.activeId]?.categories) ? state.appState.contests[state.appState.activeId].categories : []);
-    const { resetSimuladoStats } = useAppStore();
+    const resetSimuladoStats = useAppStore(state => state.resetSimuladoStats);
     const showToast = useToast();
  
     const handleReset = () => {

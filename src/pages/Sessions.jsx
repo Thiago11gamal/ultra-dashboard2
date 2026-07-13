@@ -5,7 +5,8 @@ import { useAppStore } from '../store/useAppStore';
 
 export default function Sessions() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
-    const { deleteSession, deleteSimulado } = useAppStore();
+    const deleteSession = useAppStore(state => state.deleteSession);
+    const deleteSimulado = useAppStore(state => state.deleteSimulado);
  
     if (!data) {
         return (
