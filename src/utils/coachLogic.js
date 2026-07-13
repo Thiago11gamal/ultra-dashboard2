@@ -632,7 +632,10 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
 
         // INTEGRATION: if global MC (from useMonteCarloStats) shows worse outlook than this category's, add extra nudge.
         // This makes the Coach consider the overall contest projection.
-        if (globalProjectedMean != null && globalProjectedMean < (mcProbability * 0.8)) {
+        const globalProbability = options.globalMcStats && Number.isFinite(options.globalMcStats.probability) 
+            ? options.globalMcStats.probability 
+            : null;
+        if (globalProbability != null && globalProbability < (mcProbability * 0.8)) {
             mcUrgencyBoost += 5; // small global risk boost
             mcRiskLabel = mcRiskLabel || 'elevated_global_risk';
         }
