@@ -306,7 +306,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             const avgPenalty = penaltyValues.length > 0
                 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length
                 : 0;
-            const validCount = Math.max(brierValues.length, penaltyValues.length);
+            // BUG 27 FIX: Prevent statistical overestimation of valid calibration samples.
+            const validCount = base.filter(h => Number.isFinite(Number(h?.avgBrier)) || Number.isFinite(Number(h?.calibrationPenalty))).length;
             if (validCount === 0) return null;
 
             const label = rows[rows.length - 1]?.categoryName || categoryId;

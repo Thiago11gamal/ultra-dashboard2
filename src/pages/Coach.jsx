@@ -33,11 +33,12 @@ import { getSafeId } from '../utils/idGenerator';
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
-const calibrationAlertCache = new Map();
 const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
 const CALIBRATION_ALERT_CACHE_MAX = 200;
+const EMPTY_ARRAY = [];
 
 export default function Coach() {
+    const calibrationAlertCacheRef = useRef(new Map());
     const activeId = useAppStore(state => state.appState.activeId);
     // LEAK-MCCACHE FIX: limpar o cache do Monte Carlo ao trocar de concurso.
     // O hash já previne resultados errados, mas entradas do concurso anterior
@@ -75,10 +76,10 @@ export default function Coach() {
         showToastRef.current = showToast;
     }, [showToast]);
     
-    const history = useMemo(() => data?.simuladoRows ?? [], [data?.simuladoRows]);
-    const simulados = useMemo(() => data?.simulados ?? [], [data?.simulados]);
-    const categories = useMemo(() => data?.categories || [], [data?.categories]);
-    const flashcardDecks = useMemo(() => data?.flashcardDecks || [], [data?.flashcardDecks]);
+    const history = data?.simuladoRows || EMPTY_ARRAY;
+    const simulados = data?.simulados || EMPTY_ARRAY;
+    const categories = data?.categories || EMPTY_ARRAY;
+    const flashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
     const flashcardDue = useMemo(() => {
         return getFlashcardDueTodayCount(flashcardDecks);
     }, [flashcardDecks]);
@@ -239,16 +240,16 @@ export default function Coach() {
             // LEAK-CALIBRATION-CACHE FIX: antes, entradas eram removidas apenas por tamanho.
             // Entradas com >12h de idade deveriam ser prunadas para liberar memória e permitir
             // re-disparo legítimo do alerta. Agora fazemos uma varredura de cleanup antes de inserir.
-            for (const [key, ts] of calibrationAlertCache.entries()) {
-                if (currentTime - ts > ALERT_COOLDOWN_MS) calibrationAlertCache.delete(key);
+            for (const [key, ts] of calibrationAlertCacheRef.current.entries()) {
+                if (currentTime - ts > ALERT_COOLDOWN_MS) calibrationAlertCacheRef.current.delete(key);
             }
-            const lastAlertAt = Number(calibrationAlertCache.get(normalizedCategoryId) || 0);
+            const lastAlertAt = Number(calibrationAlertCacheRef.current.get(normalizedCategoryId) || 0);
             if (currentTime - lastAlertAt > ALERT_COOLDOWN_MS) {
                 showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || 'categoria')} (Brier ${Number(avgBrier).toFixed(2)}).`, 'warning');
-                calibrationAlertCache.set(normalizedCategoryId, now);
-                if (calibrationAlertCache.size > CALIBRATION_ALERT_CACHE_MAX) {
-                    const oldestKey = calibrationAlertCache.keys().next().value;
-                    calibrationAlertCache.delete(oldestKey);
+                calibrationAlertCacheRef.current.set(normalizedCategoryId, now);
+                if (calibrationAlertCacheRef.current.size > CALIBRATION_ALERT_CACHE_MAX) {
+                    const oldestKey = calibrationAlertCacheRef.current.keys().next().value;
+                    calibrationAlertCacheRef.current.delete(oldestKey);
                 }
             }
         }
@@ -262,7 +263,6 @@ export default function Coach() {
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
     // BUG-16 FIX: Bind maxScore dynamically to support contests scaled > 100
     const currentMaxScore = data?.maxScore ?? 100;
-    const EMPTY_ARRAY = useMemo(() => [], []);
     
     const mcStats = useMonteCarloStats({
         categories: categories,
