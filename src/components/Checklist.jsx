@@ -186,13 +186,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
 };
 
 const CategoryAccordion = React.memo(({ category, onToggleTask, onDeleteTask, onAddTask, onTogglePriority, onDeleteCategory, onPlayContext, showSimuladoStats, filter }) => {
-    const playHandler = (catId, taskId) => {
-        if (typeof onPlayContext === 'function') {
-            onPlayContext(catId, taskId);
-        } else {
-            console.error("Checklist: onPlayContext missing");
-        }
-    };
+
     const [isOpen, setIsOpen] = useState(true);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);

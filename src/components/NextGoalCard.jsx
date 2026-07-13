@@ -112,14 +112,14 @@ function NextGoalCard({ categories = [], simulados = [], studyLogs = [], onStart
     // We now proceed to render the task suggestion regardless of simulado data.
 
     return (
-        <div className={`relative rounded-2xl border ${urgencyStyle.border} bg-[#2d1e12]/80 backdrop-blur-3xl transition-all duration-700 group overflow-hidden shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]`}>
+        <div className={`relative rounded-2xl border ${urgencyStyle.border} bg-[#2d1e12]/80 backdrop-blur-3xl transition-all duration-700 group overflow-visible shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]`}>
             {/* Background Layers */}
-            <div className={`absolute inset-0 bg-gradient-to-br ${urgencyStyle.gradient} pointer-events-none opacity-30 group-hover:opacity-50 transition-opacity duration-700`} />
-            <div className={`absolute -top-24 -right-24 w-64 h-64 bg-white/5 blur-[100px] rounded-full pointer-events-none group-hover:bg-white/10 transition-all duration-1000`} />
-
-            {/* Scanline Effect */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.03]">
-                <div className="w-full h-[2px] bg-white animate-scan-fast" />
+            <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+                <div className={`absolute inset-0 bg-gradient-to-br ${urgencyStyle.gradient} opacity-30 group-hover:opacity-50 transition-opacity duration-700`} />
+                <div className={`absolute -top-24 -right-24 w-64 h-64 bg-white/5 blur-[100px] rounded-full group-hover:bg-white/10 transition-all duration-1000`} />
+                <div className="absolute inset-0 opacity-[0.03]">
+                    <div className="w-full h-[2px] bg-white animate-scan-fast" />
+                </div>
             </div>
 
             <div className="relative z-10 p-6 md:p-8 flex flex-col md:flex-row items-center gap-8">
