@@ -445,7 +445,7 @@ export function computeLearningVelocity(history, maxScore = 100) {
   const data = sorted.map((h) => ({
     t: (new Date(h.date).getTime() - t0) / 86400000,
     y: Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore))),
-  }));
+  })).filter(d => Number.isFinite(d.y));
 
   const lastThree = data.slice(-3).map((d) => d.y);
   const plateauEst = Math.min(maxScore, Math.max(maxScore * 0.5, Math.max(...lastThree) * 1.1));
@@ -497,7 +497,8 @@ export function computeConsistencyIndex(history, maxScore = 100) {
 
   if (sorted.length < 4) return fallback;
 
-  const scores = sorted.map((h) => Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore))));
+  const scores = sorted.map((h) => Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore)))).filter(Number.isFinite);
+  if (scores.length < 4) return fallback;
   const mu = _mean(scores);
 
   const med = _median(scores);
@@ -543,7 +544,12 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
   const totalCorrect = relevantSims.reduce((acc, s) => {
     const total = Number(s?.total) || 0;
     if (total === 0) return acc;
-    if (s?.correct != null) return acc + Number(s.correct); // FIX: Preserva acertos absolutos originais sem conversão float
+    if (s?.correct != null) {
+        const correctNum = Number(s.correct);
+        if (Number.isFinite(correctNum)) {
+            return acc + correctNum;
+        }
+    }
     const score = Math.min(1, Math.max(0, (Number(s?.score) || 0) / maxScore));
     return acc + score * total;
   }, 0);
