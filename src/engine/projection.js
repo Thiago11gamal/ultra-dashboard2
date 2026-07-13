@@ -177,6 +177,7 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
 
     if (!Array.isArray(safeHistory) || safeHistory.length < 2) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+        // FIXME: Integrar prior bayesiano baseado na média da disciplina em vez do hardcode
         return 0.05 * range;
     }
     
@@ -291,7 +292,7 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
 }
 
 export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
-    const trend = calculateTrend(history);
+    const trend = calculateTrend(history, maxScore);
     return calculateSlope(trend, maxScore, options);
 }
 

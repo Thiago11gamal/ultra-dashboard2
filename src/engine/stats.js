@@ -1083,13 +1083,13 @@ export function computeAgilityMetrics(history, targetSeconds = 120) {
 }
 
 
-export function calculateTrend(history) {
+export function calculateTrend(history, maxScore = 100) {
     if (!history || history.length < 2) return 0;
     
     // CORREÇÃO B1+B4: Usar safeDateParse e getSafeScore para blindagem total contra NaN.
     // Suporte a createdAt para consistência com o ecossistema.
     const firstParsed = safeDateParse(history[0].date || history[0].createdAt);
-    const firstDate = (firstParsed && !Number.isNaN(firstParsed.getTime())) ? firstParsed.getTime() : 0;
+    const firstDate = (firstParsed && firstParsed.getTime() !== 0) ? firstParsed.getTime() : Date.now();
     
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
     let validN = 0;
@@ -1097,10 +1097,10 @@ export function calculateTrend(history) {
     for (let i = 0; i < history.length; i++) {
         const h = history[i];
         const dateParsed = safeDateParse(h.date || h.createdAt);
-        if (!dateParsed || Number.isNaN(dateParsed.getTime())) continue;
+        if (!dateParsed || dateParsed.getTime() === 0) continue;
         
         const x = (dateParsed.getTime() - firstDate) / 86400000;
-        const y = getSafeScore(h, 100);
+        const y = getSafeScore(h, maxScore);
         if (!Number.isFinite(y)) continue;
         
         sumX += x;

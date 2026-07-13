@@ -586,7 +586,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const normalizedAvg = (averageScore / maxScore) * 100;
     const scoreComponent = Math.max(0, Math.min(dynamicScoreMax, (100 - normalizedAvg) * (dynamicScoreMax / 100)));
 
-    const effectiveRiskDays = recencyUnknown ? cfg.RECENCY_MAX : daysSinceLastStudy; 
+    const effectiveRiskDays = recencyUnknown ? cfg.RECENCY_MAX : Math.min(daysSinceLastStudy, 45); 
     const crunchMultiplier = getCrunchMultiplier(daysToExam, rootActivityDate, metrics.referenceDate);
     
     let instabilityComponent = mssdVolatility * (dynamicInstabilityMax / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);

@@ -92,6 +92,13 @@ export default function Coach() {
     const [activeTab, setActiveTab] = useState('insights');
 
     const safeActiveTab = activeTab === 'analytics' ? 'analytics' : 'insights';
+    
+    useEffect(() => {
+        if (activeTab && activeTab !== safeActiveTab) {
+            console.warn(`[Coach.jsx] Estado de aba inválido recebido: ${activeTab}, ativando fallback.`);
+        }
+    }, [activeTab, safeActiveTab]);
+
     const [isAnalyzing, setIsAnalyzing] = useState(true);
     const [coachLoading, setCoachLoading] = useState(false);
     const [suggestedFocus, setSuggestedFocus] = useState(null);
@@ -187,8 +194,8 @@ export default function Coach() {
 
                 // BUG 6 FIX: Lowered absolute thresholds to capture low-variance micro-movements
                 const shouldSkipPersist =
-                    brierDelta < 0.001 &&
-                    eceDelta < 0.001 &&
+                    (brierDelta < 0.001 || (brierDelta / Math.max(0.001, lastEntry.avgBrier)) < 0.05) &&
+                    (eceDelta < 0.001 || (eceDelta / Math.max(0.001, lastEntry.ece)) < 0.05) &&
                     penaltyDelta < 0.001 &&
                     probabilityDelta < 0.01 &&
                     !reliabilitySignatureChanged;
