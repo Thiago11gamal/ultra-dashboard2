@@ -468,8 +468,8 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
         }
 
         // Caso não ache um código curto, volta para a limpeza padrão pós-dois pontos
-        const parts = text.split(':');
-        const targetText = parts.length > 1 ? parts[1] : parts[0];
+        const firstColon = text.indexOf(':');
+        const targetText = firstColon > -1 ? text.substring(firstColon + 1) : text;
         let cleaned = targetText
             .replace(/\[[^\]]{10,}\]/g, '')
             .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '')

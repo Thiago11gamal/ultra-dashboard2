@@ -1793,7 +1793,7 @@ export function getCombinedHistory(history, simulados) {
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
 
-    const hasSimuladoForDate = new Set(allSimulados.map(s => s.date));
+    const hasSimuladoForDate = new Set(allSimulados.map(s => s.date || s.createdAt));
     
     // Agrupa e adiciona o histórico legado
     const rowsByDate = {};

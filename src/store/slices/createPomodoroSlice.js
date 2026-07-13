@@ -207,7 +207,12 @@ export const createPomodoroSlice = (set, get) => ({
         const subject = {
             taskId: task.id || task.text,
             task: task.text || task.title,
-            category: task.catName || task.category || (task.text || task.title).split(':')[0] || 'Geral',
+            category: task.catName || task.category || (() => {
+                const t = task.text || task.title || '';
+                const idx = t.indexOf(':');
+                const cat = idx > -1 ? t.substring(0, idx).trim() : t;
+                return (/^\d+$/.test(cat) || !cat) ? 'Geral' : cat;
+            })(),
             categoryId: task.categoryId || 'default',
             priority: 'high',
             sessionInstanceId: Date.now().toString(),
@@ -245,7 +250,12 @@ export const createPomodoroSlice = (set, get) => ({
         const nextSubject = {
             taskId: nextTask.id || nextTask.text,
             task: nextTask.text || nextTask.title,
-            category: nextTask.catName || nextTask.category || (nextTask.text || nextTask.title).split(':')[0] || 'Geral',
+            category: nextTask.catName || nextTask.category || (() => {
+                const t = nextTask.text || nextTask.title || '';
+                const idx = t.indexOf(':');
+                const cat = idx > -1 ? t.substring(0, idx).trim() : t;
+                return (/^\d+$/.test(cat) || !cat) ? 'Geral' : cat;
+            })(),
             categoryId: nextTask.categoryId || 'default',
             priority: 'high',
             sessionInstanceId: Date.now().toString(),
