@@ -3,7 +3,7 @@
 // Seed fixa para estabilidade visual
 // ==========================================
 
-import { mulberry32, makeNormalRng } from './random.js';
+import { mulberry32 } from './random.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
@@ -729,7 +729,6 @@ export function monteCarloSimulation(
         seedValue = Math.imul(seedValue, 16777619);
     }
     const rng = mulberry32(Math.abs(seedValue >>> 0));
-    const normalRng = makeNormalRng(rng);
 
     let medianGap = 7;
     if (sortedHistory.length >= 2) {
@@ -804,6 +803,7 @@ export function monteCarloSimulation(
     // CORREÇÃO GC THRASHING: Alocação estática fora do loop de Monte Carlo
     const choleskySize = cutoffSubjects.length;
     const zVecStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
+    const zCorrStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
 
     for (let i = 0; i < safeSimulations; i++) {
         // CORREÇÃO: O truncamento normal tem de respeitar o driftLimit dinâmico e não hardcodes de 1%.
