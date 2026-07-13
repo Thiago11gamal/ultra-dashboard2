@@ -459,15 +459,21 @@ export function computeBayesianLevel(
 
     const _computeEmpiricalPrior = (histSlice, safeMaxScore, options) => {
         if (!histSlice || histSlice.length === 0) return 0.5;
-        const val = kahanMean(histSlice.map(x => {
-            let rawPct = getSafeScore(x, safeMaxScore) / safeMaxScore;
-            if (options.isPenalizedFormat) {
-                rawPct = Math.max(0.05, (rawPct + 1) / 2);
-            } else {
-                rawPct = Math.max(0, rawPct);
-            }
-            return Math.min(1, rawPct);
-        }));
+        const validScores = histSlice
+            .map(x => getSafeScore(x, safeMaxScore))
+            .filter(Number.isFinite)
+            .map(safeScore => {
+                let rawPct = safeScore / safeMaxScore;
+                if (options.isPenalizedFormat) {
+                    rawPct = Math.max(0.05, (rawPct + 1) / 2);
+                } else {
+                    rawPct = Math.max(0, rawPct);
+                }
+                return Math.min(1, rawPct);
+            });
+            
+        if (validScores.length === 0) return 0.5;
+        const val = kahanMean(validScores);
         return Number.isFinite(val) ? val : 0.5;
     };
 
@@ -611,7 +617,7 @@ export function computeBayesianLevel(
         const gapToToday = Math.max(0, Math.floor((now - (lastDate ? lastDate.getTime() : now)) / (1000 * 60 * 60 * 24)));
         
         if (gapToToday > 0) {
-            const finalLambdaBase = (historySortedForGaps && historySortedForGaps.length > 0) ? computeAdaptiveLambda(historySortedForGaps) : 0.08;
+            const finalLambdaBase = baseAdaptiveLambda;
             const rawFinalLambda = finalLambdaBase * Math.exp(-0.15 * ((historySortedForGaps ? historySortedForGaps.length : 0) || 1));
             const finalLambda = Math.max(0.005, rawFinalLambda);
             

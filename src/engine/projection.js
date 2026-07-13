@@ -528,10 +528,18 @@ export function monteCarloSimulation(
         volatility: 1.5 * scaleFactorFallback
     };
 
-    const currentScore = getSafeScore(sortedHistory[sortedHistory.length - 1], maxScore);
+    // Find the last valid score in the sorted history
+    let validCurrentScore = NaN;
+    for (let i = sortedHistory.length - 1; i >= 0; i--) {
+        const s = getSafeScore(sortedHistory[i], maxScore);
+        if (Number.isFinite(s)) {
+            validCurrentScore = s;
+            break;
+        }
+    }
+    const currentScore = Number.isFinite(validCurrentScore) ? validCurrentScore : 0;
     const fallbackScore = optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore;
     let baselineScore = forcedBaseline !== undefined ? forcedBaseline : fallbackScore;
-
     if (sortedHistory.length > 0) {
         const rawScore = getSafeScore(sortedHistory[0], maxScore);
         let ema = Number.isFinite(rawScore) ? rawScore : 0;
@@ -678,7 +686,7 @@ export function monteCarloSimulation(
         return detrendedChange / Math.sqrt(rawDays);
     }) : [0];
 
-    const validResiduals = residuals.length > 1 ? residuals.slice(1) : residuals;
+    const validResiduals = (residuals.length > 1 ? residuals.slice(1) : residuals).filter(Number.isFinite);
     let centeredResiduals;
     if (validResiduals.length > 1) {
         const residualMean = kahanSum(validResiduals) / Math.max(1, validResiduals.length);

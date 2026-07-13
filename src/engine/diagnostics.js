@@ -649,8 +649,10 @@ export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {
       // CORREÇÃO: Substituição da conversão ingénua pelo extrator oficial resiliente do ecossistema
       const s = getSafeScore(h, maxScore) / maxScore;
       
-      if (!byMonth[key]) byMonth[key] = [];
-      byMonth[key].push(s);
+      if (Number.isFinite(s)) {
+        if (!byMonth[key]) byMonth[key] = [];
+        byMonth[key].push(s);
+      }
     }
     monthly[id] = Object.fromEntries(Object.entries(byMonth).map(([k, v]) => [k, _mean(v)]));
   }
