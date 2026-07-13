@@ -44,19 +44,6 @@ export default function Dashboard() {
         return Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
     }, [rawStudyLogs]);
 
-    // Filtro centralizado aplicado a todos os componentes relevantes
-    const filteredCategories = React.useMemo(() => {
-        if (filter === 'all') return categories || [];
-        return (categories || []).map(cat => ({
-            ...cat,
-            originalTasks: cat.tasks || [],
-            tasks: (cat.tasks || []).filter(task => {
-                if (filter === 'active') return !task.completed;
-                if (filter === 'completed') return task.completed;
-                return true;
-            })
-        }));
-    }, [categories, filter]);
 
     const data = React.useMemo(() => ({
         categories, simuladoRows, studyLogs, user, pomodorosCompleted
