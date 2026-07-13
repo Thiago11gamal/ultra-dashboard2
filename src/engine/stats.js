@@ -37,7 +37,7 @@ export function getSortedHistory(history) {
             const t = h && (h.date || h.createdAt) ? safeDateParse(h.date || h.createdAt)?.getTime() ?? NaN : NaN;
             return { 
                 original: h, 
-                time: Number.isFinite(t) ? t : index // Fallback seguro
+                time: t
             };
         })
         .filter(item => !Number.isNaN(item.time))

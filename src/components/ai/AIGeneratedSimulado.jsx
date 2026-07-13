@@ -824,7 +824,9 @@ export default function AIGeneratedSimulado() {
   // ==================== RENDER ====================
 
   if (step === 'setup') {
-    const hasApiKey = !!(import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY);
+    // SECURITY FIX: API Keys must never be referenced in import.meta.env on the client, as Vite statically replaces them into plain text.
+    // The backend now securely handles the AI generation.
+    const hasApiKey = true; // Feature is now backend-powered
     const isReadyToGenerate = form.categoryId && form.taskId && hasApiKey;
 
     return (
