@@ -7,6 +7,7 @@
 import { kahanSum } from './math/kahan.js';
 import { getDateKey } from '../utils/dateHelper.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
+import { normalize } from '../utils/normalization.js';
 
 /**
  * Compute weighted variance from category statistics
@@ -47,7 +48,7 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
     simuladoRows.forEach(row => {
       const dateKey = getDateKey(row.date || row.createdAt);
       if (!dateKey) return;
-      const subj = row.subject || row.categoryName || row.name;
+      const subj = normalize(row.subject || row.categoryName || row.name);
       if (!subj) return;
       const score = getSafeScore(row);
       if (!Number.isFinite(score)) return;
@@ -184,8 +185,8 @@ export function estimateInterSubjectCorrelation(
     const pairwise = [];
     for (let i = 0; i < subjectNames.length; i++) {
         for (let j = i + 1; j < subjectNames.length; j++) {
-            const aName = subjectNames[i];
-            const bName = subjectNames[j];
+            const aName = normalize(subjectNames[i]);
+            const bName = normalize(subjectNames[j]);
 
             const xs = [];
             const ys = [];

@@ -435,7 +435,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             };
                         });
 
-                        result = runMonteCarloAnalysis({
+                        result = simulateNormalDistribution({
                             mean: pureStatsData.bayesianMean,
                             sd: pureStatsData.pooledSD,
                             targetScore: debouncedTarget,

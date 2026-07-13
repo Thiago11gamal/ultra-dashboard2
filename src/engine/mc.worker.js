@@ -4,10 +4,10 @@ import { resetGaussianCache } from './math/gaussian.js';
 
 // FIX APLICADO: Remove default parameters para respeitar passagem explícita de `undefined`.
 function safeNum(val, fallback) {
-    // CORREÇÃO: Se o fallback explícito for undefined, mas o motor a jusante exigir 
-    // um número real sob pena de quebra (NaN), convertemos para 0 absoluto de segurança.
-    const targetFallback = arguments.length > 1 ? fallback : 0;
-    const cleanFallback = targetFallback === undefined ? 0 : targetFallback;
+    // CORREÇÃO: Se o fallback explícito for undefined, e for passado explicitamente, preservamos esse undefined.
+    // Isso é vital para as overrides do motor não caírem acidentalmente para 0 absoluto.
+    const hasFallback = arguments.length > 1;
+    const cleanFallback = hasFallback ? fallback : 0;
     
     if (val === undefined || val === null) return cleanFallback;
     
