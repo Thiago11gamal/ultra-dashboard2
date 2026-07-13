@@ -37,10 +37,10 @@ function ActivityHeatmap({ studyLogs = [] }) {
             currentWeek.push(null);
         }
 
-        const today = format(new Date(), 'yyyy-MM-dd');
+        const today = getDateKey(new Date()) || format(new Date(), 'yyyy-MM-dd');
 
         days.forEach(day => {
-            const dateKey = format(day, 'yyyy-MM-dd');
+            const dateKey = getDateKey(day) || format(day, 'yyyy-MM-dd');
             const minutes = studyMap[dateKey] || 0;
 
             currentWeek.push({
@@ -68,9 +68,9 @@ function ActivityHeatmap({ studyLogs = [] }) {
         }
 
         const totalDays = days.length;
-        const monthKeys = new Set(days.map(day => format(day, 'yyyy-MM-dd')));
+        const monthKeys = new Set(days.map(day => getDateKey(day) || format(day, 'yyyy-MM-dd')));
         const studiedDays = days.filter(day => {
-            const dateKey = format(day, 'yyyy-MM-dd');
+            const dateKey = getDateKey(day) || format(day, 'yyyy-MM-dd');
             return studyMap[dateKey] > 0;
         }).length;
         const totalMinutes = Object.entries(studyMap)

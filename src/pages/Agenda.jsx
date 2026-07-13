@@ -5,6 +5,7 @@ import { Calendar, Plus, Trash2, Clock, Target, ChevronLeft, ChevronRight } from
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateId } from '../utils/idGenerator';
+import { getDateKey } from '../utils/dateHelper';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 
 const EMPTY_ARRAY = [];
@@ -44,7 +45,7 @@ export default function Agenda() {
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
-  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  const selectedDateStr = getDateKey(selectedDate) || format(selectedDate, 'yyyy-MM-dd');
 
   const eventsForSelected = useMemo(() => {
     return agenda
@@ -53,7 +54,7 @@ export default function Agenda() {
   }, [agenda, selectedDateStr]);
 
   const upcomingEvents = useMemo(() => {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayStr = getDateKey(new Date()) || format(new Date(), 'yyyy-MM-dd');
     return agenda
       .filter(e => e.date >= todayStr)
       .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''))
@@ -114,7 +115,7 @@ export default function Agenda() {
 
   // Calendar day with event dot count
   const getEventsOnDay = (day) => {
-    const dstr = format(day, 'yyyy-MM-dd');
+    const dstr = getDateKey(day) || format(day, 'yyyy-MM-dd');
     return agenda.filter(ev => ev.date === dstr).length;
   };
 
