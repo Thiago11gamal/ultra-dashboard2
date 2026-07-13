@@ -48,7 +48,7 @@ export default function Coach() {
     }, [activeId]);
 
     const data = useAppStore(useShallow(state => {
-        const contest = state.appState?.contests?.[activeId] || {};
+        const contest = state.appState?.contests?.[state.appState?.activeId] || {};
         return {
             simuladoRows: contest.simuladoRows,
             simulados: contest.simulados,

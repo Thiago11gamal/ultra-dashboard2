@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 export default function History() {
     const data = useAppStore(useShallow(state => {
-        const contest = state.appState.contests?.[state.appState.activeId] || {};
+        const contest = state.appState?.contests?.[state.appState?.activeId] || {};
         return {
             categories: contest.categories,
             simuladoRows: contest.simuladoRows,

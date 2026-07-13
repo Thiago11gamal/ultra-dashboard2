@@ -70,7 +70,7 @@ export function usePomodoroSync({
                 case 'TARGET_CYCLES_CHANGE':
                     if (Number.isFinite(incomingTarget)) {
                         // Pega o estado real atômico no momento em que recebe a msg
-                        const currentCompleted = useAppStore.getState().appState.pomodoro.completedCycles || 0;
+                        const currentCompleted = useAppStore.getState().appState?.pomodoro?.completedCycles || 0;
                         syncPomodoroState({ targetCycles: Math.max(Math.max(1, currentCompleted), Math.round(incomingTarget)) });
                     }
                     break;
