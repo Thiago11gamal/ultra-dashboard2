@@ -119,7 +119,6 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     const accumulatedMinutes = useAppStore(state => state.appState?.pomodoro?.accumulatedMinutes || 0);
     const completePomodoroPhase = useAppStore(state => state.completePomodoroPhase);
     const rewindPomodoroPhase = useAppStore(state => state.rewindPomodoroPhase);
-    const syncPomodoroState = useAppStore(state => state.syncPomodoroState);
 
     // Estados Locais
     const initialTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (mode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60);
