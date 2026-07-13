@@ -2,9 +2,17 @@ import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
 import StudyHistory from '../components/StudyHistory';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 
 export default function History() {
-    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const data = useAppStore(useShallow(state => {
+        const contest = state.appState.contests?.[state.appState.activeId] || {};
+        return {
+            categories: contest.categories,
+            simuladoRows: contest.simuladoRows,
+            studySessions: contest.studySessions
+        };
+    }));
     const { deleteSession, deleteSimulado } = useAppStore();
 
     return (<PageErrorBoundary pageName="Histórico">

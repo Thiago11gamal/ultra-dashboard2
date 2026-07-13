@@ -1,4 +1,5 @@
 import { generateId } from './idGenerator';
+import DOMPurify from 'dompurify';
 
 const validateFullBackup = (data) => {
     if (!data || typeof data !== 'object') return false;
@@ -23,7 +24,7 @@ const validateFullBackup = (data) => {
 const sanitizeCategory = (cat) => ({
     ...cat,
     id: String(cat.id || generateId('cat')),
-    name: String(cat.name || "Sem Nome").substring(0, 50).replace(/<[^>]*>?/gm, ''), // Evita XSS
+    name: DOMPurify.sanitize(String(cat.name || "Sem Nome").substring(0, 50)),
     // PRESERVE: Mantemos propriedades inerentes (maxScore, weight, simuladoStats, etc) através do spread acima
     priority: cat.priority || 'medium',
     completedAt: cat.completedAt || null,
@@ -33,8 +34,8 @@ const sanitizeCategory = (cat) => ({
     tasks: Array.isArray(cat.tasks) ? cat.tasks.map(t => ({
         ...t,
         id: String(t.id || generateId('task')),
-        text: String(t.text || "").replace(/<[^>]*>?/gm, ''), // Remove HTML para evitar XSS
-        title: String(t.title || t.text || "").replace(/<[^>]*>?/gm, ''), // Remove HTML
+        text: DOMPurify.sanitize(String(t.text || "")),
+        title: DOMPurify.sanitize(String(t.title || t.text || "")),
         completed: !!t.completed,
         // PRESERVE: Metadados da tarefa
         priority: t.priority || 'medium',

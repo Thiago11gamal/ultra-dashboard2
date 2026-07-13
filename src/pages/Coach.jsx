@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 import { calculateAdaptiveSlope } from '../engine/projection.js';
 import PageHeader from '../components/header/PageHeader';
@@ -46,7 +47,25 @@ export default function Coach() {
         // BUG 1 FIX: Removed calibrationAlertCache.clear() to prevent global cache reset on mount
     }, [activeId]);
 
-    const data = useAppStore(state => state.appState?.contests?.[activeId] || null);
+    const data = useAppStore(useShallow(state => {
+        const contest = state.appState?.contests?.[activeId] || {};
+        return {
+            simuladoRows: contest.simuladoRows,
+            simulados: contest.simulados,
+            categories: contest.categories,
+            flashcardDecks: contest.flashcardDecks,
+            user: contest.user,
+            calibrationHistoryByCategory: contest.calibrationHistoryByCategory,
+            calibrationOps: contest.calibrationOps,
+            calibrationAuditLog: contest.calibrationAuditLog,
+            maxScore: contest.maxScore,
+            minScore: contest.minScore,
+            studyLogs: contest.studyLogs,
+            settings: contest.settings,
+            coachPlan: contest.coachPlan,
+            coachPlanner: contest.coachPlanner
+        };
+    }));
     const isHydrated = useAppStore(state => state.appState.isHydrated);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();

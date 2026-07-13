@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import SimuladoAnalysis from '../components/SimuladoAnalysis';
 import AIGeneratedSimulado from '../components/ai/AIGeneratedSimulado';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
 import { normalize, aliases } from '../utils/normalization';
 import { computeCategoryStats } from '../engine';
@@ -13,7 +14,15 @@ import { ListChecks, Brain, History as HistoryIcon } from 'lucide-react';
 import StudyHistory from '../components/StudyHistory';
 
 export default function Simulados() {
-    const data = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
+    const data = useAppStore(useShallow(state => {
+        const contest = state.appState?.contests?.[state.appState?.activeId] || {};
+        return {
+            categories: contest.categories,
+            simuladoRows: contest.simuladoRows,
+            simulados: contest.simulados,
+            studySessions: contest.studySessions
+        };
+    }));
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
 
