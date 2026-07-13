@@ -406,6 +406,8 @@ export default function EvolutionChart({
                 const totalQ = history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
                     if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
+                    const score = getSafeScore(h, maxScore);
+                    if (!Number.isFinite(score)) return s;
                     return s + tot;
                 }, 0);
 
@@ -414,6 +416,7 @@ export default function EvolutionChart({
                     if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
                     const range = Math.max(1e-9, maxScore - minScore);
                     const score = getSafeScore(h, maxScore);
+                    if (!Number.isFinite(score)) return s;
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                     // BUG FIX: Acumulamos o valor float real em 's' e removemos o Math.round() prematuro
                     // para evitar o cumulative rounding error (perda catastrófica de precisão).
