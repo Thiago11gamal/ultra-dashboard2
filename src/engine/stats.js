@@ -596,16 +596,21 @@ export function computeBayesianLevel(
             // 3. O teto global atua agora de forma segura (Shrinkage)
             const currentN = alpha + beta;
 
-            if (currentN > stepCap) {
-                const clampFactor = stepCap / currentN;
-                alpha = alpha * clampFactor;
-                beta = beta * clampFactor;
-            }
-
+            // Bug 1.1 Fix: O teto de Shrinkage (Leaky Bucket) foi removido de dentro do loop.
+            // O clamping agora ocorre APENAS no final da iteração temporal completa,
+            // garantindo que alunos com grandes históricos não sofram amnésia cumulativa severa.
             if (currentN > maxNEver) {
                 maxNEver = Math.min(currentN, dynamicAlphaCap);
             }
         }
+    }
+    
+    // Bug 1.1 Fix: Aplica o clamping do Leaky Bucket UMA ÚNICA VEZ após ingerir todo o histórico
+    const nAfterLoop = alpha + beta;
+    if (nAfterLoop > dynamicAlphaCap) {
+        const globalClamp = dynamicAlphaCap / nAfterLoop;
+        alpha *= globalClamp;
+        beta *= globalClamp;
     }
     
     // Decaimento final até o dia de hoje (ou data de referência do gráfico)
@@ -995,10 +1000,10 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
     const validCategories = categories.filter(c => Number.isFinite(c.mean) && Number.isFinite(c.n) && c.n > 0);
     if (validCategories.length === 0) return categories;
 
-    // Calcular média global (ponderada pelo 'n' de cada disciplina)
-    const globalSum = kahanSum(validCategories.map(c => (c.mean || 0) * (c.n || 0)));
-    const globalN = kahanSum(validCategories.map(c => c.n || 0));
-    const globalMean = globalSum / Math.max(1, globalN);
+    // Bug 1.3 Fix: Poluição de Frequências (Equiponderação Hierárquica em vez de Dominância por N)
+    // Usamos a média SIMPLES das médias das disciplinas para que Flashcards de alto N 
+    // não esmaguem o sinal de Simulados de baixo N. Cada domínio dita o seu sinal.
+    const globalMean = kahanSum(validCategories.map(c => c.mean || 0)) / Math.max(1, validCategories.length);
 
     // Variância empírica entre as médias das categorias (tau^2)
     const tau2 = kahanSum(validCategories.map(c => Math.pow((c.mean || 0) - globalMean, 2))) / Math.max(1, validCategories.length - 1);

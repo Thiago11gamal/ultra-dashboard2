@@ -117,7 +117,8 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
 
     // FIX 2: Sincronização do piso com o estimateInterSubjectCorrelation.
     // Permite que o motor explore a variância de disciplinas com correlação inversa.
-    const validRho = Math.max(-0.15, Math.min(0.85, rho));
+    // BUG 3.1 FIX: Floor ajustado de -0.15 para 0.0 para garantir Positive Semi-Definiteness (PSD)
+    const validRho = Math.max(0.0, Math.min(0.85, rho));
     const rawWeights = stats.map(cat => toFiniteNonNegative(cat?.weight));
     const adjustedSDs = stats.map(cat => toFiniteSd(cat?.sd));
 
@@ -147,9 +148,9 @@ export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER
  * drasticamente o cone de incerteza no longo prazo.
  */
 export function computePooledSD(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
-    // CORREÇÃO B2: Alinhado o clamp com computeWeightedVariance [-0.15, 0.85]
-    // para não destruir correlações negativas legítimas entre disciplinas.
-    const validRho = Number.isFinite(rho) ? Math.max(-0.15, Math.min(0.85, rho)) : INTER_SUBJECT_CORRELATION;
+    // CORREÇÃO B2: Alinhado o clamp com computeWeightedVariance [0.0, 0.85]
+    // O piso 0.0 previne matrizes de covariância não-PSD e falhas de Cholesky
+    const validRho = Number.isFinite(rho) ? Math.max(0.0, Math.min(0.85, rho)) : INTER_SUBJECT_CORRELATION;
     const weightedVariance = computeWeightedVariance(stats, totalWeight, validRho);
     return Math.sqrt(weightedVariance);
 }
@@ -253,9 +254,10 @@ export function estimateInterSubjectCorrelation(
     const shrink = Math.max(0, Math.min(1, (avgOverlap / (avgOverlap + 10)) * (essPairs / (essPairs + 6))));
     const blended = (shrink * empirical) + ((1 - shrink) * fallback);
 
-    // PATCH: Limite inferior blindado (-0.15) para garantir estabilidade da Matriz PSD.
-    // Impede falhas matemáticas no motor de Monte Carlo se duas matérias divergirem radicalmente.
-    return Math.max(-0.15, Math.min(0.85, blended));
+    // PATCH (Bug 3.1): Limite inferior blindado (0.0) para garantir estabilidade da Matriz PSD.
+    // Impede falhas matemáticas no motor de Monte Carlo por autocorrelação não-definitiva
+    // quando o sistema tentar realizar a decomposição de Cholesky N > 7.
+    return Math.max(0.0, Math.min(0.85, blended));
 }
 
 /**

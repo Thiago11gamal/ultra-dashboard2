@@ -765,6 +765,7 @@ export function monteCarloSimulation(
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
       const stats = cutoffSubjects.map(s => ({
+          ...s, // Bug 4.2 Fix: Preserve properties to allow empirical Pearson correlation later
           sd: (Number(s.sd) || 1) * Math.max(0.80, s.immunityFactor || 1.0)
       }));
       
@@ -843,8 +844,10 @@ export function monteCarloSimulation(
                 shock = normalRng() * adaptiveVol;
             }
             
-            // [FIX-GARCH-01] O choque que entra na equação de volatilidade DEVE ser clamped
-            const clampedShock = Math.max(-volatility * 2.5, Math.min(volatility * 2.5, shock));
+            // [FIX-GARCH-01] O choque que entra na equação de volatilidade DEVE ser referenciado à escala diária
+            // (dailyVolatility) em vez da escala macro (volatility). Um choque limite à escala macro injeta
+            // uma sobre-variância de 7x (para gaps semanais) achatando artificialmente a distribuição (Bug 2.1 Fix).
+            const clampedShock = Math.max(-dailyVolatility * 3, Math.min(dailyVolatility * 3, shock));
             
             // Evolução da Volatilidade GARCH(1,1): Var(t+1) = w + a*e^2 + b*Var(t)
             currentVolSq = omega + alphaG * Math.pow(clampedShock, 2) + betaG * currentVolSq;

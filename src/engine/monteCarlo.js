@@ -247,8 +247,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             let muLow = minScore - safeSD * 3;
             let muHigh = maxScore + Math.max(safeSD * 20, (maxScore - minScore) * 2);
             
-            // Reduzido de 30 para 8 iterações com tolerância dinâmica (Performance 4x superior)
-            for (let iter = 0; iter < 8; iter++) {
+            // Reduzido de 30 para 8 iter... BUG-FIX 4.1: Aumentado para 20 iteracoes. (resolução de 1,000,000)
+            // A busca com 8 passos exaure-se prematuramente (erro de ~1.5 pontos), forçando alunos de elite
+            // a simular com uma média truncada subestimada, corrompendo a probabilidade real de aprovação.
+            for (let iter = 0; iter < 20; iter++) {
                 const currentTruncMean = truncatedNormalMean(muParam, safeSD, minScore, maxScore);
                 const error = currentTruncMean - safeMean;
                 
