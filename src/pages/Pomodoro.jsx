@@ -533,7 +533,7 @@ export default function Pomodoro() {
     const isHydrated = !!activeId && contest !== EMPTY_OBJECT;
 
     const setData = useAppStore(state => state.setData);
-    const { handleUpdateStudyTime } = useAppStore();
+    const handleUpdateStudyTime = useAppStore(state => state.handleUpdateStudyTime);
 
     const location = useLocation();
     const navigate = useNavigate();
