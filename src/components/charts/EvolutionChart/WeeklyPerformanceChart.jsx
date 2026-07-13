@@ -75,12 +75,11 @@ const WeeklyPerformanceChart = ({
                 });
             });
 
-            const acertosRaw = questionsTotal > 0
-                ? (correctTotal / questionsTotal) * safeMaxScore
-                : null;
+            const acertosRaw = questionsTotal > 0 ? (correctTotal / questionsTotal) * safeMaxScore : null;
+            const safeAcertosRaw = Number.isFinite(acertosRaw) ? acertosRaw : 0;
             const acertos = acertosRaw == null
                 ? null
-                : Number(Math.max(0, Math.min(safeMaxScore, acertosRaw)).toFixed(2)); // FIX: Clamp preventivo absoluto
+                : Number(Math.max(0, Math.min(safeMaxScore, safeAcertosRaw)).toFixed(2)); // FIX: Clamp preventivo absoluto
 
             days.push({
                 data: i === 0 ? "HOJE" : dow,
