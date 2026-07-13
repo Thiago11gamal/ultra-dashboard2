@@ -17,6 +17,8 @@ const COLORS = {
 };
 
 const CustomTooltipTimeline = ({ active, payload, unit }) => {
+    const safeFix = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0).toFixed(1);
+
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
@@ -25,13 +27,13 @@ const CustomTooltipTimeline = ({ active, payload, unit }) => {
                 
                 <p className="text-white text-sm font-black flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.neonLine }}></span>
-                    Média: {data.accuracy.toFixed(1)}{unit}
+                    Média: {safeFix(data.accuracy)}{unit}
                 </p>
                 
                 {data.lastTestAcc != null && (
                     <p className="text-white text-sm font-black flex items-center gap-2 mt-1">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.lastTestColor || COLORS.gaugeFillValid }}></span>
-                        Último: {data.lastTestAcc.toFixed(1)}{unit}
+                        Último: {safeFix(data.lastTestAcc)}{unit}
                     </p>
                 )}
 
@@ -43,6 +45,8 @@ const CustomTooltipTimeline = ({ active, payload, unit }) => {
 };
 
 const CustomTooltipPie = ({ active, payload, unit }) => {
+    const safeFix = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0).toFixed(1);
+
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         if (data.trueValue == null) return null; // Não mostra se o arco for vazio/sem dados
@@ -57,7 +61,7 @@ const CustomTooltipPie = ({ active, payload, unit }) => {
                     <span className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">{data.name.replace(' (Restante)', '')}</span>
                 </div>
                 <p className="text-white text-sm font-black mt-1">
-                    {data.trueValue.toFixed(1)}{unit}
+                    {safeFix(data.trueValue)}{unit}
                 </p>
             </div>
         );
@@ -269,10 +273,11 @@ export function TodayVsGeneralChart({
     // Usaremos a cor do arco 'Hoje' para o texto central, ou a cor geral.
     const centerColor = getColor(focusAccuracy);
 
-
+    // Helper for safe rendering
+    const safeFix = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0).toFixed(1);
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 w-full items-stretch relative min-h-[350px]">
+        <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[400px]">
             {/* Painel Esquerdo: O Velocímetro / Dashboard de Hoje */}
             <div className="w-full lg:w-1/3 min-w-[280px] bg-black/40 border border-slate-700/50 rounded-3xl p-6 flex flex-col items-center justify-center relative shadow-inner overflow-hidden group">
                 <div className="absolute top-4 left-4 flex items-center gap-2">
@@ -301,7 +306,7 @@ export function TodayVsGeneralChart({
                             <div key={metric.id} className="flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity">
                                 <span className="text-[7px] text-slate-500 uppercase tracking-widest font-black">{metric.label}</span>
                                 <span className="text-[10px] font-black tracking-tighter" style={{ color: c }}>
-                                    {metric.val.toFixed(1)}{unit}
+                                    {safeFix(metric.val)}{unit}
                                 </span>
                                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, filter: `drop-shadow(0 0 4px ${c}80)` }}></div>
                             </div>
@@ -345,9 +350,9 @@ export function TodayVsGeneralChart({
                     
                     {/* Texto Central do Gauge */}
                     <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end pb-1 pointer-events-none">
-                        <span className="text-4xl font-black text-white tracking-tighter" style={{ textShadow: `0 0 20px ${centerColor}50` }}>
-                            {focusAccuracy.toFixed(1)}<span className="text-xl text-slate-400 ml-1">{unit}</span>
-                        </span>
+                        <div className="text-4xl sm:text-5xl font-black text-white drop-shadow-lg tabular-nums tracking-tight">
+                            {safeFix(focusAccuracy)}<span className="text-xl text-slate-400 ml-1">{unit}</span>
+                        </div>
                         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">
                             {isToday ? "Acertos(%) hoje" : "Acertos(%) no dia"}
                         </span>
@@ -365,8 +370,8 @@ export function TodayVsGeneralChart({
                          deltaStatus === 'negative' ? <TrendingDown size={14} /> : 
                          <Minus size={14} />}
                         <div className="flex flex-col">
-                            <span className="text-xs font-black">
-                                {delta > 0 ? '+' : delta < 0 ? '−' : ''}{deltaAbs.toFixed(1)}{unit}
+                            <span className="text-sm font-black">
+                                {delta > 0 ? '+' : delta < 0 ? '−' : ''}{safeFix(deltaAbs)}{unit}
                             </span>
                             <span className="text-[7px] uppercase tracking-wider opacity-70">Geral</span>
                         </div>
@@ -383,7 +388,7 @@ export function TodayVsGeneralChart({
                              <Minus size={14} />}
                             <div className="flex flex-col">
                                 <span className="text-xs font-black">
-                                    {deltaLastVsToday > 0 ? '+' : ''}{Math.abs(deltaLastVsToday).toFixed(1)}{unit}
+                                    {deltaLastVsToday > 0 ? '+' : ''}{safeFix(Math.abs(deltaLastVsToday))}{unit}
                                 </span>
                                 <span className="text-[7px] uppercase tracking-wider opacity-70">Ritmo (Hoje)</span>
                             </div>
@@ -395,7 +400,7 @@ export function TodayVsGeneralChart({
                 <div className="w-full flex justify-between items-center mt-6 pt-4 border-t border-white/5 px-2">
                     <div className="flex flex-col">
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Média Geral</span>
-                        <span className="text-sm font-bold text-slate-300">{generalAccuracy.toFixed(1)}{unit}</span>
+                        <span className="text-sm font-bold text-slate-300">{safeFix(generalAccuracy)}{unit}</span>
                     </div>
                     <div className="flex flex-col text-right">
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Meta</span>
