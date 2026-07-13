@@ -86,7 +86,12 @@ export const generateGaussian = (rng = Math.random) => {
     }
     if (u1 === 0) u1 = 1e-15;
     
-    while (u2 === 0) u2 = rng();
+    let attemptsU2 = 0;
+    while (u2 === 0 && attemptsU2 < 100) {
+        u2 = rng();
+        attemptsU2++;
+    }
+    if (u2 === 0) u2 = 1e-15;
     
     const mag = Math.sqrt(-2.0 * Math.log(u1));
     const z0 = mag * Math.cos(2.0 * Math.PI * u2);
@@ -456,12 +461,19 @@ export function choleskyDecomposition(matrix) {
  * Ex: Pega um choque neutro da sorte diária e espalha ele respeitando 
  * a correlação entre as disciplinas.
  */
-export function applyCovariance(choleskyLower, zVector) {
+export function applyCovariance(choleskyLower, zVector, targetVector) {
     if (!choleskyLower || !zVector || choleskyLower.length !== zVector.length) {
+        if (targetVector && zVector) {
+            for(let i=0; i<zVector.length; i++) targetVector[i] = zVector[i];
+            return targetVector;
+        }
         return zVector ? [...zVector] : [];
     }
     const n = zVector.length;
-    const result = Array(n).fill(0);
+    const result = targetVector || Array(n).fill(0);
+    if (targetVector) {
+        for (let i = 0; i < n; i++) result[i] = 0;
+    }
     for (let i = 0; i < n; i++) {
         for (let j = 0; j <= i; j++) {
             result[i] += choleskyLower[i][j] * zVector[j];

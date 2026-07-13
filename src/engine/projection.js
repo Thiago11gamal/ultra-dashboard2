@@ -844,7 +844,7 @@ export function monteCarloSimulation(
                     shock = (rawEmpirical / standardizer) * adaptiveVol; 
                 } else {
                     // PATCH: Gaussian Skew Adjustment
-                    const z = normalRng();
+                    const z = generateGaussian(rng);
                     const skewCorrection = 1 + (residualsSkew * z) / 6.0; 
                     shock = z * adaptiveVol * skewCorrection;
                 }
@@ -852,7 +852,7 @@ export function monteCarloSimulation(
                 const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
                 shock = (rawEmpirical / standardizer) * adaptiveVol; 
             } else {
-                shock = normalRng() * adaptiveVol;
+                shock = generateGaussian(rng) * adaptiveVol;
             }
             
             // [FIX-GARCH-01] O choque que entra na equação de volatilidade DEVE ser referenciado à escala diária
@@ -886,12 +886,12 @@ export function monteCarloSimulation(
                 for(let k = 0; k < choleskySize; k++) {
                     zVecStatic[k] = generateGaussian(rng);
                 }
-                const zCorr = applyCovariance(subjectCholesky, Array.from(zVecStatic));
+                applyCovariance(subjectCholesky, zVecStatic, zCorrStatic);
                 for (let j = 0; j < choleskySize; j++) {
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    const raw = Number(s.mean) + zCorr[j];
+                    const raw = Number(s.mean) + zCorrStatic[j];
                     const subjScore = Math.max(sMin, Math.min(sMax, raw));
                     if (subjScore < Number(s.minCutoff)) {
                         passedMins = false;

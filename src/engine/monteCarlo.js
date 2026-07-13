@@ -298,6 +298,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
       const psdCov = ensurePositiveSemiDefinite(cov);
       subjectCholesky = choleskyDecomposition(psdCov);
     }
+    const choleskySize = cutoffSubjects.length;
+    const zVecStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
+    const zCorrStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
 
     for (let i = 0; i < safeSimulations; i++) {
         let currentTarget = effectiveTarget;
@@ -312,13 +315,16 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         if (cutoffSubjects.length > 0) {
             if (subjectCholesky) {
                 // Generate independent standard normals, apply correlation via Cholesky
-                const zVec = cutoffSubjects.map(() => generateGaussian(rng));
-                const zCorr = applyCovariance(subjectCholesky, zVec);
+                // Reutilização extrema de memória: mutar o array em vez de re-alocar
+                for (let k = 0; k < cutoffSubjects.length; k++) {
+                    zVecStatic[k] = generateGaussian(rng);
+                }
+                applyCovariance(subjectCholesky, zVecStatic, zCorrStatic);
                 for (let j = 0; j < cutoffSubjects.length; j++) {
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    const raw = Number(s.mean) + zCorr[j];
+                    const raw = Number(s.mean) + zCorrStatic[j];
                     
                     // FIX: Replaced folding reflection with Clamping.
                     // Reflection (folding) at the bounds inverts the sign of the correlated variable,
@@ -359,13 +365,16 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const projectedSD = Math.sqrt(Math.max(0, welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0));
 
     // BUG-FIX: Remoção do sort O(S log S) por quickselect O(S)
+    // REVERT-FIX: O quickSelect faz cópia defensiva O(N) na RAM 5 vezes por loop! 
+    // Como 'allScores' é local (Float64Array), o sort nativo in-place é brutalmente mais rápido e elimina o travamento de Garbage Collection.
+    allScores.sort();
     const nScores = allScores.length;
     
-    const statisticalCi95Low = quickSelect(allScores, Math.floor(nScores * 0.025));
-    const statisticalCi95High = quickSelect(allScores, Math.floor(nScores * 0.975));
-    const empMedian = quickSelect(allScores, Math.floor(nScores * 0.5));
-    const rawLeft = quickSelect(allScores, Math.floor(nScores * 0.16));
-    const rawRight = quickSelect(allScores, Math.floor(nScores * 0.84));
+    const statisticalCi95Low = allScores[Math.floor(nScores * 0.025)];
+    const statisticalCi95High = allScores[Math.floor(nScores * 0.975)];
+    const empMedian = allScores[Math.floor(nScores * 0.5)];
+    const rawLeft = allScores[Math.floor(nScores * 0.16)];
+    const rawRight = allScores[Math.floor(nScores * 0.84)];
 
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;
