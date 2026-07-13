@@ -25,6 +25,8 @@ const MEGA_PALETTE = [
 ];
 
 const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }) => {
+    const safeFix = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v).toFixed(d) : "0");
+    
     if (active && payload && payload.length) {
         const sortedPayload = [...payload].sort((a, b) => b.value - a.value);
 
@@ -32,7 +34,7 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
             <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
                 <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
                     <span>📅 {label}</span>
-                    <span className="text-slate-500 font-bold bg-slate-900/50 px-2 py-0.5 rounded">META: {targetScorePct?.toFixed(0)}%</span>
+                    <span className="text-slate-500 font-bold bg-slate-900/50 px-2 py-0.5 rounded">META: {safeFix(targetScorePct, 0)}%</span>
                 </p>
                 <div className="space-y-4">
                     {sortedPayload.map((entry, index) => {
@@ -43,7 +45,7 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                         const delta = entry.payload[`${topicKey}_delta`];
                         
                         const isTargetMet = pct >= targetScorePct;
-                        const gap = isTargetMet ? 0 : Number((targetScorePct - pct).toFixed(1));
+                        const gap = isTargetMet ? 0 : Math.max(0, targetScorePct - pct);
                         
                         return (
                             <div key={`item-${index}`} className="flex flex-col gap-1.5">
@@ -56,16 +58,16 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                                         </span>
                                         <span className="text-[9px] text-slate-400 font-mono ml-4 flex items-center gap-1.5">
                                             <span className="bg-slate-900 px-1 rounded border border-white/5">Vol: {correct}/{total}</span>
-                                            {gap > 0 && <span className="text-rose-400/70">Falta {gap}%</span>}
+                                            {gap > 0 && <span className="text-rose-400/70">Falta {safeFix(gap, 1)}%</span>}
                                         </span>
                                     </div>
                                     <div className="flex flex-col items-end gap-0.5 shrink-0">
                                         <span className="font-mono font-black text-white text-[13px] drop-shadow-md leading-none">
-                                            {formatValue(entry.value)}%
+                                            {safeFix(entry.value, 1)}%
                                         </span>
                                         {delta !== undefined && delta !== null && (
                                             <span className={`text-[9px] font-black font-mono leading-none ${delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-slate-500'}`}>
-                                                {delta > 0 ? '▲ +' : delta < 0 ? '▼ ' : '■ '}{formatValue(delta)}%
+                                                {delta > 0 ? '▲ +' : delta < 0 ? '▼ ' : '■ '}{safeFix(delta, 1)}%
                                             </span>
                                         )}
                                     </div>
@@ -104,7 +106,6 @@ export const SubtopicsPerformanceChart = React.memo(({
     const range = maxScore - minScore;
     const targetScorePct = range > 0 ? ((targetScore - minScore) / range) * 100 : 0;
 
-    // M1 FIX: Stable callback for Tooltip — inline arrow function would break Recharts memoization.
     const renderLineTooltip = useCallback(
         (props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />,
         [targetScorePct]
@@ -173,7 +174,8 @@ export const SubtopicsPerformanceChart = React.memo(({
         return Object.values(topicMap)
             .filter(d => d.total > 0)
             .map(d => {
-                const acc = Math.max(0, Math.min(100, (d.correct / d.total) * 100));
+                const rawAcc = (d.correct / d.total) * 100;
+                const acc = Number.isFinite(rawAcc) ? rawAcc : 0;
                 return {
                     name: d.name.length > 25 ? d.name.substring(0, 23) + '...' : d.name,
                     fullName: d.name,
@@ -254,7 +256,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                 const cor = entry[`${topic}_correct`];
                 if (tot !== undefined && tot > 0) {
                     const accRaw = (cor / tot) * 100;
-                    const acc = Number(Math.max(0, Math.min(100, accRaw)).toFixed(2));
+                    const safeAccRaw = Number.isFinite(accRaw) ? accRaw : 0;
+                    const acc = Number(Math.max(0, Math.min(100, safeAccRaw)).toFixed(2));
                     entry[topic] = acc;
                     
                     if (prevAccMap[topic] !== undefined) {
