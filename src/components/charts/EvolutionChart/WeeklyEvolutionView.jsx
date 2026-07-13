@@ -286,12 +286,14 @@ export const WeeklyEvolutionView = ({
                 if (currentData && currentData.total > 0) {
                     const ratio = currentData.correct / currentData.total;
                     const currentScore = fromRatio(ratio);
-                    const currentPct = Number(Math.max(lowerBound, Math.min(upperBound, currentScore)).toFixed(2));
+                    const safeCurrentScore = Number.isFinite(currentScore) ? currentScore : 0;
+                    const currentPct = Number(Math.max(lowerBound, Math.min(upperBound, safeCurrentScore)).toFixed(2));
                     dataPoint[id] = currentPct;
 
                     if (memoryByItem[id] !== undefined) {
                         const prevPct = memoryByItem[id].pct;
-                        const delta = Number((currentPct - prevPct).toFixed(2));
+                        const safeDelta = Number.isFinite(currentPct - prevPct) ? (currentPct - prevPct) : 0;
+                        const delta = Number(safeDelta.toFixed(2));
 
                         const isStable = Math.abs(delta) <= 2;
                         dataPoint[`delta_${id}`] = delta;
