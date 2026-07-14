@@ -181,7 +181,7 @@ export const MonteCarloEvolutionChart = ({
                         ]}>
                             <XAxis dataKey="date" hide />
                             <YAxis hide domain={[minScore, maxScore]} />
-                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={true} animationDuration={1500} animationEasing="ease-in-out" />
+                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={false} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -328,9 +328,7 @@ export const MonteCarloEvolutionChart = ({
                                 stroke="none"
                                 fillOpacity={1}
                                 fill={`url(#${gradientId})`}
-                                isAnimationActive={true}
-                                animationDuration={1500}
-                                animationEasing="ease-in-out"
+                                isAnimationActive={false}
                             />
 
                             <Area connectNulls
@@ -346,9 +344,7 @@ export const MonteCarloEvolutionChart = ({
                                     fill: '#0f172a', 
                                     stroke: '#60a5fa' 
                                 } : false}
-                                isAnimationActive={true}
-                                animationDuration={1500}
-                                animationEasing="ease-in-out"
+                                isAnimationActive={false}
                             />
 
                             <Area connectNulls
@@ -358,9 +354,7 @@ export const MonteCarloEvolutionChart = ({
                                 strokeWidth={2}
                                 strokeDasharray="6 4"
                                 fill="none"
-                                isAnimationActive={true}
-                                animationDuration={1500}
-                                animationEasing="ease-in-out"
+                                isAnimationActive={false}
                                 dot={false}
                                 activeDot={false}
                             />

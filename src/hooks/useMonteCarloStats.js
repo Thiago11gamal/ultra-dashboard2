@@ -618,7 +618,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     maxScore: catMaxScore,
                     // Adaptive context
                     simuladoRows: rawSimuladoRows,
-                    subjects: [{ name: cat.name }]
+                    subjects: [{ name: cat.name }],
+                    historyLength: cat.n || 0,
+                    bayesianCI: cat.bayesianCI || null
                 });
 
                 const subjDiag = {

@@ -199,7 +199,7 @@ export function CompareChart({
         }
     }
 
-    const animateSeries = chartData.length <= 90;
+    const animateSeries = false;
 
     return (
         <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">

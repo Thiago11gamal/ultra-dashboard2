@@ -309,11 +309,8 @@ export function EvolutionLineChart({
                                 strokeOpacity={lineOpacity}
                                 dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
                                 activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" />}
-                                style={{ filter: (isFocused || !hasFocus) ? `url(#${shadowId})` : 'none', transition: 'all 0.5s ease' }}
-                                isAnimationActive={true}
-                                animationDuration={800}
-                                animationEasing="ease-out"
-                                animationBegin={0}
+                                style={{ filter: (isFocused || !hasFocus) ? `url(#${shadowId})` : 'none', transition: 'opacity 0.2s ease' }}
+                                isAnimationActive={false}
                             >
                                 <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />
                             </Line>

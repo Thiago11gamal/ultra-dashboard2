@@ -16,20 +16,33 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
 
     let sorted;
     if (isAlreadySorted) {
-        // Even if already sorted, defensive filter for NaN/Infinity when using TypedArrays
         if (arr instanceof Float64Array || arr instanceof Float32Array) {
-            const finiteData = [];
-            for (let i = 0; i < arr.length; i++) if (Number.isFinite(arr[i])) finiteData.push(arr[i]);
-            if (finiteData.length === 0) return 0;
-            sorted = new arr.constructor(finiteData).sort();
+            let hasNaN = false;
+            for (let i = 0; i < arr.length; i++) {
+                if (!Number.isFinite(arr[i])) {
+                    hasNaN = true;
+                    break;
+                }
+            }
+            if (!hasNaN) {
+                sorted = arr;
+            } else {
+                const finiteData = [];
+                for (let i = 0; i < arr.length; i++) if (Number.isFinite(arr[i])) finiteData.push(arr[i]);
+                if (finiteData.length === 0) return 0;
+                sorted = new arr.constructor(finiteData); // Keep relative order (already sorted)
+            }
         } else {
-            const finite = Array.from(arr).filter(v => Number.isFinite(v));
-            if (finite.length === 0) return 0;
-            sorted = [...finite].sort((a, b) => a - b);
+            const hasNaN = arr.some(v => !Number.isFinite(Number(v)));
+            if (!hasNaN) {
+                sorted = arr;
+            } else {
+                const finite = Array.from(arr).filter(v => Number.isFinite(Number(v)));
+                if (finite.length === 0) return 0;
+                sorted = finite; // Keep relative order
+            }
         }
     } else if (arr instanceof Float64Array || arr instanceof Float32Array) {
-        // CORREÇÃO: Matrizes Tipadas retêm NaNs silenciosamente no V8 Engine. 
-        // É vital filtrá-los para evitar o colapso dos limites P90/P99 no Monte Carlo.
         const finiteData = [];
         for (let i = 0; i < arr.length; i++) {
             if (Number.isFinite(arr[i])) finiteData.push(arr[i]);
@@ -37,7 +50,7 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
         if (finiteData.length === 0) return 0;
         sorted = new arr.constructor(finiteData).sort();
     } else {
-        const finite = Array.from(arr).filter(v => Number.isFinite(v));
+        const finite = Array.from(arr).filter(v => Number.isFinite(Number(v)));
         if (finite.length === 0) return 0;
         sorted = [...finite].sort((a, b) => a - b);
     }
