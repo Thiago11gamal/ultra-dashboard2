@@ -644,11 +644,33 @@ function RaioXDashboard({ data }) {
     const ops = data?.calibrationOps || {};
     const [filter, setFilter] = useState('all');
 
+    const now = Date.now();
     const toFiniteNumber = (value, fallback = 0) => {
         if (value === null || value === undefined || value === '') return fallback;
         const n = Number(value);
         return Number.isFinite(n) ? n : fallback;
     };
+
+    const calibrationSummary = useMemo(() => {
+        const historyByCategory = data?.calibrationHistoryByCategory || {};
+        return Object.entries(historyByCategory)
+            .map(([categoryId, history]) => {
+                const rows = Array.isArray(history) ? history : [];
+                if (rows.length === 0) return null;
+                const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+                const recent = rows.filter(h => toFiniteNumber(h?.timestamp) >= sevenDaysAgo);
+                const base = recent.length > 0 ? recent : rows;
+                const brierValues = base.map(h => Number(h?.avgBrier)).filter(Number.isFinite);
+                const penaltyValues = base.map(h => Number(h?.calibrationPenalty)).filter(Number.isFinite);
+                const avgBrier = brierValues.length > 0 ? brierValues.reduce((acc, val) => acc + val, 0) / brierValues.length : 0;
+                const avgPenalty = penaltyValues.length > 0 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length : 0;
+                const validCount = base.filter(h => Number.isFinite(Number(h?.avgBrier)) || Number.isFinite(Number(h?.calibrationPenalty))).length;
+                if (validCount === 0) return null;
+                const label = rows[rows.length - 1]?.categoryName || categoryId;
+                return { categoryId, label, count: validCount, avgBrier, avgPenalty };
+            })
+            .filter(Boolean);
+    }, [data?.calibrationHistoryByCategory, now]);
 
     const toPercentLabel = (value) => {
         const n = Number(value);
@@ -688,47 +710,99 @@ function RaioXDashboard({ data }) {
 
     return (
         <div className="space-y-12 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="p-2">
-                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em] mb-5 flex items-center gap-2">
-                        <ShieldCheck size={14} className="text-emerald-500/80" />
-                        Status de Calibração
-                    </h3>
-                    <div className="space-y-3">
-                        {Object.entries(ops).map(([id, op]) => (
-                            <div key={id} className="p-3 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between px-4">
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-bold text-white truncate">{displaySubject(op.categoryName || id)}</p>
-                                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter pl-2.5">Calibração 7d (Brier): {Number.isFinite(Number(op.avgBrier7d)) ? Number(op.avgBrier7d).toFixed(3) : "N/A"}</p>
-                                </div>
-                                <div className={`shrink-0 ml-4 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
-                                    {op.degraded ? 'Degradado' : 'Estável'}
-                                </div>
-                            </div>
-                        ))}
-                        {Object.keys(ops).length === 0 && (
-                            <div className="py-8 text-center space-y-2">
-                                <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Amostra técnica insuficiente</p>
-                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight max-w-[200px] mx-auto leading-tight">
-                                    Requer <span className="text-indigo-400">3 simulados por matéria</span> para calibrar.
-                                </p>
-                            </div>
-                        )}
+            {/* Monitor de Calibração unificado */}
+            {calibrationSummary.length > 0 ? (
+                <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 shadow-inner">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-6">
+                        <div>
+                            <h3 className="text-[11px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
+                                <ShieldCheck size={14} />
+                                Monitor de Calibração
+                            </h3>
+                            <p className="text-[10px] text-slate-500 font-medium">
+                                Acompanhamento de Brier Score (Erro de Projeção) e Degradação
+                            </p>
+                        </div>
                     </div>
-                </div>
+                
+                    <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {calibrationSummary.map(row => {
+                            const op = ops[row.categoryId] || {};
+                            const avgBrier = toFiniteNumber(row.avgBrier);
+                            const brierPct = Math.min(100, (avgBrier / 0.35) * 100);
+                            const radius = 14;
+                            const circ = 2 * Math.PI * radius;
+                            const offset = circ - (brierPct / 100) * circ;
+                            const colorClass = avgBrier >= 0.25 ? 'text-rose-500' : (avgBrier > 0.18 ? 'text-amber-500' : 'text-emerald-500');
+                            
+                            return (
+                                <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between">
+                                    <div className="flex justify-between items-start gap-4 mb-4">
+                                        <div className="flex flex-col min-w-0 flex-1">
+                                            <p className="text-sm sm:text-[15px] text-white font-black tracking-tight truncate mb-1.5">
+                                                {displaySubject(row.label)}
+                                            </p>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-inner ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${op.degraded ? 'bg-rose-400' : 'bg-emerald-400'} animate-pulse shadow-[0_0_8px_currentColor]`} />
+                                                    {op.degraded ? 'Degradado' : 'Estável'}
+                                                </div>
+                                                <span className="text-[9px] font-mono text-slate-500 font-bold bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded-md">n={row.count}</span>
+                                            </div>
+                                        </div>
 
-                <div className="p-2">
-                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em] mb-5 flex items-center gap-2">
-                        <Dna size={14} className="text-indigo-500/80" />
-                        DNA do Histórico
-                    </h3>
-                    <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 text-center">
-                        <p className="text-[10px] text-indigo-300/80 leading-relaxed font-medium">
-                            A calibração do modelo combina Brier Score e ECE (Expected Calibration Error). Brier baixo e ECE baixo indicam boa confiabilidade; quando degradam, o Coach aplica redução de confiança (shrinkage) para proteger sua estratégia.
-                        </p>
+                                        <div className="shrink-0 relative w-12 h-12 flex items-center justify-center">
+                                            <svg className="w-full h-full -rotate-90 transform drop-shadow-md" viewBox="0 0 36 36">
+                                                <circle cx="18" cy="18" r={radius} fill="none" className="stroke-black/40" strokeWidth="3" />
+                                                <circle 
+                                                    cx="18" cy="18" r={radius} fill="none" 
+                                                    className={`stroke-current ${colorClass} transition-all duration-1000 ease-out`} 
+                                                    strokeWidth="3" 
+                                                    strokeDasharray={circ} 
+                                                    strokeDashoffset={offset}
+                                                    strokeLinecap="round" 
+                                                />
+                                            </svg>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className={`text-[10px] font-black font-mono tracking-tighter ${colorClass}`}>
+                                                    {avgBrier.toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                
+                                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.05] mt-auto">
+                                        <div className="group/tooltip relative flex items-center gap-1 cursor-help">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover/tooltip:text-slate-300 transition-colors border-b border-dashed border-slate-600">Desvio (Brier)</span>
+                                            <div className="absolute bottom-full left-0 mb-2 w-48 p-2.5 bg-[#0a0c14] text-[10px] font-medium text-slate-300 rounded-lg shadow-2xl border border-white/10 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50">
+                                                <strong className="text-white font-black block mb-1">Score de Brier</strong>
+                                                Mede a precisão das projeções Monte Carlo. Quanto menor o valor (verde), mais assertivo está o motor.
+                                            </div>
+                                        </div>
+                                    
+                                        {(() => {
+                                            const pen = toFiniteNumber(row.avgPenalty);
+                                            if (pen <= 0.001) return null;
+                                            return (
+                                                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/20 bg-amber-500/10">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">Pena: <span className="font-mono">-{Math.round(pen * 100)}%</span></span>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
-            </div>
+            ) : (
+                <div className="py-8 text-center space-y-2">
+                    <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Amostra técnica insuficiente</p>
+                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight max-w-[200px] mx-auto leading-tight">
+                        Requer <span className="text-indigo-400">3 simulados por matéria</span> para calibrar.
+                    </p>
+                </div>
+            )}
             <div className="p-2 border-t border-white/5 pt-8">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em] flex items-center gap-2">
