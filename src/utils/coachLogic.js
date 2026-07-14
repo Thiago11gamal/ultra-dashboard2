@@ -1504,7 +1504,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const srsKey = cat.urgency?.details?.srsLabel.replace(/\s/g, '').substring(0, 15);
             allGeneratedTasks.push({
                 id: `${cat.id}-srs-${srsKey}`,
-                text: `${cat.name}: ${priorityLabel}[REVISÃO] 🧠 ${cat.urgency?.details?.srsLabel}.`,
+                text: `${cat.name}: ${priorityLabel}[${cat.name}] 🧠 ${cat.urgency?.details?.srsLabel}.`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
@@ -1519,7 +1519,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         else if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap) {
             allGeneratedTasks.push({
                 id: `${cat.id}-trap-trap`,
-                text: `${cat.name}: ${priorityLabel}[MÉTODO] ⚠️ ANOMALIA: Teoria excedente detectada.`,
+                text: `${cat.name}: ${priorityLabel}[${cat.name}] ⚠️ ANOMALIA: Teoria excedente detectada.`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
@@ -1546,7 +1546,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         if (isAgilityProblem) {
             allGeneratedTasks.push({
                 id: `${cat.id}-agility-${avgSeconds}`,
-                text: `${cat.name}: ${priorityLabel}[AGILIDADE AI] ⚡ TREINO RÁPIDO: Reduza seu tempo de resolução.`,
+                text: `${cat.name}: ${priorityLabel}[${cat.name}] ⚡ TREINO RÁPIDO: Reduza seu tempo de resolução.`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
@@ -1563,7 +1563,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         let topicCursor = 0;
         for (let i = 0; i < iterations; i++) {
             const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
-            const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[OTIMIZAÇÃO DE BASE] `;
+            const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[${cat.name}] `;
             const uniqueIdSuffix = weakTopic 
                 ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total}-${i}`) 
                 : `geral-${i}`;
