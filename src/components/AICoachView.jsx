@@ -92,13 +92,13 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                 <div className="flex flex-col items-start gap-2 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                         {isPriority && (
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-rose-500/10 text-rose-300 shadow-[0_0_20px_-2px_rgba(225,29,72,0.5)] border border-rose-500/40 shrink-0 relative overflow-hidden group/badge">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-rose-500/10 text-rose-300 shadow-[0_0_20px_-2px_rgba(225,29,72,0.5)] border border-rose-500/40 shrink-0 relative group/badge">
                                 <div className="absolute inset-0 bg-rose-400/20 blur-md animate-pulse" />
                                 <Target size={12} className="shrink-0 relative z-10 text-rose-400" />
                                 <span className="relative z-10 text-rose-200">Alvo Prioritário</span>
                             </div>
                         )}
-                        <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full overflow-hidden shrink-0`}>
+                        <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full shrink-0`}>
                             <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
                             <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart)}</span>
                         </div>
@@ -141,7 +141,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             {/* Exposição Visual dos KPIs Matemáticos */}
             {task.analysis?.monteCarlo && (
                 <div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
-                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative overflow-hidden group/kpi hover:bg-white/[0.04] transition-colors">
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi hover:bg-white/[0.04] transition-colors">
                         <div className="flex items-center justify-between z-10 relative">
                             <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
                             <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(task.analysis.monteCarlo.probability)}%</span>
@@ -150,7 +150,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                             <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, Math.max(0, task.analysis.monteCarlo.probability))}%` }} />
                         </div>
                     </div>
-                    <div className={`bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative overflow-hidden group/kpi transition-colors hover:bg-white/[0.04]`}>
+                    <div className={`bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]`}>
                         <div className="flex items-center justify-between z-10 relative">
                             <span className={`text-[9px] font-black tracking-widest uppercase ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
                             <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{task.analysis.monteCarlo.volatility > 0 && task.analysis.monteCarlo.volatility < 0.5 ? '<1' : Math.round(task.analysis.monteCarlo.volatility)}</span>
@@ -492,7 +492,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     }[type];
 
                                     return (
-                                        <div key={alertTask.id} className={`relative overflow-hidden p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
+                                        <div key={alertTask.id} className={`relative p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
                                             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
                                             
                                             <div className="flex items-start gap-4">
