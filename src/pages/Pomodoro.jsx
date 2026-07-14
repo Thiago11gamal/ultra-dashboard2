@@ -7,7 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useActiveContest, usePomodoroState } from '../store/useSelectors';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2 } from 'lucide-react';
+import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2, Target, AlertCircle } from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
 
@@ -321,19 +321,42 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             <AICoachPanel activeSubject={activeSubject} stats={stats} />
 
             {activeTaskStats && (
-                <div className="mb-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 mb-2">Status do assunto atual</p>
-                    <p className="text-xs text-slate-200 leading-relaxed">
+                <div className="mb-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 relative overflow-hidden group/stats">
+                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover/stats:opacity-100 transition-opacity" />
+                    
+                    <div className="flex justify-between items-center mb-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2">
+                            <Target size={12} />
+                            Status do assunto atual
+                        </p>
+                        <span className="text-[10px] font-black text-cyan-500/50 bg-cyan-500/10 px-2 py-0.5 rounded-md">
+                            {activeTaskStats.completionPct}% Completo
+                        </span>
+                    </div>
+
+                    <div className="w-full h-1.5 bg-cyan-950 rounded-full mb-3 overflow-hidden">
+                        <div 
+                            className="h-full bg-cyan-400 rounded-full transition-all duration-1000 ease-out relative"
+                            style={{ width: `${activeTaskStats.completionPct}%` }}
+                        >
+                            <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                        </div>
+                    </div>
+
+                    <p className="text-xs text-slate-200 leading-relaxed relative z-10">
                         Escolhido por {activeTaskStats.whySelected}. Progresso: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
-                        Ganho estimado: <strong>+{activeTaskStats.gainIfComplete}%</strong>.
+                        Ganho estimado: <strong className="text-emerald-400">+{activeTaskStats.gainIfComplete}%</strong>.
                     </p>
-                    <p className="text-xs text-slate-300 mt-2">
-                        Nível: <strong className="text-white">{activeTaskStats.quality}</strong>. {activeTaskStats.improveText}
-                        <br />
-                        <span className="text-cyan-300">{activeTaskStats.statusLine}</span>
-                        <br />
-                        Acerto: <strong className="text-white">{activeTaskStats.hitRate}%</strong> • Melhorar: <strong className="text-white">{activeTaskStats.missRate}%</strong>
-                    </p>
+                    <div className="mt-3 relative z-10">
+                        <p className="text-xs text-slate-400">
+                            Nível: <strong className="text-white capitalize">{activeTaskStats.quality}</strong>. {activeTaskStats.improveText}
+                        </p>
+                        <p className="text-xs text-cyan-300/80 mt-1">{activeTaskStats.statusLine}</p>
+                        <div className="flex items-center gap-4 mt-3">
+                            <span className="flex items-center gap-1.5 text-xs"><CheckCircle2 size={12} className="text-emerald-500"/> <strong className="text-slate-200">{activeTaskStats.hitRate}%</strong> Acerto</span>
+                            <span className="flex items-center gap-1.5 text-xs"><AlertCircle size={12} className="text-amber-500"/> <strong className="text-slate-200">{activeTaskStats.missRate}%</strong> Melhorar</span>
+                        </div>
+                    </div>
                 </div>
             )}
 
