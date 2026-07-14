@@ -7,7 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useActiveContest, usePomodoroState } from '../store/useSelectors';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2, Target, AlertCircle, TrendingUp, Clock, Calendar, BarChart3, Medal, Trophy } from 'lucide-react';
+import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2, Target, AlertCircle, TrendingUp, Clock, Calendar, BarChart3, Medal, Trophy, Moon, Sun } from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
 
@@ -27,27 +27,84 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let yesterdayMins = 0;
         let weekMins = 0;
         let monthMins = 0;
+        
+        let longestSession = 0;
+        let nightMins = 0;
+        let dawnMins = 0;
+        const daysStudied = new Set();
 
         (studyLogs || []).forEach(log => {
             if (!log || !log.date) return;
-            const t = new Date(log.date).getTime();
+            const d = new Date(log.date);
+            const t = d.getTime();
             const mins = Number(log.minutes) || 0;
+
+            if (mins > longestSession) longestSession = mins;
+
+            const hour = d.getHours();
+            if (hour >= 22 || hour < 4) nightMins += mins;
+            if (hour >= 4 && hour < 8) dawnMins += mins;
+
+            const dateStr = d.toISOString().split('T')[0];
+            daysStudied.add(dateStr);
+
             if (t >= startOfToday) todayMins += mins;
-            else if (t >= startOfYesterday) yesterdayMins += mins;
+            else if (t >= startOfYesterday && t < startOfToday) yesterdayMins += mins;
             
             if (t >= startOfWeek) weekMins += mins;
             if (t >= startOfMonth) monthMins += mins;
         });
 
+        const sortedDays = Array.from(daysStudied).sort();
+        let maxStreak = 0;
+        let currentStreak = 0;
+        let lastDate = null;
+        sortedDays.forEach(dayStr => {
+            const current = new Date(dayStr).getTime();
+            if (lastDate) {
+                const diffDays = Math.round((current - lastDate) / 86400000);
+                if (diffDays === 1) {
+                    currentStreak++;
+                } else {
+                    currentStreak = 1;
+                }
+            } else {
+                currentStreak = 1;
+            }
+            if (currentStreak > maxStreak) maxStreak = currentStreak;
+            lastDate = current;
+        });
+
+        let bestSimulado = 0;
         let totalSimulados = (simulados || []).length;
-        let recentSimulados = (simulados || []).filter(s => s && s.date && new Date(s.date).getTime() >= startOfMonth).length;
+        let recentSimulados = 0;
+        (simulados || []).forEach(s => {
+            if (!s) return;
+            if (s.date && new Date(s.date).getTime() >= startOfMonth) recentSimulados++;
+            
+            // Aceita score numérico (0-100) ou acertos brutos
+            const score = s.score || s.acertos || 0;
+            if (score > bestSimulado) bestSimulado = score;
+        });
 
         let totalTasks = 0;
         let completedTasks = 0;
         let weekTasks = 0;
+        let totalFlashcards = 0;
+        let correctFlashcards = 0;
+        let mostStudiedCategory = { name: '', mins: 0 };
 
         (categories || []).forEach(c => {
-            if (!c || !c.tasks) return;
+            if (!c) return;
+            
+            if (c.flashcardReviews) totalFlashcards += c.flashcardReviews;
+            if (c.flashcardCorrect) correctFlashcards += c.flashcardCorrect;
+            
+            if (c.totalMinutes && c.totalMinutes > mostStudiedCategory.mins) {
+                mostStudiedCategory = { name: c.name, mins: c.totalMinutes };
+            }
+            
+            if (!c.tasks) return;
             c.tasks.forEach(t => {
                 if (!t) return;
                 totalTasks++;
@@ -67,7 +124,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         }
         
         if (yesterdayMins > 0 && todayMins > yesterdayMins) {
-            items.push({ icon: <TrendingUp size={14} className="text-emerald-500" />, text: `Você já superou o foco de ontem (+${Math.round(todayMins - yesterdayMins)} min).` });
+            items.push({ icon: <TrendingUp size={14} className="text-emerald-500" />, text: `Evolução: Você superou o foco de ontem (+${Math.round(todayMins - yesterdayMins)} min).` });
         } else if (yesterdayMins > 0) {
             items.push({ icon: <Clock size={14} className="text-blue-400" />, text: `Ontem: ${Math.round(yesterdayMins)} minutos de neuro-plasticidade.` });
         }
@@ -90,10 +147,37 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
 
         if (completedTasks > 0) {
             const pct = Math.round((completedTasks / Math.max(1, totalTasks)) * 100);
-            items.push({ icon: <Trophy size={14} className="text-yellow-500" />, text: `Taxa global de conclusão: ${pct}% de todas as metas.` });
+            items.push({ icon: <Trophy size={14} className="text-yellow-500" />, text: `Eficácia: ${pct}% de conclusão global atingida.` });
+        }
+        
+        if (maxStreak >= 3) {
+            items.push({ icon: <Flame size={14} className="text-orange-500" />, text: `Consistência de Aço: Maior ofensiva contínua já feita é de ${maxStreak} dias.` });
         }
 
-        return items.sort(() => Math.random() - 0.5).slice(0, 4);
+        if (bestSimulado > 0) {
+            items.push({ icon: <Trophy size={14} className="text-yellow-400" />, text: `Pico cognitivo em simulados atingiu a marca de ${bestSimulado} pontos.` });
+        }
+
+        if (longestSession >= 45) {
+            items.push({ icon: <BrainCircuit size={14} className="text-violet-400" />, text: `Resistência Neural: Sua maior sessão focada contínua durou ${Math.floor(longestSession / 60)}h ${Math.round(longestSession % 60)}m.` });
+        }
+
+        if (totalFlashcards > 0) {
+            const fPct = Math.round((correctFlashcards / totalFlashcards) * 100);
+            items.push({ icon: <Zap size={14} className="text-amber-400" />, text: `${totalFlashcards} Flashcards memorizados com ${fPct}% de precisão global.` });
+        }
+
+        if (mostStudiedCategory.mins >= 60) {
+            items.push({ icon: <Target size={14} className="text-cyan-500" />, text: `Hiper-foco: ${Math.floor(mostStudiedCategory.mins / 60)}h ${Math.round(mostStudiedCategory.mins % 60)}m dedicadas apenas à disciplina "${mostStudiedCategory.name}".` });
+        }
+
+        if (nightMins > dawnMins * 1.5 && nightMins > 60) {
+            items.push({ icon: <Moon size={14} className="text-indigo-300" />, text: `Coruja Ativa: Você já absorveu ${Math.round(nightMins / 60)}h brutas na madrugada.` });
+        } else if (dawnMins > nightMins * 1.5 && dawnMins > 60) {
+            items.push({ icon: <Sun size={14} className="text-amber-500" />, text: `Madrugador: O despertar matinal já produziu ${Math.round(dawnMins / 60)}h de fluxo cerebral intenso.` });
+        }
+
+        return items.sort(() => Math.random() - 0.5).slice(0, 5);
     }, [studyLogs, simulados, categories]);
 
     if (!trivia || trivia.length === 0) return null;
