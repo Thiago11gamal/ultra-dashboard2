@@ -569,7 +569,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                 </button>
             </div>
 
-            <div className="h-[80px]" />
+            <div className="h-12" />
             <AICoachPanel activeSubject={activeSubject} stats={stats} />
             <DataTriviaPanel studyLogs={studyLogs} simulados={simulados} categories={categories} />
 
