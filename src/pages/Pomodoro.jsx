@@ -245,7 +245,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             <div className="flex flex-col gap-2 relative z-10">
                 {trivia.map((item, i) => (
                     <div key={i} className="flex items-center gap-3 text-xs text-slate-300 bg-white/[0.02] border border-white/[0.05] px-3 py-2.5 rounded-xl">
-                        <div className="shrink-0 p-1 bg-white/[0.02] rounded-md border border-white/[0.05]">{item.icon}</div>
+                        <div className="shrink-0">{item.icon}</div>
                         <span className="leading-snug font-medium">{item.text}</span>
                     </div>
                 ))}
