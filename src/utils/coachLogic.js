@@ -1458,7 +1458,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 id: `${cat.id}-mc-danger-${mcProbKey}`,
                 text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
                 completed: false,
-                categoryId: cat.id,
+                categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
                     reason: "Monte Carlo — Zona de Perigo",
                     details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias.`,
@@ -1474,7 +1474,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}`,
                 text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
                 completed: false,
-                categoryId: cat.id,
+                categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
                     reason: "Monte Carlo — Caos Estatístico",
                     details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)}. Probabilidade: ${probPct}%.`,
@@ -1490,7 +1490,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 id: `${cat.id}-mc-safe-${mcProbKey}`,
                 text: `${cat.name}: ${priorityLabel}[STATUS] 🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%.`,
                 completed: false,
-                categoryId: cat.id,
+                categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
                     reason: "Monte Carlo — Cruzeiro Seguro",
                     details: `${probPct}% de probabilidade de atingir a meta.`,
@@ -1506,7 +1506,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 id: `${cat.id}-srs-${srsKey}`,
                 text: `${cat.name}: ${priorityLabel}[REVISÃO] 🧠 ${cat.urgency?.details?.srsLabel}.`,
                 completed: false,
-                categoryId: cat.id,
+                categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
                     reason: "Revisão Espaçada (SRS) Ativada",
                     label: cat.urgency?.details?.srsLabel,
@@ -1521,7 +1521,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 id: `${cat.id}-trap-trap`,
                 text: `${cat.name}: ${priorityLabel}[MÉTODO] ⚠️ ANOMALIA: Teoria excedente detectada.`,
                 completed: false,
-                categoryId: cat.id,
+                categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
                     reason: "Detector de Pseudo-Estudo",
                     details: "Alta carga horária com baixíssimo volume de exercícios.",
@@ -1548,7 +1548,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 id: `${cat.id}-agility-${avgSeconds}`,
                 text: `${cat.name}: ${priorityLabel}[AGILIDADE AI] ⚡ TREINO RÁPIDO: Reduza seu tempo de resolução.`,
                 completed: false,
-                categoryId: cat.id,
+                categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
                     reason: "Motor de Agilidade AI",
                     details: `Seu tempo médio (${avgSeconds}s/questão) está alto, embora sua taxa de acertos seja excelente.`,
@@ -1588,7 +1588,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     id: `${cat.id}-weaktopic-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}${taskTitle}`,
                     completed: false,
-                    categoryId: cat.id,
+                    categoryId: cat.id, category: cat.name, catName: cat.name,
                     analysis: {
                         reason: `Tópico Selecionado: ${weakTopic.name}`,
                         details: reasonStr,
@@ -1613,7 +1613,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     id: `${cat.id}-general-review-${uniqueIdSuffix}-it${i}`,
                     text: `${cat.name}: ${topicLabel}Revisão Geral Complementar (Volume ${i + 1})`,
                     completed: false,
-                    categoryId: cat.id,
+                    categoryId: cat.id, category: cat.name, catName: cat.name,
                     analysis: {
                         reason: "Revisão Geral Complementar",
                         metrics: cat.urgency?.details?.humanReadable || {},

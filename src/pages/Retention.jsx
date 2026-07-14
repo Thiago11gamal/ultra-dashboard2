@@ -45,14 +45,16 @@ export default function Retention() {
             showToast('Categoria inválida para retenção.', 'warning');
             return;
         }
-        const targetTask = cat.selectedTask || cat.tasks?.[0];
-        const targetTaskId = targetTask ? (targetTask.id || targetTask.text) : null;
         
-        // FIX: Tratamento correto caso não haja tasks
-        if (targetTaskId && targetTask) {
+        // Se a chamada veio do botão da task, selectedTask estará presente.
+        // Se veio do botão geral da categoria, selectedTask é undefined, e o aluno quer estudar a matéria toda!
+        const isTaskSpecific = !!cat.selectedTask;
+
+        if (isTaskSpecific) {
+            const targetTask = cat.selectedTask;
             startPomodoroSession({
                 categoryId: cat.id,
-                taskId: targetTaskId,
+                taskId: targetTask.id || targetTask.text,
                 category: cat.name,
                 task: targetTask.title || targetTask.text || 'Estudo',
                 priority: targetTask.priority,
@@ -60,7 +62,16 @@ export default function Retention() {
             });
             navigate('/pomodoro');
         } else {
-            showToast(`Crie pelo menos uma tarefa em "${cat?.name || 'Sem nome'}" para iniciar os estudos.`, 'warning');
+            // Sessão na Categoria inteira
+            startPomodoroSession({
+                categoryId: cat.id,
+                taskId: cat.id, // O ID da task será o ID da própria categoria
+                category: cat.name,
+                task: cat.name + ': Revisão Geral', // "Matemática: Revisão Geral", para que no Pomodoro apareça "Revisão Geral" com categoria "Matemática"
+                priority: 'normal',
+                source: 'retention'
+            });
+            navigate('/pomodoro');
         }
     };
 
