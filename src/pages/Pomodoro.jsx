@@ -7,13 +7,120 @@ import { useAppStore } from '../store/useAppStore';
 import { useActiveContest, usePomodoroState } from '../store/useSelectors';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2, Target, AlertCircle } from 'lucide-react';
+import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2, Target, AlertCircle, TrendingUp, Clock, Calendar, BarChart3, Medal, Trophy } from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
 const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
+
+function DataTriviaPanel({ studyLogs, simulados, categories }) {
+    const trivia = useMemo(() => {
+        const now = new Date();
+        const startOfToday = getLocalMidnight().getTime();
+        const startOfYesterday = startOfToday - 86400000;
+        const startOfWeek = startOfToday - (86400000 * 7);
+        const startOfMonth = startOfToday - (86400000 * 30);
+
+        let todayMins = 0;
+        let yesterdayMins = 0;
+        let weekMins = 0;
+        let monthMins = 0;
+
+        (studyLogs || []).forEach(log => {
+            if (!log || !log.date) return;
+            const t = new Date(log.date).getTime();
+            const mins = Number(log.minutes) || 0;
+            if (t >= startOfToday) todayMins += mins;
+            else if (t >= startOfYesterday) yesterdayMins += mins;
+            
+            if (t >= startOfWeek) weekMins += mins;
+            if (t >= startOfMonth) monthMins += mins;
+        });
+
+        let totalSimulados = (simulados || []).length;
+        let recentSimulados = (simulados || []).filter(s => s && s.date && new Date(s.date).getTime() >= startOfMonth).length;
+
+        let totalTasks = 0;
+        let completedTasks = 0;
+        let weekTasks = 0;
+
+        (categories || []).forEach(c => {
+            if (!c || !c.tasks) return;
+            c.tasks.forEach(t => {
+                if (!t) return;
+                totalTasks++;
+                if (t.completed) {
+                    completedTasks++;
+                    if (t.completedAt && new Date(t.completedAt).getTime() >= startOfWeek) {
+                        weekTasks++;
+                    }
+                }
+            });
+        });
+
+        const items = [];
+
+        if (todayMins > 0) {
+            items.push({ icon: <Flame size={14} className="text-amber-500" />, text: `Hoje: ${Math.round(todayMins)} minutos injetados no sistema.` });
+        }
+        
+        if (yesterdayMins > 0 && todayMins > yesterdayMins) {
+            items.push({ icon: <TrendingUp size={14} className="text-emerald-500" />, text: `Você já superou o foco de ontem (+${Math.round(todayMins - yesterdayMins)} min).` });
+        } else if (yesterdayMins > 0) {
+            items.push({ icon: <Clock size={14} className="text-blue-400" />, text: `Ontem: ${Math.round(yesterdayMins)} minutos de neuro-plasticidade.` });
+        }
+
+        if (weekMins > 0) {
+            items.push({ icon: <Calendar size={14} className="text-indigo-400" />, text: `Semana: ${Math.floor(weekMins / 60)}h ${Math.round(weekMins % 60)}m de imersão total.` });
+        }
+
+        if (monthMins > 0) {
+            items.push({ icon: <BarChart3 size={14} className="text-cyan-400" />, text: `Mês: Absorção sustentada de ${Math.floor(monthMins / 60)}h brutas.` });
+        }
+
+        if (recentSimulados > 0) {
+            items.push({ icon: <Target size={14} className="text-rose-400" />, text: `${recentSimulados} simulados enfrentados nos últimos 30 dias.` });
+        }
+
+        if (weekTasks > 0) {
+            items.push({ icon: <CheckCircle2 size={14} className="text-emerald-400" />, text: `${weekTasks} missões liquidadas nesta semana.` });
+        }
+
+        if (completedTasks > 0) {
+            const pct = Math.round((completedTasks / Math.max(1, totalTasks)) * 100);
+            items.push({ icon: <Trophy size={14} className="text-yellow-500" />, text: `Taxa global de conclusão: ${pct}% de todas as metas.` });
+        }
+
+        return items.sort(() => Math.random() - 0.5).slice(0, 4);
+    }, [studyLogs, simulados, categories]);
+
+    if (!trivia || trivia.length === 0) return null;
+
+    return (
+        <div className="mb-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 relative overflow-hidden group/trivia">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover/trivia:opacity-100 transition-opacity" />
+            
+            <div className="flex justify-between items-center mb-3 relative z-10">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2">
+                    <Medal size={12} />
+                    Conquistas e Telemetria
+                </p>
+                <span className="text-[9px] font-black text-indigo-500/60 uppercase">Data Hub</span>
+            </div>
+
+            <div className="flex flex-col gap-2 relative z-10">
+                {trivia.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-slate-300 bg-white/[0.02] border border-white/[0.05] p-2 rounded-xl">
+                        <div className="shrink-0">{item.icon}</div>
+                        <span className="leading-snug font-medium">{item.text}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
 
 // CORREÇÃO CRÍTICA: Proteção contra undefined no Painel IA
 function AICoachPanel({ activeSubject, stats }) {
@@ -122,7 +229,7 @@ function AICoachPanel({ activeSubject, stats }) {
 }
 
 // Focus Panel
-function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode, neuralQueue }) {
+function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode, neuralQueue, studyLogs, simulados }) {
     const recommendedTask = useMemo(() => {
         if (!categories || categories.length === 0) return null;
         return getBestTask(categories);
@@ -332,6 +439,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
             <div className="h-[80px]" />
             <AICoachPanel activeSubject={activeSubject} stats={stats} />
+            <DataTriviaPanel studyLogs={studyLogs} simulados={simulados} categories={categories} />
 
             {activeTaskStats && (
                 <div className="mb-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 relative overflow-hidden group/stats">
@@ -889,6 +997,8 @@ export default function Pomodoro() {
                     stats={userStats}
                     neuralMode={neuralMode}
                     neuralQueue={neuralQueue}
+                    studyLogs={studyLogs}
+                    simulados={simulados}
                 />
             </div>
         </div>
