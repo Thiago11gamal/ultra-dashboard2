@@ -804,6 +804,7 @@ export default function Pomodoro() {
     const categories = contest.categories || EMPTY_ARRAY;
     const settings = contest.settings || EMPTY_OBJECT;
     const studyLogs = contest.studyLogs || EMPTY_ARRAY;
+    const simulados = contest.simulados || EMPTY_ARRAY;
     const user = contest.user || null;
 
     // Hidratação validada (Considerando a nova referência EMPTY_OBJECT)
