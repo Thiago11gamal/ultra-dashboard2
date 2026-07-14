@@ -259,25 +259,38 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
         const remaining = Math.max(total - completed, 0);
         const gainIfComplete = total > 0 ? Number((100 / total).toFixed(1)) : 0;
-        const quality = completionPct >= 75 ? 'ótimo' : completionPct >= 45 ? 'mediano' : 'baixo';
+        const quality = completionPct >= 80 ? 'Maestria' : completionPct >= 40 ? 'Evolução' : 'Fase Inicial';
         const hitRate = completionPct;
         const missRate = Math.max(0, 100 - completionPct);
         const highPriorityCount = categoryTasks.filter(t => t.priority === 'high' && !t.completed).length;
 
         const whySelected = activeSubject.priority === 'high'
-            ? 'prioridade alta com maior impacto no avanço da categoria'
-            : 'boa relação de progresso e esforço no plano atual';
+            ? 'ser um alvo crítico de alto impacto'
+            : 'apresentar alta sinergia com o seu ritmo atual';
 
         const improveText = remaining > 0
-            ? `Finalize mais ${Math.min(remaining, 2)} tarefa(s) para acelerar o ganho percentual.`
-            : 'Categoria praticamente concluída, ótimo momento para revisar.';
+            ? `Neutralize mais ${Math.min(remaining, 3)} alvo(s) para expandir seu domínio e acelerar a base.`
+            : 'Domínio quase absoluto. Excelente oportunidade para transição ou revisão profunda.';
 
-        const statusVariants = [
-            `Curiosidade: você já converteu ${hitRate}% desta categoria em progresso real.`,
-            `Leitura rápida: hoje o equilíbrio está em ${hitRate}% de avanço e ${missRate}% para recuperar.`,
-            `Radar tático: existem ${highPriorityCount} ponto(s) de alta prioridade ainda em aberto.`,
-            `Se concluir este bloco, a curva tende a subir cerca de +${gainIfComplete}% no total da categoria.`
-        ];
+        const statusVariants = [];
+        
+        if (completionPct < 40) {
+            statusVariants.push(`Fase de ignição: Cada bloco concluído gera um impacto agressivo de +${gainIfComplete}% na base.`);
+            if (highPriorityCount > 0) statusVariants.push(`Estratégia Alpha: Focar nas ${highPriorityCount} tarefas críticas trará o maior ROI de esforço.`);
+        } else if (completionPct < 80) {
+            statusVariants.push(`Ponto de inflexão: Você já dominou ${hitRate}%. Acelere para cruzar a barreira da excelência.`);
+            statusVariants.push(`Análise em tempo real: Restam ${remaining} missões. Mantenha o fluxo para aniquilar a lacuna de ${missRate}%.`);
+        } else {
+            statusVariants.push(`Alta performance: Com ${hitRate}% de domínio, você está na fase de refinamento e maestria.`);
+            statusVariants.push(`Retenção máxima: Seu nível atual reduz drasticamente a curva de esquecimento.`);
+        }
+
+        if (highPriorityCount > 0 && statusVariants.length < 3) {
+            statusVariants.push(`Radar tático: Detectamos ${highPriorityCount} missão(ões) de prioridade máxima ainda em aberto.`);
+        }
+        
+        statusVariants.push(`Mapeamento: Seu fluxo já converteu ${hitRate}% de ruído em conhecimento estruturado.`);
+
         const variantSeed = String(activeSubject.taskId || activeSubject.task || '').length + completed + total;
         const statusLine = statusVariants[variantSeed % statusVariants.length];
 
