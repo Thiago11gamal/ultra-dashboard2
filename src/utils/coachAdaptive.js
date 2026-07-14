@@ -1,7 +1,7 @@
 import { monteCarloSimulation } from '../engine/monteCarlo.js';
 import { getSafeScore } from './scoreHelper.js';
 import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeCalibrationDiagnostics, fitIsotonicCalibration, predictIsotonicProbability, calibrateWithBBQ, conformalizedCalibrationInterval, computeStackingWeights } from './calibration.js';
-import { getDateKey } from './dateHelper.js';
+import { getDateKey, safeDateParse } from './dateHelper.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { detectDataAnomalies } from '../engine/diagnostics.js';
 import { pruneHistoryForMemory } from '../engine/stats.js';
@@ -253,7 +253,7 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}
     let medianGapDays = 7; // default
     if (n >= 2) {
         const sortedDates = history
-            .map(h => h.date ? new Date(h.date).getTime() : 0)
+            .map(h => h.date ? (safeDateParse(h.date)?.getTime() || 0) : 0)
             .filter(t => t > 0)
             .sort((a, b) => a - b);
         if (sortedDates.length >= 2) {
@@ -338,7 +338,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     // CORREÇÃO: Injetar impressão digital do motor adaptativo na chave de Cache
     const adaptiveHash = adaptive ? `${adaptive.mcSimulations || 0}-${adaptive.decayK || 0}` : 'no-adapt';
     const userId = cfg?.userId || 'default';
-    const hash = `${userId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}`;
+    const hash = `${userId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}-ag${agilityPenalty}`;
     
     if (mcCache.has(hash)) {
         // LRU: move to most recent on access (improves cache memory efficiency)
@@ -393,9 +393,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                     // CORREÇÃO: Calcular o delta real em dias para projetar apenas o necessário
                     let gapDays = 7; // Fallback
                     if (train.length > 0 && observedRecord.date) {
-                        const trainDateMs = new Date(train[train.length - 1].date).getTime();
-                        const obsDateMs = new Date(observedRecord.date).getTime();
-                        if (obsDateMs > trainDateMs) {
+                        const trainDateMs = safeDateParse(train[train.length - 1].date)?.getTime() || NaN;
+                        const obsDateMs = safeDateParse(observedRecord.date)?.getTime() || NaN;
+                        if (!Number.isNaN(trainDateMs) && !Number.isNaN(obsDateMs) && obsDateMs > trainDateMs) {
                             gapDays = Math.max(1, (obsDateMs - trainDateMs) / 86400000);
                         }
                     }
