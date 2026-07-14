@@ -328,7 +328,7 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
                 date: getDateKey(new Date(Date.now() - (recentRaw.length - 1 - idx) * 7 * 86400000))
             }));
             const recentTrend = calculateTrend(recentAsObjects);
-            const recentSlope = calculateSlope(recentTrend, options);
+            const recentSlope = calculateSlope(recentTrend, maxScore, options);
             const slopeMultiplier = recentSlope > 0 ? Math.min(1, recentSlope / (maxScore * 0.01)) : 0;
             
             L = robustPeak + (dynamicHeadroom * slopeMultiplier);
