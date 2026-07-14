@@ -21,6 +21,7 @@ export default function Retention() {
     });
     const navigate = useNavigate();
     const showToast = useToast();
+    const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
 
     const chartData = useMemo(() => mapRetentionData(categories), [categories]);
 
@@ -44,11 +45,20 @@ export default function Retention() {
             showToast('Categoria inválida para retenção.', 'warning');
             return;
         }
-        const targetTaskId = cat.selectedTask ? cat.selectedTask.id : cat.tasks?.[0]?.id;
+        const targetTask = cat.selectedTask || cat.tasks?.[0];
+        const targetTaskId = targetTask ? (targetTask.id || targetTask.text) : null;
         
         // FIX: Tratamento correto caso não haja tasks
-        if (targetTaskId) {
-            navigate('/pomodoro', { state: { categoryId: cat.id, taskId: targetTaskId, from: 'retention' } });
+        if (targetTaskId && targetTask) {
+            startPomodoroSession({
+                categoryId: cat.id,
+                taskId: targetTaskId,
+                category: cat.name,
+                task: targetTask.title || targetTask.text || 'Estudo',
+                priority: targetTask.priority,
+                source: 'retention'
+            });
+            navigate('/pomodoro');
         } else {
             showToast(`Crie pelo menos uma tarefa em "${cat?.name || 'Sem nome'}" para iniciar os estudos.`, 'warning');
         }
