@@ -102,7 +102,6 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     // Helper to get style from value - moved before useMemo that uses it
     const getRetentionStyle = useCallback((val) => {
-        if (val === 0) return { status: 'never', label: 'Não Estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
         if (val >= 80) return { status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
         if (val >= 60) return { status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
         if (val >= 40) return { status: 'warning', label: 'Atenção', color: 'text-yellow-400', bg: 'bg-yellow-500', border: 'border-yellow-500/30' };
@@ -141,7 +140,8 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 const finalVal = avgTaskRetention !== null ? Math.max(avgTaskRetention, catDirectRet.val) : catDirectRet.val;
 
                 // FIX: Verifique se não há estudo antes de construir o objeto para não sobrescrever o status 'never'
-                const categoryRetention = finalVal === 0
+                const isNeverStudied = avgTaskRetention === null && !cat.lastStudiedAt;
+                const categoryRetention = isNeverStudied
                     ? { val: 0, status: 'never', label: 'Não Estudado', color: 'text-slate-500', bg: 'bg-slate-800', border: 'border-slate-700' }
                     : { val: finalVal, ...getRetentionStyle(finalVal) };
 
