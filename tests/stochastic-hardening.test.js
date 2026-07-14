@@ -84,11 +84,12 @@ describe('Stochastic Engine Hardening & Architectural Safety', () => {
 
     it('6. computeRollingCalibrationParams deve estabilizar os parâmetros sob escassez de dados', () => {
         // Escassez de dados: apenas 4 amostras (minSamples)
+        // Usando probability e observed correspondentes a um Brier Score na faixa de 0.35 (ex: prob 0.59, obs 0 -> Brier ~0.35)
         const history = [
-            { timestamp: Date.now() - 1000, avgBrier: 0.35 },
-            { timestamp: Date.now() - 2000, avgBrier: 0.36 },
-            { timestamp: Date.now() - 3000, avgBrier: 0.34 },
-            { timestamp: Date.now() - 4000, avgBrier: 0.35 }
+            { timestamp: Date.now() - 1000, probability: 0.59, observed: 0 },
+            { timestamp: Date.now() - 2000, probability: 0.6, observed: 0 },
+            { timestamp: Date.now() - 3000, probability: 0.58, observed: 0 },
+            { timestamp: Date.now() - 4000, probability: 0.59, observed: 0 }
         ];
 
         // Sem o fix, confidenceFactor seria 1.0 (jump brusco).

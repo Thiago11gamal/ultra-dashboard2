@@ -4,6 +4,7 @@ import PomodoroTimer from '../components/PomodoroTimer';
 import { getLocalMidnight } from '../utils/dateHelper';
 import { motion as Motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
+import { useActiveContest, usePomodoroState } from '../store/useSelectors';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2 } from 'lucide-react';
@@ -476,7 +477,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
             .replace(/\s{2,}/g, ' ')
             .trim();
 
-        return cleaned || parts[0].replace(/\[.*?\]/g, '').trim();
+        return cleaned || text.replace(/\[.*?\]/g, '').trim();
     };
 
     return (
@@ -523,11 +524,11 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
 
 export default function Pomodoro() {
     const activeId = useAppStore(state => state.appState?.activeId);
-    const contest = useAppStore(state => state.appState?.contests?.[activeId] || EMPTY_OBJECT);
-    const categories = useAppStore(state => state.appState?.contests?.[activeId]?.categories || EMPTY_ARRAY);
-    const settings = useAppStore(state => state.appState?.contests?.[activeId]?.settings || EMPTY_OBJECT);
-    const studyLogs = useAppStore(state => state.appState?.contests?.[activeId]?.studyLogs || EMPTY_ARRAY);
-    const user = useAppStore(state => state.appState?.contests?.[activeId]?.user || null);
+    const contest = useActiveContest() || EMPTY_OBJECT;
+    const categories = contest.categories || EMPTY_ARRAY;
+    const settings = contest.settings || EMPTY_OBJECT;
+    const studyLogs = contest.studyLogs || EMPTY_ARRAY;
+    const user = contest.user || null;
 
     // Hidratação validada (Considerando a nova referência EMPTY_OBJECT)
     const isHydrated = !!activeId && contest !== EMPTY_OBJECT;
@@ -540,12 +541,13 @@ export default function Pomodoro() {
     const showToast = useToast();
     const completionTimeoutRef = React.useRef(null);
 
-    const activeSubject = useAppStore(state => state.appState?.pomodoro?.activeSubject);
+    const pomodoroState = usePomodoroState();
+    const activeSubject = pomodoroState.activeSubject;
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
 
-    const completedCycles = useAppStore(state => state.appState?.pomodoro?.completedCycles ?? 0);
-    const neuralMode = useAppStore(state => state.appState?.pomodoro?.neuralMode);
-    const neuralQueue = useAppStore(state => state.appState?.pomodoro?.neuralQueue || EMPTY_ARRAY);
+    const completedCycles = pomodoroState.completedCycles ?? 0;
+    const neuralMode = pomodoroState.neuralMode;
+    const neuralQueue = pomodoroState.neuralQueue || EMPTY_ARRAY;
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
     
     const topRef = useRef(null);

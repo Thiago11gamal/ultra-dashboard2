@@ -157,7 +157,7 @@ const ENGINES = [
 ];
 
 
-export default function EvolutionChart({
+export default React.memo(function EvolutionChart({
     categories: rawCategories = [],
     targetScore = 80,
     goalDate,
@@ -969,4 +969,4 @@ export default function EvolutionChart({
             </div>
         </motion.div>
     );
-}
+});

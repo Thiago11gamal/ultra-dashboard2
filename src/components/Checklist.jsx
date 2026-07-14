@@ -297,7 +297,7 @@ const CategoryAccordion = React.memo(({ category, onToggleTask, onDeleteTask, on
                                         setIsConfirmDeleteTaskOpen(true);
                                     }}
                                     onTogglePriority={(id) => onTogglePriority(category.id, id)}
-                                    onTriggerPlay={() => playHandler(category.id, task.id)}
+                                    onTriggerPlay={() => onPlayContext(category.id, task.id)}
                                     categoryColor={category.color}
                                 />
                             ))
@@ -407,16 +407,18 @@ function Checklist({
         { id: 'completed', label: 'Concluídas' },
     ];
 
-    // Filter tasks within categories
-    const filteredCategories = categories.map(cat => ({
-        ...cat,
-        originalTasks: cat.tasks || [], // Keep reference to all tasks
-        tasks: (cat.tasks || []).filter(task => {
-            if (filter === 'active') return !task.completed;
-            if (filter === 'completed') return task.completed;
-            return true;
-        })
-    })).filter(() => true); // Always show categories, even if empty
+    // Filter tasks within categories, memoized to prevent render-blocking on typing
+    const filteredCategories = React.useMemo(() => {
+        return categories.map(cat => ({
+            ...cat,
+            originalTasks: cat.tasks || [], // Keep reference to all tasks
+            tasks: (cat.tasks || []).filter(task => {
+                if (filter === 'active') return !task.completed;
+                if (filter === 'completed') return task.completed;
+                return true;
+            })
+        })).filter(() => true); // Always show categories, even if empty
+    }, [categories, filter]);
 
     return (
         <div className="min-h-[300px] w-full">

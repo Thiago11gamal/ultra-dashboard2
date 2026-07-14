@@ -29,10 +29,11 @@ export default function Dashboard() {
     const importCategory = useAppStore(state => state.importCategory);
     
     // Otimização: Agrupar as extrações de estado para reduzir re-renders desnecessários usando useShallow
-    const { categories, simuladoRows, rawStudyLogs, user, pomodorosCompleted } = useAppStore(useShallow(state => {
+    const { categories, simulados, simuladoRows, rawStudyLogs, user, pomodorosCompleted } = useAppStore(useShallow(state => {
         const contest = state.appState.contests?.[activeId] || {};
         return {
             categories: contest.categories,
+            simulados: contest.simulados,
             simuladoRows: contest.simuladoRows,
             rawStudyLogs: contest.studyLogs,
             user: contest.user,
@@ -46,8 +47,8 @@ export default function Dashboard() {
 
 
     const data = React.useMemo(() => ({
-        categories, simuladoRows, studyLogs, user, pomodorosCompleted
-    }), [categories, simuladoRows, studyLogs, user, pomodorosCompleted]);
+        categories, simulados, simuladoRows, studyLogs, user, pomodorosCompleted
+    }), [categories, simulados, simuladoRows, studyLogs, user, pomodorosCompleted]);
 
     const setGoalDate = React.useCallback((d) => setData(contest => {
         if (!contest) return contest;
@@ -131,7 +132,7 @@ export default function Dashboard() {
             <div className="tour-step-5">
                 <NextGoalCard
                     categories={data.categories}
-                    simulados={data.simuladoRows || []}
+                    simulados={data.simulados || []}
                     studyLogs={data.studyLogs || []}
                     onStartStudying={handleStartStudying}
                 />

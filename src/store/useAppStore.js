@@ -162,6 +162,8 @@ export const useAppStore = create(
             {
                 // Zundo Options: Limit history to 20 states
                 limit: 20,
+                // PERFORMANCE FIX: Ignora atualizações do Pomodoro e da UI. O histórico só é salvo se a base de dados (contests) mudar! O(1)
+                equality: (past, current) => past.appState?.contests === current.appState?.contests,
                 // BUG 1 FIX: Restringe o histórico do Zundo omitindo arrays massivos
                 // CORREÇÃO: Limpar também a Lixeira (trash) e o Histórico de Monte Carlo para evitar Memory Leak nas 20 instâncias de Undo
                 partialize: (state) => ({

@@ -37,7 +37,12 @@ export function parseLocaleNumber(value, fallback = NaN) {
         const parts = raw.split('.');
         const lastPart = parts[parts.length - 1];
         if (lastComma === -1 && parts.length === 2 && lastPart.length === 3) {
-            raw = raw.replace(/\./g, '');
+            // Heurística de milhar: checa se os 3 dígitos são compatíveis com nota arredondada de milhar
+            if (/000|500/.test(lastPart)) {
+                raw = raw.replace(/\./g, '');
+            } else {
+                raw = raw.replace(/,/g, ''); // Trata como float padrão
+            }
         } else {
             raw = raw.replace(/,/g, '');
         }
@@ -76,8 +81,8 @@ export function getSafeScore(historyRow, maxScore = 100) {
                 // OU BR: 1.000 (ambíguo)
                 const parts = rawScore.split('.');
                 const lastPart = parts[parts.length - 1];
-                if (lastComma === -1 && parts.length === 2 && lastPart.length === 3) {
-                    // Heurística: ponto único seguido de exatamente 3 dígitos -> Milhar
+                if (lastComma === -1 && parts.length === 2 && lastPart.length === 3 && !historyRow.isPercentage) {
+                    // Heurística: ponto único seguido de exatamente 3 dígitos -> Milhar (apenas se NÃO for porcentagem explícita)
                     rawScore = rawScore.replace(/\./g, '');
                 } else {
                     rawScore = rawScore.replace(/,/g, '');
@@ -236,7 +241,11 @@ export function formatPercent(value) {
             const parts = raw.split('.');
             const lastPart = parts[parts.length - 1];
             if (lastC === -1 && parts.length === 2 && lastPart.length === 3) {
-                raw = raw.replace(/\./g, '');
+                if (/000|500/.test(lastPart)) {
+                    raw = raw.replace(/\./g, '');
+                } else {
+                    raw = raw.replace(/,/g, '');
+                }
             } else {
                 raw = raw.replace(/,/g, '');
             }
@@ -272,7 +281,11 @@ export function formatValue(value) {
             const parts = raw.split('.');
             const lastPart = parts[parts.length - 1];
             if (lastC === -1 && parts.length === 2 && lastPart.length === 3) {
-                raw = raw.replace(/\./g, '');
+                if (/000|500/.test(lastPart)) {
+                    raw = raw.replace(/\./g, '');
+                } else {
+                    raw = raw.replace(/,/g, '');
+                }
             } else {
                 raw = raw.replace(/,/g, '');
             }
