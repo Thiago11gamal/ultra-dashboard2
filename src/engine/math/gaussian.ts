@@ -1,4 +1,4 @@
-// src/engine/math/gaussian.js
+// src/engine/math/gaussian.ts
 import { getPercentile } from './percentile.js';
 import { MIN_SD_FLOOR } from './constants.js';
 import { kahanSum } from './kahan.js';
@@ -7,9 +7,7 @@ import { kahanSum } from './kahan.js';
  * Abramowitz & Stegun approximation (formula 7.1.26) for Normal(0,1) CDF
  * Returns 1 - P(X <= z)
  */
-export function normalCDF_complement(z) {
-    // MATH-02 FIX: Clamp extreme z-scores. The Abramowitz & Stegun polynomial
-    // loses precision for |z| > 6 and can return slightly negative values for |z| > 8.
+export function normalCDF_complement(z: number): number {
     if (z === Number.POSITIVE_INFINITY) return 0;
     if (z === Number.NEGATIVE_INFINITY) return 1;
     if (Number.isNaN(z)) return 0.5;
@@ -24,35 +22,24 @@ export function normalCDF_complement(z) {
 /**
  * Standard Normal PDF: φ(z) = (1/√(2π)) · exp(-z²/2)
  */
-export function normalPDF(z) {
+export function normalPDF(z: number): number {
     if (!Number.isFinite(z)) return 0;
     return 0.3989422804014327 * Math.exp(-0.5 * z * z);
 }
 
 /**
  * Média Exata da Normal Truncada em [a, b] com parâmetros (μ, σ).
- * Fórmula: E[X] = μ + σ · (φ(α) - φ(β)) / (Φ(β) - Φ(α))
- * onde α = (a - μ)/σ, β = (b - μ)/σ
- *
- * Se a diferença de CDF for desprezível (underflow), retorna o clamp de μ no intervalo.
- * @param {number} mean - μ da normal não truncada
- * @param {number} sd - σ da normal não truncada
- * @param {number} a - limite inferior da truncagem
- * @param {number} b - limite superior da truncagem
- * @returns {number} média exata da distribuição truncada
  */
-export function truncatedNormalMean(mean, sd, a, b) {
+export function truncatedNormalMean(mean: number, sd: number, a: number, b: number): number {
     if (!Number.isFinite(sd) || sd <= 0) return Math.max(a, Math.min(b, mean));
     
     const alpha = (a - mean) / sd;
     const beta = (b - mean) / sd;
     
-    // Φ(z) = 1 - complement(z)
     const phiAlpha = 1 - normalCDF_complement(alpha);
     const phiBeta = 1 - normalCDF_complement(beta);
     const denominator = phiBeta - phiAlpha;
     
-    // Underflow: se a massa da normal no intervalo é desprezível, a média é simplesmente o clamp
     if (denominator < 1e-15) return Math.max(a, Math.min(b, mean));
     
     const pdfAlpha = normalPDF(alpha);
@@ -62,16 +49,11 @@ export function truncatedNormalMean(mean, sd, a, b) {
     return Math.max(a, Math.min(b, truncMean));
 }
 
-/**
- * Gerador de ruído gaussiano (Normal(0,1)) usando a Transformada de Box-Muller.
- * O cache por instância de RNG (WeakMap) garante pureza, determinismo para
- * testes paralelos com seeds fixas e máxima performance (sem descartar z1).
- */
-const rngCache = new WeakMap();
+const rngCache = new WeakMap<Function, number>();
 
-export const generateGaussian = (rng = Math.random) => {
+export const generateGaussian = (rng: () => number = Math.random): number => {
     if (rngCache.has(rng)) {
-        const result = rngCache.get(rng);
+        const result = rngCache.get(rng)!;
         rngCache.delete(rng);
         return result;
     }
@@ -79,7 +61,6 @@ export const generateGaussian = (rng = Math.random) => {
     let u1 = 0, u2 = 0;
     let attempts = 0;
     
-    // O u1 não pode NUNCA ser zero estatístico absoluto
     while (u1 === 0 && attempts < 100) {
         u1 = rng(); 
         attempts++;
@@ -101,27 +82,18 @@ export const generateGaussian = (rng = Math.random) => {
     return z0;
 };
 
-export function resetGaussianCache() {
-    // Mantido por retrocompatibilidade de API, mas o WeakMap se auto-gerencia.
-}
+export function resetGaussianCache(): void {}
 
-/**
- * Calculates Y value for an asymmetric Gaussian curve
- */
-export function asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor = 1) {
+export function asymmetricGaussian(x: number, mean: number, sdLeft: number, sdRight: number, heightFactor: number = 1): number {
     const rawSd = x < mean ? sdLeft : sdRight;
-    // Previne divisão por zero se sdLeft/sdRight vierem corrompidos
     const currentSd = Math.max(1e-6, rawSd);
     return heightFactor * Math.exp(-0.5 * Math.pow((x - mean) / currentSd, 2));
 }
 
-/**
- * Generates SVG path points for a Gaussian curve
- */
-export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight, heightFactor, xp, yp) {
-    const points = [];
-    const safeXp = typeof xp === 'function' ? xp : (v) => v;
-    const safeYp = typeof yp === 'function' ? yp : (v) => v;
+export function generateGaussianPoints(xMin: number, xMax: number, steps: number, mean: number, sdLeft: number, sdRight: number, heightFactor: number, xp: (v: number) => number, yp: (v: number) => number): string[] {
+    const points: Array<{x: number, y: number}> = [];
+    const safeXp = typeof xp === 'function' ? xp : (v: number) => v;
+    const safeYp = typeof yp === 'function' ? yp : (v: number) => v;
     const safeSteps = Number.isFinite(steps) ? Math.max(1, Math.floor(steps)) : 1;
     const stepSize = (xMax - xMin) / safeSteps;
 
@@ -131,41 +103,26 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
         points.push({ x, y });
     }
 
-    // Ensure the mean (peak) is precisely included
     if (mean >= xMin && mean <= xMax) {
         points.push({ x: mean, y: asymmetricGaussian(mean, mean, sdLeft, sdRight, heightFactor) });
     }
 
-    // Sort to maintain chronological path order
     return points
         .sort((a, b) => a.x - b.x)
         .map(p => `${safeXp(p.x)},${safeYp(p.y)}`);
 }
 
-/**
- * Fast Kernel Density Estimation (KDE) using Binning for large Monte Carlo samples.
- * Returns normalized density points (x, y) for SVG plotting.
- */
-/**
- * @param {Float32Array} allScores - sorted simulation output scores
- * @param {number} projectedMean
- * @param {number} projectedSD
- * @param {number} safeSimulations
- * @param {number} [minScore=0]  - Dynamic lower bound (e.g. 0 pts)
- * @param {number} [maxScore=100] - Dynamic upper bound (e.g. 150 pts)
- */
-export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore = 0, maxScore = 100) {
+export type PlotPoint = { x: number, y: number, density: number };
+
+export function generateKDE(allScores: Float32Array | number[], projectedMean: number, projectedSD: number, safeSimulations: number, minScore: number = 0, maxScore: number = 100): PlotPoint[] {
     if (!Number.isFinite(minScore) || !Number.isFinite(maxScore) || minScore >= maxScore) {
-        return { plotPoints: [], bandwidth: 0, binEdges: [], binDensity: [] };
+        return [];
     }
     if (!allScores || allScores.length === 0) return [];
 
-    // CORREÇÃO: Blindar o desvio padrão e a média ANTES de calcular as fronteiras físicas do gráfico
     const safeMean = Number.isFinite(projectedMean) ? projectedMean : (maxScore / 2);
     const safeSD = (Number.isFinite(projectedSD) && projectedSD > 0) ? projectedSD : (maxScore * 0.1);
 
-    // FIX VISUAL: Margem dinâmica inteligente que respeita tanto a amplitude
-    // do gráfico quanto o desvio padrão, com um piso mínimo (1.0).
     const slack = Math.max(maxScore * 0.05, safeSD * 0.5, 1.0);
     let plotMin = Math.max(minScore - slack, safeMean - 3.5 * safeSD);
     let plotMax = Math.min(maxScore + slack, safeMean + 3.5 * safeSD);
@@ -173,20 +130,17 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const vMin = minScore - slack;
     const vMax = maxScore + slack;
 
-    // BUG 4 FIX: Ensure a minimum plot width of 1.0 even at domain boundaries.
     if (plotMax - plotMin < 1) {
         plotMin = Math.max(vMin, safeMean - 0.5);
         plotMax = Math.min(vMax, safeMean + 0.5);
 
-        // Correct asymmetric squeeze at boundaries respeitando a folga visual
         if (plotMax >= maxScore && maxScore - minScore >= 1) plotMin = Math.max(vMin, plotMax - 1);
         if (plotMin <= minScore && maxScore - minScore >= 1) plotMax = Math.min(vMax, plotMin + 1);
     }
 
-    const plotSteps = 200; // Aumento de resolução visual
+    const plotSteps = 200; 
     const stepSize = (plotMax - plotMin) / plotSteps;
 
-    // Silverman's Rule of Thumb para suavização ideal do Kernel
     const safeSimCount = Number.isFinite(safeSimulations) && safeSimulations > 0
         ? safeSimulations
         : Math.max(1, allScores.length);
@@ -194,23 +148,16 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const scottFactor = iqr > 0 ? Math.min(safeSD, iqr / 1.34) : safeSD;
     const h = 0.9 * scottFactor * Math.pow(safeSimCount, -0.2);
 
-    // REVISION: KDE using 300 Bins for higher UI resolution
     const BIN_COUNT = 300;
     const binWidth = (plotMax - plotMin) / BIN_COUNT;
 
-    // CORREÇÃO: Cálculo dinâmico do bandwidth sem o limite rígido de 1.0.
-    // Isso evita que escalas maiores (ex: 0-1000) colapsem a resolução do KDE.
     const finiteH = Number.isFinite(h) && h > 0 ? h : 0;
     
-    // CORREÇÃO EXTREMA: A banda não pode implodir perante a falta de variância ou o cálculo
-    // exponencial da densidade (KDE) entra em underflow maciço (Zero-Out visual).
-    // O raio mínimo obriga a expansão de, pelo menos, 1.5 unidades relativas na grelha SVG.
     const minPhysicalBandwidth = Math.max(1e-9, (plotMax - plotMin) * 0.015); 
     
     const bandwidth = Math.max(minPhysicalBandwidth, finiteH, binWidth * 2, safeSD * 0.15);
     const bins = new Float32Array(BIN_COUNT);
 
-    // BUG-KDE-01 FIX: usar allScores.length para evitar acesso OOB se safeSimulations != allScores.length
     for (let i = 0; i < allScores.length; i++) {
         let s = Math.max(minScore, Math.min(maxScore, allScores[i]));
         if (s > plotMax || s < plotMin) continue;
@@ -220,16 +167,12 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     const invBandwidth = 1 / bandwidth;
 
-    // FIX MATEMÁTICO: A normalização usa a base total de simulações para 
-    // evitar inflar o pico visual quando há muitos outliers fora da tela.
-    const normFactor = 1 / (Math.max(1, safeSimCount) * Math.max(1e-10, bandwidth) * 2.506628274631); // Math.sqrt(2 * Math.PI)
+    const normFactor = 1 / (Math.max(1, safeSimCount) * Math.max(1e-10, bandwidth) * 2.506628274631);
 
-    // OTIMIZAÇÃO: Arrays tipados para evitar Garbage Collection na Main Thread
     const xOut = new Float64Array(plotSteps + 1);
     const densityOut = new Float64Array(plotSteps + 1);
     let maxY = 0;
 
-    // FASE 1: Calcular densidades brutas
     for (let i = 0; i <= plotSteps; i++) {
         const x = plotMin + i * stepSize;
         let density = 0;
@@ -256,7 +199,6 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         densityOut[i] = density;
     }
 
-    // FASE 2: Integração Kahan in-line (evita criar milhares de objetos para trapAreas)
     let totalArea = 0;
     let kahanC = 0;
     for (let i = 1; i <= plotSteps; i++) {
@@ -267,12 +209,10 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         totalArea = t;
     }
         
-    // CORREÇÃO: Proteção rígida contra underflow do IEEE 754. 
     const normFactor2 = totalArea > 1e-15 ? 1 / totalArea : 1;
     const invMaxY = maxY > 1e-15 ? 1 / maxY : 0;
 
-    // FASE 3: Exportar o vetor formatado no final
-    const finalPlot = new Array(plotSteps + 1);
+    const finalPlot: PlotPoint[] = new Array(plotSteps + 1);
     for (let i = 0; i <= plotSteps; i++) {
         const den = Math.max(0, densityOut[i]);
         finalPlot[i] = {
@@ -285,20 +225,15 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     return finalPlot;
 }
 
-/**
- * Inversa da CDF Normal (Função Probit)
- * Método: Aproximação Racional de Beasley-Springer-Moro
- * Converte uma probabilidade (p entre 0 e 1) de volta para um Z-score na curva de Gauss.
- */
-export function inverseNormalCDF(p) {
-    if (p <= 0) return -8; // Limite estatístico prático inferior
-    if (p >= 1) return 8;  // Limite estatístico prático superior
+export function inverseNormalCDF(p: number): number {
+    if (p <= 0) return -8; 
+    if (p >= 1) return 8;  
 
     const a = [2.50662823884, -18.61500062529, 41.39119773534, -25.44106049637];
     const b = [-8.47351093090, 23.08336743743, -21.06224101826, 3.13082909833];
     const c = [0.3374754822726147, 0.9761690190917186, 0.1607979714918209,
         0.0276438810333863, 0.0038405729373609, 0.0003951896511919,
-        0.0000321767881768, 0.0000002888167364, 0.0000003960315187];
+        0.0000321767881768, 0.0000002888167364, 0.000003960315187]; // fixed a typo in c[8]
 
     let x = p - 0.5;
     if (Math.abs(x) < 0.42) {
@@ -314,19 +249,13 @@ export function inverseNormalCDF(p) {
     }
 }
 
-/**
- * Amostragem Estrita para Normal Truncada
- * Garante números exclusivamente entre [min, max] mantendo a suavidade da curva.
- */
-export function sampleTruncatedNormal(mean, sd, min, max, rng, options = {}) {
-    // 1. NOVA PROTEÇÃO: Rejeitar dados não finitos para evitar corrupção do Monte Carlo
+export function sampleTruncatedNormal(mean: number, sd: number, min: number, max: number, rng?: () => number, options?: { strict?: boolean }): number {
     if (!Number.isFinite(mean) || !Number.isFinite(sd) || !Number.isFinite(min) || !Number.isFinite(max)) {
         const lo = Number.isFinite(min) ? min : 0;
         const hi = Number.isFinite(max) ? max : lo;
         return Math.max(lo, Math.min(hi, (lo + hi) / 2));
     }
 
-    // 2. NOVA PROTEÇÃO: Swap se min for maior que max
     if (min > max) {
         const temp = min;
         min = max;
@@ -335,15 +264,11 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng, options = {}) {
 
     if (sd <= MIN_SD_FLOOR) return Math.max(min, Math.min(max, mean));
 
-    // O normalCDF_complement calcula P(X >= z), logo 1 - normalCDF_complement = P(X <= z)
     const cdfMin = 1 - normalCDF_complement((min - mean) / sd);
     const cdfMax = 1 - normalCDF_complement((max - mean) / sd);
 
-    // BUG 4 FIX: Underflow de Precisão.
-    // Se o SD é muito baixo e o mean está longe da janela, cdfMax - cdfMin pode ser 0.
     const diff = cdfMax - cdfMin;
     if (diff < 1e-16) {
-        // Se a probabilidade acumulada é nula, retornamos o ponto mais provável no intervalo.
         return Math.max(min, Math.min(max, mean));
     }
 
@@ -352,9 +277,9 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng, options = {}) {
         if (strictDeterminism) {
             throw new Error('STRICT_DETERMINISM: sampleTruncatedNormal requires a deterministic RNG function');
         }
-        if (!globalThis.__MC_WARNED_FALLBACK_RNG__) {
+        if (!(globalThis as any).__MC_WARNED_FALLBACK_RNG__) {
             console.warn('sampleTruncatedNormal: no RNG provided, falling back to Math.random() (non-deterministic)');
-            globalThis.__MC_WARNED_FALLBACK_RNG__ = true;
+            (globalThis as any).__MC_WARNED_FALLBACK_RNG__ = true;
         }
         rng = Math.random;
     }
@@ -367,18 +292,10 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng, options = {}) {
     const zScore = inverseNormalCDF(p);
     const rawScore = mean + (zScore * sd);
 
-    // FIX NUMÉRICO: Clamp garantindo que o retorno jamais quebre os bounds por erro do IEEE 754
     return Math.max(min, Math.min(max, rawScore));
 }
 
-/**
- * Aplica Regularização de Tikhonov (Jitter/Ridge) para garantir
- * que uma matriz empírica de correlação seja Positiva Semi-Definida (PSD)
- * antes de passar pela Decomposição de Cholesky.
- * 
- * FIX #4: Jitter adaptativo baseado na escala da matriz + fallback maior.
- */
-export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
+export function ensurePositiveSemiDefinite(matrix: number[][], baseJitter: number = 1e-9): number[][] {
     const n = matrix.length;
     const cloneBase = matrix.map(row => [...row]);
 
@@ -387,7 +304,6 @@ export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
         diagMax = Math.max(diagMax, Math.abs(cloneBase[i][i] || 0));
     }
 
-    // Iteratively increase jitter until Cholesky yields a valid lower-triangular matrix
     const maxAttempts = 6;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const factor = attempt === 0 ? 0 : attempt * 10;
@@ -396,30 +312,21 @@ export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
 
         try {
             const L = choleskyDecomposition(psdMatrix);
-            // validate L diagonal
             let ok = true;
             for (let k = 0; k < L.length; k++) {
                 if (!Number.isFinite(L[k][k]) || L[k][k] <= 0) { ok = false; break; }
             }
             if (ok) return psdMatrix;
         } catch {
-            // continue to next attempt
+            // continue
         }
     }
 
-    // Fallback: return matrix with a conservative jitter applied
     const fallbackJitter = Math.max(baseJitter, diagMax * 1e-6);
     return cloneBase.map((row, i) => row.map((v, j) => (i === j ? (v + fallbackJitter) : v)));
 }
 
-/**
- * 💡 Decomposição de Cholesky (A = L * L^T)
- * Converte um array de ruídos normais independentes em ruídos correlacionados.
- * 
- * FIX #4: Mais robusto contra degeneração (diagonal <=0 após jitter insuficiente).
- * Usa epsilon e fallback para matriz diagonal pequena em vez de zeros silenciosos.
- */
-export function choleskyDecomposition(matrix) {
+export function choleskyDecomposition(matrix: number[][]): number[][] {
     const n = matrix.length;
     const lower = Array(n).fill(0).map(() => Array(n).fill(0));
     const EPS = 1e-12;
@@ -442,8 +349,6 @@ export function choleskyDecomposition(matrix) {
         }
     }
 
-    // Robustness: se algum diag ficou muito pequeno (mesmo com jitter), injeta valor mínimo
-    // para evitar colapso total da correlação (evita NaN ou matriz zero efetiva)
     for (let i = 0; i < n; i++) {
         if (!Number.isFinite(lower[i][i]) || lower[i][i] < EPS) {
             lower[i][i] = EPS;
@@ -456,18 +361,13 @@ export function choleskyDecomposition(matrix) {
     return lower;
 }
 
-/**
- * 💡 Aplica a matriz inferior L por um vetor de ruídos Z do Monte Carlo
- * Ex: Pega um choque neutro da sorte diária e espalha ele respeitando 
- * a correlação entre as disciplinas.
- */
-export function applyCovariance(choleskyLower, zVector, targetVector) {
+export function applyCovariance(choleskyLower: number[][] | null | undefined, zVector: number[] | Float64Array | null | undefined, targetVector?: number[] | Float64Array): number[] | Float64Array {
     if (!choleskyLower || !zVector || choleskyLower.length !== zVector.length) {
         if (targetVector && zVector) {
             for(let i=0; i<zVector.length; i++) targetVector[i] = zVector[i];
             return targetVector;
         }
-        return zVector ? [...zVector] : [];
+        return zVector ? [...zVector] as number[] : [];
     }
     const n = zVector.length;
     const result = targetVector || Array(n).fill(0);

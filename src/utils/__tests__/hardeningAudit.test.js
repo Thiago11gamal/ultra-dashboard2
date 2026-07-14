@@ -18,7 +18,7 @@
 import { describe, test, expect } from 'vitest';
 import { getCoachPriorities, calculateUrgency, getCognitiveState, computeRobustVolatilityForCoach, analisarDesempenhoHistorico } from '../coachLogic.js';
 import { getPercentile } from '../../engine/math/percentile.js';
-import { generateKDE } from '../../engine/math/gaussian.js';
+import { generateKDE } from '../../engine/math/gaussian';
 import { standardDeviation, calcularAssimetria } from '../../engine/stats.js';
 import { weightedRegression, logisticRegression } from '../../engine/projection.js';
 import { bootstrapCI } from '../../engine/math/bootstrap.js';

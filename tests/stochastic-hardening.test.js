@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { projectScore, monteCarloSimulation } from '../src/engine/projection.js';
 import { computeBayesianLevel, computeCategoryStats } from '../src/engine/stats.js';
 import { makeNormalRng } from '../src/engine/random.js';
-import { generateGaussian } from '../src/engine/math/gaussian.js';
+import { generateGaussian } from '../src/engine/math/gaussian';
 import { estimateInterSubjectCorrelation } from '../src/engine/variance.js';
 import { computeRollingCalibrationParams } from '../src/utils/calibration.js';
 

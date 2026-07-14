@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition } from '../math/gaussian.js';
+import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition } from '../math/gaussian';
 import { getPercentile } from '../math/percentile.js';
 
 describe('Numeric robustness: sampleTruncatedNormal fallback RNG', () => {

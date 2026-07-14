@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalCDF_complement, asymmetricGaussian, inverseNormalCDF, sampleTruncatedNormal, choleskyDecomposition, generateGaussianPoints, generateKDE, applyCovariance, truncatedNormalMean, ensurePositiveSemiDefinite } from '../src/engine/math/gaussian.js';
+import { normalCDF_complement, asymmetricGaussian, inverseNormalCDF, sampleTruncatedNormal, choleskyDecomposition, generateGaussianPoints, generateKDE, applyCovariance, truncatedNormalMean, ensurePositiveSemiDefinite } from '../src/engine/math/gaussian';
 
 describe('Motor Matemático: Distribuição Gaussiana', () => {
     

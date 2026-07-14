@@ -1,6 +1,6 @@
 import { simulateNormalDistribution } from '../src/engine/monteCarlo.js';
 import { monteCarloSimulation, calculateVolatility, projectScore, calculateSlope, calculateRobustVolatility, calculateMSSD, computeNonLinearTrend, calculateDynamicEMA } from '../src/engine/projection.js';
-import { normalCDF_complement } from '../src/engine/math/gaussian.js';
+import { normalCDF_complement } from '../src/engine/math/gaussian';
 import { estimateInterSubjectCorrelation } from '../src/engine/variance.js';
 
 const checks = [];

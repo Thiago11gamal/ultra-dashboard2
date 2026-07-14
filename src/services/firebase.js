@@ -59,7 +59,7 @@ let db = null;
 let auth = null;
 
 // 3. Blindagem contra ausência de variáveis e objetos "Nulos" vazando para a aplicação
-export const isLocalMode = !firebaseConfig.apiKey || !firebaseConfig.projectId;
+export const isLocalMode = import.meta.env.VITE_LOCAL_MODE === 'true' || !firebaseConfig.apiKey || !firebaseConfig.projectId;
 
 if (isLocalMode) {
     console.warn(`%c[Firebase] Chaves ausentes. O Ultra Dashboard funcionará apenas em modo LOCAL (Offline).`, "color: #fbbf24; font-weight: bold;");
