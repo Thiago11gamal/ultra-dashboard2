@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useId, useRef, useEffect } from 'react';
-import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian';
+import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian.ts';
 import { formatDuration } from '../../utils/dateHelper';
 import { formatValue } from '../../utils/scoreHelper';
 

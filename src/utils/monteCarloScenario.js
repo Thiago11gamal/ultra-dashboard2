@@ -20,11 +20,12 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
   const probMult = (cfg.probMultFactor || 0) * 100;
   return (data || []).map((d) => {
     const mean = Math.max(lowerBound, Math.min(upperBound, (Number(d.mean) || 0) + meanBias));
+    const projectedMean = d.projectedMean !== undefined ? Math.max(lowerBound, Math.min(upperBound, (Number(d.projectedMean) || 0) + meanBias)) : mean;
     const low = Math.max(lowerBound, Math.min(upperBound, mean - ((mean - (d?.ciRange?.[0] ?? mean)) * cfg.ciMult)));
     const high = Math.max(lowerBound, Math.min(upperBound, mean + (((d?.ciRange?.[1] ?? mean) - mean) * cfg.ciMult)));
     const probBase = Number.isFinite(Number(d?.probability)) ? Number(d.probability) : 0;
     const probAdj = Math.max(0, Math.min(100, probBase + (meanBias > 0 ? probMult : meanBias < 0 ? -probMult : 0)));
-    return { ...d, mean, probability: probAdj, ciRange: [Math.min(low, high), Math.max(low, high)] };
+    return { ...d, mean, projectedMean, probability: probAdj, ciRange: [Math.min(low, high), Math.max(low, high)] };
   });
 }
 

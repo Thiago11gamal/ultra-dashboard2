@@ -1,10 +1,10 @@
 import { mulberry32 } from './random.js';
-import { normalCDF_complement, generateKDE, sampleTruncatedNormal, truncatedNormalMean, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance } from './math/gaussian';
+import { normalCDF_complement, generateKDE, sampleTruncatedNormal, truncatedNormalMean, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance } from './math/gaussian.ts';
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
 import { getPercentile } from './math/percentile.js';
 import { kahanSum } from './math/kahan.js';
-import { generateGaussian } from './math/gaussian';
+import { generateGaussian } from './math/gaussian.ts';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getDateKey } from '../utils/dateHelper.js';

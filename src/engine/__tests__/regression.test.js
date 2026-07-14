@@ -16,7 +16,7 @@ import { getSafeScore } from '../../utils/scoreHelper.js';
 import { computeBayesianLevel, standardDeviation } from '../stats.js';
 import { calculateVolatility, calculateSlope, monteCarloSimulation, computeAdaptiveDampingBase } from '../projection.js';
 import { simulateNormalDistribution } from '../monteCarlo.js';
-import { normalCDF_complement, sampleTruncatedNormal } from '../math/gaussian';
+import { normalCDF_complement, sampleTruncatedNormal } from '../math/gaussian.ts';
 import { mulberry32 } from '../random.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

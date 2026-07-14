@@ -1,6 +1,6 @@
 import { monteCarloSimulation } from './projection.js';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from './monteCarlo.js';
-import { resetGaussianCache } from './math/gaussian';
+import { resetGaussianCache } from './math/gaussian.ts';
 
 // FIX APLICADO: Remove default parameters para respeitar passagem explícita de `undefined`.
 function safeNum(val, fallback) {
