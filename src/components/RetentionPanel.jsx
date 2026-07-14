@@ -102,11 +102,11 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     // Helper to get style from value - moved before useMemo that uses it
     const getRetentionStyle = useCallback((val) => {
-        if (val >= 80) return { status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
-        if (val >= 60) return { status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
-        if (val >= 40) return { status: 'warning', label: 'Atenção', color: 'text-yellow-400', bg: 'bg-yellow-500', border: 'border-yellow-500/30' };
-        if (val >= 20) return { status: 'danger', label: 'Crítico', color: 'text-orange-400', bg: 'bg-orange-500', border: 'border-orange-500/30' };
-        return { status: 'critical', label: 'Urgente!', color: 'text-red-400', bg: 'bg-red-500', border: 'border-red-500/30' };
+        if (val >= 80) return { status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30', bgLight: 'bg-emerald-500/10', bgHover: 'hover:bg-emerald-500/40', ringHover: 'hover:ring-emerald-400/50', shadow: 'shadow-emerald-500/10' };
+        if (val >= 60) return { status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30', bgLight: 'bg-green-500/10', bgHover: 'hover:bg-green-500/40', ringHover: 'hover:ring-green-400/50', shadow: 'shadow-green-500/10' };
+        if (val >= 40) return { status: 'warning', label: 'Atenção', color: 'text-yellow-400', bg: 'bg-yellow-500', border: 'border-yellow-500/30', bgLight: 'bg-yellow-500/10', bgHover: 'hover:bg-yellow-500/40', ringHover: 'hover:ring-yellow-400/50', shadow: 'shadow-yellow-500/10' };
+        if (val >= 20) return { status: 'danger', label: 'Crítico', color: 'text-orange-400', bg: 'bg-orange-500', border: 'border-orange-500/30', bgLight: 'bg-orange-500/10', bgHover: 'hover:bg-orange-500/40', ringHover: 'hover:ring-orange-400/50', shadow: 'shadow-orange-500/10' };
+        return { status: 'critical', label: 'Urgente!', color: 'text-red-400', bg: 'bg-red-500', border: 'border-red-500/30', bgLight: 'bg-red-500/10', bgHover: 'hover:bg-red-500/40', ringHover: 'hover:ring-red-400/50', shadow: 'shadow-red-500/10' };
     }, []);
 
     // Calculate retention for all categories and their tasks
@@ -142,7 +142,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 // FIX: Verifique se não há estudo antes de construir o objeto para não sobrescrever o status 'never'
                 const isNeverStudied = avgTaskRetention === null && !cat.lastStudiedAt;
                 const categoryRetention = isNeverStudied
-                    ? { val: 0, status: 'never', label: 'Não Estudado', color: 'text-slate-500', bg: 'bg-slate-800', border: 'border-slate-700' }
+                    ? { val: 0, status: 'never', label: 'Não Estudado', color: 'text-slate-500', bg: 'bg-slate-800', border: 'border-slate-700', bgLight: 'bg-slate-800/10', bgHover: 'hover:bg-slate-800/40', ringHover: 'hover:ring-slate-400/50', shadow: 'shadow-slate-500/10' }
                     : { val: finalVal, ...getRetentionStyle(finalVal) };
 
                 return {
@@ -392,7 +392,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-3 mb-1.5">
                                                     <h4 className="text-base font-black text-white uppercase tracking-tight break-words line-clamp-2">{cat.name}</h4>
-                                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm ${cat.retention.bg}/10 ${cat.retention.color} border ${cat.retention.border}`}>
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm ${cat.retention.bgLight} ${cat.retention.color} border ${cat.retention.border}`}>
                                                         {cat.retention.label === 'Urgente!' ? 'Crítico' : cat.retention.label}
                                                     </span>
                                                     {cat.criticalTasks > 0 && (
@@ -453,7 +453,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                                         onClick={() => onSelectCategory?.({ ...cat, selectedTask: task })}
                                                     >
                                                         {/* Task Icon Circle */}
-                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm shrink-0 transition-transform group-hover/item:scale-110 shadow-lg ${task.retention.bg}/10 ${task.retention.color} border ${task.retention.border}`}>
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm shrink-0 transition-transform group-hover/item:scale-110 shadow-lg ${task.retention.bgLight} ${task.retention.color} border ${task.retention.border}`}>
                                                             <BookOpen size={16} />
                                                         </div>
 
@@ -477,8 +477,8 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
                                                         {/* Play Button - Action */}
                                                         <button
-                                                            onClick={() => onSelectCategory?.({ ...cat, selectedTask: task })}
-                                                            className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all shadow-lg hover:text-white hover:ring-2 hover:scale-110 group/play ${task.retention.bg}/10 ${task.retention.border} ${task.retention.color} hover:${task.retention.bg}/40 hover:ring-${task.retention.status === 'fresh' || task.retention.status === 'good' ? 'emerald' : task.retention.status === 'warning' ? 'yellow' : 'red'}-400/50 shadow-${task.retention.status === 'fresh' || task.retention.status === 'good' ? 'emerald' : task.retention.status === 'warning' ? 'yellow' : 'red'}-500/10`}
+                                                            onClick={(e) => { e.stopPropagation(); onSelectCategory?.({ ...cat, selectedTask: task }); }}
+                                                            className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all hover:text-white hover:ring-2 hover:scale-110 group/play ${task.retention.bgLight} ${task.retention.border} ${task.retention.color} ${task.retention.bgHover} ${task.retention.ringHover} ${task.retention.shadow}`}
                                                             title="Iniciar Revisão"
                                                         >
                                                             <Play size={18} className={`translate-x-[1px] transition-all drop-shadow-md fill-current opacity-50 group-hover/play:opacity-100`} />
