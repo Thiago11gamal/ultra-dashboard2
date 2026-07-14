@@ -404,7 +404,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         .map(s => ({
             score: getSafeScore(s, maxScore),
             date: s.date || s.createdAt
-        })).reverse();
+        }))
+        .filter(t => Number.isFinite(t.score))
+        .reverse();
     const lastNScores = trendHistory.map(t => t.score);
     const backtestWeights = deriveBacktestWeights(lastNScores, maxScore);
 

@@ -13,7 +13,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
     return (
         <button onClick={onClick}
-            className={`relative text-left w-full rounded-2xl border p-3 sm:p-4 transition-all duration-200 group min-h-[82px] sm:min-h-[105px] overflow-hidden flex flex-col justify-between ${isFocused ? 'z-20 border-transparent bg-slate-900/80 shadow-sm' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-800/40'}`}
+            className={`relative text-left w-full rounded-2xl border p-3 sm:p-4 transition-all duration-200 group min-h-[82px] sm:min-h-[105px] flex flex-col justify-between ${isFocused ? 'z-20 border-transparent bg-slate-900/80 shadow-sm' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-800/40'}`}
             style={{
                 backgroundColor: isFocused ? `${cat.color}10` : 'rgba(15,23,42,0.5)',
                 borderColor: isFocused ? cat.color : undefined,

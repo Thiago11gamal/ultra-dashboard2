@@ -153,9 +153,10 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
   };
 }
 
-export function deriveBacktestWeights(scores = [], maxScore = 100) {
+export function deriveBacktestWeights(rawScores = [], maxScore = 100) {
+  const scores = (Array.isArray(rawScores) ? rawScores : []).filter(Number.isFinite);
   const n = scores.length;
-  if (n < 2) return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 1, uplift: 0 };
+  if (n < 2) return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 1, uplift: 0, effectiveN: n };
   const last = scores[n - 1];
   const prev = scores[n - 2];
   const uplift = last - prev;
