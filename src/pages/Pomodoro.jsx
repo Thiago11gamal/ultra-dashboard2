@@ -31,6 +31,10 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let longestSession = 0;
         let nightMins = 0;
         let dawnMins = 0;
+        let eveningMins = 0;
+        let weekendMins = 0;
+        let totalStudyMins = 0;
+        let earliestDate = null;
         const daysStudied = new Set();
 
         (studyLogs || []).forEach(log => {
@@ -38,12 +42,18 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             const d = new Date(log.date);
             const t = d.getTime();
             const mins = Number(log.minutes) || 0;
-
+            
+            totalStudyMins += mins;
+            if (!earliestDate || t < earliestDate) earliestDate = t;
             if (mins > longestSession) longestSession = mins;
 
             const hour = d.getHours();
             if (hour >= 22 || hour < 4) nightMins += mins;
-            if (hour >= 4 && hour < 8) dawnMins += mins;
+            else if (hour >= 4 && hour < 8) dawnMins += mins;
+            else if (hour >= 18 && hour < 22) eveningMins += mins;
+            
+            const dayOfWeek = d.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) weekendMins += mins;
 
             const dateStr = d.toISOString().split('T')[0];
             daysStudied.add(dateStr);
@@ -90,13 +100,16 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let totalTasks = 0;
         let completedTasks = 0;
         let weekTasks = 0;
+        let todayTasks = 0;
         let totalFlashcards = 0;
         let correctFlashcards = 0;
+        let activeCategories = 0;
         let mostStudiedCategory = { name: '', mins: 0 };
 
         (categories || []).forEach(c => {
             if (!c) return;
             
+            if (c.totalMinutes > 0) activeCategories++;
             if (c.flashcardReviews) totalFlashcards += c.flashcardReviews;
             if (c.flashcardCorrect) correctFlashcards += c.flashcardCorrect;
             
@@ -110,8 +123,10 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
                 totalTasks++;
                 if (t.completed) {
                     completedTasks++;
-                    if (t.completedAt && new Date(t.completedAt).getTime() >= startOfWeek) {
-                        weekTasks++;
+                    if (t.completedAt) {
+                        const compTime = new Date(t.completedAt).getTime();
+                        if (compTime >= startOfWeek) weekTasks++;
+                        if (compTime >= startOfToday) todayTasks++;
                     }
                 }
             });
@@ -176,8 +191,41 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         } else if (dawnMins > nightMins * 1.5 && dawnMins > 60) {
             items.push({ icon: <Sun size={14} className="text-amber-500" />, text: `Madrugador: O despertar matinal já produziu ${Math.round(dawnMins / 60)}h de fluxo cerebral intenso.` });
         }
+        
+        if (weekendMins >= 120) {
+            items.push({ icon: <Zap size={14} className="text-pink-500" />, text: `Inabalável: ${Math.round(weekendMins / 60)}h de treino ignorando os finais de semana.` });
+        }
 
-        return items.sort(() => Math.random() - 0.5).slice(0, 5);
+        if (activeCategories >= 3) {
+            items.push({ icon: <BrainCircuit size={14} className="text-emerald-300" />, text: `Mente Plural: Você já expandiu conexões em ${activeCategories} áreas do conhecimento.` });
+        }
+
+        if (todayTasks >= 3) {
+            items.push({ icon: <Target size={14} className="text-green-400" />, text: `Ritmo Acelerado: ${todayTasks} missões neutralizadas só hoje.` });
+        }
+
+        if (daysStudied.size >= 5 && totalStudyMins > 0) {
+            const avg = Math.round(totalStudyMins / daysStudied.size);
+            items.push({ icon: <BarChart3 size={14} className="text-teal-400" />, text: `Pace de Leão: Seu rendimento médio diário é de ${avg} minutos.` });
+        }
+
+        if (earliestDate) {
+            const diffTime = Math.abs(new Date().getTime() - earliestDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays >= 30) {
+                items.push({ icon: <Medal size={14} className="text-purple-400" />, text: `Veterano: O mapeamento neural desta conta foi iniciado há ${diffDays} dias.` });
+            }
+        }
+        
+        if (eveningMins > 180) {
+            items.push({ icon: <Flame size={14} className="text-orange-400" />, text: `Turno Estendido: ${Math.round(eveningMins / 60)}h focadas no período noturno (18h-22h).` });
+        }
+
+        if (totalStudyMins >= 600) {
+            items.push({ icon: <Trophy size={14} className="text-yellow-300" />, text: `Master: Você acumula um tempo de voo absurdo de ${Math.round(totalStudyMins / 60)} horas totais.` });
+        }
+
+        return items.sort(() => Math.random() - 0.5).slice(0, 6);
     }, [studyLogs, simulados, categories]);
 
     if (!trivia || trivia.length === 0) return null;
