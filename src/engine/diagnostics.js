@@ -681,7 +681,7 @@ export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {
       const Sxx = kahanSum(xs.map((x) => (x - muX) ** 2));
       const Syy = kahanSum(ys.map((y) => (y - muY) ** 2));
       const epsilon = 1e-15;
-      const denom = Math.sqrt((Sxx + epsilon) * (Syy + epsilon));
+      const denom = Math.sqrt((Math.max(0, Sxx) + epsilon) * (Math.max(0, Syy) + epsilon));
       const r = Sxy / denom; // O epsilon garante denom > 0
       const clampedR = Math.max(-1, Math.min(1, r));
 

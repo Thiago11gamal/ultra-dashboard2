@@ -1064,7 +1064,7 @@ export function analisarDesempenhoHistorico(historico) {
         // CORREÇÃO FATAL: Impedir o RangeError sanitizando a string ou caindo para o índice (i)
         let rawDias = h.diasRevisao;
         if (typeof rawDias === 'string') rawDias = rawDias.replace(',', '.');
-        const diasValidos = Number.isFinite(Number(rawDias)) ? Number(rawDias) : i;
+        const diasValidos = (rawDias === null || rawDias === undefined || rawDias === '') ? i : (Number.isFinite(Number(rawDias)) ? Number(rawDias) : i);
         
         const timestamp = Date.now() - (diasValidos * 86400000);
         const safeDate = Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
@@ -1649,7 +1649,7 @@ export function getCognitiveState(stats) {
     // CORREÇÃO: Forçar a validação matemática do nível do utilizador, assegurando um 
     // multiplicador saudável (fallback para 1) caso a BD entregue uma string ilegível.
     const rawLevel = stats.user?.level;
-    const userLevel = Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 1;
+    const userLevel = (rawLevel === null || rawLevel === undefined || rawLevel === '') ? 1 : (Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 1);
     const levelMultiplier = Math.max(0.1, 1 + (userLevel * 0.05));
     
     const decayModifier = hadBreaks ? 0.6 : 1.0;

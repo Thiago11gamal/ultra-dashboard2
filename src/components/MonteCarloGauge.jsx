@@ -481,7 +481,9 @@ function MonteCarloLoading() {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            setIndex((prev) => (prev + 1) % messages.length);
+            if (!document.hidden) {
+                setIndex((prev) => (prev + 1) % messages.length);
+            }
         }, 2400);
         return () => clearInterval(interval);
     }, [messages.length]);

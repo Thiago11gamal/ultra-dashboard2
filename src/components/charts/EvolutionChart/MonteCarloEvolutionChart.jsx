@@ -15,9 +15,9 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
         const fullDate = dataPoint.fullDate;
 
         // Operador de coalescência nula garante falhas seguras e respeita o piso (minScore)
-        const pointTarget = Math.max(minScore, Math.min(maxScore, Number.isFinite(Number(dataPoint.target)) ? Number(dataPoint.target) : targetScore));
-        const pointMean = Math.max(minScore, Math.min(maxScore, Number.isFinite(Number(dataPoint.mean)) ? Number(dataPoint.mean) : minScore));
-        const pointProb = Math.max(0, Math.min(100, Number.isFinite(Number(dataPoint.probability)) ? Number(dataPoint.probability) : 0));
+        const pointTarget = Math.max(minScore, Math.min(maxScore, (dataPoint.target === null || dataPoint.target === undefined || dataPoint.target === '') ? targetScore : (Number.isFinite(Number(dataPoint.target)) ? Number(dataPoint.target) : targetScore)));
+        const pointMean = Math.max(minScore, Math.min(maxScore, (dataPoint.mean === null || dataPoint.mean === undefined || dataPoint.mean === '') ? minScore : (Number.isFinite(Number(dataPoint.mean)) ? Number(dataPoint.mean) : minScore)));
+        const pointProb = Math.max(0, Math.min(100, (dataPoint.probability === null || dataPoint.probability === undefined || dataPoint.probability === '') ? 0 : (Number.isFinite(Number(dataPoint.probability)) ? Number(dataPoint.probability) : 0)));
         const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
         const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
 
@@ -113,10 +113,10 @@ export const MonteCarloEvolutionChart = ({
                 fullDate = format(d.parsedDate, 'dd MMM yyyy', { locale: ptBR });
 
                 // Sanitização: manter intervalo de confiança dentro do domínio e com ordem válida
-                const meanRaw = Number.isFinite(Number(d.mean)) ? Number(d.mean) : minScore;
+                const meanRaw = (d.mean === null || d.mean === undefined || d.mean === '') ? minScore : (Number.isFinite(Number(d.mean)) ? Number(d.mean) : minScore);
                 const mean = Math.max(minScore, Math.min(maxScore, meanRaw));
-                const rawLow = Number.isFinite(Number(d.ci95Low)) ? Number(d.ci95Low) : mean;
-                const rawHigh = Number.isFinite(Number(d.ci95High)) ? Number(d.ci95High) : mean;
+                const rawLow = (d.ci95Low === null || d.ci95Low === undefined || d.ci95Low === '') ? mean : (Number.isFinite(Number(d.ci95Low)) ? Number(d.ci95Low) : mean);
+                const rawHigh = (d.ci95High === null || d.ci95High === undefined || d.ci95High === '') ? mean : (Number.isFinite(Number(d.ci95High)) ? Number(d.ci95High) : mean);
                 const boundedLow = Math.max(minScore, Math.min(maxScore, rawLow));
                 const boundedHigh = Math.max(minScore, Math.min(maxScore, rawHigh));
                 const low = Math.min(boundedLow, boundedHigh);
@@ -127,8 +127,8 @@ export const MonteCarloEvolutionChart = ({
                     displayDate,
                     fullDate,
                     mean,
-                    projectedMean: Number.isFinite(Number(d.projectedMean)) ? Math.max(minScore, Math.min(maxScore, Number(d.projectedMean))) : mean,
-                    probability: Math.max(0, Math.min(100, Number.isFinite(Number(d.probability)) ? Number(d.probability) : 0)),
+                    projectedMean: (d.projectedMean === null || d.projectedMean === undefined || d.projectedMean === '') ? mean : (Number.isFinite(Number(d.projectedMean)) ? Math.max(minScore, Math.min(maxScore, Number(d.projectedMean))) : mean),
+                    probability: Math.max(0, Math.min(100, (d.probability === null || d.probability === undefined || d.probability === '') ? 0 : (Number.isFinite(Number(d.probability)) ? Number(d.probability) : 0))),
                     ciRange: [low, high]
                 };
             });

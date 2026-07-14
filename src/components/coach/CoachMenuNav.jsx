@@ -48,7 +48,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     const activateTab = (tabKey) => {
         if (!availableTabs.includes(tabKey)) return;
         onChangeTab(tabKey);
-        setTimeout(() => focusTab(tabKey), 0);
+        setTimeout(() => focusTab(tabKey), 50);
     };
 
     const handleTabKeyDown = (event) => {

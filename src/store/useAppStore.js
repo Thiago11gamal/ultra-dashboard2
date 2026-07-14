@@ -213,8 +213,10 @@ export const useAppStore = create(
                             targetContests = { 'default': safeClone(INITIAL_DATA) };
                         }
                     } catch (e) {
-                        console.error("[Zustand] Falha na reconstrução do estado base.", e);
-                        // Recuperação de emergência estática sem invocar funções externas
+                        console.error("[Zustand] Falha estrutural CRÍTICA na reconstrução do estado base.", e);
+                        // Solução absoluta: Purgar armazenamento corrompido para que a app respire no próximo reload
+                        localStorage.removeItem('ultra-dashboard-storage');
+                        idbDel('ultra-dashboard-storage').catch(() => {});
                         targetId = 'default';
                         targetContests = { 'default': { simulados: [], tasks: [] } };
                     }

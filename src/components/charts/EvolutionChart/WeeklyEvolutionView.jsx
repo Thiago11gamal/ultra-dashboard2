@@ -32,7 +32,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
                             const isStable = Math.abs(val) <= 2;
                             const color = entry.payload[`deltaColor_${baseKey}`] || (isStable ? '#eab308' : val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
                             const prefix = val > 0 ? '+' : '';
-                            const currentPct = Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey];
+                            const currentPct = (meta?.currPct === null || meta?.currPct === undefined || meta?.currPct === '') ? entry.payload?.[baseKey] : (Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey]);
 
                             return (
                                 <div key={idx} className="flex flex-col gap-0.5">

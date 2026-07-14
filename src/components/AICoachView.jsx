@@ -286,6 +286,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
     const hasPlan = coachPlan && coachPlan.length > 0;
     const toFinite = (value, fallback = 0) => {
+        if (value === null || value === undefined || value === '') return fallback;
         const n = Number(value);
         return Number.isFinite(n) ? n : fallback;
     };

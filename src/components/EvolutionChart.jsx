@@ -52,7 +52,7 @@ function buildPredictiveCompareData(timeline, focusCategory, categoryLevels, act
     if (activeMcProjectionSeries && pts.length > 0) {
         const lastIdx = pts.length - 1;
         const rawLevel = pts[lastIdx]["Nível Bayesiano"] ?? categoryLevels[focusCategory?.id] ?? activeMcProjectionSeries?.mc_p50 ?? 0;
-        const currentLevel = Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 0;
+        const currentLevel = (rawLevel === null || rawLevel === undefined || rawLevel === '') ? 0 : (Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 0);
         
         const futurePoints = [];
         const steps = 6;
@@ -201,7 +201,7 @@ export default function EvolutionChart({
     const safeGlobalMetrics = useMemo(() => ({
         totalQuestions: Number(globalMetrics?.totalQuestions) || 0,
         totalCorrect: Number(globalMetrics?.totalCorrect) || 0,
-        globalAccuracy: Number.isFinite(Number(globalMetrics?.globalAccuracy)) ? Number(globalMetrics.globalAccuracy) : 0,
+        globalAccuracy: (globalMetrics?.globalAccuracy === null || globalMetrics?.globalAccuracy === undefined || globalMetrics?.globalAccuracy === '') ? 0 : (Number.isFinite(Number(globalMetrics?.globalAccuracy)) ? Number(globalMetrics?.globalAccuracy) : 0),
     }), [globalMetrics]);
 
     const projectDays = useMemo(() => {
@@ -786,7 +786,7 @@ export default function EvolutionChart({
 
                             <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-center">
                                 {(() => {
-                                    const toFinite = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+                                    const toFinite = (v, fallback = 0) => (v === null || v === undefined || v === '') ? fallback : (Number.isFinite(Number(v)) ? Number(v) : fallback);
                                     const bounded = (v) => Math.max(minScore, Math.min(maxScore, toFinite(v, minScore)));
                                     const projectedLevel = bounded(toFinite(activeMcResult?.projectedMean, toFinite(activeMcResult?.mean, minScore)));
                                     const ciLow = bounded(toFinite(activeMcResult?.ci95Low, projectedLevel));

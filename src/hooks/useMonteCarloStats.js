@@ -540,9 +540,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
         const pMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));
         
-        const cMean = Number.isFinite(Number(pureStatsData?.bayesianMean)) 
-            ? Number(pureStatsData.bayesianMean) 
-            : (simulationData?.data?.currentMean ?? pMean);
+        const cMean = (pureStatsData?.bayesianMean === null || pureStatsData?.bayesianMean === undefined || pureStatsData?.bayesianMean === '') ? (simulationData?.data?.currentMean ?? pMean) : (Number.isFinite(Number(pureStatsData?.bayesianMean)) ? Number(pureStatsData.bayesianMean) : (simulationData?.data?.currentMean ?? pMean));
 
         return { probability: prob, projectedMean: pMean, currentMean: cMean, healthAdjustedProb };
     }, [simulationData?.data, pureStatsData, maxScore, minScore, calibrationPenalty, modelHealth, modelWeight]);

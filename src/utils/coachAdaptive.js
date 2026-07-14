@@ -303,7 +303,7 @@ function getCpuAwareSimulationCap(defaultCap = 2500, cfg = {}) {
  * MC-02: Monte Carlo leve para uso no Coach.
  */
 export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, days = 90, agilityPenalty = 0) {
-    const safeTargetScore = Number.isFinite(Number(targetScore)) ? Number(targetScore) : Math.max(0, maxScore * 0.8);
+    const safeTargetScore = (targetScore === null || targetScore === undefined || targetScore === '') ? Math.max(0, maxScore * 0.8) : (Number.isFinite(Number(targetScore)) ? Number(targetScore) : Math.max(0, maxScore * 0.8));
     let history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < (cfg.MC_MIN_DATA_POINTS || 5)) return null;
 

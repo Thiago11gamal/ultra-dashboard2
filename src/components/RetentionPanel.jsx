@@ -85,8 +85,10 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            setTick(t => t + 1);
-        }, 60000); // Update every 60 seconds
+            if (!document.hidden) {
+                setTick(t => t + 1);
+            }
+        }, 60000); // Update every 60 seconds only if visible
 
         return () => clearInterval(interval);
     }, []);

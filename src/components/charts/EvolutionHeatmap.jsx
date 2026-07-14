@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
 export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', showOnlyFocus, focusSubjectId }) => {
@@ -28,11 +28,50 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
         };
     }, [dates, filteredRowsByFocus, windowSize]);
 
-    // Requisito de teste: aggregateHeatmap(filtered, granularity)
-    const aggregated = useMemo(() => aggregateHeatmap(filtered, granularity, targetScore), [filtered, granularity, targetScore]);
+    const [aggregated, setAggregated] = useState({ dates: [], rows: [] });
+    const [isAggregating, setIsAggregating] = useState(false);
+    const workerRef = useRef(null);
 
-    const filteredDates = aggregated.dates;
-    const filteredRows = aggregated.rows;
+    useEffect(() => {
+        return () => {
+            if (workerRef.current) workerRef.current.terminate();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!workerRef.current) {
+            try {
+                workerRef.current = new Worker(new URL('../../engine/heatmap.worker.js', import.meta.url), { type: 'module' });
+            } catch (e) {
+                console.warn("[EvolutionHeatmap] Web Worker not available, fallback to sync.", e);
+            }
+        }
+        
+        const worker = workerRef.current;
+        if (!worker) {
+            setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
+            return;
+        }
+
+        setIsAggregating(true);
+        worker.onmessage = (e) => {
+            if (e.data.type === 'success') {
+                setAggregated(e.data.result);
+            } else {
+                setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
+            }
+            setIsAggregating(false);
+        };
+        worker.onerror = () => {
+            setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
+            setIsAggregating(false);
+        };
+
+        worker.postMessage({ id: Date.now(), payload: { filtered, granularity, targetScore } });
+    }, [filtered, granularity, targetScore]);
+
+    const filteredDates = aggregated.dates || [];
+    const filteredRows = aggregated.rows || [];
 
     const totals = filteredRows
         .flatMap((row) => (Array.isArray(row?.cells) ? row.cells : []))
@@ -56,7 +95,12 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
 
     if (!filteredDates.length) return (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
-            Nenhum dado encontrado.
+            {isAggregating ? (
+                <span className="flex items-center gap-2 animate-pulse text-indigo-400">
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75"></path></svg>
+                    Processando volume de dados...
+                </span>
+            ) : "Nenhum dado encontrado."}
         </div>
     );
 

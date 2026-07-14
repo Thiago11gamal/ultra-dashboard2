@@ -237,7 +237,7 @@ export default function AIGeneratedSimulado() {
           return;
         }
       } catch (err) {
-        void err;
+        console.error("[SecOps] Falha catastrófica de Parse no Storage local. Limpeza forçada.", err);
         localStorage.removeItem(AI_GEN_STORAGE_KEY);
       }
     }
@@ -287,7 +287,7 @@ export default function AIGeneratedSimulado() {
           }, 0);
         }
       } catch (err) {
-        void err;
+        console.error("[SecOps] Falha catastrófica de Parse no Storage local. Limpeza forçada.", err);
         localStorage.removeItem(AI_SIM_STORAGE_KEY);
       }
     }

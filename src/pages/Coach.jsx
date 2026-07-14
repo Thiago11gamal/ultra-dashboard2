@@ -129,6 +129,7 @@ export default function Coach() {
         lastPersistRef.current = now;
 
         const toFinite = (value, fallback = null) => {
+            if (value === null || value === undefined || value === '') return fallback;
             const n = Number(value);
             return Number.isFinite(n) ? n : fallback;
         };
@@ -208,7 +209,7 @@ export default function Coach() {
             const nextHistory = [...cleaned, normalizedMetric].slice(-60);
 
             const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (now - 1000 * 60 * 60 * 24 * 7));
-            const recent7Brier = recent7.map(item => Number(item?.avgBrier)).filter(Number.isFinite);
+            const recent7Brier = recent7.map(item => toFinite(item?.avgBrier, null)).filter(val => val !== null);
             const avgBrier7d = recent7Brier.length > 0
                 ? recent7Brier.reduce((acc, val) => acc + val, 0) / recent7Brier.length
                 : null;
@@ -644,6 +645,7 @@ function RaioXDashboard({ data }) {
     const [filter, setFilter] = useState('all');
 
     const toFiniteNumber = (value, fallback = 0) => {
+        if (value === null || value === undefined || value === '') return fallback;
         const n = Number(value);
         return Number.isFinite(n) ? n : fallback;
     };
@@ -664,7 +666,7 @@ function RaioXDashboard({ data }) {
         .slice(0, 50)), [sortedLogs, filter]);
 
     const latestWithReliability = sortedLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0);
-    const eceValues = sortedLogs.map(log => Number(log?.ece)).filter(Number.isFinite);
+    const eceValues = sortedLogs.map(log => toFiniteNumber(log?.ece, null)).filter(val => val !== null);
     const avgEce = eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
     const categorySeriesMap = sortedLogs.reduce((acc, log) => {
         const cat = log?.categoryName || 'Categoria';
@@ -766,8 +768,8 @@ function RaioXDashboard({ data }) {
                                 <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.02] transition-colors">
                                     <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">{displaySubject(log.categoryName)}</td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{Number.isFinite(Number(log?.avgBrier)) ? Number(log.avgBrier).toFixed(3) : '-'}</td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number.isFinite(Number(log?.ece)) ? Number(log.ece).toFixed(3) : '-'}</td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{toFiniteNumber(log?.avgBrier, null) !== null ? Number(log.avgBrier).toFixed(3) : '-'}</td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{toFiniteNumber(log?.ece, null) !== null ? Number(log.ece).toFixed(3) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
                                         {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (shrink)` : '-'}
                                     </td>

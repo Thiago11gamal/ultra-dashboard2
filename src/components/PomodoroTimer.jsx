@@ -23,6 +23,10 @@ import { useAppStore } from '../store/useAppStore';
 import { motion as Motion } from 'framer-motion';
 import { useToast } from '../hooks/useToast';
 import { usePomodoroSync } from '../hooks/usePomodoroSync';
+import { PomodoroProgress } from './pomodoro/PomodoroProgress';
+import { PomodoroControls } from './pomodoro/PomodoroControls';
+import { PomodoroHeader } from './pomodoro/PomodoroHeader';
+import { PomodoroClock } from './pomodoro/PomodoroClock';
 
 // 🛠️ [UTIL] Utilitários fora do componente para evitar recriação e melhorar performance
 // 🛡️ [FIX-TABID] window.name é "" por padrão em todas as abas, fazendo com que
@@ -715,6 +719,39 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         transitionSession(currentMode, 'skip');
     };
 
+    const togglePlay = useCallback(() => {
+        if (!activeSubject) return;
+
+        if (alarmAudioRef.current && alarmAudioRef.current.paused && alarmAudioRef.current.currentTime === 0) {
+            alarmAudioRef.current.volume = 0;
+            alarmAudioRef.current.play().then(() => {
+                alarmAudioRef.current?.pause();
+                if (alarmAudioRef.current) {
+                    alarmAudioRef.current.currentTime = 0;
+                    alarmAudioRef.current.volume = 1;
+                }
+            }).catch(err => console.debug('Audio play skipped:', err));
+        }
+
+        const next = !isRunning;
+        stateRefs.current.isRunning = next;
+        setIsRunning(next);
+
+        if (!next) {
+            setTimeLeft(stateRefs.current.timeLeft);
+        }
+
+        try {
+            syncChannel?.postMessage({
+                type: next ? 'START_SESSION' : 'PAUSE_SESSION',
+                timeLeft: stateRefs.current.timeLeft,
+                tabId: STABLE_TAB_ID
+            });
+        } catch (error) {
+            console.error('Failed to post session status message:', error);
+        }
+    }, [activeSubject, isRunning, syncChannel]);
+
     const handleManualExit = () => {
         // Botão vermelho (estado inativo): apenas voltar ao Dashboard, sem processamento extra.
         safeOnExit({ forceDashboard: true, source: 'dashboard' });
@@ -729,28 +766,11 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 className={`w-full max-w-none lg:max-w-[min(95vw,600px)] space-y-12 relative flex flex-col items-center mx-auto ${!isLayoutLocked ? 'z-[90]' : 'z-50'}`}
             >
                 <div className="relative flex items-center justify-center py-2 w-full px-4">
-                    <div className="flex-1 flex justify-center bg-transparent">
-                        {mode === 'break' || mode === 'long_break' ? (
-                            <Motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className={`relative flex items-center justify-center gap-4 w-full rounded-2xl py-5 border ${mode === 'long_break' ? 'bg-violet-900/30 border-violet-500/40' : 'bg-emerald-900/30 border-emerald-500/40'}`}
-                            >
-                                <Zap size={20} className={`${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'}`} />
-                                <span className={`text-lg font-black ${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'} tracking-widest uppercase`}>
-                                    {mode === 'long_break' ? 'Pausa Longa' : 'Recuperação Neural'}
-                                </span>
-                            </Motion.div>
-                        ) : !activeSubject ? (
-                            <div onClick={handleManualExit} className="w-full bg-red-950/20 border border-dashed border-red-500/30 rounded-2xl py-4 flex items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40 transition-all">
-                                <AlertCircle size={20} className="text-red-500" />
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-red-500/70 uppercase tracking-widest">Protocolo Inativo</span>
-                                    <span className="text-xs font-bold text-red-500">Selecione uma missão neural</span>
-                                </div>
-                            </div>
-                        ) : null}
-                    </div>
+                    <PomodoroHeader 
+                        mode={mode} 
+                        activeSubject={activeSubject} 
+                        onManualExit={handleManualExit} 
+                    />
                 </div>
 
                 <div className="w-full flex justify-end px-4 -mb-8 relative z-50">
@@ -767,108 +787,25 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                     style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)' }}
                     className="w-full border-y-[6px] border-x-0 sm:border-[6px] border-[#3f2e26] pt-32 pb-16 px-4 sm:px-10 rounded-3xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
                 >
-                    <div className="absolute top-4 right-6 z-[60]">
-                        <div className="flex bg-[#1a1411] p-1 rounded-2xl border border-[#3f2e26]/80 shadow-inner backdrop-blur-md">
-                            {[1, 10, 100].map(s => (
-                                <button
-                                    key={s}
-                                    onClick={() => setSpeed(s)}
-                                    disabled={isProtocolInactive}
-                                    className={`px-3 h-8 rounded-xl text-[11px] font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
-                                >
-                                    {s}X
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4 mb-10 z-30 opacity-60">
-                        <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-white">FOCO</span>
-                        <div className="w-1 h-1 rounded-full bg-white/30" />
-                        <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-white">PAUSA</span>
-                    </div>
+                    <PomodoroClock 
+                        speed={speed}
+                        setSpeed={setSpeed}
+                        isProtocolInactive={isProtocolInactive}
+                        mode={mode}
+                        isRunning={isRunning}
+                        timeLeft={timeLeft}
+                        safeSettings={safeSettings}
+                        svgCircleRef={svgCircleRef}
+                        clockRef={clockRef}
+                    />
 
-                    <div className="relative mt-12 mb-8 rounded-full">
-                        <svg className="w-[min(74vw,16rem)] h-[min(74vw,16rem)] sm:w-64 sm:h-64 transform -rotate-90 relative z-10">
-                            <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="14" strokeLinecap="round" />
-                            <defs>
-                                <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stopColor={mode === 'work' ? '#3b82f6' : (mode === 'long_break' ? '#a855f7' : '#22c55e')} />
-                                    <stop offset="100%" stopColor={mode === 'work' ? '#2563eb' : (mode === 'long_break' ? '#9333ea' : '#10b981')} />
-                                </linearGradient>
-                            </defs>
-                            <circle
-                                ref={svgCircleRef}
-                                cx="128" cy="128" r="110" fill="none"
-                                stroke="url(#timerGradient)"
-                                strokeWidth="14"
-                                strokeLinecap="round"
-                                strokeDasharray={2 * Math.PI * 110}
-                                style={{ strokeDashoffset: isRunning ? undefined : (2 * Math.PI * 110) * (timeLeft / ((mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (mode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60)) || 1)) }}
-                            />
-                        </svg>
-
-                        <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-                            <span ref={clockRef} className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white drop-shadow-2xl leading-none tabular-nums">{formatTime(timeLeft)}</span>
-                            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.25em] sm:tracking-[0.4em] text-white mt-2 text-center px-2">
-                                {isRunning ? (mode === 'work' ? 'PROTOCOL Foco' : (mode === 'long_break' ? 'Pausa Longa' : 'Recuperação')) : 'SESSÃO PAUSADA'}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap sm:grid sm:grid-cols-3 items-center justify-center gap-4 z-10 mt-10 w-full max-w-2xl px-6">
-                        <div className="flex flex-col items-center gap-3">
-                            <button onClick={reset} disabled={isProtocolInactive} className="w-16 h-16 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/5 text-white flex items-center justify-center shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"><RotateCcw size={24} /></button>
-                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">VOLTAR</span>
-                        </div>
-
-                        <div className="flex flex-col items-center justify-center">
-                            <button
-                                onClick={() => {
-                                    if (isProtocolInactive) return;
-
-                                    if (alarmAudioRef.current && alarmAudioRef.current.paused && alarmAudioRef.current.currentTime === 0) {
-                                        alarmAudioRef.current.volume = 0;
-                                        alarmAudioRef.current.play().then(() => {
-                                            alarmAudioRef.current?.pause();
-                                            if (alarmAudioRef.current) {
-                                                alarmAudioRef.current.currentTime = 0;
-                                                alarmAudioRef.current.volume = 1;
-                                            }
-                                        }).catch(err => console.debug('Audio play skipped:', err));
-                                    }
-
-                                    const next = !isRunning;
-                                    stateRefs.current.isRunning = next;
-                                    setIsRunning(next);
-
-                                    // 🛡️ [FIX-PAUSE-SYNC] Sincroniza o estado do React com a Ref ao pausar
-                                    // Isso impede que o timer pule no próximo re-render
-                                    if (!next) {
-                                        setTimeLeft(stateRefs.current.timeLeft);
-                                    }
-
-                                    try {
-                                        syncChannel?.postMessage({
-                                            type: next ? 'START_SESSION' : 'PAUSE_SESSION',
-                                            timeLeft: stateRefs.current.timeLeft,
-                                            tabId: STABLE_TAB_ID
-                                        });
-                                    } catch (error) {
-                                        console.error('Failed to post session status message:', error);
-                                    }
-                                }}
-                                disabled={isProtocolInactive}
-                                className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full flex items-center justify-center border-4 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
-                            >
-                                {isRunning ? <Pause size={48} className="sm:size-64" /> : <Play size={48} className="sm:size-64 ml-2" />}
-                            </button>
-                        </div>
-
-                        <div className="flex flex-col items-center gap-3">
-                            <button onClick={skip} disabled={isProtocolInactive} className="w-16 h-16 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/5 text-white flex items-center justify-center shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"><SkipForward size={24} /></button>
-                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">PULAR</span>
-                        </div>
-                    </div>
+                    <PomodoroControls
+                        isProtocolInactive={isProtocolInactive}
+                        isRunning={isRunning}
+                        onReset={reset}
+                        onTogglePlay={togglePlay}
+                        onSkip={skip}
+                    />
 
                     {/* Botão de Abandono Crítico */}
                     {!isProtocolInactive && (
@@ -888,59 +825,20 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                     )}
                 </div>
 
-                <div className="w-full px-10 py-8 rounded-3xl bg-[#b08e6b] border-2 border-[#94785a] shadow-xl">
-                    <div className="flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-[9px] font-bold text-[#2d1a12]/70 uppercase tracking-[0.2em]">Progresso dos Ciclos</h3>
-                            <div className="flex items-center gap-2 text-[#2d1a12]">
-                                <button onClick={() => {
-                                    const current = stateRefs.current;
-                                    const newTarget = Math.max(current.completedCycles < 1 ? 1 : current.completedCycles, current.targetCycles - 1);
-                                    setTargetCycles(newTarget);
-                                    try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch { /* ignore */ }
-                                }} disabled={!activeSubject || targetCycles <= 1} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20 disabled:opacity-40">-</button>
-                                <div className="flex items-baseline gap-0.5 text-sm font-black tabular-nums">
-                                    <span>{completedCycles}</span>
-                                    <span className="text-[#2d1a12]/50">/ {targetCycles}</span>
-                                </div>
-                                <button onClick={() => {
-                                    const newTarget = targetCycles + 1;
-                                    setTargetCycles(newTarget);
-                                    try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch { /* ignore */ }
-                                }} disabled={!activeSubject} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20">+</button>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 h-5">
-                            {Array.from({ length: targetCycles || 1 }).map((_, i) => (
-                                <React.Fragment key={i}>
-                                    <div className="flex-1 h-1.5 bg-[#2d1a12]/20 rounded-full overflow-hidden">
-                                        <div
-                                            ref={el => workFillsRef.current[i] = el}
-                                            className="h-full bg-[#3b82f6] transition-all"
-                                            style={{
-                                                width: (i < sessions - 1 || (i === sessions - 1 && (mode === 'break' || mode === 'long_break'))) ? '100%' :
-                                                    (i === sessions - 1 && mode === 'work') ? `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%` : '0%'
-                                            }}
-                                        />
-                                    </div>
-                                    {i < (targetCycles || 1) - 1 && (
-                                        <div className="relative w-4 h-4 rounded-full bg-[#2d1a12]/20 border border-[#2d1a12]/40 overflow-hidden shrink-0">
-                                            <div
-                                                ref={el => breakBallsRef.current[i] = el}
-                                                className="absolute bottom-0 w-full bg-emerald-600 transition-all"
-                                                style={{
-                                                    height: (i < sessions - 1) ? '100%' :
-                                                        (sessions === i + 1 && (mode === 'break' || mode === 'long_break')) ? `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%` : '0%'
-                                                }}
-                                            />
-                                        </div>
-                                    )}
-                                </React.Fragment>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                <PomodoroProgress 
+                    targetCycles={targetCycles}
+                    completedCycles={completedCycles}
+                    sessions={sessions}
+                    setTargetCycles={setTargetCycles}
+                    syncChannel={syncChannel}
+                    STABLE_TAB_ID={STABLE_TAB_ID}
+                    activeSubject={activeSubject}
+                    workFillsRef={workFillsRef}
+                    breakBallsRef={breakBallsRef}
+                    mode={mode}
+                    timeLeft={timeLeft}
+                    totalTime={totalTime}
+                />
             </div>
         </div>
     );

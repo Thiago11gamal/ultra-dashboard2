@@ -20,6 +20,7 @@ const DEFAULT_DOMAIN_MAX = 100;
 // e concorrência segura em múltiplos workers/chamadas simultâneas.
 
 function toFiniteNumber(value, fallback = 0) {
+    if (value === null || value === undefined || value === '') return fallback;
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
 }

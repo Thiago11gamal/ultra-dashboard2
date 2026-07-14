@@ -491,7 +491,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
 
     return {
         // FIX #2: Precisão completa
-        projected: Math.max(minScore, Math.min(maxScore, projectedScore)),
+        projected: Number.isNaN(projectedScore) ? minScore : Math.max(minScore, Math.min(maxScore, projectedScore)),
         marginOfError
     };
 }
@@ -872,7 +872,7 @@ export function monteCarloSimulation(
             // Simple clamp to bounds (mean reversion + historical target should keep trajectories reasonable).
             // Removed complex RBM reflection which was causing boundary piling bias in declining series (scores clustering at minScore, skewing means low).
             // Fallback de segurança estrito (Clamp final diário)
-            currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore));
+            currentSimScore = Number.isNaN(currentSimScore) ? minScore : Math.max(minScore, Math.min(maxScore, currentSimScore));
         }
 
         // Aplica os limites físicos da prova APENAS no resultado assintótico final
