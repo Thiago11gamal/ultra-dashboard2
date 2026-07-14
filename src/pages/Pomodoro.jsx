@@ -736,23 +736,28 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
     const cleanText = (text) => {
         if (!text) return '';
 
-        // FIX 6: Exige pelo menos uma letra, seguida de um número. 
-        // Assim captura [a1], [v12], mas ignora [Revisão].
         const codeMatch = text.match(/\[([a-zA-Z]+[0-9]+[a-zA-Z0-9]*)\]/);
         if (codeMatch && codeMatch[1]) {
             return codeMatch[1];
         }
 
-        // Caso não ache um código curto, volta para a limpeza padrão pós-dois pontos
         const firstColon = text.indexOf(':');
-        const targetText = firstColon > -1 ? text.substring(firstColon + 1) : text;
+        let targetText = firstColon > -1 ? text.substring(firstColon + 1) : text;
+        targetText = targetText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').trim();
+
+        const topicMatch = targetText.match(/^\[(.*?)\]\s*(.*)/);
+        if (topicMatch) {
+            let subtitle = topicMatch[2].replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+            if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
+            return topicMatch[1] + (subtitle ? ` - ${subtitle}` : '');
+        }
+
         let cleaned = targetText
-            .replace(/\[[^\]]{10,}\]/g, '')
             .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '')
             .replace(/\s{2,}/g, ' ')
             .trim();
 
-        return cleaned || text.replace(/\[.*?\]/g, '').trim();
+        return cleaned || text;
     };
 
     return (
