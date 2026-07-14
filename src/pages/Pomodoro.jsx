@@ -242,11 +242,11 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
                 <span className="text-[9px] font-black text-indigo-500/60 uppercase">Data Hub</span>
             </div>
 
-            <div className="flex flex-col gap-2 relative z-10">
+            <div className="flex flex-col gap-2 relative z-10 w-full">
                 {trivia.map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 text-xs text-slate-300 bg-white/[0.02] border border-white/[0.05] px-3 py-2.5 rounded-xl">
+                    <div key={i} className="flex items-center gap-3 text-xs text-slate-300 bg-white/[0.02] border border-white/[0.05] px-3 py-2.5 rounded-xl w-full">
                         <div className="shrink-0">{item.icon}</div>
-                        <span className="leading-snug font-medium">{item.text}</span>
+                        <span className="leading-snug font-medium flex-1 min-w-0 break-words">{item.text}</span>
                     </div>
                 ))}
             </div>
