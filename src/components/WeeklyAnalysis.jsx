@@ -201,7 +201,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                         </div>
 
                         {/* Day Content Card */}
-                        <div className={`ml-2 sm:ml-8 glass rounded-2xl overflow-hidden transition-all hover:border-white/10 ${dayGroup.isToday ? 'border-purple-500/50 shadow-[0_0_30px_-5px_rgba(168,85,247,0.15)]' : ''
+                        <div className={`ml-2 sm:ml-8 glass rounded-2xl transition-all hover:border-white/10 ${dayGroup.isToday ? 'border-purple-500/50 shadow-[0_0_30px_-5px_rgba(168,85,247,0.15)]' : ''
                             }`}>
                             {/* Card Header */}
                             <div className={`px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${dayGroup.isToday
@@ -229,7 +229,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                             {/* Categories List */}
                             <div className="p-2 space-y-2 bg-black/20">
                                 {dayGroup.categories.map((cat) => (
-                                    <div key={cat.id} className="relative group overflow-hidden rounded-xl bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors">
+                                    <div key={cat.id} className="relative group rounded-xl bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors">
                                         <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: cat.color }}></div>
 
                                         {/* Category Summary Row */}
