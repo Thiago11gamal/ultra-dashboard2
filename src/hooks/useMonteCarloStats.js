@@ -451,7 +451,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             // For adaptive correlation
                             simuladoRows: rawSimuladoRows,
                             categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key),
-                            flashcardImmunity: globalImmunityFactor
+                            flashcardImmunity: globalImmunityFactor,
+                            historyLength: pureStatsData.globalHistory?.length || 0
                         });
                     }
                     if (result) {

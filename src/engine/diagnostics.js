@@ -239,8 +239,8 @@ export function computeHurstExponent(scores) {
   else if (clampedH < 0.4) interpretation = 'Reversão à Média (Alta Instabilidade / Efeito Ioiô)';
 
   // R² usa o H ajustado da regressão; o clamp só afeta o valor retornado.
-  const SSR = kahanSum(logRS.map((y, i) => (y - (muY + H * (logN[i] - muX))) ** 2));
-  const SST = kahanSum(logRS.map((y) => (y - muY) ** 2));
+  const SSR = kahanSum(cleanPairs.map((p) => (p.y - (muY + H * (p.x - muX))) ** 2));
+  const SST = kahanSum(cleanPairs.map((p) => (p.y - muY) ** 2));
   const rSquared = SST > 0 ? 1 - (SSR / SST) : 0;
 
   return {
@@ -718,7 +718,7 @@ export function computeCategoryDiagnostics({
 
   const diagnostic = generateMathDiagnostic(safeHistory, maxScore);
   const hurst = computeHurstExponent(scores);
-  const forgetting = computeForgettingRisk(safeHistory, maxScore, null);
+  const forgetting = computeForgettingRisk(safeHistory, maxScore, null, diagnostic?.mssd, safeHistory.length);
   const consistency = computeConsistencyIndex(history, maxScore);
   const velocity = computeLearningVelocity(history, maxScore);
 
