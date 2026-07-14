@@ -158,6 +158,8 @@ export const createPomodoroSlice = (set, get) => ({
             if (p.mode === 'break' || p.mode === 'long_break') {
                 // Se está em pausa, volta para o trabalho da mesma sessão
                 p.mode = 'work';
+                // BUG FIX: Subtrair o ciclo que foi indevidamente contabilizado como finalizado
+                p.completedCycles = Math.max(0, (p.completedCycles || 0) - 1);
             } else if (p.sessions > 1) {
                 // Se está em trabalho, volta para a pausa da sessão anterior
                 p.sessions = Math.max(1, p.sessions - 1);
