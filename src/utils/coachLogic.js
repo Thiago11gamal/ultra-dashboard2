@@ -1173,7 +1173,9 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     // Adiciona entropia baseada nas tarefas e no histórico da própria categoria 
     // para evitar colisões de cache entre concursos diferentes (BUG 7)
     const tasksHash = (category.tasks || []).reduce((acc, t) => acc + (t.id || t.text || '').length, 0);
-    const historyLen = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history.length : 0;
+    const historyLen = (category.simuladoStats && category.simuladoStats.history) 
+        ? (Array.isArray(category.simuladoStats.history) ? category.simuladoStats.history.length : Object.keys(category.simuladoStats.history).length) 
+        : 0;
 
     // Injeção do volume histórico atua como 'salt' criptográfico para o cache, 
     // garantindo que concursos distintos ou novos dados invalidem o estado corretamente.
