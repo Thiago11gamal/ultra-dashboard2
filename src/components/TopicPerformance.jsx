@@ -3,24 +3,25 @@ import { getSafeScore, formatValue, formatPercent } from '../utils/scoreHelper';
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
 
 export default function TopicPerformance({ categories = [] }) {
-    const [selectedCategoryId, setSelectedCategoryId] = useState(() => categories[0]?.id || '');
+    const safeCategories = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
+    const [selectedCategoryId, setSelectedCategoryId] = useState(() => safeCategories[0]?.id || '');
 
-    const effectiveCategoryId = (categories.length > 0 && !categories.find(c => c.id === selectedCategoryId))
-        ? categories[0].id
+    const effectiveCategoryId = (safeCategories.length > 0 && !safeCategories.find(c => c.id === selectedCategoryId))
+        ? safeCategories[0].id
         : selectedCategoryId;
 
     // Aggregate Data Logic
     const aggregatedData = useMemo(() => {
         if (!effectiveCategoryId) return [];
 
-        const category = categories.find(c => c.id === effectiveCategoryId);
+        const category = safeCategories.find(c => c.id === effectiveCategoryId);
         if (!category) return [];
         const maxScore = category.maxScore ?? 100;
         const scoreUnit = maxScore === 100 ? '%' : 'pts';
 
         const stats = category.simuladoStats || { history: [] };
         const historyRaw = stats.history || [];
-        const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
+        const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
         const topicMap = {};
 
         // Loop through all history entries
@@ -61,7 +62,7 @@ export default function TopicPerformance({ categories = [] }) {
         // Sort: Highest Percentage Top (Descending)
         return topicList.sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
 
-    }, [categories, effectiveCategoryId]);
+    }, [safeCategories, effectiveCategoryId]);
 
     return (
         <div className="glass p-6 h-full flex flex-col">
@@ -85,7 +86,7 @@ export default function TopicPerformance({ categories = [] }) {
                             backgroundImage: 'linear-gradient(135deg, rgba(30,30,50,0.95) 0%, rgba(20,20,40,0.95) 100%)'
                         }}
                     >
-                        {categories.map(cat => (
+                        {safeCategories.map(cat => (
                             <option
                                 key={cat.id}
                                 value={cat.id}

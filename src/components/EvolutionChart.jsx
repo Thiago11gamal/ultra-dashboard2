@@ -175,7 +175,8 @@ export default React.memo(function EvolutionChart({
             "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
         ];
         let defaultColorCount = 0;
-        return rawCategories.map((cat) => {
+        const safeCategories = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
+        return safeCategories.map((cat) => {
             let color = cat.color;
             if (!color) {
                 color = DEFAULT_PALETTE[defaultColorCount % DEFAULT_PALETTE.length];

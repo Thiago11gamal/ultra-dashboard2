@@ -15,7 +15,7 @@ const PerformancePanel = ({ stats, color }) => {
     if (!stats) return null;
 
     const { average = 0, lastAttempt = 0, trend = 'stable', level = '-', history: rawHistory = [] } = stats;
-    const history = Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory);
+    const history = Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {});
 
     let trendIcon = <div className="w-5 h-5 flex items-center justify-center rounded-full bg-slate-500/10"><Minus size={14} className="text-slate-400" /></div>;
     let trendText = "Estável";
@@ -195,8 +195,11 @@ const CategoryAccordion = React.memo(({ category, onToggleTask, onDeleteTask, on
     const [isCategoryEditorOpen, setIsCategoryEditorOpen] = useState(false);
     const [taskToDelete, setTaskToDelete] = useState(null);
 
-    const tasks = category.tasks || [];
-    const allTasks = category.originalTasks || tasks; // Use original/all tasks for progress bar
+    const rawTasks = category.tasks || [];
+    const tasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks || {});
+    
+    const rawAllTasks = category.originalTasks || rawTasks; // Use original/all tasks for progress bar
+    const allTasks = Array.isArray(rawAllTasks) ? rawAllTasks : Object.values(rawAllTasks || {});
 
     const completedCount = allTasks.filter(t => t.completed).length;
     const progress = allTasks.length > 0

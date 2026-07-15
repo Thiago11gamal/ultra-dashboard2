@@ -18,7 +18,8 @@ export const useActiveContest = () => {
 export const useActiveCategories = () => {
     return useAppStore(useShallow(state => {
         const activeId = state.appState?.activeId || 'default';
-        return state.appState?.contests?.[activeId]?.categories || [];
+        const cats = state.appState?.contests?.[activeId]?.categories || [];
+        return Array.isArray(cats) ? cats : Object.values(cats || {});
     }));
 };
 
@@ -26,7 +27,8 @@ export const useActiveCategories = () => {
 export const useActiveStudyLogs = () => {
     return useAppStore(useShallow(state => {
         const activeId = state.appState?.activeId || 'default';
-        return state.appState?.contests?.[activeId]?.studyLogs || [];
+        const logs = state.appState?.contests?.[activeId]?.studyLogs || [];
+        return Array.isArray(logs) ? logs : Object.values(logs || {});
     }));
 };
 

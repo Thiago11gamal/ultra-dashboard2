@@ -221,8 +221,18 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-    const coachPlanner = useMemo(() => activeContest?.coachPlanner || {}, [activeContest?.coachPlanner]);
-    const coachPlanRaw = useMemo(() => activeContest?.coachPlan || [], [activeContest?.coachPlan]);
+    const coachPlanner = useMemo(() => {
+        const raw = activeContest?.coachPlanner || {};
+        const normalized = {};
+        for (const [key, val] of Object.entries(raw)) {
+            normalized[key] = Array.isArray(val) ? val : Object.values(val || {});
+        }
+        return normalized;
+    }, [activeContest?.coachPlanner]);
+    const coachPlanRaw = useMemo(() => {
+        const raw = activeContest?.coachPlan || [];
+        return Array.isArray(raw) ? raw : Object.values(raw || {});
+    }, [activeContest?.coachPlan]);
     const systemAlerts = useMemo(() => coachPlanRaw.filter(task => /\[ALERTA MESTRE\]|\[STATUS\]/i.test(task.text)), [coachPlanRaw]);
     const actionableTasks = useMemo(() => coachPlanRaw.filter(task => !/\[ALERTA MESTRE\]|\[STATUS\]/i.test(task.text)), [coachPlanRaw]);
     const coachPlan = actionableTasks;

@@ -111,7 +111,8 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     // Calculate retention for all categories and their tasks
     const retentionData = useMemo(() => {
-        return categories
+        const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return safeCategories
             .filter(cat => cat && (cat.id || cat.name))
             .map(cat => {
                 const safeCategoryName = String(cat.name || 'Sem nome');

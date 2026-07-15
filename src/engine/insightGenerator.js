@@ -37,7 +37,8 @@ export function generateEvolutionInsights({
         const dayStats = {};
         const now = new Date();
         
-        categories.forEach(cat => {
+        const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+        safeCategories.forEach(cat => {
             const historyRaw = cat.simuladoStats?.history || [];
             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
             const rawHistory = history
@@ -83,7 +84,8 @@ export function generateEvolutionInsights({
     // Lógica da Realidade Bruta (Raw)
     if (activeEngine === "raw") {
         if (raw == null) return { type: 'info', icon: "📊", title: "Realidade Bruta", text: "Aguardando dados..." };
-        const history = focusCategory.simuladoStats?.history || [];
+        const historyRaw = focusCategory.simuladoStats?.history || [];
+        const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
         const scores = history.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
         
         if (scores.length < 2) return { type: 'info', icon: "📊", title: "Análise de Volatilidade", text: `Nota: ${raw.toFixed(1)}${unit}.` };
@@ -118,7 +120,9 @@ export function generateEvolutionInsights({
     if (raw != null && bayesian != null) {
         const nowMs = new Date().getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
+        const historyRaw = focusCategory.simuladoStats?.history || [];
+        const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
+        const recentVolumeAlert = history
             .filter(h => {
                 const d = toDateMs(h.date);
                 return !Number.isNaN(d) && (nowMs - d) >= 0 && (nowMs - d) <= sevenDaysMs;

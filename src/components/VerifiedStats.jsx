@@ -229,15 +229,18 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
 });
 
 export default function VerifiedStats({ categories = [], user }) {
+    const safeCategories = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
+
     const maxScore = useMemo(() => {
-        const scores = categories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
+        const scores = safeCategories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
         return scores.length > 0 ? Math.max(...scores) : 100;
-    }, [categories]);
+    }, [safeCategories]);
 
     const flashcardDecks = useAppStore(state => {
         const activeId = state.appState?.activeId;
         const contest = state.appState?.contests?.[activeId] || {};
-        return contest.flashcardDecks || [];
+        const rawDecks = contest.flashcardDecks || [];
+        return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
     });
 
     const flashcardIndicators = useMemo(() => {
@@ -311,13 +314,13 @@ export default function VerifiedStats({ categories = [], user }) {
     const setHistoricalCutoffs = useAppStore(state => state.setHistoricalCutoffs);
 
     const getEqualWeights = React.useCallback(() => {
-        if (categories.length === 0) return {};
+        if (safeCategories.length === 0) return {};
         const newWeights = {};
-        categories.forEach(cat => {
+        safeCategories.forEach(cat => {
             newWeights[cat.id || cat.name] = 1;
         });
         return newWeights;
-    }, [categories]);
+    }, [safeCategories]);
 
     const updateWeight = React.useCallback((catId, value) => {
         const numeric = parseInt(value, 10);
@@ -372,7 +375,7 @@ export default function VerifiedStats({ categories = [], user }) {
         let allHistory = [];
         let totalQuestionsGlobal = 0;
 
-        categories.forEach(cat => {
+        safeCategories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Flatten history for global regression
                 const hArray = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
@@ -613,7 +616,7 @@ export default function VerifiedStats({ categories = [], user }) {
             insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30', icon: <Minus size={20} /> }
         };
 
-        categories.forEach(cat => {
+        safeCategories.forEach(cat => {
             const hArray = cat.simuladoStats?.history ? (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)) : [];
             if (hArray.length >= 2) {
                 // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis
@@ -729,7 +732,7 @@ export default function VerifiedStats({ categories = [], user }) {
         }
 
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
-    }, [categories, statsTarget, maxScore]);
+    }, [safeCategories, statsTarget, maxScore]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">
@@ -769,7 +772,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
                     <MonteCarloGauge
-                        categories={categories}
+                        categories={safeCategories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
                         onTargetScoreChange={handleSetTargetScore}
@@ -780,7 +783,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         onSyncShowSubjects={setShowSubjects}
                     />
                     <MonteCarloGauge
-                        categories={categories}
+                        categories={safeCategories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
                         onTargetScoreChange={handleSetTargetScore}
@@ -852,7 +855,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 setWeights={setWeights}
                 weights={weights}
                 updateWeight={updateWeight}
-                categories={categories}
+                categories={safeCategories}
                 historicalCutoffs={historicalCutoffs}
                 setHistoricalCutoffs={setHistoricalCutoffs}
                 minScore={0}

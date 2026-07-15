@@ -161,7 +161,8 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
     
     // CORREÇÃO MÁXIMA: Sanitizar vírgulas usando getSafeScore e remover provas nulas
     // (NaN) em vez de injetar Zeros absolutos que arruínam a variância empírica.
-    const validScores = history
+    const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
+    const validScores = safeHistory
         .map(h => getSafeScore(h, maxScore))
         .filter(s => Number.isFinite(s));
         
@@ -284,7 +285,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     }
 
     const catNormalized = normalize(safeCategory?.name || "Sem Nome");
-    const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject || "") === catNormalized);
+    const safeSimulados = Array.isArray(simulados) ? simulados : Object.values(simulados || {});
+    const relevantSimulados = safeSimulados.filter(s => s && normalize(s.subject || "") === catNormalized);
     relevantSimulados.sort((a, b) => {
         const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
         const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
@@ -375,7 +377,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         if (simDate > lastDate) lastDate = simDate;
     }
 
-    const categoryStudyLogs = (studyLogs || []).filter(log =>
+    const safeStudyLogs = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    const categoryStudyLogs = safeStudyLogs.filter(log =>
         log?.categoryId === categoryId &&
         (normalizeDate(log.date) || new Date(0)).getTime() > 0
     );
@@ -459,7 +462,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     let globalBaselinePct = 50;
     const validCatNorms = new Set((options.allCategories || []).map(c => normalize(c.name || "")));
-    const allSimsForBaseline = (simulados || []).filter(s => s && validCatNorms.has(normalize(s.subject || "")));
+    const safeSims = Array.isArray(simulados) ? simulados : Object.values(simulados || {});
+    const allSimsForBaseline = safeSims.filter(s => s && validCatNorms.has(normalize(s.subject || "")));
     if (allSimsForBaseline.length > 0) {
         const validGlobalSims = allSimsForBaseline
             .map(s => getSafeScore(s, maxScore))

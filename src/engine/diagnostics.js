@@ -18,7 +18,8 @@ function _getEntryDate(entry) {
   return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
 }
 
-function _normalizeDiagnosticHistory(history, maxScore = 100) {
+function _normalizeDiagnosticHistory(historyRaw, maxScore = 100) {
+  const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
   if (!Array.isArray(history)) return [];
   return history
     .map((entry) => {
@@ -63,7 +64,8 @@ function _std(arr, mu = null) {
  * Retorna lista de problemas para "bons diagnósticos" e alertas ao usuário.
  * Ajuda a identificar corrupção de dados, input ruim, legacy bugs etc.
  */
-export function detectDataAnomalies(history = [], maxScore = 100) {
+export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
+  const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
   const issues = [];
   if (!Array.isArray(history) || history.length === 0) {
     issues.push({ type: 'data', severity: 'info', msg: 'Sem histórico para análise.' });
@@ -153,7 +155,8 @@ export function detectDataAnomalies(history = [], maxScore = 100) {
   return issues;
 }
 
-function _interSessionGaps(history) {
+function _interSessionGaps(historyRaw) {
+  const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
   if (!Array.isArray(history) || history.length < 2) return [];
   const times = history
     .map((h) => { const d = _getEntryDate(h); return d ? d.getTime() : null; })

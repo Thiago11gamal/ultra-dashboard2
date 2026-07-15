@@ -135,7 +135,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             categoriesArray.forEach(cat => {
                 if (!cat?.name) return;
                 const subName = normalize(cat.name);
-                const tasks = Array.isArray(cat.tasks) ? cat.tasks : [];
+                const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
                 const topics = new Set(tasks.map(t => normalize(t?.title || t?.text || '')));
                 validDataMap[subName] = topics;
 

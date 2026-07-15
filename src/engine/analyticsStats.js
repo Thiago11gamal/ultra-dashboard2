@@ -140,11 +140,14 @@ export function generateAnalyticsStats({
         ? timelineDates[timeIndex]
         : null;
 
-    categories.forEach(cat => {
-        if (cat.simuladoStats?.history?.length > 0) {
+    const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+    safeCategories.forEach(cat => {
+        const historyRaw = cat.simuladoStats?.history || [];
+        const historyArray = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
+        if (historyArray.length > 0) {
             const catMaxScore = Number(cat.maxScore) || maxScore;
 
-            const history = [...cat.simuladoStats.history]
+            const history = [...historyArray]
                 .filter(h => {
                     if (!cutoffDate) return true;
                     const dateString = getDateKey(getHistoryDate(h));

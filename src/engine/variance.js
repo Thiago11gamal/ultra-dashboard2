@@ -39,13 +39,14 @@ export const INTER_SUBJECT_CORRELATION = 0.25; // Prior / fallback correlation b
  */
 export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION) {
   try {
-    if (!Array.isArray(simuladoRows) || simuladoRows.length < 5 || !Array.isArray(categoryNames) || categoryNames.length < 2) {
+    const safeSimuladoRows = Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {});
+    if (!Array.isArray(safeSimuladoRows) || safeSimuladoRows.length < 5 || !Array.isArray(categoryNames) || categoryNames.length < 2) {
       return fallback;
     }
 
     // Build aligned score rows: one object per "simulado day" { "Matematica": 82, "Direito": 71, ... }
     const byDate = {};
-    simuladoRows.forEach(row => {
+    safeSimuladoRows.forEach(row => {
       const dateKey = getDateKey(row.date || row.createdAt);
       if (!dateKey) return;
       const subj = normalize(row.subject || row.categoryName || row.name);
@@ -79,8 +80,9 @@ export function computeEffectiveSampleSizeFromWeights(weights = []) {
 }
 
 // MELHORIA: Permite a injeção de parâmetros dinâmicos ou cálculo on-the-fly do rho
-export function computeWeightedVariance(stats, totalWeight, optionsOrRho = INTER_SUBJECT_CORRELATION) {
-    if (!Array.isArray(stats) || stats.length === 0) return 0;
+export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = INTER_SUBJECT_CORRELATION) {
+    const stats = Array.isArray(statsRaw) ? statsRaw : Object.values(statsRaw || {});
+    if (stats.length === 0) return 0;
 
     let rho = INTER_SUBJECT_CORRELATION;
     let preserveScale = false;
@@ -178,7 +180,8 @@ export function estimateInterSubjectCorrelation(
     subjectNames = [],
     fallback = INTER_SUBJECT_CORRELATION
 ) {
-    if (!Array.isArray(scoreRows) || scoreRows.length < 4 || !Array.isArray(subjectNames) || subjectNames.length < 2) {
+    const safeScoreRows = Array.isArray(scoreRows) ? scoreRows : Object.values(scoreRows || {});
+    if (safeScoreRows.length < 4 || !Array.isArray(subjectNames) || subjectNames.length < 2) {
         return fallback;
     }
 
@@ -190,7 +193,7 @@ export function estimateInterSubjectCorrelation(
 
             const xs = [];
             const ys = [];
-            scoreRows.forEach(row => {
+            safeScoreRows.forEach(row => {
                 const rawX = row?.[aName];
                 const x = typeof rawX === 'object' && rawX !== null ? Number(rawX?.score) : Number(rawX);
                 const rawY = row?.[bName];

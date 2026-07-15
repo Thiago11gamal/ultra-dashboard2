@@ -5,8 +5,9 @@ import { calculateSlope, getSortedHistory } from '../engine';
 
 const PerformanceTable = ({ categories = [] }) => {
 
+    const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
     // Sort by Net Balance (Saldo) descending
-    const sortedCategories = [...categories].sort((a, b) => {
+    const sortedCategories = [...safeCategories].sort((a, b) => {
         const statsA = a.simuladoStats || { history: [] };
         const statsB = b.simuladoStats || { history: [] };
 
