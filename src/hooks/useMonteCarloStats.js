@@ -499,7 +499,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             rhoUsed: statsData?.estimatedRho
                         };
                         if (result.trendType === 'log_time_available' && result.projectedMean > result.currentMean) {
-                            const blend = modelWeight;
+                            const blend = modelWeightRef.current;
                             result.projectedMean = result.projectedMean * (1 - blend) + (result.projectedMean * 1.1) * blend;
                         }
                     }
@@ -708,7 +708,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 };
             })
             .sort((a, b) => a.prob - b.prob);
-    }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays, minScore, modelHealth, modelWeight, rawSimuladoRows, calibrationSummary, dynamicSimulations]);
+    }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays, minScore, modelHealth, modelWeight, rawSimuladoRows, calibrationSummary]);
 
     // NEW: Record per-subject predictions for finer-grained calibration data
     useEffect(() => {
