@@ -110,7 +110,13 @@ export default function Coach() {
 
     useEffect(() => {
         isMountedRef.current = true;
-        return () => { isMountedRef.current = false; };
+        return () => { 
+            isMountedRef.current = false; 
+            if (generationTimeoutsRef.current && generationTimeoutsRef.current.length > 0) {
+                generationTimeoutsRef.current.forEach(clearTimeout);
+                generationTimeoutsRef.current = [];
+            }
+        };
     }, []);
 
     useEffect(() => {

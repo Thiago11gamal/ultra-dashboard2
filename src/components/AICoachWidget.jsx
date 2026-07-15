@@ -95,7 +95,7 @@ function UrgencyBar({ score, cfg }) {
 
 // Adicione este componente dentro de AICoachWidget.jsx
 function MonteCarloGauge({ mc }) {
-    if (!mc || !mc.probability) return null;
+    if (!mc || mc.probability == null) return null;
     
     const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
     const prob = Math.min(100, Math.max(0, rawProb));

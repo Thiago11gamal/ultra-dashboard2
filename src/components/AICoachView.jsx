@@ -46,6 +46,15 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     if (topicMatch) { 
         topicPart = topicMatch[1].trim(); 
         actionPart = topicMatch[2].trim();
+        
+        const legacyTags = ['REVISÃO', 'OTIMIZAÇÃO DE BASE', 'MÉTODO', 'AGILIDADE AI', 'STATUS', 'ALERTA MESTRE'];
+        if (legacyTags.includes(topicPart.toUpperCase())) {
+            topicPart = subjectPart;
+        }
+    }
+
+    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(actionPart)) {
+        actionPart = '';
     }
 
     // Se for um Alerta Mestre, extraímos a mensagem para uma caixa separada e forçamos o Assunto como título principal
