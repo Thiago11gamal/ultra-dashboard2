@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
+import { normalize, aliases } from '../../../utils/normalization';
 import { Zap, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 const COLORS = {
@@ -201,11 +202,12 @@ export function TodayVsGeneralChart({
         if (safeRowsArray.length > 0) {
             const activeCategoryMap = new Set();
             activeCategories.forEach(c => {
-                if (c.name) activeCategoryMap.add(c.name.toLowerCase().trim());
-                if (Array.isArray(c.aliases)) {
-                    c.aliases.forEach(a => {
-                        if (a) activeCategoryMap.add(a.toLowerCase().trim());
-                    });
+                if (c.name) {
+                    const normName = normalize(c.name);
+                    activeCategoryMap.add(normName);
+                    if (aliases[normName]) {
+                        aliases[normName].forEach(a => activeCategoryMap.add(normalize(a)));
+                    }
                 }
             });
             const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
@@ -213,7 +215,7 @@ export function TodayVsGeneralChart({
             const sortedRows = [...safeRowsArray]
                 .filter(r => {
                     if (!r || (!r.createdAt && !r.date) || r.validated === false) return false;
-                    const rSubj = r.subject?.toLowerCase().trim();
+                    const rSubj = normalize(r.subject);
                     const subjMatches = rSubj ? activeCategoryMap.has(rSubj) : false;
                     const idMatches = r.categoryId && activeCategoryIdMap.has(r.categoryId);
                     return subjMatches || idMatches;
