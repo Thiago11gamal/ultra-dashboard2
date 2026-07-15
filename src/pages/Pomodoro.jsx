@@ -17,7 +17,6 @@ const EMPTY_OBJECT = Object.freeze({});
 
 function DataTriviaPanel({ studyLogs, simulados, categories }) {
     const trivia = useMemo(() => {
-        const now = new Date();
         const startOfToday = getLocalMidnight().getTime();
         const startOfYesterday = startOfToday - 86400000;
         const startOfWeek = startOfToday - (86400000 * 7);
@@ -86,7 +85,6 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         });
 
         let bestSimulado = 0;
-        let totalSimulados = (simulados || []).length;
         let recentSimulados = 0;
         (simulados || []).forEach(s => {
             if (!s) return;
@@ -225,6 +223,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             items.push({ icon: <Trophy size={14} className="text-yellow-300" />, text: `Master: Você acumula um tempo de voo absurdo de ${Math.round(totalStudyMins / 60)} horas totais.` });
         }
 
+        // eslint-disable-next-line react-hooks/purity
         return items.sort(() => Math.random() - 0.5).slice(0, 6);
     }, [studyLogs, simulados, categories]);
 
@@ -551,7 +550,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
         let secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
         
-        if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(secondaryText)) {
+        if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
             secondaryText = '';
         }
         
@@ -784,7 +783,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
         if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
             
         // Filter out AI generated status texts from legacy tasks
-        if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(subtitle)) {
+        if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(subtitle)) {
             subtitle = '';
         }
 

@@ -18,7 +18,8 @@ export default function ParetoAnalysis({ categories = [] }) {
                 const catMaxScore = cat.maxScore ?? 100;
 
                 // Flatten history
-                cat.simuladoStats.history.forEach((h, hIdx, hArr) => {
+                const hArray = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
+                hArray.forEach((h, hIdx, hArr) => {
                     // RECENCY BIAS: Recent errors matter more than old ones
                     const recencyFactor = Math.pow(1.05, hIdx - (hArr.length - 1));
                     

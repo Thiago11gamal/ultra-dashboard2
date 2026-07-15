@@ -64,7 +64,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
     let secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
     
-    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(secondaryText)) {
+    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
         secondaryText = '';
     }
 

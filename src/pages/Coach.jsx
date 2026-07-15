@@ -650,7 +650,6 @@ function RaioXDashboard({ data }) {
     const ops = data?.calibrationOps || {};
     const [filter, setFilter] = useState('all');
 
-    const now = Date.now();
     const toFiniteNumber = (value, fallback = 0) => {
         if (value === null || value === undefined || value === '') return fallback;
         const n = Number(value);
@@ -659,6 +658,8 @@ function RaioXDashboard({ data }) {
 
     const calibrationSummary = useMemo(() => {
         const historyByCategory = data?.calibrationHistoryByCategory || {};
+        // eslint-disable-next-line react-hooks/purity
+        const now = Date.now();
         return Object.entries(historyByCategory)
             .map(([categoryId, history]) => {
                 const rows = Array.isArray(history) ? history : [];
@@ -676,7 +677,7 @@ function RaioXDashboard({ data }) {
                 return { categoryId, label, count: validCount, avgBrier, avgPenalty };
             })
             .filter(Boolean);
-    }, [data?.calibrationHistoryByCategory, now]);
+    }, [data?.calibrationHistoryByCategory]);
 
     const toPercentLabel = (value) => {
         const n = Number(value);

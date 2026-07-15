@@ -240,7 +240,8 @@ export default React.memo(function EvolutionChart({
                 return;
             }
             
-            const history = cat.simuladoStats?.history || [];
+            const historyRaw = cat.simuladoStats?.history;
+            const history = historyRaw ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw)) : [];
             if (!history.length) { map[cat.id] = 0; return; }
             const stats = computeCategoryStats(history, 100, 60, maxScore);
             map[cat.id] = stats?.mean || 0;
@@ -251,8 +252,9 @@ export default React.memo(function EvolutionChart({
     const [mcResult, setMcResult] = useState(null);
     const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
 
-    const historyArray = Array.isArray(focusCategory?.simuladoStats?.history)
-        ? focusCategory.simuladoStats.history
+    const historyRaw = focusCategory?.simuladoStats?.history;
+    const historyArray = historyRaw 
+        ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw))
         : EMPTY_ARRAY;
 
     const currentFocusLevel = focusCategory ? categoryLevels[focusCategory.id] : undefined;

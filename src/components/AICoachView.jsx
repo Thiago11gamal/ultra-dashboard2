@@ -45,7 +45,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
     let topicPart = subjectPart;
 
-    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(actionPart)) {
+    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(actionPart)) {
         actionPart = '';
     }
 
@@ -226,14 +226,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const systemAlerts = useMemo(() => coachPlanRaw.filter(task => /\[ALERTA MESTRE\]|\[STATUS\]/i.test(task.text)), [coachPlanRaw]);
     const actionableTasks = useMemo(() => coachPlanRaw.filter(task => !/\[ALERTA MESTRE\]|\[STATUS\]/i.test(task.text)), [coachPlanRaw]);
     const coachPlan = actionableTasks;
-    const emptyFallbackObj = useMemo(() => ({}), []);
-    const calibrationHistoryByCategory = activeContest?.calibrationHistoryByCategory || emptyFallbackObj;
-    const calibrationOps = activeContest?.calibrationOps || emptyFallbackObj;
-    const calibrationAuditLog = activeContest?.calibrationAuditLog || [];
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();
     const showToast = useToast();
-    const [now] = useState(() => Date.now());
 
     const handleStartNeural = (task) => {
         const allAssignedIds = new Set();
@@ -286,11 +281,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     };
 
     const hasPlan = coachPlan && coachPlan.length > 0;
-    const toFinite = (value, fallback = 0) => {
-        if (value === null || value === undefined || value === '') return fallback;
-        const n = Number(value);
-        return Number.isFinite(n) ? n : fallback;
-    };
 
     return (
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>

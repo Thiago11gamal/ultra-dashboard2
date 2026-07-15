@@ -375,7 +375,8 @@ export default function VerifiedStats({ categories = [], user }) {
         categories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Flatten history for global regression
-                cat.simuladoStats.history.forEach(h => {
+                const hArray = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
+                hArray.forEach(h => {
                     const catMaxScore = Number(cat.maxScore) || maxScore;
                     const safeScore = getSafeScore(h, catMaxScore);
                     const parsedDate = normalizeDate(h.date);
@@ -613,9 +614,10 @@ export default function VerifiedStats({ categories = [], user }) {
         };
 
         categories.forEach(cat => {
-            if (cat.simuladoStats?.history?.length >= 2) {
+            const hArray = cat.simuladoStats?.history ? (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)) : [];
+            if (hArray.length >= 2) {
                 // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis
-                const sortedHistory = [...cat.simuladoStats.history]
+                const sortedHistory = [...hArray]
                     .filter(h => h.date && normalizeDate(h.date) !== null)
                     .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
 

@@ -16,7 +16,6 @@ test.describe('Core User Journey', () => {
     await loginButton.click();
     
     // Dismiss the welcome screen
-    const welcomeEnterButton = page.locator('text=Entrar').nth(1); // or just locator('button', { hasText: 'Entrar' }) if the first one is gone
     // Since the first ENTRAR button is unmounted, 'text=Entrar' might just match the welcome screen one
     await expect(page.locator('text=Bem-vindo')).toBeVisible({ timeout: 10000 });
     await page.locator('button:has-text("Entrar")').click();
