@@ -557,7 +557,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         }
 
         const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
-        const secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
+        let secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
+        
+        if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(secondaryText)) {
+            secondaryText = '';
+        }
         
         return { displayTopic, secondaryText };
     };
@@ -786,9 +790,14 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
             let subtitle = topicMatch[2].replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
             if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
             
+            // Filter out AI generated status texts from legacy tasks
+            if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(subtitle)) {
+                subtitle = '';
+            }
+
             const legacyTags = ['REVISÃO', 'OTIMIZAÇÃO DE BASE', 'MÉTODO', 'AGILIDADE AI', 'STATUS', 'ALERTA MESTRE'];
             if (legacyTags.includes(topicMatch[1].toUpperCase().trim())) {
-                return subtitle || topicMatch[1]; // Ignora a tag legado no titulo
+                return subtitle || topicMatch[1]; 
             }
             return topicMatch[1] + (subtitle ? ` - ${subtitle}` : '');
         }

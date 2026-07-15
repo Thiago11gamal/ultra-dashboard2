@@ -71,7 +71,11 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     }
 
     const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
-    const secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
+    let secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
+    
+    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(secondaryText)) {
+        secondaryText = '';
+    }
 
     const cardBg = !isBacklog && dayTheme ? dayTheme.cardBg : 'bg-white/[0.02]';
     const cardBorder = !isBacklog && dayTheme ? dayTheme.cardBorder : 'border-white/[0.05]';

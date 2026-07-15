@@ -1488,7 +1488,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-safe-${mcProbKey}`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}] 🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%.`,
+                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
@@ -1504,7 +1504,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const srsKey = cat.urgency?.details?.srsLabel.replace(/\s/g, '').substring(0, 15);
             allGeneratedTasks.push({
                 id: `${cat.id}-srs-${srsKey}`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}] 🧠 ${cat.urgency?.details?.srsLabel}.`,
+                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
@@ -1519,7 +1519,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         else if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap) {
             allGeneratedTasks.push({
                 id: `${cat.id}-trap-trap`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}] ⚠️ ANOMALIA: Teoria excedente detectada.`,
+                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
@@ -1532,21 +1532,18 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             });
         }
 
-        // FEAT: Motor de Agilidade AI (Time Spent)
-        // Agora usa as métricas unificadas, garantindo consistência com o restante do core matemático
         const agilityData = cat.urgency?.details?.agilityPenalty !== undefined 
             ? { avgSeconds: cat.urgency?.details?.avgSeconds || 0, agilityPenalty: cat.urgency?.details?.agilityPenalty || 0 }
             : computeAgilityMetrics((cat.simuladoStats && Array.isArray(cat.simuladoStats.history)) ? cat.simuladoStats.history : []);
             
         const avgSeconds = agilityData.avgSeconds;
-        const targetSeconds = 120; // Meta fixa de 2 minutos por questão (pode ser ajustada por dificuldade depois)
-        // BUG FIX: averageScore was raw score. We must use normalizedScore to properly check if the user is > 75% accuracy!
+        const targetSeconds = 120;
         const isAgilityProblem = (avgSeconds > targetSeconds + 30) && (cat.urgency?.normalizedScore >= 75); 
 
         if (isAgilityProblem) {
             allGeneratedTasks.push({
                 id: `${cat.id}-agility-${avgSeconds}`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}] ⚡ TREINO RÁPIDO: Reduza seu tempo de resolução.`,
+                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
@@ -1563,30 +1560,26 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         let topicCursor = 0;
         for (let i = 0; i < iterations; i++) {
             const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
-            const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[${cat.name}] `;
+            const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}]` : `${priorityLabel}[${cat.name}]`;
             const uniqueIdSuffix = weakTopic 
                 ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total}-${i}`) 
                 : `geral-${i}`;
 
             if (weakTopic) {
-                let taskTitle = "";
                 let reasonStr = "";
                 if (weakTopic.isUntested) {
-                    taskTitle = `🚨 (Novo). Comece agora!`;
                     reasonStr = "Tópico Novo / Não Testado";
                 } else if (weakTopic.manualPriority > 0) {
-                    taskTitle = `🚨 (Prioridade). Nota: ${Math.round(weakTopic.percentage)}%`;
                     reasonStr = "Alta Prioridade Manual";
                 } else if (weakTopic.percentage < 70) {
-                    taskTitle = `🚨 (${Math.round(weakTopic.percentage)}% de acerto). Revise agora!`;
                     reasonStr = "Baixa Performance";
                 } else {
-                    taskTitle = `⭐ (${Math.round(weakTopic.percentage)}% de acerto). Rumo à excelência!`;
                     reasonStr = "Aperfeiçoamento Contínuo";
                 }
+                
                 allGeneratedTasks.push({
                     id: `${cat.id}-weaktopic-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}${taskTitle}`,
+                    text: `${cat.name}: ${topicLabel}`,
                     completed: false,
                     categoryId: cat.id, category: cat.name, catName: cat.name,
                     analysis: {
