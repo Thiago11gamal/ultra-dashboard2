@@ -139,7 +139,7 @@ export const WeeklyEvolutionView = ({
     const [hoveredLine, setHoveredLine] = useState(null);
 
     const categoriesSignature = useMemo(() => categories.map((cat) => {
-        const history = cat?.simuladoStats?.history || [];
+        const history = Array.isArray(cat?.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat?.simuladoStats?.history || {});
         const tasks = cat?.tasks || [];
         const historyDigest = history.map((h) => [
             getMondayStr(h?.date) || 'nodate',
@@ -178,7 +178,8 @@ export const WeeklyEvolutionView = ({
                     itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                 });
 
-                (cat.simuladoStats?.history || []).forEach(h => {
+                const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+                hArray.forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
                         h.topics.forEach(t => {
                             const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
@@ -236,12 +237,14 @@ export const WeeklyEvolutionView = ({
 
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
-                processHistory(cat.simuladoStats?.history, cat.id);
+                const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+                processHistory(hArray, cat.id);
             });
         } else {
             const cat = categories.find(c => c.id === focusSubjectId);
             if (cat) {
-                (cat.simuladoStats?.history || []).forEach(h => {
+                const hArray2 = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+                hArray2.forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
                         h.topics.forEach(t => {
                             const tId = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').toLowerCase().trim();

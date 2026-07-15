@@ -56,7 +56,7 @@ const WeeklyPerformanceChart = ({
             categories.forEach(cat => {
                 if (showOnlyFocus && focusSubjectId && cat.id !== focusSubjectId) return;
 
-                const history = cat.simuladoStats?.history || [];
+                const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 history.forEach(h => {
                     const hDate = getDateKey(h.date);
                     if (hDate === dateKey) {
