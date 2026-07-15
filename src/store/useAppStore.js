@@ -5,6 +5,7 @@ import { immer } from 'zustand/middleware/immer';
 import { temporal } from 'zundo';
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import { INITIAL_DATA } from '../data/initialData';
+import { validateAppState } from './schemas';
 import { createPomodoroSlice } from './slices/createPomodoroSlice';
 import { createTaskSlice } from './slices/createTaskSlice';
 import { createCategorySlice } from './slices/createCategorySlice';
@@ -226,11 +227,15 @@ export const useAppStore = create(
                     // Atualização Atômica: ID e Hidratação juntos, sem mutação direta do estado persistido
                     useAppStore.setState((prev) => {
                         const currentAppState = prev.appState || {};
+                        const validatedState = validateAppState({
+                            ...currentAppState,
+                            contests: targetContests || currentAppState.contests || { 'default': { simulados: [], tasks: [] } },
+                            activeId: targetId
+                        });
+                        
                         return {
                             appState: {
-                                ...currentAppState,
-                                contests: targetContests || currentAppState.contests || { 'default': { simulados: [], tasks: [] } },
-                                activeId: targetId,
+                                ...validatedState,
                                 isHydrated: true
                             }
                         };

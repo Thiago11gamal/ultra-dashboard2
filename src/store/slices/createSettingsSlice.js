@@ -1,4 +1,4 @@
-import { validateAppState } from '../schemas';
+import { validateAppState, sanitizeContest } from '../schemas';
 
 export const createSettingsSlice = (set) => ({
     setHasSeenTour: (value) => set((state) => {
@@ -86,7 +86,7 @@ export const createSettingsSlice = (set) => ({
             : newDataCallback;
 
         if (nextData !== undefined && nextData !== null && typeof nextData === 'object') {
-            state.appState.contests[contestId] = nextData;
+            state.appState.contests[contestId] = sanitizeContest(nextData);
         }
 
         const nowIso = new Date().toISOString();

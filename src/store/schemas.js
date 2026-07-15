@@ -120,7 +120,7 @@ const repairContestHistory = (data) => {
 };
 
 
-const sanitizeContest = (data) => {
+export const sanitizeContest = (data) => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };
 
   const source = (data.simuladoRows && data.simuladoRows.length > 0)
