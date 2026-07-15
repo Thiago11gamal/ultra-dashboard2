@@ -143,8 +143,20 @@ export default function AICoachPlanner() {
     const defaultCoachPlan = useMemo(() => [], []);
     const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
 
-    const coachPlanner = activeContest?.coachPlanner || defaultCoachPlanner;
-    const coachPlan = useMemo(() => activeContest?.coachPlan || defaultCoachPlan, [activeContest?.coachPlan, defaultCoachPlan]);
+    const rawCoachPlanner = activeContest?.coachPlanner || defaultCoachPlanner;
+    const rawCoachPlan = activeContest?.coachPlan || defaultCoachPlan;
+
+    const coachPlanner = useMemo(() => {
+        const normalized = {};
+        for (const [key, val] of Object.entries(rawCoachPlanner)) {
+            normalized[key] = Array.isArray(val) ? val : Object.values(val || {});
+        }
+        return normalized;
+    }, [rawCoachPlanner]);
+
+    const coachPlan = useMemo(() => {
+        return Array.isArray(rawCoachPlan) ? rawCoachPlan : Object.values(rawCoachPlan || {});
+    }, [rawCoachPlan]);
 
     const setData = useAppStore(state => state.setData);
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
