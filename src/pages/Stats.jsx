@@ -32,7 +32,10 @@ export default function Stats() {
     const hasStudyLogs =
         focusData.some(day => Number(day?.horasEstudadas) > 0) ||
         subjectData.some(subject => Number(subject?.horas) > 0);
-    const hasSimuladoHistory = Array.isArray(categories) && categories.some(category => Array.isArray(category?.simuladoStats?.history) && category.simuladoStats.history.length > 0);
+    const hasSimuladoHistory = Array.isArray(categories) && categories.some(category => {
+        const h = category?.simuladoStats?.history;
+        return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+    });
     const hasData = hasStudyLogs || hasSimuladoHistory;
 
     return (
