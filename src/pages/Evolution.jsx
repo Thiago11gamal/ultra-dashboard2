@@ -9,7 +9,7 @@ const EMPTY_ARRAY = [];
 export default function Evolution() {
     // 🎯 PERFORMANCE FIX: Granular selectors with useShallow.
     // Previne re-renders pesados quando o Pomodoro ou outros dados do contest mudam mas não afetam o gráfico.
-    const { categories, rawStudyLogs, monteCarloHistory, user, unit, minScore, maxScore } = useAppStore(
+    const { categories, rawStudyLogs, monteCarloHistory, user, unit, minScore, maxScore, simuladoRows } = useAppStore(
         useShallow(state => {
             const contests = state?.appState?.contests || {};
             const activeId = state?.appState?.activeId;
@@ -21,7 +21,8 @@ export default function Evolution() {
                 user: contest.user,
                 unit: contest.unit || '%',
                 minScore: contest.minScore ?? 0,
-                maxScore: contest.maxScore ?? 100
+                maxScore: contest.maxScore ?? 100,
+                simuladoRows: contest.simuladoRows ?? EMPTY_ARRAY
             };
         })
     );
@@ -54,6 +55,7 @@ export default function Evolution() {
                         targetScore={user?.targetProbability ?? 70}
                         goalDate={user?.goalDate}
                         monteCarloHistory={monteCarloHistory}
+                        simuladoRows={simuladoRows}
                         unit={unit}
                         minScore={minScore}
                         maxScore={maxScore}

@@ -74,7 +74,8 @@ export function TodayVsGeneralChart({
     globalMetrics = {}, 
     targetScore = 80,
     maxScore = 100, 
-    unit = '%' 
+    unit = '%',
+    simuladoRows = []
 }) {
     // 1. Média Geral (Absoluta)
     const generalAccuracy = globalMetrics?.globalAccuracy || 0;
@@ -133,9 +134,6 @@ export function TodayVsGeneralChart({
 
     // Extrair histórico acumulado em múltiplos recortes de tempo
     const temporalMetrics = useMemo(() => {
-        let maxTime = 0;
-        let latestAcc = null;
-
         const buckets = {
             today: { correct: 0, total: 0 },
             week: { correct: 0, total: 0 },
@@ -159,10 +157,6 @@ export function TodayVsGeneralChart({
                 const score = getSafeScore(h, maxScore);
                 const hDateKey = getDateKey(h.date || h.createdAt);
                 
-                if (time > maxTime) {
-                    maxTime = time;
-                    latestAcc = score;
-                }
 
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
@@ -199,6 +193,32 @@ export function TodayVsGeneralChart({
             });
         });
 
+        // --- CALCULA "ÚLTIMO" ---
+        // Extrai exatamente o percentual do ÚLTIMO simulado real validado (IA ou Manual)
+        let latestAcc = null;
+        if (Array.isArray(simuladoRows) && simuladoRows.length > 0) {
+            const activeCategoryMap = new Set(activeCategories.map(c => c.name?.toLowerCase().trim()));
+            const activeCategoryIdMap = new Set(activeCategories.map(c => c.id));
+            
+            const sortedRows = [...simuladoRows]
+                .filter(r => {
+                    if (!r || (!r.createdAt && !r.date) || r.validated === false) return false;
+                    const subjMatches = r.subject && activeCategoryMap.has(r.subject?.toLowerCase().trim());
+                    const idMatches = r.categoryId && activeCategoryIdMap.has(r.categoryId);
+                    return subjMatches || idMatches;
+                })
+                .sort((a, b) => {
+                    const timeA = new Date(a.createdAt || a.date).getTime();
+                    const timeB = new Date(b.createdAt || b.date).getTime();
+                    return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+                });
+
+            if (sortedRows.length > 0) {
+                const latestRow = sortedRows[0];
+                latestAcc = getSafeScore(latestRow, maxScore);
+            }
+        }
+
         const getAcc = (b) => b.total > 0 ? (b.correct / b.total) * maxScore : null;
 
         return [
@@ -209,7 +229,7 @@ export function TodayVsGeneralChart({
             { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 115, rOut: 122 },
             { id: 'last', label: 'Último', val: latestAcc, rIn: 124, rOut: 130 }
         ];
-    }, [activeCategories, maxScore, nowMs, todayKey]);
+    }, [activeCategories, maxScore, nowMs, todayKey, simuladoRows]);
 
     const lastMetric = temporalMetrics.find(t => t.id === 'last');
     const latestAcc = lastMetric?.val ?? null;

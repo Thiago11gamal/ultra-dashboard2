@@ -163,6 +163,7 @@ export default React.memo(function EvolutionChart({
     goalDate,
     monteCarloHistory = [],
     studyLogs = [],
+    simuladoRows = [],
     unit = '%',
     minScore = 0,
     maxScore = 100
@@ -686,6 +687,7 @@ export default React.memo(function EvolutionChart({
                         targetScore={targetScore}
                         maxScore={maxScore}
                         unit={unit}
+                        simuladoRows={simuladoRows}
                     />
                 ) : !accountHasData ? (
                     <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
