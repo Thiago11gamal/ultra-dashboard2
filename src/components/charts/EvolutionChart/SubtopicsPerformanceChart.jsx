@@ -134,7 +134,7 @@ export const SubtopicsPerformanceChart = React.memo(({
         const topicMap = {};
 
         relevantCategories.forEach(cat => {
-            const history = cat.simuladoStats?.history || [];
+            const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
             if (!history.length) return;
 
             const recentHistory = history.filter(h => {
@@ -193,7 +193,7 @@ export const SubtopicsPerformanceChart = React.memo(({
         const topicVolumeMap = {}; 
 
         relevantCategories.forEach(cat => {
-            const history = cat.simuladoStats?.history || [];
+            const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
             if (!history.length) return;
 
             const recentHistory = history.filter(h => {

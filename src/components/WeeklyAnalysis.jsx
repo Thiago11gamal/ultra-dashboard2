@@ -5,6 +5,7 @@ import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    const categoriesArray = Array.isArray(categories) ? categories : Object.values(categories || {});
 
     const { groups, stats } = useMemo(() => {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
@@ -24,7 +25,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             catCounts[catId] = (catCounts[catId] || 0) + getLogMinutes(log);
         });
         const topCatId = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0];
-        const topCategory = categories.find(c => String(c.id) === String(topCatId))?.name || '-';
+        const topCategory = categoriesArray.find(c => String(c.id) === String(topCatId))?.name || '-';
 
         // 2. Group by Date then by Category
         // FIX: Usar normalizeDate para evitar shift de UTC midnight em datas YYYY-MM-DD
@@ -74,7 +75,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             };
 
             // Category Grouping
-            const category = categories.find(c => String(c.id) === String(log.categoryId));
+            const category = categoriesArray.find(c => String(c.id) === String(log.categoryId));
             const categoryId = log.categoryId;
             const categoryName = category ? category.name : 'Desconhecido';
             const categoryColor = category?.color || '#a855f7';

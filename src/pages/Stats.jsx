@@ -10,12 +10,12 @@ import { useShallow } from 'zustand/react/shallow';
 const EMPTY_ARRAY = [];
 
 export default function Stats() {
-    const { categories, rawStudyLogs, user } = useAppStore(useShallow(state => {
+    const { rawCategories, rawStudyLogs, user } = useAppStore(useShallow(state => {
         const contests = state?.appState?.contests || {};
         const activeId = state?.appState?.activeId;
         const contest = contests[activeId] || {};
         return {
-            categories: contest.categories ?? EMPTY_ARRAY,
+            rawCategories: contest.categories,
             rawStudyLogs: contest.studyLogs,
             user: contest.user || null
         };
@@ -24,6 +24,10 @@ export default function Stats() {
     const studyLogs = useMemo(() => {
         return Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
     }, [rawStudyLogs]);
+
+    const categories = useMemo(() => {
+        return Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
+    }, [rawCategories]);
 
     const focusData = useMemo(() => mapFocusEvolutionData(studyLogs), [studyLogs]);
     const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories]);
