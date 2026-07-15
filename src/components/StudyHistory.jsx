@@ -14,13 +14,19 @@ const getDayName = (date) => {
 };
 
 const StudyHistory = React.memo(function StudyHistory({
-    studySessions = [],
-    categories = [],
-    simuladoRows = [],
+    studySessions: rawStudySessions = [],
+    categories: rawCategories = [],
+    simuladoRows: rawSimuladoRows = [],
     onDeleteSession,
     onDeleteSimulado,
     mode = 'full' // 'full', 'sessions', 'performance'
 }) {
+    const studySessions = Array.isArray(rawStudySessions) ? rawStudySessions : Object.values(rawStudySessions || {});
+    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
+        ...c,
+        tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
+    }));
+    const simuladoRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows : Object.values(rawSimuladoRows || {});
     const showToast = useToast();
     const [selectedWeekOffset, setSelectedWeekOffset] = React.useState(0);
     const [currentTime] = React.useState(() => Date.now()); // Fix B-13 Purity
@@ -60,7 +66,7 @@ const StudyHistory = React.memo(function StudyHistory({
 
     // Calculate stats
     const stats = useMemo(() => {
-        const now = new Date();
+        const now = new Date(currentTime);
         // Adjust now based on selected week offset (selectedWeekOffset is 0 for current week, -1 for last week, etc.)
         const referenceDate = new Date(now);
         referenceDate.setDate(now.getDate() + (selectedWeekOffset * 7));
@@ -114,7 +120,7 @@ const StudyHistory = React.memo(function StudyHistory({
         const maxDayMinutes = Math.max(...weekData.map(d => Number(d.minutes) || 0), 30);
 
         return { todaySessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes, weekStart: startOfWeek, weekEnd: refWeekEnd };
-    }, [studySessions, selectedWeekOffset]);
+    }, [studySessions, selectedWeekOffset, currentTime]);
 
     // Get category name by ID
     const getCategoryName = (categoryId) => {
