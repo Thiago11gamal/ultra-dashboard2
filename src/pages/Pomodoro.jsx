@@ -536,6 +536,27 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         return { total, completed, completionPct, gainIfComplete, quality, whySelected, improveText, hitRate, missRate, statusLine };
     }, [activeSubject, categories]);
 
+    const cleanTaskText = (rawText) => {
+        if (!rawText) return { displayTopic: '', secondaryText: '' };
+        const fullText = rawText.trim();
+        const parts = fullText.split(':');
+        let actionPart = parts.length > 1 ? parts.slice(1).join(':').trim() : fullText;
+        
+        actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
+        
+        let topicPart = '';
+        const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
+        if (topicMatch) {
+            topicPart = topicMatch[1];
+            actionPart = topicMatch[2].trim();
+        }
+
+        const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
+        const secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
+        
+        return { displayTopic, secondaryText };
+    };
+
     return (
         <Motion.div
             drag={!isPanelLocked}
@@ -629,7 +650,10 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
 
                     <h3 className="text-base font-semibold text-white mb-2 leading-tight">
-                        {recommendedTask.text || recommendedTask.title}
+                        {(() => {
+                            const recInfo = cleanTaskText(recommendedTask.text || recommendedTask.title);
+                            return recInfo.displayTopic;
+                        })()}
                     </h3>
                     <p className="text-xs text-slate-400 mb-5 leading-relaxed">
                         Baseado na sua última performance, esta meta oferece a melhor janela de retenção agora.
@@ -682,6 +706,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                             const taskId = task.id || task.text || `fallback-task-${idx}`;
                             const categoryName = task.catName || task.category || 'Sem Categoria';
                             const isActive = activeSubject?.taskId === taskId;
+                            const { displayTopic, secondaryText } = cleanTaskText(task.text || task.title);
+                            
                             return (
                                 <Motion.button
                                     key={`task-${taskId}-${idx}`}
@@ -702,12 +728,17 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                                     >
                                         {task.catIcon || '📚'}
                                     </div>
-                                    <div className="flex-1 min-w-0">
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
                                         <p className={`text-xs font-semibold truncate tracking-tight ${isActive ? 'text-amber-400' : 'text-slate-200'}`}>
-                                            {task.text || task.title}
+                                            {displayTopic}
                                         </p>
-                                        <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest mt-0.5 opacity-70">{categoryName}</p>
-                                        <p className={`text-[8px] font-bold uppercase tracking-widest mt-0.5 ${isActive ? 'text-amber-400' : 'text-cyan-400/70'}`}>{isActive ? 'Em foco agora' : `Ação #${idx + 1}`}</p>
+                                        {secondaryText && (
+                                            <p className="text-[9px] text-slate-400/80 truncate mt-0.5 font-medium">{secondaryText}</p>
+                                        )}
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-[8px] text-slate-500 font-medium uppercase tracking-widest opacity-70">{categoryName}</p>
+                                            <p className={`text-[8px] font-bold uppercase tracking-widest ${isActive ? 'text-amber-400' : 'text-cyan-400/70'}`}>• {isActive ? 'Em foco agora' : `Ação #${idx + 1}`}</p>
+                                        </div>
                                     </div>
                                     {isActive ? (
                                         <div className="flex flex-col items-center gap-0.5">
