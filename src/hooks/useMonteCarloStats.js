@@ -652,7 +652,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     mean: baseline,
                     sd: cat.bayesianSd ?? cat.sd,
                     targetScore: (maxScore > 0 ? (debouncedTarget / maxScore) * catMaxScore : debouncedTarget),
-                    simulations: Math.min(dynamicSimulations || 2000, 3000),
+                    simulations: Math.min(dynamicSimulationsRef.current || 2000, 3000),
                     categoryName: cat.name,
                     minScore: catMinScore,
                     maxScore: catMaxScore,
