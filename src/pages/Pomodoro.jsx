@@ -843,18 +843,18 @@ export default function Pomodoro() {
     const contest = useActiveContest() || EMPTY_OBJECT;
     
     const rawCategories = contest.categories || EMPTY_ARRAY;
-    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
+    const categories = React.useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
         ...c,
         tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
-    }));
+    })), [rawCategories]);
 
     const settings = contest.settings || EMPTY_OBJECT;
 
     const rawStudyLogs = contest.studyLogs || EMPTY_ARRAY;
-    const studyLogs = Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
+    const studyLogs = React.useMemo(() => Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {}), [rawStudyLogs]);
 
     const rawSimulados = contest.simulados || EMPTY_ARRAY;
-    const simulados = Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {});
+    const simulados = React.useMemo(() => Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {}), [rawSimulados]);
     
     const user = contest.user || null;
 

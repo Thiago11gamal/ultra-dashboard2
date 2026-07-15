@@ -77,22 +77,22 @@ export default function Coach() {
     }, [showToast]);
     
     const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
-    const history = Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {});
+    const history = useMemo(() => Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {}), [rawHistory]);
     
     const rawSimulados = data?.simulados || EMPTY_ARRAY;
-    const simulados = Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {});
+    const simulados = useMemo(() => Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {}), [rawSimulados]);
     
     const rawCategories = data?.categories || EMPTY_ARRAY;
-    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
+    const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
         ...c,
         tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
-    }));
+    })), [rawCategories]);
     
     const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
-    const flashcardDecks = Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {});
+    const flashcardDecks = useMemo(() => Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {}), [rawFlashcardDecks]);
     
     const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
-    const studyLogs = Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
+    const studyLogs = useMemo(() => Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {}), [rawStudyLogs]);
     const flashcardDue = useMemo(() => {
         return getFlashcardDueTodayCount(flashcardDecks);
     }, [flashcardDecks]);

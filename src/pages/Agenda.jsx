@@ -17,9 +17,9 @@ function getActiveContest(state) {
 
 export default function Agenda() {
   const rawAgenda = useAppStore(state => getActiveContest(state).agenda || EMPTY_ARRAY);
-  const agenda = Array.isArray(rawAgenda) ? rawAgenda : Object.values(rawAgenda || {});
+  const agenda = useMemo(() => Array.isArray(rawAgenda) ? rawAgenda : Object.values(rawAgenda || {}), [rawAgenda]);
   const rawCategories = useAppStore(state => getActiveContest(state).categories || EMPTY_ARRAY);
-  const categories = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
+  const categories = useMemo(() => Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {}), [rawCategories]);
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
 
