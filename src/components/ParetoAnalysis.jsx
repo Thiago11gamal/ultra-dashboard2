@@ -57,7 +57,7 @@ export default function ParetoAnalysis({ categories = [] }) {
                 topicMap[key].missed += t.missed;
                 topicMap[key].weightSum += t.weight;
                 topicMap[key].count += 1;
-                topicMap[key].percentage = Math.round((topicMap[key].correct / topicMap[key].total) * 100);
+                topicMap[key].percentage = topicMap[key].total > 0 ? Math.round((topicMap[key].correct / topicMap[key].total) * 100) : 0;
             }
         });
 
@@ -65,7 +65,7 @@ export default function ParetoAnalysis({ categories = [] }) {
         
         // Calculate Weighted Missed Points (Impact)
         groupedTopics.forEach(t => {
-            const errorRate = (t.total - t.correct) / t.total;
+            const errorRate = t.total > 0 ? (t.total - t.correct) / t.total : 0;
             // Impact = frequency * significance * scale
             t.weightedMissed = errorRate * t.weightSum * 10;
         });
