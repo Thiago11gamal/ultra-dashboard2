@@ -7,7 +7,8 @@ const VolumeRanking = ({ categories = [] }) => {
     const sorted = useMemo(() => {
         const stats = categories.map(cat => {
             const simStats = cat.simuladoStats || { history: [] };
-            const history = simStats.history || [];
+            const historyRaw = simStats.history || [];
+            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
             const total = history.reduce((acc, h) => {
                 const parsedTotal = parseInt(h.total, 10);
                 if (Number.isFinite(parsedTotal) && parsedTotal > 0) return acc + parsedTotal;

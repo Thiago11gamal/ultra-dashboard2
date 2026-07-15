@@ -10,8 +10,11 @@ const PerformanceTable = ({ categories = [] }) => {
         const statsA = a.simuladoStats || { history: [] };
         const statsB = b.simuladoStats || { history: [] };
 
-        const historyA = statsA.history || [];
-        const historyB = statsB.history || [];
+        const historyRawA = statsA.history || [];
+        const historyA = Array.isArray(historyRawA) ? historyRawA : Object.values(historyRawA);
+
+        const historyRawB = statsB.history || [];
+        const historyB = Array.isArray(historyRawB) ? historyRawB : Object.values(historyRawB);
 
         let correctA = 0, wrongA = 0;
         for (let i = 0; i < historyA.length; i++) {
@@ -56,7 +59,8 @@ const PerformanceTable = ({ categories = [] }) => {
                     <tbody className="divide-y divide-white/[0.03] text-xs">
                         {sortedCategories.map((category, index) => {
                             const stats = category.simuladoStats || { history: [], trend: 'stable' };
-                            const history = stats.history || [];
+                            const historyRaw = stats.history || [];
+                            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
                             const ms = category.maxScore ?? 100;
 
                             const totalQuestions = history.reduce((acc, h) => {

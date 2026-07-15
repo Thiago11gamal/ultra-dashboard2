@@ -97,7 +97,8 @@ function PersonalRanking({ categories = [] }) {
     const categoryStats = React.useMemo(() => {
         return categories.map(cat => {
             const stats = cat.simuladoStats || { history: [] };
-            const history = stats.history || [];
+            const historyRaw = stats.history || [];
+            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
             const total = history.reduce((acc, h) => {
                 const parsedTotal = Number(h.total);
                 if (Number.isFinite(parsedTotal) && parsedTotal > 0) return acc + parsedTotal;
