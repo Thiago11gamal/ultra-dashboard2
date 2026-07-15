@@ -76,10 +76,20 @@ export default function Coach() {
         showToastRef.current = showToast;
     }, [showToast]);
     
-    const history = data?.simuladoRows || EMPTY_ARRAY;
-    const simulados = data?.simulados || EMPTY_ARRAY;
-    const categories = data?.categories || EMPTY_ARRAY;
-    const flashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
+    const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
+    const history = Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory);
+    
+    const rawSimulados = data?.simulados || EMPTY_ARRAY;
+    const simulados = Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados);
+    
+    const rawCategories = data?.categories || EMPTY_ARRAY;
+    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories)).map(c => ({
+        ...c,
+        tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
+    }));
+    
+    const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
+    const flashcardDecks = Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks);
     const flashcardDue = useMemo(() => {
         return getFlashcardDueTodayCount(flashcardDecks);
     }, [flashcardDecks]);
