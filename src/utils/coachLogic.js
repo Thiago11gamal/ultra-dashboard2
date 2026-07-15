@@ -1488,7 +1488,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-safe-${mcProbKey}`,
-                text: `${cat.name}: ${priorityLabel}[STATUS] 🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%.`,
+                text: `${cat.name}: ${priorityLabel}[${cat.name}] 🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%.`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {

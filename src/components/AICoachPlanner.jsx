@@ -62,6 +62,12 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     if (topicMatch) {
         topicPart = topicMatch[1];
         actionPart = topicMatch[2].trim();
+        
+        // Handle legacy system tags that might still be in local storage
+        const legacyTags = ['REVISÃO', 'OTIMIZAÇÃO DE BASE', 'MÉTODO', 'AGILIDADE AI', 'STATUS', 'ALERTA MESTRE'];
+        if (legacyTags.includes(topicPart.toUpperCase().trim())) {
+            topicPart = subject; // Use the actual subject instead of the legacy tag
+        }
     }
 
     const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');

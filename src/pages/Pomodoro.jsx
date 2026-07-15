@@ -549,6 +549,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         if (topicMatch) {
             topicPart = topicMatch[1];
             actionPart = topicMatch[2].trim();
+            
+            const legacyTags = ['REVISÃO', 'OTIMIZAÇÃO DE BASE', 'MÉTODO', 'AGILIDADE AI', 'STATUS', 'ALERTA MESTRE'];
+            if (legacyTags.includes(topicPart.toUpperCase().trim())) {
+                topicPart = parts[0] || ''; 
+            }
         }
 
         const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
@@ -780,6 +785,11 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
         if (topicMatch) {
             let subtitle = topicMatch[2].replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
             if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
+            
+            const legacyTags = ['REVISÃO', 'OTIMIZAÇÃO DE BASE', 'MÉTODO', 'AGILIDADE AI', 'STATUS', 'ALERTA MESTRE'];
+            if (legacyTags.includes(topicMatch[1].toUpperCase().trim())) {
+                return subtitle || topicMatch[1]; // Ignora a tag legado no titulo
+            }
             return topicMatch[1] + (subtitle ? ` - ${subtitle}` : '');
         }
 
