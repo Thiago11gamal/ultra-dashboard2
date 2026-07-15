@@ -196,14 +196,21 @@ export function TodayVsGeneralChart({
         // --- CALCULA "ÚLTIMO" ---
         // Extrai exatamente o percentual do ÚLTIMO simulado real validado (IA ou Manual)
         let latestAcc = null;
-        if (Array.isArray(simuladoRows) && simuladoRows.length > 0) {
-            const activeCategoryMap = new Set(activeCategories.map(c => c.name?.toLowerCase().trim()));
-            const activeCategoryIdMap = new Set(activeCategories.map(c => c.id));
+        const safeRowsArray = Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {});
+        
+        if (safeRowsArray.length > 0) {
+            const activeCategoryMap = new Set(
+                activeCategories
+                    .map(c => c.name?.toLowerCase().trim())
+                    .filter(Boolean)
+            );
+            const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
             
-            const sortedRows = [...simuladoRows]
+            const sortedRows = [...safeRowsArray]
                 .filter(r => {
                     if (!r || (!r.createdAt && !r.date) || r.validated === false) return false;
-                    const subjMatches = r.subject && activeCategoryMap.has(r.subject?.toLowerCase().trim());
+                    const rSubj = r.subject?.toLowerCase().trim();
+                    const subjMatches = rSubj ? activeCategoryMap.has(rSubj) : false;
                     const idMatches = r.categoryId && activeCategoryIdMap.has(r.categoryId);
                     return subjMatches || idMatches;
                 })
