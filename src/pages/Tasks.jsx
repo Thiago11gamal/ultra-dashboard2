@@ -9,8 +9,12 @@ import { RotateCcw } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 
 export default function Tasks() {
-    // FIX: Adicionado '?.' antes de '.categories' para evitar crash de hidratação
-    const categories = useAppStore(state => Array.isArray(state.appState.contests[state.appState.activeId]?.categories) ? state.appState.contests[state.appState.activeId].categories : []);
+    // FIX: Normalização Polimórfica para contornar crash de Objeto do Firebase
+    const rawCategories = useAppStore(state => state.appState.contests[state.appState.activeId]?.categories || []);
+    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories)).map(c => ({
+        ...c,
+        tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
+    }));
     const resetSimuladoStats = useAppStore(state => state.resetSimuladoStats);
     const showToast = useToast();
  
