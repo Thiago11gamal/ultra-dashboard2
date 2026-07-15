@@ -4,6 +4,7 @@ import { normalize, aliases } from '../utils/normalization';
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [], viewMode = 'both' }) {
+    const categoriesArray = Array.isArray(categories) ? categories : Object.values(categories || {});
     const analysisTimeoutRef = React.useRef(null);
 
 
@@ -128,10 +129,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
     const handleAnalyze = React.useCallback(() => {
         // 0. Strict Validation: Check if subjects exist in Dashboard
-        if (categories && categories.length > 0) {
+        if (categoriesArray && categoriesArray.length > 0) {
 
             const validDataMap = Object.create(null);
-            categories.forEach(cat => {
+            categoriesArray.forEach(cat => {
                 if (!cat?.name) return;
                 const subName = normalize(cat.name);
                 const tasks = Array.isArray(cat.tasks) ? cat.tasks : [];
