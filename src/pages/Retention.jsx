@@ -13,11 +13,13 @@ import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCar
 export default function Retention() {
     const categories = useAppStore(state => {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
-        return activeContest?.categories || [];
+        const rawCategories = activeContest?.categories || [];
+        return Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories);
     });
     const flashcardDecks = useAppStore(state => {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
-        return activeContest?.flashcardDecks || [];
+        const rawDecks = activeContest?.flashcardDecks || [];
+        return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks);
     });
     const navigate = useNavigate();
     const showToast = useToast();
