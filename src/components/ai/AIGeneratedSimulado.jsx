@@ -46,7 +46,8 @@ export default function AIGeneratedSimulado() {
   const setData = useAppStore(state => state.setData);
   const categories = useAppStore(state => {
     const active = state.appState?.contests?.[state.appState?.activeId];
-    return active?.categories || [];
+    const rawCategories = active?.categories || [];
+    return Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories);
   });
   const showToast = useToast();
 
