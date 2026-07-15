@@ -32,7 +32,10 @@ export default function Retention() {
         const totalCards = getFlashcardTotalCards(decks);
         const due = getFlashcardDueTodayCount(decks);
         const mastery = getFlashcardMasteryPct(decks);   // standardized >=6
-        const reviews = decks.reduce((sum, d) => sum + (d.cards || []).reduce((r, c) => r + (c.reviews || 0), 0), 0);
+        const reviews = decks.reduce((sum, d) => {
+            const safeCards = Array.isArray(d.cards) ? d.cards : Object.values(d.cards || {});
+            return sum + safeCards.reduce((r, c) => r + (c.reviews || 0), 0);
+        }, 0);
         return {
             decks: getFlashcardDeckCount(decks),
             cards: totalCards,

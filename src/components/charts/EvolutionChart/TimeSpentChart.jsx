@@ -169,8 +169,9 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     let topicsTimedQ = 0;
                     let hasTopicWithTime = false;
 
-                    if (Array.isArray(h.topics)) {
-                        for (const t of h.topics) {
+                    const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
+                    if (safeTopics.length > 0) {
+                        for (const t of safeTopics) {
                             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
                             const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
                             if (tTs !== null && tTs > 0 && tTot > 0) { // BUG FIX: Ignora tempos exatos de 0s (origem de banco de dados antigo corrompido)
@@ -221,8 +222,9 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     let topicsTimedQ = 0;
                     let hasTopicWithTime = false;
 
-                    if (Array.isArray(latestEntry.topics)) {
-                        for (const t of latestEntry.topics) {
+                    const safeLatestTopics = Array.isArray(latestEntry.topics) ? latestEntry.topics : Object.values(latestEntry.topics || {});
+                    if (safeLatestTopics.length > 0) {
+                        for (const t of safeLatestTopics) {
                             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
                             const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
                             if (tTs !== null && tTs > 0 && tTot > 0) { // BUG FIX: Ignora tempos exatos de 0s (origem de banco de dados antigo corrompido)
