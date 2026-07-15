@@ -116,7 +116,8 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             .map(cat => {
                 const safeCategoryName = String(cat.name || 'Sem nome');
                 // Calculate retention for each task
-                const tasksWithRetention = (Array.isArray(cat.tasks) ? cat.tasks : []).filter(Boolean).map(task => ({
+                const rawTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+                const tasksWithRetention = rawTasks.filter(Boolean).map(task => ({
                     ...task,
                     retention: calculateRetention(task.lastStudiedAt || task.completedAt),
                     timeAgo: formatTimeAgo(task.lastStudiedAt || task.completedAt)
