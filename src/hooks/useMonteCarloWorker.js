@@ -5,7 +5,7 @@
  * Usa Vite's `?worker` import com module worker support.
  */
 import { useRef, useCallback, useEffect } from 'react';
-import { runMonteCarloAnalysis } from '../engine';
+import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo.js';
 
 export function useMonteCarloWorker() {
     const workerRef = useRef(null);
@@ -73,11 +73,21 @@ export function useMonteCarloWorker() {
             if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
                 return runMonteCarloAnalysis(args[0]);
             } else {
-                return runMonteCarloAnalysis({
-                    mean: args[0],
-                    sd: args[1],
-                    targetScore: args[2],
-                    ...(args[3] || {})
+                const options = args[3] || {};
+                return simulateNormalDistribution({
+                    mean: args[0] || 0,
+                    sd: args[1] || 0,
+                    targetScore: args[2] || 0,
+                    simulations: options.simulations || 5000,
+                    seed: options.seed,
+                    currentMean: options.currentMean,
+                    minScore: options.minScore,
+                    maxScore: options.maxScore,
+                    bayesianCI: options.bayesianCI,
+                    historyLength: options.historyLength,
+                    subjects: options.subjects,
+                    historicalCutoffs: options.historicalCutoffs,
+                    flashcardImmunity: options.flashcardImmunity,
                 });
             }
         }

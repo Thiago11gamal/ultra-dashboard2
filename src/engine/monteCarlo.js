@@ -151,7 +151,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
  
     // O PULO DO GATO: Shrinkage Bayesiano para safeSD
     // BUG-FIX #4: Only apply shrinkage to empirical SD, not to provided bayesianCI
-    if (!hasExplicitDeterministicSD && historyLength < 15 && !bayesianCI) {
+    // NEW BUG-FIX: Se historyLength é falso/0, e não há bayesianCI, checamos se o SD foi passado explicitamente (não fallback de 0). 
+    // Se foi passado explicitamente (sd > 0 no input original), blindamos o shrinkage para não corromper o SD do Coach!
+    const isExplicitCoachSD = (Number.isFinite(sd) && sd > 0 && (historyLength === 0 || historyLength === undefined));
+    if (!hasExplicitDeterministicSD && historyLength < 15 && !bayesianCI && !isExplicitCoachSD) {
         // Volatilidade baseia-se na amplitude (Max - Min)
         const rangeMassa = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
         const floorVolatility = rangeMassa * 0.04;
@@ -245,8 +248,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         
         // Só aplica o shift computacional pesado se a média estiver a menos de 1.5 Desvios Padrão da borda
         if (distMin < safeSD * 1.5 || distMax < safeSD * 1.5) {
-            let muLow = minScore - safeSD * 3;
-            let muHigh = maxScore + Math.max(safeSD * 20, (maxScore - minScore) * 2);
+            // FIX: Limites de busca binária estritamente simétricos para convergir médias perigosamente altas/baixas.
+            const spread = Math.max(safeSD * 30, (maxScore - minScore) * 3);
+            let muLow = minScore - spread;
+            let muHigh = maxScore + spread;
             
             // Reduzido de 30 para 8 iter... BUG-FIX 4.1: Aumentado para 20 iteracoes. (resolução de 1,000,000)
             // A busca com 8 passos exaure-se prematuramente (erro de ~1.5 pontos), forçando alunos de elite
