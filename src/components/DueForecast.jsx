@@ -8,13 +8,15 @@ import DueForecastChart from './charts/DueForecastChart';
  * Componente reutilizável com resumo + gráfico de barras.
  */
 export default function DueForecast({ decks = [], horizon = 14, compact = false }) {
-    const safeHorizon = Math.max(1, Math.floor(Number(horizon) || 14));
+    const safeHorizon = Math.max(1, Math.min(30, horizon));
+    const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+
     const { forecast, totalDueInHorizon, maxDaily, horizon: usedHorizon } = useMemo(
-        () => computeFlashcardDueForecast(decks, safeHorizon),
-        [decks, safeHorizon]
+        () => computeFlashcardDueForecast(decksArray, safeHorizon),
+        [decksArray, safeHorizon]
     );
 
-    const totalCards = decks.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
+    const totalCards = decksArray.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
     const todayCount = forecast[0]?.count || 0;
     // Safe peakDay (never crash)
     const peakDay = forecast.length > 0
