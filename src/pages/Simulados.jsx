@@ -28,6 +28,7 @@ export default function Simulados() {
 
     const categoriesArray = React.useMemo(() => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}), [data?.categories]);
     const simuladoRowsArray = React.useMemo(() => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}), [data?.simuladoRows]);
+    const studySessionsArray = React.useMemo(() => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}), [data?.studySessions]);
 
     const displayRows = React.useMemo(() => {
         if (!categoriesArray.length) return [];
@@ -409,9 +410,9 @@ export default function Simulados() {
           </div>
         ) : (
           <StudyHistory
-              studySessions={data.studySessions || []}
-              categories={data.categories || []}
-              simuladoRows={data.simuladoRows || []}
+              studySessions={studySessionsArray}
+              categories={categoriesArray}
+              simuladoRows={simuladoRowsArray}
               onDeleteSession={useAppStore.getState().deleteSession}
               onDeleteSimulado={useAppStore.getState().deleteSimulado}
               mode="performance"

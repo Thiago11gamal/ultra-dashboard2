@@ -31,7 +31,19 @@ export default function Evolution() {
         return Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
     }, [rawStudyLogs]);
 
-    const hasEvolutionData = Array.isArray(categories) && categories.some(category => {
+    const safeCategories = React.useMemo(() => {
+        return Array.isArray(categories) ? categories : Object.values(categories || {});
+    }, [categories]);
+
+    const safeSimuladoRows = React.useMemo(() => {
+        return Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {});
+    }, [simuladoRows]);
+
+    const safeMonteCarloHistory = React.useMemo(() => {
+        return Array.isArray(monteCarloHistory) ? monteCarloHistory : Object.values(monteCarloHistory || {});
+    }, [monteCarloHistory]);
+
+    const hasEvolutionData = Array.isArray(safeCategories) && safeCategories.some(category => {
         const h = category?.simuladoStats?.history;
         return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
     });
@@ -53,12 +65,12 @@ export default function Evolution() {
                     </div>
                 ) : (
                     <EvolutionChart
-                        categories={categories}
+                        categories={safeCategories}
                         studyLogs={studyLogs}
                         targetScore={user?.targetProbability ?? 70}
                         goalDate={user?.goalDate}
-                        monteCarloHistory={monteCarloHistory}
-                        simuladoRows={simuladoRows}
+                        monteCarloHistory={safeMonteCarloHistory}
+                        simuladoRows={safeSimuladoRows}
                         unit={unit}
                         minScore={minScore}
                         maxScore={maxScore}

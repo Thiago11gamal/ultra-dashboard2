@@ -18,9 +18,9 @@ export default function History() {
 
     return (<PageErrorBoundary pageName="Histórico">
         <StudyHistory
-            studySessions={data.studySessions || []}
-            categories={data.categories || []}
-            simuladoRows={data.simuladoRows || []}
+            studySessions={Array.isArray(data.studySessions) ? data.studySessions : Object.values(data.studySessions || {})}
+            categories={Array.isArray(data.categories) ? data.categories : Object.values(data.categories || {})}
+            simuladoRows={Array.isArray(data.simuladoRows) ? data.simuladoRows : Object.values(data.simuladoRows || {})}
             onDeleteSession={deleteSession}
             onDeleteSimulado={deleteSimulado}
             mode="performance"
