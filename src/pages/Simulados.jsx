@@ -26,10 +26,13 @@ export default function Simulados() {
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
 
+    const categoriesArray = React.useMemo(() => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}), [data?.categories]);
+    const simuladoRowsArray = React.useMemo(() => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}), [data?.simuladoRows]);
+
     const displayRows = React.useMemo(() => {
-        if (!data || !data.categories) return [];
+        if (!categoriesArray.length) return [];
         const todayKey = getDateKey(normalizeDate(new Date()));
-        const rawTodayRows = (data.simuladoRows || []).filter(
+        const rawTodayRows = simuladoRowsArray.filter(
             r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
         );
 
@@ -44,7 +47,7 @@ export default function Simulados() {
             }
         });
 
-        (data.categories || []).forEach(cat => {
+        categoriesArray.forEach(cat => {
             const tasks = cat.tasks || [];
 
             if (tasks.length === 0) {
@@ -95,8 +98,8 @@ export default function Simulados() {
     }, [data]);
 
     const lastSimuladoRows = React.useMemo(() => {
-        if (!data || !data.simuladoRows) return [];
-        const rows = data.simuladoRows;
+        if (!simuladoRowsArray.length) return [];
+        const rows = simuladoRowsArray;
         
         const answeredRows = rows.filter(r => parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0);
         if (answeredRows.length === 0) return [];
@@ -128,7 +131,7 @@ export default function Simulados() {
     const [subMode, setSubMode] = useState('ia'); // 'ia' | 'manual'
 
     // BUG-11/20 FIX: Guarda de segurança contra estado vazio
-    if (!data || !data.categories) {
+    if (!categoriesArray.length) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
                 <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
@@ -153,7 +156,7 @@ export default function Simulados() {
             const rawRows = Array.isArray(payload?.rawRows) ? payload.rawRows : [];
             
             // FIX 5: Clone estrutural nativo
-            const newCategories = safeClone(Array.isArray(prev.categories) ? prev.categories : []);
+            const newCategories = safeClone(Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories || {}));
             let totalProcessedDisciplines = 0;
 
             const dataToProcess = analysisResult?.disciplines || analysisResult;
@@ -161,7 +164,8 @@ export default function Simulados() {
             const nowIso = new Date().toISOString();
 
             // 1. Build validatedRows FIRST
-            const rowsToKeep = (prev.simuladoRows || []).filter(
+            const prevSimuladoRowsArray = Array.isArray(prev.simuladoRows) ? prev.simuladoRows : Object.values(prev.simuladoRows || {});
+            const rowsToKeep = prevSimuladoRowsArray.filter(
                 r => {
                     const isToday = getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey;
                     const isManual = !r.isAuto && r.source !== 'ai-generated';
@@ -202,7 +206,8 @@ export default function Simulados() {
                         cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
                     }
 
-                    const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history.filter(Boolean) : [];
+                    const rawHistory = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history || {});
+                    const history = rawHistory.filter(Boolean);
                     const historyWithoutToday = history.filter(h => h.date !== todayKey);
                     
                     // Recalculate today's stats from ALL validatedRows for this subject (merging AI and Manual)
@@ -308,7 +313,8 @@ export default function Simulados() {
                 subject: 'Simulado Geral'
             };
 
-            const existingSimulados = Array.isArray(prev.simulados) ? prev.simulados.filter(Boolean) : [];
+            const existingSimuladosRaw = Array.isArray(prev.simulados) ? prev.simulados : Object.values(prev.simulados || {});
+            const existingSimulados = existingSimuladosRaw.filter(Boolean);
             const withoutDuplicateToday = existingSimulados.filter(s => !(s?.date === todayKey && s?.type === 'auto-analyzer'));
             const updatedSimulados = [...withoutDuplicateToday, newSimuladoEvent].slice(-100);
 
@@ -367,7 +373,7 @@ export default function Simulados() {
         {mode === 'analyzer' ? (
           <SimuladoAnalysis
             rows={lastSimuladoRows}
-            categories={data.categories || []}
+            categories={categoriesArray}
             viewMode="report"
           />
         ) : mode === 'ai-generator' ? (
@@ -396,7 +402,7 @@ export default function Simulados() {
                   <SimuladoAnalysis
                       rows={displayRows}
                       onAnalysisComplete={handleSimuladoAnalysis}
-                      categories={data.categories || []}
+                      categories={categoriesArray}
                       viewMode="form"
                   />
               )}
