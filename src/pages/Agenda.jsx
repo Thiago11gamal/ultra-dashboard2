@@ -16,8 +16,10 @@ function getActiveContest(state) {
 }
 
 export default function Agenda() {
-  const agenda = useAppStore(state => getActiveContest(state).agenda || EMPTY_ARRAY);
-  const categories = useAppStore(state => getActiveContest(state).categories || EMPTY_ARRAY);
+  const rawAgenda = useAppStore(state => getActiveContest(state).agenda || EMPTY_ARRAY);
+  const agenda = Array.isArray(rawAgenda) ? rawAgenda : Object.values(rawAgenda || {});
+  const rawCategories = useAppStore(state => getActiveContest(state).categories || EMPTY_ARRAY);
+  const categories = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
 

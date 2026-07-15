@@ -362,8 +362,9 @@ function AICoachPanel({ activeSubject, stats }) {
 // Focus Panel
 function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode, neuralQueue, studyLogs, simulados }) {
     const recommendedTask = useMemo(() => {
-        if (!categories || categories.length === 0) return null;
-        return getBestTask(categories);
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        if (!safeCats || safeCats.length === 0) return null;
+        return getBestTask(safeCats);
     }, [categories]);
 
     const [isPanelLocked, setIsPanelLocked] = useState(() => {
@@ -435,7 +436,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
         // Se estiver em modo neural, priorizamos mostrar o resto da fila neural
         if (neuralMode && neuralQueue && neuralQueue.length > 0) {
-            const normalizedQueue = (neuralQueue || []).filter(Boolean);
+            const safeQueue = Array.isArray(neuralQueue) ? neuralQueue : Object.values(neuralQueue || {});
+            const normalizedQueue = safeQueue.filter(Boolean);
             const currentIndex = normalizedQueue.findIndex(t => (t.id || t.text) === currentTaskId);
             const pendingQueue = currentIndex >= 0 ? normalizedQueue.slice(currentIndex) : normalizedQueue;
 
@@ -841,7 +843,7 @@ export default function Pomodoro() {
     const contest = useActiveContest() || EMPTY_OBJECT;
     
     const rawCategories = contest.categories || EMPTY_ARRAY;
-    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories)).map(c => ({
+    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
         ...c,
         tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
     }));
@@ -849,10 +851,10 @@ export default function Pomodoro() {
     const settings = contest.settings || EMPTY_OBJECT;
 
     const rawStudyLogs = contest.studyLogs || EMPTY_ARRAY;
-    const studyLogs = Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs);
+    const studyLogs = Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
 
     const rawSimulados = contest.simulados || EMPTY_ARRAY;
-    const simulados = Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados);
+    const simulados = Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {});
     
     const user = contest.user || null;
 

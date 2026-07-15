@@ -17,8 +17,8 @@ export default function Notes() {
     // DATA-INTEGRITY-FIX: Reconstruct categories history by merging 'simuladoRows' (topics) 
     // with existing 'history' (aggregates) to ensure no data is hidden.
     const enhancedCategories = useMemo(() => {
-        const categories = categoriesRaw || [];
-        const simuladoRows = simuladoRowsRaw || [];
+        const categories = Array.isArray(categoriesRaw) ? categoriesRaw : Object.values(categoriesRaw || {});
+        const simuladoRows = Array.isArray(simuladoRowsRaw) ? simuladoRowsRaw : Object.values(simuladoRowsRaw || {});
         
         if (!categories.length) return [];
 
@@ -56,7 +56,7 @@ export default function Notes() {
                 cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
             }
 
-            const existingHistory = cat.simuladoStats.history || [];
+            const existingHistory = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history || {});
             
             const mergedHistoryMap = {};
 

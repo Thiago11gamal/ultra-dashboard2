@@ -77,19 +77,22 @@ export default function Coach() {
     }, [showToast]);
     
     const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
-    const history = Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory);
+    const history = Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {});
     
     const rawSimulados = data?.simulados || EMPTY_ARRAY;
-    const simulados = Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados);
+    const simulados = Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {});
     
     const rawCategories = data?.categories || EMPTY_ARRAY;
-    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories)).map(c => ({
+    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
         ...c,
         tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
     }));
     
     const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
-    const flashcardDecks = Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks);
+    const flashcardDecks = Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {});
+    
+    const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
+    const studyLogs = Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
     const flashcardDue = useMemo(() => {
         return getFlashcardDueTodayCount(flashcardDecks);
     }, [flashcardDecks]);
@@ -330,9 +333,9 @@ export default function Coach() {
             const collectedMetrics = [];
 
             const result = getSuggestedFocus(
-                data.categories,
-                data.simuladoRows || [],
-                data.studyLogs || [],
+                categories,
+                history,
+                studyLogs,
                 {
                     user: data.user,
                     targetScore,
@@ -425,9 +428,9 @@ export default function Coach() {
             const collectedMetrics = [];
 
             const newTasks = generateDailyGoals(
-                data.categories,
-                data.simuladoRows || [],
-                data.studyLogs || [],
+                categories,
+                history,
+                studyLogs,
                 {
                     user: data.user,
                     targetScore,

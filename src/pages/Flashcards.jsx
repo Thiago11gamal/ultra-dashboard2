@@ -16,7 +16,8 @@ function getActiveContest(state) {
 }
 
 export default function Flashcards() {
-  const decks = useAppStore(state => getActiveContest(state).flashcardDecks || EMPTY_ARRAY);
+  const rawDecks = useAppStore(state => getActiveContest(state).flashcardDecks || EMPTY_ARRAY);
+  const decks = Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
   const logFlashcardReview = useAppStore(state => state.logFlashcardReview);
@@ -41,7 +42,8 @@ export default function Flashcards() {
 
   const dueCards = useMemo(() => {
     if (!selectedDeck || !selectedDeck.cards) return [];
-    return (selectedDeck.cards || []).filter(c => isFlashcardDue(c.due));
+    const safeCards = Array.isArray(selectedDeck.cards) ? selectedDeck.cards : Object.values(selectedDeck.cards || {});
+    return safeCards.filter(c => isFlashcardDue(c.due));
   }, [selectedDeck]);
 
   function persistDecks(nextDecks) {
@@ -91,7 +93,7 @@ export default function Flashcards() {
     }
     const nextDecks = decks.map(deck => {
       if (deck.id !== selectedDeckId) return deck;
-      const cards = deck.cards || [];
+      const cards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
       return {
         ...deck,
         cards: [...cards, {
@@ -116,7 +118,8 @@ export default function Flashcards() {
   const deleteCard = (cardId) => {
     const nextDecks = decks.map(deck => {
       if (deck.id !== selectedDeckId) return deck;
-      return { ...deck, cards: (deck.cards || []).filter(c => c.id !== cardId) };
+      const cards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+      return { ...deck, cards: cards.filter(c => c.id !== cardId) };
     });
     persistDecks(nextDecks);
     showToast('Cartão excluído', 'info');
@@ -129,7 +132,8 @@ export default function Flashcards() {
       return;
     }
     // Use due cards first, fallback to all
-    const cardsToStudy = dueCards.length > 0 ? dueCards : (deck.cards || []);
+    const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+    const cardsToStudy = dueCards.length > 0 ? dueCards : safeCards;
     setStudyDeck({ ...deck, cardsToStudy });
     setStudyIndex(0);
     setIsFlipped(false);
@@ -175,7 +179,8 @@ export default function Flashcards() {
 
     const nextDecks = decks.map(deck => {
       if (deck.id !== studyDeck.id) return deck;
-      const updatedCards = (deck.cards || []).map(card => {
+      const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+      const updatedCards = safeCards.map(card => {
         if (card.id === currentCard.id) {
           return {
             ...card,
@@ -310,7 +315,8 @@ export default function Flashcards() {
         {decks.map(deck => {
           const cardCount = deck.cards?.length || 0;
           const isSelected = deck.id === selectedDeckId;
-          const dueCount = (deck.cards || []).filter(c => isFlashcardDue(c.due)).length;
+          const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+          const dueCount = safeCards.filter(c => isFlashcardDue(c.due)).length;
           return (
             <div
               key={deck.id}
@@ -358,7 +364,7 @@ export default function Flashcards() {
           <div className="flex items-center justify-between mb-5">
             <div>
               <div className="font-extrabold text-2xl leading-tight tracking-[-0.01em]">{selectedDeck.name}</div>
-              <div className="text-amber-300/80 text-sm tracking-wider mt-0.5">{selectedDeck.subject} • {(selectedDeck.cards || []).length} cartões</div>
+              <div className="text-amber-300/80 text-sm tracking-wider mt-0.5">{selectedDeck.subject} • {(Array.isArray(selectedDeck.cards) ? selectedDeck.cards : Object.values(selectedDeck.cards || {})).length} cartões</div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -394,11 +400,11 @@ export default function Flashcards() {
           {/* Cards list */}
           <div>
             <div className="micro-label mb-3">CARTÕES ({(selectedDeck.cards || []).length})</div>
-            {(selectedDeck.cards || []).length === 0 ? (
+            {(Array.isArray(selectedDeck.cards) ? selectedDeck.cards : Object.values(selectedDeck.cards || {})).length === 0 ? (
               <div className="text-sm text-slate-400 py-3">Nenhum cartão. Adicione alguns acima.</div>
             ) : (
               <div className="space-y-2">
-                {(selectedDeck.cards || []).map((card) => (
+                {(Array.isArray(selectedDeck.cards) ? selectedDeck.cards : Object.values(selectedDeck.cards || {})).map((card) => (
                   <div key={card.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 text-sm group">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-amber-100 line-clamp-2 leading-snug">{card.front}</div>

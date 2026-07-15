@@ -54,9 +54,13 @@ export default function Dashboard() {
         return Array.isArray(simulados) ? simulados : Object.values(simulados || {});
     }, [simulados]);
 
+    const safeSimuladoRows = React.useMemo(() => {
+        return Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {});
+    }, [simuladoRows]);
+
     const data = React.useMemo(() => ({
-        categories: safeCategories, simulados: safeSimulados, simuladoRows, studyLogs, user, pomodorosCompleted
-    }), [safeCategories, safeSimulados, simuladoRows, studyLogs, user, pomodorosCompleted]);
+        categories: safeCategories, simulados: safeSimulados, simuladoRows: safeSimuladoRows, studyLogs, user, pomodorosCompleted
+    }), [safeCategories, safeSimulados, safeSimuladoRows, studyLogs, user, pomodorosCompleted]);
 
     const setGoalDate = React.useCallback((d) => setData(contest => {
         if (!contest) return contest;
