@@ -45,10 +45,18 @@ export default function Dashboard() {
         return Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
     }, [rawStudyLogs]);
 
+    const safeCategories = React.useMemo(() => {
+        const cats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return cats.map(c => ({ ...c, tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {}) }));
+    }, [categories]);
+
+    const safeSimulados = React.useMemo(() => {
+        return Array.isArray(simulados) ? simulados : Object.values(simulados || {});
+    }, [simulados]);
 
     const data = React.useMemo(() => ({
-        categories, simulados, simuladoRows, studyLogs, user, pomodorosCompleted
-    }), [categories, simulados, simuladoRows, studyLogs, user, pomodorosCompleted]);
+        categories: safeCategories, simulados: safeSimulados, simuladoRows, studyLogs, user, pomodorosCompleted
+    }), [safeCategories, safeSimulados, simuladoRows, studyLogs, user, pomodorosCompleted]);
 
     const setGoalDate = React.useCallback((d) => setData(contest => {
         if (!contest) return contest;
