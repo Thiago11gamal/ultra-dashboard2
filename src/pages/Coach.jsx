@@ -320,6 +320,13 @@ export default function Coach() {
         sd: mcStats?.sd
     }), [mcStats?.projectedMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
 
+    // FIX-#185: Stable ref so the analysis useEffect doesn't need mcStatsContext
+    // as a dependency. Without this, any isFlashing toggle inside useMonteCarloStats
+    // creates a new mcStats object → new mcStatsContext → effect fires → setData()
+    // → store update → re-render → infinite loop (React error #185).
+    const mcStatsContextRef = useRef(mcStatsContext);
+    useEffect(() => { mcStatsContextRef.current = mcStatsContext; }, [mcStatsContext]);
+
     useEffect(() => {
         if (!data?.categories || !isHydrated) return;
 
@@ -345,7 +352,8 @@ export default function Coach() {
                     flashcardDue,
                     onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                     // Pass global MC stats for richer integration (see analysis of Coach + MC)
-                    globalMcStats: mcStatsContext,
+                    // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
+                    globalMcStats: mcStatsContextRef.current,
                     config: {
                         MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
                     }
@@ -353,10 +361,11 @@ export default function Coach() {
             );
 
             // BEST: enrich the suggestion with global MC context for the UI
-            if (result && mcStatsContext && mcStatsContext.projectedMean != null) {
+            const _mcCtx = mcStatsContextRef.current;
+            if (result && _mcCtx && _mcCtx.projectedMean != null) {
                 result.globalMcContext = {
-                    projectedMean: Number(mcStatsContext.projectedMean.toFixed(1)),
-                    probability: mcStatsContext.probability != null ? Number(mcStatsContext.probability.toFixed(1)) : null,
+                    projectedMean: Number(_mcCtx.projectedMean.toFixed(1)),
+                    probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
                     source: 'useMonteCarloStats'
                 };
             }
@@ -378,6 +387,8 @@ export default function Coach() {
             if (metricsTimer) clearTimeout(metricsTimer);
             nestedTimeouts.forEach(clearTimeout);
         };
+    // FIX-#185: mcStatsContext removed — it's read via mcStatsContextRef.current inside
+    // the effect body, so it never needs to be a reactive dependency.
     }, [
         isHydrated,
         data?.categories, 
@@ -389,7 +400,6 @@ export default function Coach() {
         userProfile?.targetProbability,
         flashcardDue,
         flashcardDecks,
-        mcStatsContext,
         persistCalibrationMetric
     ]);
 

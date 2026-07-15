@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
@@ -36,22 +37,40 @@ const LOG_DAMPING_FACTOR = 45;
 
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, effectiveSimulateToday, simuladoRows: propSimuladoRows }) {
     const activeId = useAppStore(state => state.appState?.activeId);
-    const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
+    // FIX-#185-A: Use useShallow to prevent new object refs on every call.
+    // The plain `|| {}` fallback creates a new object each render.
+    const weights = useAppStore(useShallow(state => state.appState?.contests?.[activeId]?.mcWeights || {}));
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
-    const mcHistory = useAppStore(state => {
+    // FIX-#185-A: Object.values() inside a Zustand selector creates a new array on every
+    // call, breaking useSyncExternalStore's requirement for stable getSnapshot results
+    // ("The result of getSnapshot should be cached"). useShallow does element-wise comparison
+    // so it only triggers re-renders when actual elements change.
+    const mcHistory = useAppStore(useShallow(state => {
         const arr = state.appState?.contests?.[activeId]?.monteCarloHistory;
         return Array.isArray(arr) ? arr : Object.values(arr || {});
-    });
-    const flashcardDecks = useAppStore(state => {
+    }));
+    const flashcardDecks = useAppStore(useShallow(state => {
         const arr = state.appState?.contests?.[activeId]?.flashcardDecks;
         return Array.isArray(arr) ? arr : Object.values(arr || {});
-    });
-    const historicalCutoffs = useAppStore(state => {
+    }));
+    const historicalCutoffs = useAppStore(useShallow(state => {
         const arr = state.appState?.contests?.[activeId]?.historicalCutoffs;
         return Array.isArray(arr) ? arr : Object.values(arr || {});
-    });
+    }));
     
+    // FIX-#185-B: Replaced the full `contest` selector with targeted field selectors.
+    // Using the entire `contest` object caused calibrationSummary → dynamicSimulations to
+    // update every time a prediction event was recorded (setDataFn spreads contest into a
+    // new object), which put dynamicSimulations in the MC effect's deps → reran MC →
+    // recorded again → infinite loop.
+    //
+    // calibrationEvents is selected separately so that calibrationSummary only reacts
+    // to its own data (not to simuladoRows, coachPlan, etc.).
     const contest = useAppStore(state => state.appState?.contests?.[activeId]);
+    const calibrationEvents = useAppStore(useShallow(state => {
+        const evs = state.appState?.contests?.[activeId]?.calibrationEvents;
+        return Array.isArray(evs) ? evs : Object.values(evs || {});
+    }));
     
     // FIX 4: Extração reativa no nível principal para que mudanças na UI acionem recálculos.
     const examDurationMinutes = useAppStore(state => state.appState?.contests?.[activeId]?.examDurationMinutes || 240);
@@ -62,16 +81,16 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         return (contest?.simuladoRows) || [];
     }, [propSimuladoRows, contest?.simuladoRows]);
     
-    // NEW: Compute live calibration summary early (before other memos that depend on it)
+    // FIX-#185-B (continued): Now depends on `calibrationEvents` (stable shallow array)
+    // instead of the entire `contest` object.
     const calibrationSummary = useMemo(() => {
-        const events = (contest && contest.calibrationEvents) || [];
-        if (events.length < 3) return null;
+        if (calibrationEvents.length < 3) return null;
         try {
-            return computeCalibrationSummary(events, { bins: 6 });
+            return computeCalibrationSummary(calibrationEvents, { bins: 6 });
         } catch {
             return null;
         }
-    }, [contest]);
+    }, [calibrationEvents]);
 
     // NEW: Simple model health score (0-1) based on summary + trend
     const modelHealth = useMemo(() => {
@@ -102,6 +121,16 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         }
         return sims;
     }, [calibrationSummary, modelHealth]);
+
+    // FIX-#185-B: Ref so the MC analysis effect can read dynamicSimulations without
+    // declaring it as a reactive dep. If it were reactive, recording a new prediction event
+    // → calibrationSummary changes → dynamicSimulations changes → MC effect reruns →
+    // records again → infinite loop.
+    const dynamicSimulationsRef = useRef(dynamicSimulations);
+    useEffect(() => { dynamicSimulationsRef.current = dynamicSimulations; }, [dynamicSimulations]);
+    // FIX-#185-B: Also ref modelWeight — same reason as dynamicSimulations.
+    const modelWeightRef = useRef(modelWeight);
+    useEffect(() => { modelWeightRef.current = modelWeight; }, [modelWeight]);
     
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const recordMonteCarloSnapshot = useAppStore(state => state.recordMonteCarloSnapshot);
@@ -236,19 +265,21 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     const [isFlashing, setIsFlashing] = useState(false);
 
     // NEW: Backfill observed from actual simulados into calibration events (walk-forward calibration)
+    // FIX-#185-B: Changed dependency from full `contest` object to `calibrationEvents` (stable shallow
+    // array). The full `contest` was re-created on every setData call, causing this effect to re-run
+    // every time a prediction event was recorded, which then called setData() again — secondary loop.
     useEffect(() => {
         if (!rawSimuladoRows || rawSimuladoRows.length === 0) return;
+        if (!calibrationEvents || calibrationEvents.length === 0) return;
         try {
-            const events = (contest && contest.calibrationEvents) || [];
-            if (events.length === 0) return;
-            const backfilled = backfillObservedFromSimulados(events, rawSimuladoRows, statsData?.categoryStats || [], maxScore);
-            const changed = JSON.stringify(backfilled.slice(-3)) !== JSON.stringify(events.slice(-3));
+            const backfilled = backfillObservedFromSimulados(calibrationEvents, rawSimuladoRows, statsData?.categoryStats || [], maxScore);
+            const changed = JSON.stringify(backfilled.slice(-3)) !== JSON.stringify(calibrationEvents.slice(-3));
             if (changed) {
                 const setD = useAppStore.getState().setData;
                 if (setD) setD(c => ({...c, calibrationEvents: backfilled}));
             }
         } catch { /* ignore */ }
-    }, [rawSimuladoRows, maxScore, contest, statsData?.categoryStats]);
+    }, [rawSimuladoRows, maxScore, calibrationEvents, statsData?.categoryStats]);
 
     // Motor roda Cego/Puro para prevenir Feedback Loops (usa pureStatsDataRef)
     useEffect(() => {
@@ -306,7 +337,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         values: pureStatsData.globalHistory.map(h => h.score),
                         dates: pureStatsData.globalHistory.map(h => h.date),
                         meta: debouncedTarget,
-                        simulations: dynamicSimulations,
+                        simulations: dynamicSimulationsRef.current,
                         projectionDays: projectDays,
                         forcedVolatility: regularizedSD,
                         forcedBaseline: pureStatsData.bayesianMean,
@@ -334,7 +365,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     });
 
                     result = await runAnalysis(pureStatsData.bayesianMean, pureStatsData.pooledSD, debouncedTarget, {
-                        simulations: dynamicSimulations,
+                        simulations: dynamicSimulationsRef.current,
                         currentMean: pureStatsData.bayesianMean,
                         bayesianCI: pureStatsData.bayesianCI,
                         minScore,
@@ -354,7 +385,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         // NEW: If log-time trend available and improving, blend into projected for global
                         // using modelWeight (better calib = higher non-linear influence)
                         if (result.trendType === 'log_time_available' && result.projectedMean > result.currentMean) {
-                            const blend = modelWeight;
+                            const blend = modelWeightRef.current;
                             result.projectedMean = result.projectedMean * (1 - blend) + (result.projectedMean * 1.1) * blend;
                         }
                     }
@@ -415,7 +446,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             values: pureStatsData.globalHistory.map(h => h.score),
                             dates: pureStatsData.globalHistory.map(h => h.date),
                             meta: debouncedTarget,
-                            simulations: Math.min(dynamicSimulations, 2000),
+                            simulations: Math.min(dynamicSimulationsRef.current, 2000),
                             projectionDays: projectDays,
                             forcedVolatility: regularizedSD,
                             forcedBaseline: pureStatsData.bayesianMean,
@@ -447,7 +478,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                             mean: pureStatsData.bayesianMean,
                             sd: pureStatsData.pooledSD,
                             targetScore: debouncedTarget,
-                            simulations: Math.min(dynamicSimulations, 2000),
+                            simulations: Math.min(dynamicSimulationsRef.current, 2000),
                             currentMean: pureStatsData.bayesianMean,
                             bayesianCI: pureStatsData.bayesianCI,
                             historicalCutoffs: historicalCutoffs,
@@ -503,8 +534,10 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             cancelled = true;
             clearTimeout(timerId);
         };
-    // FIX 4: Na dependência final do useEffect cego, anexar os observadores:
-    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs, dynamicSimulations, modelWeight, rawSimuladoRows, statsData?.estimatedRho, examDurationMinutes, defaultExamTotalQuestions, flashcardDecks]);
+    // FIX-#185-B: dynamicSimulations and modelWeight removed from deps — both derive from
+    // calibrationSummary, which changes every time a prediction event is recorded. That
+    // would rerun this effect → record again → infinite loop. They are read via refs.
+    }, [pureStatsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, historicalCutoffs, rawSimuladoRows, statsData?.estimatedRho, examDurationMinutes, defaultExamTotalQuestions, flashcardDecks]);
  
     const probabilityData = useMemo(() => {
         const rawProbability = simulationData?.data?.probability ?? 0;
@@ -857,11 +890,14 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         effectiveDrift: derivedMetrics.effectiveDrift,
         modelHealth: derivedMetrics.modelHealth,
         modelWeight: derivedMetrics.modelWeight
+    // FIX-#185: isFlashing removed from deps — it toggles true→false every MC run (800ms
+    // timer), causing a new mcStats reference each cycle. That propagated to Coach.jsx's
+    // mcStatsContext → infinite setData() loop. isFlashing is still in the returned object
+    // and works correctly; it just doesn't need to be a reactive dep for the memoization.
     }), [
         statsData,
         effectiveSimulationData,
         perSubjectProbs,
-        isFlashing,
         projectDays,
         debouncedTarget,
         effectiveWeights,
