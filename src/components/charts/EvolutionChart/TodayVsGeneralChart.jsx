@@ -199,11 +199,15 @@ export function TodayVsGeneralChart({
         const safeRowsArray = Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {});
         
         if (safeRowsArray.length > 0) {
-            const activeCategoryMap = new Set(
-                activeCategories
-                    .map(c => c.name?.toLowerCase().trim())
-                    .filter(Boolean)
-            );
+            const activeCategoryMap = new Set();
+            activeCategories.forEach(c => {
+                if (c.name) activeCategoryMap.add(c.name.toLowerCase().trim());
+                if (Array.isArray(c.aliases)) {
+                    c.aliases.forEach(a => {
+                        if (a) activeCategoryMap.add(a.toLowerCase().trim());
+                    });
+                }
+            });
             const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
             
             const sortedRows = [...safeRowsArray]
