@@ -173,7 +173,7 @@ export const WeeklyEvolutionView = ({
             const cat = categories.find(c => c.id === focusSubjectId);
             if (cat) {
                 (cat.tasks || []).forEach(task => {
-                    const tName = String(task?.text || '').trim();
+                    const tName = String(task?.text || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!tName) return;
                     itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                 });
@@ -181,7 +181,7 @@ export const WeeklyEvolutionView = ({
                 (cat.simuladoStats?.history || []).forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
                         h.topics.forEach(t => {
-                            const tName = String(t.name || '').trim();
+                            const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                             if (!tName) return;
                             if (!itemsMap[tName.toLowerCase()]) {
                                 itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
@@ -244,7 +244,7 @@ export const WeeklyEvolutionView = ({
                 (cat.simuladoStats?.history || []).forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
                         h.topics.forEach(t => {
-                            const tId = String(t.name || '').toLowerCase().trim();
+                            const tId = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').toLowerCase().trim();
                             const weekStr = getMondayStr(h.date);
                             if (!weekStr) return;
                             if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };

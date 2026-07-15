@@ -63,7 +63,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 const h = recentHistory[i];
 
                 (h.topics || []).forEach(t => {
-                    const n = String(t.name || '').trim();
+                    const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!n) return;
                     const key = n.toLowerCase();
                     if (!topicMap[key]) topicMap[key] = { name: n, total: 0, correct: 0, criticidade: 0 };

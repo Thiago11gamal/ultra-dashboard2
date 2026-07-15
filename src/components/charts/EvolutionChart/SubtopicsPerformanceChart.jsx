@@ -147,7 +147,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                 const h = recentHistory[i];
 
                 (h.topics || []).forEach(t => {
-                    const n = String(t.name || '').trim();
+                    const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!n || n.toLowerCase() === 'nenhum') return;
                     const key = n.toLowerCase();
 
@@ -214,7 +214,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                 }
 
                 (h.topics || []).forEach(t => {
-                    const topicName = String(t.name || '').trim();
+                    const topicName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
                     
                     const total = parseInt(t.total, 10) || 0;
