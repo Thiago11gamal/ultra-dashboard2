@@ -263,7 +263,7 @@ export default function Simulados() {
                             correct: finalC,
                             total: finalQ,
                             difficulty: Number(avgDifficulty.toFixed(2)),
-                            score: Math.min(maxScore, Math.max(0, (finalC / finalQ) * maxScore)),
+                            score: finalQ > 0 ? Math.min(maxScore, Math.max(0, (finalC / finalQ) * maxScore)) : 0,
                             timeSpent: finalTimeSpent,
                             timedQuestoes: finalTimedQuestoes,
                             topics: finalTopics
