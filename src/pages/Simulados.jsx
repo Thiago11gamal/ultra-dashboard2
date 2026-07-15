@@ -222,10 +222,16 @@ export default function Simulados() {
                     const topicsMap = {};
                     todayRows.forEach(r => {
                         const tName = String(r.topic || '').trim();
-                        if (!topicsMap[tName]) topicsMap[tName] = { correct: 0, total: 0, difficulty: [] };
+                        if (!topicsMap[tName]) topicsMap[tName] = { correct: 0, total: 0, difficulty: [], timeSpent: 0, timedQuestoes: 0 };
                         topicsMap[tName].correct += Number(r.correct) || 0;
                         topicsMap[tName].total += Number(r.total) || 0;
                         topicsMap[tName].difficulty.push(Number(r.difficulty) || 1.0);
+                        
+                        const rowTime = Number(r.timeSpent) || 0;
+                        if (rowTime > 0) {
+                            topicsMap[tName].timeSpent += rowTime;
+                            topicsMap[tName].timedQuestoes += (Number(r.total) || 0);
+                        }
                     });
 
                     const finalTopics = Object.entries(topicsMap).map(([name, data]) => ({
@@ -233,7 +239,9 @@ export default function Simulados() {
                         correct: data.correct,
                         total: data.total,
                         percentage: data.total > 0 ? (data.correct / data.total) * 100 : 0,
-                        difficulty: data.difficulty.length > 0 ? data.difficulty.reduce((a, b) => a + b, 0) / data.difficulty.length : 1.0
+                        difficulty: data.difficulty.length > 0 ? data.difficulty.reduce((a, b) => a + b, 0) / data.difficulty.length : 1.0,
+                        timeSpent: data.timeSpent,
+                        timedQuestoes: data.timedQuestoes
                     }));
 
                     if (finalQ > 0) {

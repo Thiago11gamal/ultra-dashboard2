@@ -433,7 +433,7 @@ export default React.memo(function EvolutionChart({
                     if (Array.isArray(h.topics)) {
                         for (const t of h.topics) {
                             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                            const tTot = Number(t.total) || 0;
+                            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
                             // M3 FIX: Omissão de 0 segundos / fast skips
                             if (tTs !== null && tTs > 0 && tTot > 0) {
                                 topicsTs += tTs;
@@ -445,10 +445,10 @@ export default React.memo(function EvolutionChart({
                     
                     if (hasTopicWithTime) {
                         return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-                    } else if (rootTs !== null && rootTs >= 0 && Number(h.total) > 0) {
+                    } else if (rootTs !== null && rootTs > 0 && Number(h.total) > 0) {
                         // M3 FIX: Fallback seguro mantendo o target
                         return { ts: acc.ts + rootTs, tq: acc.tq + Number(h.total) };
-                    } else if (rootTs !== null && rootTs >= 0 && h.score != null) {
+                    } else if (rootTs !== null && rootTs > 0 && h.score != null) {
                         return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(maxScore) };
                     }
                     

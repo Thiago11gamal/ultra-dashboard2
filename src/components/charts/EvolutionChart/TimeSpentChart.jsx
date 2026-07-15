@@ -172,7 +172,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     if (Array.isArray(h.topics)) {
                         for (const t of h.topics) {
                             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                            const tTot = Number(t.total) || 0;
+                            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
                             if (tTs !== null && tTs > 0 && tTot > 0) { // BUG FIX: Ignora tempos exatos de 0s (origem de banco de dados antigo corrompido)
                                 topicsTs += tTs;
                                 topicsTimedQ += tTot;
@@ -224,7 +224,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     if (Array.isArray(latestEntry.topics)) {
                         for (const t of latestEntry.topics) {
                             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                            const tTot = Number(t.total) || 0;
+                            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
                             if (tTs !== null && tTs > 0 && tTot > 0) { // BUG FIX: Ignora tempos exatos de 0s (origem de banco de dados antigo corrompido)
                                 topicsTs += tTs;
                                 topicsTimedQ += tTot;
