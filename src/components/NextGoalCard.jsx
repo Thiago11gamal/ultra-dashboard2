@@ -35,20 +35,16 @@ function NextGoalCard({ categories = [], simulados = [], studyLogs = [], onStart
         const hasDetails = parts.length > 1;
         let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
 
-        let topicPart = "";
-        const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
-        if (topicMatch) {
-            topicPart = topicMatch[1];
-            actionPart = topicMatch[2].trim();
-        }
+        // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE])
+        actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
 
         return {
             category: suggestedCategory,
             task: nextTask,
             urgency: suggestedCategory.urgency,
             display: {
-                assunto: topicPart || (actionPart.length > 40 ? actionPart.substring(0, 37) + '...' : actionPart),
-                meta: topicPart ? actionPart : "Revisão e exercícios"
+                assunto: actionPart.length > 40 ? actionPart.substring(0, 37) + '...' : actionPart,
+                meta: hasDetails ? parts[0] : "Revisão e exercícios"
             }
         };
     }, [categories, simulados, studyLogs]);

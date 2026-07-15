@@ -544,17 +544,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         
         actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
         
-        let topicPart = '';
-        const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
-        if (topicMatch) {
-            topicPart = topicMatch[1];
-            actionPart = topicMatch[2].trim();
-            
-            const legacyTags = ['REVISÃO', 'OTIMIZAÇÃO DE BASE', 'MÉTODO', 'AGILIDADE AI', 'STATUS', 'ALERTA MESTRE'];
-            if (legacyTags.includes(topicPart.toUpperCase().trim())) {
-                topicPart = parts[0] || ''; 
-            }
-        }
+        // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE])
+        actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
+        let topicPart = parts[0] || '';
 
         const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
         let secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
@@ -783,27 +775,20 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
 
         const firstColon = text.indexOf(':');
         let targetText = firstColon > -1 ? text.substring(firstColon + 1) : text;
-        targetText = targetText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').trim();
+        
+        // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE], [PROTOCOLO PRIORITÁRIO])
+        targetText = targetText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
+        targetText = targetText.replace(/^\[(.*?)\]\s*/i, '').trim();
 
-        const topicMatch = targetText.match(/^\[(.*?)\]\s*(.*)/);
-        if (topicMatch) {
-            let subtitle = topicMatch[2].replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
-            if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
+        let subtitle = targetText.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+        if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
             
-            // Filter out AI generated status texts from legacy tasks
-            if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(subtitle)) {
-                subtitle = '';
-            }
-
-            const legacyTags = ['REVISÃO', 'OTIMIZAÇÃO DE BASE', 'MÉTODO', 'AGILIDADE AI', 'STATUS', 'ALERTA MESTRE'];
-            if (legacyTags.includes(topicMatch[1].toUpperCase().trim())) {
-                return subtitle || topicMatch[1]; 
-            }
-            return topicMatch[1] + (subtitle ? ` - ${subtitle}` : '');
+        // Filter out AI generated status texts from legacy tasks
+        if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(subtitle)) {
+            subtitle = '';
         }
 
-        let cleaned = targetText
-            .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '')
+        let cleaned = subtitle
             .replace(/\s{2,}/g, ' ')
             .trim();
 

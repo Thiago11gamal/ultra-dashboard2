@@ -41,17 +41,9 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert;
     actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '');
 
-    let topicPart = '';
-    const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
-    if (topicMatch) { 
-        topicPart = topicMatch[1].trim(); 
-        actionPart = topicMatch[2].trim();
-        
-        const legacyTags = ['REVISÃO', 'OTIMIZAÇÃO DE BASE', 'MÉTODO', 'AGILIDADE AI', 'STATUS', 'ALERTA MESTRE'];
-        if (legacyTags.includes(topicPart.toUpperCase())) {
-            topicPart = subjectPart;
-        }
-    }
+    // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE])
+    actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
+    let topicPart = subjectPart;
 
     if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|\% de acerto\)\./i.test(actionPart)) {
         actionPart = '';
