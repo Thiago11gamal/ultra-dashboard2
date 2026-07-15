@@ -225,7 +225,9 @@ export const buildAchievementStats = (contestData, options = {}) => {
         if (day === 0 || day === 6) studiedWeekend = true;
     });
 
-    const hasPerfectScoreFromHistory = contestData.categories?.some(cat => {
+    const categoriesArray = Array.isArray(contestData.categories) ? contestData.categories : Object.values(contestData.categories || {});
+
+    const hasPerfectScoreFromHistory = categoriesArray.some(cat => {
         const hist = cat.simuladoStats?.history;
         const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
         const maxS = Number(cat.maxScore) || 100;
@@ -233,8 +235,8 @@ export const buildAchievementStats = (contestData, options = {}) => {
     }) || false;
 
     return {
-        completedTasks: contestData.categories?.reduce(
-            (sum, cat) => sum + (cat.tasks?.filter(t => t.completed)?.length || 0), 0
+        completedTasks: categoriesArray.reduce(
+            (sum, cat) => sum + ((Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t.completed)?.length || 0), 0
         ) || 0,
         currentStreak: calculateStudyStreak(studyLogs).current,
         totalQuestions,
