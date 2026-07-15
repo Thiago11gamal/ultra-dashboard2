@@ -1088,12 +1088,20 @@ export default function Pomodoro() {
 
             // B-08 FIX: Só auto-completa a tarefa se a conclusão foi natural (não pulada)
             const activeData = store.appState.contests[store.appState.activeId];
-            const cat = (activeData?.categories || []).find(c => c && c.id === currentSubject.categoryId);
-            const task = (cat?.tasks || []).find(t => t && (t.id || t.text) === currentSubject.taskId);
+            
+            if (wasNatural) {
+                if (neuralMode || currentSubject.source === 'neural_core') {
+                    store.toggleNeuralTask(currentSubject.taskId);
+                    showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
+                } else {
+                    const cat = (activeData?.categories || []).find(c => c && c.id === currentSubject.categoryId);
+                    const task = (cat?.tasks || []).find(t => t && (t.id || t.text) === currentSubject.taskId);
 
-            if (task && !task.completed && wasNatural) {
-                store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
-                showToast(`Status: "${task.title || task.text}" concluído! ✅`, 'success');
+                    if (task && !task.completed) {
+                        store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
+                        showToast(`Status: "${task.title || task.text}" concluído! ✅`, 'success');
+                    }
+                }
             }
 
             if (neuralMode || currentSubject.source === 'neural_core') {

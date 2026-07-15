@@ -37,6 +37,41 @@ export const createTaskSlice = (set, get) => ({
         }
     },
 
+    toggleNeuralTask: (taskId) => {
+        set((state) => {
+            const activeData = state.appState.contests[state.appState.activeId];
+            if (!activeData) return;
+
+            let found = false;
+            
+            // Search in coachPlan (Backlog)
+            if (activeData.coachPlan) {
+                const task = activeData.coachPlan.find(t => t && (t.id === taskId || t.text === taskId));
+                if (task && !task.completed) {
+                    task.completed = true;
+                    found = true;
+                }
+            }
+
+            // Search in coachPlanner (Days)
+            if (activeData.coachPlanner) {
+                Object.values(activeData.coachPlanner).forEach(dayTasks => {
+                    const task = (dayTasks || []).find(t => t && (t.id === taskId || t.text === taskId));
+                    if (task && !task.completed) {
+                        task.completed = true;
+                        found = true;
+                    }
+                });
+            }
+
+            if (found) {
+                state.appState.version = (state.appState.version || 0) + 1;
+                state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
+            }
+        });
+    },
+
     addTask: (categoryId, title) => set((state) => {
         const trimmedTitle = typeof title === 'string' ? title.trim() : '';
         if (!trimmedTitle) return;
