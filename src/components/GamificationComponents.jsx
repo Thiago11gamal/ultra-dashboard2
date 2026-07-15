@@ -42,19 +42,20 @@ export const StreakDisplay = ({ studyLogs }) => {
 };
 
 export const AchievementsGrid = ({ unlockedIds = [], stats = {} }) => {
+    const unlockedArray = Array.isArray(unlockedIds) ? unlockedIds : Object.values(unlockedIds || {});
     return (
         <div className="w-full">
             <div className="flex items-center gap-2 mb-6">
                 <div className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full flex items-center gap-2">
                     <Trophy size={14} className="text-purple-400" />
                     <span className="text-xs font-bold text-purple-300">
-                        {ACHIEVEMENTS.filter(a => unlockedIds.some(u => (typeof u === 'string' ? u : u?.id) === a.id) || (a.condition && a.condition(stats))).length} / {ACHIEVEMENTS.length} Desbloqueadas
+                        {ACHIEVEMENTS.filter(a => unlockedArray.some(u => (typeof u === 'string' ? u : u?.id) === a.id) || (a.condition && a.condition(stats))).length} / {ACHIEVEMENTS.length} Desbloqueadas
                     </span>
                 </div>
             </div>
             <div className="flex flex-wrap gap-4">
                 {ACHIEVEMENTS.map(achievement => {
-                    const manuallyUnlocked = unlockedIds.some(u => (typeof u === 'string' ? u : u?.id) === achievement.id);
+                    const manuallyUnlocked = unlockedArray.some(u => (typeof u === 'string' ? u : u?.id) === achievement.id);
                     const dynamicallyUnlocked = achievement.condition && achievement.condition(stats);
                     const unlocked = manuallyUnlocked || dynamicallyUnlocked;
                     return (

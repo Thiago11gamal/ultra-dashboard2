@@ -811,7 +811,8 @@ export const getCompleteReport = (data) => {
 export function getFlashcardDueTodayCount(decks = []) {
   const todayKey = getFlashcardTodayKey();
   let due = 0;
-  (Array.isArray(decks) ? decks : []).forEach(deck => {
+  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  decksArray.forEach(deck => {
     (deck.cards || []).forEach(card => {
       if (!card?.due || card.due <= todayKey) due++;
     });
@@ -821,7 +822,8 @@ export function getFlashcardDueTodayCount(decks = []) {
 
 export function getFlashcardMasteryPct(decks = []) {
   let total = 0, mastered = 0;
-  (Array.isArray(decks) ? decks : []).forEach(deck => {
+  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  decksArray.forEach(deck => {
     (deck.cards || []).forEach(card => {
       total++;
       if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 6) mastered++;
@@ -835,7 +837,8 @@ export function getFlashcardImmunity(decks = []) {
   let globalTotal = 0;
   let globalMastered = 0;
 
-  (Array.isArray(decks) ? decks : []).forEach(deck => {
+  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  decksArray.forEach(deck => {
     const subject = deck.subject ? String(deck.subject).toLowerCase().trim() : 'geral';
     
     let total = 0, mastered = 0;
@@ -875,11 +878,13 @@ export function getFlashcardImmunity(decks = []) {
 }
 
 export function getFlashcardTotalCards(decks = []) {
-  return (Array.isArray(decks) ? decks : []).reduce((sum, d) => sum + (d.cards?.length || 0), 0);
+  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  return decksArray.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
 }
 
 export function getFlashcardDeckCount(decks = []) {
-  return (Array.isArray(decks) ? decks : []).length;
+  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  return decksArray.length;
 }
 
 export function computeFlashcardDueForecast(decks = [], horizon = 14) {
@@ -888,7 +893,7 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
     const todayKey = getFlashcardTodayKey();
     const counts = {};
 
-    const safeDecks = Array.isArray(decks) ? decks : [];
+    const safeDecks = Array.isArray(decks) ? decks : Object.values(decks || {});
 
     safeDecks.forEach(deck => {
         (deck.cards || []).forEach(card => {
