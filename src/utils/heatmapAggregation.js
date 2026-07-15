@@ -63,7 +63,8 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
  * antes da divisão final, e aplica Shrinkage Bayesiano (K=5).
  */
 export const calculateSubjectMastery = (subtopics) => {
-    if (!subtopics || subtopics.length === 0) return 0;
+    const safeSubtopics = Array.isArray(subtopics) ? subtopics : Object.values(subtopics || {});
+    if (!safeSubtopics || safeSubtopics.length === 0) return 0;
 
     // BUG-01 FIX: Cálculo Agregado Bruto para eliminar o Paradoxo de Simpson.
     // Nunca tire média de porcentagens ou aplique shrinkage por tópico na agregação macro.
@@ -71,7 +72,7 @@ export const calculateSubjectMastery = (subtopics) => {
     let totalAcertos = 0;
     let totalQuestoes = 0;
 
-    subtopics.forEach(topic => {
+    safeSubtopics.forEach(topic => {
         // Suporte polimórfico para diferentes chaves de dados
         const hits = Number(topic.acertos ?? topic.hits ?? 0);
         const total = Number(topic.total ?? topic.questoes ?? 0);

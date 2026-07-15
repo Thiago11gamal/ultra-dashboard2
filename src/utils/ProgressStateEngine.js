@@ -43,7 +43,8 @@ export function analyzeProgressState(scores, config = {}) {
     const safeWindowSize = Math.max(3, window_size);
 
     // 3. Pre-condition check
-    if (!scores || scores.length < safeWindowSize) {
+    const safeScores = Array.isArray(scores) ? scores : Object.values(scores || {});
+    if (!safeScores || safeScores.length < safeWindowSize) {
         return {
             state: 'insufficient_data',
             label: 'Dados Insuficientes',
@@ -58,9 +59,9 @@ export function analyzeProgressState(scores, config = {}) {
     // 4. Extract window
     // CORREÇÃO: Gerar a âncora sintética ANTES de ordenar para preservar o eixo cronológico verdadeiro
     const syntheticNow = Date.now();
-    const sortedScores = [...scores].map((d, index) => {
+    const sortedScores = [...safeScores].map((d, index) => {
         let time = typeof d === 'object' ? toDateMs(d.date) : NaN;
-        if (Number.isNaN(time)) time = syntheticNow - ((scores.length - index) * 86400000);
+        if (Number.isNaN(time)) time = syntheticNow - ((safeScores.length - index) * 86400000);
         return { original: d, safeTime: time };
     }).sort((a, b) => a.safeTime - b.safeTime);
 

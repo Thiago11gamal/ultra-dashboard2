@@ -38,11 +38,17 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
-    const mcHistory = useAppStore(state => state.appState?.contests?.[activeId]?.monteCarloHistory || EMPTY_ARRAY);
-    const flashcardDecks = useAppStore(state => state.appState?.contests?.[activeId]?.flashcardDecks || EMPTY_ARRAY);
+    const mcHistory = useAppStore(state => {
+        const arr = state.appState?.contests?.[activeId]?.monteCarloHistory;
+        return Array.isArray(arr) ? arr : Object.values(arr || {});
+    });
+    const flashcardDecks = useAppStore(state => {
+        const arr = state.appState?.contests?.[activeId]?.flashcardDecks;
+        return Array.isArray(arr) ? arr : Object.values(arr || {});
+    });
     const historicalCutoffs = useAppStore(state => {
         const arr = state.appState?.contests?.[activeId]?.historicalCutoffs;
-        return Array.isArray(arr) ? arr : EMPTY_ARRAY;
+        return Array.isArray(arr) ? arr : Object.values(arr || {});
     });
     
     const contest = useAppStore(state => state.appState?.contests?.[activeId]);
