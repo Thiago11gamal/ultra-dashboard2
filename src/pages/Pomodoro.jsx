@@ -223,8 +223,8 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             items.push({ icon: <Trophy size={14} className="text-yellow-300" />, text: `Master: Você acumula um tempo de voo absurdo de ${Math.round(totalStudyMins / 60)} horas totais.` });
         }
 
-        // eslint-disable-next-line react-hooks/purity
-        return items.sort(() => Math.random() - 0.5).slice(0, 6);
+        // FIX: Eliminado Math.random() para garantir pureza de re-renderização e hidratação determinística
+        return items.slice(0, 6);
     }, [studyLogs, simulados, categories]);
 
     if (!trivia || trivia.length === 0) return null;
@@ -839,10 +839,21 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
 export default function Pomodoro() {
     const activeId = useAppStore(state => state.appState?.activeId);
     const contest = useActiveContest() || EMPTY_OBJECT;
-    const categories = contest.categories || EMPTY_ARRAY;
+    
+    const rawCategories = contest.categories || EMPTY_ARRAY;
+    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories)).map(c => ({
+        ...c,
+        tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
+    }));
+
     const settings = contest.settings || EMPTY_OBJECT;
-    const studyLogs = contest.studyLogs || EMPTY_ARRAY;
-    const simulados = contest.simulados || EMPTY_ARRAY;
+
+    const rawStudyLogs = contest.studyLogs || EMPTY_ARRAY;
+    const studyLogs = Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs);
+
+    const rawSimulados = contest.simulados || EMPTY_ARRAY;
+    const simulados = Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados);
+    
     const user = contest.user || null;
 
     // Hidratação validada (Considerando a nova referência EMPTY_OBJECT)
