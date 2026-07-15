@@ -23,6 +23,8 @@ export default function Activity() {
         return <div className="flex items-center justify-center p-12 text-slate-400">A carregar dados gamificados...</div>;
     }
 
+    const studyLogsArray = Array.isArray(data?.studyLogs) ? data.studyLogs : Object.values(data?.studyLogs || {});
+
     const handleResetXP = () => {
         setData(prev => ({
             ...(prev || {}),
@@ -115,7 +117,7 @@ export default function Activity() {
                 {/* Coluna da Esquerda: Streak e XP (Ocupa 4/12 colunas) */}
                 <div className="lg:col-span-4 flex flex-col gap-6">
                     <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-2 shadow-xl hover:border-white/10 transition-all">
-                        <StreakDisplay studyLogs={data.studyLogs} />
+                        <StreakDisplay studyLogs={studyLogsArray} />
                     </div>
                     <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-2 shadow-xl hover:border-white/10 transition-all flex-1">
                         <XPHistory user={data.user} />
@@ -143,7 +145,7 @@ export default function Activity() {
 
                             {/* Ajuste importante: overflow visível para tooltips mas mantendo o inner shadow */}
                             <div className="flex-1 w-full bg-slate-950/40 rounded-2xl p-6 border border-white/5 shadow-inner">
-                                <ActivityHeatmap studyLogs={data.studyLogs} />
+                                <ActivityHeatmap studyLogs={studyLogsArray} />
                             </div>
                         </div>
                     </div>
