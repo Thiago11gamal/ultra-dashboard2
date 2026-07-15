@@ -137,7 +137,10 @@ export default function MonteCarloGauge({
 
     const getEqualWeights = useCallback(() => {
         const newWeights = {};
-        categories.filter(c => c.simuladoStats?.history?.length > 0).forEach(cat => {
+        categories.filter(c => {
+            const h = c.simuladoStats?.history;
+            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+        }).forEach(cat => {
             newWeights[cat.id || cat.name] = 1;
         });
         return newWeights;

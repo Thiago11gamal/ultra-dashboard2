@@ -31,7 +31,10 @@ export default function Evolution() {
         return Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
     }, [rawStudyLogs]);
 
-    const hasEvolutionData = Array.isArray(categories) && categories.some(category => Array.isArray(category?.simuladoStats?.history) && category.simuladoStats.history.length > 0);
+    const hasEvolutionData = Array.isArray(categories) && categories.some(category => {
+        const h = category?.simuladoStats?.history;
+        return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+    });
 
     return (
         <ErrorBoundary>

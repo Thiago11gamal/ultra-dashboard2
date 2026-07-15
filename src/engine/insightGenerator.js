@@ -38,7 +38,8 @@ export function generateEvolutionInsights({
         const now = new Date();
         
         categories.forEach(cat => {
-            const history = cat.simuladoStats?.history || [];
+            const historyRaw = cat.simuladoStats?.history || [];
+            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
             const rawHistory = history
                 .filter(h => normalizeDate(h.date)?.getTime() <= now.getTime())
                 .map(h => ({ ...h, score: getSafeScore(h, maxScore) }));

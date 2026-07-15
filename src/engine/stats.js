@@ -26,9 +26,15 @@ export function computeImprovedRetentionProbability(historyLength, lastGapDays =
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {
-    if (!Array.isArray(history)) return [];
+    let histArray = [];
+    if (Array.isArray(history)) {
+        histArray = history;
+    } else if (history && typeof history === 'object') {
+        histArray = Object.values(history);
+    }
+    if (!histArray.length) return [];
 
-    return history
+    return histArray
         .map((h, index) => {
             // Suporte para arrays puramente numéricos (Polimorfismo)
             if (typeof h === 'number') {

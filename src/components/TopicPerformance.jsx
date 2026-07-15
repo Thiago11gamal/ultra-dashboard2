@@ -19,7 +19,8 @@ export default function TopicPerformance({ categories = [] }) {
         const scoreUnit = maxScore === 100 ? '%' : 'pts';
 
         const stats = category.simuladoStats || { history: [] };
-        const history = stats.history || [];
+        const historyRaw = stats.history || [];
+        const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
         const topicMap = {};
 
         // Loop through all history entries

@@ -31,7 +31,8 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                 }
             });
 
-            const history = cat.simuladoStats?.history || [];
+            const historyRaw = cat.simuladoStats?.history;
+            const history = historyRaw ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw)) : [];
 
             history.forEach(h => {
                 (h.topics || []).forEach(t => {
