@@ -22,6 +22,8 @@ export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestW
 // LRU Cache for urgency calculations
 export const _urgencyCache = new Map();
 export const clearUrgencyCache = () => _urgencyCache.clear();
+export const _topicsCache = new Map();
+export const clearTopicsCache = () => _topicsCache.clear();
 
 const sanitizeMinutes = (mins) => Math.min(720, Math.max(0, Number(mins) || 0));
 
@@ -184,11 +186,9 @@ export const getCoachPriorities = (topicsData) => {
     
     // [CORREÇÃO] Função de sanitização robusta para lidar com strings e separadores vírgula (Bug 4.1 Fix)
     const sanitizeNum = (val) => {
+        if (val === null || val === undefined || val === '') return NaN;
         if (typeof val === 'string') {
-            const hasComma = val.includes(',');
-            const cleanStr = hasComma
-                ? val.replace(/\./g, '').replace(',', '.')
-                : val;
+            const cleanStr = val.includes(',') ? val.replace(/\./g, '').replace(',', '.') : val;
             return Number(cleanStr);
         }
         return Number(val);
@@ -1017,7 +1017,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const lastLog = logCount > 0 ? (studyLogs[logCount-1].date || studyLogs[logCount-1].createdAt || '') : '';
 
         // Checksum injetado garante que qualquer edição recalcule a urgência
-        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}_${lastSim}_${lastLog}`;
+        const tasksHash = (category?.tasks || []).reduce((acc, t) => acc + (t.completed ? 0 : 1) + (t.priority === 'high' ? 5 : 0), 0);
+        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
         
         if (_urgencyCache.has(cacheKey)) {
             return _urgencyCache.get(cacheKey);
@@ -1142,7 +1143,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     return result;
 };
 
-const _topicsCache = new Map();
+
 
 
 const MAX_CACHE_SIZE = 50; // Metade do tamanho anterior para manter memória baixa
@@ -1692,7 +1693,8 @@ export function getBestTask(categories, excludeTaskId = null) {
 
             // Fator 3: Taxa de Erro (dentro de getBestTask)
             if (task.errorRate !== undefined && task.errorRate !== null) {
-                const validErrorRate = Number.isFinite(Number(task.errorRate)) ? Number(task.errorRate) : 0;
+                let rawError = String(task.errorRate || '0').replace('%', '').replace(',', '.').trim();
+                const validErrorRate = Number.isFinite(Number(rawError)) ? Number(rawError) : 0;
                 
                 let normalizedErrorRate;
                 normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
@@ -1792,8 +1794,9 @@ export function getCombinedHistory(history, simulados) {
     const allSimulados = [...(simulados || [])];
     
     // Adiciona os simulados oficiais ao map
-    allSimulados.forEach(s => {
-        const key = `${s.id || ''}|${s.date || s.createdAt}|${Number(s.score || 0).toFixed(2)}`;
+    allSimulados.forEach((s, idx) => {
+        const safeScore = getSafeScore(s, 100);
+        const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${Number.isFinite(safeScore) ? safeScore.toFixed(2) : '0.00'}`;
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
 

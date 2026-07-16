@@ -797,7 +797,7 @@ export function monteCarloSimulation(
         const m3 = residuals.reduce((acc, val) => acc + Math.pow(val - mean, 3), 0) / n;
         return m3 / Math.pow(sd, 3);
     }
-    const residualsSkew = calculateSkewness(safeResiduals, 0, volatility);
+    const residualsSkew = calculateSkewness(safeResiduals, 0, standardizer);
 
     const minCutoffFailures = [];
 
@@ -956,8 +956,8 @@ export function monteCarloSimulation(
         mean: meanResult,
         projectedMean: meanResult, // Standardized for EvolutionChart
         sd: finalSD,
-        ci95Low: conformal.lower || getPercentile(results, 0.025, true),
-        ci95High: conformal.upper || getPercentile(results, 0.975, true),
+        ci95Low: conformal.lower ?? getPercentile(results, 0.025, true),
+        ci95High: conformal.upper ?? getPercentile(results, 0.975, true),
         currentMean: baselineScore,
         drift: (drift * 30),
         volatility,

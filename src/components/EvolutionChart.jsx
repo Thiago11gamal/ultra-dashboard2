@@ -342,7 +342,7 @@ export default React.memo(function EvolutionChart({
             } finally {
                 if (!cancelled) setMcLoading(false);
             }
-        }, 400);
+        }, 600); // 600ms dá tempo ao utilizador para parar de trocar de matérias antes de disparar a Thread
 
         return () => { 
             cancelled = true; 

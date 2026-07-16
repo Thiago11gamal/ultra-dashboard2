@@ -473,27 +473,26 @@ export function computeBayesianLevel(
     const refDateObj = options.referenceDate ? normalizeDate(options.referenceDate) : null;
     const now = refDateObj ? refDateObj.getTime() : Date.now();
 
-    const _computeEmpiricalPrior = (histSlice, safeMaxScore, options) => {
-        if (!histSlice || histSlice.length === 0) return 0.5;
-        const validScores = histSlice
-            .map(x => getSafeScore(x, safeMaxScore))
-            .filter(Number.isFinite)
-            .map(safeScore => {
-                let rawPct = safeScore / safeMaxScore;
-                if (options.isPenalizedFormat) {
-                    rawPct = Math.max(0.05, (rawPct + 1) / 2);
-                } else {
-                    rawPct = Math.max(0, rawPct);
-                }
-                return Math.min(1, rawPct);
-            });
-            
-        if (validScores.length === 0) return 0.5;
-        const val = kahanMean(validScores);
-        return Number.isFinite(val) ? val : 0.5;
-    };
-
-    const globalEmpiricalPrior = _computeEmpiricalPrior(historySortedForGaps, safeMaxScore, options);
+    // Prior empírico calculado de forma incremental para evitar O(N²) e vazamento temporal
+    const runningPriors = historySortedForGaps ? new Float64Array(historySortedForGaps.length) : new Float64Array(0);
+    if (historySortedForGaps && historySortedForGaps.length > 0) {
+        let priorSum = 0, priorC = 0, priorCount = 0;
+        for (let j = 0; j < historySortedForGaps.length; j++) {
+            const sScore = getSafeScore(historySortedForGaps[j], safeMaxScore);
+            if (Number.isFinite(sScore)) {
+                let rawPct = sScore / safeMaxScore;
+                rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
+                const validPct = Math.min(1, rawPct);
+                
+                const y = validPct - priorC;
+                const t = priorSum + y;
+                priorC = (t - priorSum) - y;
+                priorSum = t;
+                priorCount++;
+            }
+            runningPriors[j] = priorCount > 0 ? priorSum / priorCount : 0.5;
+        }
+    }
 
     // 1. Calcule o avgTotal UMA ÚNICA VEZ antes de entrar no loop do histórico
     const avgTotal = history && history.length > 0 
@@ -560,8 +559,8 @@ export function computeBayesianLevel(
                 const nAfterDecay = Math.max(safeFloor, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * entryDecay)));
                 
                 // CORREÇÃO: A regressão à média em tempos de inatividade deve ancorar-se 
-                // no patamar consolidado do aluno, não num lançamento de moeda (0.5).
-                const priorP = globalEmpiricalPrior;
+                // no patamar consolidado do aluno até aquele momento (corte histórico).
+                const priorP = i > 0 ? runningPriors[i - 1] : runningPriors[0] || 0.5;
                 const regressedP = (currentP * entryDecay) + (priorP * (1 - entryDecay));
 
                 alpha = nAfterDecay * regressedP;
@@ -651,7 +650,7 @@ export function computeBayesianLevel(
             const nAfterDecay = Math.max(epistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
             
             // O mesmo tratamento de patamar empírico para o gap final (Hoje)
-            const empiricalPriorFinal = globalEmpiricalPrior;
+            const empiricalPriorFinal = runningPriors.length > 0 ? runningPriors[runningPriors.length - 1] : 0.5;
             const regressedP = (currentP * finalDecay) + (empiricalPriorFinal * (1 - finalDecay));
 
             alpha = nAfterDecay * regressedP;

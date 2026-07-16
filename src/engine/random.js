@@ -43,9 +43,3 @@ export function makeNormalRng(rng) {
     };
 }
 
-export function randomNormal(rng) {
-    if (rng._normalFn === undefined) {
-        rng._normalFn = makeNormalRng(rng);
-    }
-    return rng._normalFn();
-}

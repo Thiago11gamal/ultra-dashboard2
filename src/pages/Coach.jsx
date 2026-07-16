@@ -22,7 +22,7 @@ import ReliabilityCurveChart from '../components/charts/ReliabilityCurveChart';
 import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { useSubscription } from '../hooks/useSubscription';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import { getSuggestedFocus, generateDailyGoals, clearMcCache, getCombinedHistory } from '../utils/coachLogic';
+import { getSuggestedFocus, generateDailyGoals, clearMcCache, clearUrgencyCache, clearTopicsCache, getCombinedHistory } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
@@ -45,6 +45,8 @@ export default function Coach() {
     // ocupam memória desnecessariamente até o cap de 50 ser atingido.
     useEffect(() => {
         clearMcCache();
+        clearUrgencyCache();
+        clearTopicsCache();
         // BUG 1 FIX: Removed calibrationAlertCache.clear() to prevent global cache reset on mount
     }, [activeId]);
 
@@ -716,8 +718,14 @@ function RaioXDashboard({ data }) {
                 const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
                 const recent = rows.filter(h => toFiniteNumber(h?.timestamp) >= sevenDaysAgo);
                 const base = recent.length > 0 ? recent : rows;
-                const brierValues = base.map(h => Number(h?.avgBrier)).filter(Number.isFinite);
-                const penaltyValues = base.map(h => Number(h?.calibrationPenalty)).filter(Number.isFinite);
+                const brierValues = base
+                    .filter(h => h?.avgBrier !== null && h?.avgBrier !== undefined && h?.avgBrier !== '')
+                    .map(h => Number(h.avgBrier))
+                    .filter(Number.isFinite);
+                const penaltyValues = base
+                    .filter(h => h?.calibrationPenalty !== null && h?.calibrationPenalty !== undefined && h?.calibrationPenalty !== '')
+                    .map(h => Number(h.calibrationPenalty))
+                    .filter(Number.isFinite);
                 const avgBrier = brierValues.length > 0 ? brierValues.reduce((acc, val) => acc + val, 0) / brierValues.length : 0;
                 const avgPenalty = penaltyValues.length > 0 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length : 0;
                 const validCount = base.filter(h => Number.isFinite(Number(h?.avgBrier)) || Number.isFinite(Number(h?.calibrationPenalty))).length;

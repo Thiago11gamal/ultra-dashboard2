@@ -8,7 +8,7 @@ import { getSafeScore } from '../utils/scoreHelper.js';
 import { kahanMean, kahanSum } from './math/kahan.js';
 import { pruneHistoryForMemory } from './stats.js';
 
-import { safeDateParse } from '../utils/dateHelper.js';
+import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
 import { getSortedHistory } from './stats.js';
 
 function _getEntryDate(entry) {
@@ -98,8 +98,10 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
   // 3. Duplicate dates with conflicting scores (data error)
   const dateMap = new Map();
   finites.forEach(p => {
-    if (p.date && typeof p.date === 'string') {
-      const key = p.date.slice(0,10);
+    const rawDate = p.date || p.createdAt;
+    if (rawDate && typeof rawDate === 'string') {
+      const key = getDateKey(rawDate);
+      if (!key) return;
       if (!dateMap.has(key)) dateMap.set(key, []);
       dateMap.get(key).push(p.score);
     }
@@ -652,8 +654,11 @@ export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {
     const hist = categoryHistories[id] || [];
     const byMonth = {};
     for (const h of hist) {
-      if (!h?.date) continue;
-      const key = String(h.date).slice(0, 7);
+      const rawDate = h?.date || h?.createdAt;
+      if (!rawDate) continue;
+      const fullKey = getDateKey(rawDate);
+      if (!fullKey) continue;
+      const key = fullKey.slice(0, 7);
       
       // CORREÇÃO: Substituição da conversão ingénua pelo extrator oficial resiliente do ecossistema
       const s = getSafeScore(h, maxScore) / maxScore;

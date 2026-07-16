@@ -233,8 +233,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         const raw = activeContest?.coachPlan || [];
         return Array.isArray(raw) ? raw : Object.values(raw || {});
     }, [activeContest?.coachPlan]);
-    const systemAlerts = useMemo(() => coachPlanRaw.filter(task => /\[ALERTA MESTRE\]|\[STATUS\]/i.test(task.text)), [coachPlanRaw]);
-    const actionableTasks = useMemo(() => coachPlanRaw.filter(task => !/\[ALERTA MESTRE\]|\[STATUS\]/i.test(task.text)), [coachPlanRaw]);
+    const systemAlerts = useMemo(() => coachPlanRaw.filter(task => /\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')), [coachPlanRaw]);
+    const actionableTasks = useMemo(() => coachPlanRaw.filter(task => !/\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')), [coachPlanRaw]);
     const coachPlan = actionableTasks;
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();

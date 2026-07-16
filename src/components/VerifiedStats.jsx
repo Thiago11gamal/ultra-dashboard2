@@ -291,8 +291,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // Se o cadeado está aberto e o valor da Store mudou (ex: vindo de outro dispositivo)
         if (Math.abs(parsedStore - targetScore) > 0.01) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setTargetScore(parsedStore);
+            setTimeout(() => setTargetScore(parsedStore), 0);
         }
     }, [storeTarget, targetScore]);
     const [showConfig, setShowConfig] = React.useState(false);
@@ -344,7 +343,7 @@ export default function VerifiedStats({ categories = [], user }) {
         // Ativa a trava: "Não aceite valores da Store até que eu termine de salvar"
         pendingLocalSave.current = true;
         // BUG-06 FIX: Fail-safe timeout para evitar deadlock permanente se a rede falhar ou houver imprecisão
-        const safetyTimeout = setTimeout(() => {
+        setTimeout(() => {
             pendingLocalSave.current = false;
         }, 3000);
 
@@ -367,7 +366,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
         return () => {
             clearTimeout(timer);
-            clearTimeout(safetyTimeout);
+            // Deixe o safetyTimeout prosseguir e abrir o cadeado em caso de falha de rede
         };
     }, [targetScore, setUserData, storeTarget]);
 
@@ -675,7 +674,7 @@ export default function VerifiedStats({ categories = [], user }) {
                     if (tScores.length >= 3) {
                         const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
                         const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
-                        const tSD = Math.sqrt(tVar);
+                        const tSD = Math.sqrt(Math.max(0, tVar));
                         if (tSD > 0.10 * maxScore) {
                             unstableTopics.push({ name: tName, sd: tSD });
                         }
@@ -707,7 +706,7 @@ export default function VerifiedStats({ categories = [], user }) {
         // Consolidate for Global Card
         if (categoryAnalyses.length > 0) {
             const avgDelta = categoryAnalyses.reduce((a, b) => a + b.delta, 0) / categoryAnalyses.length;
-            const avgSD = Math.sqrt(categoryAnalyses.reduce((a, b) => a + (Number(b.variance) || 0), 0) / categoryAnalyses.length);
+            const avgSD = Math.sqrt(Math.max(0, categoryAnalyses.reduce((a, b) => a + (Number(b.variance) || 0), 0) / categoryAnalyses.length));
 
             // D-03 FIX: Usar MEDIANA dos estados em vez da pior matéria.
             // Antes, 1 matéria em queda deixava o card global vermelho mesmo com 4/5 indo bem.

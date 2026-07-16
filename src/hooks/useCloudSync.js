@@ -133,7 +133,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 // a ordem das propriedades das tarefas divergir entre ambientes.
                 // BUG FIX: Tarefas não têm t.name ou t.score! Usar t.text/t.title e t.priority.
                 winner.tasks = Array.from(new Map(
-                    mergedTasks.map((t, idx) => [t.id || `${t.text || t.title || ''}-${t.priority || ''}-${idx}`, t])
+                    mergedTasks.map((t) => [t.id || `${t.text || t.title || ''}-${t.priority || ''}`, t])
                 ).values());
                 
                 if (winner.simuladoStats) {

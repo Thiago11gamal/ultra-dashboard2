@@ -553,6 +553,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             const now = performance.now();
             // Cálculo de tempo decorrido com base na âncora absoluta, imune a congelamentos de rAF
             const elapsedSeconds = ((now - startTime) / 1000) * (speedRef.current || 1);
+            const oldTime = stateRefs.current.timeLeft;
             const newTime = Math.max(0, startLeft - elapsedSeconds);
             stateRefs.current.timeLeft = newTime;
 
@@ -566,7 +567,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             const displaySecond = Math.ceil(newTime);
  
             // 🛡️ [SHIELD-DESYNC-FIX] Sincroniza o estado do React apenas na mudança de segundo inteiro
-            if (Math.floor(stateRefs.current.timeLeft) !== Math.floor(newTime)) {
+            if (Math.floor(oldTime) !== Math.floor(newTime)) {
                 setTimeLeft(newTime); 
             }
 
