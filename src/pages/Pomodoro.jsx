@@ -38,8 +38,10 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
 
         (studyLogs || []).forEach(log => {
             if (!log || !log.date) return;
-            const d = new Date(log.date);
+            const d = new Date(log.date || log.createdAt);
             const t = d.getTime();
+            if (Number.isNaN(t)) return; // Prevents "Invalid time value" from d.toISOString()
+
             const mins = Number(log.minutes) || 0;
             
             totalStudyMins += mins;
@@ -88,7 +90,8 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let recentSimulados = 0;
         (simulados || []).forEach(s => {
             if (!s) return;
-            if (s.date && new Date(s.date).getTime() >= startOfMonth) recentSimulados++;
+            const sTime = s.date ? new Date(s.date).getTime() : NaN;
+            if (!Number.isNaN(sTime) && sTime >= startOfMonth) recentSimulados++;
             
             // Aceita score numérico (0-100) ou acertos brutos
             const score = s.score || s.acertos || 0;
