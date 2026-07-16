@@ -748,7 +748,10 @@ export function monteCarloSimulation(
             ? (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2
             : gaps[Math.floor(gaps.length / 2)];
     }
-    const dailyVolatility = volatility / Math.sqrt(Math.max(1, medianGap));
+    // BUG-FIX: A volatilidade estocástica diária para um processo de Ornstein-Uhlenbeck
+    // deve ser calibrada para que a variância estacionária convirja para a variância empírica.
+    // Fórmula teórica: Var_stat = sigma^2 / (2 * theta). Logo, sigma = vol_empírica * sqrt(2 * theta).
+    const dailyVolatility = Math.max(0.01, volatility * Math.sqrt(2 * Math.max(0.005, thetaOU)));
 
     // [BUG-1 FIX] Usar o damping adaptativo em vez do hardcode de 45.
     // Com poucos dados/alta vol, dampingBase ≈ 30 (amortece rápido).

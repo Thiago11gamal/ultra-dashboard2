@@ -114,14 +114,16 @@ export function conformalPredictionInterval(residuals = [], alpha = 0.1, pointEs
   }
   const sortedRes = [...clean].sort((a, b) => a - b);
   const n = sortedRes.length;
-  // Conformal quantile (slightly conservative)
-  const qIdx = Math.ceil((n + 1) * (1 - alpha)) - 1;
-  const q = sortedRes[Math.min(Math.max(0, qIdx), n - 1)] || 0;
+  // Conformal quantiles (asymmetric)
+  const qLowIdx = Math.floor(n * (alpha / 2));
+  const qHighIdx = Math.ceil(n * (1 - alpha / 2)) - 1;
+  const qLow = sortedRes[Math.max(0, qLowIdx)] || 0;
+  const qHigh = sortedRes[Math.min(n - 1, qHighIdx)] || 0;
 
   return {
-    lower: pointEstimate - q,
-    upper: pointEstimate + q,
-    conformalQuantile: Number(q.toFixed(2)),
+    lower: pointEstimate + qLow,
+    upper: pointEstimate + qHigh,
+    conformalQuantile: Number(Math.max(Math.abs(qLow), Math.abs(qHigh)).toFixed(2)),
     n,
     alpha
   };
