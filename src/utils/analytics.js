@@ -136,7 +136,14 @@ export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompleted
         return sum + getStudyMinutes(log);
     }, 0);
 
-    return Math.floor(minutesToday / workDuration) + Math.max(0, Number(extraCompletedCycles) || 0);
+    const pomodorosFromLogs = Math.floor(minutesToday / workDuration);
+    // BUG-8 FIX: extraCompletedCycles representa ciclos da sessão ativa que podem
+    // já estar contidos nos logs (se foram salvos durante a sessão). Para evitar
+    // contagem dupla, somamos apenas os ciclos que EXCEDEM os já contabilizados nos logs.
+    const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
+    const netExtra = Math.max(0, safeExtra - pomodorosFromLogs);
+
+    return pomodorosFromLogs + netExtra;
 };
 
 /** Total de pomodoros (vida útil) baseado em minutos reais, não contagem de sessões. */

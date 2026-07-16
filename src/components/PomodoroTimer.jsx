@@ -177,6 +177,12 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
 
     const [syncChannel] = useState(() => typeof window !== 'undefined' ? new BroadcastChannel('pomodoro_sync') : null);
+    // BUG-6 FIX: Cleanup do BroadcastChannel no criador (ownership correto)
+    useEffect(() => {
+        return () => {
+            try { syncChannel?.close(); } catch { /* já fechado */ }
+        };
+    }, [syncChannel]);
     const speedRef = useRef(1);
     useEffect(() => {
         speedRef.current = speed;
@@ -195,6 +201,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
     const transitionTimeoutRef = useRef(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
+    // BUG-10 FIX: Ref para evitar closure stale no guard do transitionSession
+    const isTransitioningRef = useRef(false);
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
     const alarmAudioRef = useRef(null);
@@ -439,7 +447,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     }, [savePomodoroState]);
 
     const transitionSession = useCallback((completedMode, source = 'natural') => {
-        if (isTransitioning) return;
+        // BUG-10 FIX: Usar ref para guard — imune a closure stale
+        if (isTransitioningRef.current) return;
+        isTransitioningRef.current = true;
         setIsTransitioning(true);
 
         setIsRunning(false);
@@ -484,9 +494,15 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             }
         }
 
+        // BUG-3 FIX: Ler accumulatedMinutes ANTES de chamar completePomodoroPhase,
+        // pois o slice pode zerar o valor durante a transição (ex: targetCycles===1).
         const safeSessionMinutes = Number.isFinite(sessionMinutes) ? sessionMinutes : 0;
         const currentAccumulated = Number.isFinite(stateRefs.current.accumulatedMinutes) ? stateRefs.current.accumulatedMinutes : 0;
-        const finalMinutes = Number((currentAccumulated + safeSessionMinutes).toFixed(2));
+        // BUG-4 FIX: Só acumula minutos anteriores se estamos finalizando um bloco de trabalho.
+        // Em skip de pausa, currentAccumulated contém minutos já reportados — não re-somar.
+        const finalMinutes = completedMode === 'work'
+            ? Number((currentAccumulated + safeSessionMinutes).toFixed(2))
+            : 0;
 
         const targetSubject = activeSubjectRef.current;
 
@@ -530,13 +546,14 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             }
 
             setIsTransitioning(false);
+            isTransitioningRef.current = false;
 
             if (isEndingCycle) {
                 // B-08 FIX: Passar flag de conclusão natural
                 safeOnFullCycleComplete(finalMinutes, source === 'natural');
             }
         }, 50);
-    }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, safeOnFullCycleComplete, onSessionComplete, syncChannel, isTransitioning]);
+    }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, safeOnFullCycleComplete, onSessionComplete, syncChannel]);
 
     // Motor de Animação Blindado e Otimizado (Resiliente a Abas em Segundo Plano)
     // O loop só roda quando isRunning é true, poupando CPU/GPU significativamente.
@@ -627,10 +644,12 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (rafId) cancelAnimationFrame(rafId);
             if (timeoutId) clearTimeout(timeoutId);
         };
-    }, [isRunning, safeSettings, transitionSession, speed]);
+    // BUG-7 FIX: Removido 'speed' das dependências — speedRef.current já é lido
+    // dentro do loop, evitando restart desnecessário que reseta a âncora de tempo.
+    }, [isRunning, safeSettings, transitionSession]);
 
     const reset = () => {
-        if (isTransitioning) return;
+        if (isTransitioningRef.current) return;
         if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (error) {
             console.error('Failed to reset alarm audio:', error);
         } }
@@ -701,7 +720,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     };
 
     const skip = () => {
-        if (isTransitioning) return;
+        if (isTransitioningRef.current) return;
         if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (error) {
             console.error('Failed to reset alarm audio on skip:', error);
         } }

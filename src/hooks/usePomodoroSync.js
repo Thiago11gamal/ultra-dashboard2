@@ -24,12 +24,9 @@ export function usePomodoroSync({
 }) {
     const syncPomodoroState = useAppStore(state => state.syncPomodoroState);
 
-    useEffect(() => {
-        if (!syncChannel) return;
-        return () => {
-            syncChannel.close();
-        };
-    }, [syncChannel]);
+    // BUG-6 FIX: Removido syncChannel.close() daqui. A responsabilidade de fechar
+    // o canal pertence a quem o criou (PomodoroTimer), evitando double-close
+    // em cenários de remontagem.
 
     useEffect(() => {
         if (!syncChannel) return;

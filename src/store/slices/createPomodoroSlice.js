@@ -1,3 +1,13 @@
+// BUG-9 FIX: Função reutilizável para extrair categoria do texto da tarefa
+const extractCategoryFromTask = (task) => {
+    if (task.catName) return task.catName;
+    if (task.category) return task.category;
+    const t = task.text || task.title || '';
+    const idx = t.indexOf(':');
+    const cat = idx > -1 ? t.substring(0, idx).trim() : t;
+    return (/^\d+$/.test(cat) || !cat) ? 'Geral' : cat;
+};
+
 export const createPomodoroSlice = (set, get) => ({
     setPomodoroActiveSubject: (subject) => {
         set((state) => {
@@ -118,9 +128,11 @@ export const createPomodoroSlice = (set, get) => ({
                 p.completedCycles = currentCycles;
 
                 // Regra UX: se o plano tem apenas 1 ciclo, encerramos imediatamente.
+                // BUG-2 FIX: Não zeramos accumulatedMinutes aqui — o caller (transitionSession)
+                // precisa ler o valor antes do reset. O reset acontece no fluxo natural
+                // (setPomodoroActiveSubject(null) ou advanceNeuralQueue).
                 if (targetCycles === 1) {
                     p.sessions = 1;
-                    p.accumulatedMinutes = 0;
                     p.mode = 'work';
                 } else {
                     const longBreakAfter = settings.longBreakAfter || 4;
@@ -161,10 +173,12 @@ export const createPomodoroSlice = (set, get) => ({
                 // BUG FIX: Subtrair o ciclo que foi indevidamente contabilizado como finalizado
                 p.completedCycles = Math.max(0, (p.completedCycles || 0) - 1);
             } else if (p.sessions > 1) {
-                // Se está em trabalho, volta para a pausa da sessão anterior
-                p.sessions = Math.max(1, p.sessions - 1);
+                // BUG-5 FIX: Usar completedCycles (ciclos realmente finalizados) para
+                // determinar se a pausa anterior era longa, não sessions pós-decremento.
                 const longBreakAfter = settings.longBreakAfter || 4;
-                p.mode = (p.sessions > 0 && p.sessions % longBreakAfter === 0)
+                const previousCycleIndex = p.completedCycles; // ciclos terminados antes deste work
+                p.sessions = Math.max(1, p.sessions - 1);
+                p.mode = (previousCycleIndex > 0 && previousCycleIndex % longBreakAfter === 0)
                     ? 'long_break' : 'break';
             } else if (p.completedCycles > 0) {
                 // Volta para a pausa do ciclo anterior
@@ -209,12 +223,7 @@ export const createPomodoroSlice = (set, get) => ({
         const subject = {
             taskId: task.id || task.text,
             task: task.text || task.title,
-            category: task.catName || task.category || (() => {
-                const t = task.text || task.title || '';
-                const idx = t.indexOf(':');
-                const cat = idx > -1 ? t.substring(0, idx).trim() : t;
-                return (/^\d+$/.test(cat) || !cat) ? 'Geral' : cat;
-            })(),
+            category: extractCategoryFromTask(task),
             categoryId: task.categoryId || 'default',
             priority: 'high',
             sessionInstanceId: Date.now().toString(),
@@ -252,12 +261,7 @@ export const createPomodoroSlice = (set, get) => ({
         const nextSubject = {
             taskId: nextTask.id || nextTask.text,
             task: nextTask.text || nextTask.title,
-            category: nextTask.catName || nextTask.category || (() => {
-                const t = nextTask.text || nextTask.title || '';
-                const idx = t.indexOf(':');
-                const cat = idx > -1 ? t.substring(0, idx).trim() : t;
-                return (/^\d+$/.test(cat) || !cat) ? 'Geral' : cat;
-            })(),
+            category: extractCategoryFromTask(nextTask),
             categoryId: nextTask.categoryId || 'default',
             priority: 'high',
             sessionInstanceId: Date.now().toString(),

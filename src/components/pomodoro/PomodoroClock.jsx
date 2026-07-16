@@ -40,8 +40,9 @@ export function PomodoroClock({
                 <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-white">PAUSA</span>
             </div>
 
+            {/* BUG-11 FIX: Adicionado viewBox para escalar corretamente em mobile */}
             <div className="relative mt-12 mb-8 rounded-full">
-                <svg className="w-[min(74vw,16rem)] h-[min(74vw,16rem)] sm:w-64 sm:h-64 transform -rotate-90 relative z-10">
+                <svg viewBox="0 0 256 256" className="w-[min(74vw,16rem)] h-[min(74vw,16rem)] sm:w-64 sm:h-64 transform -rotate-90 relative z-10">
                     <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="14" strokeLinecap="round" />
                     <defs>
                         <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -49,6 +50,9 @@ export function PomodoroClock({
                             <stop offset="100%" stopColor={mode === 'work' ? '#2563eb' : (mode === 'long_break' ? '#9333ea' : '#10b981')} />
                         </linearGradient>
                     </defs>
+                    {/* BUG-1 FIX: Fórmula corrigida — offset = CIRCUMFERENCE * fracção restante.
+                       Quando timeLeft === totalTime, offset = CIRCUMFERENCE (anel vazio = nada avançado).
+                       Quando timeLeft === 0, offset = 0 (anel cheio = tudo completado). */}
                     <circle
                         ref={svgCircleRef}
                         cx="128" cy="128" r="110" fill="none"
