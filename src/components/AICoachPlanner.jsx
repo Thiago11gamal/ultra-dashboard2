@@ -203,13 +203,9 @@ export default function AICoachPlanner() {
         const newCols = { ...columns, [source.droppableId]: startList, [destination.droppableId]: finishList };
         setColumns(newCols);
 
-        const updatedPlanner = { ...coachPlanner };
-        if (source.droppableId !== 'backlog') updatedPlanner[source.droppableId] = startList;
-        if (destination.droppableId !== 'backlog') updatedPlanner[destination.droppableId] = finishList;
-
+        // BUG-6 FIX: Use Immer mutation (consistent with Coach.jsx) and derive from prev.coachPlanner
+        // to avoid stale data during rapid drags
         if (destination.droppableId === 'backlog' || source.droppableId === 'backlog') {
-            // BUG-5 FIX: Reconstruir o coachPlan usando o estado local sincronizado (newCols)
-            // em vez do coachPlan da store que pode estar stale durante drags rápidos.
             // Preserve system alerts that were filtered out of the draggable columns
             const systemAlerts = (coachPlan || []).filter(t => t && /\[ALERTA MESTRE\]|\[STATUS\]/i.test(t.text));
 
@@ -225,9 +221,25 @@ export default function AICoachPlanner() {
                 ...(newCols.sun || [])
             ];
 
-            setData(prev => prev ? { ...prev, coachPlanner: updatedPlanner, coachPlan: newCoachPlan } : prev);
+            setData(prev => {
+                if (!prev) return;
+                // Derive from prev.coachPlanner (not closure) to avoid stale data
+                const freshPlanner = { ...(prev.coachPlanner || {}) };
+                if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
+                if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
+                prev.coachPlanner = freshPlanner;
+                prev.coachPlan = newCoachPlan;
+                return; // Immer: explicit void return
+            });
         } else {
-            setData(prev => prev ? { ...prev, coachPlanner: updatedPlanner } : prev);
+            setData(prev => {
+                if (!prev) return;
+                const freshPlanner = { ...(prev.coachPlanner || {}) };
+                if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
+                if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
+                prev.coachPlanner = freshPlanner;
+                return; // Immer: explicit void return
+            });
         }
         setIsDragging(false);
     };

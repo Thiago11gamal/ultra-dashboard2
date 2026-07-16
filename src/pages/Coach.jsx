@@ -177,6 +177,7 @@ export default function Coach() {
             reliability
         };
 
+        // BUG-3 FIX: Immer mutation pattern — explicit return undefined to document intent
         setData(prev => {
             if (!prev) return;
             const current = prev.calibrationHistoryByCategory || {};
@@ -254,6 +255,7 @@ export default function Coach() {
             prev.calibrationHistoryByCategory[normalizedCategoryId] = nextHistory;
             prev.calibrationOps = calibrationOps;
             prev.calibrationAuditLog = calibrationAuditLog;
+            return; // Immer: explicit void return — mutation is intentional
         });
 
         if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
@@ -437,6 +439,7 @@ export default function Coach() {
             const targetScore = userProfile?.targetProbability ?? 85;
             const collectedMetrics = [];
 
+            // BUG-1 FIX: Use categories, history, studyLogs directly (now in dep array)
             const newTasks = generateDailyGoals(
                 categories,
                 history,
@@ -445,7 +448,7 @@ export default function Coach() {
                     user: data.user,
                     targetScore,
                     maxScore: data.maxScore ?? 100,
-                    calibrationHistoryByCategory: calibrationHistoryRef.current, // FIX: Uso de Ref para evitar Stale Closure
+                    calibrationHistoryByCategory: calibrationHistoryRef.current,
                     onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                     config: {
                         MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
@@ -454,11 +457,13 @@ export default function Coach() {
             );
             
             if (newTasks.length) {
+                // BUG-3 FIX: Immer mutation — explicit void return
                 setData(prev => { 
                     if(prev) {
                         prev.coachPlan = newTasks; 
                         prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
                     }
+                    return; // Immer: explicit void return — mutation is intentional
                 });
                 showToastRef.current('Sugestões geradas!', 'success');
             } else {
@@ -474,11 +479,18 @@ export default function Coach() {
             // um ID de timeout expirado que mascararia novos agendamentos.
             timeoutRef.current = null;
         }, 1500);
-    }, [data, coachLoading, setData, persistCalibrationMetric, userProfile?.targetProbability]);
+    // BUG-1 FIX: Added categories, history, studyLogs to prevent stale closure
+    }, [data, coachLoading, setData, persistCalibrationMetric, userProfile?.targetProbability, categories, history, studyLogs]);
 
+    // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
     const handleClearHistory = useCallback(() => {
-        setData(prev => { if (prev) prev.coachPlan = []; });
-        useAppStore.getState().updateCoachPlanner({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] });
+        setData(prev => {
+            if (prev) {
+                prev.coachPlan = [];
+                prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+            }
+            return; // Immer: explicit void return — mutation is intentional
+        });
     }, [setData]);
 
     useEffect(() => {
@@ -679,10 +691,23 @@ function RaioXDashboard({ data }) {
         return Number.isFinite(n) ? n : fallback;
     };
 
+    // BUG-7 FIX: Derive 'now' from latest calibration timestamp to avoid impure Date.now() in useMemo.
+    // Falls back to a coarse epoch bucket (per-minute) only when no timestamps exist,
+    // which is stable enough to not cause unnecessary recomputation.
     const calibrationSummary = useMemo(() => {
         const historyByCategory = data?.calibrationHistoryByCategory || {};
-        // eslint-disable-next-line react-hooks/purity
-        const now = Date.now();
+        // Derive 'now' from the data itself: use the newest timestamp across all categories
+        let latestTs = 0;
+        for (const entries of Object.values(historyByCategory)) {
+            if (Array.isArray(entries)) {
+                for (const e of entries) {
+                    const ts = toFiniteNumber(e?.timestamp);
+                    if (ts > latestTs) latestTs = ts;
+                }
+            }
+        }
+        // If no timestamps exist, use a coarse epoch (won't cause re-renders since dep didn't change)
+        const now = latestTs > 0 ? latestTs : Math.floor(Date.now() / 60000) * 60000;
         return Object.entries(historyByCategory)
             .map(([categoryId, history]) => {
                 const rows = Array.isArray(history) ? history : [];

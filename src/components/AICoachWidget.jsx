@@ -14,7 +14,8 @@ import { displaySubject } from '../utils/displaySubject';
 
 function renderRecommendation(text) {
     const safeText = String(text || '');
-    const parts = safeText.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+    // BUG-04 FIX: Unified with AICoachView — non-greedy .*? handles special chars inside bold
+    const parts = safeText.split(/(\*\*.*?\*\*)/g).filter(Boolean);
     return parts.map((part, idx) => {
         if (part.startsWith('**') && part.endsWith('**')) {
             return <strong key={`rec-${idx}`} className="text-white not-italic">{part.slice(2, -2)}</strong>;
@@ -120,7 +121,8 @@ function MonteCarloGauge({ mc }) {
             
             <div className="relative z-10 flex justify-between items-end mb-2">
                 <div>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">Projeção MC</span>
+                    {/* BUG-11 FIX: Clarify this is per-subject, not global */}
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">Projeção MC (Matéria)</span>
                     <span className="text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
                 </div>
                 <div className="text-right">

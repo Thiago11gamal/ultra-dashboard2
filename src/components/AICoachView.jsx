@@ -560,50 +560,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     </Motion.div>
                 )}
 
-                {viewMode === 'list' && (
-                    <Motion.div 
-                        key="list"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"
-                    >
-                        {(() => {
-                            const allAssignedIds = new Set();
-                            Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
-                            const listTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
-                            
-                            if (listTasks.length === 0) {
-                                return (
-                                    <div className="md:col-span-2 mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
-                                        <Target size={32} className="text-slate-600 mx-auto mb-4" />
-                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco pendente fora do planner</p>
-                                    </div>
-                                );
-                            }
-
-                            const leftColumn = listTasks.filter((_, idx) => idx % 2 === 0);
-                            const rightColumn = listTasks.filter((_, idx) => idx % 2 !== 0);
-
-                            return [leftColumn, rightColumn].map((columnTasks, columnIdx) => (
-                                <div key={`column-${columnIdx}`} className="flex flex-col gap-6">
-                                    {columnTasks.map((task, idx) => {
-                                        const visualIdx = (idx * 2) + columnIdx;
-                                        return (
-                                            <AICoachCard
-                                                key={getSafeId(task) || `${columnIdx}-${idx}`}
-                                                task={task}
-                                                idx={visualIdx}
-                                                onStartPomodoro={handleStartNeural}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            ));
-                        })()}
-                    </Motion.div>
-                )}
             </AnimatePresence>
         </div>
     );

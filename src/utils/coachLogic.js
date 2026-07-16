@@ -286,7 +286,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const catNormalized = normalize(safeCategory?.name || "Sem Nome");
     const safeSimulados = Array.isArray(simulados) ? simulados : Object.values(simulados || {});
-    const relevantSimulados = safeSimulados.filter(s => s && normalize(s.subject || "") === catNormalized);
+    let relevantSimulados = safeSimulados.filter(s => s && normalize(s.subject || "") === catNormalized);
     relevantSimulados.sort((a, b) => {
         const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
         const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
@@ -297,8 +297,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         ? normalizeDate(relevantSimulados[relevantSimulados.length - 1].date || relevantSimulados[relevantSimulados.length - 1].createdAt) 
         : null) || normalizeDate(referenceDate) || referenceDate;
 
+    // BUG-10 FIX: Use immutable slice instead of side-effect mutation of array length
     if (relevantSimulados.length > 50) {
-        relevantSimulados.length = 50; 
+        relevantSimulados = relevantSimulados.slice(0, 50);
     }
 
     const simuladosWithMaxScore = relevantSimulados;
@@ -1453,6 +1454,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
+        // BUG-9 FIX: Add timestamp suffix to prevent duplicate React keys across regeneration cycles
+        const mcIdSuffix = Date.now().toString(36);
         const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
         const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
@@ -1461,7 +1464,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
-                id: `${cat.id}-mc-danger-${mcProbKey}`,
+                id: `${cat.id}-mc-danger-${mcProbKey}-${mcIdSuffix}`,
                 text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
@@ -1477,7 +1480,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE) {
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
-                id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}`,
+                id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}-${mcIdSuffix}`,
                 text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
@@ -1493,7 +1496,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         else if (mc && mc.probabilityRaw >= adaptiveSafe) {
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
-                id: `${cat.id}-mc-safe-${mcProbKey}`,
+                id: `${cat.id}-mc-safe-${mcProbKey}-${mcIdSuffix}`,
                 text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
                 completed: false,
                 categoryId: cat.id, category: cat.name, catName: cat.name,
