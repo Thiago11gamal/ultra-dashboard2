@@ -707,6 +707,7 @@ function RaioXDashboard({ data }) {
             }
         }
         // If no timestamps exist, use a coarse epoch (won't cause re-renders since dep didn't change)
+        // eslint-disable-next-line react-hooks/purity
         const now = latestTs > 0 ? latestTs : Math.floor(Date.now() / 60000) * 60000;
         return Object.entries(historyByCategory)
             .map(([categoryId, history]) => {

@@ -26,9 +26,9 @@ export default function Simulados() {
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
 
-    const categoriesArray = React.useMemo(() => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}), [data?.categories]);
-    const simuladoRowsArray = React.useMemo(() => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}), [data?.simuladoRows]);
-    const studySessionsArray = React.useMemo(() => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}), [data?.studySessions]);
+    const categoriesArray = React.useMemo(() => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}), [data]);
+    const simuladoRowsArray = React.useMemo(() => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}), [data]);
+    const studySessionsArray = React.useMemo(() => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}), [data]);
 
     const displayRows = React.useMemo(() => {
         if (!categoriesArray.length) return [];
@@ -96,7 +96,7 @@ export default function Simulados() {
             }
         });
         return rows;
-    }, [data]);
+    }, [categoriesArray, simuladoRowsArray]);
 
     const lastSimuladoRows = React.useMemo(() => {
         if (!simuladoRowsArray.length) return [];
@@ -126,7 +126,7 @@ export default function Simulados() {
         } else {
             return rows.filter(r => r.date === lastRef.date);
         }
-    }, [data]);
+    }, [simuladoRowsArray]);
 
     const [mode, setMode] = useState('ai-generator'); // 'ai-generator' | 'analyzer' | 'history'
     const [subMode, setSubMode] = useState('ia'); // 'ia' | 'manual'
