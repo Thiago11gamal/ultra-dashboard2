@@ -33,9 +33,7 @@ export default function Stats() {
     const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories]);
 
     // 🎯 FIX LÓGICO: Gráficos de analytics precisam ESTRITAMENTE de logs para serem montados
-    const hasStudyLogs =
-        focusData.some(day => Number(day?.horasEstudadas) > 0) ||
-        subjectData.some(subject => Number(subject?.horas) > 0);
+    const hasStudyLogs = studyLogs.length > 0;
     const hasSimuladoHistory = Array.isArray(categories) && categories.some(category => {
         const h = category?.simuladoStats?.history;
         return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);

@@ -192,7 +192,7 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
-        const cat = safeCategories.find(c => c.id === log.categoryId);
+        const cat = safeCategories.find(c => String(c.id) === String(log.categoryId));
         const name = cat ? cat.name : 'Outros';
         const actualMinutes = sanitizeMinutes(log.minutes ?? log.duration);
         if (actualMinutes <= 0) return;
