@@ -871,11 +871,10 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         recordMonteCarloSnapshot
     });
 
-    return useMemo(() => ({
+    const memoizedStats = useMemo(() => ({
         statsData, // Contains calibrated variances
         simulationData: effectiveSimulationData,
         perSubjectProbs,
-        isFlashing,
         projectDays,
         debouncedTarget,
         effectiveWeights,
@@ -918,6 +917,11 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         calibrationSummary,
         modelHealth
     ]);
+
+    return useMemo(() => ({
+        ...memoizedStats,
+        isFlashing
+    }), [memoizedStats, isFlashing]);
 }
 
 // 🎯 EFFECT: Persistência de Histórico de Projeção (Snapshots)
