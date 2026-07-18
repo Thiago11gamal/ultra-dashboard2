@@ -48,7 +48,6 @@ export function truncatedNormalMean(mean: number, sd: number, a: number, b: numb
     const truncMean = mean + sd * (pdfAlpha - pdfBeta) / denominator;
     return Math.max(a, Math.min(b, truncMean));
 }
-
 const rngCache = new WeakMap<Function, number>();
 
 export const generateGaussian = (rng: () => number = Math.random): number => {

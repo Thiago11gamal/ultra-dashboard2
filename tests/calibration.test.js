@@ -46,7 +46,6 @@ describe('Calibration Utilities', () => {
             { avgBrier: 0.18, timestamp: now - 3 * 86400000 }
         ];
         const params = computeRollingCalibrationParams(hist, { baseline: 0.18, maxPenalty: 0.25 });
-        
         // Assert confidenceFactor is not 0 (meaning we hit the time-decay branch)
         expect(params.confidenceFactor).toBeGreaterThan(0);
         expect(params.baseline).toBeGreaterThanOrEqual(0.12);
