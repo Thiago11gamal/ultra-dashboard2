@@ -73,15 +73,14 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
 
     return (
         <div
-            className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
-                isPriority 
-                    ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]' 
+            className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${isPriority
+                    ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]'
                     : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
-            }`}
+                }`}
         >
             {/* Efeitos Visuais de Fundo (Glassmorphism & Cinematic Glow) */}
             <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] via-[#0a0c14]/0 to-transparent ${isPriority ? 'from-rose-900/30' : col.glow}`} />
-            
+
             {/* Efeito de Sirene/Alerta Cinematico para Cards Críticos */}
             {isPriority && (
                 <>
@@ -105,16 +104,15 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                         </div>
                     </div>
                 </div>
-                <button 
+                <button
                     onClick={(e) => {
                         e.stopPropagation();
                         onStartPomodoro(task);
                     }}
-                    className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${
-                        isPriority 
+                    className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${isPriority
                             ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
                             : `bg-white/[0.03] border-white/[0.08] text-slate-300 ${col.btnHover}`
-                    }`}
+                        }`}
                 >
                     <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Iniciar</span>
                     <Play size={13} fill="currentColor" className="transition-colors" />
@@ -164,8 +162,8 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             )}
             {task.analysis && (
                 <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.04]">
-                    <button 
-                        onClick={() => setIsExpanded(!isExpanded)} 
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
                         className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-300 outline-none focus:outline-none ${isExpanded ? 'bg-indigo-500/[0.04] border-indigo-500/10' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'}`}
                     >
                         <div className="flex items-center gap-3">
@@ -178,7 +176,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     </button>
                     <AnimatePresence>
                         {isExpanded && (
-                            <Motion.div 
+                            <Motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
@@ -244,7 +242,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         const allAssignedIds = new Set();
         Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
         const unallocatedTasks = coachPlan.filter(t => !allAssignedIds.has(getSafeId(t)));
-        
+
         // BUG FIX: Se a tarefa clicada não estiver nos não-alocados (ex: foi movida), 
         // usamos a lista unallocated como base, mas buscamos o índice correto.
         let targetIndex = unallocatedTasks.findIndex(t => getSafeId(t) === getSafeId(task));
@@ -254,7 +252,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
         if (targetIndex === -1) {
             // BUG-DESYNC FIX: Se não estiver nos não-alocados, buscar ativamente em qual dia do planner está
-            const dayEntry = Object.entries(coachPlanner).find(([, tasks]) => 
+            const dayEntry = Object.entries(coachPlanner).find(([, tasks]) =>
                 (tasks || []).some(t => getSafeId(t) === getSafeId(task))
             );
             if (dayEntry) {
@@ -270,10 +268,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
         if (!Array.isArray(sessionTasks) || sessionTasks.length === 0) return;
         const safeIndex = targetIndex !== -1 ? targetIndex : 0;
-        
+
         // FIX: Inject sourceContext just like in AICoachPlanner.jsx
         const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext }));
-        
+
         startNeuralSession(sessionWithContext, safeIndex);
         navigate('/pomodoro');
     };
@@ -298,7 +296,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-3xl shadow-inner relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32 pointer-events-none"></div>
                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] -ml-32 -mb-32 pointer-events-none"></div>
-                    
+
                     <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
@@ -328,7 +326,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     Pendências
                                 </button>
                             </div>
-                            
+
                             <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={handleExport}
@@ -355,7 +353,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             disabled={loading}
                             className="group relative w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none animate-pulse" />
                             {loading ? (
                                 <>
@@ -381,7 +378,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
             <AnimatePresence mode="wait">
                 {viewMode === 'cards' && (
-                    <Motion.div 
+                    <Motion.div
                         key="cards"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -406,7 +403,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 const allAssignedIds = new Set();
                                 Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
                                 const cardTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
-                                
+
                                 if (cardTasks.length === 0) {
                                     return (
                                         <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
@@ -434,7 +431,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 )}
 
                 {viewMode === 'planner' && (
-                    <Motion.div 
+                    <Motion.div
                         key="planner"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -442,17 +439,17 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         transition={{ duration: 0.2, ease: "easeOut" }}
                     >
                         <div className="space-y-6 mb-8">
-                    {suggestedFocus ? (
-                        <div className="w-full">
-                            <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
-                        </div>
-                    ) : (
-                        <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
-                            <AlertCircle size={20} className="mx-auto mb-3 text-slate-600" />
-                            <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
-                            <p className="text-[10px] text-slate-500 mt-1">Recalcule a estratégia após novos simulados.</p>
-                        </div>
-                    )}
+                            {suggestedFocus ? (
+                                <div className="w-full">
+                                    <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
+                                </div>
+                            ) : (
+                                <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
+                                    <AlertCircle size={20} className="mx-auto mb-3 text-slate-600" />
+                                    <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
+                                    <p className="text-[10px] text-slate-500 mt-1">Recalcule a estratégia após novos simulados.</p>
+                                </div>
+                            )}
                         </div>
 
                         {systemAlerts.length > 0 && (
@@ -462,12 +459,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     const separatorIndex = cleanText.indexOf(':');
                                     const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
                                     const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
-                                    
+
                                     let type = 'info';
                                     let titlePart = message;
                                     let descPart = '';
                                     let actionDesc = '';
-                                    
+
                                     if (/VETOR CRÍTICO/i.test(message)) {
                                         type = 'danger';
                                         titlePart = "Vetor Crítico";
@@ -495,7 +492,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     return (
                                         <div key={alertTask.id} className={`relative p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
                                             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
-                                            
+
                                             <div className="flex items-start gap-4">
                                                 <div className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
                                                     <t.Icon size={24} className={t.isCritical ? "animate-pulse" : ""} />
