@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { 
-    Brain, 
-    Zap, 
-    AlertCircle, 
+import {
+    Brain,
+    Zap,
+    AlertCircle,
     ArrowUpRight,
     ShieldCheck,
     Dna,
@@ -77,29 +77,29 @@ export default function Coach() {
     useEffect(() => {
         showToastRef.current = showToast;
     }, [showToast]);
-    
+
     const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
     const history = useMemo(() => Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {}), [rawHistory]);
-    
+
     const rawSimulados = data?.simulados || EMPTY_ARRAY;
     const simulados = useMemo(() => Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {}), [rawSimulados]);
-    
+
     const rawCategories = data?.categories || EMPTY_ARRAY;
     const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
         ...c,
         tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
     })), [rawCategories]);
-    
+
     const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
     const flashcardDecks = useMemo(() => Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {}), [rawFlashcardDecks]);
-    
+
     const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
     const studyLogs = useMemo(() => Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {}), [rawStudyLogs]);
     const flashcardDue = useMemo(() => {
         return getFlashcardDueTodayCount(flashcardDecks);
     }, [flashcardDecks]);
     const userProfile = data?.user;
-    
+
     const updateCoachScore = useAppStore(state => state.updateCoachScore);
     const { isPremium } = useSubscription(userProfile);
     const navigate = useNavigate();
@@ -107,7 +107,7 @@ export default function Coach() {
     const [activeTab, setActiveTab] = useState('insights');
 
     const safeActiveTab = activeTab === 'analytics' ? 'analytics' : 'insights';
-    
+
     useEffect(() => {
         if (activeTab && activeTab !== safeActiveTab) {
             console.warn(`[Coach.jsx] Estado de aba inválido recebido: ${activeTab}, ativando fallback.`);
@@ -125,8 +125,8 @@ export default function Coach() {
 
     useEffect(() => {
         isMountedRef.current = true;
-        return () => { 
-            isMountedRef.current = false; 
+        return () => {
+            isMountedRef.current = false;
             if (generationTimeoutsRef.current && generationTimeoutsRef.current.length > 0) {
                 generationTimeoutsRef.current.forEach(clearTimeout);
                 generationTimeoutsRef.current = [];
@@ -184,7 +184,7 @@ export default function Coach() {
             if (!prev) return;
             const current = prev.calibrationHistoryByCategory || {};
             const categoryHistory = current[normalizedCategoryId] || [];
-            
+
             // Verificação de redundância (Brier + ECE + penalty + probabilidade)
             // Evita descartar eventos onde o Brier ficou estável, mas ECE/penalty mudaram.
             const lastEntry = categoryHistory[categoryHistory.length - 1];
@@ -294,7 +294,7 @@ export default function Coach() {
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
     // BUG-16 FIX: Bind maxScore dynamically to support contests scaled > 100
     const currentMaxScore = data?.maxScore ?? 100;
-    
+
     const mcStats = useMonteCarloStats({
         categories: categories,
         goalDate: userProfile?.goalDate,
@@ -335,7 +335,6 @@ export default function Coach() {
         if (!data?.categories || !isHydrated) return;
 
         let metricsTimer = null;
-        let nestedTimeouts = [];
         // UX-FLUIDITY FIX: agenda o cálculo pesado para o próximo ciclo.
         // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
         // lateral não fica "preso" aguardando cálculo síncrono.
@@ -378,9 +377,12 @@ export default function Coach() {
 
             if (collectedMetrics.length > 0) {
                 metricsTimer = setTimeout(() => {
-                    collectedMetrics.forEach((metric, i) => {
-                        const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
-                        nestedTimeouts.push(t);
+                    collectedMetrics.forEach((metric) => {
+                        if ('requestIdleCallback' in window) {
+                            window.requestIdleCallback(() => persistCalibrationMetric(metric), { timeout: 2000 });
+                        } else {
+                            requestAnimationFrame(() => persistCalibrationMetric(metric));
+                        }
                     });
                 }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
             }
@@ -389,17 +391,16 @@ export default function Coach() {
         return () => {
             clearTimeout(analysisTimer);
             if (metricsTimer) clearTimeout(metricsTimer);
-            nestedTimeouts.forEach(clearTimeout);
         };
-    // FIX-#185: mcStatsContext removed — it's read via mcStatsContextRef.current inside
-    // the effect body, so it never needs to be a reactive dependency.
+        // FIX-#185: mcStatsContext removed — it's read via mcStatsContextRef.current inside
+        // the effect body, so it never needs to be a reactive dependency.
     }, [
         isHydrated,
-        data?.categories, 
-        data?.simuladoRows, 
-        data?.studyLogs, 
-        data?.user, 
-        data?.maxScore, 
+        data?.categories,
+        data?.simuladoRows,
+        data?.studyLogs,
+        data?.user,
+        data?.maxScore,
         data?.settings?.adaptiveCalibrationEnabled,
         userProfile?.targetProbability,
         flashcardDue,
@@ -429,11 +430,7 @@ export default function Coach() {
         if (!data?.categories || coachLoading) return;
         setCoachLoading(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        
-        if (generationTimeoutsRef.current.length > 0) {
-            generationTimeoutsRef.current.forEach(clearTimeout);
-            generationTimeoutsRef.current = [];
-        }
+
 
         timeoutRef.current = setTimeout(() => {
             if (!isMountedRef.current) return;
@@ -457,12 +454,12 @@ export default function Coach() {
                     }
                 }
             );
-            
+
             if (newTasks.length) {
                 // BUG-3 FIX: Immer mutation — explicit void return
-                setData(prev => { 
-                    if(prev) {
-                        prev.coachPlan = newTasks; 
+                setData(prev => {
+                    if (prev) {
+                        prev.coachPlan = newTasks;
                         prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
                     }
                     return; // Immer: explicit void return — mutation is intentional
@@ -472,16 +469,19 @@ export default function Coach() {
                 showToastRef.current('Nenhuma sugestão necessária.', 'info');
             }
 
-            collectedMetrics.forEach((metric, i) => {
-                const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
-                generationTimeoutsRef.current.push(t);
+            collectedMetrics.forEach((metric) => {
+                if ('requestIdleCallback' in window) {
+                    window.requestIdleCallback(() => persistCalibrationMetric(metric), { timeout: 2000 });
+                } else {
+                    requestAnimationFrame(() => persistCalibrationMetric(metric));
+                }
             });
             setCoachLoading(false);
             // LOGIC-TIMEOUT-NULL FIX: zerar a ref após a execução para não manter
             // um ID de timeout expirado que mascararia novos agendamentos.
             timeoutRef.current = null;
         }, 1500);
-    // BUG-1 FIX: Added categories, history, studyLogs to prevent stale closure
+        // BUG-1 FIX: Added categories, history, studyLogs to prevent stale closure
     }, [data, coachLoading, setData, persistCalibrationMetric, userProfile?.targetProbability, categories, history, studyLogs]);
 
     // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
@@ -500,10 +500,6 @@ export default function Coach() {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
                 timeoutRef.current = null;
-            }
-            if (generationTimeoutsRef.current) {
-                generationTimeoutsRef.current.forEach(clearTimeout);
-                generationTimeoutsRef.current = [];
             }
         };
     }, []);
@@ -527,11 +523,11 @@ export default function Coach() {
         <PageErrorBoundary pageName="Coach">
             <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
                 <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                    <PageHeader 
-                        title="Análise do Coach" 
+                    <PageHeader
+                        title="Análise do Coach"
                         description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
                     />
-                    
+
                     <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner">
                         <div className="flex items-center gap-3 sm:gap-4 px-2">
                             <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-rose-400" icon={<Zap size={14} />} />
@@ -558,7 +554,7 @@ export default function Coach() {
                     <div className="w-full">
                         <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} />
 
-                        <Motion.div 
+                        <Motion.div
                             key={safeActiveTab}
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -597,7 +593,7 @@ export default function Coach() {
                                                 <span className="text-emerald-400/60">contexto global aplicado</span>
                                             </div>
                                         )}
-                                        <AICoachView 
+                                        <AICoachView
                                             suggestedFocus={suggestedFocus}
                                             onGenerateGoals={handleGenerateGoals}
                                             loading={coachLoading}
@@ -656,7 +652,7 @@ const GovernanceBanner = React.memo(function GovernanceBanner({ data }) {
     if (degradedCount === 0) return null;
 
     return (
-        <Motion.div 
+        <Motion.div
             layout
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -676,7 +672,7 @@ const GovernanceBanner = React.memo(function GovernanceBanner({ data }) {
             </div>
             <div className="hidden sm:block text-right">
                 <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest leading-tight">
-                    O Coach está aplicando<br/>ajustes conservadores.
+                    O Coach está aplicando<br />ajustes conservadores.
                 </p>
             </div>
         </Motion.div>
@@ -788,7 +784,7 @@ function RaioXDashboard({ data }) {
                             </p>
                         </div>
                     </div>
-                
+
                     <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         {calibrationSummary.map(row => {
                             const op = ops[row.categoryId] || {};
@@ -798,7 +794,7 @@ function RaioXDashboard({ data }) {
                             const circ = 2 * Math.PI * radius;
                             const offset = circ - (brierPct / 100) * circ;
                             const colorClass = avgBrier >= 0.25 ? 'text-rose-500' : (avgBrier > 0.18 ? 'text-amber-500' : 'text-emerald-500');
-                            
+
                             return (
                                 <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between">
                                     <div className="flex justify-between items-start gap-4 mb-4">
@@ -818,13 +814,13 @@ function RaioXDashboard({ data }) {
                                         <div className="shrink-0 relative w-12 h-12 flex items-center justify-center">
                                             <svg className="w-full h-full -rotate-90 transform drop-shadow-md" viewBox="0 0 36 36">
                                                 <circle cx="18" cy="18" r={radius} fill="none" className="stroke-black/40" strokeWidth="3" />
-                                                <circle 
-                                                    cx="18" cy="18" r={radius} fill="none" 
-                                                    className={`stroke-current ${colorClass} transition-all duration-1000 ease-out`} 
-                                                    strokeWidth="3" 
-                                                    strokeDasharray={circ} 
+                                                <circle
+                                                    cx="18" cy="18" r={radius} fill="none"
+                                                    className={`stroke-current ${colorClass} transition-all duration-1000 ease-out`}
+                                                    strokeWidth="3"
+                                                    strokeDasharray={circ}
                                                     strokeDashoffset={offset}
-                                                    strokeLinecap="round" 
+                                                    strokeLinecap="round"
                                                 />
                                             </svg>
                                             <div className="absolute inset-0 flex items-center justify-center">
@@ -834,7 +830,7 @@ function RaioXDashboard({ data }) {
                                             </div>
                                         </div>
                                     </div>
-                                
+
                                     <div className="flex items-center justify-between pt-3 border-t border-white/[0.05] mt-auto">
                                         <div className="group/tooltip relative flex items-center gap-1 cursor-help">
                                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover/tooltip:text-slate-300 transition-colors border-b border-dashed border-slate-600">Desvio (Brier)</span>
@@ -843,7 +839,7 @@ function RaioXDashboard({ data }) {
                                                 Mede a precisão das projeções Monte Carlo. Quanto menor o valor (verde), mais assertivo está o motor.
                                             </div>
                                         </div>
-                                    
+
                                         {(() => {
                                             const pen = toFiniteNumber(row.avgPenalty);
                                             if (pen <= 0.001) return null;
@@ -874,13 +870,13 @@ function RaioXDashboard({ data }) {
                         Log de Auditoria
                     </h3>
                     <div className="flex gap-2 bg-slate-900/50 border border-white/5 rounded-xl p-0.5">
-                        <button 
+                        <button
                             onClick={() => setFilter('all')}
                             className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${filter === 'all' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200'}`}
                         >
                             Tudo
                         </button>
-                        <button 
+                        <button
                             onClick={() => setFilter('degraded')}
                             className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${filter === 'degraded' ? 'bg-rose-500/20 text-rose-300' : 'text-slate-400 hover:text-slate-200'}`}
                         >
@@ -888,7 +884,7 @@ function RaioXDashboard({ data }) {
                         </button>
                     </div>
                 </div>
-                
+
                 <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/10">
                     <table className="w-full text-left">
                         <thead>
