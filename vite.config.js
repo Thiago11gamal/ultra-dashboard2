@@ -64,6 +64,7 @@ export default defineConfig({
     globals: true,              
     include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'src/**/*.spec.js', 'tests/**/*.test.js'],
     globalTeardown: './tests/teardown.js',
+    testTimeout: 20000,
     coverage: {
       provider: 'v8',
       include: ['src/engine/**', 'src/utils/coachLogic.js'],

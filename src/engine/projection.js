@@ -748,10 +748,9 @@ export function monteCarloSimulation(
             ? (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2
             : gaps[Math.floor(gaps.length / 2)];
     }
-    // BUG-FIX: A volatilidade estocástica diária para um processo de Ornstein-Uhlenbeck
-    // deve ser calibrada para que a variância estacionária convirja para a variância empírica.
-    // Fórmula teórica: Var_stat = sigma^2 / (2 * theta). Logo, sigma = vol_empírica * sqrt(2 * theta).
-    const dailyVolatility = Math.max(0.01, volatility * Math.sqrt(2 * Math.max(0.005, thetaOU)));
+    // A volatilidade estocástica diária deve ser escalada pelo gap médio entre provas
+    // para que a variância cresça corretamente como um Random Walk/OU process.
+    const dailyVolatility = Math.max(0.01, volatility / Math.sqrt(Math.max(1, medianGap)));
 
     // [BUG-1 FIX] Usar o damping adaptativo em vez do hardcode de 45.
     // Com poucos dados/alta vol, dampingBase ≈ 30 (amortece rápido).
@@ -828,9 +827,8 @@ export function monteCarloSimulation(
             const driftEffect = sampledDrift * driftDamping;
 
             // IMPROVED: Stronger reversion to historical mean, especially on negative drift.
-            // Damp the drift contribution to the target more when below historical.
-            const reversionDriftFactor = (currentSimScore < stableMeanTarget) ? 0.25 : 0.4;
-            let meanReversionTarget = stableMeanTarget + (drift * d * reversionDriftFactor);
+            // The O-U reversion target should be stable to prevent double counting drift.
+            let meanReversionTarget = stableMeanTarget;
             meanReversionTarget = Math.min(maxScore, Math.max(minScore, meanReversionTarget));
             let meanReversion = Math.max(0.005, thetaOU) * (meanReversionTarget - currentSimScore);
             const adaptiveVol = Math.sqrt(Math.max(1e-6, currentVolSq));

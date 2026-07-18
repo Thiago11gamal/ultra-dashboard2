@@ -12,6 +12,7 @@ global.localStorage = {
 
 // Mock idb-keyval to avoid ReferenceError: indexedDB is not defined in pure Node.js test environment
 const { mockIdbStore } = vi.hoisted(() => ({ mockIdbStore: {} }));
+
 vi.mock('idb-keyval', () => {
     return {
         get: vi.fn(async (key) => mockIdbStore[key] || null),
