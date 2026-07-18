@@ -1,15 +1,12 @@
 /**
  * DIAGNOSTICS ENGINE v1.0 — Motor de Diagnóstico Avançado
- *
  * Análises estatísticas avançadas para diagnóstico de performance.
  */
 
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { kahanMean, kahanSum } from './math/kahan.js';
-import { pruneHistoryForMemory } from './stats.js';
-
+import { pruneHistoryForMemory, getSortedHistory } from './stats.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
-import { getSortedHistory } from './stats.js';
 
 function _getEntryDate(entry) {
   const raw = entry?.date || entry?.createdAt;
@@ -41,13 +38,11 @@ function _median(arr) {
 
 function _mean(arr) {
   if (!arr || arr.length === 0) return 0;
-  // Precision improvement: use Kahan summation to avoid FP accumulation error on long histories
   return kahanMean(arr);
 }
 
 function _variance(arr, mu = null) {
   if (!arr || arr.length < 2) return 0;
-  // Use kahanSum for sum of squared devs for better precision
   const clean = arr.filter(v => Number.isFinite(v));
   if (clean.length < 2) return 0;
   const m = mu !== null ? mu : _mean(clean);
@@ -59,11 +54,6 @@ function _std(arr, mu = null) {
   return Math.sqrt(Math.max(0, _variance(arr, mu)));
 }
 
-/**
- * Detecta erros/anomalias em dados de histórico para diagnósticos confiáveis.
- * Retorna lista de problemas para "bons diagnósticos" e alertas ao usuário.
- * Ajuda a identificar corrupção de dados, input ruim, legacy bugs etc.
- */
 export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
   const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
   const issues = [];
@@ -83,38 +73,16 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
   const finites = parsed.filter(p => p.finite);
   const nFinite = finites.length;
 
-  // 1. Taxa alta de dados inválidos / NaN após sanitize
   const invalidRate = history.length > 0 ? (history.length - nFinite) / history.length : 0;
   if (invalidRate > 0.2) {
-    issues.push({ type: 'data', severity: 'warning', msg: `${Math.round(invalidRate*100)}% dos registros têm score inválido/NaN (possível corrupção legacy).`, count: history.length - nFinite });
+    issues.push({ type: 'data', severity: 'warning', msg: `${Math.round(invalidRate * 100)}% dos registros têm score inválido/NaN.`, count: history.length - nFinite });
   }
 
-  // 2. Zero variance (todos scores idênticos) — ruim para variance/vol estimates
   const uniqueScores = new Set(finites.map(p => p.score));
   if (nFinite >= 5 && uniqueScores.size <= 1) {
-    issues.push({ type: 'data', severity: 'warning', msg: 'Todos os scores são idênticos — variância zero. Adicione variedade ou verifique input.', count: nFinite });
+    issues.push({ type: 'data', severity: 'warning', msg: 'Todos os scores são idênticos — variância zero. Adicione variedade.', count: nFinite });
   }
 
-  // 3. Duplicate dates with conflicting scores (data error)
-  const dateMap = new Map();
-  finites.forEach(p => {
-    const rawDate = p.date || p.createdAt;
-    if (rawDate && typeof rawDate === 'string') {
-      const key = getDateKey(rawDate);
-      if (!key) return;
-      if (!dateMap.has(key)) dateMap.set(key, []);
-      dateMap.get(key).push(p.score);
-    }
-  });
-  for (const [d, scores] of dateMap) {
-    const uniq = new Set(scores);
-    if (uniq.size > 1) {
-      issues.push({ type: 'data', severity: 'error', msg: `Data duplicada ${d} com scores conflitantes: ${[...uniq].join(', ')}. Corrija os dados.`, date: d });
-    }
-  }
-
-  // CORREÇÃO: Ordenar uma cópia temporal para evitar falsos positivos de "gaps negativos" 
-  // quando os dados estão apenas desordenados no array de entrada, mudando para aviso de ordenação.
   const times = finites.map(p => p.t).filter(t => t != null);
   if (times.length >= 2) {
     let unsortedGaps = 0;
@@ -122,34 +90,27 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
       if (times[i] < times[i - 1]) unsortedGaps++;
     }
     if (unsortedGaps > 0) {
-      issues.push({ type: 'data', severity: 'info', msg: `${unsortedGaps} registros inseridos fora de ordem cronológica (serão ordenados internamente).`, count: unsortedGaps });
+      issues.push({ type: 'data', severity: 'info', msg: `${unsortedGaps} registros fora de ordem cronológica.`, count: unsortedGaps });
     }
   }
-  
-  const future = finites.filter(p => p.t && p.t > Date.now() + 86400000*2).length; // allow slight clock skew
+
+  const future = finites.filter(p => p.t && p.t > Date.now() + 86400000 * 2).length;
   if (future > 0) issues.push({ type: 'data', severity: 'warning', msg: `${future} registros com data futura.`, count: future });
 
-  // 5. Outliers using MAD (robust)
   if (nFinite >= 6) {
     const vals = finites.map(p => p.score);
     const med = _median(vals);
     const devs = vals.map(v => Math.abs(v - med));
     const mad = _median(devs) || 1e-9;
-    const threshold = 3.5; // modified z-score ~ 
+    const threshold = 3.5;
     let outliers = 0;
     for (const v of vals) {
       const mz = 0.6745 * Math.abs(v - med) / mad;
       if (mz > threshold) outliers++;
     }
     if (outliers >= 2) {
-      issues.push({ type: 'data', severity: 'info', msg: `${outliers} possíveis outliers detectados (usando MAD). Verifique se são reais ou erros de digitação.`, count: outliers });
+      issues.push({ type: 'data', severity: 'info', msg: `${outliers} possíveis outliers detectados.`, count: outliers });
     }
-  }
-
-  // 6. Effective low information (all on one day)
-  const uniqueDays = dateMap.size;
-  if (nFinite >= 8 && uniqueDays <= 2) {
-    issues.push({ type: 'data', severity: 'warning', msg: `Alta concentração: ${nFinite} scores em apenas ${uniqueDays} dia(s). Projeções serão menos confiáveis.`, count: uniqueDays });
   }
 
   if (issues.length === 0) issues.push({ type: 'data', severity: 'ok', msg: 'Dados parecem limpos.' });
@@ -175,12 +136,12 @@ function _interSessionGaps(historyRaw) {
 
 export function computeHurstExponent(scores) {
   const fallback = { H: 0.5, confidence: 'low', interpretation: 'Dados insuficientes', rSquared: 0 };
-  if (!Array.isArray(scores) || scores.length < 8) return fallback;
+  if (!Array.isArray(scores)) return fallback;
 
   const clean = scores.map(Number).filter(Number.isFinite);
-  if (clean.length < 8) return fallback;
+  if (clean.length < 10) return fallback;
 
-  const minLag = 4;
+  const minLag = 2;
   const maxLag = Math.floor(clean.length / 2);
   if (maxLag < minLag) return fallback;
 
@@ -196,7 +157,7 @@ export function computeHurstExponent(scores) {
 
     for (let b = 0; b < nBlocks; b++) {
       const block = clean.slice(b * tau, (b + 1) * tau);
-      if (block.length < 4) continue;
+      if (block.length < 2) continue;
 
       const mu = _mean(block);
       let accum = 0;
@@ -226,16 +187,16 @@ export function computeHurstExponent(scores) {
   if (logRS.length < 3) return fallback;
 
   const cleanPairs = logN.map((x, i) => ({ x, y: logRS[i] }))
-                         .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
-  
+    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+
   if (cleanPairs.length < 3) return fallback;
 
   const muX = _mean(cleanPairs.map(p => p.x));
   const muY = _mean(cleanPairs.map(p => p.y));
-  
+
   const Sxy = kahanSum(cleanPairs.map(p => (p.x - muX) * (p.y - muY)));
   const Sxx = kahanSum(cleanPairs.map(p => (p.x - muX) ** 2));
-  
+
   const H = Sxx > 1e-10 ? Sxy / Sxx : 0.5;
   const clampedH = Math.max(0.1, Math.min(0.9, H));
 
@@ -243,7 +204,6 @@ export function computeHurstExponent(scores) {
   if (clampedH > 0.65) interpretation = 'Série Persistente (Tendência Robusta)';
   else if (clampedH < 0.4) interpretation = 'Reversão à Média (Alta Instabilidade / Efeito Ioiô)';
 
-  // R² usa o H ajustado da regressão; o clamp só afeta o valor retornado.
   const SSR = kahanSum(cleanPairs.map((p) => (p.y - (muY + H * (p.x - muX))) ** 2));
   const SST = kahanSum(cleanPairs.map((p) => (p.y - muY) ** 2));
   const rSquared = SST > 0 ? 1 - (SSR / SST) : 0;
@@ -256,21 +216,19 @@ export function computeHurstExponent(scores) {
   };
 }
 
-// NOVA FUNÇÃO: Diagnóstico Clínico do Desempenho
 export function generateMathDiagnostic(history, maxScore = 100) {
-   const scores = history.map(h => getSafeScore(h, maxScore));
-   const hurst = computeHurstExponent(scores);
-   
-   // Fator de esquecimento (Lambda) agora não é hardcoded, é adaptativo ao perfil de "memória" do utilizador
-   // Pessoas com H baixo (reversão à média) precisam de lambdas MAIORES (esquecer o ruído antigo)
-   const optimalLambda = hurst.H < 0.45 ? 0.12 : hurst.H > 0.65 ? 0.04 : 0.08;
-   
-   return {
-       profile: hurst.interpretation,
-       momentumHurst: hurst.H,
-       recommendedLambda: optimalLambda,
-       isDataNoisy: hurst.H < 0.5 && hurst.confidence !== 'low'
-   };
+  const scores = history.map(h => getSafeScore(h, maxScore));
+  const hurst = computeHurstExponent(scores);
+
+  const optimalLambda = hurst.H < 0.45 ? 0.12 : hurst.H > 0.65 ? 0.04 : 0.08;
+
+  return {
+    profile: hurst.interpretation,
+    momentumHurst: hurst.H,
+    recommendedLambda: optimalLambda,
+    isDataNoisy: hurst.H < 0.5 && hurst.confidence !== 'low',
+    hurstData: hurst
+  };
 }
 
 export function computeKLDivergenceNormal(mu1, sd1, mu2, sd2) {
@@ -294,46 +252,17 @@ export function computeKLDivergenceNormal(mu1, sd1, mu2, sd2) {
 export function computeEbbinghausRetention(daysSince, stabilityDays) {
   const t = Math.max(0, Number(daysSince) || 0);
   const S = Math.max(0.1, Number(stabilityDays) || 7);
-  // Power-Law FSRS formula unified across the platform
   const retention = 1.0 / (1.0 + (t / (9 * S)));
   return Math.max(0.1, Math.min(1.0, retention));
 }
-
-/**
- * Calcula a curva de esquecimento com garantia de causalidade física.
- * Impede que gaps temporais negativos (viagem no tempo) causem explosão de nota.
- */
-export const calculateForgettingCurve = (lastStudyDate, lambda = 0.03) => {
-    if (!lastStudyDate) return 1.0;
-    
-    const now = Date.now();
-    const lastTime = new Date(lastStudyDate).getTime();
-    if (Number.isNaN(lastTime)) return 1.0;
-    
-    // CAUSALIDADE: O delta T não pode ser negativo. Se for o futuro, 
-    // consideramos o gap como 0 (acabou de estudar). (Bug 5 Fix)
-    const rawGapDays = (now - lastTime) / 86400000;
-    const gapDays = Math.max(0, rawGapDays); 
-    
-    // Cálculo seguro e contido no limite assintótico [0, 1]
-    const retention = Math.exp(-lambda * gapDays);
-    
-    // Fallback absoluto de prevenção
-    return Math.max(0.1, Math.min(1.0, retention));
-};
 
 export function estimateMemoryStability(history, maxScore = 100, baselineScore = null) {
   const normalized = _normalizeDiagnosticHistory(history, maxScore);
   if (normalized.length === 0) return 3;
 
   const sorted = getSortedHistory(normalized);
-
   let stability = 3.0;
-  const DECAY_FACTOR = 0.6;
-  
-  // O sucesso dinâmico é a própria média do aluno, com mínimo de 50% e MÁXIMO de 70%.
-  // BUG FIX: Se o usuário tiver média de 95%, qualquer simulado de 90% faria a memória "decair"
-  // antes deste cap de 0.7. Acertar >70% é sempre sucesso na retenção de memória.
+
   const safeBaseline = baselineScore !== null ? baselineScore : _mean(sorted.map(h => getSafeScore(h, maxScore)));
   const dynamicSuccessThreshold = Math.min(0.7, Math.max(0.5, safeBaseline / maxScore));
 
@@ -341,92 +270,66 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
     const h = sorted[i];
     const pct = Math.min(1, Math.max(0, getSafeScore(h, maxScore) / maxScore));
 
-    // Calcula quanto tempo passou desde a última revisão para saber a retenção atual
     let currentRetention = 1.0;
     if (i > 0) {
       const gap = (_getEntryDate(h).getTime() - _getEntryDate(sorted[i - 1]).getTime()) / 86400000;
       currentRetention = computeEbbinghausRetention(gap, stability);
+
+      if (gap > 0.1) {
+        if (pct >= dynamicSuccessThreshold) {
+          const elasticGrowth = 1 + 2 * Math.pow(1 - currentRetention, 2);
+          stability *= elasticGrowth;
+        } else {
+          const dynamicDecay = Math.max(0.3, 1.0 - (0.6 * currentRetention));
+          stability *= dynamicDecay;
+          stability = Math.max(1, stability);
+        }
+      }
     }
-
-    if (pct >= dynamicSuccessThreshold) {
-      const elasticGrowth = 1 + 2 * Math.pow(1 - currentRetention, 2);
-      stability *= elasticGrowth;
-    } else {
-      // CORREÇÃO: Inversão matemática corrigida. Falhar quando a retenção esperada era ALTA (1.0) 
-      // indica colapso de base (decaimento agressivo de 0.4). Falhar com retenção baixa (0.1) penaliza menos (0.94).
-      const dynamicDecay = Math.max(0.3, 1.0 - (0.6 * currentRetention)); 
-      stability *= dynamicDecay;
-      stability = Math.max(1, stability);
-    }
-
-    // FIX D-2: Removido ajuste de estabilidade baseado no gap FUTURO (lookahead bias).
-    // A estabilidade deve depender apenas de informações passadas e presentes.
-
     stability = Math.min(180, Math.max(1, stability));
   }
-
   return Number(stability.toFixed(1));
 }
 
-// ATUALIZAÇÃO 1: Injeção de Inteligência no Cálculo do Intervalo
 export function computeOptimalReviewInterval(stability, targetRetention = 0.7, mssdVolatility = null, effectiveN = null, maxScore = 100, currentMean = null, agilityPenalty = 0) {
   const S = Math.max(0.5, Number(stability) || 7);
   const R = Math.max(0.05, Math.min(0.99, Number(targetRetention) || 0.7));
-  // BUG FIX: O sistema usa a fórmula FSRS Power-Law para a retenção, 
-  // portanto o inverso matemático também deve ser o Power-Law (t = 9 * S * (1/R - 1)).
-  // Utilizar Exponencial Negativa (-S * ln(R)) encurta o intervalo em 10x acidentalmente!
   let baseInterval = Math.max(1, 9 * S * ((1 / R) - 1));
 
-  // --- LÓGICA DE MSSD E VOLATILIDADE ROBUSTA ---
-  if (mssdVolatility !== null && effectiveN !== null) {
-      // Normaliza o MSSD para uma escala de 0 a 1
-      const normalizedMssd = mssdVolatility / maxScore;
-      
-      // 1. Fator de Fragilidade (Conhecimento Frágil)
-      // Se a nota "salta" muito (> 10% de volatilidade), cortamos o intervalo de revisão.
-      // Uma penalidade máxima reduz o intervalo para 40% do tempo original.
-      const fragilityPenalty = Math.max(0.4, 1 - (normalizedMssd * 3));
+  if (mssdVolatility != null && effectiveN != null && !Number.isNaN(Number(mssdVolatility))) {
+    const rmssd = Math.sqrt(Number(mssdVolatility));
+    const normalizedMssd = rmssd / maxScore;
 
-      // 2. Fator de Cristalização (Domínio Consolidado)
-      // MSSD Baixo + N Alto (muitas provas) -> Expande o intervalo exponencialmente
-      let crystallizationBonus = 1.0;
-      if (effectiveN >= 3 && normalizedMssd < 0.08) {
-          // A confiança cresce até 15 amostras
-          const confidence = Math.min(1, effectiveN / 15); 
-          // Transforma estabilidade fina (0 a 0.08) num multiplicador
-          const stabilityBonus = Math.max(0, 0.08 - normalizedMssd) * 12; 
-          
-          // Confirma se a média é efetivamente alta (ex: > 70%) para garantir o bónus
-          const performanceFactor = currentMean !== null ? Math.max(0, (currentMean / maxScore) - 0.5) * 2.5 : 1; 
+    const fragilityPenalty = Math.max(0.4, 1 - (normalizedMssd * 3));
 
-          // Pode expandir o intervalo de revisão em até 2x a 3x
-          crystallizationBonus = 1 + (confidence * stabilityBonus * performanceFactor); 
-      }
-
-      baseInterval = baseInterval * fragilityPenalty * crystallizationBonus;
+    let crystallizationBonus = 1.0;
+    if (effectiveN >= 3 && normalizedMssd < 0.08) {
+      const confidence = Math.min(1, effectiveN / 15);
+      const stabilityBonus = Math.max(0, 0.08 - normalizedMssd) * 12;
+      const performanceFactor = currentMean !== null ? Math.max(0, (currentMean / maxScore) - 0.5) * 2.5 : 1;
+      crystallizationBonus = 1 + (confidence * stabilityBonus * performanceFactor);
+    }
+    baseInterval = baseInterval * fragilityPenalty * crystallizationBonus;
   }
 
-  // Agilidade AI Penaliza o tempo de revisão (força revisão mais cedo para ganhar velocidade)
   const safeAgilityPenalty = Math.max(0, Math.min(0.4, Number(agilityPenalty) || 0));
   baseInterval = baseInterval * (1 - safeAgilityPenalty);
 
   return Math.max(1, Math.round(baseInterval));
 }
 
-// ATUALIZAÇÃO 2: Passagem de Parâmetros na Avaliação de Risco
 export function computeForgettingRisk(history, maxScore = 100, baselineScore = null, mssdVolatility = null, effectiveN = null, daysSinceOverride = null, agilityPenalty = 0) {
   const noData = { risk: 'low', retentionPct: 100, stabilityDays: 3, optimalIntervalDays: 3, daysSinceLast: 0 };
   const normalized = _normalizeDiagnosticHistory(history, maxScore);
   if (normalized.length === 0) return noData;
 
-  const sorted = getSortedHistory(normalized).reverse();
+  const sorted = [...getSortedHistory(normalized)].reverse();
 
   const daysSinceLast = daysSinceOverride !== null ? daysSinceOverride : Math.max(0, (Date.now() - _getEntryDate(sorted[0]).getTime()) / 86400000);
   const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore);
   const retention = computeEbbinghausRetention(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));
-  
-  // Calcula a média empírica para validar a Cristalização do Conhecimento
+
   const currentMean = _mean(sorted.map(h => getSafeScore(h, maxScore)));
 
   const optimalIntervalDays = computeOptimalReviewInterval(stability, 0.7, mssdVolatility, effectiveN, maxScore, currentMean, agilityPenalty);
@@ -434,7 +337,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   let risk;
   if (retentionPct < 30) risk = 'critical';
   else if (retentionPct < 55) risk = 'high';
-  else if (retentionPct < 75 && daysSinceLast >= optimalIntervalDays * 0.8) risk = 'medium'; // Sensível ao novo intervalo
+  else if (retentionPct < 75 && daysSinceLast >= optimalIntervalDays * 0.8) risk = 'medium';
   else risk = 'low';
 
   return { risk, retentionPct, stabilityDays: stability, optimalIntervalDays, daysSinceLast: Number(daysSinceLast.toFixed(1)) };
@@ -444,13 +347,13 @@ export function computeLearningVelocity(history, maxScore = 100) {
   const fallback = { velocity: 0, velocityLabel: 'Dados insuficientes', plateau: maxScore * 0.7, timeToPlateauDays: null };
   if (!Array.isArray(history) || history.length < 4) return fallback;
 
-  const sorted = getSortedHistory(history);
-
+  const validHistory = history.filter(h => _getEntryDate(h) !== null);
+  const sorted = getSortedHistory(validHistory);
   if (sorted.length < 4) return fallback;
 
   const t0 = _getEntryDate(sorted[0]).getTime();
-  const data = sorted.map((h) => ({
-    t: (_getEntryDate(h).getTime() - t0) / 86400000,
+  const data = sorted.map((h, idx) => ({
+    t: Math.max(0.001 * idx, (_getEntryDate(h).getTime() - t0) / 86400000),
     y: Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore))),
   })).filter(d => Number.isFinite(d.y));
 
@@ -475,8 +378,6 @@ export function computeLearningVelocity(history, maxScore = 100) {
   let velocityLabel;
   const vPerMonth = velocity * 30;
 
-  // CORREÇÃO: Alinhado o teto de crescimento potencial ao platô assintótico calculado, 
-  // impedindo que alunos avançados estáveis sejam marcados incorretamente como "Lentos".
   const currentScore = data[data.length - 1].y;
   const roomToGrow = Math.max(1, plateauEst - currentScore);
   const relativeVelocity = vPerMonth / roomToGrow;
@@ -531,18 +432,12 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
   const sessions = (studySessions || []).filter((s) => !categoryId || s?.categoryId === categoryId);
   const totalMinutes = sessions.reduce((acc, s) => acc + (Number(s?.duration) || 0), 0);
 
-  if (totalMinutes < 1) return noData;
-
   const normalize = typeof normalizeSubject === 'function'
     ? normalizeSubject
     : (value) => String(value || '').toLowerCase().trim();
 
   const relevantSims = categoryId
-    ? (simulados || []).filter((s) => {
-      if (s?.categoryId === categoryId) return true;
-      if (!s?.subject) return false;
-      return normalize(s.subject) === normalize(categoryId);
-    })
+    ? (simulados || []).filter((s) => s?.categoryId === categoryId)
     : (simulados || []);
 
   const totalQuestions = relevantSims.reduce((acc, s) => acc + (Number(s?.total) || 0), 0);
@@ -550,10 +445,8 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
     const total = Number(s?.total) || 0;
     if (total === 0) return acc;
     if (s?.correct != null) {
-        const correctNum = Number(s.correct);
-        if (Number.isFinite(correctNum)) {
-            return acc + correctNum;
-        }
+      const correctNum = Number(s.correct);
+      if (Number.isFinite(correctNum)) return acc + correctNum;
     }
     const score = Math.min(1, Math.max(0, (Number(s?.score) || 0) / maxScore));
     return acc + score * total;
@@ -565,8 +458,7 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
 
   const efficiency = questionsPerHour * accuracyRate;
 
-  // Descobre o ritmo natural médio do próprio usuário para esta matéria
-  const historicalPace = totalHours > 5 ? (totalQuestions / totalHours) : 15;
+  const historicalPace = 15;
   const efficiencyRatio = questionsPerHour / Math.max(1, historicalPace);
 
   let label;
@@ -631,15 +523,14 @@ export function computeAR1Coefficient(residuals) {
 
   const numerator = lag0.reduce((s, v, i) => s + v * lag1[i], 0);
   const denom0 = lag0.reduce((s, v) => s + v * v, 0);
-  // AR(1): ρ = Σ(xₜ·xₜ₊₁) / Σ(xₜ²) — coeficiente de regressão, não correlação de Pearson
   const rho = denom0 > 1e-10 ? numerator / denom0 : 0;
   const clampedRho = Math.max(-1, Math.min(1, rho));
 
   const bartlettThreshold = 1.96 / Math.sqrt(Math.max(1, n));
 
-  return { 
-      rho: Number(clampedRho.toFixed(3)), 
-      significant: Math.abs(clampedRho) > bartlettThreshold 
+  return {
+    rho: Number(clampedRho.toFixed(3)),
+    significant: Math.abs(clampedRho) > bartlettThreshold
   };
 }
 
@@ -659,10 +550,9 @@ export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {
       const fullKey = getDateKey(rawDate);
       if (!fullKey) continue;
       const key = fullKey.slice(0, 7);
-      
-      // CORREÇÃO: Substituição da conversão ingénua pelo extrator oficial resiliente do ecossistema
+
       const s = getSafeScore(h, maxScore) / maxScore;
-      
+
       if (Number.isFinite(s)) {
         if (!byMonth[key]) byMonth[key] = [];
         byMonth[key].push(s);
@@ -690,7 +580,7 @@ export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {
       const Syy = kahanSum(ys.map((y) => (y - muY) ** 2));
       const epsilon = 1e-15;
       const denom = Math.sqrt((Math.max(0, Sxx) + epsilon) * (Math.max(0, Syy) + epsilon));
-      const r = Sxy / denom; // O epsilon garante denom > 0
+      const r = Sxy / denom;
       const clampedR = Math.max(-1, Math.min(1, r));
 
       let strength;
@@ -717,26 +607,27 @@ export function computeCategoryDiagnostics({
   bayesianStats = null,
   normalizeSubject = null,
 } = {}) {
-  // MEMORY: prune extremely large histories for sub-computations (preserves quality)
-  const safeHistory = history.length > 2500 ? pruneHistoryForMemory(history, 1500) : history;
+
+  const histArray = Array.isArray(history) ? history : Object.values(history || {});
+  const safeHistory = histArray.length > 2500 ? pruneHistoryForMemory(histArray, 1500) : histArray;
 
   const scores = safeHistory
     .map((h) => getSafeScore(h, maxScore))
     .filter(Number.isFinite);
 
   const diagnostic = generateMathDiagnostic(safeHistory, maxScore);
-  const hurst = computeHurstExponent(scores);
+  const hurst = diagnostic.hurstData;
   const forgetting = computeForgettingRisk(safeHistory, maxScore, null, diagnostic?.mssd, safeHistory.length);
-  const consistency = computeConsistencyIndex(history, maxScore);
-  const velocity = computeLearningVelocity(history, maxScore);
+  const consistency = computeConsistencyIndex(safeHistory, maxScore);
+  const velocity = computeLearningVelocity(safeHistory, maxScore);
 
   let klToTarget = null;
   if (bayesianStats && targetScore !== null) {
     const targetMu = Number(targetScore);
     const targetSd = maxScore * 0.05;
     klToTarget = computeKLDivergenceNormal(
-      bayesianStats.mean || 0,
-      bayesianStats.sd || maxScore * 0.1,
+      bayesianStats.mean ?? 0,
+      bayesianStats.sd ?? maxScore * 0.1,
       targetMu,
       targetSd,
     );
@@ -750,7 +641,7 @@ export function computeCategoryDiagnostics({
     normalizeSubject,
   );
 
-  const dataAnomalies = detectDataAnomalies(history, maxScore);
+  const dataAnomalies = detectDataAnomalies(safeHistory, maxScore);
   const dataErrorCount = dataAnomalies.filter(a => a.severity === 'error' || a.severity === 'warning').length;
 
   const flags = [];
@@ -762,7 +653,6 @@ export function computeCategoryDiagnostics({
   if (velocity.velocityLabel?.includes('Estagnado')) flags.push({ type: 'warning', msg: 'Platô de aprendizagem detectado. Mude a estratégia de estudo.' });
   if (efficiency.questionsPerHour < 5 && efficiency.totalMinutes > 60) flags.push({ type: 'warning', msg: `Volume baixo de questões (${efficiency.questionsPerHour.toFixed(1)}/h). Priorize exercícios práticos.` });
 
-  // Data error diagnostics (new): surface for good user diagnostics
   dataAnomalies.forEach(a => {
     if (a.severity === 'error') flags.push({ type: 'danger', msg: a.msg });
     else if (a.severity === 'warning') flags.push({ type: 'warning', msg: a.msg });
@@ -781,6 +671,6 @@ export function computeCategoryDiagnostics({
     dataAnomalies,
     dataQualityScore: Math.max(0, 1 - Math.min(1, dataErrorCount / 4)),
     adaptiveLambda: diagnostic.recommendedLambda,
-    adaptiveDecayFactor: computeAdaptiveDecayFactor(history),
+    adaptiveDecayFactor: computeAdaptiveDecayFactor(safeHistory),
   };
 }
