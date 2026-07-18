@@ -298,7 +298,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
           return { sd: rawSd * Math.max(0.80, s.immunityFactor || 1.0) };
       });
       const adaptiveRhoContext = (meanOrObj?.simuladoRows) 
-        ? { simuladoRows: meanOrObj?.simuladoRows, categoryNames: subjects.map(s => s.name || s) } 
+        ? { simuladoRows: meanOrObj?.simuladoRows, categoryNames: cutoffSubjects.map(s => s.name || s) } 
         : null;
       const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
       const psdCov = ensurePositiveSemiDefinite(cov);
@@ -430,7 +430,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // for external consumers of the statistical JSON.
     // BUG-AUDIT-10 FIX: Usar o T-multiplier dinâmico em vez do hardcode 3.92 (=2×1.96).
     // Para N pequeno o CI usa T(df) >> 1.96, e dividir por 3.92 inflava o SD visual ~3x.
-    const effectiveNForSD = Math.max(1, historyLength || 1);
+    const effectiveNForSD = bayesianCI ? Math.max(1, bayesianCI.n || historyLength || 1) : Math.max(1, historyLength || 1);
     const tMultiplierForSD = getConfidenceMultiplier(effectiveNForSD, { allowFractional: true });
     const visualSD = wasVisualCIClamped
         ? (rawHigh - rawLow) / (tMultiplierForSD * 2) 
