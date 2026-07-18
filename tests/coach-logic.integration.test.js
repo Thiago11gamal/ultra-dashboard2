@@ -27,10 +27,9 @@ describe('Coach Logic Integration', () => {
         });
 
         expect(Number.isFinite(res.normalizedScore)).toBe(true);
-        if (telemetry) {
-            expect(telemetry.categoryId).toBe('mat');
-            expect(telemetry.avgBrier).toBeGreaterThanOrEqual(0);
-        }
+        expect(telemetry).not.toBeNull();
+        expect(telemetry.categoryId).toBe('mat');
+        expect(telemetry.avgBrier).toBeGreaterThanOrEqual(0);
     });
 
     it('calculateUrgency computes MSSD and reliability diagnostics', () => {
@@ -41,9 +40,8 @@ describe('Coach Logic Integration', () => {
         ];
         const res = calculateUrgency(baseCategory, simulados, [], { maxScore: 100, targetScore: 70 });
         expect(res.details?.mssdVolatility).toBeGreaterThanOrEqual(0);
-        if (res.details?.monteCarlo?.explainability) {
-            expect(['good', 'moderate', 'low']).toContain(res.details.monteCarlo.explainability.calibrationQuality);
-        }
+        expect(res.details?.monteCarlo?.explainability).toBeDefined();
+        expect(['good', 'moderate', 'low']).toContain(res.details.monteCarlo.explainability.calibrationQuality);
     });
 
     it('calculateUrgency captures negative trend scenario', () => {

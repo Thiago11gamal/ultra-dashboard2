@@ -815,7 +815,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     };
 };
 
-export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo, _options = {}) => {
+export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo, options = {}) => {
     const {
         cfg,
         maxScore,
@@ -993,6 +993,21 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             }
         }
     };
+
+
+    // [FIX: Telemetry Pipeline Reconnection]
+    if (result.details?.monteCarlo && typeof options.onCalibrationMetric === 'function') {
+        options.onCalibrationMetric({
+            categoryId: metrics.categoryId || null,
+            categoryName: scoreInfo.nome || metrics.categoryName || 'Disciplina',
+            timestamp: Date.now(),
+            brierScore: result.details.monteCarlo.avgBrier,
+            ece: result.details.monteCarlo.ece,
+            calibrationPenalty: result.details.monteCarlo.calibrationPenalty,
+            reliability: result.details.monteCarlo.reliability || [],
+            calibrationQuality: result.details.monteCarlo.explainability?.calibrationQuality || 'low'
+        });
+    }
 
     return result;
 };
