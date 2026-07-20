@@ -181,18 +181,27 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
     return (empiricalVol * 0.7) + (fallbackVol * 0.3 * nPenalty);
 }
 
+export const sanitizeNum = (val) => {
+    if (val === null || val === undefined || val === '') return NaN;
+    
+    let str = String(val).trim();
+    
+    // Se possui vírgula, com certeza é formato PT-BR (ex: "1.234,56" ou "1,5")
+    if (str.includes(',')) {
+        return Number(str.replace(/\./g, '').replace(',', '.'));
+    }
+    
+    // Se tem pontos agrupando de 3 em 3 e não tem vírgula (ex: "1.000" ou "12.345")
+    if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+        return Number(str.replace(/\./g, ''));
+    }
+    
+    // Caso contrário, confia no Number() nativo (ex: "1000" ou "1.5")
+    return Number(str);
+};
+
 export const getCoachPriorities = (topicsData) => {
     if (!Array.isArray(topicsData)) return [];
-    
-    // [CORREÇÃO] Função de sanitização robusta para lidar com strings e separadores vírgula (Bug 4.1 Fix)
-    const sanitizeNum = (val) => {
-        if (val === null || val === undefined || val === '') return NaN;
-        if (typeof val === 'string') {
-            const cleanStr = val.includes(',') ? val.replace(/\./g, '').replace(',', '.') : val;
-            return Number(cleanStr);
-        }
-        return Number(val);
-    };
     
     const globalCorrect = topicsData.reduce((acc, t) => {
         const parsedAcertos = sanitizeNum(t.acertos);
@@ -1289,9 +1298,8 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
                 // Cenário: Tem volume de questões
                 if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
                     // CORREÇÃO: Sanitização estrita e resiliente a milhares
-                    let rawC = String(t.correct);
-                    rawC = rawC.replace(/\./g, '').replace(',', '.');
-                    topicCorrect = Math.min(topicTotal, Number.isFinite(Number(rawC)) ? Number(rawC) : 0);
+                    const rawC = sanitizeNum(t.correct);
+                    topicCorrect = Math.min(topicTotal, Number.isFinite(rawC) ? rawC : 0);
                 } else {
                     // Fallback seguro em caso de notas penalizadas ao nível do subtópico
                     topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;
