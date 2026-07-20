@@ -1,3 +1,5 @@
+import { getDateKey } from '../../utils/dateHelper';
+
 export const createMonteCarloSlice = (set) => ({
     recordMonteCarloSnapshot: (date, prob, metadata = {}) => set((state) => {
         const activeId = state.appState.activeId;
@@ -7,9 +9,9 @@ export const createMonteCarloSlice = (set) => ({
         const history = Array.isArray(activeData.monteCarloHistory) ? activeData.monteCarloHistory : [];
         const snapshot = { date, probability: prob, ...metadata };
         let newHistory;
-        // Padroniza as chaves temporais forçando conversão para string ou epoch
-        const targetDateStr = new Date(date).toISOString().split('T')[0];
-        const idx = history.findIndex(h => new Date(h.date).toISOString().split('T')[0] === targetDateStr);
+        // Padroniza as chaves temporais de forma segura contra fusos horários negativos (UTC offset shift)
+        const targetDateStr = getDateKey(date);
+        const idx = history.findIndex(h => getDateKey(h.date) === targetDateStr);
 
         if (idx >= 0) {
             newHistory = [...history];
