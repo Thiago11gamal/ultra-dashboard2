@@ -276,9 +276,10 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}
 
     // Fator de cobertura baseado em n E ritmo temporal
     const coverageFactor = Math.max(0.8, Math.min(1.3, Math.sqrt(10 / Math.max(2, n))));
-    // Sessões frequentes (gap pequeno) → decayK maior (memória curta, foco no recente)
-    // Sessões espaçadas (gap grande) → decayK menor (memória longa, cada dado importa mais)
-    const gapFactor = Math.max(0.7, Math.min(1.4, 1 + 0.3 * Math.exp(-medianGapDays / 14)));
+    // BUG-FIX: Inversão do Gap Factor. 
+    // Sessões frequentes (gap pequeno) → decayK menor (memória consolidada e estável)
+    // Sessões espaçadas (gap grande) → decayK maior (memória volátil, peso no dado mais recente)
+    const gapFactor = Math.max(0.7, Math.min(1.4, 0.8 + 0.6 * (1 - Math.exp(-medianGapDays / 14))));
     const decayK = Math.max(0.03, Math.min(0.12, 0.07 * coverageFactor * gapFactor));
     const minWeight = Math.max(0.01, Math.min(0.08, 0.015 + (cv * 0.02)));
     const scoreClampDelta = Math.max(maxScore * 0.12, Math.min(maxScore * 0.45, (0.2 + cv * 0.15) * maxScore));

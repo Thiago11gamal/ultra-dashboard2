@@ -236,7 +236,9 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
     // Compute Brier from probability and observed if available
     let brier = 0;
     if (Number.isFinite(h.probability) && (h.observed === 0 || h.observed === 1)) {
-      brier = (h.probability - h.observed) ** 2;
+      // BUG-FIX: Normalize probability to 0-1 scale if it was stored as 0-100 to prevent Brier Score explosion
+      const p = h.probability > 1 ? h.probability / 100 : h.probability;
+      brier = (p - h.observed) ** 2;
     }
     
     sumWeightedBrier += brier * w;

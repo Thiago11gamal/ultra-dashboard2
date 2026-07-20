@@ -111,7 +111,8 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
     const safeFirstActivity = normalizeDate(firstActivityDate);
     if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
         const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
-        const totalJourneyDays = Math.max(1, ((normalizeDate(referenceDate) || referenceDate).getTime() - safeFirstActivity.getTime()) / 86400000) + daysToExam;
+        // BUG-FIX: Prevenir que daysToExam negativo zere totalJourneyDays
+        const totalJourneyDays = Math.max(1, ((normalizeDate(referenceDate) || referenceDate).getTime() - safeFirstActivity.getTime()) / 86400000) + Math.max(0, daysToExam);
         // Se a jornada é longa (ex: 300 dias), a rampa começa mais cedo.
         timeDivisor = Math.max(14, totalJourneyDays * 0.15); 
     }
