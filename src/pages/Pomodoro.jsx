@@ -499,6 +499,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const total = categoryTasks.length;
         const completed = categoryTasks.filter(t => t.completed).length;
         const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const totalMinutes = currentCategory?.totalMinutes || 0;
 
         const remaining = Math.max(total - completed, 0);
         const gainIfComplete = total > 0 ? Number((100 / total).toFixed(1)) : 0;
@@ -537,7 +538,12 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const variantSeed = String(activeSubject.taskId || activeSubject.task || '').length + completed + total;
         const statusLine = statusVariants[variantSeed % statusVariants.length];
 
-        return { total, completed, completionPct, gainIfComplete, quality, whySelected, improveText, hitRate, missRate, statusLine };
+        return { 
+            total, completed, completionPct, gainIfComplete, quality, whySelected, improveText, hitRate, missRate, statusLine,
+            categoryName: currentCategory?.name || 'Desconhecida',
+            totalMinutes,
+            topic: activeSubject.task
+        };
     }, [activeSubject, categories]);
 
     const cleanTaskText = (rawText) => {
@@ -603,11 +609,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover/stats:opacity-100 transition-opacity" />
                     
                     <div className="flex justify-between items-center mb-3">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2">
-                            <Target size={12} />
-                            Status do assunto atual
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2 truncate pr-2">
+                            <Target size={12} className="shrink-0" />
+                            <span className="truncate">Matéria: {activeTaskStats.categoryName}</span>
                         </p>
-                        <span className="text-[10px] font-black text-cyan-500/50 bg-cyan-500/10 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-black text-cyan-500/50 bg-cyan-500/10 px-2 py-0.5 rounded-md shrink-0">
                             {activeTaskStats.completionPct}% Completo
                         </span>
                     </div>
@@ -622,8 +628,13 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
 
                     <p className="text-xs text-slate-200 leading-relaxed relative z-10">
-                        Escolhido por {activeTaskStats.whySelected}. Progresso: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
-                        Ganho estimado: <strong className="text-emerald-400">+{activeTaskStats.gainIfComplete}%</strong>.
+                        <span className="block mb-1">
+                            <strong className="text-cyan-300">Assunto atual:</strong> {cleanTaskText(activeTaskStats.topic).displayTopic}
+                        </span>
+                        <span>
+                            Escolhido por {activeTaskStats.whySelected}. Progresso da matéria: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
+                            Ganho estimado na base: <strong className="text-emerald-400">+{activeTaskStats.gainIfComplete}%</strong>.
+                        </span>
                     </p>
                     <div className="mt-3 relative z-10">
                         <p className="text-xs text-slate-400">
@@ -633,6 +644,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                         <div className="flex items-center gap-4 mt-3">
                             <span className="flex items-center gap-1.5 text-xs"><CheckCircle2 size={12} className="text-emerald-500"/> <strong className="text-slate-200">{activeTaskStats.hitRate}%</strong> Acerto</span>
                             <span className="flex items-center gap-1.5 text-xs"><AlertCircle size={12} className="text-amber-500"/> <strong className="text-slate-200">{activeTaskStats.missRate}%</strong> Melhorar</span>
+                            {activeTaskStats.totalMinutes > 0 && (
+                                <span className="flex items-center gap-1.5 text-xs"><Clock size={12} className="text-cyan-500"/> <strong className="text-slate-200">{Math.round(activeTaskStats.totalMinutes)}m</strong> Dedicados</span>
+                            )}
                         </div>
                     </div>
                 </div>
