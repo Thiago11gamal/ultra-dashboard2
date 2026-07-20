@@ -210,19 +210,29 @@ export function estimateInterSubjectCorrelation(
             const meanX = kahanSum(xs) / n;
             const meanY = kahanSum(ys) / n;
 
-            let covArr = [];
-            let varXArr = [];
-            let varYArr = [];
+            let cov = 0.0, c_cov = 0.0;
+            let varX = 0.0, c_x = 0.0;
+            let varY = 0.0, c_y = 0.0;
+
             for (let k = 0; k < n; k++) {
                 const dx = xs[k] - meanX;
                 const dy = ys[k] - meanY;
-                covArr.push(dx * dy);
-                varXArr.push(dx * dx);
-                varYArr.push(dy * dy);
+                
+                const y_cov = (dx * dy) - c_cov;
+                const t_cov = cov + y_cov;
+                c_cov = (t_cov - cov) - y_cov;
+                cov = t_cov;
+
+                const y_x = (dx * dx) - c_x;
+                const t_x = varX + y_x;
+                c_x = (t_x - varX) - y_x;
+                varX = t_x;
+
+                const y_y = (dy * dy) - c_y;
+                const t_y = varY + y_y;
+                c_y = (t_y - varY) - y_y;
+                varY = t_y;
             }
-            const cov = kahanSum(covArr);
-            const varX = kahanSum(varXArr);
-            const varY = kahanSum(varYArr);
 
             const epsilon = 1e-15;
             const denom = Math.sqrt((varX + epsilon) * (varY + epsilon));
@@ -301,7 +311,6 @@ export function getVarianceBreakdown(stats, totalWeight) {
  */
 function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
     if (!historyA || !historyB) return fallback;
-    let sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
     let pairedCount = 0;
 
     const getScore = (h) => {
@@ -319,18 +328,14 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
         if (d) mapA.set(d, getScore(h));
     });
 
+    const xs = [];
+    const ys = [];
     historyB.forEach(h => {
         if (!h) return;
         const d = getDateStr(h);
         if (d && mapA.has(d)) {
-            const scoreA = mapA.get(d);
-            const scoreB = getScore(h);
-            
-            sumA += scoreA;
-            sumB += scoreB;
-            sumAB += (scoreA * scoreB);
-            sumA2 += (scoreA * scoreA);
-            sumB2 += (scoreB * scoreB);
+            xs.push(mapA.get(d));
+            ys.push(getScore(h));
             pairedCount++;
         }
     });
@@ -338,13 +343,26 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
     if (pairedCount < 5) return fallback;
 
     const n = pairedCount;
-    const numerator = (n * sumAB) - (sumA * sumB);
-    const varA = Math.max(0, (n * sumA2) - (sumA * sumA));
-    const varB = Math.max(0, (n * sumB2) - (sumB * sumB));
-    const denominator = Math.sqrt(varA * varB);
+    let meanX = 0, meanY = 0;
+    for (let i = 0; i < n; i++) {
+        meanX += xs[i];
+        meanY += ys[i];
+    }
+    meanX /= n;
+    meanY /= n;
 
+    let cov = 0, varX = 0, varY = 0;
+    for (let i = 0; i < n; i++) {
+        const dx = xs[i] - meanX;
+        const dy = ys[i] - meanY;
+        cov += dx * dy;
+        varX += dx * dx;
+        varY += dy * dy;
+    }
+
+    const denominator = Math.sqrt(varX * varY);
     if (denominator === 0) return fallback;
-    const pearsonR = numerator / denominator;
+    const pearsonR = cov / denominator;
     return Math.max(-0.3, Math.min(0.8, pearsonR));
 }
 
