@@ -346,15 +346,29 @@ export function conformalizedCalibrationInterval(probability01, pairs = [], alph
   const clean = (pairs || [])
     .map(x => ({ probability: Number(x?.probability), observed: Number(x?.observed) }))
     .filter(x => Number.isFinite(x.probability) && Number.isFinite(x.observed));
+  
   if (clean.length < 8) {
     return { low: Math.max(0, p - 0.15), high: Math.min(1, p + 0.15), qHat: 0.15 };
   }
-  const residuals = clean.map(x => Math.abs(Math.max(0, Math.min(1, x.probability)) - Math.max(0, Math.min(1, x.observed)))).sort((a,b)=>a-b);
-  const n = residuals.length;
-  const safeAlpha = Math.max(0.01, Math.min(0.4, alpha));
-  const qIdx = Math.max(0, Math.min(Math.ceil((1 - safeAlpha) * (n + 1)) - 1, n - 1));
-  const qHat = residuals[qIdx] || 0;
-  return { low: Math.max(0, p - qHat), high: Math.min(1, p + qHat), qHat };
+
+  // FIX: Substituição dos resíduos absolutos por Erro Padrão Binomial Bayesiano.
+  // Impede que o qHat exploda caso o modelo preveja 0.9 e o resultado seja 0.
+  const n = clean.length;
+  
+  // Smoothing (Laplace) para evitar variância zero caso p seja exatamente 0 ou 1
+  const smoothedP = (p * n + 0.5) / (n + 1);
+  const standardError = Math.sqrt((smoothedP * (1 - smoothedP)) / n);
+  
+  // Mapeamento de alpha para Z-Score seguro (ex: alpha 0.1 -> ~1.645 para 90% CI)
+  const zScore = alpha <= 0.05 ? 1.96 : (alpha <= 0.1 ? 1.645 : 1.28); 
+  
+  const qHat = standardError * zScore;
+
+  return { 
+    low: Math.max(0, p - qHat), 
+    high: Math.min(1, p + qHat), 
+    qHat 
+  };
 }
 
 export function computeStackingWeights(candidateProbs = [], observed = []) {
