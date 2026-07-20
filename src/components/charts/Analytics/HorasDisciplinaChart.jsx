@@ -13,8 +13,8 @@ export function HorasDisciplinaChart({ data }) {
         );
     }
 
-    // Sort by hours descending
-    const sortedData = [...data].sort((a, b) => b.horas - a.horas);
+    // Sort by hours descending (ensuring numerical sort)
+    const sortedData = [...data].sort((a, b) => (Number(b.horas) || 0) - (Number(a.horas) || 0));
 
     // FIX: Altura base de 300px (para o eixo X ficar sempre no fundo alinhado ao outro gráfico), 
     // mas se tiver muitas matérias, cresce proporcionalmente para não amassar as barras.

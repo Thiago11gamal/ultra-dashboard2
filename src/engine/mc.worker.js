@@ -83,7 +83,7 @@ self.onmessage = function(e) {
                 const hist = sanitizeHistory(payload.inputOrMean);
                 const options = sanitizeOptions(payload.options);
                 const sanitizedInput = {
-                    values: hist.map(h => typeof h === 'object' ? h.score : h),
+                    values: hist.map(h => typeof h === 'object' ? (h.score ?? h.value ?? 0) : h),
                     dates: hist.map(h => typeof h === 'object' ? h.date : ''),
                     targetScore: safeNum(payload.targetScore, 0),
                     projectionDays: safeNum(payload.projectionDays, 90),

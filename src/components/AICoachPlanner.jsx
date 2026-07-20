@@ -25,7 +25,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     const parts = fullText.split(':');
     const hasDetails = parts.length > 1;
 
-    let subject = task.category || task.catName || (hasDetails ? parts[0] : fullText);
+    let subject = String(task.category || task.catName || (hasDetails ? parts[0] : fullText));
     let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
     subject = subject.replace(/Foco em /i, '').trim();
 
