@@ -334,12 +334,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
                     const raw = Number(s.mean) + zCorrStatic[j];
                     
-                    // FIX: Replaced folding reflection with Clamping.
-                    // Reflection (folding) at the bounds inverts the sign of the correlated variable,
-                    // mathematically destroying the covariance matrix (turns positive correlation into negative).
-                    const sScore = Math.max(sMin, Math.min(sMax, raw));
-                    
-                    if (sScore < Number(s.minCutoff)) {
+                    // Validamos a aprovação baseada no valor projetado, sem esmagar a matriz contra a parede
+                    if (raw < Number(s.minCutoff)) {
                         passedMins = false;
                         break;
                     }

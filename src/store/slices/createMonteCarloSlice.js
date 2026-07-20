@@ -17,7 +17,11 @@ export const createMonteCarloSlice = (set) => ({
         }
         // Immutable sort + limit
         newHistory = newHistory
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .sort((a, b) => {
+                const timeA = new Date(a.date).getTime() || 0;
+                const timeB = new Date(b.date).getTime() || 0;
+                return timeA - timeB;
+            })
             .slice(-30);
 
         // Assign immutably to avoid direct mutation issues

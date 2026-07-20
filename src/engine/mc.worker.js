@@ -9,7 +9,7 @@ function safeNum(val, fallback) {
     const hasFallback = arguments.length > 1;
     const cleanFallback = hasFallback ? fallback : 0;
     
-    if (val === undefined || val === null) return cleanFallback;
+    if (val === undefined || val === null || val === '') return cleanFallback;
     
     const num = Number(val);
     return Number.isFinite(num) ? num : cleanFallback;
@@ -44,7 +44,11 @@ function sanitizeOptions(options) {
     if (options.currentMean !== undefined) newOpts.currentMean = safeNum(options.currentMean, undefined);
     if (options.minScore !== undefined) newOpts.minScore = safeNum(options.minScore, 0);
     if (options.maxScore !== undefined) newOpts.maxScore = safeNum(options.maxScore, 100);
-    if (options.historicalCutoffs !== undefined) newOpts.historicalCutoffs = Array.isArray(options.historicalCutoffs) ? options.historicalCutoffs.map(v => safeNum(v, 0)) : [];
+    if (options.historicalCutoffs !== undefined) {
+        newOpts.historicalCutoffs = Array.isArray(options.historicalCutoffs) 
+            ? options.historicalCutoffs.map(v => Number(v)).filter(n => Number.isFinite(n) && n > 0) 
+            : [];
+    }
     return newOpts;
 }
 
