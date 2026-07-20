@@ -644,9 +644,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (rafId) cancelAnimationFrame(rafId);
             if (timeoutId) clearTimeout(timeoutId);
         };
-    // BUG-7 FIX: Removido 'speed' das dependências — speedRef.current já é lido
-    // dentro do loop, evitando restart desnecessário que reseta a âncora de tempo.
-    }, [isRunning, safeSettings, transitionSession]);
+    // BUG-7 FIX CORRECTION: 'speed' MUST be in the dependencies.
+    // If the speed changes, we must reset the time anchor (startTime),
+    // otherwise the total elapsed time will be multiplied by the new speed, causing huge time jumps.
+    }, [isRunning, safeSettings, transitionSession, speed]);
 
     const reset = () => {
         if (isTransitioningRef.current) return;
