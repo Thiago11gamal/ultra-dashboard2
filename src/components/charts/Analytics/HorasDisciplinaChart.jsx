@@ -48,7 +48,20 @@ export function HorasDisciplinaChart({ data }) {
                         axisLine={false}
                         tickLine={false}
                         width={80}
-                        tick={{ fill: '#e2e8f0', fontSize: 9, fontWeight: 600 }}
+                        tick={(props) => {
+                            const { x, y, payload } = props;
+                            let rawText = String(payload.value || '');
+                            if (rawText.length > 13) {
+                                rawText = rawText.substring(0, 13).trim() + '...';
+                            }
+                            return (
+                                <g transform={`translate(${x},${y})`}>
+                                    <text x={0} y={0} dy={3} dx={-5} textAnchor="end" fill="#e2e8f0" fontSize={9} fontWeight={600}>
+                                        {rawText}
+                                    </text>
+                                </g>
+                            );
+                        }}
                     />
 
                     <Tooltip

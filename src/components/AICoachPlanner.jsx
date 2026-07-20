@@ -68,7 +68,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
 
                             <div className="flex flex-col h-full relative z-10">
                                 <div className="flex items-start justify-between gap-2 mb-2">
-                                    <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest ${isBacklog ? 'bg-violet-500/10 text-violet-300 border border-violet-500/20' : `bg-black/30 ${accentColor} border-white/10`}`}>
+                                    <div className={`max-w-full inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest ${isBacklog ? 'bg-violet-500/10 text-violet-300 border border-violet-500/20' : `bg-black/30 ${accentColor} border-white/10`}`}>
                                         <div className={`w-1 h-1 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
                                         <span className="leading-[1.32] truncate">{displaySubject(subject)}</span>
                                     </div>
