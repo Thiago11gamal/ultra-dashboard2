@@ -393,7 +393,15 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             for (let i = 1; i <= horizon; i++) {
                 const train = history.slice(0, history.length - i);
                 const observedRecord = history[history.length - i];
-                const observed = observedRecord.score >= safeTargetScore ? 1 : 0;
+                
+                // ARCHITECTURE-FIX: Avaliar "Prontidão Estrutural" em vez de volatilidade diária.
+                // Olha para as próximas X sessões (máximo 3) após a data de treino para confirmar 
+                // se o aluno realmente consolidou o aprendizado ou se foi apenas ruído de 1 dia.
+                const lookAhead = Math.min(3, i);
+                const futureWindow = history.slice(history.length - i, history.length - i + lookAhead);
+                const avgFutureScore = futureWindow.reduce((acc, r) => acc + r.score, 0) / futureWindow.length;
+                
+                const observed = avgFutureScore >= safeTargetScore ? 1 : 0;
                 
                 try {
                     // CORREÇÃO: Calcular o delta real em dias para projetar apenas o necessário
