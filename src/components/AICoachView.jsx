@@ -27,7 +27,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     const separatorIndex = fullText.indexOf(':');
     const hasDetails = separatorIndex !== -1;
 
-    let subjectPart = task.category || task.catName || (hasDetails ? fullText.slice(0, separatorIndex) : fullText);
+    let subjectPart = String(task.category || task.catName || (hasDetails ? fullText.slice(0, separatorIndex) : fullText));
     let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : fullText;
     subjectPart = subjectPart.replace(/Foco em /i, '').trim();
 
