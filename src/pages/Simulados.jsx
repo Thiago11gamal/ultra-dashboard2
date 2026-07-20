@@ -134,9 +134,12 @@ export default function Simulados() {
     // BUG-11/20 FIX: Guarda de segurança contra estado vazio
     if (!categoriesArray.length) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-8 text-center bg-slate-900/50 rounded-2xl border border-white/5 mx-4 mt-8">
+                <Brain className="w-16 h-16 text-slate-600 mb-4" />
+                <h2 className="text-xl font-black text-white">Nenhuma matéria encontrada</h2>
+                <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+                    Você ainda não cadastrou matérias no seu concurso ativo. Para gerar ou analisar simulados, adicione matérias no seu plano de estudos.
+                </p>
             </div>
         );
     }

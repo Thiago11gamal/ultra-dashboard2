@@ -60,7 +60,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             if (field === 'correct') {
                 const currentTotal = parseInt(rows[index]?.total, 10) || 0;
                 // Enforce: Correct cannot exceed Total (unless Total is empty/0)
-                if (val !== '' && val > currentTotal) finalValue = currentTotal;
+                if (val !== '' && currentTotal > 0 && val > currentTotal) finalValue = currentTotal;
                 else finalValue = val;
             } else if (field === 'total') {
                 const currentCorrect = parseInt(rows[index]?.correct, 10) || 0;
