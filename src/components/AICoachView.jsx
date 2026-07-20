@@ -10,13 +10,8 @@ import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { useToast } from '../hooks/useToast';
 
-// BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
-
 function renderBoldText(text) {
     const safeText = String(text || '');
-    // BUG-04 FIX: Robustness against markdown nesting/formatting
-    // Usando `.*?` em vez de `[^*]+` garante que **texto com caracteres especiais** 
-    // ou pontuações seja capturado de forma non-greedy sem quebrar o split.
     const parts = safeText.split(/(\*\*.*?\*\*)/g).filter(Boolean);
     return parts.map((part, idx) => {
         if (part.startsWith('**') && part.endsWith('**')) {
@@ -36,31 +31,26 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : fullText;
     subjectPart = subjectPart.replace(/Foco em /i, '').trim();
 
-    // Remove tags do sistema e marca como crítico
     const isSystemAlert = /\[ALERTA MESTRE\]/i.test(actionPart);
     const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert;
     actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '');
 
-    // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE])
     actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
     let topicPart = subjectPart;
 
-    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(actionPart)) {
-        actionPart = '';
-    }
+    actionPart = actionPart.replace(/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi, '').trim();
 
-    // Se for um Alerta Mestre, extraímos a mensagem para uma caixa separada e forçamos o Assunto como título principal
     let systemAlertMessage = null;
     if (isSystemAlert) {
-        systemAlertMessage = actionPart; // Salva o alerta
-        actionPart = ""; // Limpa para não repetir no subtítulo
+        systemAlertMessage = actionPart;
+        actionPart = "";
         if (!topicPart) {
-            topicPart = subjectPart; // O título do card vira o nome da matéria (Ex: "Biologia")
+            topicPart = subjectPart;
         }
     }
 
     const displayAssunto = topicPart || actionPart || 'Revisão Recomendada';
-    const displayMeta = actionPart ? actionPart : null;
+    const displayMeta = actionPart && actionPart !== displayAssunto ? actionPart : null;
 
     const CARD_COLORS = [
         { accent: 'border-l-violet-500', dot: 'bg-violet-500', badge: 'bg-violet-500/10 text-violet-300 border-violet-500/20', glow: 'from-violet-900/20', btnHover: 'hover:bg-violet-600 hover:text-white hover:border-violet-500 hover:shadow-[0_0_20px_-3px_rgba(139,92,246,0.4)]' },
@@ -71,22 +61,21 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     ];
     const col = CARD_COLORS[idx % CARD_COLORS.length];
 
+    const safeProbRaw = String(task.analysis?.monteCarlo?.probability).replace(/[^\d.-]/g, '');
+    const safeProb = Number(safeProbRaw) || 0;
+    const safeVol = Number(task.analysis?.monteCarlo?.volatility) || 0;
+
     return (
         <div
-            className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
-                isPriority 
-                    ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]' 
+            className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${isPriority
+                    ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]'
                     : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
-            }`}
+                }`}
         >
-            {/* Efeitos Visuais de Fundo (Glassmorphism & Cinematic Glow) */}
             <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] via-[#0a0c14]/0 to-transparent ${isPriority ? 'from-rose-900/30' : col.glow}`} />
-            
-            {/* Efeito de Sirene/Alerta Cinematico para Cards Críticos */}
+
             {isPriority && (
-                <>
-                    <div className="absolute -top-20 -right-20 w-56 h-56 bg-rose-600/20 blur-[80px] rounded-full pointer-events-none animate-pulse" />
-                </>
+                <div className="absolute -top-20 -right-20 w-56 h-56 bg-rose-600/20 blur-[80px] rounded-full pointer-events-none animate-pulse" />
             )}
 
             <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-5 gap-4">
@@ -105,16 +94,15 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                         </div>
                     </div>
                 </div>
-                <button 
+                <button
                     onClick={(e) => {
                         e.stopPropagation();
                         onStartPomodoro(task);
                     }}
-                    className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${
-                        isPriority 
+                    className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${isPriority
                             ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
                             : `bg-white/[0.03] border-white/[0.08] text-slate-300 ${col.btnHover}`
-                    }`}
+                        }`}
                 >
                     <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Iniciar</span>
                     <Play size={13} fill="currentColor" className="transition-colors" />
@@ -139,33 +127,32 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                 )}
             </div>
 
-            {/* Exposição Visual dos KPIs Matemáticos */}
             {task.analysis?.monteCarlo && (
                 <div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi hover:bg-white/[0.04] transition-colors">
                         <div className="flex items-center justify-between z-10 relative">
                             <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
-                            <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(task.analysis.monteCarlo.probability)}%</span>
+                            <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(safeProb)}%</span>
                         </div>
                         <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                            <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, Math.max(0, task.analysis.monteCarlo.probability))}%` }} />
+                            <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, Math.max(0, safeProb))}%` }} />
                         </div>
                     </div>
                     <div className={`bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]`}>
                         <div className="flex items-center justify-between z-10 relative">
-                            <span className={`text-[9px] font-black tracking-widest uppercase ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
-                            <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{task.analysis.monteCarlo.volatility > 0 && task.analysis.monteCarlo.volatility < 0.5 ? '<1' : Math.round(task.analysis.monteCarlo.volatility)}</span>
+                            <span className={`text-[9px] font-black tracking-widest uppercase ${safeVol > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
+                            <span className={`font-mono text-xs font-bold ${safeVol > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{safeVol > 0 && safeVol < 0.5 ? '<1' : Math.round(safeVol)}</span>
                         </div>
                         <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${task.analysis.monteCarlo.volatility > 8 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (task.analysis.monteCarlo.volatility / 20) * 100))}%` }} />
+                            <div className={`h-full rounded-full transition-all duration-1000 ${safeVol > 8 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (safeVol / 20) * 100))}%` }} />
                         </div>
                     </div>
                 </div>
             )}
             {task.analysis && (
                 <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.04]">
-                    <button 
-                        onClick={() => setIsExpanded(!isExpanded)} 
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
                         className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-300 outline-none focus:outline-none ${isExpanded ? 'bg-indigo-500/[0.04] border-indigo-500/10' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'}`}
                     >
                         <div className="flex items-center gap-3">
@@ -178,7 +165,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     </button>
                     <AnimatePresence>
                         {isExpanded && (
-                            <Motion.div 
+                            <Motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
@@ -193,7 +180,9 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                             {Object.entries(task.analysis.metrics).map(([key, value], idx) => (
                                                 <div key={`metric-${key}-${idx}`} className="bg-indigo-500/[0.03] border border-indigo-500/10 px-3 py-2 rounded-xl flex flex-col gap-0.5">
                                                     <span className="text-[8px] text-indigo-400/60 uppercase tracking-widest font-black">{key}</span>
-                                                    <span className="text-[10px] font-mono text-indigo-200 font-bold">{value}</span>
+                                                    <span className="text-[10px] font-mono text-indigo-200 font-bold">
+                                                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                                    </span>
                                                 </div>
                                             ))}
                                         </div>
@@ -221,6 +210,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
+
     const coachPlanner = useMemo(() => {
         const raw = activeContest?.coachPlanner || {};
         const normalized = {};
@@ -229,52 +219,80 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         }
         return normalized;
     }, [activeContest?.coachPlanner]);
+
     const coachPlanRaw = useMemo(() => {
         const raw = activeContest?.coachPlan || [];
         return Array.isArray(raw) ? raw : Object.values(raw || {});
     }, [activeContest?.coachPlan]);
+
     const systemAlerts = useMemo(() => coachPlanRaw.filter(task => /\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')), [coachPlanRaw]);
     const actionableTasks = useMemo(() => coachPlanRaw.filter(task => !/\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')), [coachPlanRaw]);
     const coachPlan = actionableTasks;
+
+    const unallocatedCards = useMemo(() => {
+        if (!coachPlan || coachPlan.length === 0) return [];
+        const allAssignedIds = new Set();
+        Object.values(coachPlanner).forEach(dayTasks => {
+            (dayTasks || []).forEach(t => {
+                const sid = getSafeId(t);
+                if (sid) allAssignedIds.add(sid);
+            });
+        });
+        return coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
+    }, [coachPlan, coachPlanner]);
+
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();
     const showToast = useToast();
 
     const handleStartNeural = (task) => {
-        const allAssignedIds = new Set();
-        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
-        const unallocatedTasks = coachPlan.filter(t => !allAssignedIds.has(getSafeId(t)));
-        
-        // BUG FIX: Se a tarefa clicada não estiver nos não-alocados (ex: foi movida), 
-        // usamos a lista unallocated como base, mas buscamos o índice correto.
-        let targetIndex = unallocatedTasks.findIndex(t => getSafeId(t) === getSafeId(task));
-        let sessionTasks = unallocatedTasks;
+        let targetIndex = unallocatedCards.findIndex(t => {
+            const idT = getSafeId(t);
+            const idTask = getSafeId(task);
+            if (idT && idTask) return idT === idTask;
+            return t === task || t.title === task.title;
+        });
 
+        let sessionTasks = unallocatedCards;
         let sourceContext = 'backlog';
 
         if (targetIndex === -1) {
-            // BUG-DESYNC FIX: Se não estiver nos não-alocados, buscar ativamente em qual dia do planner está
-            const dayEntry = Object.entries(coachPlanner).find(([, tasks]) => 
-                (tasks || []).some(t => getSafeId(t) === getSafeId(task))
+            const dayEntry = Object.entries(coachPlanner).find(([, tasks]) =>
+                (tasks || []).some(t => {
+                    const idT = getSafeId(t);
+                    const idTask = getSafeId(task);
+                    if (idT && idTask) return idT === idTask;
+                    return t === task || t.title === task.title;
+                })
             );
             if (dayEntry) {
                 sessionTasks = dayEntry[1];
-                targetIndex = sessionTasks.findIndex(t => getSafeId(t) === getSafeId(task));
+                targetIndex = sessionTasks.findIndex(t => {
+                    const idT = getSafeId(t);
+                    const idTask = getSafeId(task);
+                    if (idT && idTask) return idT === idTask;
+                    return t === task || t.title === task.title;
+                });
                 sourceContext = dayEntry[0];
             } else {
-                // Fallback: se não estiver no unallocated nem em nenhum dia, usa o coachPlan inteiro
                 sessionTasks = coachPlan;
-                targetIndex = coachPlan.findIndex(t => getSafeId(t) === getSafeId(task));
+                targetIndex = coachPlan.findIndex(t => {
+                    const idT = getSafeId(t);
+                    const idTask = getSafeId(task);
+                    if (idT && idTask) return idT === idTask;
+                    return t === task || t.title === task.title;
+                });
             }
         }
 
-        if (!Array.isArray(sessionTasks) || sessionTasks.length === 0) return;
-        const safeIndex = targetIndex !== -1 ? targetIndex : 0;
-        
-        // FIX: Inject sourceContext just like in AICoachPlanner.jsx
+        if (targetIndex === -1) {
+            startNeuralSession([{ ...task, sourceContext: sourceContext || 'isolated' }], 0);
+            navigate('/pomodoro');
+            return;
+        }
+
         const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext }));
-        
-        startNeuralSession(sessionWithContext, safeIndex);
+        startNeuralSession(sessionWithContext, targetIndex);
         navigate('/pomodoro');
     };
 
@@ -298,7 +316,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-3xl shadow-inner relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32 pointer-events-none"></div>
                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] -ml-32 -mb-32 pointer-events-none"></div>
-                    
+
                     <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
@@ -328,7 +346,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     Pendências
                                 </button>
                             </div>
-                            
+
                             <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={handleExport}
@@ -355,7 +373,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             disabled={loading}
                             className="group relative w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none animate-pulse" />
                             {loading ? (
                                 <>
@@ -371,17 +388,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         </button>
                     </div>
                 </div>
-
-
             </div>
-
-
-
-
 
             <AnimatePresence mode="wait">
                 {viewMode === 'cards' && (
-                    <Motion.div 
+                    <Motion.div
                         key="cards"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -402,28 +413,18 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         </div>
 
                         {hasPlan ? (
-                            (() => {
-                                const allAssignedIds = new Set();
-                                Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
-                                const cardTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
-                                
-                                if (cardTasks.length === 0) {
-                                    return (
-                                        <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
-                                            <Target size={32} className="text-slate-600 mx-auto mb-4" />
-                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco pendente fora do planner</p>
-                                        </div>
-                                    );
-                                }
-
-                                return (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
-                                        {cardTasks.map((task, idx) => (
-                                            <AICoachCard key={getSafeId(task) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
-                                        ))}
-                                    </div>
-                                );
-                            })()
+                            unallocatedCards.length === 0 ? (
+                                <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                                    <Target size={32} className="text-slate-600 mx-auto mb-4" />
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco pendente fora do planner</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
+                                    {unallocatedCards.map((task, idx) => (
+                                        <AICoachCard key={getSafeId(task) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
+                                    ))}
+                                </div>
+                            )
                         ) : (
                             <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
                                 <Target size={32} className="text-slate-600 mx-auto mb-4" />
@@ -434,7 +435,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 )}
 
                 {viewMode === 'planner' && (
-                    <Motion.div 
+                    <Motion.div
                         key="planner"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -442,43 +443,44 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         transition={{ duration: 0.2, ease: "easeOut" }}
                     >
                         <div className="space-y-6 mb-8">
-                    {suggestedFocus ? (
-                        <div className="w-full">
-                            <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
-                        </div>
-                    ) : (
-                        <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
-                            <AlertCircle size={20} className="mx-auto mb-3 text-slate-600" />
-                            <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
-                            <p className="text-[10px] text-slate-500 mt-1">Recalcule a estratégia após novos simulados.</p>
-                        </div>
-                    )}
+                            {suggestedFocus ? (
+                                <div className="w-full">
+                                    <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
+                                </div>
+                            ) : (
+                                <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
+                                    <AlertCircle size={20} className="mx-auto mb-3 text-slate-600" />
+                                    <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
+                                    <p className="text-[10px] text-slate-500 mt-1">Recalcule a estratégia após novos simulados.</p>
+                                </div>
+                            )}
                         </div>
 
                         {systemAlerts.length > 0 && (
                             <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {systemAlerts.map(alertTask => {
-                                    const cleanText = alertTask.text.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
+                                    const rawText = alertTask.text || alertTask.title || '';
+                                    const cleanText = rawText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
                                     const separatorIndex = cleanText.indexOf(':');
                                     const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
                                     const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
-                                    
+
                                     let type = 'info';
                                     let titlePart = message;
                                     let descPart = '';
                                     let actionDesc = '';
-                                    
-                                    if (/VETOR CRÍTICO/i.test(message)) {
+
+                                    if (/VETOR CRÍTICO/i.test(cleanText)) {
                                         type = 'danger';
                                         titlePart = "Vetor Crítico";
                                         descPart = message.replace(/🚨 VETOR CRÍTICO!?\s*/i, '');
                                         actionDesc = "Conclua os focos pendentes desta matéria hoje para frear a queda imediata de rendimento.";
-                                    } else if (/OSCILAÇÃO/i.test(message)) {
+                                    } else if (/OSCILAÇÃO/i.test(cleanText)) {
                                         type = 'warning';
                                         titlePart = "Oscilação Estatística";
                                         descPart = message.replace(/🌪️ OSCILAÇÃO ESTATÍSTICA:?\s*/i, '');
                                         actionDesc = "Revisite os tópicos sugeridos abaixo para estabilizar sua taxa de acertos e reduzir a imprevisibilidade.";
-                                    } else if (/CRUZEIRO SEGURO/i.test(message)) {
+                                    } else if (/CRUZEIRO SEGURO/i.test(cleanText)) {
                                         type = 'success';
                                         titlePart = "Cruzeiro Seguro";
                                         descPart = message.replace(/🏆 CRUZEIRO SEGURO:?\s*/i, '');
@@ -493,9 +495,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     }[type];
 
                                     return (
-                                        <div key={alertTask.id} className={`relative p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
+                                        <div key={getSafeId(alertTask)} className={`relative overflow-hidden p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
                                             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
-                                            
+
                                             <div className="flex items-start gap-4">
                                                 <div className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
                                                     <t.Icon size={24} className={t.isCritical ? "animate-pulse" : ""} />
@@ -556,7 +558,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 })}
                             </div>
                         )}
-                        <AICoachPlanner />
+                        <AICoachPlanner plannerData={coachPlanner} onStartPomodoro={handleStartNeural} />
                     </Motion.div>
                 )}
 

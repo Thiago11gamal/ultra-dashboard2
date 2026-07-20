@@ -295,7 +295,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     if (cutoffSubjects.length > 1) {
       const stats = cutoffSubjects.map(s => {
           const rawSd = s.sd !== undefined && s.sd !== null ? Number(s.sd) : 1;
-          return { sd: rawSd * Math.max(0.80, s.immunityFactor || 1.0) };
+          return { 
+              ...s, // BUG-FIX: Preservar propriedades (como simuladoStats) para Pearson empírico
+              sd: rawSd * Math.max(0.80, s.immunityFactor || 1.0) 
+          };
       });
       const adaptiveRhoContext = (meanOrObj?.simuladoRows) 
         ? { simuladoRows: meanOrObj?.simuladoRows, categoryNames: cutoffSubjects.map(s => s.name || s) } 
@@ -436,12 +439,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         ? (rawHigh - rawLow) / (tMultiplierForSD * 2) 
         : projectedSD;
 
-    // CORREÇÃO: A probabilidade analítica usa safeMean (não muParam) para consistência.
-    // muParam é deslocado para compensar o viés de truncagem na AMOSTRAGEM,
-    // mas a fórmula analítica P(X ≥ target | X ∈ [min,max]) usa μ original.
-    const phiMin    = normalCDF_complement((minScore - safeMean) / safeSD); 
-    const phiMax    = normalCDF_complement((maxScore - safeMean) / safeSD); 
-    const phiTarget = normalCDF_complement((effectiveTarget - safeMean) / safeSD); 
+    // CORREÇÃO MATEMÁTICA: A probabilidade analítica DEVE usar muParam (e não safeMean).
+    // Para que a esperança matemática E[X] da distribuição normal truncada seja igual a safeMean,
+    // a sua média subjacente (μ) deve ser muParam. O CDF (φ) é avaliado usando o μ subjacente.
+    // Isso sincroniza matematicamente a fórmula analítica com a amostragem da simulação empírica.
+    const phiMin    = normalCDF_complement((minScore - muParam) / safeSD); 
+    const phiMax    = normalCDF_complement((maxScore - muParam) / safeSD); 
+    const phiTarget = normalCDF_complement((effectiveTarget - muParam) / safeSD); 
     
     // CORREÇÃO: Prevenir a anulação catastrófica (Underflow) em caudas severamente truncadas,
     // garantindo que a matemática analítica sobrevive a amostras estatisticamente extremas.

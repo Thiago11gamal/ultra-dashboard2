@@ -85,7 +85,7 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
     mce = Math.max(mce, gap);
     relTerm += weight * ((meanPred - observedRate) ** 2);
     resTerm += weight * ((observedRate - overallObserved) ** 2);
-    reliability.push({ bin: i + 1, count: slice.length, meanPred, observedRate, gap });
+    reliability.push({ bin: i + 1, binMin, binMax, count: slice.length, meanPred, observedRate, gap });
   }
   const uncertainty = overallObserved * (1 - overallObserved);
   return {
