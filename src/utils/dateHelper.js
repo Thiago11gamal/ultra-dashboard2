@@ -50,18 +50,11 @@ export const getDateKey = (rawDate) => {
     // Garante que o agrupamento de dias no Heatmap e Streaks ocorre sempre no mesmo fuso,
     // independentemente de onde o utilizador esteja geograficamente.
     try {
-        const formatter = new Intl.DateTimeFormat('en-CA', {
-            timeZone: APP_TIMEZONE,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        });
-        const parts = formatter.formatToParts(date);
-        const p = {};
-        parts.forEach(({ type, value }) => p[type] = value);
-        return `${p.year}-${p.month}-${p.day}`;
+        const yyyy = date.getUTCFullYear();
+        const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(date.getUTCDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
     } catch {
-        // Fallback seguro caso o navegador não suporte fusos horários
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');

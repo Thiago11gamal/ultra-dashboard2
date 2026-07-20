@@ -167,9 +167,19 @@ self.onmessage = function(e) {
             self.postMessage({ id, type: 'error', error: `Tipo de mensagem desconhecido: ${type}` });
             return;
         }
-        self.postMessage({ id, type: 'result', result });
+        self.postMessage({ id, type: 'result', result: sanitizePayloadForWorker(result) });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         self.postMessage({ id, type: 'error', error: errorMessage });
     }
 };
+
+// PATCH 3: Prevenir falhas silenciosas do algoritmo de Structured Clone
+function sanitizePayloadForWorker(obj) {
+    return JSON.parse(JSON.stringify(obj, (key, value) => {
+        if (Number.isNaN(value)) return null; 
+        if (value === Number.POSITIVE_INFINITY) return Number.MAX_VALUE;
+        if (value === Number.NEGATIVE_INFINITY) return -Number.MAX_VALUE;
+        return value;
+    }));
+}
