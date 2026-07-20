@@ -324,8 +324,18 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             if (subjectCholesky) {
                 // Generate independent standard normals, apply correlation via Cholesky
                 // Reutilização extrema de memória: mutar o array em vez de re-alocar
+                // Precisamos gerar scores que já respeitem Z-scores truncados dentro dos domínios da prova
                 for (let k = 0; k < cutoffSubjects.length; k++) {
-                    zVecStatic[k] = generateGaussian(rng);
+                    const s = cutoffSubjects[k];
+                    const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
+                    const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
+                    
+                    // Calcula os z-scores limitantes para esta disciplina
+                    const zMin = (sMin - s.mean) / s.sd;
+                    const zMax = (sMax - s.mean) / s.sd;
+                    
+                    // Substitui o generateGaussian() por um Z-score de normal truncada
+                    zVecStatic[k] = sampleTruncatedNormal(0, 1, zMin, zMax, rng);
                 }
                 applyCovariance(subjectCholesky, zVecStatic, zCorrStatic);
                 for (let j = 0; j < cutoffSubjects.length; j++) {

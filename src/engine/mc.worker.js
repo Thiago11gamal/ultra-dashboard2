@@ -32,7 +32,8 @@ function sanitizeHistory(history) {
             return newH;
         }
         const parsed = Number(h);
-        return Number.isFinite(parsed) ? parsed : 0;
+        // Retorna null para forçar o descarte no .filter() na linha de baixo
+        return Number.isFinite(parsed) ? parsed : null;
     }).filter(v => v !== null && v !== undefined && !Number.isNaN(v));
 }
 

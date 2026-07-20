@@ -7,7 +7,9 @@ export const createMonteCarloSlice = (set) => ({
         const history = Array.isArray(activeData.monteCarloHistory) ? activeData.monteCarloHistory : [];
         const snapshot = { date, probability: prob, ...metadata };
         let newHistory;
-        const idx = history.findIndex(h => h.date === date);
+        // Padroniza as chaves temporais forçando conversão para string ou epoch
+        const targetDateStr = new Date(date).toISOString().split('T')[0];
+        const idx = history.findIndex(h => new Date(h.date).toISOString().split('T')[0] === targetDateStr);
 
         if (idx >= 0) {
             newHistory = [...history];
@@ -59,7 +61,8 @@ export const createMonteCarloSlice = (set) => ({
         const activeData = state.appState.contests[activeId];
         if (!activeData) return;
         
-        if (activeData.coachScore === score) return;
+        // O Object.is() resolve a anomalia do NaN === NaN
+        if (Object.is(activeData.coachScore, score)) return;
         activeData.coachScore = score;
         
         state.appState.version = (state.appState.version || 0) + 1;
