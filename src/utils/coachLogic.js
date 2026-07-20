@@ -1001,7 +1001,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             categoryId: metrics.categoryId || null,
             categoryName: scoreInfo.nome || metrics.categoryName || 'Disciplina',
             timestamp: Date.now(),
-            brierScore: result.details.monteCarlo.avgBrier,
+            avgBrier: result.details.monteCarlo.avgBrier,
             ece: result.details.monteCarlo.ece,
             calibrationPenalty: result.details.monteCarlo.calibrationPenalty,
             reliability: result.details.monteCarlo.reliability || [],
