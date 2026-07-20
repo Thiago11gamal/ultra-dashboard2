@@ -91,8 +91,13 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
 
   // Usar proporção de scores acima da mediana como proxy para calibrar danger/safe
   const median = q(0.5);
-  const aboveMedianRate = cleanScores.filter(s => s > median).length / cleanScores.length;
   
+  // BUG-FIX C: Proteção contra Variância Zero (consistência perfeita)
+  const isZeroVariance = cleanScores.every(s => s === median);
+  const aboveMedianRate = isZeroVariance 
+      ? 0.5 // Se as notas são todas idênticas, assumimos estabilidade neutra
+      : cleanScores.filter(s => s > median).length / cleanScores.length;
+
   let danger = Math.max(15, Math.min(45, q(0.25) * (0.4 + aboveMedianRate * 0.3)));
   let safe = Math.max(75, Math.min(95, q(0.75) * 1.08));
 
