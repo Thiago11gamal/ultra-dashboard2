@@ -149,11 +149,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         }
     }
  
-    // O PULO DO GATO: Shrinkage Bayesiano para safeSD
     // BUG-FIX #4: Only apply shrinkage to empirical SD, not to provided bayesianCI
     // NEW BUG-FIX: Se historyLength é falso/0, e não há bayesianCI, checamos se o SD foi passado explicitamente (não fallback de 0). 
-    // Se foi passado explicitamente (sd > 0 no input original), blindamos o shrinkage para não corromper o SD do Coach!
-    const isExplicitCoachSD = (Number.isFinite(sd) && sd > 0 && (historyLength === 0 || historyLength === undefined));
+    // Blindamos o SD se ele for injetado explicitamente e for maior que 0, ignorando o tamanho do histórico
+    const isExplicitCoachSD = Number.isFinite(sd) && sd > 0;
     if (!hasExplicitDeterministicSD && historyLength < 15 && !bayesianCI && !isExplicitCoachSD) {
         // Volatilidade baseia-se na amplitude (Max - Min)
         const rangeMassa = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
@@ -273,19 +272,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // FEATURE 2: Preparar distribuição de cortes históricos se houver
     let cutoffsMean = 0;
     let cutoffsSD = 0;
-    const hasCutoffs = Array.isArray(historicalCutoffs) && historicalCutoffs.length > 0;
+    // Primeiro higienizamos a matriz, depois validamos se ela existe
+    const numericCutoffs = (Array.isArray(historicalCutoffs) ? historicalCutoffs : [])
+        .map(v => Number(v)).filter(Number.isFinite);
+        
+    const hasCutoffs = numericCutoffs.length > 0;
+
     if (hasCutoffs) {
-        // BUG-8 FIX: Usar acumulador explícito com initial value 0 para evitar
-        // que o primeiro elemento (potencialmente string) seja usado como seed.
-        const numericCutoffs = historicalCutoffs.map(v => Number(v)).filter(Number.isFinite);
-        if (numericCutoffs.length > 0) {
-            cutoffsMean = kahanSum(numericCutoffs) / numericCutoffs.length;
-            if (numericCutoffs.length > 1) {
-                const devs = numericCutoffs.map(v => Math.pow(v - cutoffsMean, 2));
-                cutoffsSD = Math.sqrt( kahanSum(devs) / (numericCutoffs.length - 1) );
-            } else {
-                cutoffsSD = cutoffsMean * 0.05; // 5% default SD
-            }
+        cutoffsMean = kahanSum(numericCutoffs) / numericCutoffs.length;
+        if (numericCutoffs.length > 1) {
+            const devs = numericCutoffs.map(v => Math.pow(v - cutoffsMean, 2));
+            cutoffsSD = Math.sqrt( kahanSum(devs) / (numericCutoffs.length - 1) );
+        } else {
+            cutoffsSD = cutoffsMean * 0.05; // 5% default SD
         }
     }
 
@@ -490,7 +489,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     
     // O peso ANALÍTICO responde verdadeiramente ao poder computacional:
     // cai conforme a confiança EMPÍRICA sobe.
-    const analyticalWeight = Math.min(0.9, Math.max(0.05, (1 - empiricalConfidence) * truncationPenalty * disagreementPenalty));
+    const analyticalWeight = Math.min(0.9, Math.max(0, (1 - empiricalConfidence) * truncationPenalty * disagreementPenalty));
 
     const blendedProbability = (finiteAnalyticalProbability * analyticalWeight)
         + (finiteEmpiricalProbability * (1 - analyticalWeight));

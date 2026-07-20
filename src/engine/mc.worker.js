@@ -64,7 +64,13 @@ self.onmessage = function(e) {
                 const input = payload.input || {};
                 const sanitizedInput = {
                     ...input,
-                    values: Array.isArray(input.values) ? input.values.map(v => safeNum(v, 0)) : [],
+                    values: Array.isArray(input.values) ? input.values.map(v => {
+                        // Se for objeto, extrai a nota antes de sanitizar para evitar NaN
+                        if (typeof v === 'object' && v !== null) {
+                            return safeNum(v.score ?? v.value, 0);
+                        }
+                        return safeNum(v, 0);
+                    }) : [],
                     dates: Array.isArray(input.dates) ? input.dates.map(String) : [],
                     meta: safeNum(input.meta, 0),
                     targetScore: input.targetScore !== undefined ? safeNum(input.targetScore, 0) : undefined,
