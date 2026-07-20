@@ -205,12 +205,7 @@ export function EvolutionLineChart({
                             );
                         })}
                         <filter id={shadowId} height="200%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
-                            <feOffset in="blur" dx="0" dy="0" result="offsetBlur" />
-                            <feMerge>
-                                <feMergeNode in="offsetBlur" />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
+                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                         </filter>
                     </defs>
                     
@@ -296,7 +291,23 @@ export function EvolutionLineChart({
                                 <Area connectNulls key={`area_${cat.id}`} type={lineType} dataKey={dataKey} name={`_area_${cat.id}`} stroke="none"
                                     fill={`url(#grad_${cat.id}_${instanceId})`} legendType="none" />
                             ) : null,
-                            // The Performance Evolution Line
+                            // Bottom layer: Glow effect (thicker, transparent line)
+                            <Line connectNulls 
+                                key={`glow_${cat.id}`} 
+                                type={lineType} 
+                                dataKey={dataKey} 
+                                name={`${cat.name}_glow`}
+                                stroke={displayColor} 
+                                strokeWidth={lineWidth + 4}
+                                strokeLinecap="round" 
+                                strokeLinejoin="round"
+                                strokeOpacity={(isFocused || !hasFocus) ? lineOpacity * 0.3 : 0}
+                                dot={false}
+                                activeDot={false}
+                                legendType="none"
+                                isAnimationActive={false}
+                            />,
+                            // Top layer: The Performance Evolution Line
                             <Line connectNulls 
                                 key={cat.id} 
                                 type={lineType} 
@@ -309,7 +320,7 @@ export function EvolutionLineChart({
                                 strokeOpacity={lineOpacity}
                                 dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
                                 activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" />}
-                                style={{ filter: (isFocused || !hasFocus) ? `url(#${shadowId})` : 'none', transition: 'opacity 0.2s ease' }}
+                                style={{ transition: 'opacity 0.2s ease' }}
                                 isAnimationActive={false}
                             >
                                 <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />

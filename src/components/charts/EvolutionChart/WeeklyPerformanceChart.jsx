@@ -163,12 +163,7 @@ const WeeklyPerformanceChart = ({
                                 <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                             </linearGradient>
                             <filter id={neonShadowId}>
-                                <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
-                                <feOffset in="blur" dx="0" dy="0" result="offsetBlur" />
-                                <feMerge>
-                                    <feMergeNode in="offsetBlur" />
-                                    <feMergeNode in="SourceGraphic" />
-                                </feMerge>
+                                {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                             </filter>
                         </defs>
 
@@ -232,6 +227,23 @@ const WeeklyPerformanceChart = ({
                             connectNulls={true}
                         />
 
+                        {/* Bottom Layer: Glow effect */}
+                        <Line
+                            yAxisId="right"
+                            type="monotoneX"
+                            dataKey="acertos"
+                            name="acertos_glow"
+                            stroke="#34d399"
+                            strokeWidth={7}
+                            strokeOpacity={0.3}
+                            dot={false}
+                            activeDot={false}
+                            strokeLinecap="round"
+                            animationDuration={1500}
+                            connectNulls={true}
+                            legendType="none"
+                        />
+                        {/* Top Layer: Main Line */}
                         <Line
                             yAxisId="right"
                             type="monotoneX"
@@ -242,7 +254,6 @@ const WeeklyPerformanceChart = ({
                             dot={{ r: 4, fill: '#34d399', strokeWidth: 2, stroke: '#0f172a' }}
                             activeDot={{ r: 7, strokeWidth: 0, fill: '#10b981', className: "animate-pulse shadow-lg" }}
                             strokeLinecap="round"
-                            filter={`url(#${neonShadowId})`}
                             animationDuration={1500}
                             connectNulls={true}
                         />

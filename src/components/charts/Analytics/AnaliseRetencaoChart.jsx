@@ -25,8 +25,7 @@ export function AnaliseRetencaoChart({ data }) {
                             <stop offset="100%" stopColor="#6366f1" stopOpacity={0.2} />
                         </linearGradient>
                         <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                         </filter>
                     </defs>
 
@@ -146,6 +145,21 @@ export function AnaliseRetencaoChart({ data }) {
                         maxBarSize={24}
                     />
 
+                    {/* Bottom Layer: Glow effect */}
+                    <Line connectNulls
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="nivelCritico"
+                        name="Risco_glow"
+                        stroke="#ef4444"
+                        strokeWidth={8}
+                        strokeOpacity={0.3}
+                        dot={false}
+                        activeDot={false}
+                        animationDuration={1500}
+                        legendType="none"
+                    />
+                    {/* Top Layer: Main Line */}
                     <Line connectNulls
                         yAxisId="right"
                         type="monotone"
@@ -155,7 +169,6 @@ export function AnaliseRetencaoChart({ data }) {
                         dot={{ r: 5, fill: '#ef4444', stroke: '#0f172a', strokeWidth: 2 }}
                         activeDot={{ r: 7, strokeWidth: 0 }}
                         name="Risco de Esquecimento"
-                        filter={`url(#${glowId})`}
                         animationDuration={1500}
                     />
                 </ComposedChart>

@@ -19,6 +19,21 @@ export const safeDateParse = (dateInput) => {
     return isNaN(d.getTime()) ? new Date(0) : d;
 };
 
+export const parseGoalDateUnified = (rawDate) => {
+    if (!rawDate) return null;
+    try {
+        if (typeof rawDate === 'number') return new Date(rawDate);
+        if (typeof rawDate === 'object' && rawDate.seconds) return new Date(rawDate.seconds * 1000);
+        
+        // Se for string 'YYYY-MM-DD', force para o fuso local adicionando horas
+        const rawStr = String(rawDate).trim().split('T')[0];
+        const [y, m, d] = rawStr.split('-');
+        return new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 12, 0, 0);
+    } catch {
+        return null;
+    }
+};
+
 export const getDateKey = (rawDate) => {
     if (!rawDate) return null;
     let date;

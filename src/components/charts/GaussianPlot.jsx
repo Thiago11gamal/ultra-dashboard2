@@ -306,8 +306,7 @@ export const GaussianPlot = ({
                         <stop offset="100%" stopColor="rgba(239, 68, 68, 0.1)" />
                     </linearGradient>
                     <filter id={ID.glow} x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="1.2" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                     </filter>
                     <clipPath id={ID.chartClip}>
                         <rect x="0" y="-50" width="100" height="200" />
@@ -320,10 +319,13 @@ export const GaussianPlot = ({
                     <rect x={ciLowPx} y="0" width={Math.max(0, ciHighPx - ciLowPx)} height="100" fill="rgba(59, 130, 246, 0.05)" className="transition-opacity duration-300 group-hover/chart:opacity-80" clipPath={`url(#${ID.chartClip})`} />
                 )}
 
-                <path d={failAreaPathData} fill={`url(#${ID.failGrad})`} stroke="#ef4444" strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-70 transition-all duration-1000" style={{ filter: `url(#${ID.glow})` }} clipPath={`url(#${ID.chartClip})`} />
-                <path d={areaPathData} fill={`url(#${ID.areaGrad})`} stroke={successColor} strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-80 transition-all duration-1000" style={{ filter: `url(#${ID.glow})` }} clipPath={`url(#${ID.chartClip})`} />
+                <path d={failAreaPathData} fill={`url(#${ID.failGrad})`} stroke="#ef4444" strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-70 transition-all duration-1000" clipPath={`url(#${ID.chartClip})`} />
+                <path d={areaPathData} fill={`url(#${ID.areaGrad})`} stroke={successColor} strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-80 transition-all duration-1000" clipPath={`url(#${ID.chartClip})`} />
 
-                <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: `url(#${ID.glow})` }} className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
+                {/* Bottom Layer: Glow effect */}
+                <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="7" strokeOpacity="0.3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
+                {/* Top Layer: Main curve */}
+                <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
 
                 {isTargetVisible && <line x1={targetPos} y1="100" x2={targetPos} y2={targetY} stroke="#ef4444" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
                 {!resolvedLabels.hideMean && <line x1={meanPos} y1="100" x2={meanPos} y2={meanY} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}

@@ -20,7 +20,10 @@ export function kahanSum(arr) {
     let c = 0.0; // Um compensador para os bits de baixa ordem perdidos
     
     for (let i = 0; i < arr.length; i++) {
-        const val = Number(arr[i]);
+        const raw = arr[i];
+        if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean' || (typeof raw === 'string' && raw.trim() === '')) continue;
+        
+        const val = Number(raw);
         if (!Number.isFinite(val)) continue;
         
         let y = val - c;     // c é zero na primeira iteração, depois carrega o erro anterior
@@ -45,7 +48,10 @@ export function kahanMean(arr) {
     let c = 0.0;
     
     for (let i = 0; i < arr.length; i++) {
-        const val = Number(arr[i]);
+        const raw = arr[i];
+        if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean' || (typeof raw === 'string' && raw.trim() === '')) continue;
+
+        const val = Number(raw);
         if (!Number.isFinite(val)) continue;
         const y = val - c;
         const t = sum + y;

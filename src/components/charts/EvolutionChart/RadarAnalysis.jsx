@@ -48,11 +48,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                     <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
                         <defs>
                             <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
-                                <feGaussianBlur stdDeviation="3" result="glow" />
-                                <feMerge>
-                                    <feMergeNode in="glow" />
-                                    <feMergeNode in="SourceGraphic" />
-                                </feMerge>
+                                {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                             </filter>
                         </defs>
                         <PolarGrid stroke="rgba(255,255,255,0.08)" />
@@ -78,7 +74,19 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             dot={{ r: 2, fill: '#166534', stroke: '#22c55e', strokeWidth: 1 }} 
                         />
 
-                        {/* Actual Performance Radar */}
+                        {/* Bottom Layer: Glow effect */}
+                        <Radar 
+                            name="Seu Nível_glow" 
+                            dataKey="nivel" 
+                            stroke="#6366f1" 
+                            strokeWidth={6} 
+                            strokeOpacity={0.3}
+                            fill="none" 
+                            dot={false}
+                            activeDot={false}
+                            legendType="none"
+                        />
+                        {/* Top Layer: Actual Performance Radar */}
                         <Radar 
                             name="Seu Nível" 
                             dataKey="nivel" 

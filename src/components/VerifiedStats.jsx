@@ -291,7 +291,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // Se o cadeado está aberto e o valor da Store mudou (ex: vindo de outro dispositivo)
         if (Math.abs(parsedStore - targetScore) > 0.01) {
-            setTimeout(() => setTargetScore(parsedStore), 0);
+            setTargetScore(parsedStore);
         }
     }, [storeTarget, targetScore]);
     const [showConfig, setShowConfig] = React.useState(false);
@@ -370,7 +370,7 @@ export default function VerifiedStats({ categories = [], user }) {
         };
     }, [targetScore, setUserData, storeTarget]);
 
-    const stats = useMemo(() => {
+    const baseHistoryStats = useMemo(() => {
         let allHistory = [];
         let totalQuestionsGlobal = 0;
 
@@ -422,6 +422,12 @@ export default function VerifiedStats({ categories = [], user }) {
                 weight: d.weightSum // BUG-01 FIX: Preservamos o volume para evitar Paradoxo de Simpson em médias posteriores
             }))
             .sort((a, b) => a.date - b.date);
+
+        return { dailyHistory, allHistory, totalQuestionsGlobal, sortedCategories: safeCategories };
+    }, [safeCategories, maxScore]);
+
+    const stats = useMemo(() => {
+        const { dailyHistory, allHistory, totalQuestionsGlobal, sortedCategories } = baseHistoryStats;
 
         // 1. Progress State Analysis (using ProgressStateEngine)
         // Run on global daily average for consistent trend
@@ -615,7 +621,7 @@ export default function VerifiedStats({ categories = [], user }) {
             insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30', icon: <Minus size={20} /> }
         };
 
-        safeCategories.forEach(cat => {
+        sortedCategories.forEach(cat => {
             const hArray = cat.simuladoStats?.history ? (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)) : [];
             if (hArray.length >= 2) {
                 // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis

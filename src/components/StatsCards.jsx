@@ -3,6 +3,7 @@ import { Activity, TrendingUp, BarChart2, Trophy, Calendar, AlertCircle, Info, B
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency, buildAchievementStats } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
 import { formatValue } from '../utils/scoreHelper';
+import { parseGoalDateUnified } from '../utils/dateHelper';
 
 const getEfficiencyTheme = (score) => {
     // CORREÇÃO: Evitar que NaN (originado por divisão por 0 em diários vazios)
@@ -78,38 +79,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         localToday.setHours(12, 0, 0, 0);
 
-        let goal;
-        try {
-            let raw = user.goalDate;
-            
-            // CORREÇÃO: Injeção de suporte a números inteiros nativos (Unix Epoch)
-            if (typeof raw === 'number') {
-                const d = new Date(raw);
-                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            } else if (typeof raw === 'object' && raw !== null && Number.isFinite(raw.seconds)) {
-                const d = new Date(raw.seconds * 1000);
-                raw = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            } else {
-                raw = String(raw).trim().split('T')[0];
-            }
-
-            const parts = raw.split('-');
-            if (parts.length === 3) {
-                goal = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
-            } else {
-                goal = new Date(raw);
-            }
-
-            // CORREÇÃO: Forçar alinhamento de ponteiros de tempo para evitar drifts orbitais
-            if (!goal || isNaN(goal.getTime())) return null;
-            goal.setHours(12, 0, 0, 0); 
-        } catch (error) {
-            console.error('Failed to parse goalDate in StatsCards:', error);
-            return null;
-        }
-
-        if (!goal || isNaN(goal.getTime())) return null;
-        goal.setHours(12, 0, 0, 0);
+        const goal = parseGoalDateUnified(user.goalDate);
+        if (!goal) return null;
 
         const diffTime = goal.getTime() - localToday.getTime();
         return Math.round(diffTime / (1000 * 60 * 60 * 24));
@@ -384,24 +355,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         type="date"
                         onFocus={(e) => { e.target.min = getTodayDateKey(); }}
                         value={(() => {
-                            try {
-                                if (!user.goalDate) return '';
-                                let raw = user.goalDate;
-                                
-                                // CORREÇÃO COMPLEMENTAR NO PICKER
-                                if (typeof raw === 'number') {
-                                    const d = new Date(raw);
-                                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                                }
-                                if (typeof raw === 'object' && raw.seconds) {
-                                    const d = new Date(raw.seconds * 1000);
-                                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                                }
-                                return String(raw).trim().split('T')[0];
-                                } catch (error) {
-                                    console.error('Failed to format goalDate for input:', error);
-                                    return '';
-                                }
+                            const d = parseGoalDateUnified(user.goalDate);
+                            return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
                         })()}
                         min={minGoalDate}
                         onChange={(e) => {
@@ -425,36 +380,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     <div className="relative group/input flex justify-center w-full pointer-events-none">
                         <div className={`w-[120px] bg-slate-900/50 border rounded-lg py-1.5 text-sm font-bold transition-all group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center leading-relaxed ${!user.goalDate ? 'border-slate-700 text-slate-500' : 'border-white/10 text-slate-200'}`}>
                             {user.goalDate ? (() => {
-                                try {
-                                    let rawDate = user.goalDate;
-                                    
-                                    // CORREÇÃO: Terceira camada de proteção UI esquecida contra inteiros Unix
-                                    if (typeof rawDate === 'number') {
-                                        const d = new Date(rawDate);
-                                        // Extrai a data baseada no fuso local
-                                        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                                    }
-                                    
-                                    if (typeof rawDate === 'object' && rawDate.seconds) {
-                                        const d = new Date(rawDate.seconds * 1000);
-                                        rawDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                                    }
-                                    const raw = String(rawDate).trim().split('T')[0];
-                                    const parts = raw.split('-');
-                                    let g;
-                                    if (parts.length === 3) {
-                                        g = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
-                                        if (isNaN(g.getTime())) return 'INVÁLIDA';
-                                        return `${String(g.getDate()).padStart(2, '0')}/${String(g.getMonth() + 1).padStart(2, '0')}/${g.getFullYear()}`;
-                                    } else {
-                                        g = new Date(raw);
-                                        if (isNaN(g.getTime())) return 'INVÁLIDA';
-                                        return `${String(g.getDate()).padStart(2, '0')}/${String(g.getMonth() + 1).padStart(2, '0')}/${g.getFullYear()}`;
-                                    }
-                                    } catch (error) {
-                                        console.error('Failed to format goalDate for display:', error);
-                                        return 'INVÁLIDA';
-                                    }
+                                const d = parseGoalDateUnified(user.goalDate);
+                                return d ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` : 'INVÁLIDA';
                             })() : 'ESCOLHER'}
                         </div>
                     </div>

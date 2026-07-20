@@ -360,7 +360,10 @@ export const calcularDesvioPadrao = (arr) => {
  */
 export function calcularAssimetria(arr) {
     if (!arr || arr.length < 3) return 0;
-    const clean = arr.map(Number).filter(Number.isFinite);
+    const clean = arr
+        .filter(v => v !== null && v !== undefined && v !== '' && typeof v !== 'boolean' && !(typeof v === 'string' && v.trim() === ''))
+        .map(Number)
+        .filter(Number.isFinite);
     const n = clean.length;
     if (n < 3) return 0;
     
