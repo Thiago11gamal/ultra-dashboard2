@@ -97,8 +97,9 @@ export function resetGaussianCache(): void {}
 export function asymmetricGaussian(x: number, mean: number, sdLeft: number, sdRight: number, heightFactor: number = 1): number {
     const rawSd = x < mean ? sdLeft : sdRight;
     const currentSd = Math.max(1e-6, rawSd);
-    const normFactor = 2.0 / (2.506628274631 * (sdLeft + sdRight));
-    return heightFactor * normFactor * Math.exp(-0.5 * Math.pow((x - mean) / currentSd, 2));
+    // Removemos o normFactor do cálculo final para normalizar o pico visual (Peak = heightFactor),
+    // de forma idêntica à normalização (invMaxY) feita pelo gerador KDE, evitando achatamento total.
+    return heightFactor * Math.exp(-0.5 * Math.pow((x - mean) / currentSd, 2));
 }
 
 export function generateGaussianPoints(xMin: number, xMax: number, steps: number, mean: number, sdLeft: number, sdRight: number, heightFactor: number, xp: (v: number) => number, yp: (v: number) => number): string[] {
