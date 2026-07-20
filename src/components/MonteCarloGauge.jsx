@@ -303,7 +303,7 @@ export default function MonteCarloGauge({
                             </div>
                         )}
 
-                        <p className="mt-auto pt-3 text-[9px] text-slate-500 font-bold uppercase tracking-wider text-center max-w-[260px] leading-relaxed opacity-80 border-t border-white/5">
+                        <p className="mt-5 pt-3 text-[9px] text-slate-500 font-bold uppercase tracking-wider text-center max-w-[260px] leading-relaxed opacity-80 border-t border-white/5 shrink-0">
                             Em previsões semelhantes, 95% dos resultados reais ficaram dentro desta faixa.
                         </p>
                     </div>
