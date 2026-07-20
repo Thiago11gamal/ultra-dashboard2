@@ -274,6 +274,8 @@ export function sampleTruncatedNormal(mean: number, sd: number, min: number, max
 
     if (sd <= MIN_SD_FLOOR) return Math.max(min, Math.min(max, mean));
 
+    const alpha = (min - mean) / sd;
+    const beta = (max - mean) / sd;
     let diff: number;
     let cdfMin: number;
 
