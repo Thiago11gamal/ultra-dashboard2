@@ -774,6 +774,18 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     }, [activeSubject, isRunning, syncChannel]);
 
     const handleManualExit = () => {
+        // BUG FIX: Salvar tempo pendente da tarefa atual antes de abortar
+        if (stateRefs.current.mode === 'work' && activeSubject) {
+            let lostMinutes = stateRefs.current.accumulatedMinutes || 0;
+            const totalWorkSeconds = safeSettings.pomodoroWork * 60;
+            const safePrevTime = Number.isFinite(Number(stateRefs.current.timeLeft)) ? Number(stateRefs.current.timeLeft) : totalWorkSeconds;
+            lostMinutes += Number((Math.max(0, totalWorkSeconds - safePrevTime) / 60).toFixed(2));
+            
+            if (lostMinutes > 0 && !Number.isNaN(lostMinutes)) {
+                safeOnUpdateStudyTime(activeSubject.categoryId, lostMinutes, activeSubject.taskId);
+            }
+        }
+        
         // Botão vermelho (estado inativo): apenas voltar ao Dashboard, sem processamento extra.
         safeOnExit({ forceDashboard: true, source: 'dashboard' });
     };

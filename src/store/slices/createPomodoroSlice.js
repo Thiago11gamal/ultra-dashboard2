@@ -134,10 +134,20 @@ export const createPomodoroSlice = (set, get) => ({
                 if (targetCycles === 1) {
                     p.sessions = 1;
                     p.mode = 'work';
+                    // BUG FIX: Evitar leak de accumulatedMinutes e completedCycles se o 
+                    // utilizador repetir o pomodoro de 1 ciclo sem mudar de tarefa.
+                    p.completedCycles = 0;
+                    p.accumulatedMinutes = 0;
                 } else {
                     const longBreakAfter = settings.longBreakAfter || 4;
                     const isLongBreak = (currentCycles % longBreakAfter === 0);
                     p.mode = isLongBreak ? 'long_break' : 'break';
+                    
+                    // BUG FIX: Se completou todos os ciclos, o tempo já foi salvo pelo timer.
+                    // Zeramos para evitar duplicação em caso de retrocesso (rewind).
+                    if (currentCycles >= targetCycles) {
+                        p.accumulatedMinutes = 0;
+                    }
                 }
             } else {
                 // Fim da Pausa -> Próxima Sessão de Trabalho
@@ -167,11 +177,14 @@ export const createPomodoroSlice = (set, get) => ({
             const activeId = state.appState.activeId;
             const settings = state.appState.contests[activeId]?.settings || {};
 
+            const workDuration = settings.pomodoroWork || 25;
+
             if (p.mode === 'break' || p.mode === 'long_break') {
                 // Se está em pausa, volta para o trabalho da mesma sessão
                 p.mode = 'work';
                 // BUG FIX: Subtrair o ciclo que foi indevidamente contabilizado como finalizado
                 p.completedCycles = Math.max(0, (p.completedCycles || 0) - 1);
+                p.accumulatedMinutes = Math.max(0, (p.accumulatedMinutes || 0) - workDuration);
             } else if (p.sessions > 1) {
                 // BUG-5 FIX: Usar completedCycles (ciclos realmente finalizados) para
                 // determinar se a pausa anterior era longa, não sessions pós-decremento.
@@ -181,12 +194,19 @@ export const createPomodoroSlice = (set, get) => ({
                 p.mode = (previousCycleIndex > 0 && previousCycleIndex % longBreakAfter === 0)
                     ? 'long_break' : 'break';
             } else if (p.completedCycles > 0) {
-                // Volta para a pausa do ciclo anterior
+                // Volta para a pausa do ciclo anterior, ou ao inicio se for 1 ciclo.
                 p.completedCycles = Math.max(0, p.completedCycles - 1);
-                p.sessions = p.targetCycles || 1;
-                const longBreakAfter = settings.longBreakAfter || 4;
-                const isLongBreak = ((p.completedCycles + 1) % longBreakAfter === 0);
-                p.mode = isLongBreak ? 'long_break' : 'break';
+                p.accumulatedMinutes = Math.max(0, (p.accumulatedMinutes || 0) - workDuration);
+                
+                if ((p.targetCycles || 1) === 1) {
+                    p.sessions = 1;
+                    p.mode = 'work';
+                } else {
+                    p.sessions = p.targetCycles || 1;
+                    const longBreakAfter = settings.longBreakAfter || 4;
+                    const isLongBreak = ((p.completedCycles + 1) % longBreakAfter === 0);
+                    p.mode = isLongBreak ? 'long_break' : 'break';
+                }
             } else {
                 // APENAS reseta o modo para work se já estiver na sessao 1
                 p.mode = 'work';
