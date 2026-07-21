@@ -59,7 +59,10 @@ export function EvolutionLineChart({
 
     const handleLegendClick = (e) => {
         // Find the category ID from the clicked legend item (it usually passes payload)
-        const catId = e?.payload?.id || e?.id;
+        let catId = e?.payload?.id || e?.id;
+        if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(raw|bay|bay_ci_low|bay_ci_high)_/, '');
+        if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(raw|bay|bay_ci_low|bay_ci_high)_/, '');
+        
         if (catId) {
             isLineClicked.current = true;
             setHighlightedDataKey(prev => prev === catId ? null : catId);
@@ -324,6 +327,7 @@ export function EvolutionLineChart({
 
                     {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
+                        const lineType = engine?.style || 'linear';
                         // Determine focus state based on category ID rather than dataKey to survive engine changes
                         const isLegendHighlighted = highlightedDataKey === cat.id;
                         const isAnyHighlighted = !!highlightedDataKey;
@@ -373,6 +377,7 @@ export function EvolutionLineChart({
                             // Top layer: The Performance Evolution Line
                             <Line connectNulls 
                                 key={cat.id} 
+                                id={cat.id}
                                 type={lineType} 
                                 dataKey={dataKey} 
                                 name={cat.name}
