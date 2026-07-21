@@ -115,8 +115,20 @@ export default function Simulados() {
         const lastRef = sorted[0];
         if (!lastRef) return [];
         
-        // Return all rows from the most recent day of activity
-        return rows.filter(r => r.date === lastRef.date);
+        // BUG-10 FIX: Compare safely even if some rows only have YYYY-MM-DD
+        const refDateStr = lastRef.lastUpdated || lastRef.createdAt;
+        if (refDateStr) {
+            const lastTime = new Date(refDateStr).getTime();
+            const BATCH_TOLERANCE_MS = 2000;
+            return rows.filter(r => {
+                const rDateStr = r.lastUpdated || r.createdAt;
+                if (!rDateStr) return false;
+                const t = new Date(rDateStr).getTime();
+                return Math.abs(t - lastTime) <= BATCH_TOLERANCE_MS;
+            });
+        } else {
+            return rows.filter(r => r.date === lastRef.date);
+        }
     }, [simuladoRowsArray]);
 
     const [mode, setMode] = useState('ai-generator'); // 'ai-generator' | 'analyzer' | 'history'
