@@ -33,10 +33,10 @@ export default defineConfig({
       }
     })
   ],
-  envPrefix: ['VITE_', 'ID_', 'BALDE_', 'CHAVE_', 'TOKEN_'],
+  envPrefix: ['VITE_'],
   server: {
     port: 5173,
-    strictPort: false,
+    strictPort: true,
   },
   build: {
     target: 'es2022',

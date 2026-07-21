@@ -53,3 +53,6 @@ coverage/
 # Vite temporary files
 vite.config.js.timestamp-*
 .aider*
+codigo_completo.txt
+codigos_para_auditoria.txt
+*.diff

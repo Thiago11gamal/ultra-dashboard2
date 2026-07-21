@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Settings, X } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 export default function CategoryEditor({ category, isOpen, onClose }) {
+    const modalRef = useRef(null);
+    useModalAccessibility(isOpen, onClose, modalRef);
     const updateCategoryFields = useAppStore(state => state.updateCategoryFields);
     
     // We'll manage local state for the inputs
@@ -24,11 +27,14 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
     const handleSave = () => {
         if (updateCategoryFields) {
+            const parsedMax = Math.max(1, parseInt(maxScore, 10) || 100);
+            const parsedMin = Math.max(0, parseInt(minCutoff, 10) || 0);
+            
             updateCategoryFields(category.id, {
                 name,
                 color,
-                minCutoff: Number(minCutoff),
-                maxScore: Number(maxScore)
+                minCutoff: Math.min(parsedMin, parsedMax),
+                maxScore: parsedMax
             });
         }
         onClose();
@@ -39,7 +45,13 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 p-6 flex flex-col">
+            <div 
+                ref={modalRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="modal-title"
+                className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 p-6 flex flex-col"
+            >
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2 text-white">
                         <Settings size={20} />

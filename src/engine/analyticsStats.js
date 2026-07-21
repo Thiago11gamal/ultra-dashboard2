@@ -53,9 +53,10 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
     const todayKey = getDateKey(new Date());
 
     mcHistory.forEach(snapshot => {
-        if (snapshot.date === todayKey) return;
+        const snapshotKey = getDateKey(snapshot.date || snapshot.timestamp);
+        if (snapshotKey === todayKey) return;
 
-        const snapTime = normalizeDate(snapshot.date)?.getTime() || NaN;
+        const snapTime = normalizeDate(snapshot.date || snapshot.timestamp)?.getTime() || NaN;
         if (isNaN(snapTime)) return;
         
         const targetTime = snapshot.targetDate ? normalizeDate(snapshot.targetDate)?.getTime() : null;

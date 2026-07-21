@@ -25,13 +25,15 @@ export default function Simulados() {
     }));
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
+    const deleteSession = useAppStore((state) => state.deleteSession);
+    const deleteSimulado = useAppStore((state) => state.deleteSimulado);
 
     const categoriesArray = React.useMemo(() => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}), [data]);
     const simuladoRowsArray = React.useMemo(() => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}), [data]);
     const studySessionsArray = React.useMemo(() => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}), [data]);
 
     const displayRows = React.useMemo(() => {
-        if (!categoriesArray.length) return [];
+        if (!categoriesArray.length || !data || !data.categories) return [];
         const todayKey = getDateKey(normalizeDate(new Date()));
         const rawTodayRows = simuladoRowsArray.filter(
             r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
@@ -49,7 +51,8 @@ export default function Simulados() {
         });
 
         categoriesArray.forEach(cat => {
-            const tasks = cat.tasks || [];
+            const rawTasks = cat.tasks || [];
+            const tasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
 
             if (tasks.length === 0) {
                 const subjNorm = normalize(cat.name);
@@ -98,35 +101,58 @@ export default function Simulados() {
         return rows;
     }, [categoriesArray, simuladoRowsArray]);
 
-    const lastSimuladoRows = React.useMemo(() => {
-        if (!simuladoRowsArray.length) return [];
-        const rows = simuladoRowsArray;
-        
-        const answeredRows = rows.filter(r => parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0);
-        if (answeredRows.length === 0) return [];
-        
-        const sorted = [...answeredRows].sort((a, b) => {
-            const dateA = new Date(a.createdAt || a.date || 0);
-            const dateB = new Date(b.createdAt || b.date || 0);
-            return dateB.getTime() - dateA.getTime();
-        });
-        
-        const lastRef = sorted[0];
-        if (!lastRef) return [];
-        
-        // BUG-10 FIX: Compare safely even if some rows only have YYYY-MM-DD
-        if (lastRef.createdAt) {
-            const lastTime = new Date(lastRef.createdAt).getTime();
-            const BATCH_TOLERANCE_MS = 2000;
-            return rows.filter(r => {
-                if (!r.createdAt) return false;
-                const t = new Date(r.createdAt).getTime();
-                return Math.abs(t - lastTime) <= BATCH_TOLERANCE_MS;
-            });
-        } else {
-            return rows.filter(r => r.date === lastRef.date);
-        }
-    }, [simuladoRowsArray]);
+const lastSimuladoRows = React.useMemo(() => {
+  if (!simuladoRowsArray.length) return [];
+
+  // 1. Filtra apenas rows com dados reais (total > 0 ou correct > 0)
+  const answeredRows = simuladoRowsArray.filter(
+    (r) => parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0
+  );
+  if (answeredRows.length === 0) return [];
+
+  // 2. Ordena por timestamp mais recente (lastUpdated > createdAt > date)
+  const getTimestamp = (r) => {
+    const raw = r.lastUpdated || r.createdAt || r.date;
+    if (!raw) return 0;
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t : 0;
+  };
+
+  const sorted = [...answeredRows].sort((a, b) => getTimestamp(b) - getTimestamp(a));
+  const lastRef = sorted[0];
+  if (!lastRef) return [];
+
+  // 3. Estratégia A: Se tem batchId, agrupa por batchId (simulados IA)
+  if (lastRef.batchId) {
+    return simuladoRowsArray.filter((r) => r.batchId === lastRef.batchId);
+  }
+
+  // 4. Estratégia B: Agrupa por data + proximidade temporal (simulados manuais)
+  const refDateKey =
+    lastRef.date ||
+    getDateKey(normalizeDate(lastRef.lastUpdated || lastRef.createdAt || new Date()));
+  if (!refDateKey) return [lastRef];
+
+  const refTime = getTimestamp(lastRef);
+  const BATCH_TOLERANCE_MS = 10 * 60 * 1000; // 10 minutos (mais tolerante)
+
+  return simuladoRowsArray.filter((r) => {
+    // Não misturar simulados IA com manuais (se um tem batchId e o outro não)
+    if (r.batchId !== lastRef.batchId) return false;
+
+    // Mesma data
+    const rowDateKey =
+      r.date || getDateKey(normalizeDate(r.lastUpdated || r.createdAt || ''));
+    if (rowDateKey !== refDateKey) return false;
+
+    // Se não tem timestamp, inclui (segurança)
+    const rowTime = getTimestamp(r);
+    if (rowTime === 0) return true;
+
+    // Dentro da janela temporal
+    return Math.abs(rowTime - refTime) <= BATCH_TOLERANCE_MS;
+  });
+}, [simuladoRowsArray]);
 
     const [mode, setMode] = useState('ai-generator'); // 'ai-generator' | 'analyzer' | 'history'
     const [subMode, setSubMode] = useState('ia'); // 'ia' | 'manual'
@@ -134,9 +160,12 @@ export default function Simulados() {
     // BUG-11/20 FIX: Guarda de segurança contra estado vazio
     if (!categoriesArray.length) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-8 text-center bg-slate-900/50 rounded-2xl border border-white/5 mx-4 mt-8">
+                <Brain className="w-16 h-16 text-slate-600 mb-4" />
+                <h2 className="text-xl font-black text-white">Nenhuma matéria encontrada</h2>
+                <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+                    Você ainda não cadastrou matérias no seu concurso ativo. Para gerar ou analisar simulados, adicione matérias no seu plano de estudos.
+                </p>
             </div>
         );
     }
@@ -146,200 +175,321 @@ export default function Simulados() {
 
 
 
-    const handleSimuladoAnalysis = (payload) => {
-        try {
-            // FIX 1: Obtenha o estado síncrono atual FORA do updater
-            const store = useAppStore.getState();
-            const prev = store.appState?.contests?.[store.appState?.activeId];
-            if (!prev) throw new Error('Contest ativo não encontrado para salvar simulado');
-            
-            const analysisResult = payload?.analysis || payload || {};
-            const rawRows = Array.isArray(payload?.rawRows) ? payload.rawRows : [];
-            
-            // FIX 5: Clone estrutural nativo
-            const newCategories = safeClone(Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories || {}));
-            let totalProcessedDisciplines = 0;
+const handleSimuladoAnalysis = (payload) => {
+  try {
+    const analysisResult = payload?.analysis || payload || {};
+    const rawRows = Array.isArray(payload?.rawRows) ? payload.rawRows : [];
 
-            const dataToProcess = analysisResult?.disciplines || analysisResult;
-            const todayKey = getDateKey(normalizeDate(new Date()));
-            const nowIso = new Date().toISOString();
+    const todayKey = getDateKey(normalizeDate(new Date()));
+    const nowIso = new Date().toISOString();
+    const batchId = generateId('batch');
 
-            // 1. Build validatedRows FIRST
-            const prevSimuladoRowsArray = Array.isArray(prev.simuladoRows) ? prev.simuladoRows : Object.values(prev.simuladoRows || {});
-            const rowsToKeep = prevSimuladoRowsArray.filter(
-                r => {
-                    const isToday = getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey;
-                    const isManual = !r.isAuto && r.source !== 'ai-generated';
-                    return !(isToday && isManual); // Se for manual de hoje, remove para salvar o novo lote por cima
-                }
-            );
+    let processedDisciplines = 0;
+    let finalTotalQ = 0;
 
-            const manualSubmittedRows = rawRows
-                .filter(r => r && r.subject && r.topic && Number.isFinite(Number(r.total)) && Number(r.total) > 0)
-                .map(r => ({
-                    ...r,
-                    createdAt: nowIso, 
-                    validated: true,
-                    isAuto: false,
-                    source: 'manual',
-                    subject: String(r.subject || '').trim(),
-                    topic: String(r.topic || '').trim(),
-                    correct: Math.max(0, Math.min(Number(r.correct) || 0, Number(r.total) || 0)),
-                    total: Math.max(0, Number(r.total) || 0)
-                }));
+    setData((current) => {
+      const prev = current || {};
 
-            const validatedRows = [ ...rowsToKeep, ...manualSubmittedRows ].slice(-300);
+      const newCategories = safeClone(
+        Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories || {})
+      );
 
-            // 2. Process Categories using validatedRows to avoid AI data suppression
-            const processStats = (targetName) => {
-                const discNameNorm = normalize(targetName);
-                let catIdx = newCategories.findIndex(c => c && c.name && normalize(c.name) === discNameNorm);
-                if (catIdx === -1) {
-                    catIdx = newCategories.findIndex(c => 
-                        c && c.name && aliases[normalize(c.name)]?.some(a => normalize(a) === discNameNorm)
-                    );
-                }
+      let totalProcessedDisciplines = 0;
 
-                if (catIdx !== -1) {
-                    totalProcessedDisciplines++;
-                    const cat = newCategories[catIdx];
-                    if (!cat.simuladoStats) {
-                        cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
-                    }
+      const prevSimuladoRowsArray = Array.isArray(prev.simuladoRows)
+        ? prev.simuladoRows
+        : Object.values(prev.simuladoRows || {});
 
-                    const rawHistory = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history || {});
-                    const history = rawHistory.filter(Boolean);
-                    const historyWithoutToday = history.filter(h => h.date !== todayKey);
-                    
-                    // Recalculate today's stats from ALL validatedRows for this subject (merging AI and Manual)
-                    const todayRows = validatedRows.filter(r => 
-                        getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey &&
-                        (normalize(r.subject) === discNameNorm || aliases[normalize(r.subject)]?.some(a => normalize(a) === discNameNorm))
-                    );
+      // BUG-15 FIX: Validate that rowsToKeep doesn't duplicate recent manual inputs
+      const submittedIds = new Set(rawRows.map(r => r.id).filter(Boolean));
 
-                    const finalC = todayRows.reduce((sum, r) => sum + (Number(r.correct) || 0), 0);
-                    const finalQ = todayRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
-                    
-                    // FEAT: Consolidate time spent for Agilidade AI / Monte Carlo Penalty
-                    const finalTimeSpent = todayRows.reduce((sum, r) => sum + (Number(r.timeSpent) || 0), 0);
-                    const finalTimedQuestoes = todayRows.reduce((sum, r) => sum + (Number(r.timeSpent) > 0 ? (Number(r.total) || 0) : 0), 0);
+      const rowsToKeep = prevSimuladoRowsArray.filter((r) => {
+        if (r?.id && submittedIds.has(r.id)) return false;
+        const isToday = getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey;
+        const isManual = r && !r.isAuto && r.source !== 'ai-generated';
+        return !(isToday && isManual);
+      });
 
-                    // Topics from today's rows
-                    const topicsMap = {};
-                    todayRows.forEach(r => {
-                        const tName = String(r.topic || '').trim();
-                        if (!topicsMap[tName]) topicsMap[tName] = { correct: 0, total: 0, difficulty: [], timeSpent: 0, timedQuestoes: 0 };
-                        topicsMap[tName].correct += Number(r.correct) || 0;
-                        topicsMap[tName].total += Number(r.total) || 0;
-                        topicsMap[tName].difficulty.push(Number(r.difficulty) || 1.0);
-                        
-                        const rowTime = Number(r.timeSpent) || 0;
-                        if (rowTime > 0) {
-                            topicsMap[tName].timeSpent += rowTime;
-                            topicsMap[tName].timedQuestoes += (Number(r.total) || 0);
-                        }
-                    });
+      const manualSubmittedRows = rawRows
+        .filter(
+          (r) =>
+            r &&
+            r.subject &&
+            r.topic &&
+            Number.isFinite(Number(r.total)) &&
+            Number(r.total) > 0
+        )
+        .map((r) => {
+          const total = Math.max(0, Number(r.total) || 0);
+          const correct = Math.max(0, Math.min(Number(r.correct) || 0, total));
 
-                    const finalTopics = Object.entries(topicsMap).map(([name, data]) => ({
-                        name,
-                        correct: data.correct,
-                        total: data.total,
-                        percentage: data.total > 0 ? (data.correct / data.total) * 100 : 0,
-                        difficulty: data.difficulty.length > 0 ? data.difficulty.reduce((a, b) => a + b, 0) / data.difficulty.length : 1.0,
-                        timeSpent: data.timeSpent,
-                        timedQuestoes: data.timedQuestoes
-                    }));
+          return {
+            ...r,
+            id: r.id || generateId('row'),
+            batchId: r.batchId || batchId,
+            date: r.date || todayKey,
+            createdAt: nowIso,
+            lastUpdated: nowIso,
+            validated: true,
+            isAuto: false,
+            source: 'manual',
+            subject: String(r.subject || '').trim(),
+            topic: String(r.topic || '').trim(),
+            correct,
+            total
+          };
+        });
 
-                    if (finalQ > 0) {
-                        const maxScore = Number(cat.maxScore) || 100;
-                        
-                        const totalDifficultyWeight = finalTopics.reduce((acc, t) => 
-                            acc + (Number(t.difficulty) || 1.0) * (Number(t.total) || 0), 0);
-                        const avgDifficulty = finalTopics.length > 0 && totalDifficultyWeight > 0
-                            ? totalDifficultyWeight / finalQ
-                            : 1.0;
+      const sortRowsByTime = (a, b) =>
+        new Date(a?.lastUpdated || a?.createdAt || a?.date || 0).getTime() -
+        new Date(b?.lastUpdated || b?.createdAt || b?.date || 0).getTime();
 
-                        historyWithoutToday.push({
-                            date: todayKey,
-                            correct: finalC,
-                            total: finalQ,
-                            difficulty: Number(avgDifficulty.toFixed(2)),
-                            score: finalQ > 0 ? Math.min(maxScore, Math.max(0, (finalC / finalQ) * maxScore)) : 0,
-                            timeSpent: finalTimeSpent,
-                            timedQuestoes: finalTimedQuestoes,
-                            topics: finalTopics
-                        });
-                    }
+      const validatedRows = [...rowsToKeep, ...manualSubmittedRows]
+        .sort(sortRowsByTime)
+        .slice(-300);
 
-                    const historyWithCurrent = historyWithoutToday.slice(-50);
-                    const statsResult = computeCategoryStats(historyWithCurrent, 1, 60, Number(cat.maxScore) || 100);
-                    
-                    cat.simuladoStats = {
-                        ...cat.simuladoStats,
-                        history: historyWithCurrent,
-                        average: Number((statsResult?.mean || 0).toFixed(2)),
-                        trend: statsResult?.trend || 'stable',
-                        lastAttempt: finalQ > 0 ? (finalC / finalQ) * (Number(cat.maxScore) || 100) : cat.simuladoStats.lastAttempt,
-                        level: statsResult?.level || (
-                            (statsResult?.mean || 0) > 0.7 * (Number(cat.maxScore) || 100) ? 'ALTO' : 
-                            (statsResult?.mean || 0) > 0.4 * (Number(cat.maxScore) || 100) ? 'MÉDIO' : 'BAIXO'
-                        )
-                    };
-                }
-            };
+      const processStats = (targetName) => {
+        const discNameNorm = normalize(String(targetName || ''));
+        if (!discNameNorm) return;
 
-            if (Array.isArray(dataToProcess)) {
-                dataToProcess.forEach(disc => {
-                    if (disc && disc.name) processStats(disc.name);
-                });
-            } else if (dataToProcess && typeof dataToProcess === 'object') {
-                Object.keys(dataToProcess || {}).forEach(rawSubject => {
-                    if (rawSubject) processStats(rawSubject);
-                });
-            }
+        let catIdx = newCategories.findIndex(
+          (c) => c && c.name && normalize(c.name) === discNameNorm
+        );
 
-            // 3. Fix Global Event Score (Ghost Rows Issue)
-            const todayValidatedRows = validatedRows.filter(r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey);
-            const totalQ = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.total, 10) || 0), 0);
-            const totalC = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.correct, 10) || 0), 0);
-            const globalPct = totalQ > 0 ? Number(((totalC / totalQ) * 100).toFixed(2)) : 0;
-            
-            const newSimuladoEvent = {
-                id: generateId('sim'),
-                date: todayKey,
-                score: globalPct,
-                total: totalQ,
-                correct: totalC,
-                type: 'auto-analyzer',
-                subject: 'Simulado Geral'
-            };
-
-            const existingSimuladosRaw = Array.isArray(prev.simulados) ? prev.simulados : Object.values(prev.simulados || {});
-            const existingSimulados = existingSimuladosRaw.filter(Boolean);
-            const withoutDuplicateToday = existingSimulados.filter(s => !(s?.date === todayKey && s?.type === 'auto-analyzer'));
-            const updatedSimulados = [...withoutDuplicateToday, newSimuladoEvent].slice(-100);
-
-            // Commit atômico (functional updater para evitar sobrescrever mudanças concorrentes)
-            setData(current => ({
-                ...(current || {}),
-                categories: newCategories,
-                simuladoRows: validatedRows,
-                simulados: updatedSimulados,
-                lastUpdated: new Date().toISOString()
-            }));
-
-            // Efeitos colaterais fora da mutação
-            if (totalProcessedDisciplines > 0) {
-                showToast('Simulado processado com sucesso!', 'success');
-                store.awardExperience(500);
-            } else {
-                showToast('Nenhuma matéria correspondente encontrada.', 'warning');
-            }
-        } catch (err) {
-            console.error("FATAL ERROR IN handleSimuladoAnalysis:", err);
-            showToast('Erro fatal ao salvar simulado. Verifique os logs.', 'error');
+        if (catIdx === -1) {
+          catIdx = newCategories.findIndex(
+            (c) =>
+              c &&
+              c.name &&
+              aliases[normalize(c.name)]?.some((a) => normalize(a) === discNameNorm)
+          );
         }
-    };
+
+        if (catIdx === -1) return;
+
+        totalProcessedDisciplines++;
+
+        const cat = newCategories[catIdx];
+
+        if (!cat.simuladoStats) {
+          cat.simuladoStats = {
+            history: [],
+            average: 0,
+            lastAttempt: 0,
+            trend: 'stable',
+            level: 'BAIXO'
+          };
+        }
+
+        const rawHistory = Array.isArray(cat.simuladoStats.history)
+          ? cat.simuladoStats.history
+          : Object.values(cat.simuladoStats.history || {});
+
+        const history = rawHistory.filter(Boolean);
+        const historyWithoutToday = history.filter((h) => h?.date !== todayKey);
+
+        const todayRows = validatedRows.filter((r) => {
+          const rowSubjectNorm = normalize(String(r?.subject || ''));
+          const isToday = getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey;
+          const isSubject =
+            rowSubjectNorm === discNameNorm ||
+            aliases[rowSubjectNorm]?.some((a) => normalize(a) === discNameNorm);
+
+          return isToday && isSubject;
+        });
+
+        const finalC = todayRows.reduce((sum, r) => sum + (Number(r.correct) || 0), 0);
+        const finalQ = todayRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
+
+        const finalTimeSpent = todayRows.reduce(
+          (sum, r) => sum + (Number(r.timeSpent) || 0),
+          0
+        );
+
+        const finalTimedQuestoes = todayRows.reduce(
+          (sum, r) => sum + (Number(r.timeSpent) > 0 ? Number(r.total) || 0 : 0),
+          0
+        );
+
+        const topicsMap = {};
+
+        todayRows.forEach((r) => {
+          const tName = String(r.topic || '').trim();
+
+          if (!topicsMap[tName]) {
+            topicsMap[tName] = {
+              correct: 0,
+              total: 0,
+              difficulty: [],
+              timeSpent: 0,
+              timedQuestoes: 0
+            };
+          }
+
+          topicsMap[tName].correct += Number(r.correct) || 0;
+          topicsMap[tName].total += Number(r.total) || 0;
+
+          const diff = Number(r.difficulty);
+          topicsMap[tName].difficulty.push(Number.isFinite(diff) ? diff : 1.0);
+
+          const rowTime = Number(r.timeSpent) || 0;
+          if (rowTime > 0) {
+            topicsMap[tName].timeSpent += rowTime;
+            topicsMap[tName].timedQuestoes += Number(r.total) || 0;
+          }
+        });
+
+        const finalTopics = Object.entries(topicsMap).map(([name, topicData]) => ({
+          name,
+          correct: topicData.correct,
+          total: topicData.total,
+          percentage: topicData.total > 0 ? (topicData.correct / topicData.total) * 100 : 0,
+          difficulty:
+            topicData.difficulty.length > 0
+              ? topicData.difficulty.reduce((a, b) => a + b, 0) / topicData.difficulty.length
+              : 1.0,
+          timeSpent: topicData.timeSpent,
+          timedQuestoes: topicData.timedQuestoes
+        }));
+
+        const maxScore = Number(cat.maxScore) || 100;
+
+        if (finalQ > 0) {
+          const totalDifficultyWeight = finalTopics.reduce(
+            (acc, t) => acc + (Number(t.difficulty) || 1.0) * (Number(t.total) || 0),
+            0
+          );
+
+          const avgDifficulty =
+            finalTopics.length > 0 && totalDifficultyWeight > 0
+              ? totalDifficultyWeight / finalQ
+              : 1.0;
+
+          historyWithoutToday.push({
+            date: todayKey,
+            correct: finalC,
+            total: finalQ,
+            difficulty: Number(avgDifficulty.toFixed(2)),
+            score: Math.min(maxScore, Math.max(0, (finalC / finalQ) * maxScore)),
+            timeSpent: finalTimeSpent,
+            timedQuestoes: finalTimedQuestoes,
+            topics: finalTopics
+          });
+        }
+
+        const historyWithCurrent = historyWithoutToday.slice(-50);
+
+        const statsResult = computeCategoryStats(
+          historyWithCurrent,
+          Number(cat.targetScore) || 100,
+          60,
+          maxScore
+        );
+
+        cat.simuladoStats = {
+          ...cat.simuladoStats,
+          history: historyWithCurrent,
+          average: Number((statsResult?.mean || 0).toFixed(2)),
+          trend: statsResult?.trend || 'stable',
+          lastAttempt:
+            finalQ > 0 ? (finalC / finalQ) * maxScore : cat.simuladoStats.lastAttempt,
+          level:
+            statsResult?.level ||
+            ((statsResult?.mean || 0) > 0.7 * maxScore
+              ? 'ALTO'
+              : (statsResult?.mean || 0) > 0.4 * maxScore
+                ? 'MÉDIO'
+                : 'BAIXO')
+        };
+      };
+
+      const dataToProcess = analysisResult?.disciplines || analysisResult;
+
+      if (Array.isArray(dataToProcess)) {
+        dataToProcess.forEach((disc) => {
+          if (disc && disc.name) processStats(disc.name);
+        });
+      } else if (dataToProcess && typeof dataToProcess === 'object') {
+        Object.keys(dataToProcess).forEach((rawSubject) => {
+          if (rawSubject) processStats(rawSubject);
+        });
+      }
+
+      const todayValidatedRows = validatedRows.filter(
+        (r) => getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey
+      );
+
+      const totalQ = todayValidatedRows.reduce(
+        (acc, r) => acc + (parseInt(r?.total, 10) || 0),
+        0
+      );
+
+      const totalC = todayValidatedRows.reduce(
+        (acc, r) => acc + (parseInt(r?.correct, 10) || 0),
+        0
+      );
+
+      const globalPct = totalQ > 0 ? Number(((totalC / totalQ) * 100).toFixed(2)) : 0;
+
+      const existingSimuladosRaw = Array.isArray(prev.simulados)
+        ? prev.simulados
+        : Object.values(prev.simulados || {});
+
+      const existingSimulados = existingSimuladosRaw.filter(Boolean);
+      let updatedSimulados = existingSimulados;
+
+      if (totalQ > 0) {
+        const newSimuladoEvent = {
+          id: generateId('sim'),
+          batchId,
+          date: todayKey,
+          score: globalPct,
+          total: totalQ,
+          correct: totalC,
+          type: 'auto-analyzer',
+          subject: 'Simulado Geral',
+          createdAt: nowIso,
+          lastUpdated: nowIso
+        };
+
+        const withoutDuplicateToday = existingSimulados.filter(
+          (s) => !(s?.date === todayKey && s?.type === 'auto-analyzer')
+        );
+
+        updatedSimulados = [...withoutDuplicateToday, newSimuladoEvent]
+          .sort(
+            (a, b) =>
+              new Date(a?.date || a?.lastUpdated || a?.createdAt || 0).getTime() -
+              new Date(b?.date || b?.lastUpdated || b?.createdAt || 0).getTime()
+          )
+          .slice(-100);
+      }
+
+      processedDisciplines = totalProcessedDisciplines;
+      finalTotalQ = totalQ;
+
+      return {
+        ...prev,
+        categories: newCategories,
+        simuladoRows: validatedRows,
+        simulados: updatedSimulados,
+        lastUpdated: nowIso
+      };
+    });
+
+    if (finalTotalQ > 0 && processedDisciplines > 0) {
+      showToast('Simulado processado com sucesso!', 'success');
+      useAppStore.getState().awardExperience?.(500);
+    } else if (processedDisciplines > 0) {
+      showToast('Matérias encontradas, mas nenhuma questão válida foi salva hoje.', 'warning');
+    } else {
+      showToast('Nenhuma matéria correspondente encontrada.', 'warning');
+    }
+  } catch (err) {
+    console.error('FATAL ERROR IN handleSimuladoAnalysis:', err);
+    showToast('Erro fatal ao salvar simulado. Verifique os logs.', 'error');
+  }
+};
 
 
     return (<PageErrorBoundary pageName="Simulados">
@@ -413,9 +563,9 @@ export default function Simulados() {
               studySessions={studySessionsArray}
               categories={categoriesArray}
               simuladoRows={simuladoRowsArray}
-              onDeleteSession={useAppStore.getState().deleteSession}
-              onDeleteSimulado={useAppStore.getState().deleteSimulado}
-              mode="performance"
+              onDeleteSession={deleteSession}
+              onDeleteSimulado={deleteSimulado}
+              mode="full"
           />
         )}
     </PageErrorBoundary>);

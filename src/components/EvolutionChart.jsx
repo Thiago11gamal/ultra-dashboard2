@@ -32,58 +32,161 @@ import { TodayVsGeneralChart } from "./charts/EvolutionChart/TodayVsGeneralChart
 import { generateEvolutionInsights } from '../engine/insightGenerator';
 
 const EMPTY_ARRAY = [];
+const EMPTY_OBJECT = {};
 
-// Coloque esta função FORA do escopo do componente EvolutionChart
-function buildPredictiveCompareData(timeline, focusCategory, categoryLevels, activeMcProjectionSeries, projectDays, minScore, maxScore) {
-    if (!focusCategory) return timeline;
-    
-    // 1. Prepara os dados históricos mapeando as chaves para leitura no gráfico
-    let pts = timeline.map((d) => ({
-        ...d,
-        "Nota Bruta": d[`raw_${focusCategory.id}`],
-        "Nível Bayesiano": d[`bay_${focusCategory.id}`],
-        "Banda Bayesiana": d[`bay_ci_low_${focusCategory.id}`] != null && Number.isFinite(d[`bay_ci_low_${focusCategory.id}`]) 
-            ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]] 
-            : null,
-        "Média Histórica": d[`stats_${focusCategory.id}`]
-    }));
+function safeFiniteNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
 
-    // 2. Acopla os pontos futuros do Monte Carlo
-    if (activeMcProjectionSeries && pts.length > 0) {
-        const lastIdx = pts.length - 1;
-        const rawLevel = pts[lastIdx]["Nível Bayesiano"] ?? categoryLevels[focusCategory?.id] ?? activeMcProjectionSeries?.mc_p50 ?? 0;
-        const currentLevel = (rawLevel === null || rawLevel === undefined || rawLevel === '') ? 0 : (Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 0);
-        
-        const futurePoints = [];
-        const steps = 6;
-        const bounded = (v) => Math.max(minScore, Math.min(maxScore, v));
-        
-        for (let i = 1; i <= steps; i++) {
-            const t = i / steps;
-            const weight = Math.sqrt(t);
-            const val = bounded(currentLevel + (activeMcProjectionSeries.mc_p50 - currentLevel) * t);
-            const bandLow = bounded(currentLevel + (activeMcProjectionSeries.mc_band[0] - currentLevel) * weight);
-            const bandHigh = bounded(currentLevel + (activeMcProjectionSeries.mc_band[1] - currentLevel) * weight);
+function filterHistoryByTimeWindow(history, timeWindow) {
+  const days = Number.parseInt(timeWindow, 10);
+  const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
 
-            const dt = new Date(`${String(pts[lastIdx].date || '')}T12:00:00`);
-            if (Number.isNaN(dt.getTime())) return pts;
-            
-            const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
-            dt.setDate(dt.getDate() + forwardDays);
-            const iso = getDateKey(dt);
+  if (timeWindow === "all" || !Number.isFinite(days) || days <= 0) {
+    return safeHistory.filter(Boolean);
+  }
 
-            futurePoints.push({
-                date: iso,
-                displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "",
-                "Futuro Provável": val,
-                "Cenário Range": [bandLow, bandHigh]
-            });
-        }
+  const withMs = safeHistory
+    .filter(Boolean)
+    .map((h) => ({
+      h,
+      ms: toDateMs(getDateKey(h?.date))
+    }))
+    .filter((x) => Number.isFinite(x.ms));
 
-        pts[lastIdx] = { ...pts[lastIdx], "Futuro Provável": currentLevel, "Cenário Range": [currentLevel, currentLevel] };
-        pts = [...pts, ...futurePoints];
+  if (!withMs.length) return safeHistory.filter(Boolean);
+
+  const lastMs = Math.max(...withMs.map((x) => x.ms));
+  const limit = lastMs - days * 24 * 60 * 60 * 1000;
+
+  return withMs.filter((x) => x.ms >= limit).map((x) => x.h);
+}
+
+function renderInsightText(text, textColorClass) {
+  if (typeof text !== 'string') return text;
+
+  const parts = text.split(/(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g).filter(Boolean);
+
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={idx} className={`${textColorClass} font-black drop-shadow-[0_0_8px_currentColor]`}>
+          {part.slice(2, -2)}
+        </strong>
+      );
     }
-    return pts;
+
+    if (part.startsWith('!!') && part.endsWith('!!')) {
+      return (
+        <span key={idx} className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">
+          {part.slice(2, -2)}
+        </span>
+      );
+    }
+
+    if (part.startsWith('++') && part.endsWith('++')) {
+      return (
+        <span key={idx} className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">
+          {part.slice(2, -2)}
+        </span>
+      );
+    }
+
+    return <React.Fragment key={idx}>{part}</React.Fragment>;
+  });
+}
+
+// Função pura fora do componente
+function buildPredictiveCompareData(
+  timeline,
+  focusCategory,
+  categoryLevels,
+  activeMcProjectionSeries,
+  projectDays,
+  minScore,
+  maxScore
+) {
+  if (!focusCategory) return timeline;
+
+  // 1. Prepara os dados históricos mapeando as chaves para leitura no gráfico
+  let pts = timeline.map((d) => ({
+    ...d,
+    "Nota Bruta": d[`raw_${focusCategory.id}`],
+    "Nível Bayesiano": d[`bay_${focusCategory.id}`],
+    "Banda Bayesiana":
+      d[`bay_ci_low_${focusCategory.id}`] != null && Number.isFinite(d[`bay_ci_low_${focusCategory.id}`])
+        ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]]
+        : null,
+    "Média Histórica": d[`stats_${focusCategory.id}`]
+  }));
+
+  // 2. Acopla os pontos futuros do Monte Carlo com validação robusta
+  if (activeMcProjectionSeries && pts.length > 0) {
+    const lastIdx = pts.length - 1;
+
+    const rawLevel =
+      pts[lastIdx]["Nível Bayesiano"] ??
+      categoryLevels[focusCategory?.id] ??
+      activeMcProjectionSeries?.mc_p50 ??
+      0;
+
+    const currentLevel = safeFiniteNumber(rawLevel, 0);
+    const p50 = safeFiniteNumber(activeMcProjectionSeries.mc_p50, currentLevel);
+
+    const band =
+      Array.isArray(activeMcProjectionSeries.mc_band) && activeMcProjectionSeries.mc_band.length >= 2
+        ? activeMcProjectionSeries.mc_band
+        : [currentLevel, currentLevel];
+
+    const band0 = safeFiniteNumber(band[0], currentLevel);
+    const band1 = safeFiniteNumber(band[1], currentLevel);
+    const bandMin = Math.min(band0, band1);
+    const bandMax = Math.max(band0, band1);
+
+    const bounded = (v) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return currentLevel;
+      return Math.max(minScore, Math.min(maxScore, n));
+    };
+
+    const futurePoints = [];
+    const steps = 6;
+
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const weight = Math.sqrt(t);
+
+      const val = bounded(currentLevel + (p50 - currentLevel) * t);
+      const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
+      const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
+
+      // ✅ FIX: Criar NOVO Date a cada iteração a partir da data base
+      const baseDate = new Date(`${String(pts[lastIdx].date || '')}T12:00:00`);
+      if (Number.isNaN(baseDate.getTime())) return pts;
+      const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
+      const dt = new Date(baseDate.getTime() + forwardDays * 24 * 60 * 60 * 1000);
+      const iso = getDateKey(dt);
+
+      futurePoints.push({
+        date: iso,
+        displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "",
+        "Futuro Provável": val,
+        "Cenário Range": [bandLow, bandHigh],
+        __future: true
+      });
+    }
+
+    pts[lastIdx] = {
+      ...pts[lastIdx],
+      "Futuro Provável": currentLevel,
+      "Cenário Range": [currentLevel, currentLevel]
+    };
+
+    pts = [...pts, ...futurePoints];
+  }
+
+  return pts;
 }
 
 // M3 FIX: Função pura extraída para fora do componente — evita recriação a cada render.
@@ -196,9 +299,25 @@ export default React.memo(function EvolutionChart({
     
 
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
-    const mcWeights = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.mcWeights || {});
+    const mcWeights = useAppStore(
+        (state) => state.appState?.contests?.[state.appState?.activeId]?.mcWeights || EMPTY_OBJECT
+    );
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore);
     const { runAnalysis } = useMonteCarloWorker();
+    const monteCarloHistoryArray = useMemo(
+        () => (Array.isArray(monteCarloHistory) ? monteCarloHistory : Object.values(monteCarloHistory || {})),
+        [monteCarloHistory]
+    );
+
+    const studyLogsArray = useMemo(
+        () => (Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {})),
+        [studyLogs]
+    );
+
+    const simuladoRowsArray = useMemo(
+        () => (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})),
+        [simuladoRows]
+    );
     const [mcLoading, setMcLoading] = useState(false);
     const safeGlobalMetrics = useMemo(() => ({
         totalQuestions: Number(globalMetrics?.totalQuestions) || 0,
@@ -254,58 +373,72 @@ export default React.memo(function EvolutionChart({
     const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
 
     const historyRaw = focusCategory?.simuladoStats?.history;
-    const historyArray = historyRaw 
-        ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw))
-        : EMPTY_ARRAY;
+
+    const historyArray = useMemo(() => {
+        if (!historyRaw) return EMPTY_ARRAY;
+        return Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
+    }, [historyRaw]);
 
     const currentFocusLevel = focusCategory ? categoryLevels[focusCategory.id] : undefined;
 
     useEffect(() => {
-        if (!Array.isArray(historyArray) || historyArray.length === 0) {
-            const t = setTimeout(() => setMcLoading(false), 0);
-            return () => clearTimeout(t);
+        if (!focusCategory?.id || !Array.isArray(historyArray) || historyArray.length === 0) {
+            setMcLoading(false);
+            return;
         }
 
         const hist = [...historyArray]
-            .filter(h => h && h.date)
-            .map(h => {
+            .filter((h) => h && h.date)
+            .map((h) => {
                 const dateKey = getDateKey(h.date);
                 const score = getSafeScore(h, maxScore);
-                if (!dateKey || !Number.isFinite(score)) return null;
-                return { date: dateKey, score, correct: h.correct, total: h.total };
-            })
-            .filter(Boolean).sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
 
-        if (hist.length < 1) return;
+                if (!dateKey || !Number.isFinite(score)) return null;
+
+                return {
+                    date: dateKey,
+                    score,
+                    correct: h.correct,
+                    total: h.total
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
+
+        if (hist.length < 1) {
+            setMcLoading(false);
+            return;
+        }
 
         let cancelled = false;
 
         const workerDebounceTimeout = setTimeout(async () => {
             setMcLoading(true);
+
             try {
-                // FEAT: Time Penalty Injection (Subject Level)
                 let totalTimeSpent = 0;
                 let totalTimedQuestions = 0;
-                historyArray.forEach(rawH => {
+
+                historyArray.forEach((rawH) => {
                     if (rawH && rawH.timeSpent != null && rawH.timedQuestoes != null) {
                         totalTimeSpent += Number(rawH.timeSpent);
                         totalTimedQuestions += Number(rawH.timedQuestoes);
                     }
                 });
-                const avgSeconds = totalTimedQuestions > 0 ? (totalTimeSpent / totalTimedQuestions) : 0;
-                
-                // Get from store (reactive selectors extracted at component level would be ideal,
-                // but getState() snapshot is acceptable within debounced async callback)
+
+                const avgSeconds = totalTimedQuestions > 0 ? totalTimeSpent / totalTimedQuestions : 0;
+
                 const store = useAppStore.getState();
                 const activeId = store.appState?.activeId;
                 const contest = store.appState?.contests?.[activeId];
+
                 const defaultExamTotalQuestions = contest?.examTotalQuestions || 100;
                 const examDurationMinutes = contest?.examDurationMinutes || 240;
                 const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
 
                 const result = await runAnalysis({
-                    values: hist.map(h => h.score),
-                    dates: hist.map(h => h.date),
+                    values: hist.map((h) => h.score),
+                    dates: hist.map((h) => h.date),
                     meta: targetScore,
                     projectionDays: projectDays,
                     minScore,
@@ -322,6 +455,7 @@ export default React.memo(function EvolutionChart({
 
                 const lastDateStr = hist[hist.length - 1].date;
                 const lastDate = new Date(`${lastDateStr}T12:00:00`);
+
                 if (Number.isNaN(lastDate.getTime())) return;
 
                 const nextDate = new Date(lastDate);
@@ -342,13 +476,22 @@ export default React.memo(function EvolutionChart({
             } finally {
                 if (!cancelled) setMcLoading(false);
             }
-        }, 600); // 600ms dá tempo ao utilizador para parar de trocar de matérias antes de disparar a Thread
+        }, 600);
 
-        return () => { 
-            cancelled = true; 
+        return () => {
+            cancelled = true;
             clearTimeout(workerDebounceTimeout);
         };
-    }, [focusCategory?.id, currentFocusLevel, historyArray, targetScore, projectDays, runAnalysis, minScore, maxScore]);
+    }, [
+        focusCategory?.id,
+        currentFocusLevel,
+        historyArray,
+        targetScore,
+        projectDays,
+        runAnalysis,
+        minScore,
+        maxScore
+    ]);
 
     const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;
     const activeMcProjectionSeries = mcProjectionSeries?.categoryId === focusCategory?.id ? mcProjectionSeries : null;
@@ -368,25 +511,47 @@ export default React.memo(function EvolutionChart({
     const chartData = activeEngine === "compare" ? compareData : timeline;
 
     const filteredChartData = useMemo(() => {
-        let result = chartData;
+        const historical = Array.isArray(chartData) ? chartData.filter((d) => !d?.__future) : [];
+        const future = Array.isArray(chartData) ? chartData.filter((d) => d?.__future) : [];
+
+        let result = historical;
+
         if (timeWindow !== "all") {
             const days = Number.parseInt(timeWindow, 10);
-            if (Number.isFinite(days) && days > 0 && chartData.length > 0) {
+
+            if (Number.isFinite(days) && days > 0 && historical.length > 0) {
                 const getDateMs = (item) => {
                     if (!item?.date) return Number.NaN;
                     const ms = toDateMs(item.date);
                     return Number.isNaN(ms) ? Number.NaN : ms;
                 };
-                const lastValid = [...chartData].reverse().find(d => Number.isFinite(getDateMs(d)));
+
+                const lastValid = [...historical].reverse().find((d) => Number.isFinite(getDateMs(d)));
+
                 if (lastValid) {
-                    const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
-                    result = chartData.filter(d => { const ms = getDateMs(d); return Number.isFinite(ms) && ms >= limit; });
+                    const limit = getDateMs(lastValid) - days * 24 * 60 * 60 * 1000;
+                    result = historical.filter((d) => {
+                        const ms = getDateMs(d);
+                        return Number.isFinite(ms) && ms >= limit;
+                    });
                 }
             }
         }
-        
-        const primaryKey = activeEngine === "compare" ? "Futuro Provável" : activeEngine === "mc_density" ? `bay_${focusCategory?.id}` : activeEngine === "raw" ? `raw_${focusCategory?.id}` : activeEngine === "stats" ? `stats_${focusCategory?.id}` : `bay_${focusCategory?.id}`;
-        return downsampleLTTB(result, 150, "date", primaryKey);
+
+        const withFuture = result.length > 0 ? [...result, ...future] : result;
+
+        const primaryKey =
+            activeEngine === "compare"
+                ? "Nível Bayesiano"
+                : activeEngine === "mc_density"
+                    ? `bay_${focusCategory?.id}`
+                    : activeEngine === "raw"
+                        ? `raw_${focusCategory?.id}`
+                        : activeEngine === "stats"
+                            ? `stats_${focusCategory?.id}`
+                            : `bay_${focusCategory?.id}`;
+
+        return downsampleLTTB(withFuture, 150, "date", primaryKey);
     }, [chartData, timeWindow, activeEngine, focusCategory?.id]);
 
     const radarData = useMemo(() => {
@@ -400,75 +565,94 @@ export default React.memo(function EvolutionChart({
 
     const subjectAggData = useMemo(() => {
         if (!categories || !categories.length) return [];
+
         return categories
-            .filter(cat => !showOnlyFocus || cat.id === focusCategory?.id)
-            .map(cat => {
-                // Ignora os simulados personalizados para honrar o dashboard 'Apenas Simulado IA'
-                const history = (cat.simuladoStats?.history || [])
-                    .filter(h => h.materia !== 'Simulado Personalizado');
+            .filter((cat) => !showOnlyFocus || cat.id === focusCategory?.id)
+            .map((cat) => {
+                const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
+                    .filter((h) => h && h.materia !== 'Simulado Personalizado');
 
                 const totalQ = history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
                     if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
+
                     const score = getSafeScore(h, maxScore);
                     if (!Number.isFinite(score)) return s;
+
                     return s + tot;
                 }, 0);
 
-                const totalCorrect = Math.round(history.reduce((s, h) => {
-                    let tot = Number(h.total) || 0;
-                    if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
-                    const range = Math.max(1e-9, maxScore - minScore);
-                    const score = getSafeScore(h, maxScore);
-                    if (!Number.isFinite(score)) return s;
-                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
-                    // BUG FIX: Acumulamos o valor float real em 's' e removemos o Math.round() prematuro
-                    // para evitar o cumulative rounding error (perda catastrófica de precisão).
-                    return s + ((normalizedScore - minScore) / range * tot);
-                }, 0));
+                const totalCorrect = Math.round(
+                    history.reduce((s, h) => {
+                        let tot = Number(h.total) || 0;
+                        if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
 
-                    const stats = history.reduce((acc, h) => {
-                    let rootTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
-                    
-                    let topicsTs = 0;
-                    let topicsTimedQ = 0;
-                    let hasTopicWithTime = false;
-                    
-                    if (Array.isArray(h.topics)) {
-                        for (const t of h.topics) {
-                            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
-                            // M3 FIX: Omissão de 0 segundos / fast skips
-                            if (tTs !== null && tTs > 0 && tTot > 0) {
-                                topicsTs += tTs;
-                                topicsTimedQ += tTot;
-                                hasTopicWithTime = true;
+                        const range = Math.max(1e-9, maxScore - minScore);
+                        const score = getSafeScore(h, maxScore);
+                        if (!Number.isFinite(score)) return s;
+
+                        const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+
+                        return s + ((normalizedScore - minScore) / range) * tot;
+                    }, 0)
+                );
+
+                const stats = history.reduce(
+                    (acc, h) => {
+                        let rootTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
+                        let topicsTs = 0;
+                        let topicsTimedQ = 0;
+                        let hasTopicWithTime = false;
+
+                        if (Array.isArray(h.topics)) {
+                            for (const t of h.topics) {
+                                const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
+                                const tTot =
+                                    typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
+                                        ? t.timedQuestoes
+                                        : Number(t.total) || 0;
+
+                                if (tTs !== null && tTs > 0 && tTot > 0) {
+                                    topicsTs += tTs;
+                                    topicsTimedQ += tTot;
+                                    hasTopicWithTime = true;
+                                }
                             }
                         }
-                    }
-                    
-                    if (hasTopicWithTime) {
-                        return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-                    } else if (rootTs !== null && rootTs > 0 && Number(h.total) > 0) {
-                        // M3 FIX: Fallback seguro mantendo o target
-                        return { ts: acc.ts + rootTs, tq: acc.tq + Number(h.total) };
-                    } else if (rootTs !== null && rootTs > 0 && h.score != null) {
-                        return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(maxScore) };
-                    }
-                    
-                    return acc;
-                }, { ts: 0, tq: 0 });
+
+                        if (hasTopicWithTime) {
+                            return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
+                        } else if (rootTs !== null && rootTs > 0 && Number(h.total) > 0) {
+                            return { ts: acc.ts + rootTs, tq: acc.tq + Number(h.total) };
+                        } else if (rootTs !== null && rootTs > 0 && h.score != null) {
+                            return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(maxScore) };
+                        }
+
+                        return acc;
+                    },
+                    { ts: 0, tq: 0 }
+                );
 
                 const timedQuestoes = stats.tq;
                 const timeSpent = stats.ts;
 
                 const safeName = String(cat.name || 'Sem nome');
                 const shortName = safeName.length > 18 ? safeName.substring(0, 16) + '…' : safeName;
-                return { name: shortName, fullName: safeName, questoes: totalQ, timedQuestoes, acertos: totalCorrect, timeSpent, color: cat.color, id: cat.id };
+
+                return {
+                    name: shortName,
+                    fullName: safeName,
+                    questoes: totalQ,
+                    timedQuestoes,
+                    acertos: totalCorrect,
+                    timeSpent,
+                    color: cat.color,
+                    id: cat.id
+                };
             })
-            .filter(d => d.questoes > 0)
+            .filter((d) => d.questoes > 0)
             .sort((a, b) => b.questoes - a.questoes);
-    }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore]);
+    }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore, timeWindow]);
 
     const insight = useMemo(() => {
         return generateEvolutionInsights({
@@ -489,8 +673,14 @@ export default React.memo(function EvolutionChart({
 
     const handleExport = async () => {
         setIsExporting(true);
-        await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
-        setIsExporting(false);
+
+        try {
+            await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
+        } catch (err) {
+            console.error('[EvolutionChart] Falha ao exportar PDF:', err);
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     const isMcEngine = activeEngine === "compare" || activeEngine === "mc_density";
@@ -668,7 +858,7 @@ export default React.memo(function EvolutionChart({
                     />
                 ) : activeEngine === "mc_density" ? (
                     <MonteCarloEvolutionChart
-                        data={monteCarloHistory}
+                        data={monteCarloHistoryArray}
                         targetScore={targetScore}
                         unit={unit}
                         minScore={minScore}
@@ -677,7 +867,7 @@ export default React.memo(function EvolutionChart({
                 ) : activeEngine === "weekly_diff" ? (
                     <WeeklyEvolutionView
                         categories={categories}
-                        studyLogs={studyLogs}
+                        studyLogs={studyLogsArray}
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
                         maxScore={maxScore}
@@ -686,11 +876,11 @@ export default React.memo(function EvolutionChart({
                 ) : activeEngine === "today_vs_general" ? (
                     <TodayVsGeneralChart
                         activeCategories={activeCategories}
-                        globalMetrics={globalMetrics}
+                        globalMetrics={safeGlobalMetrics}
                         targetScore={targetScore}
                         maxScore={maxScore}
                         unit={unit}
-                        simuladoRows={simuladoRows}
+                        simuladoRows={simuladoRowsArray}
                     />
                 ) : !accountHasData ? (
                     <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
@@ -880,48 +1070,48 @@ export default React.memo(function EvolutionChart({
                         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none group-hover:bg-indigo-500/20 transition-all duration-1000 -mr-48 -mt-48" />
                         <div className={`absolute bottom-0 left-0 w-[300px] h-[300px] ${colors.circleBg} rounded-full blur-[100px] pointer-events-none -ml-32 -mb-32`} />
                         
-                        <div className="flex flex-col lg:flex-row gap-8 sm:gap-10 items-start p-6 sm:p-14 relative z-10">
-                            <div className="flex-1 space-y-6">
-                                <div className="flex items-start sm:items-center gap-6">
-                                    <div className={`shrink-0 w-16 h-16 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center text-3xl shadow-2xl transform group-hover:rotate-6 transition-transform duration-500 ${colors.icon}`}>
+                        <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:items-center p-6 sm:p-8 md:p-10 relative z-10">
+                            <div className="flex-1 space-y-5">
+                                <div className="flex items-start sm:items-center gap-5">
+                                    <div className={`shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center text-2xl sm:text-3xl shadow-2xl transform group-hover:rotate-6 transition-transform duration-500 ${colors.icon}`}>
                                         {insight.icon}
                                     </div>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-3">
-                                            <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${colors.text} drop-shadow-sm`}>
-                                                {insight.title}
+                                    <div className="space-y-1 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] ${colors.text} drop-shadow-sm truncate`}>
+                                                {renderInsightText(insight.title, colors.text)}
                                             </span>
-                                            <div className="h-px w-10 bg-white/10 hidden sm:block" />
-                                            <span className="px-2 py-0.5 rounded-full bg-white/5 text-[8px] font-black text-slate-500 border border-white/5 uppercase tracking-widest">System Engine v4.0</span>
+                                            <div className="h-px w-6 sm:w-10 bg-white/10 hidden sm:block" />
+                                            <span className="px-2 py-0.5 rounded-full bg-white/5 text-[8px] font-black text-slate-500 border border-white/5 uppercase tracking-widest whitespace-nowrap">System Engine v4.0</span>
                                         </div>
-                                        <h3 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-none">
-                                            {insight.text}
+                                        <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight break-words">
+                                            {renderInsightText(insight.text, colors.text)}
                                         </h3>
                                     </div>
                                 </div>
                                 
-                                <p className="text-slate-400 text-base leading-relaxed max-w-3xl font-medium">
-                                    {insight.details}
+                                <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-3xl font-medium">
+                                    {renderInsightText(insight.details, colors.text)}
                                 </p>
                             </div>
 
                             {insight.advice && (
-                                <div className="lg:w-[400px] shrink-0">
-                                    <div className={`rounded-[2rem] bg-black/60 border ${colors.border} p-10 sm:p-12 relative shadow-2xl group-hover:bg-black/80 transition-all duration-500`}>
+                                <div className="w-full lg:w-[350px] shrink-0 mt-2 lg:mt-0">
+                                    <div className={`rounded-md bg-black/60 border ${colors.border} p-6 sm:p-8 relative shadow-2xl group-hover:bg-black/80 transition-all duration-500 overflow-hidden`}>
                                         <div className={`absolute -right-12 -top-12 w-48 h-48 ${colors.glow} opacity-10 blur-3xl pointer-events-none`} />
                                         
-                                        <div className="flex items-center gap-2 mb-4 relative z-10">
+                                        <div className="flex items-center gap-2 mb-3 relative z-10">
                                             <div className={`p-1.5 rounded-lg bg-white/5 border border-white/10 ${colors.text}`}>
                                                 <Zap size={14} fill="currentColor" />
                                             </div>
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] block">Orientação Estratégica</span>
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block whitespace-nowrap">Orientação Estratégica</span>
                                         </div>
                                         
-                                        <p className={`text-[15px] sm:text-[17px] font-bold leading-relaxed ${colors.text} relative z-10 drop-shadow-lg`}>
-                                            {insight.advice}
+                                        <p className={`text-sm sm:text-base font-bold leading-relaxed ${colors.text} relative z-10 drop-shadow-lg break-words`}>
+                                            {renderInsightText(insight.advice, colors.text)}
                                         </p>
                                         
-                                        <div className="absolute bottom-0 right-0 p-6 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
+                                        <div className="absolute -bottom-4 -right-4 p-6 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
                                             <Zap size={80} className={colors.text} />
                                         </div>
                                     </div>

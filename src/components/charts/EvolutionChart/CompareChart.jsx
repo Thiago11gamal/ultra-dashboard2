@@ -224,19 +224,10 @@ export function CompareChart({
                             <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                         </linearGradient>
                         <filter id={CC.lineShadow} height="200%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
-                            <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
-                            <feMerge>
-                                <feMergeNode in="offsetBlur" />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
+                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                         </filter>
                         <filter id={CC.glow} x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3.5" result="glow" />
-                            <feMerge>
-                                <feMergeNode in="glow" />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
+                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                         </filter>
                     </defs>
                     <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
@@ -271,10 +262,13 @@ export function CompareChart({
                     {showGainArea && <Area connectNulls type="monotoneX" dataKey="Futuro Provável" name="Ganho Estimado" fill="#10b981" fillOpacity={0.08} stroke="#10b981" strokeWidth={1} strokeOpacity={0.2} legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" baseValue={gainBase} />}
                     <Area type="monotoneX" dataKey="Cenário Range" name="Intervalo de Confiança MC" fill={`url(#${CC.cloudGradient})`} stroke="none" legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
                     
+                    {/* Bottom Layer: Glow for Nível Bayesiano */}
+                    <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={8} strokeOpacity={0.25} fill="none" activeDot={false} legendType="none" connectNulls isAnimationActive={false} />
+                    {/* Top Layer: Nível Bayesiano */}
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={4}
                         strokeLinecap="round" strokeLinejoin="round"
                         fill={`url(#${CC.greenGradient})`} dot={{ r: 3, fill: '#0f172a', stroke: '#34d399', strokeWidth: 1.5 }}
-                        activeDot={<CustomActiveDot fill="#34d399" />} connectNulls style={{ filter: `url(#${CC.lineShadow})` }} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
+                        activeDot={<CustomActiveDot fill="#34d399" />} connectNulls isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
                     </Area>
                     

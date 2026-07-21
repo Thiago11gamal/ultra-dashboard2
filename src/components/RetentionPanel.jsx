@@ -4,7 +4,7 @@ import { formatTimeAgo, toDateMs } from '../utils/dateHelper';
 import { formatValue } from '../utils/scoreHelper';
 
 // Calculate retention based on Ebbinghaus Forgetting Curve
-const calculateRetention = (lastStudiedAt) => {
+const calculateRetention = (lastStudiedAt, halfLife = 7) => {
     if (!lastStudiedAt) return { val: 0, status: 'never', label: 'Nunca estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
 
     const last = toDateMs(lastStudiedAt);
@@ -14,9 +14,8 @@ const calculateRetention = (lastStudiedAt) => {
 
     const diffHours = (Date.now() - last) / (1000 * 60 * 60);
     const days = diffHours / 24;
-    // BUG 6 FIX: Use S=7 days instead of 3 to better match spaced repetition retention
-    // With S=3, after 3 days retention drops to ~36% — too aggressive for studied content
-    const val = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-days / 7))));
+    // FIX: Use dynamic halfLife based on mastery, synchronized with chartDataMappers
+    const val = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-days / halfLife))));
 
     if (val >= 80) return { val, status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
     if (val >= 60) return { val, status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
@@ -116,11 +115,24 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             .filter(cat => cat && (cat.id || cat.name))
             .map(cat => {
                 const safeCategoryName = String(cat.name || 'Sem nome');
+                
+                // CÁLCULO DE MEIA-VIDA DINÂMICA (Anti-Punição de Maestria)
+                // Sincronizado com chartDataMappers.js
+                const totalQ = Number(cat.simuladoStats?.totalQuestions) || 0;
+                const maxScore = Math.max(1, Number(cat.maxScore) || 100);
+                const accuracyData = cat.bayesianStats?.mean || cat.simuladoStats?.average;
+                const accuracy = accuracyData ? (Number(accuracyData) / maxScore) : 0;
+                const qNorm = Math.max(0, Math.min(1, totalQ / 120));
+                const accNorm = Math.max(0, Math.min(1, (accuracy - 0.5) / 0.4));
+                const masterySignal = (0.6 * qNorm) + (0.4 * accNorm);
+                const catHalfLife = 7 + (23 * masterySignal);
+                const taskHalfLife = 7 + (7 * qNorm);
+
                 // Calculate retention for each task
                 const rawTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
                 const tasksWithRetention = rawTasks.filter(Boolean).map(task => ({
                     ...task,
-                    retention: calculateRetention(task.lastStudiedAt || task.completedAt),
+                    retention: calculateRetention(task.lastStudiedAt || task.completedAt, taskHalfLife),
                     timeAgo: formatTimeAgo(task.lastStudiedAt || task.completedAt)
                 }));
 
@@ -138,7 +150,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 // Fallback to 0/never if both are missing
                 // B-17 FIX: Evite sobrescrever a retenção geral pela retenção diluída das tasks se o aluno estudou
                 // na disciplina root. Use max() para refletir sempre o ponto mais lúcido da curva.
-                const catDirectRet = calculateRetention(cat.lastStudiedAt || null);
+                const catDirectRet = calculateRetention(cat.lastStudiedAt || null, catHalfLife);
                 const finalVal = avgTaskRetention !== null ? Math.max(avgTaskRetention, catDirectRet.val) : catDirectRet.val;
 
                 // FIX: Verifique se não há estudo antes de construir o objeto para não sobrescrever o status 'never'

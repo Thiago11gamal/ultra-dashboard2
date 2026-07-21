@@ -1,7 +1,7 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
-import { getLocalMidnight } from '../utils/dateHelper';
+import { getLocalMidnight, getDateKey } from '../utils/dateHelper';
 import { motion as Motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useActiveContest, usePomodoroState } from '../store/useSelectors';
@@ -56,7 +56,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             const dayOfWeek = d.getDay();
             if (dayOfWeek === 0 || dayOfWeek === 6) weekendMins += mins;
 
-            const dateStr = d.toISOString().split('T')[0];
+            const dateStr = getDateKey(log.date || log.createdAt) || getDateKey(d) || d.toISOString().split('T')[0];
             daysStudied.add(dateStr);
 
             if (t >= startOfToday) todayMins += mins;
@@ -71,7 +71,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let currentStreak = 0;
         let lastDate = null;
         sortedDays.forEach(dayStr => {
-            const current = new Date(dayStr).getTime();
+            const current = new Date(`${dayStr}T12:00:00`).getTime();
             if (lastDate) {
                 const diffDays = Math.round((current - lastDate) / 86400000);
                 if (diffDays === 1) {
@@ -119,7 +119,8 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             }
             
             if (!c.tasks) return;
-            c.tasks.forEach(t => {
+            const safeCTasks = Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks);
+            safeCTasks.forEach(t => {
                 if (!t) return;
                 totalTasks++;
                 if (t.completed) {
@@ -499,6 +500,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const total = categoryTasks.length;
         const completed = categoryTasks.filter(t => t.completed).length;
         const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const totalMinutes = currentCategory?.totalMinutes || 0;
 
         const remaining = Math.max(total - completed, 0);
         const gainIfComplete = total > 0 ? Number((100 / total).toFixed(1)) : 0;
@@ -512,32 +514,37 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             : 'apresentar alta sinergia com o seu ritmo atual';
 
         const improveText = remaining > 0
-            ? `Neutralize mais ${Math.min(remaining, 3)} alvo(s) para expandir seu domínio e acelerar a base.`
-            : 'Domínio quase absoluto. Excelente oportunidade para transição ou revisão profunda.';
+            ? `Domine mais ${Math.min(remaining, 3)} assunto(s) para expandir seu domínio na matéria.`
+            : 'Domínio quase absoluto da matéria. Excelente oportunidade para transição ou revisão profunda.';
 
         const statusVariants = [];
         
         if (completionPct < 40) {
-            statusVariants.push(`Fase de ignição: Cada bloco concluído gera um impacto agressivo de +${gainIfComplete}% na base.`);
-            if (highPriorityCount > 0) statusVariants.push(`Estratégia Alpha: Focar nas ${highPriorityCount} tarefas críticas trará o maior ROI de esforço.`);
+            statusVariants.push(`Fase de ignição: Cada assunto concluído gera um impacto de +${gainIfComplete}% na base da matéria.`);
+            if (highPriorityCount > 0) statusVariants.push(`Estratégia Alpha: Focar nos ${highPriorityCount} assuntos críticos desta matéria trará o maior ROI de esforço.`);
         } else if (completionPct < 80) {
-            statusVariants.push(`Ponto de inflexão: Você já dominou ${hitRate}%. Acelere para cruzar a barreira da excelência.`);
-            statusVariants.push(`Análise em tempo real: Restam ${remaining} missões. Mantenha o fluxo para aniquilar a lacuna de ${missRate}%.`);
+            statusVariants.push(`Ponto de inflexão: Você já dominou ${hitRate}% da matéria. Acelere para cruzar a barreira da excelência.`);
+            statusVariants.push(`Análise em tempo real: Restam ${remaining} assuntos nesta matéria. Mantenha o fluxo para aniquilar a lacuna de ${missRate}%.`);
         } else {
-            statusVariants.push(`Alta performance: Com ${hitRate}% de domínio, você está na fase de refinamento e maestria.`);
-            statusVariants.push(`Retenção máxima: Seu nível atual reduz drasticamente a curva de esquecimento.`);
+            statusVariants.push(`Alta performance: Com ${hitRate}% de domínio da matéria, você está na fase de refinamento e maestria.`);
+            statusVariants.push(`Retenção máxima: Seu nível atual nesta matéria reduz drasticamente a curva de esquecimento.`);
         }
 
         if (highPriorityCount > 0 && statusVariants.length < 3) {
-            statusVariants.push(`Radar tático: Detectamos ${highPriorityCount} missão(ões) de prioridade máxima ainda em aberto.`);
+            statusVariants.push(`Radar tático: Detectamos ${highPriorityCount} assunto(s) de prioridade máxima ainda em aberto nesta matéria.`);
         }
         
-        statusVariants.push(`Mapeamento: Seu fluxo já converteu ${hitRate}% de ruído em conhecimento estruturado.`);
+        statusVariants.push(`Mapeamento: Seu fluxo nesta matéria já converteu ${hitRate}% de ruído em conhecimento estruturado.`);
 
         const variantSeed = String(activeSubject.taskId || activeSubject.task || '').length + completed + total;
         const statusLine = statusVariants[variantSeed % statusVariants.length];
 
-        return { total, completed, completionPct, gainIfComplete, quality, whySelected, improveText, hitRate, missRate, statusLine };
+        return { 
+            total, completed, completionPct, gainIfComplete, quality, whySelected, improveText, hitRate, missRate, statusLine,
+            categoryName: currentCategory?.name || 'Desconhecida',
+            totalMinutes,
+            topic: activeSubject.task
+        };
     }, [activeSubject, categories]);
 
     const cleanTaskText = (rawText) => {
@@ -603,11 +610,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover/stats:opacity-100 transition-opacity" />
                     
                     <div className="flex justify-between items-center mb-3">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2">
-                            <Target size={12} />
-                            Status do assunto atual
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2 truncate pr-2">
+                            <Target size={12} className="shrink-0" />
+                            <span className="truncate">Matéria: {activeTaskStats.categoryName}</span>
                         </p>
-                        <span className="text-[10px] font-black text-cyan-500/50 bg-cyan-500/10 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-black text-cyan-500/50 bg-cyan-500/10 px-2 py-0.5 rounded-md shrink-0">
                             {activeTaskStats.completionPct}% Completo
                         </span>
                     </div>
@@ -622,17 +629,25 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
 
                     <p className="text-xs text-slate-200 leading-relaxed relative z-10">
-                        Escolhido por {activeTaskStats.whySelected}. Progresso: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
-                        Ganho estimado: <strong className="text-emerald-400">+{activeTaskStats.gainIfComplete}%</strong>.
+                        <span className="block mb-1">
+                            <strong className="text-cyan-300">Assunto atual:</strong> {cleanTaskText(activeTaskStats.topic).displayTopic}
+                        </span>
+                        <span>
+                            O <strong>assunto</strong> foi escolhido por {activeTaskStats.whySelected}. Progresso da <strong>matéria</strong>: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
+                            Impacto na matéria ao concluir: <strong className="text-emerald-400">+{activeTaskStats.gainIfComplete}%</strong>.
+                        </span>
                     </p>
                     <div className="mt-3 relative z-10">
                         <p className="text-xs text-slate-400">
-                            Nível: <strong className="text-white capitalize">{activeTaskStats.quality}</strong>. {activeTaskStats.improveText}
+                            Nível da matéria: <strong className="text-white capitalize">{activeTaskStats.quality}</strong>. {activeTaskStats.improveText}
                         </p>
                         <p className="text-xs text-cyan-300/80 mt-1">{activeTaskStats.statusLine}</p>
                         <div className="flex items-center gap-4 mt-3">
-                            <span className="flex items-center gap-1.5 text-xs"><CheckCircle2 size={12} className="text-emerald-500"/> <strong className="text-slate-200">{activeTaskStats.hitRate}%</strong> Acerto</span>
-                            <span className="flex items-center gap-1.5 text-xs"><AlertCircle size={12} className="text-amber-500"/> <strong className="text-slate-200">{activeTaskStats.missRate}%</strong> Melhorar</span>
+                            <span className="flex items-center gap-1.5 text-xs" title="Domínio da matéria"><CheckCircle2 size={12} className="text-emerald-500"/> <strong className="text-slate-200">{activeTaskStats.hitRate}%</strong> Domínio</span>
+                            <span className="flex items-center gap-1.5 text-xs" title="Lacuna na matéria"><AlertCircle size={12} className="text-amber-500"/> <strong className="text-slate-200">{activeTaskStats.missRate}%</strong> Lacuna</span>
+                            {activeTaskStats.totalMinutes > 0 && (
+                                <span className="flex items-center gap-1.5 text-xs" title="Tempo dedicado à matéria"><Clock size={12} className="text-cyan-500"/> <strong className="text-slate-200">{Math.round(activeTaskStats.totalMinutes)}m</strong> na Matéria</span>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1023,7 +1038,7 @@ export default function Pomodoro() {
                 ...prev,
                 categories: prev.categories?.map(c => c.id === activeSubject.categoryId ? {
                     ...c,
-                    tasks: c.tasks?.map(t => t.id === activeSubject.taskId ? { ...t, status: undefined } : t)
+                    tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t.id === activeSubject.taskId ? { ...t, status: undefined } : t)
                 } : c)
             }));
         }

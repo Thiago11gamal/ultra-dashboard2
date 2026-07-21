@@ -19,6 +19,21 @@ export const safeDateParse = (dateInput) => {
     return isNaN(d.getTime()) ? new Date(0) : d;
 };
 
+export const parseGoalDateUnified = (rawDate) => {
+    if (!rawDate) return null;
+    try {
+        if (typeof rawDate === 'number') return new Date(rawDate);
+        if (typeof rawDate === 'object' && rawDate.seconds) return new Date(rawDate.seconds * 1000);
+        
+        // Se for string 'YYYY-MM-DD', force para o fuso local adicionando horas
+        const rawStr = String(rawDate).trim().split('T')[0];
+        const [y, m, d] = rawStr.split('-');
+        return new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 12, 0, 0);
+    } catch {
+        return null;
+    }
+};
+
 export const getDateKey = (rawDate) => {
     if (!rawDate) return null;
     let date;
@@ -35,11 +50,11 @@ export const getDateKey = (rawDate) => {
         } else {
             date = new Date(rawDate);
         }
-    } else if (typeof rawDate === 'string' && rawDate.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    } else if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
         // FIX CRÍTICO: Strings YYYY-MM-DD interpretadas por new Date() como meia-noite UTC,
         // o que recua 1 dia em fusos negativos (ex: UTC-4, 00:00 UTC = 20:00 do dia anterior).
         // Ao forçar T12:00:00-04:00 (meio-dia de Manaus), o dia do calendário fica 100% ancorado ao fuso alvo.
-        date = new Date(`${rawDate}T12:00:00-04:00`);
+        date = new Date(`${rawDate.trim()}T12:00:00-04:00`);
     } else {
         date = new Date(rawDate);
     }
@@ -75,11 +90,19 @@ export const getDateKey = (rawDate) => {
  */
 export const getLocalMidnight = (date = new Date()) => {
     try {
+        // ✅ FIX: Usa o fuso canônico da aplicação (America/Manaus)
+        const dateKey = getDateKey(date);
+        if (!dateKey) {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+        // Cria meia-noite no fuso de Manaus
+        return new Date(`${dateKey}T00:00:00-04:00`);
+    } catch {
         const d = new Date(date);
         d.setHours(0, 0, 0, 0);
         return d;
-    } catch {
-        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }
 };
 

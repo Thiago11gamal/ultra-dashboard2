@@ -28,6 +28,17 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
     // Helper to report changes up to parent
     const [analysisData, setAnalysisData] = useState(null);
+
+    // ✅ NOVO: Resetta analysisData quando as rows mudam (novo simulado salvo)
+    const rowsSignature = React.useMemo(
+      () => rows.map((r) => `${r.id || ''}-${r.total || 0}-${r.correct || 0}`).join('|'),
+      [rows]
+    );
+
+    React.useEffect(() => {
+      setAnalysisData(null);
+      setLoading(false);
+    }, [rowsSignature]);
     const [error, setError] = useState(null);
     const [errorIndices, setErrorIndices] = useState(() => ({ subjects: new Set(), topics: new Set() }));
 
@@ -60,7 +71,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             if (field === 'correct') {
                 const currentTotal = parseInt(rows[index]?.total, 10) || 0;
                 // Enforce: Correct cannot exceed Total (unless Total is empty/0)
-                if (val !== '' && val > currentTotal) finalValue = currentTotal;
+                if (val !== '' && currentTotal > 0 && val > currentTotal) finalValue = currentTotal;
                 else finalValue = val;
             } else if (field === 'total') {
                 const currentCorrect = parseInt(rows[index]?.correct, 10) || 0;
@@ -372,9 +383,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
     React.useEffect(() => {
         if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading) {
-            setTimeout(() => handleAnalyze(), 0);
+            const timer = setTimeout(() => handleAnalyze(), 100);
+            return () => clearTimeout(timer);
         }
-    }, [viewMode, rows.length, analysisData, loading, handleAnalyze]);
+    }, [viewMode, rowsSignature, analysisData, loading, handleAnalyze]);
 
     return (
         <div className={`w-full mx-auto space-y-6 animate-fade-in pb-20`}>

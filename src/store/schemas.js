@@ -17,78 +17,96 @@ export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 
  * if discrepancies are detected. This is a SILENT repair that happens
  * during each state update from Firebase or LocalStorage.
  */
+const extractRowDate = (r) => {
+  if (!r) return null;
+
+  if (r.date && typeof r.date === 'object' && Number.isFinite(Number(r.date._seconds))) {
+    return new Date(Number(r.date._seconds) * 1000);
+  }
+
+  if (r.createdAt && typeof r.createdAt === 'object' && Number.isFinite(Number(r.createdAt._seconds))) {
+    return new Date(Number(r.createdAt._seconds) * 1000);
+  }
+
+  return r.date || r.createdAt || null;
+};
+
 const repairContestHistory = (data) => {
   if (!data.simuladoRows || data.simuladoRows.length === 0 || !data.categories) return data;
 
   const rows = data.simuladoRows;
   let hasRepaired = false;
 
-  // DIAGNOSTIC CORE: Log summary of what we are dealing with
-
   data.categories.forEach(cat => {
     const catNorm = normalize(cat.name);
     const catAliases = aliases[catNorm] || [];
 
-    // AGGRESSIVE MATCHING: Use includes() for partial matches (e.g. 'dir adm' matches 'direitoadministrativo')
     const myRows = rows.filter(r => {
-      // 1. Defesa Primária: Match absoluto pelo ID único
       if (r.categoryId && r.categoryId === cat.id) return true;
-      
-      // 2. Defesa Secundária (Fallback Legado): Tenta string match
+
       const subNorm = normalize(r.subject);
       if (!subNorm) return false;
+
       return subNorm === catNorm ||
         catAliases.some(a => normalize(a) === subNorm);
     });
 
-    if (myRows.length === 0) {
-      return;
-    }
+    if (myRows.length === 0) return;
 
     const currentHistory = cat.simuladoStats?.history || [];
     const maxScore = cat.maxScore ?? 100;
 
-    // LETHAL OVERRIDE: If raw logs have significantly more data than aggregated history, rebuild it.
-    // Even if history is not 0, we rebuild if discrepancy is high (>50% difference)
-    const uniqueDaysInLogs = new Set(myRows.map(r => getDateKey(r.date || r.createdAt || r.date?._seconds || r.createdAt?._seconds)).filter(Boolean)).size;
-    const currentUniqueDays = new Set(currentHistory.map(h => getDateKey(h.date))).size;
+    const uniqueDaysInLogs = new Set(
+      myRows
+        .map(r => getDateKey(extractRowDate(r)))
+        .filter(Boolean)
+    ).size;
 
-    // Verificação da flag isPercentage desativada como gatilho de perda (gerava falsos positivos)
-    // BUG-FIX LETHAL 1: Detectar se o array de histórico foi interpolado com lixo (ex: [null, undefined, { score: NaN }])
-    const hasCorruptedHistory = currentHistory.some(h => 
-        !h || 
-        typeof h !== 'object' || 
-        !h.date || 
-        (h.total === undefined && h.score === undefined && h.correct === undefined) ||
-        (h.score !== undefined && h.score !== null && Number.isNaN(Number(h.score))) ||
-        (h.total !== undefined && h.total !== null && Number.isNaN(Number(h.total)))
+    const currentUniqueDays = new Set(
+      currentHistory
+        .map(h => getDateKey(h.date))
+        .filter(Boolean)
+    ).size;
+
+    const hasCorruptedHistory = currentHistory.some(h =>
+      !h ||
+      typeof h !== 'object' ||
+      !h.date ||
+      (h.total === undefined && h.score === undefined && h.correct === undefined) ||
+      (h.score !== undefined && h.score !== null && Number.isNaN(Number(h.score))) ||
+      (h.total !== undefined && h.total !== null && Number.isNaN(Number(h.total)))
     );
-    // BUG-FIX LETHAL 2: Detecta se o histórico atual foi esmagado em 1 único dia, enquanto a base de dados
-    // original possui vários dias (causado pelo bug antigo de priorizar o createdAt do DB em vez do date do usuário).
+
     const dateCompressionBug = uniqueDaysInLogs > 1 && currentUniqueDays <= 1 && currentHistory.length > 0;
     const repairThreshold = Math.ceil(currentHistory.length * 1.2);
 
-    if (hasCorruptedHistory || dateCompressionBug || currentHistory.length === 0 || uniqueDaysInLogs > repairThreshold) {
+    if (
+      hasCorruptedHistory ||
+      dateCompressionBug ||
+      currentHistory.length === 0 ||
+      uniqueDaysInLogs > repairThreshold
+    ) {
       hasRepaired = true;
 
       const dailyStats = {};
+
       myRows.forEach(r => {
-        const dk = getDateKey(r.date || r.createdAt);
+        const dk = getDateKey(extractRowDate(r));
         if (!dk) return;
+
         if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0 };
-        
+
         const rawTotal = parseInt(r.total, 10) || 0;
         const rawCorrect = parseInt(r.correct, 10) || 0;
-        
-        // BUG-H2 FIX: Handle legacy isPercentage format where 'correct' is the percentual score
+
         const safeMaxScore = Math.max(1, maxScore);
         const rawScore = Number(r.score);
         const safeScore = Number.isFinite(rawScore) ? rawScore : 0;
-        
+
         const corrNorm = (r.isPercentage && r.score != null && rawTotal > 0)
           ? Math.round((Math.min(safeMaxScore, Math.max(0, safeScore)) / safeMaxScore) * rawTotal)
           : rawCorrect;
-          
+
         dailyStats[dk].correct += corrNorm;
         dailyStats[dk].total += rawTotal;
       });
@@ -97,8 +115,10 @@ const repairContestHistory = (data) => {
         date,
         correct: stats.correct,
         total: stats.total,
-        score: (stats.total > 0 && Number.isFinite(stats.correct)) ? (stats.correct / stats.total) * maxScore : 0
-      })).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0); // FIX: String compare safe for YYYY-MM-DD
+        score: (stats.total > 0 && Number.isFinite(stats.correct))
+          ? (stats.correct / stats.total) * maxScore
+          : 0
+      })).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
       const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10, 60, maxScore);
 
@@ -107,7 +127,13 @@ const repairContestHistory = (data) => {
         average: Number(statsResult.mean.toFixed(2)),
         trend: statsResult.trend || 'stable',
         lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
-        level: statsResult.level || (statsResult.mean > 0.7 * maxScore ? 'ALTO' : statsResult.mean > 0.4 * maxScore ? 'MÉDIO' : 'BAIXO')
+        level: statsResult.level || (
+          statsResult.mean > 0.7 * maxScore
+            ? 'ALTO'
+            : statsResult.mean > 0.4 * maxScore
+              ? 'MÉDIO'
+              : 'BAIXO'
+        )
       };
     }
   });
@@ -158,18 +184,29 @@ export const sanitizeContest = (data) => {
       name: cat.name || "Sem Nome",
       color: cat.color || "#3b82f6",
       icon: cat.icon || "📚",
-      tasks: (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).map(t => ({
-        id: t.id || generateId('task'),
-        text: t.text || t.title || "Nova Tarefa",
-        title: t.title || t.text || "Nova Tarefa",
-        completed: Boolean(t.completed),
-        completedAt: t.completedAt || null,
-        lastStudiedAt: t.lastStudiedAt || null,
-        priority: t.priority || "medium",
-        // BUG-01 & 02 FIX: Preserve awardedXP and studying status during sync/reload
-        ...(t.awardedXP != null ? { awardedXP: Number(t.awardedXP) } : {}),
-        ...(t.status ? { status: t.status } : {})
-      })).filter(t => t.id && (t.text || t.title)), // Skip Corrupted Tasks
+      tasks: (() => {
+        const rawTasks = (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).map(t => ({
+          id: t.id || generateId('task'),
+          text: t.text || t.title || t.topic || "Nova Tarefa",
+          title: t.title || t.text || t.topic || "Nova Tarefa",
+          completed: Boolean(t.completed),
+          completedAt: t.completedAt || null,
+          lastStudiedAt: t.lastStudiedAt || null,
+          priority: t.priority || "medium",
+          // BUG-01 & 02 FIX: Preserve awardedXP and studying status during sync/reload
+          ...(t.awardedXP != null ? { awardedXP: Number(t.awardedXP) } : {}),
+          ...(t.status ? { status: t.status } : {})
+        })).filter(t => t.id && (t.text || t.title)); // Skip Corrupted Tasks
+
+        // BUG 16 FIX: Deduplicação rigorosa por nome normalizado
+        const seenTaskNames = new Set();
+        return rawTasks.filter(t => {
+          const normName = t.text.toLowerCase().trim();
+          if (seenTaskNames.has(normName)) return false;
+          seenTaskNames.add(normName);
+          return true;
+        });
+      })(),
       weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
       maxScore: Number(cat.maxScore) || 100,
       minCutoff: Number(cat.minCutoff) || 0,
@@ -199,7 +236,7 @@ export const sanitizeContest = (data) => {
     // Math / Calibration history (lightweight for continuous calibration)
     calibrationEvents: Array.isArray(source.calibrationEvents) ? source.calibrationEvents.slice(-200) : [], // keep last 200 for walk-forward
     settings: {
-      darkMode: true,
+      darkMode: source.settings?.darkMode ?? true,
       soundEnabled: source.settings?.soundEnabled ?? true,
       pomodoroWork: Number(source.settings?.pomodoroWork) || 25,
       pomodoroBreak: Number(source.settings?.pomodoroBreak) || 5,
@@ -285,8 +322,12 @@ export const validateAppState = (data) => {
       history: Array.isArray(d.history) ? d.history : [],
       trash: Array.isArray(d.trash) ? d.trash.filter(item => {
         if (!item) return false;
-        // BUG LOGIC-02 FIX: Se não tiver deletedAt, assume agora para expirar em 30 dias
-        const deletedAt = item.deletedAt ? new Date(item.deletedAt) : new Date();
+
+        const parsedDeletedAt = item.deletedAt ? new Date(item.deletedAt) : null;
+        const deletedAt = parsedDeletedAt && !isNaN(parsedDeletedAt.getTime())
+          ? parsedDeletedAt
+          : new Date();
+
         return (new Date() - deletedAt) / (1000 * 60 * 60 * 24) <= 30;
       }) : [],
       hasSeenTour: Boolean(d.hasSeenTour),

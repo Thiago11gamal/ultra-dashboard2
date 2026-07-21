@@ -111,7 +111,8 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
     const safeFirstActivity = normalizeDate(firstActivityDate);
     if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
         const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
-        const totalJourneyDays = Math.max(1, ((normalizeDate(referenceDate) || referenceDate).getTime() - safeFirstActivity.getTime()) / 86400000) + daysToExam;
+        // BUG-FIX: Prevenir que daysToExam negativo zere totalJourneyDays
+        const totalJourneyDays = Math.max(1, ((normalizeDate(referenceDate) || referenceDate).getTime() - safeFirstActivity.getTime()) / 86400000) + Math.max(0, daysToExam);
         // Se a jornada é longa (ex: 300 dias), a rampa começa mais cedo.
         timeDivisor = Math.max(14, totalJourneyDays * 0.15); 
     }
@@ -181,18 +182,27 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
     return (empiricalVol * 0.7) + (fallbackVol * 0.3 * nPenalty);
 }
 
+export const sanitizeNum = (val) => {
+    if (val === null || val === undefined || val === '') return NaN;
+    
+    let str = String(val).trim();
+    
+    // Se possui vírgula, com certeza é formato PT-BR (ex: "1.234,56" ou "1,5")
+    if (str.includes(',')) {
+        return Number(str.replace(/\./g, '').replace(',', '.'));
+    }
+    
+    // Se tem pontos agrupando de 3 em 3 e não tem vírgula (ex: "1.000" ou "12.345")
+    if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+        return Number(str.replace(/\./g, ''));
+    }
+    
+    // Caso contrário, confia no Number() nativo (ex: "1000" ou "1.5")
+    return Number(str);
+};
+
 export const getCoachPriorities = (topicsData) => {
     if (!Array.isArray(topicsData)) return [];
-    
-    // [CORREÇÃO] Função de sanitização robusta para lidar com strings e separadores vírgula (Bug 4.1 Fix)
-    const sanitizeNum = (val) => {
-        if (val === null || val === undefined || val === '') return NaN;
-        if (typeof val === 'string') {
-            const cleanStr = val.includes(',') ? val.replace(/\./g, '').replace(',', '.') : val;
-            return Number(cleanStr);
-        }
-        return Number(val);
-    };
     
     const globalCorrect = topicsData.reduce((acc, t) => {
         const parsedAcertos = sanitizeNum(t.acertos);
@@ -261,6 +271,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
+    const targetScoreLabel = options.targetScoreLabel ?? Math.round((targetScore / maxScore) * 100);
     
     let rawWeightVal = safeCategory.weight;
     if (typeof rawWeightVal === 'string') rawWeightVal = rawWeightVal.replace(',', '.');
@@ -343,8 +354,10 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             return sTime < (mostRecentSimDate - SESSION_GAP_MS);
         });
         
+        // ✅ CORREÇÃO BUG #4: Fallback temporal correto
+        // Usa todos exceto o mais recente, mantendo decaimento temporal
         if (pastSimulados.length === 0 && relevantSimulados.length > 1) {
-            pastSimulados = relevantSimulados.slice(1);
+            pastSimulados = relevantSimulados.slice(0, -1); // Remove apenas o último (mais recente)
         }
         
         const notaBruta = calculateExponentialScore(relevantSimulados);
@@ -509,6 +522,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         maxScore,
         minScore,
         targetScore,
+        targetScoreLabel,
         rawWeight,
         boundedWeight,
         weight,
@@ -582,11 +596,13 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const volatilityRisk = mssdVolatility;
 
     const rawPain = performanceDeficit + memoryRisk + volatilityRisk;
-    const totalPain = Number.isFinite(rawPain) ? Math.max(1, rawPain) : 1;
+    // ✅ CORREÇÃO BUG #2: Piso mais alto para evitar explosão
+    const totalPain = Math.max(10, Number.isFinite(rawPain) ? rawPain : 10);
 
-    const dynamicScoreMax = Math.max(20, (performanceDeficit / totalPain) * 110);
-    const dynamicRecencyMax = Math.max(15, (memoryRisk / totalPain) * 110);
-    const dynamicInstabilityMax = Math.max(10, (volatilityRisk / totalPain) * 110);
+    // ✅ CORREÇÃO BUG #2: Clamp preventivo contra valores extremos
+    const dynamicScoreMax = Math.min(110, Math.max(20, (performanceDeficit / totalPain) * 110));
+    const dynamicRecencyMax = Math.min(110, Math.max(15, (memoryRisk / totalPain) * 110));
+    const dynamicInstabilityMax = Math.min(110, Math.max(10, (volatilityRisk / totalPain) * 110));
 
     const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.40; 
     
@@ -1001,7 +1017,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             categoryId: metrics.categoryId || null,
             categoryName: scoreInfo.nome || metrics.categoryName || 'Disciplina',
             timestamp: Date.now(),
-            brierScore: result.details.monteCarlo.avgBrier,
+            avgBrier: result.details.monteCarlo.avgBrier,
             ece: result.details.monteCarlo.ece,
             calibrationPenalty: result.details.monteCarlo.calibrationPenalty,
             reliability: result.details.monteCarlo.reliability || [],
@@ -1289,9 +1305,8 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
                 // Cenário: Tem volume de questões
                 if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
                     // CORREÇÃO: Sanitização estrita e resiliente a milhares
-                    let rawC = String(t.correct);
-                    rawC = rawC.replace(/\./g, '').replace(',', '.');
-                    topicCorrect = Math.min(topicTotal, Number.isFinite(Number(rawC)) ? Number(rawC) : 0);
+                    const rawC = sanitizeNum(t.correct);
+                    topicCorrect = Math.min(topicTotal, Number.isFinite(rawC) ? rawC : 0);
                 } else {
                     // Fallback seguro em caso de notas penalizadas ao nível do subtópico
                     topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;
@@ -1486,7 +1501,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
                     reason: "Monte Carlo — Zona de Perigo",
-                    details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias.`,
+                    details: `Apenas ${probPct}% de chance de bater a meta de ${options.targetScoreLabel ?? targetScore}% em 90 dias.`,
                     metrics: cat.urgency?.details?.humanReadable || {},
                     monteCarlo: mc || null,
                     verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
@@ -1815,12 +1830,16 @@ export function getCombinedHistory(history, simulados) {
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
 
-    const hasSimuladoForDate = new Set(allSimulados.map(s => s.date || s.createdAt));
+    const hasSimuladoForDate = new Set(
+      allSimulados
+        .map(s => getDateKey(s.date || s.createdAt))
+        .filter(Boolean)
+    );
     
     // Agrupa e adiciona o histórico legado
     const rowsByDate = {};
     (history || []).forEach(r => {
-        const dKey = r.date;
+        const dKey = getDateKey(r.date || r.createdAt);
         if (dKey && !hasSimuladoForDate.has(dKey)) {
             if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0 };
             rowsByDate[dKey].correct += (Number(r.correct) || 0);

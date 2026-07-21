@@ -17,7 +17,7 @@ export default function SimuladoSetup({
   DIFFICULTIES,
   LOADING_MESSAGES
 }) {
-  const hasApiKey = true;
+  const hasApiKey = Boolean(import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_BACKEND_URL);
   const isReadyToGenerate = form.categoryId && form.taskId && hasApiKey;
 
 return (

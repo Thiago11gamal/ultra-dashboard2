@@ -65,27 +65,64 @@
     }
   </style>
   <script>
-    // Global error handler to catch crashes before React mounts
-    window.onerror = function (msg, url, line, col, error) {
+    window.onerror = function (msg) {
       const loaderText = document.querySelector('.loader-text');
+
       if (loaderText) {
-        loaderText.innerHTML = '<span style="color: #f87171">Erro de Carregamento:<br>' + msg + '</span>';
+        loaderText.textContent = 'Erro de carregamento: ' + msg;
+        loaderText.style.color = '#f87171';
         loaderText.style.animation = 'none';
       }
+
       return false;
     };
 
-    // Auto-reveal hidden content if loading takes too long
-    const BUILD_VERSION = "2026-03-26-HOTFIX";
+    const BUILD_VERSION = "2026-07-21-FIX"; // ideal: injetar via build/env
     console.log("[Build] Versão:", BUILD_VERSION);
 
     setTimeout(() => {
       const loaderText = document.querySelector('.loader-text');
-      if (loaderText && (loaderText.innerText === "Carregando..." || loaderText.innerHTML.includes("Carregando..."))) {
-        loaderText.innerHTML = "Carregamento lento detectado...<br>" +
-          "<small style='opacity: 0.5'>Versão: " + BUILD_VERSION + " | Verifique o painel VITE_.</small><br>" +
-          "<button onclick='localStorage.clear(); location.reload();' style='margin-top: 20px; background: rgba(248, 113, 113, 0.2); border: 1px solid #f87171; color: #f87171; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 12px;'>Limpar Dados e Reiniciar</button>";
-      }
+      if (!loaderText) return;
+
+      const currentText = loaderText.textContent || "";
+      if (!currentText.includes("Carregando")) return;
+
+      loaderText.textContent = "";
+
+      const title = document.createElement("div");
+      title.textContent = "Carregamento lento detectado...";
+
+      const version = document.createElement("small");
+      version.style.opacity = "0.5";
+      version.textContent = `Versão: ${BUILD_VERSION} | Verifique o painel VITE_.`;
+
+      const btn = document.createElement("button");
+      btn.textContent = "Limpar dados e reiniciar";
+      btn.style.marginTop = "20px";
+      btn.style.background = "rgba(248, 113, 113, 0.2)";
+      btn.style.border = "1px solid #f87171";
+      btn.style.color = "#f87171";
+      btn.style.padding = "8px 16px";
+      btn.style.borderRadius = "8px";
+      btn.style.cursor = "pointer";
+      btn.style.fontSize = "12px";
+
+      btn.addEventListener("click", () => {
+        const ok = window.confirm(
+          "Isso apagará os dados locais deste navegador. Deseja continuar?"
+        );
+
+        if (ok) {
+          localStorage.clear();
+          location.reload();
+        }
+      });
+
+      loaderText.appendChild(title);
+      loaderText.appendChild(document.createElement("br"));
+      loaderText.appendChild(version);
+      loaderText.appendChild(document.createElement("br"));
+      loaderText.appendChild(btn);
     }, 8000);
   </script>
 </head>

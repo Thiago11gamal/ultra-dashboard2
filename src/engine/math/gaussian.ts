@@ -36,9 +36,20 @@ export function truncatedNormalMean(mean: number, sd: number, a: number, b: numb
     const alpha = (a - mean) / sd;
     const beta = (b - mean) / sd;
     
-    const phiAlpha = 1 - normalCDF_complement(alpha);
-    const phiBeta = 1 - normalCDF_complement(beta);
-    const denominator = phiBeta - phiAlpha;
+    let denominator: number;
+    let phiAlpha: number;
+
+    if (alpha > 0 && beta > 0) {
+        // Evita cancelamento catastrófico na cauda direita usando a Função de Sobrevivência (S)
+        const sAlpha = normalCDF_complement(alpha);
+        const sBeta = normalCDF_complement(beta);
+        denominator = sAlpha - sBeta;
+        phiAlpha = 1 - sAlpha;
+    } else {
+        phiAlpha = 1 - normalCDF_complement(alpha);
+        const phiBeta = 1 - normalCDF_complement(beta);
+        denominator = phiBeta - phiAlpha;
+    }
     
     if (denominator < 1e-15) return Math.max(a, Math.min(b, mean));
     
@@ -86,6 +97,8 @@ export function resetGaussianCache(): void {}
 export function asymmetricGaussian(x: number, mean: number, sdLeft: number, sdRight: number, heightFactor: number = 1): number {
     const rawSd = x < mean ? sdLeft : sdRight;
     const currentSd = Math.max(1e-6, rawSd);
+    // Removemos o normFactor do cálculo final para normalizar o pico visual (Peak = heightFactor),
+    // de forma idêntica à normalização (invMaxY) feita pelo gerador KDE, evitando achatamento total.
     return heightFactor * Math.exp(-0.5 * Math.pow((x - mean) / currentSd, 2));
 }
 
@@ -175,23 +188,26 @@ export function generateKDE(allScores: Float32Array | number[], projectedMean: n
     for (let i = 0; i <= plotSteps; i++) {
         const x = plotMin + i * stepSize;
         let density = 0;
+        if (x < minScore || x > maxScore) {
+            density = 0;
+        } else {
+            for (let j = 0; j < BIN_COUNT; j++) {
+                if (bins[j] === 0) continue;
+                const binX = plotMin + (j + 0.5) * binWidth;
 
-        for (let j = 0; j < BIN_COUNT; j++) {
-            if (bins[j] === 0) continue;
-            const binX = plotMin + (j + 0.5) * binWidth;
+                const dist = (x - binX) * invBandwidth;
+                const distReflMin = (x - (2 * minScore - binX)) * invBandwidth;
+                const distReflMax = (x - (2 * maxScore - binX)) * invBandwidth;
 
-            const dist = (x - binX) * invBandwidth;
-            const distReflMin = (x - (2 * minScore - binX)) * invBandwidth;
-            const distReflMax = (x - (2 * maxScore - binX)) * invBandwidth;
-
-            if (Math.abs(dist) < 4.0 || Math.abs(distReflMin) < 4.0 || Math.abs(distReflMax) < 4.0) {
-                let localDensity = Math.exp(-0.5 * dist * dist);
-                localDensity += Math.exp(-0.5 * distReflMin * distReflMin);
-                localDensity += Math.exp(-0.5 * distReflMax * distReflMax);
-                density += bins[j] * localDensity;
+                if (Math.abs(dist) < 4.0 || Math.abs(distReflMin) < 4.0 || Math.abs(distReflMax) < 4.0) {
+                    let localDensity = Math.exp(-0.5 * dist * dist);
+                    localDensity += Math.exp(-0.5 * distReflMin * distReflMin);
+                    localDensity += Math.exp(-0.5 * distReflMax * distReflMax);
+                    density += bins[j] * localDensity;
+                }
             }
+            density *= normFactor;
         }
-        density *= normFactor;
 
         if (density > maxY) maxY = density;
         xOut[i] = x;
@@ -232,7 +248,7 @@ export function inverseNormalCDF(p: number): number {
     const b = [-8.47351093090, 23.08336743743, -21.06224101826, 3.13082909833];
     const c = [0.3374754822726147, 0.9761690190917186, 0.1607979714918209,
         0.0276438810333863, 0.0038405729373609, 0.0003951896511919,
-        0.0000321767881768, 0.0000002888167364, 0.000003960315187]; // fixed a typo in c[8]
+        0.0000321767881768, 0.0000002888167364, 3.960315187e-7]; // Wichura coefficient fix
 
     let x = p - 0.5;
     if (Math.abs(x) < 0.42) {
@@ -263,10 +279,22 @@ export function sampleTruncatedNormal(mean: number, sd: number, min: number, max
 
     if (sd <= MIN_SD_FLOOR) return Math.max(min, Math.min(max, mean));
 
-    const cdfMin = 1 - normalCDF_complement((min - mean) / sd);
-    const cdfMax = 1 - normalCDF_complement((max - mean) / sd);
+    const alpha = (min - mean) / sd;
+    const beta = (max - mean) / sd;
+    let diff: number;
+    let cdfMin: number;
 
-    const diff = cdfMax - cdfMin;
+    if (alpha > 0 && beta > 0) {
+        // Evita cancelamento catastrófico na cauda direita usando a Função de Sobrevivência (S)
+        const sAlpha = normalCDF_complement(alpha);
+        const sBeta = normalCDF_complement(beta);
+        diff = sAlpha - sBeta;
+        cdfMin = 1 - sAlpha;
+    } else {
+        cdfMin = 1 - normalCDF_complement(alpha);
+        const cdfMax = 1 - normalCDF_complement(beta);
+        diff = cdfMax - cdfMin;
+    }
     if (diff < 1e-16) {
         return Math.max(min, Math.min(max, mean));
     }
@@ -362,20 +390,31 @@ export function choleskyDecomposition(matrix: number[][]): number[][] {
 
 export function applyCovariance(choleskyLower: number[][] | null | undefined, zVector: number[] | Float64Array | null | undefined, targetVector?: number[] | Float64Array): number[] | Float64Array {
     if (!choleskyLower || !zVector || choleskyLower.length !== zVector.length) {
-        if (targetVector && zVector) {
+        if (targetVector && zVector && targetVector !== zVector) {
             for(let i=0; i<zVector.length; i++) targetVector[i] = zVector[i];
             return targetVector;
         }
-        return zVector ? [...zVector] as number[] : [];
+        return zVector ? (targetVector === zVector ? targetVector : [...zVector] as number[]) : [];
     }
     const n = zVector.length;
+    const isInPlace = (targetVector === zVector);
     const result = targetVector || Array(n).fill(0);
-    if (targetVector) {
+    
+    if (isInPlace) {
+        // Iteração reversa garante estabilidade na mutação do próprio buffer em modo in-place
+        for (let i = n - 1; i >= 0; i--) {
+            let sum = 0;
+            for (let j = 0; j <= i; j++) {
+                sum += choleskyLower[i][j] * zVector[j];
+            }
+            result[i] = sum;
+        }
+    } else {
         for (let i = 0; i < n; i++) result[i] = 0;
-    }
-    for (let i = 0; i < n; i++) {
-        for (let j = 0; j <= i; j++) {
-            result[i] += choleskyLower[i][j] * zVector[j];
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j <= i; j++) {
+                result[i] += choleskyLower[i][j] * zVector[j];
+            }
         }
     }
     return result;

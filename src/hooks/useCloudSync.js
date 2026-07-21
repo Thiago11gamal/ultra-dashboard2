@@ -154,10 +154,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const map = new Map();
         const getStableKey = (item) => {
             if (item.id) return item.id;
-            return `${item.date || ''}-${item.categoryId || ''}-${item.taskId || JSON.stringify(item)}`;
+            // ✅ FIX: Usar campos semânticos estáveis em vez de JSON.stringify
+            return `${item.date || item.startTime || ''}-${item.categoryId || ''}-${item.taskId || ''}-${item.duration || item.minutes || ''}`;
         };
-        (arr1 || []).forEach(item => { if (item) map.set(getStableKey(item), item); });
-        (arr2 || []).forEach(item => { if (item) map.set(getStableKey(item), item); });
+        const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
+        const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
+        safeArr1.forEach(item => { if (item) map.set(getStableKey(item), item); });
+        safeArr2.forEach(item => { if (item) map.set(getStableKey(item), item); });
         return Array.from(map.values()).filter(Boolean);
     };
 
@@ -192,7 +195,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             return (Number.isFinite(aTime) ? aTime : 0) >= (Number.isFinite(bTime) ? bTime : 0) ? a : b;
         };
 
-        [...localTasks, ...cloudTasks].filter(Boolean).forEach(t => {
+        const safeLocalTasks = Array.isArray(localTasks) ? localTasks : Object.values(localTasks || {});
+        const safeCloudTasks = Array.isArray(cloudTasks) ? cloudTasks : Object.values(cloudTasks || {});
+        [...safeLocalTasks, ...safeCloudTasks].filter(Boolean).forEach(t => {
             const key = taskKey(t);
             if (key) {
                 taskMap.set(key, pickWinner(taskMap.get(key), t));
@@ -201,37 +206,64 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         return Array.from(taskMap.values()).filter(Boolean);
     };
 
-    const mergeContestCategories = (localCats = [], cloudCats = []) => {
+    const mergeContestCategories = (localCats = [], cloudCats = [], preferCloudBase = false) => {
         const mergedCatsMap = {};
+
         const toDateMs = (value) => {
             if (!value) return 0;
+
             const ms = new Date(value).getTime();
             return Number.isFinite(ms) ? ms : 0;
         };
 
-        (localCats || []).forEach(c => {
+        const safeLocalCats = Array.isArray(localCats) ? localCats : Object.values(localCats || {});
+        const safeCloudCats = Array.isArray(cloudCats) ? cloudCats : Object.values(cloudCats || {});
+
+        safeLocalCats.forEach(c => {
             if (c?.id) mergedCatsMap[c.id] = c;
         });
 
-        (cloudCats || []).forEach(c => {
+        safeCloudCats.forEach(c => {
             if (!c?.id) return;
+
             if (mergedCatsMap[c.id]) {
                 const localCat = mergedCatsMap[c.id];
+
+                const baseCat = preferCloudBase
+                    ? { ...localCat, ...c }
+                    : { ...c, ...localCat };
+
+                const catMaxScore = Number(c.maxScore ?? localCat.maxScore ?? 100) || 100;
+
                 const historyMap = new Map();
-                const getStableHistoryKey = (h) => h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}`;
-                
-                (localCat.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
-                (c.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
+
+                const getStableHistoryKey = (h) =>
+                    h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}`;
+
+                const safeLocalHistory = Array.isArray(localCat.simuladoStats?.history)
+                    ? localCat.simuladoStats.history
+                    : Object.values(localCat.simuladoStats?.history || {});
+
+                const safeCloudHistory = Array.isArray(c.simuladoStats?.history)
+                    ? c.simuladoStats.history
+                    : Object.values(c.simuladoStats?.history || {});
+
+                safeLocalHistory.forEach(h => {
+                    if (h?.date) historyMap.set(getStableHistoryKey(h), h);
+                });
+
+                safeCloudHistory.forEach(h => {
+                    if (h?.date) historyMap.set(getStableHistoryKey(h), h);
+                });
 
                 mergedCatsMap[c.id] = {
-                    ...localCat,
-                    ...c,
+                    ...baseCat,
                     tasks: mergeCategoryTasks(localCat.tasks, c.tasks),
                     simuladoStats: {
                         ...(localCat.simuladoStats || c.simuladoStats || {}),
                         ...(c.simuladoStats || {}),
                         history: Array.from(historyMap.values())
-                            .map(h => ({ ...h, score: getSafeScore(h, 100) }))
+                            .map(h => ({ ...h, score: getSafeScore(h, catMaxScore) }))
                             .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
                     }
                 };
@@ -244,10 +276,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     };
 
     const mergeContestPayload = (localContest, cloudContest, preferCloudBase = false) => {
-        const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
+        const base = preferCloudBase
+            ? { ...localContest, ...cloudContest }
+            : { ...cloudContest, ...localContest };
+
         return {
             ...base,
-            categories: mergeContestCategories(localContest.categories, cloudContest.categories),
+            categories: mergeContestCategories(
+                localContest.categories,
+                cloudContest.categories,
+                preferCloudBase
+            ),
             studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
             studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
             simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),
@@ -629,19 +668,26 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     }, [currentUser?.uid]);
     
     const performEmergencySync = useCallback(async () => {
-        if (isLocalMode || !currentUser?.uid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
-        
+        if (
+            isLocalMode ||
+            !currentUser?.uid ||
+            !appStateRef.current ||
+            !isParityValidatedRef.current ||
+            !db
+        ) return;
+
         if (debounceRef.current) clearTimeout(debounceRef.current);
-        
+
         const currentStateString = stateStringForSync(appStateRef.current);
+
         if (lastSyncedRef.current === currentStateString) return;
 
         try {
-            // BUG-03 FIX: Use a single consistent snapshot instead of mixing
-            // appStateRef.current (stale) with useAppStore.getState() (fresh).
             const syncState = useAppStore.getState().appState;
+
             const safeguardContest = (contest) => {
                 if (!contest) return contest;
+
                 return {
                     ...contest,
                     studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
@@ -651,15 +697,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             };
 
             const safeContests = syncState.contests
-                ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
+                ? Object.fromEntries(
+                    Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)])
+                )
                 : syncState.contests;
 
             const safeTrash = (syncState.trash || []).slice(-20);
 
-            // CRITICAL FIX: SafeClone aplicado ao EmergencySync para evitar que Promises, 
-            // refs do React, ou elementos do DOM invadam a store de sincronização.
-            // O Firestore disparava DataCloneError quando o utilizador minimizava a tela, 
-            // falhando silenciosamente e causando a perda de dados locais recentes.
             const stateToSave = cleanUndefined(safeClone({
                 ...syncState,
                 contests: safeContests,
@@ -670,15 +714,25 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             setInternalSyncing(true);
             logger.debug(`[Sync] Iniciando conexão segura com a nuvem...`);
-            // FIRE-AND-FORGET no mobile: iOS mata a thread no 'hidden'.
-            // Atualizamos a ref OTIMISTICAMENTE para não causar deadlock infinito 
-            // se o Promise nunca resolver devido ao App Suspense.
-            lastSyncedRef.current = currentStateString;
+
             setDoc(doc(db, 'backups', currentUser.uid), stateToSave)
-                .catch(e => logger.error("[Sync] Erro no emergency-save:", e))
+                .then(() => {
+                    lastSyncedRef.current = currentStateString;
+
+                    try {
+                        localStorage.removeItem('ultra-sync-dirty');
+                    } catch (err) {
+                        logger.warn('[Sync] LocalStorage cleanup error:', err);
+                    }
+                })
+                .catch(e => {
+                    logger.error("[Sync] Erro no emergency-save:", e);
+                    lastSyncedRef.current = null;
+                })
                 .finally(() => {
                     if (isMountedRef.current) setInternalSyncing(false);
                 });
+
         } catch (e) {
             logger.error("[Sync] Erro na montagem do emergency-save:", e);
         }

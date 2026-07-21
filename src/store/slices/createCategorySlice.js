@@ -166,130 +166,173 @@ export const createCategorySlice = (set) => ({
     }),
 
     safelyMergeDuplicates: () => set((state) => {
-        const activeId = state.appState.activeId;
-        const activeData = state.appState.contests[activeId];
-        if (!activeId || !activeData || !Array.isArray(activeData.categories)) return;
+  const activeId = state.appState.activeId;
+  const activeData = state.appState.contests[activeId];
 
-        // BUG-FIX: O guard de versão bloqueava o merge após hidratação (IDB restore).
-        // Substituído por verificação real de duplicatas para só sair cedo se não há trabalho.
-        const hasDuplicates = (() => {
-            const seen = new Set();
-            return activeData.categories.some(cat => {
-                const key = normalize(cat.name);
-                if (seen.has(key)) return true;
-                seen.add(key);
-                return false;
-            });
-        })();
-        if (!hasDuplicates) return;
+  if (!activeId || !activeData || !Array.isArray(activeData.categories)) return;
 
-        const groups = {};
-        activeData.categories.forEach(cat => {
-            const norm = normalize(cat.name);
-            if (!groups[norm]) groups[norm] = [];
-            groups[norm].push(cat);
-        });
+  const hasDuplicates = (() => {
+    const seen = new Set();
 
-        let changed = false;
-        const newCategories = [];
+    return activeData.categories.some(cat => {
+      const key = normalize(cat.name);
 
-        Object.values(groups).forEach(group => {
-            if (group.length === 1) {
-                newCategories.push(group[0]);
-                return;
-            }
+      if (seen.has(key)) return true;
 
-            changed = true;
-            console.warn(`[Store] Merging ${group.length} duplicates for "${group[0].name}"`);
+      seen.add(key);
+      return false;
+    });
+  })();
 
-            const primary = group.sort((a, b) => {
-                const getHistoryLen = (obj) => {
-                    const h = obj.simuladoStats?.history;
-                    if (!h) return 0;
-                    return Array.isArray(h) ? h.length : Object.values(h).length;
-                };
-                const aData = (a.tasks?.length || 0) + getHistoryLen(a);
-                const bData = (b.tasks?.length || 0) + getHistoryLen(b);
-                return bData - aData;
-            })[0];
+  if (!hasDuplicates) return;
 
-            const getHistoryArr = (c) => {
-                const h = c.simuladoStats?.history;
-                if (!h) return [];
-                return Array.isArray(h) ? h : Object.values(h);
-            };
+  const groups = {};
 
-            const mergedTasks = [...(primary.tasks || [])];
-            const mergedHistory = [...getHistoryArr(primary)];
+  activeData.categories.forEach(cat => {
+    const norm = normalize(cat.name);
 
-            group.forEach(cat => {
-                if (cat.id === primary.id) return;
+    if (!groups[norm]) groups[norm] = [];
 
-                (cat.tasks || []).forEach(t => {
-                    const taskTitle = (t.title || t.text || '').trim();
-                    if (!mergedTasks.some(mt => (mt.title || mt.text || '').trim() === taskTitle)) {
-                        mergedTasks.push(t);
-                    }
-                });
+    groups[norm].push(cat);
+  });
 
-                getHistoryArr(cat).forEach(h => {
-                    const exists = mergedHistory.some(mh => mh.date === h.date && normalize(mh.topic) === normalize(h.topic));
-                    if (!exists) mergedHistory.push(h);
-                });
+  let changed = false;
+  const newCategories = [];
 
-                const oldId = cat.id;
-                const newId = primary.id;
+  Object.values(groups).forEach(group => {
+    if (group.length === 1) {
+      newCategories.push(group[0]);
+      return;
+    }
 
-                if (activeData.studyLogs) {
-                    const safeLogs = Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {});
-                    safeLogs.forEach(l => { if (l.categoryId === oldId) l.categoryId = newId; });
-                    activeData.studyLogs = safeLogs;
-                }
-                if (activeData.studySessions) {
-                    const safeSessions = Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {});
-                    safeSessions.forEach(s => { if (s.categoryId === oldId) s.categoryId = newId; });
-                    activeData.studySessions = safeSessions;
-                }
-                if (activeData.simuladoRows) {
-                    const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
-                    safeRows.forEach(r => { if (r.categoryId === oldId) r.categoryId = newId; });
-                    activeData.simuladoRows = safeRows;
-                }
-            });
+    changed = true;
+    console.warn(`[Store] Merging ${group.length} duplicates for "${group[0].name}"`);
 
-            newCategories.push({
-                ...primary,
-                tasks: mergedTasks,
-                simuladoStats: {
-                    ...primary.simuladoStats,
-                    history: mergedHistory
-                }
-            });
-        });
+    const primary = group.sort((a, b) => {
+      const getHistoryLen = (obj) => {
+        const h = obj.simuladoStats?.history;
+        if (!h) return 0;
 
-        if (changed) {
-            activeData.categories = newCategories;
+        return Array.isArray(h) ? h.length : Object.values(h).length;
+      };
 
-            // CLEANUP: Remover pesos órfãos
-            if (activeData.mcWeights) {
-                const validKeys = new Set();
-                newCategories.forEach(c => {
-                    validKeys.add(c.id);
-                    validKeys.add(c.name);
-                    validKeys.add(normalize(c.name));
-                });
-                Object.keys(activeData.mcWeights).forEach(key => {
-                    if (!validKeys.has(key) && !validKeys.has(normalize(key))) {
-                        delete activeData.mcWeights[key];
-                    }
-                });
-            }
+      const aData = (a.tasks?.length || 0) + getHistoryLen(a);
+      const bData = (b.tasks?.length || 0) + getHistoryLen(b);
 
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            localStorage.setItem('ultra-sync-dirty', 'true');
+      return bData - aData;
+    })[0];
+
+    const getHistoryArr = (c) => {
+      const h = c.simuladoStats?.history;
+      if (!h) return [];
+
+      return Array.isArray(h) ? h : Object.values(h);
+    };
+
+    const historyKey = (h) => {
+      if (!h) return 'invalid';
+
+      return h.id || `${h.date || ''}-${h.score ?? ''}-${h.total ?? ''}-${h.correct ?? ''}-${normalize(h.topic || '')}`;
+    };
+
+    const mergedTasks = [...(primary.tasks || [])];
+    const mergedHistory = [...getHistoryArr(primary)];
+    const seenHistory = new Set(mergedHistory.map(historyKey));
+
+    group.forEach(cat => {
+      if (cat.id === primary.id) return;
+
+      (cat.tasks || []).forEach(t => {
+        const taskTitle = (t.title || t.text || '').trim();
+
+        if (!mergedTasks.some(mt => (mt.title || mt.text || '').trim() === taskTitle)) {
+          mergedTasks.push(t);
         }
-    }),
+      });
+
+      getHistoryArr(cat).forEach(h => {
+        const key = historyKey(h);
+
+        if (!seenHistory.has(key)) {
+          seenHistory.add(key);
+          mergedHistory.push(h);
+        }
+      });
+
+      const oldId = cat.id;
+      const newId = primary.id;
+
+      if (activeData.studyLogs) {
+        const safeLogs = Array.isArray(activeData.studyLogs)
+          ? activeData.studyLogs
+          : Object.values(activeData.studyLogs || {});
+
+        safeLogs.forEach(l => {
+          if (l.categoryId === oldId) l.categoryId = newId;
+        });
+
+        activeData.studyLogs = safeLogs;
+      }
+
+      if (activeData.studySessions) {
+        const safeSessions = Array.isArray(activeData.studySessions)
+          ? activeData.studySessions
+          : Object.values(activeData.studySessions || {});
+
+        safeSessions.forEach(s => {
+          if (s.categoryId === oldId) s.categoryId = newId;
+        });
+
+        activeData.studySessions = safeSessions;
+      }
+
+      if (activeData.simuladoRows) {
+        const safeRows = Array.isArray(activeData.simuladoRows)
+          ? activeData.simuladoRows
+          : Object.values(activeData.simuladoRows || {});
+
+        safeRows.forEach(r => {
+          if (r.categoryId === oldId) r.categoryId = newId;
+        });
+
+        activeData.simuladoRows = safeRows;
+      }
+    });
+
+    newCategories.push({
+      ...primary,
+      tasks: mergedTasks,
+      simuladoStats: {
+        ...primary.simuladoStats,
+        history: mergedHistory
+      }
+    });
+  });
+
+  if (changed) {
+    activeData.categories = newCategories;
+
+    if (activeData.mcWeights) {
+      const validKeys = new Set();
+
+      newCategories.forEach(c => {
+        validKeys.add(c.id);
+        validKeys.add(c.name);
+        validKeys.add(normalize(c.name));
+      });
+
+      Object.keys(activeData.mcWeights).forEach(key => {
+        if (!validKeys.has(key) && !validKeys.has(normalize(key))) {
+          delete activeData.mcWeights[key];
+        }
+      });
+    }
+
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    localStorage.setItem('ultra-sync-dirty', 'true');
+  }
+}),
 
     importCategory: (sourceContestId, categoryId) => set((state) => {
         const sourceData = state.appState.contests[sourceContestId];

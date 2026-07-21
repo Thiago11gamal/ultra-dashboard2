@@ -84,8 +84,8 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
 });
 
 const getMondayStr = (dateStr) => {
-    const dt = typeof dateStr === 'string' && dateStr.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
-        ? new Date(`${dateStr}T12:00:00`)
+    const dt = typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr.trim())
+      ? new Date(`${dateStr.trim()}T12:00:00-04:00`)
         : new Date(dateStr);
     if (isNaN(dt.getTime())) return null;
     const day = dt.getDay();

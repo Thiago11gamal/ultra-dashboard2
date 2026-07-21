@@ -8,20 +8,41 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { displaySubject } from '../utils/displaySubject';
+import { getSafeId } from '../utils/idGenerator';
 
-// BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
+function renderRecommendation(text, depth = 0) {
+  if (depth > 6) return String(text || '');
 
+  const safeText = String(text || '');
+  const parts = safeText.split(/(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g).filter(Boolean);
 
-function renderRecommendation(text) {
-    const safeText = String(text || '');
-    // BUG-04 FIX: Unified with AICoachView — non-greedy .*? handles special chars inside bold
-    const parts = safeText.split(/(\*\*.*?\*\*)/g).filter(Boolean);
-    return parts.map((part, idx) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={`rec-${idx}`} className="text-white not-italic">{part.slice(2, -2)}</strong>;
-        }
-        return <React.Fragment key={`rec-${idx}`}>{part}</React.Fragment>;
-    });
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={`rec-${idx}`} className="text-white not-italic drop-shadow-[0_0_8px_currentColor]">
+          {renderRecommendation(part.slice(2, -2), depth + 1)}
+        </strong>
+      );
+    }
+
+    if (part.startsWith('!!') && part.endsWith('!!')) {
+      return (
+        <span key={`rec-${idx}`} className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">
+          {renderRecommendation(part.slice(2, -2), depth + 1)}
+        </span>
+      );
+    }
+
+    if (part.startsWith('++') && part.endsWith('++')) {
+      return (
+        <span key={`rec-${idx}`} className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">
+          {renderRecommendation(part.slice(2, -2), depth + 1)}
+        </span>
+      );
+    }
+
+    return <React.Fragment key={`rec-${idx}`}>{part}</React.Fragment>;
+  });
 }
 
 function getUrgencyConfig(score, status = '') {
@@ -58,19 +79,27 @@ function getUrgencyConfig(score, status = '') {
 }
 
 function MetricChip({ label, value, index }) {
-    return (
-        <Motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.05, duration: 0.3 }}
-            whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-            className="group/chip relative flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-md p-3 sm:p-4 transition-all cursor-default overflow-hidden"
-        >
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 leading-[1.35] truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors pb-px">{label}</span>
-            <span className="text-sm font-black text-slate-100 tracking-tight leading-[1.25] truncate min-w-0 block pb-px">{value}</span>
-        </Motion.div>
-    );
+  return (
+    <Motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: index * 0.05, duration: 0.3 }}
+      whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
+      className="group/chip relative flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-md p-3 sm:p-4 transition-all cursor-default overflow-hidden"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
+      <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 leading-[1.35] truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors pb-px">
+        {label}
+      </span>
+      <span className="text-sm font-black text-slate-100 tracking-tight leading-[1.25] truncate min-w-0 block pb-px">
+        {value === null || value === undefined
+          ? '—'
+          : typeof value === 'object'
+            ? JSON.stringify(value)
+            : String(value)}
+      </span>
+    </Motion.div>
+  );
 }
 
 function UrgencyBar({ score, cfg }) {
@@ -94,74 +123,85 @@ function UrgencyBar({ score, cfg }) {
     );
 }
 
-// Adicione este componente dentro de AICoachWidget.jsx
 function MonteCarloGauge({ mc }) {
-    if (!mc || mc.probability == null) return null;
-    
-    const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
-    const prob = Math.min(100, Math.max(0, rawProb));
-    const rawLow = Number.isFinite(Number(mc.ci95Low)) ? Number(mc.ci95Low) : prob - 5;
-    const low = Math.min(100, Math.max(0, rawLow));
-    const rawHigh = Number.isFinite(Number(mc.ci95High)) ? Number(mc.ci95High) : prob + 5;
-    const high = Math.min(100, Math.max(0, rawHigh));
+  if (!mc || mc.probability == null) return null;
 
-    // Define a cor baseada na zona de risco (lógica exata do seu motor)
-    const isCritical = prob < (mc.thresholds?.danger || 30);
-    const color = isCritical ? 'bg-red-400' : (prob >= (mc.thresholds?.safe || 90) ? 'bg-emerald-400' : 'bg-indigo-400');
+  const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
+  const prob = Math.min(100, Math.max(0, rawProb));
 
-    return (
-        <Motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-3 p-4 bg-black/40 border border-white/10 relative overflow-hidden"
-        >
-            <div className="absolute top-0 right-0 p-3 text-white/5">
-                <BrainCircuit size={48} />
-            </div>
-            
-            <div className="relative z-10 flex justify-between items-end mb-2">
-                <div>
-                    {/* BUG-11 FIX: Clarify this is per-subject, not global */}
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">Projeção MC (Matéria)</span>
-                    <span className="text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
-                </div>
-                <div className="text-right">
-                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">Volatilidade</span>
-                    <span className="text-xs font-mono font-bold text-amber-400">±{Math.round(mc.volatility)} pts</span>
-                </div>
-            </div>
+  const rawLow = Number.isFinite(Number(mc.ci95Low)) ? Number(mc.ci95Low) : prob - 5;
+  const low = Math.min(100, Math.max(0, rawLow));
 
-            {/* Intervalo de Confiança Visual */}
-            <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05] my-3">
-                {/* Faixa de Confiança 95% */}
-                <Motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ left: `${low}%`, width: `${high - low}%` }}
-                    transition={{ duration: 1.5, ease: "easeOut" }}
-                    className="absolute top-0 bottom-0 bg-white/10 rounded-full"
-                />
-                
-                {/* Ponto de Probabilidade Exata */}
-                <Motion.div 
-                    initial={{ left: 0 }}
-                    animate={{ left: `${prob}%` }}
-                    transition={{ duration: 1.5, ease: "easeOut" }}
-                    className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
-                />
-            </div>
-            
-            <div className="flex justify-between mt-3 px-0.5">
-                <div className="flex flex-col">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">Pior Cenário</span>
-                    <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(low)}%</span>
-                </div>
-                <div className="flex flex-col text-right">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">Teto Probabilístico</span>
-                    <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(high)}%</span>
-                </div>
-            </div>
-        </Motion.div>
-    );
+  const rawHigh = Number.isFinite(Number(mc.ci95High)) ? Number(mc.ci95High) : prob + 5;
+  const high = Math.min(100, Math.max(0, rawHigh));
+
+  const volatility = Number.isFinite(Number(mc.volatility)) ? Number(mc.volatility) : 0;
+
+  const isCritical = prob < (mc.thresholds?.danger ?? 30);
+  const color = isCritical
+    ? 'bg-red-400'
+    : prob >= (mc.thresholds?.safe ?? 90)
+      ? 'bg-emerald-400'
+      : 'bg-indigo-400';
+
+  return (
+    <Motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-3 p-4 bg-black/40 border border-white/10 relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 p-3 text-white/5">
+        <BrainCircuit size={48} />
+      </div>
+
+      <div className="relative z-10 flex justify-between items-end mb-2">
+        <div>
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">
+            Projeção MC (Matéria)
+          </span>
+          <span className="text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
+        </div>
+
+        <div className="text-right">
+          <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">
+            Volatilidade
+          </span>
+          <span className="text-xs font-mono font-bold text-amber-400">±{Math.round(volatility)} pts</span>
+        </div>
+      </div>
+
+      <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05] my-3">
+        <Motion.div
+          initial={{ width: 0 }}
+          animate={{ left: `${low}%`, width: `${Math.max(0, high - low)}%` }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+          className="absolute top-0 bottom-0 bg-white/10 rounded-full"
+        />
+        <Motion.div
+          initial={{ left: 0 }}
+          animate={{ left: `${prob}%` }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+          className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
+        />
+      </div>
+
+      <div className="flex justify-between mt-3 px-0.5">
+        <div className="flex flex-col">
+          <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">
+            Pior Cenário
+          </span>
+          <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(low)}%</span>
+        </div>
+
+        <div className="flex flex-col text-right">
+          <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">
+            Teto Probabilístico
+          </span>
+          <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(high)}%</span>
+        </div>
+      </div>
+    </Motion.div>
+  );
 }
 
 export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
@@ -172,16 +212,23 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
     const topic = suggestion.weakestTopic;
     const urgency = suggestion?.urgency?.details ?? { hasData: false };
-    // VIS-06 FIX: urgency.score é o valor RAW (pode ser 0–200+), não 0–100.
-    // getUrgencyConfig e UrgencyBar esperam escala 0–100.
-    // Usar normalizedScore que já está normalizado pela função calculateUrgency.
     const urgencyScoreRaw = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
     const urgencyScore = Number.isFinite(Number(urgencyScoreRaw)) ? Number(urgencyScoreRaw) : 0;
-    const statusLabel = String(urgency.humanReadable?.Status ?? '');
+    const statusLabel = String(urgency?.humanReadable?.Status || '');
 
-    // Check if category is degraded from calibrationOps
     const calibrationOps = activeContest?.calibrationOps || {};
-    const isDegraded = calibrationOps[suggestion.id]?.degraded;
+
+    let suggestionKey = '';
+    try {
+      suggestionKey = getSafeId(suggestion);
+    } catch {
+      suggestionKey = String(suggestion?.id || suggestion?.name || '');
+    }
+
+    const isDegraded = Boolean(
+      calibrationOps[suggestionKey]?.degraded ||
+      (suggestion?.id && calibrationOps[suggestion.id]?.degraded)
+    );
 
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
@@ -191,23 +238,22 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
         <Motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`relative mb-8 w-full border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-visible group/widget`}
+            className={`relative mb-8 w-full border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-hidden group/widget`}
         >
-            {/* Background Atmosphere */}
             <div className={`absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-[120px] opacity-50`} />
 
-            {/* Top Energy Line */}
             <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-80`} />
 
             <div className="relative z-10 p-5 sm:p-8">
-                {/* Header Section */}
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-white/[0.04]">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0 shadow-[0_0_8px_currentColor]`} />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <span className="text-sm font-bold text-slate-200 truncate">Motor de Produtividade</span>
-                            {suggestion.globalProjectedMean != null && (
-                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">GLOBAL {suggestion.globalProjectedMean}%</span>
+                            {suggestion.globalProjectedMean != null && Number.isFinite(Number(suggestion.globalProjectedMean)) && (
+                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">
+                                  GLOBAL {Number(suggestion.globalProjectedMean)}%
+                                </span>
                             )}
                         </div>
                     </div>
@@ -220,17 +266,17 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             </div>
                         )}
                         {isDegraded && (
-                             <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[10px] font-bold uppercase tracking-wider shrink-0">
+                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[10px] font-bold uppercase tracking-wider shrink-0">
                                 <Database size={12} className="shrink-0" />
                                 <span className="whitespace-nowrap">CALIBRAÇÃO DEGRADADA</span>
-                             </div>
+                            </div>
                         )}
                         <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md border text-[10px] font-bold uppercase tracking-wider ${cfg.badge} shrink-0`}>
                             <TierIcon size={12} className="shrink-0" />
                             <span className="whitespace-nowrap">{tier === 'Standard' ? 'Padrão' : tier}</span>
                         </div>
                         {onGenerateGoals && (
-                            <button 
+                            <button
                                 onClick={onGenerateGoals}
                                 disabled={loading}
                                 className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
@@ -257,7 +303,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                 ) : (
                     <div className="space-y-8">
                         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_320px] gap-8 xl:gap-12 items-center">
-                            {/* Left Column: Subject & Topic */}
                             <div className="flex flex-col gap-5">
                                 <div className="flex items-center gap-3">
                                     <div className={`w-1 h-5 rounded-full bg-gradient-to-b ${cfg.bar}`} />
@@ -276,13 +321,14 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     {topic && (
                                         <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl border text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>
                                             <Target size={16} />
-                                            <span>{topic.name}</span>
+                                            <span className="truncate max-w-[200px] sm:max-w-[300px]" title={typeof topic === 'string' ? topic : topic?.name}>
+                                                {typeof topic === 'string' ? topic : (topic?.name || 'Tópico Geral')}
+                                            </span>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Center Column: Recommendation Status */}
                             <div className="flex flex-col justify-center h-full">
                                 {suggestion.urgency?.recommendation && (
                                     <Motion.div
@@ -290,7 +336,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                         animate={{ opacity: 1, scale: 1 }}
                                         className="relative p-5 sm:p-6 bg-black/40 backdrop-blur-xl border border-white/[0.05] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] group/status hover:border-white/10 transition-all duration-500 overflow-hidden"
                                     >
-                                        {/* Soft background glow based on theme */}
                                         <div className={`absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl ${cfg.stripe} to-transparent opacity-20 blur-2xl pointer-events-none rounded-full`} />
 
                                         <div className="flex items-start gap-4 relative z-10">
@@ -311,7 +356,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 )}
                             </div>
 
-                            {/* Right Column: Gauges */}
                             <div className="space-y-6">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {suggestion.urgency?.details?.monteCarlo && (
@@ -335,7 +379,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             </div>
                         </div>
 
-                        {/* Neural Matrix Toggle */}
                         <div className="pt-4">
                             <button
                                 onClick={() => setShowMatrix(!showMatrix)}
@@ -383,11 +426,10 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                             </div>
                                         )}
 
-                                        {/* NEW: Show engine math diagnostics (adaptive rho, convergence, effective N, etc) */}
                                         {urgency?.monteCarlo?.diagnostics && (
                                             <div className="mt-3 text-[9px] text-slate-400 bg-white/[0.015] rounded p-2 border border-white/5">
                                                 <div>Simulações: <span className="font-mono text-slate-200">{urgency.monteCarlo.diagnostics.simulationCount}</span></div>
-                                                {urgency.monteCarlo.diagnostics.convergence && <div>Convergência: {urgency.monteCarlo.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {urgency.monteCarlo.diagnostics.convergence.achievedSE})</div>}
+                                                {urgency.monteCarlo.diagnostics.convergence && <div>Convergência: {urgency.monteCarlo.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {Number(urgency.monteCarlo.diagnostics.convergence.achievedSE).toFixed(4)})</div>}
                                                 {urgency.monteCarlo.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(urgency.monteCarlo.diagnostics.effectiveN).toFixed(1)}</span></div>}
                                             </div>
                                         )}
@@ -397,7 +439,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         </div>
                     </div>
                 )}
-
             </div>
         </Motion.div>
     );

@@ -161,14 +161,28 @@ function MainLayout() {
       rescueAttemptsRef.current = 0;
     }
 
+    let rescueTimer = null;
+    let resetTimer = null;
+
     if (isStoreHydrated && !headerData.exists && rescueAttemptsRef.current < 3) {
       const keys = Object.keys(contestsMetaList || {});
       if (keys.length > 0) {
         console.warn('[Rescue] Concurso ativo inválido. Selecionando fallback:', keys[0]);
         rescueAttemptsRef.current += 1;
-        setTimeout(() => switchContest(keys[0]), 0); // Empurra para o fim da event loop para dar tempo ao Zustand de propagar o estado
+        
+        rescueTimer = setTimeout(() => switchContest(keys[0]), 100);
+        
+        // Reset após 30s de estabilidade
+        resetTimer = setTimeout(() => { 
+          rescueAttemptsRef.current = 0; 
+        }, 30000);
       }
     }
+
+    return () => {
+      if (rescueTimer) clearTimeout(rescueTimer);
+      if (resetTimer) clearTimeout(resetTimer);
+    };
   }, [showToast, isStoreHydrated, headerData.exists, contestsMetaList, switchContest]);
 
   const cloudStatusHeader = React.useMemo(() => ({

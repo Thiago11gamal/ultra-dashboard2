@@ -8,7 +8,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
     const currentData = chartData.find(d => d.displayDate === label || d.date === label);
 
     return (
-        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-sm z-50 backdrop-blur-xl">
+        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-sm z-50 backdrop-blur-xl pointer-events-none transition-transform duration-200">
             <p className="text-slate-300 mb-3 font-bold border-b border-white/10 pb-2 flex items-center justify-between">
                 <span>📅 {label}</span>
             </p>
@@ -59,6 +59,11 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     <span className="text-xs font-mono text-orange-400 font-bold">
                                         {rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}
                                     </span>
+                                    {rawCorrect != null && rawTotal > 0 && (
+                                        <span className="text-[8px] text-slate-500 font-bold font-mono tracking-tighter absolute bottom-0 pb-[1px]">
+                                            {rawCorrect}/{rawTotal}
+                                        </span>
+                                    )}
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
                                         <div className="h-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, rawVal)) : 0}%` }} />
                                     </div>

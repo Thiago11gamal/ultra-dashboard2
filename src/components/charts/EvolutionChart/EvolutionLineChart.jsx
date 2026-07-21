@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useId, useState, useRef } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -9,16 +9,27 @@ import { normalizeDate } from '../../../utils/dateHelper';
 import { formatValue } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
-    const { cx, cy, fill, stroke } = props;
+    const { cx, cy, fill, stroke, onClick, isDimmed } = props;
     if (cx == null || cy == null) return null;
     return (
-        <g>
-            {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}
-            <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
-                <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
-                <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
-            </circle>
-            <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
+        <g onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default', pointerEvents: 'all' }}>
+            {!isDimmed && (
+                <>
+                    <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
+                        <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
+                    </circle>
+                    <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
+                </>
+            )}
+            {/* Dimmed dot - no glow, just a static smaller dot */}
+            {isDimmed && (
+                <>
+                    <circle cx={cx} cy={cy} r={4} fill={fill} opacity={0.5} stroke={stroke || "#ffffff"} strokeWidth={1} strokeOpacity={0.5} />
+                    {/* Invisible larger target for easy clicking when dimmed */}
+                    <circle cx={cx} cy={cy} r={15} fill="rgba(255,255,255,0.01)" stroke="transparent" />
+                </>
+            )}
         </g>
     );
 };
@@ -42,6 +53,22 @@ export function EvolutionLineChart({
 }) {
     const instanceId = useId().replace(/:/g, "");
     const shadowId = `el_lineShadow_${instanceId}`;
+
+    const [highlightedDataKey, setHighlightedDataKey] = useState(null);
+    const isLineClicked = useRef(false);
+
+    const handleLegendClick = (e) => {
+        // Find the category ID from the clicked legend item (it usually passes payload)
+        let catId = e?.payload?.id || e?.id;
+        if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(raw|bay|bay_ci_low|bay_ci_high)_/, '');
+        if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(raw|bay|bay_ci_low|bay_ci_high)_/, '');
+        
+        if (catId) {
+            isLineClicked.current = true;
+            setHighlightedDataKey(prev => prev === catId ? null : catId);
+            setTimeout(() => { isLineClicked.current = false; }, 50);
+        }
+    };
 
 
 
@@ -93,41 +120,59 @@ export function EvolutionLineChart({
         if (!finalPoints.length) return {};
 
         const range = maxScore - minScore;
-        const yPositions = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
+        const labels = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
         
         const topLimit = maxScore - (range * 0.02);
         const bottomLimit = minScore + (range * 0.05);
         const safeSpace = Math.max(0.1, topLimit - bottomLimit);
         
         const MIN_PCT_DISTANCE = range * 0.075; // 7.5% distance threshold
-        const requiredSpace = (yPositions.length - 1) * MIN_PCT_DISTANCE;
+        const requiredSpace = (labels.length - 1) * MIN_PCT_DISTANCE;
         
         // Dynamic compression if too many labels for the space
         const effectiveDistance = requiredSpace > safeSpace 
-            ? safeSpace / Math.max(1, yPositions.length - 1) 
+            ? safeSpace / Math.max(1, labels.length - 1) 
             : MIN_PCT_DISTANCE;
 
-        // Pass 1: Push down to separate colliding labels
-        for (let i = 1; i < yPositions.length; i++) {
-            if (yPositions[i - 1].yPos - yPositions[i].yPos < effectiveDistance) {
-                yPositions[i].yPos = yPositions[i - 1].yPos - effectiveDistance;
+        // Iterative relaxation algorithm to spread out colliding labels
+        const ITERATIONS = 15;
+        for (let iter = 0; iter < ITERATIONS; iter++) {
+            let overlapFound = false;
+            for (let i = 0; i < labels.length - 1; i++) {
+                const l1 = labels[i];
+                const l2 = labels[i + 1];
+                const diff = l1.yPos - l2.yPos; // Expect l1 > l2 since they are sorted descending
+                
+                if (diff < effectiveDistance) {
+                    overlapFound = true;
+                    const adjustment = (effectiveDistance - diff) / 2;
+                    l1.yPos += adjustment;
+                    l2.yPos -= adjustment;
+                }
             }
+            
+            // Apply boundary constraints gently (shift all to maintain separation)
+            if (labels.length > 0 && labels[0].yPos > topLimit) {
+                const diff = labels[0].yPos - topLimit;
+                labels.forEach(l => l.yPos -= diff);
+            }
+            
+            if (labels.length > 0 && labels[labels.length - 1].yPos < bottomLimit) {
+                const diff = bottomLimit - labels[labels.length - 1].yPos;
+                labels.forEach(l => l.yPos += diff);
+            }
+            
+            if (!overlapFound) break;
         }
 
-        // Pass 2: Bottom recovery (avoid falling off the bottom boundary)
-        if (yPositions.length > 0 && yPositions[yPositions.length - 1].yPos < bottomLimit) {
-            const shift = bottomLimit - yPositions[yPositions.length - 1].yPos;
-            yPositions.forEach(p => p.yPos += shift);
-        }
-
-        // Pass 3: Top recovery (avoid cutting the top of the chart)
-        if (yPositions.length > 0 && yPositions[0].yPos > topLimit) {
-            const shift = yPositions[0].yPos - topLimit;
-            yPositions.forEach(p => p.yPos -= shift);
+        // Force strict limits one last time for safety
+        for (let i = 0; i < labels.length; i++) {
+            if (labels[i].yPos > topLimit) labels[i].yPos = topLimit;
+            if (labels[i].yPos < bottomLimit) labels[i].yPos = bottomLimit;
         }
 
         const map = {};
-        yPositions.forEach(p => { map[p.id] = p.yPos; });
+        labels.forEach(p => { map[p.id] = p.yPos; });
         return map;
     }, [finalPoints, maxScore, minScore]);
 
@@ -178,15 +223,28 @@ export function EvolutionLineChart({
     };
 
     return (
-        <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
+        <div className="relative h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
+            {highlightedDataKey && (
+                <button 
+                    type="button" 
+                    onClick={() => setHighlightedDataKey(null)}
+                    className="absolute top-0 right-4 z-10 flex items-center gap-1.5 px-3 py-1 bg-slate-900 border border-slate-700 hover:bg-slate-800 hover:border-slate-500 text-slate-300 text-[10px] font-bold rounded-lg shadow-lg transition-all"
+                >
+                    <span>👁️</span> Mostrar Todos
+                </button>
+            )}
             <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
                 <ComposedChart 
                     data={enhancedChartData} 
                     syncId="evolutionSync"
-                    // 🎯 FIX: Aumento da margem direita (right: 110) para acomodar a Label formatada
                     margin={{ top: 20, right: 110, left: 0, bottom: 20 }} 
-                    style={{ outline: 'none' }} 
+                    style={{ outline: 'none', cursor: highlightedDataKey ? 'pointer' : 'default' }} 
                     tabIndex="-1"
+                    onClick={() => {
+                        if (highlightedDataKey && !isLineClicked.current) {
+                            setHighlightedDataKey(null);
+                        }
+                    }}
                 >
                     <defs>
                         {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
@@ -205,12 +263,7 @@ export function EvolutionLineChart({
                             );
                         })}
                         <filter id={shadowId} height="200%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
-                            <feOffset in="blur" dx="0" dy="0" result="offsetBlur" />
-                            <feMerge>
-                                <feMergeNode in="offsetBlur" />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
+                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                         </filter>
                     </defs>
                     
@@ -259,7 +312,7 @@ export function EvolutionLineChart({
                     />
 
                     <Tooltip 
-                        offset={25}
+                        offset={150}
                         cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '2 2' }}
                         content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} />} 
                     />
@@ -268,15 +321,24 @@ export function EvolutionLineChart({
                         verticalAlign="top" 
                         height={28}
                         iconSize={6}
-                        wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px' }} 
+                        onClick={handleLegendClick}
+                        wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px', cursor: 'pointer' }} 
                     />
 
                     {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
-                        const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : false;
-                        const hasFocus = showOnlyFocus ? !!focusSubjectId : false;
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
-                        const lineType = engine?.style || 'linear'; // FIX: Mudado de monotoneX para linear como padrão para evitar o bug do Recharts (spaghetti/zig-zag effect) com connectNulls
-                        const displayColor = cat.color || '#3b82f6';
+                        const lineType = engine?.style || 'linear';
+                        // Determine focus state based on category ID rather than dataKey to survive engine changes
+                        const isLegendHighlighted = highlightedDataKey === cat.id;
+                        const isAnyHighlighted = !!highlightedDataKey;
+
+                        const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : isLegendHighlighted;
+                        const hasFocus = showOnlyFocus ? !!focusSubjectId : isAnyHighlighted;
+                        
+                        let displayColor = cat.color || '#3b82f6';
+                        if (isLegendHighlighted) {
+                            displayColor = '#fbbf24'; // Vivid amber/gold highlight
+                        }
 
                         const lineOpacity = hasFocus ? (isFocused ? 1 : 0.4) : 0.8;
                         const lineWidth = hasFocus ? (isFocused ? 3.5 : 1.5) : 2;
@@ -296,9 +358,26 @@ export function EvolutionLineChart({
                                 <Area connectNulls key={`area_${cat.id}`} type={lineType} dataKey={dataKey} name={`_area_${cat.id}`} stroke="none"
                                     fill={`url(#grad_${cat.id}_${instanceId})`} legendType="none" />
                             ) : null,
-                            // The Performance Evolution Line
+                            // Bottom layer: Glow effect (thicker, transparent line)
+                            <Line connectNulls 
+                                key={`glow_${cat.id}`} 
+                                type={lineType} 
+                                dataKey={dataKey} 
+                                name={`_glow_${cat.name}`}
+                                stroke={displayColor} 
+                                strokeWidth={lineWidth + 4}
+                                strokeLinecap="round" 
+                                strokeLinejoin="round"
+                                strokeOpacity={(isFocused || !hasFocus) ? lineOpacity * 0.3 : 0}
+                                dot={false}
+                                activeDot={false}
+                                legendType="none"
+                                isAnimationActive={false}
+                            />,
+                            // Top layer: The Performance Evolution Line
                             <Line connectNulls 
                                 key={cat.id} 
+                                id={cat.id}
                                 type={lineType} 
                                 dataKey={dataKey} 
                                 name={cat.name}
@@ -308,9 +387,21 @@ export function EvolutionLineChart({
                                 strokeLinejoin="round"
                                 strokeOpacity={lineOpacity}
                                 dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
-                                activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" />}
-                                style={{ filter: (isFocused || !hasFocus) ? `url(#${shadowId})` : 'none', transition: 'opacity 0.2s ease' }}
+                                activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" isDimmed={hasFocus && !isFocused} onClick={(e) => {
+                                    if (e && e.stopPropagation) e.stopPropagation();
+                                    isLineClicked.current = true;
+                                    setHighlightedDataKey(cat.id);
+                                    setTimeout(() => { isLineClicked.current = false; }, 50);
+                                }} />}
+                                style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
                                 isAnimationActive={false}
+                                onClick={(props, e) => {
+                                    if (e && e.stopPropagation) e.stopPropagation();
+                                    if (props && props.nativeEvent && props.nativeEvent.stopPropagation) props.nativeEvent.stopPropagation();
+                                    isLineClicked.current = true;
+                                    setHighlightedDataKey(cat.id);
+                                    setTimeout(() => { isLineClicked.current = false; }, 50);
+                                }}
                             >
                                 <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />
                             </Line>

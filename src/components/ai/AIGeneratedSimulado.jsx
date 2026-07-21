@@ -11,6 +11,7 @@ import SimuladoSetup from './SimuladoSetup';
 import SimuladoPlayer from './SimuladoPlayer';
 import SimuladoResults from './SimuladoResults';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
+import { quarantineRaw, safeGetJSON } from '../../utils/storageSafe';
 
 const DIFFICULTIES = [
   { value: 'facil', label: 'Fácil' },
@@ -131,165 +132,179 @@ export default function AIGeneratedSimulado() {
     if (didMountRestoreRef.current) return;
     didMountRestoreRef.current = true;
 
+    let timeoutId1;
+    let timeoutId2;
+
     // 1. Check if there's a completed background generation
-    const genData = localStorage.getItem(AI_GEN_STORAGE_KEY);
-    if (genData) {
-      try {
-        const gen = JSON.parse(genData);
-        if (gen.status === 'done' && gen.questions?.length > 0) {
-          // Generation completed in background — restore it
-          setTimeout(() => {
-            const f = gen.form || {};
-            setForm({
-              categoryId: f.categoryId || '',
-              taskId: f.taskId || '',
-              materia: f.materia || '',
-              assunto: f.assunto || '',
-              dificuldade: f.dificuldade || 'medio',
-              quantidade: f.quantidade || 10,
-            });
+    const gen = safeGetJSON(AI_GEN_STORAGE_KEY, null);
+    if (gen) {
+      if (gen.status === 'done' && gen.questions?.length > 0) {
+        // Generation completed in background — restore it
+        timeoutId1 = setTimeout(() => {
+          const f = gen.form || {};
+          setForm({
+            categoryId: f.categoryId || '',
+            taskId: f.taskId || '',
+            materia: f.materia || '',
+            assunto: f.assunto || '',
+            dificuldade: f.dificuldade || 'medio',
+            quantidade: f.quantidade || 10,
+          });
 
-            // Normalize with current categories
-            const cat = categories.find(c => c.id === f.categoryId);
-            const tsk = cat?.tasks?.find(t => t.id === f.taskId);
-            const normalizedQuestions = gen.questions.map((q) => ({
-              ...q,
-              id: q.id || nextAiId('ai-bg'),
-              categoryId: f.categoryId,
-              taskId: f.taskId,
-              materia: cat?.name || f.materia,
-              assunto: tsk ? (tsk.title || tsk.text || f.assunto) : f.assunto,
-            }));
+          // Normalize with current categories
+          const cat = categories.find(c => c.id === f.categoryId);
+          const tsk = cat?.tasks?.find(t => t.id === f.taskId);
+          const normalizedQuestions = gen.questions.map((q) => ({
+            ...q,
+            id: q.id || nextAiId('ai-bg'),
+            categoryId: f.categoryId,
+            taskId: f.taskId,
+            materia: cat?.name || f.materia,
+            assunto: tsk ? (tsk.title || tsk.text || f.assunto) : f.assunto,
+          }));
 
-            isFinishingRef.current = false;
-            setQuestions(normalizedQuestions);
-            setAnswers({});
-            setTimePerQuestion({});
-            setCurrentIndex(0);
-            setTimeLeft(normalizedQuestions.length * 3 * 60);
-            setStep('playing');
-            setTimerActive(true);
-            simStartMsRef.current = Date.now();
-            setShowReview(false);
-            setIsLoading(false);
-            localStorage.removeItem(AI_GEN_STORAGE_KEY);
-            showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
-          }, 0);
-          return;
-        } else if (gen.status === 'error') {
-          // Generation failed in background
-          setTimeout(() => {
-            showToast(gen.errorMessage || 'Erro ao gerar questões em segundo plano.', 'error');
-            localStorage.removeItem(AI_GEN_STORAGE_KEY);
-            setIsLoading(false);
-          }, 0);
-          return;
-        } else if (gen.status === 'generating') {
-          // Generation still in progress — attach to the module-level promise
-          setTimeout(() => {
-            const f = gen.form || {};
-            setForm({
-              categoryId: f.categoryId || '',
-              taskId: f.taskId || '',
-              materia: f.materia || '',
-              assunto: f.assunto || '',
-              dificuldade: f.dificuldade || 'medio',
-              quantidade: f.quantidade || 10,
-            });
-            setIsLoading(true);
-            setStep('setup');
+          isFinishingRef.current = false;
+          setQuestions(normalizedQuestions);
+          setAnswers({});
+          setTimePerQuestion({});
+          setCurrentIndex(0);
+          setTimeLeft(normalizedQuestions.length * 3 * 60);
+          setStep('playing');
+          setTimerActive(true);
+          simStartMsRef.current = Date.now();
+          setShowReview(false);
+          setIsLoading(false);
+          localStorage.removeItem(AI_GEN_STORAGE_KEY);
+          showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
+        }, 0);
+        return;
+      } else if (gen.status === 'error') {
+        // Generation failed in background
+        timeoutId1 = setTimeout(() => {
+          showToast(gen.errorMessage || 'Erro ao gerar questões em segundo plano.', 'error');
+          localStorage.removeItem(AI_GEN_STORAGE_KEY);
+          setIsLoading(false);
+        }, 0);
+        return;
+      } else if (gen.status === 'generating') {
+        // Generation still in progress — attach to the module-level promise
+        timeoutId1 = setTimeout(() => {
+          const f = gen.form || {};
+          setForm({
+            categoryId: f.categoryId || '',
+            taskId: f.taskId || '',
+            materia: f.materia || '',
+            assunto: f.assunto || '',
+            dificuldade: f.dificuldade || 'medio',
+            quantidade: f.quantidade || 10,
+          });
+          setIsLoading(true);
+          setStep('setup');
 
-            if (activeGenerationPromise) {
-              // Attach to the running promise
-              activeGenerationPromise.then((normalizedQuestions) => {
-                if (normalizedQuestions && normalizedQuestions.length > 0) {
-                  isFinishingRef.current = false;
-                  setQuestions(normalizedQuestions);
-                  setAnswers({});
-                  setTimePerQuestion({});
-                  setCurrentIndex(0);
-                  setTimeLeft(normalizedQuestions.length * 3 * 60);
-                  setStep('playing');
-                  setTimerActive(true);
-                  simStartMsRef.current = Date.now();
-                  setIsLoading(false);
-                  localStorage.removeItem(AI_GEN_STORAGE_KEY);
-                  showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
-                }
-              }).catch((error) => {
+          if (activeGenerationPromise) {
+            // Attach to the running promise
+            activeGenerationPromise.then((normalizedQuestions) => {
+              if (normalizedQuestions && normalizedQuestions.length > 0) {
+                isFinishingRef.current = false;
+                setQuestions(normalizedQuestions);
+                setAnswers({});
+                setTimePerQuestion({});
+                setCurrentIndex(0);
+                setTimeLeft(normalizedQuestions.length * 3 * 60);
+                setStep('playing');
+                setTimerActive(true);
+                simStartMsRef.current = Date.now();
                 setIsLoading(false);
                 localStorage.removeItem(AI_GEN_STORAGE_KEY);
-                showToast(error.message || 'Erro ao gerar questões.', 'error');
-              });
-            } else {
-              // Promise was lost (page reload) but status says generating — check age
-              const age = Date.now() - (gen.startedAt || 0);
-              if (age > 5 * 60 * 1000) {
-                // More than 5 min old, consider it failed
-                localStorage.removeItem(AI_GEN_STORAGE_KEY);
-                setIsLoading(false);
+                showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
               }
-              // Otherwise stay in loading state, it might complete
+            }).catch((error) => {
+              setIsLoading(false);
+              localStorage.removeItem(AI_GEN_STORAGE_KEY);
+              showToast(error.message || 'Erro ao gerar questões.', 'error');
+            });
+          } else {
+            // Promise was lost (page reload) but status says generating — check age
+            const age = Date.now() - (gen.startedAt || 0);
+            if (age > 5 * 60 * 1000) {
+              // More than 5 min old, consider it failed
+              localStorage.removeItem(AI_GEN_STORAGE_KEY);
+              setIsLoading(false);
             }
-          }, 0);
-          return;
-        }
-      } catch (err) {
-        console.error("[SecOps] Falha catastrófica de Parse no Storage local. Limpeza forçada.", err);
-        localStorage.removeItem(AI_GEN_STORAGE_KEY);
+            // Otherwise stay in loading state, it might complete
+          }
+        }, 0);
+        return;
       }
     }
 
     // 2. Check for a playing draft
-    const saved = localStorage.getItem(AI_SIM_STORAGE_KEY);
-    if (saved) {
-      try {
-        const draft = JSON.parse(saved);
-        // Only restore if less than 24h old
-        if (Date.now() - (draft.savedAt || 0) < 24 * 60 * 60 * 1000 && draft.questions?.length > 0) {
-          // Use microtask/timeout to avoid sync setState in effect lint error
-          setTimeout(() => {
-            const f = draft.form || {};
-            // Validar se os IDs do rascunho ainda existem (usuário pode ter deletado matéria/assunto)
-            let restoredForm = {
-              categoryId: f.categoryId || '',
-              taskId: f.taskId || '',
-              materia: f.materia || '',
-              assunto: f.assunto || '',
-              dificuldade: f.dificuldade || 'medio',
-              quantidade: f.quantidade || 10,
-            };
+    const draft = safeGetJSON(AI_SIM_STORAGE_KEY, null);
+    if (draft) {
+      function isSimuladoDraftValid(d) {
+        if (!d || typeof d !== 'object') return false;
+        if (!Array.isArray(d.questions) || d.questions.length === 0) return false;
+        const savedAt = Number(d.savedAt || 0);
+        const age = Date.now() - savedAt;
+        return age < 24 * 60 * 60 * 1000;
+      }
+      
+      if (isSimuladoDraftValid(draft)) {
+        // Use microtask/timeout to avoid sync setState in effect lint error
+        timeoutId2 = setTimeout(() => {
+          const f = draft.form || {};
+          // Validar se os IDs do rascunho ainda existem (usuário pode ter deletado matéria/assunto)
+          let restoredForm = {
+            categoryId: f.categoryId || '',
+            taskId: f.taskId || '',
+            materia: f.materia || '',
+            assunto: f.assunto || '',
+            dificuldade: f.dificuldade || 'medio',
+            quantidade: f.quantidade || 10,
+          };
 
-            const stillValidCat = restoredForm.categoryId && categories.some(c => c.id === restoredForm.categoryId);
-            const stillValidTask = restoredForm.taskId && stillValidCat && 
-                                   categories.find(c => c.id === restoredForm.categoryId)?.tasks?.some(t => t.id === restoredForm.taskId);
+          const stillValidCat = restoredForm.categoryId && categories.some(c => c.id === restoredForm.categoryId);
+          const catRef = categories.find(c => c.id === restoredForm.categoryId);
+          const catTasksRef = catRef?.tasks || [];
+          const safeTasksArray = Array.isArray(catTasksRef) ? catTasksRef : Object.values(catTasksRef);
+          const stillValidTask = restoredForm.taskId && stillValidCat && safeTasksArray.some(t => t.id === restoredForm.taskId);
 
-            if (restoredForm.categoryId && !stillValidCat) {
-              restoredForm = { ...restoredForm, categoryId: '', taskId: '', materia: '', assunto: '' };
-            } else if (restoredForm.taskId && !stillValidTask) {
-              restoredForm = { ...restoredForm, taskId: '', assunto: '' };
-            }
+          if (restoredForm.categoryId && !stillValidCat) {
+            restoredForm = { ...restoredForm, categoryId: '', taskId: '', materia: '', assunto: '' };
+          } else if (restoredForm.taskId && !stillValidTask) {
+            restoredForm = { ...restoredForm, taskId: '', assunto: '' };
+          }
 
-            setForm(restoredForm);
-            setQuestions(draft.questions);
-            setAnswers(draft.answers || {});
-            setTimePerQuestion(draft.timePerQuestion || {});
-            setCurrentIndex(draft.currentIndex || 0);
-            setTimeLeft(draft.timeLeft || draft.questions.length * 3 * 60);
-            setStep('playing');
-            setTimerActive(true);
-            simStartMsRef.current = Date.now();
-            setShowReview(false);
-            showToast('Simulado AI retomado do rascunho', 'info');
-            // Keep draft until explicit finish/cancel so user can resume multiple times if needed
-          }, 0);
-        }
-      } catch (err) {
-        console.error("[SecOps] Falha catastrófica de Parse no Storage local. Limpeza forçada.", err);
-        localStorage.removeItem(AI_SIM_STORAGE_KEY);
+          const questions = Array.isArray(draft.questions) ? draft.questions : [];
+          const answers = Array.isArray(draft.answers) ? draft.answers : (draft.answers || {});
+          
+          const maxIndex = Math.max(0, questions.length - 1);
+          const currentIndex = Number.isInteger(draft.currentIndex)
+            ? Math.min(Math.max(draft.currentIndex, 0), maxIndex)
+            : 0;
+
+          const timeLeft = Number.isFinite(draft.timeLeft)
+            ? Math.max(0, draft.timeLeft)
+            : draft.questions.length * 3 * 60;
+
+          setForm(restoredForm);
+          setQuestions(questions);
+          setAnswers(answers);
+          setTimePerQuestion(draft.timePerQuestion || {});
+          setCurrentIndex(currentIndex);
+          setTimeLeft(timeLeft);
+          setStep('playing');
+          setTimerActive(true);
+          simStartMsRef.current = Date.now();
+        }, 0);
       }
     }
-  }, [showToast, categories]);
+
+    return () => {
+      clearTimeout(timeoutId1);
+      clearTimeout(timeoutId2);
+    };
+  }, [categories, showToast]);
 
   const handleInputChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -309,7 +324,9 @@ export default function AIGeneratedSimulado() {
 
   const handleTaskSelect = (tskId) => {
     const cat = categories.find(c => c.id === form.categoryId);
-    const tsk = cat?.tasks?.find(t => t.id === tskId);
+    const rawCatTasks = cat?.tasks || [];
+    const safeCatTasks = Array.isArray(rawCatTasks) ? rawCatTasks : Object.values(rawCatTasks);
+    const tsk = safeCatTasks.find(t => t.id === tskId);
     setForm(prev => ({
       ...prev,
       taskId: tskId || '',
@@ -319,7 +336,8 @@ export default function AIGeneratedSimulado() {
 
   // Derivados para selects dependentes
   const selectedCategory = categories.find(c => c.id === form.categoryId);
-  const availableTasks = selectedCategory?.tasks || [];
+  const rawTasks = selectedCategory?.tasks || [];
+  const availableTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
 
   const generatePersonalizedSimulado = async () => {
     // 1. Encontra fraquezas
@@ -329,7 +347,9 @@ export default function AIGeneratedSimulado() {
       const level = stats?.level || 'BAIXO';
       const avg = stats?.average || 0;
       
-      cat.tasks?.forEach(tsk => {
+      const catTasksRaw = cat.tasks || [];
+      const safeCatTasks = Array.isArray(catTasksRaw) ? catTasksRaw : Object.values(catTasksRaw);
+      safeCatTasks.forEach(tsk => {
         const title = String(tsk.title || tsk.text || '').trim();
         if (title) {
           allTasks.push({ catId: cat.id, taskId: tsk.id, materia: cat.name, assunto: title, level, avg });
@@ -491,7 +511,9 @@ export default function AIGeneratedSimulado() {
 
         // Normaliza + vincula aos IDs exatos da matéria/assunto selecionados
         const cat = currentCategories.find(c => c.id === currentForm.categoryId);
-        const tsk = cat?.tasks?.find(t => t.id === currentForm.taskId);
+        const rawGenTasks = cat?.tasks || [];
+        const safeGenTasks = Array.isArray(rawGenTasks) ? rawGenTasks : Object.values(rawGenTasks);
+        const tsk = safeGenTasks.find(t => t.id === currentForm.taskId);
 
         const normalizedQuestions = generated.map((q) => ({
           ...q,
@@ -739,16 +761,16 @@ export default function AIGeneratedSimulado() {
           return prev - 1;
         });
 
-        // ⏱️ O RELÓGIO INVISÍVEL
-        // A cada segundo contabiliza o tempo na questão atual, para gerar a barra fina exata de comparação de agilidade
-        const currentQ = latestQuestionsRef.current[latestCurrentIndexRef.current];
-        if (currentQ) {
-            setTimePerQuestion(prev => ({
-                ...prev,
-                [currentQ.id]: (prev[currentQ.id] || 0) + 1
-            }));
+        // ✅ FIX: Só contabiliza tempo se o timer ainda não terminou
+        if (!timerFinishTriggerRef.current) {
+          const currentQ = latestQuestionsRef.current[latestCurrentIndexRef.current];
+          if (currentQ) {
+              setTimePerQuestion(prev => ({
+                  ...prev,
+                  [currentQ.id]: (prev[currentQ.id] || 0) + 1
+              }));
+          }
         }
-
       }, 1000);
     }
     return () => clearInterval(interval);

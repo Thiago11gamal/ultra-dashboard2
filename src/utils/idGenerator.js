@@ -8,6 +8,21 @@ export const generateId = (prefix = 'id') => {
 
 const stableIdMap = new WeakMap();
 
+export function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; 
+  }
+  return Math.abs(hash).toString(36);
+}
+
+export function makeTaskId(catId, text) {
+  const norm = (text || '').trim().toLowerCase();
+  return `tsk_${catId}_${hashString(norm)}`;
+}
+
 /**
  * Returns a stable ID for a task, using its ID if present, 
  * or a stable content-based hash if not.

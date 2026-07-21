@@ -9,6 +9,12 @@ import { getDateKey } from '../utils/dateHelper.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { normalize } from '../utils/normalization.js';
 
+function toHistoryArray(history) {
+    if (Array.isArray(history)) return history.filter(Boolean);
+    if (history && typeof history === 'object') return Object.values(history).filter(Boolean);
+    return [];
+}
+
 /**
  * Compute weighted variance from category statistics
  * Formula: Var = (1 - ρ) × [Σ wi² × σi²] + ρ × [Σ (wi × σi)]²
@@ -39,7 +45,7 @@ export const INTER_SUBJECT_CORRELATION = 0.25; // Prior / fallback correlation b
  */
 export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION) {
   try {
-    const safeSimuladoRows = Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {});
+    const safeSimuladoRows = (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})).filter(Boolean);
     if (!Array.isArray(safeSimuladoRows) || safeSimuladoRows.length < 5 || !Array.isArray(categoryNames) || categoryNames.length < 2) {
       return fallback;
     }
@@ -210,22 +216,34 @@ export function estimateInterSubjectCorrelation(
             const meanX = kahanSum(xs) / n;
             const meanY = kahanSum(ys) / n;
 
-            let covArr = [];
-            let varXArr = [];
-            let varYArr = [];
+            let cov = 0.0, c_cov = 0.0;
+            let varX = 0.0, c_x = 0.0;
+            let varY = 0.0, c_y = 0.0;
+
             for (let k = 0; k < n; k++) {
                 const dx = xs[k] - meanX;
                 const dy = ys[k] - meanY;
-                covArr.push(dx * dy);
-                varXArr.push(dx * dx);
-                varYArr.push(dy * dy);
+                
+                const y_cov = (dx * dy) - c_cov;
+                const t_cov = cov + y_cov;
+                c_cov = (t_cov - cov) - y_cov;
+                cov = t_cov;
+
+                const y_x = (dx * dx) - c_x;
+                const t_x = varX + y_x;
+                c_x = (t_x - varX) - y_x;
+                varX = t_x;
+
+                const y_y = (dy * dy) - c_y;
+                const t_y = varY + y_y;
+                c_y = (t_y - varY) - y_y;
+                varY = t_y;
             }
-            const cov = kahanSum(covArr);
-            const varX = kahanSum(varXArr);
-            const varY = kahanSum(varYArr);
 
             const epsilon = 1e-15;
-            const denom = Math.sqrt((varX + epsilon) * (varY + epsilon));
+            const safeVarX = Math.max(0, varX);
+            const safeVarY = Math.max(0, varY);
+            const denom = Math.sqrt((safeVarX + epsilon) * (safeVarY + epsilon));
             const corr = cov / denom;
 
             // Mecanismo de Controlo de Effective Sample Size (ESS) para regular o encolhimento de pares com sobreposição fraca (n < 8)
@@ -300,37 +318,39 @@ export function getVarianceBreakdown(stats, totalWeight) {
  * Emparelha os dados apenas onde o usuário estudou ambas as matérias num intervalo <= 24h.
  */
 function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
-    if (!historyA || !historyB) return fallback;
-    let sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
+    const safeHistoryA = toHistoryArray(historyA);
+    const safeHistoryB = toHistoryArray(historyB);
+
+    if (!safeHistoryA.length || !safeHistoryB.length) return fallback;
+
     let pairedCount = 0;
 
     const getScore = (h) => {
         const s = getSafeScore(h);
         return Number.isFinite(s) ? s : 0;
     };
+
     const getDateStr = (h) => {
-        return getDateKey(h.date || h.createdAt);
+        return getDateKey(h?.date || h?.createdAt);
     };
 
     const mapA = new Map();
-    historyA.forEach(h => {
+
+    safeHistoryA.forEach(h => {
         if (!h) return;
         const d = getDateStr(h);
         if (d) mapA.set(d, getScore(h));
     });
 
-    historyB.forEach(h => {
+    const xs = [];
+    const ys = [];
+
+    safeHistoryB.forEach(h => {
         if (!h) return;
         const d = getDateStr(h);
         if (d && mapA.has(d)) {
-            const scoreA = mapA.get(d);
-            const scoreB = getScore(h);
-            
-            sumA += scoreA;
-            sumB += scoreB;
-            sumAB += (scoreA * scoreB);
-            sumA2 += (scoreA * scoreA);
-            sumB2 += (scoreB * scoreB);
+            xs.push(mapA.get(d));
+            ys.push(getScore(h));
             pairedCount++;
         }
     });
@@ -338,13 +358,39 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
     if (pairedCount < 5) return fallback;
 
     const n = pairedCount;
-    const numerator = (n * sumAB) - (sumA * sumB);
-    const varA = Math.max(0, (n * sumA2) - (sumA * sumA));
-    const varB = Math.max(0, (n * sumB2) - (sumB * sumB));
-    const denominator = Math.sqrt(varA * varB);
+    let meanX = 0;
+    let meanY = 0;
 
-    if (denominator === 0) return fallback;
-    const pearsonR = numerator / denominator;
+    for (let i = 0; i < n; i++) {
+        meanX += xs[i];
+        meanY += ys[i];
+    }
+
+    meanX /= n;
+    meanY /= n;
+
+    let cov = 0;
+    let varX = 0;
+    let varY = 0;
+
+    for (let i = 0; i < n; i++) {
+        const dx = xs[i] - meanX;
+        const dy = ys[i] - meanY;
+        cov += dx * dy;
+        varX += dx * dx;
+        varY += dy * dy;
+    }
+
+    const safeVarX = Math.max(0, varX);
+    const safeVarY = Math.max(0, varY);
+    const denominator = Math.sqrt(safeVarX * safeVarY);
+
+    if (!Number.isFinite(denominator) || denominator === 0) return fallback;
+
+    const pearsonR = cov / denominator;
+
+    if (!Number.isFinite(pearsonR)) return fallback;
+
     return Math.max(-0.3, Math.min(0.8, pearsonR));
 }
 
@@ -358,7 +404,7 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
     const matrix = Array(n).fill(0).map(() => Array(n).fill(0));
 
     // NEW: Support full adaptive rho from context
-    let effectiveDefaultRho = defaultRho;
+    let effectiveDefaultRho = Number.isFinite(defaultRho) ? defaultRho : INTER_SUBJECT_CORRELATION;
     if (adaptiveContext && adaptiveContext.simuladoRows && adaptiveContext.categoryNames) {
       effectiveDefaultRho = getAdaptiveInterSubjectCorrelation(
         stats,
@@ -370,16 +416,18 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
     
     // FIX 5: Estrutura O(N^2) reduzida via simetria de matriz
     for (let i = 0; i < n; i++) {
-        const sdI = Number.isFinite(stats[i]?.sd) ? stats[i].sd : 0;
+        const sdI = Math.max(0, Number.isFinite(stats[i]?.sd) ? Number(stats[i].sd) : 0);
         matrix[i][i] = sdI * sdI; // A variância pura ocupa apenas a diagonal principal
 
         for (let j = i + 1; j < n; j++) {
-            const sdJ = Number.isFinite(stats[j]?.sd) ? stats[j].sd : 0;
+            const sdJ = Math.max(0, Number.isFinite(stats[j]?.sd) ? Number(stats[j].sd) : 0);
             
             const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
             const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : effectiveDefaultRho;
             
             let currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
+            if (!Number.isFinite(currentRho)) currentRho = effectiveDefaultRho;
+            currentRho = Math.max(-0.9, Math.min(0.9, currentRho));
 
             if (stats[i]?.simuladoStats?.history && stats[j]?.simuladoStats?.history) {
                 currentRho = calculateDynamicCorrelation(stats[i].simuladoStats.history, stats[j].simuladoStats.history, currentRho);

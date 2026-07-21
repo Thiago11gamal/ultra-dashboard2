@@ -126,14 +126,26 @@ export default function Flashcards() {
   };
 
   // Start study
+  const getDueCardsForDeck = (deck) => {
+    if (!deck || !deck.cards) return [];
+    const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+    return safeCards.filter(c => isFlashcardDue(c.due));
+  };
+
   const startStudy = (deck) => {
-    if (!deck.cards || deck.cards.length === 0) {
+    if (!deck) return;
+
+    const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+
+    if (safeCards.length === 0) {
       showToast('Adicione cartões antes de estudar', 'error');
       return;
     }
-    // Use due cards first, fallback to all
-    const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
-    const cardsToStudy = dueCards.length > 0 ? dueCards : safeCards;
+
+    const dueForDeck = getDueCardsForDeck(deck);
+    const cardsToStudy = dueForDeck.length > 0 ? dueForDeck : safeCards;
+
+    setSelectedDeckId(deck.id);
     setStudyDeck({ ...deck, cardsToStudy });
     setStudyIndex(0);
     setIsFlipped(false);
@@ -215,6 +227,7 @@ export default function Flashcards() {
     updatedStudyCards[studyIndex] = {
       ...updatedStudyCards[studyIndex],
       interval: newInterval,
+      ease: newEase,
       due: nextDue
     };
 

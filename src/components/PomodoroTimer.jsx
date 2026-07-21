@@ -644,9 +644,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (rafId) cancelAnimationFrame(rafId);
             if (timeoutId) clearTimeout(timeoutId);
         };
-    // BUG-7 FIX: Removido 'speed' das dependências — speedRef.current já é lido
-    // dentro do loop, evitando restart desnecessário que reseta a âncora de tempo.
-    }, [isRunning, safeSettings, transitionSession]);
+    // BUG-7 FIX CORRECTION: 'speed' MUST be in the dependencies.
+    // If the speed changes, we must reset the time anchor (startTime),
+    // otherwise the total elapsed time will be multiplied by the new speed, causing huge time jumps.
+    }, [isRunning, safeSettings, transitionSession, speed]);
 
     const reset = () => {
         if (isTransitioningRef.current) return;
@@ -773,6 +774,18 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     }, [activeSubject, isRunning, syncChannel]);
 
     const handleManualExit = () => {
+        // BUG FIX: Salvar tempo pendente da tarefa atual antes de abortar
+        if (stateRefs.current.mode === 'work' && activeSubject) {
+            let lostMinutes = stateRefs.current.accumulatedMinutes || 0;
+            const totalWorkSeconds = safeSettings.pomodoroWork * 60;
+            const safePrevTime = Number.isFinite(Number(stateRefs.current.timeLeft)) ? Number(stateRefs.current.timeLeft) : totalWorkSeconds;
+            lostMinutes += Number((Math.max(0, totalWorkSeconds - safePrevTime) / 60).toFixed(2));
+            
+            if (lostMinutes > 0 && !Number.isNaN(lostMinutes)) {
+                safeOnUpdateStudyTime(activeSubject.categoryId, lostMinutes, activeSubject.taskId);
+            }
+        }
+        
         // Botão vermelho (estado inativo): apenas voltar ao Dashboard, sem processamento extra.
         safeOnExit({ forceDashboard: true, source: 'dashboard' });
     };

@@ -278,16 +278,15 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
         return calculateAdaptiveSlope(trendOrHistory, maxScore, opts);
     }
 
-    // Tetos estatísticos ajustados conforme plano de implementação
-    const absoluteMax = 0.4; 
+    // ✅ FIX: Clamp proporcional à escala da prova
+    const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
+    const absoluteMax = 0.004 * maxScore; // 0.4% da escala por dia
     
     let slope = Number(trendOrHistory) || 0;
-    
-    // Clamp absoluto
+
     if (slope > absoluteMax) slope = absoluteMax;
     if (slope < -absoluteMax) slope = -absoluteMax;
-    
-    // Regras adicionais de baseLimit podem ser aplicadas aqui usando a mesma variável
+
     return slope;
 }
 
@@ -793,13 +792,29 @@ export function monteCarloSimulation(
       subjectCholesky = choleskyDecomposition(psdCov);
     }
 
-    function calculateSkewness(residuals, mean, sd) {
-        if (!residuals || residuals.length < 3 || sd === 0) return 0;
+    function calculateSkewness(residuals, mean) {
+        if (!residuals || residuals.length < 3) return 0;
         const n = residuals.length;
-        const m3 = residuals.reduce((acc, val) => acc + Math.pow(val - mean, 3), 0) / n;
-        return m3 / Math.pow(sd, 3);
+        let sumSquared = 0;
+        for (let i = 0; i < n; i++) sumSquared += Math.pow(residuals[i] - mean, 2);
+        const variance = sumSquared / n;
+        const standardizer = Math.sqrt(variance);
+        
+        if (standardizer === 0) return 0;
+
+        let m3 = 0;
+        for (let i = 0; i < n; i++) m3 += Math.pow(residuals[i] - mean, 3);
+        m3 /= n;
+
+        return m3 / Math.pow(standardizer, 3);
     }
-    const residualsSkew = calculateSkewness(safeResiduals, 0, standardizer);
+    
+    // PATCH 1: Recalcular a média real do subconjunto filtrado
+    const subsetMean = safeResiduals.length > 0 
+        ? safeResiduals.reduce((acc, val) => acc + val, 0) / safeResiduals.length 
+        : 0;
+
+    const residualsSkew = calculateSkewness(safeResiduals, subsetMean);
 
     const minCutoffFailures = [];
 
@@ -893,6 +908,7 @@ export function monteCarloSimulation(
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
+                    // PATCH 2: Cholesky L matrix already contains standard deviations on its diagonal
                     const raw = Number(s.mean) + zCorrStatic[j];
                     const subjScore = Math.max(sMin, Math.min(sMax, raw));
                     if (subjScore < Number(s.minCutoff)) {

@@ -392,7 +392,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     setSimulationData({ status: 'ready', data: result });
                     setIsFlashing(true);
 
-                    // NEW: Record MC prediction for continuous calibration / walk-forward analysis
+                    // Ao gravar predições, usar refs em vez de valores reativos
                     try {
                         const setDataFn = useAppStore.getState().setData;
                         if (setDataFn && result?.probability != null) {
@@ -506,30 +506,31 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     setSimulationData({ status: 'ready', data: result });
                     setIsFlashing(true);
 
-                    // Record fallback too
+                    // Ao gravar predições, usar refs em vez de valores reativos (fallback)
                     try {
-                        const setDataFn2 = useAppStore.getState().setData;
-                        if (setDataFn2 && result?.probability != null) {
+                        const setDataFn = useAppStore.getState().setData;
+                        if (setDataFn && result?.probability != null) {
                             const hash = `${pureStatsHash}-${debouncedTarget}`;
                             if (lastRecordedGlobalPredRef.current !== hash) {
                                 lastRecordedGlobalPredRef.current = hash;
-                                const ev2 = recordPredictionEvent(null, {
+                                const ev = recordPredictionEvent(null, {
                                     timestamp: Date.now(),
                                     probability: Number(result.probability) / 100,
-                                targetScore: debouncedTarget,
                                     targetScore: debouncedTarget,
-                                    sims: result.simulationCount
+                                    sims: result.simulationCount,
+                                    effectiveN: result.diagnostics?.effectiveN,
+                                    category: 'global'
                                 });
-                                if (ev2) {
-                                    setDataFn2(contest => {
-                                        const evs2 = Array.isArray(contest.calibrationEvents) ? [...contest.calibrationEvents] : [];
-                                        evs2.push(ev2);
-                                        return { ...contest, calibrationEvents: evs2.slice(-200) };
+                                if (ev) {
+                                    setDataFn(contest => {
+                                        const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
+                                        evs.push(ev);
+                                        return { ...contest, calibrationEvents: evs.slice(-200) };
                                     });
                                 }
                             }
                         }
-                    } catch { /* ignore */ }
+                    } catch { /* best effort, non blocking */ }
                 }
             }
         };
