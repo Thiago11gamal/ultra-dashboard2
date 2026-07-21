@@ -1,6 +1,27 @@
 import { normalizeDate, toDateMs } from "../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper";
 
+const toHistoryArray = (history) => {
+    if (Array.isArray(history)) return history.filter(Boolean);
+    if (history && typeof history === 'object') return Object.values(history).filter(Boolean);
+    return [];
+};
+
+const safeFinite = (value, fallback = 0) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+};
+
+const sortByValidDate = (history) => {
+    return toHistoryArray(history)
+        .filter(h => Number.isFinite(normalizeDate(h?.date)?.getTime()))
+        .sort((a, b) => {
+            const ta = normalizeDate(a?.date)?.getTime() ?? 0;
+            const tb = normalizeDate(b?.date)?.getTime() ?? 0;
+            return ta - tb;
+        });
+};
+
 export function generateEvolutionInsights({
     timeline,
     focusCategory,
@@ -60,6 +81,7 @@ export function generateEvolutionInsights({
 
     const raw = getLastValid(`raw_${focusCategory.id}`);
     const bayesian = getLastValid(`bay_${focusCategory.id}`);
+    maxScore = safeFinite(maxScore, 100) > 0 ? safeFinite(maxScore, 100) : 100;
     const scale = maxScore / 100;
 
     // Lógica do Mapa de Calor (Raw Weekly)
@@ -69,23 +91,35 @@ export function generateEvolutionInsights({
         const dayStats = {};
         const now = new Date();
         
-        const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const safeCategories = Array.isArray(categories)
+            ? categories.filter(Boolean)
+            : Object.values(categories || {}).filter(Boolean);
+
         safeCategories.forEach(cat => {
-            const historyRaw = cat.simuladoStats?.history || [];
-            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
+            const history = toHistoryArray(cat.simuladoStats?.history);
+
             const rawHistory = history
-                .filter(h => normalizeDate(h.date)?.getTime() <= now.getTime())
-                .map(h => ({ ...h, score: getSafeScore(h, maxScore) }));
+                .filter(h => {
+                    const d = normalizeDate(h?.date);
+                    return d && Number.isFinite(d.getTime()) && d.getTime() <= now.getTime();
+                })
+                .map(h => ({ ...h, score: getSafeScore(h, maxScore) }))
+                .filter(h => Number.isFinite(h.score));
 
             rawHistory.forEach(h => {
                 const d = normalizeDate(h.date);
-                if (!d) return;
+                if (!d || !Number.isFinite(d.getTime())) return;
+
                 const dow = d.getDay();
                 if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
-                let tot = Number(h.total) || 0;
-                if (tot === 0 && h.score != null) {
+
+                let tot = Number(h.total);
+                if (!Number.isFinite(tot) || tot <= 0) {
                     tot = getSyntheticTotal(maxScore);
                 }
+
+                if (!Number.isFinite(tot) || tot <= 0) return;
+
                 dayStats[dow].correct += (h.score / maxScore * tot);
                 dayStats[dow].total += tot;
             });
@@ -116,8 +150,7 @@ export function generateEvolutionInsights({
     // Lógica da Realidade Bruta (Raw)
     if (activeEngine === "raw") {
         if (raw == null) return { type: 'info', icon: "📊", title: "Realidade Bruta", text: "Aguardando dados..." };
-        const historyRaw = focusCategory.simuladoStats?.history || [];
-        const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
+        const history = sortByValidDate(focusCategory.simuladoStats?.history);
         const scores = history.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
         
         if (scores.length < 2) return { type: 'info', icon: "📊", title: "Análise de Volatilidade", text: `Nota: ${raw.toFixed(1)}${unit}.` };
@@ -137,22 +170,35 @@ export function generateEvolutionInsights({
 
     // Lógica do Motor Bayesiano
     if (activeEngine === "bayesian") {
-        if (bayesian == null) return { type: 'info', icon: "🧠", title: "Nível Bayesiano", text: "Aguardando mais dados..." };
-        const ciLow = lastPoint[`bay_ci_low_${focusCategory.id}`];
-        const ciHigh = lastPoint[`bay_ci_high_${focusCategory.id}`];
-        const ciWidth = (ciHigh != null && ciLow != null) ? (ciHigh - ciLow) : null;
+        const safeBayesian = safeFinite(bayesian, NaN);
+        if (!Number.isFinite(safeBayesian)) {
+            return { type: 'info', icon: "🧠", title: "Nível Bayesiano", text: "Aguardando mais dados..." };
+        }
 
-        if (ciWidth != null && ciWidth < 5 * scale) return { type: 'success', icon: "🎯", title: "++Alta Precisão Bayesiana++", text: `Seu nível real é ${bayesian.toFixed(1)}${unit}.`, advice: "++Convergência máxima++ do algoritmo." };
-        if (ciWidth != null && ciWidth > 20 * scale) return { type: 'warning', icon: "🧠", title: "!!Incerteza Elevada!!", text: `Nível estimado: ${bayesian.toFixed(1)}${unit}.`, advice: "Faça mais simulados para estreitar a estimativa." };
+        const ciLow = safeFinite(lastPoint[`bay_ci_low_${focusCategory.id}`], NaN);
+        const ciHigh = safeFinite(lastPoint[`bay_ci_high_${focusCategory.id}`], NaN);
+        const ciWidth = (Number.isFinite(ciHigh) && Number.isFinite(ciLow)) ? (ciHigh - ciLow) : null;
+
+        if (ciWidth != null && ciWidth < 5 * scale) return { type: 'success', icon: "🎯", title: "++Alta Precisão Bayesiana++", text: `Seu nível real é ${safeBayesian.toFixed(1)}${unit}.`, advice: "++Convergência máxima++ do algoritmo." };
+        if (ciWidth != null && ciWidth > 20 * scale) return { type: 'warning', icon: "🧠", title: "!!Incerteza Elevada!!", text: `Nível estimado: ${safeBayesian.toFixed(1)}${unit}.`, advice: "Faça mais simulados para estreitar a estimativa." };
         
-        return { type: 'info', icon: "🧠", title: "Estimativa Bayesiana", text: `Nível Real: ${bayesian.toFixed(1)}${unit}.` };
+        return { type: 'info', icon: "🧠", title: "Estimativa Bayesiana", text: `Nível Real: ${safeBayesian.toFixed(1)}${unit}.` };
     }
 
     // Lógica da Média Histórica (Stats)
     if (activeEngine === "stats") {
-        const statsVal = getLastValid(`stats_${focusCategory.id}`);
-        if (statsVal == null) return { type: 'info', icon: "📐", title: "Média Histórica", text: "Aguardando mais dados..." };
-        return { type: 'info', icon: "📐", title: "Média Histórica Global", text: `Sua média histórica é ${statsVal.toFixed(1)}${unit}.`, advice: "Lembre-se que a média demora a refletir seu conhecimento recente." };
+        const statsVal = safeFinite(getLastValid(`stats_${focusCategory.id}`), NaN);
+        if (!Number.isFinite(statsVal)) {
+            return { type: 'info', icon: "📐", title: "Média Histórica", text: "Aguardando mais dados..." };
+        }
+
+        return {
+            type: 'info',
+            icon: "📐",
+            title: "Média Histórica Global",
+            text: `Sua média histórica é ${statsVal.toFixed(1)}${unit}.`,
+            advice: "Lembre-se que a média demora a refletir seu conhecimento recente."
+        };
     }
 
     // Lógica Raio-X + Monte Carlo (Compare)
@@ -186,20 +232,49 @@ export function generateEvolutionInsights({
     }
 
     // Lógica de Alertas de Burnout e Consolidação (Fallback)
-    if (raw != null && bayesian != null) {
+    const safeRaw = safeFinite(raw, NaN);
+    const safeBayesianFallback = safeFinite(bayesian, NaN);
+
+    if (Number.isFinite(safeRaw) && Number.isFinite(safeBayesianFallback)) {
         const nowMs = new Date().getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        const historyRaw = focusCategory.simuladoStats?.history || [];
-        const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
+
+        const history = toHistoryArray(focusCategory.simuladoStats?.history);
+
         const recentVolumeAlert = history
             .filter(h => {
-                const d = toDateMs(h.date);
-                return !Number.isNaN(d) && (nowMs - d) >= 0 && (nowMs - d) <= sevenDaysMs;
+                const d = toDateMs(h?.date);
+                return Number.isFinite(d) && (nowMs - d) >= 0 && (nowMs - d) <= sevenDaysMs;
             })
-            .reduce((sum, h) => sum + (parseInt(h.total, 10) || (h.score != null ? getSyntheticTotal(maxScore) : 0)), 0);
+            .reduce((sum, h) => {
+                const parsedTotal = parseInt(h?.total, 10);
+                const fallbackTotal = h?.score != null ? getSyntheticTotal(maxScore) : 0;
+                const safeTotal = Number.isFinite(parsedTotal) && parsedTotal > 0
+                    ? parsedTotal
+                    : fallbackTotal;
 
-        if (recentVolumeAlert > 40 && raw < bayesian - 10 * scale) return { type: 'danger', icon: "🚨", title: "!!Alerta de Burnout!!", text: `Volume alto, nota em !!queda!!.`, advice: "Dê um passo atrás e descanse." };
-        if (raw > bayesian + 8 * scale) return { type: 'success', icon: "💡", title: "++Conhecimento Consolidado++", text: `Desempenho ++muito acima da média++.`, advice: "O conhecimento assentou de vez." };
+                return sum + Math.max(0, safeFinite(safeTotal, 0));
+            }, 0);
+
+        if (recentVolumeAlert > 40 && safeRaw < safeBayesianFallback - 10 * scale) {
+            return {
+                type: 'danger',
+                icon: "🚨",
+                title: "!!Alerta de Burnout!!",
+                text: `Volume alto, nota em !!queda!!.`,
+                advice: "Dê um passo atrás e descanse."
+            };
+        }
+
+        if (safeRaw > safeBayesianFallback + 8 * scale) {
+            return {
+                type: 'success',
+                icon: "💡",
+                title: "++Conhecimento Consolidado++",
+                text: `Desempenho ++muito acima da média++.`,
+                advice: "O conhecimento assentou de vez."
+            };
+        }
     }
 
     return { type: 'info', icon: "✅", title: "++Rendimento de Mestre++", text: `Operando na zona de ++máxima eficiência++.`, advice: "Mantenha o ritmo." };
