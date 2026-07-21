@@ -137,6 +137,9 @@ const lastSimuladoRows = React.useMemo(() => {
   const BATCH_TOLERANCE_MS = 10 * 60 * 1000; // 10 minutos (mais tolerante)
 
   return simuladoRowsArray.filter((r) => {
+    // Não misturar simulados IA com manuais (se um tem batchId e o outro não)
+    if (r.batchId !== lastRef.batchId) return false;
+
     // Mesma data
     const rowDateKey =
       r.date || getDateKey(normalizeDate(r.lastUpdated || r.createdAt || ''));

@@ -382,11 +382,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     }, [categories, rows, viewMode, onAnalysisComplete]);
 
     React.useEffect(() => {
-        if (viewMode === 'report' && rows.length > 0 && !loading) {
+        if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading) {
             const timer = setTimeout(() => handleAnalyze(), 100);
             return () => clearTimeout(timer);
         }
-    }, [viewMode, rowsSignature, loading, handleAnalyze]);
+    }, [viewMode, rowsSignature, analysisData, loading, handleAnalyze]);
 
     return (
         <div className={`w-full mx-auto space-y-6 animate-fade-in pb-20`}>

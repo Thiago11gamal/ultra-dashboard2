@@ -17948,6 +17948,17 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
     // Helper to report changes up to parent
     const [analysisData, setAnalysisData] = useState(null);
+
+    // âœ… NOVO: Resetta analysisData quando as rows mudam (novo simulado salvo)
+    const rowsSignature = React.useMemo(
+      () => rows.map((r) => `${r.id || ''}-${r.total || 0}-${r.correct || 0}`).join('|'),
+      [rows]
+    );
+
+    React.useEffect(() => {
+      setAnalysisData(null);
+      setLoading(false);
+    }, [rowsSignature]);
     const [error, setError] = useState(null);
     const [errorIndices, setErrorIndices] = useState(() => ({ subjects: new Set(), topics: new Set() }));
 
@@ -18292,9 +18303,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
     React.useEffect(() => {
         if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading) {
-            setTimeout(() => handleAnalyze(), 0);
+            const timer = setTimeout(() => handleAnalyze(), 100);
+            return () => clearTimeout(timer);
         }
-    }, [viewMode, rows.length, analysisData, loading, handleAnalyze]);
+    }, [viewMode, rowsSignature, analysisData, loading, handleAnalyze]);
 
     return (
         <div className={`w-full mx-auto space-y-6 animate-fade-in pb-20`}>
@@ -35132,49 +35144,53 @@ export default function Simulados() {
 const lastSimuladoRows = React.useMemo(() => {
   if (!simuladoRowsArray.length) return [];
 
-  const rows = simuladoRowsArray;
-
-  const answeredRows = rows.filter(
+  // 1. Filtra apenas rows com dados reais (total > 0 ou correct > 0)
+  const answeredRows = simuladoRowsArray.filter(
     (r) => parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0
   );
-
   if (answeredRows.length === 0) return [];
 
-  const sorted = [...answeredRows].sort((a, b) => {
-    const dateA = new Date(a.lastUpdated || a.createdAt || a.date || 0);
-    const dateB = new Date(b.lastUpdated || b.createdAt || b.date || 0);
-    return dateB.getTime() - dateA.getTime();
-  });
+  // 2. Ordena por timestamp mais recente (lastUpdated > createdAt > date)
+  const getTimestamp = (r) => {
+    const raw = r.lastUpdated || r.createdAt || r.date;
+    if (!raw) return 0;
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t : 0;
+  };
 
+  const sorted = [...answeredRows].sort((a, b) => getTimestamp(b) - getTimestamp(a));
   const lastRef = sorted[0];
   if (!lastRef) return [];
 
+  // 3. EstratÃ©gia A: Se tem batchId, agrupa por batchId (simulados IA)
   if (lastRef.batchId) {
-    return rows.filter((r) => r.batchId === lastRef.batchId);
+    return simuladoRowsArray.filter((r) => r.batchId === lastRef.batchId);
   }
 
+  // 4. EstratÃ©gia B: Agrupa por data + proximidade temporal (simulados manuais)
   const refDateKey =
-    lastRef.date || getDateKey(normalizeDate(lastRef.lastUpdated || lastRef.createdAt || new Date()));
+    lastRef.date ||
+    getDateKey(normalizeDate(lastRef.lastUpdated || lastRef.createdAt || new Date()));
+  if (!refDateKey) return [lastRef];
 
-  if (!refDateKey) return [];
+  const refTime = getTimestamp(lastRef);
+  const BATCH_TOLERANCE_MS = 10 * 60 * 1000; // 10 minutos (mais tolerante)
 
-  const refTime = new Date(
-    lastRef.lastUpdated || lastRef.createdAt || `${refDateKey}T12:00:00`
-  ).getTime();
+  return simuladoRowsArray.filter((r) => {
+    // NÃ£o misturar simulados IA com manuais (se um tem batchId e o outro nÃ£o)
+    if (r.batchId !== lastRef.batchId) return false;
 
-  const BATCH_TOLERANCE_MS = 5 * 60 * 1000;
-
-  return rows.filter((r) => {
-    const rowDateKey = r.date || getDateKey(normalizeDate(r.lastUpdated || r.createdAt || ''));
+    // Mesma data
+    const rowDateKey =
+      r.date || getDateKey(normalizeDate(r.lastUpdated || r.createdAt || ''));
     if (rowDateKey !== refDateKey) return false;
 
-    const rowTimeRaw = r.lastUpdated || r.createdAt;
-    if (!rowTimeRaw) return true;
+    // Se nÃ£o tem timestamp, inclui (seguranÃ§a)
+    const rowTime = getTimestamp(r);
+    if (rowTime === 0) return true;
 
-    const t = new Date(rowTimeRaw).getTime();
-    if (!Number.isFinite(t)) return true;
-
-    return Math.abs(t - refTime) <= BATCH_TOLERANCE_MS;
+    // Dentro da janela temporal
+    return Math.abs(rowTime - refTime) <= BATCH_TOLERANCE_MS;
   });
 }, [simuladoRowsArray]);
 
@@ -35589,7 +35605,7 @@ const handleSimuladoAnalysis = (payload) => {
               simuladoRows={simuladoRowsArray}
               onDeleteSession={deleteSession}
               onDeleteSimulado={deleteSimulado}
-              mode="performance"
+              mode="full"
           />
         )}
     </PageErrorBoundary>);
