@@ -119,7 +119,7 @@ export default function Simulados() {
         const refDateStr = lastRef.lastUpdated || lastRef.createdAt;
         if (refDateStr) {
             const lastTime = new Date(refDateStr).getTime();
-            const BATCH_TOLERANCE_MS = 2000;
+            const BATCH_TOLERANCE_MS = 60000; // 1 minuto (garante que loops lentos de salvamento não fragmentem o lote)
             return rows.filter(r => {
                 const rDateStr = r.lastUpdated || r.createdAt;
                 if (!rDateStr) return false;
