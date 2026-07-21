@@ -693,10 +693,12 @@ export default function AIGeneratedSimulado() {
         await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true);
       }
       
-      const todayKey = getDateKey(normalizeDate(new Date()));
+      const nowIso = new Date().toISOString();
       const globalMixedEvent = {
         id: generateId('ai-sim'),
         date: todayKey,
+        createdAt: nowIso,
+        lastUpdated: nowIso,
         score: totalQuestionsInMixed > 0 ? Math.round((correctCount / totalQuestionsInMixed) * 100) : 0,
         total: totalQuestionsInMixed,
         correct: correctCount,

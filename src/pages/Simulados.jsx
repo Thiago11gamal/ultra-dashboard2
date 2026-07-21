@@ -503,11 +503,7 @@ const handleSimuladoAnalysis = (payload) => {
         );
 
         updatedSimulados = [...withoutDuplicateToday, newSimuladoEvent]
-          .sort(
-            (a, b) =>
-              new Date(a?.date || a?.lastUpdated || a?.createdAt || 0).getTime() -
-              new Date(b?.date || b?.lastUpdated || b?.createdAt || 0).getTime()
-          )
+          .sort((a, b) => getMs(a) - getMs(b))
           .slice(-100);
       }
 
