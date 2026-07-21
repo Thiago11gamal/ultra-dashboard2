@@ -3,7 +3,12 @@
  * format: prefix-timestamp-random
  */
 export const generateId = (prefix = 'id') => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${prefix}-${crypto.randomUUID()}`;
+  }
+  // Fallback para contextos HTTP não-secure
+  const rand = () => Math.random().toString(36).substring(2, 10);
+  return `${prefix}-${Date.now().toString(36)}-${rand()}${rand()}`;
 };
 
 const stableIdMap = new WeakMap();
@@ -37,7 +42,10 @@ export const getSafeId = (task) => {
     }
     
     const text = task.text || task.title || "sem-nome";
-    const newId = `task-fb-${text.replace(/\s+/g, '').substring(0, 15)}-${crypto.randomUUID().substring(0, 8)}`;
+    const randPart = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID().substring(0, 8)
+      : Math.random().toString(36).substring(2, 10);
+    const newId = `task-fb-${text.replace(/\s+/g, '').substring(0, 15)}-${randPart}`;
     stableIdMap.set(task, newId);
     return newId;
 };

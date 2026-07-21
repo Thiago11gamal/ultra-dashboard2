@@ -274,7 +274,10 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const targetScoreLabel = options.targetScoreLabel ?? Math.round((targetScore / maxScore) * 100);
     
     let rawWeightVal = safeCategory.weight;
-    if (typeof rawWeightVal === 'string') rawWeightVal = rawWeightVal.replace(',', '.');
+    if (typeof rawWeightVal === 'string') {
+      // Remove separadores de milhar BR antes de converter
+      rawWeightVal = rawWeightVal.replace(/\./g, '').replace(',', '.');
+    }
     const parsedWeight = Number(rawWeightVal);
     
     const rawWeight = Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 5;
@@ -1044,12 +1047,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }, 0).toFixed(2);
 
         const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
+        const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${options?.maxScore ?? 100}`;
         const lastSim = simCount > 0 ? (simulados[simCount-1].date || simulados[simCount-1].createdAt || '') : '';
         const lastLog = logCount > 0 ? (studyLogs[logCount-1].date || studyLogs[logCount-1].createdAt || '') : '';
 
         // Checksum injetado garante que qualquer edição recalcule a urgência
         const tasksHash = (category?.tasks || []).reduce((acc, t) => acc + (t.completed ? 0 : 1) + (t.priority === 'high' ? 5 : 0), 0);
-        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
+        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
         
         if (_urgencyCache.has(cacheKey)) {
             return _urgencyCache.get(cacheKey);

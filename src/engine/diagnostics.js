@@ -364,7 +364,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   const normalized = _normalizeDiagnosticHistory(history, maxScore);
   if (normalized.length === 0) return noData;
 
-  const sorted = [...getSortedHistory(normalized)].reverse();
+  const sorted = [...getSortedHistory(normalized)].filter(h => h != null && typeof h === 'object').reverse();
 
   const daysSinceLast = daysSinceOverride !== null ? daysSinceOverride : Math.max(0, (Date.now() - _getEntryDate(sorted[0]).getTime()) / 86400000);
   const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore);

@@ -176,14 +176,16 @@ export const useAppStore = create(
                 partialize: (state) => ({
                     appState: {
                         ...state.appState,
-                        trash: [], 
+                        trash: (state.appState.trash || []).slice(-10),
                         contests: Object.keys(state.appState.contests || {}).reduce((acc, id) => {
+                            const c = state.appState.contests[id];
                             acc[id] = {
-                                ...state.appState.contests[id],
-                                simulados: [],
-                                studyLogs: [],
-                                monteCarloHistory: [],
-                                simuladoRows: []
+                                ...c,
+                                // Preserva últimos 50 registros para undo/redo funcional
+                                simulados: (c.simulados || []).slice(-50),
+                                studyLogs: (c.studyLogs || []).slice(-50),
+                                monteCarloHistory: (c.monteCarloHistory || []).slice(-30),
+                                simuladoRows: (c.simuladoRows || []).slice(-50),
                             };
                             return acc;
                         }, {})
