@@ -62,11 +62,11 @@ export const createMonteCarloSlice = (set) => ({
         const activeId = state.appState.activeId;
         const activeData = state.appState.contests[activeId];
         if (!activeData) return;
-        
+
         // O Object.is() resolve a anomalia do NaN === NaN
         if (Object.is(activeData.coachScore, score)) return;
         activeData.coachScore = score;
-        
+
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
@@ -76,10 +76,10 @@ export const createMonteCarloSlice = (set) => ({
         const activeId = state.appState.activeId;
         const activeData = state.appState.contests[activeId];
         if (!activeData) return;
-        
+
         activeData.examDurationMinutes = durationMinutes;
         activeData.examTotalQuestions = totalQuestions;
-        
+
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');

@@ -880,48 +880,48 @@ export default React.memo(function EvolutionChart({
                         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none group-hover:bg-indigo-500/20 transition-all duration-1000 -mr-48 -mt-48" />
                         <div className={`absolute bottom-0 left-0 w-[300px] h-[300px] ${colors.circleBg} rounded-full blur-[100px] pointer-events-none -ml-32 -mb-32`} />
                         
-                        <div className="flex flex-col lg:flex-row gap-8 sm:gap-10 items-start p-6 sm:p-14 relative z-10">
-                            <div className="flex-1 space-y-6">
-                                <div className="flex items-start sm:items-center gap-6">
-                                    <div className={`shrink-0 w-16 h-16 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center text-3xl shadow-2xl transform group-hover:rotate-6 transition-transform duration-500 ${colors.icon}`}>
+                        <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:items-center p-6 sm:p-8 md:p-10 relative z-10">
+                            <div className="flex-1 space-y-5">
+                                <div className="flex items-start sm:items-center gap-5">
+                                    <div className={`shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center text-2xl sm:text-3xl shadow-2xl transform group-hover:rotate-6 transition-transform duration-500 ${colors.icon}`}>
                                         {insight.icon}
                                     </div>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-3">
-                                            <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${colors.text} drop-shadow-sm`}>
+                                    <div className="space-y-1 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] ${colors.text} drop-shadow-sm truncate`}>
                                                 {insight.title}
                                             </span>
-                                            <div className="h-px w-10 bg-white/10 hidden sm:block" />
-                                            <span className="px-2 py-0.5 rounded-full bg-white/5 text-[8px] font-black text-slate-500 border border-white/5 uppercase tracking-widest">System Engine v4.0</span>
+                                            <div className="h-px w-6 sm:w-10 bg-white/10 hidden sm:block" />
+                                            <span className="px-2 py-0.5 rounded-full bg-white/5 text-[8px] font-black text-slate-500 border border-white/5 uppercase tracking-widest whitespace-nowrap">System Engine v4.0</span>
                                         </div>
-                                        <h3 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-none">
+                                        <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight break-words">
                                             {insight.text}
                                         </h3>
                                     </div>
                                 </div>
                                 
-                                <p className="text-slate-400 text-base leading-relaxed max-w-3xl font-medium">
+                                <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-3xl font-medium">
                                     {insight.details}
                                 </p>
                             </div>
 
                             {insight.advice && (
-                                <div className="lg:w-[400px] shrink-0">
-                                    <div className={`rounded-[2rem] bg-black/60 border ${colors.border} p-10 sm:p-12 relative shadow-2xl group-hover:bg-black/80 transition-all duration-500`}>
+                                <div className="w-full lg:w-[350px] shrink-0 mt-2 lg:mt-0">
+                                    <div className={`rounded-3xl bg-black/60 border ${colors.border} p-6 sm:p-8 relative shadow-2xl group-hover:bg-black/80 transition-all duration-500 overflow-hidden`}>
                                         <div className={`absolute -right-12 -top-12 w-48 h-48 ${colors.glow} opacity-10 blur-3xl pointer-events-none`} />
                                         
-                                        <div className="flex items-center gap-2 mb-4 relative z-10">
+                                        <div className="flex items-center gap-2 mb-3 relative z-10">
                                             <div className={`p-1.5 rounded-lg bg-white/5 border border-white/10 ${colors.text}`}>
                                                 <Zap size={14} fill="currentColor" />
                                             </div>
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] block">Orientação Estratégica</span>
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block whitespace-nowrap">Orientação Estratégica</span>
                                         </div>
                                         
-                                        <p className={`text-[15px] sm:text-[17px] font-bold leading-relaxed ${colors.text} relative z-10 drop-shadow-lg`}>
+                                        <p className={`text-sm sm:text-base font-bold leading-relaxed ${colors.text} relative z-10 drop-shadow-lg break-words`}>
                                             {insight.advice}
                                         </p>
                                         
-                                        <div className="absolute bottom-0 right-0 p-6 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
+                                        <div className="absolute -bottom-4 -right-4 p-6 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
                                             <Zap size={80} className={colors.text} />
                                         </div>
                                     </div>

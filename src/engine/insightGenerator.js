@@ -116,6 +116,43 @@ export function generateEvolutionInsights({
         return { type: 'info', icon: "🧠", title: "Estimativa Bayesiana", text: `Nível Real: ${bayesian.toFixed(1)}${unit}.` };
     }
 
+    // Lógica da Média Histórica (Stats)
+    if (activeEngine === "stats") {
+        const statsVal = getLastValid(`stats_${focusCategory.id}`);
+        if (statsVal == null) return { type: 'info', icon: "📐", title: "Média Histórica", text: "Aguardando mais dados..." };
+        return { type: 'info', icon: "📐", title: "Média Histórica Global", text: `Sua média histórica é ${statsVal.toFixed(1)}${unit}.`, advice: "Lembre-se que a média demora a refletir seu conhecimento recente." };
+    }
+
+    // Lógica Raio-X + Monte Carlo (Compare)
+    if (activeEngine === "compare") {
+        return { type: 'info', icon: "⚡", title: "Projeção Monte Carlo", text: "Visualizando simulações estatísticas futuras.", advice: "Use esta projeção para saber se está na rota da aprovação." };
+    }
+
+    // Lógica Raio-X de Assuntos (Subtopics)
+    if (activeEngine === "subtopics") {
+        return { type: 'info', icon: "🔬", title: "Auditoria de Assuntos", text: "Navegando nos subtópicos da matéria.", advice: "Ataque os blocos vermelhos para subir seu percentual rapidamente." };
+    }
+
+    // Lógica Densidade MC (mc_density)
+    if (activeEngine === "mc_density") {
+        return { type: 'info', icon: "📉", title: "Densidade de Convergência", text: "Histórico das suas projeções Monte Carlo.", advice: "Se a linha estiver subindo, você está matematicamente mais próximo da aprovação." };
+    }
+
+    // Lógica Semanal (weekly_diff)
+    if (activeEngine === "weekly_diff") {
+        return { type: 'info', icon: "📆", title: "Acelerômetro Semanal", text: "Tração do seu estudo na última semana.", advice: "Monitore semanas negativas para evitar a curva do esquecimento." };
+    }
+
+    // Lógica Hoje vs Geral (today_vs_general)
+    if (activeEngine === "today_vs_general") {
+        return { type: 'info', icon: "⚖️", title: "Desempenho Diário", text: "Seu foco de hoje contra sua média.", advice: "Use isso para calibrar o esforço de hoje." };
+    }
+
+    // Lógica Agilidade AI (time_spent)
+    if (activeEngine === "time_spent") {
+        return { type: 'info', icon: "⏳", title: "Velocidade de Resolução", text: "Mapeando gargalos de tempo.", advice: "Cuidado com matérias lentas, elas roubam preciosos minutos da prova." };
+    }
+
     // Lógica de Alertas de Burnout e Consolidação (Fallback)
     if (raw != null && bayesian != null) {
         const nowMs = new Date().getTime();

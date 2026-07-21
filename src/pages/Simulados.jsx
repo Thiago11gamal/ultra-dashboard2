@@ -106,8 +106,8 @@ export default function Simulados() {
         if (answeredRows.length === 0) return [];
         
         const sorted = [...answeredRows].sort((a, b) => {
-            const dateA = new Date(a.createdAt || a.date || 0);
-            const dateB = new Date(b.createdAt || b.date || 0);
+            const dateA = new Date(a.lastUpdated || a.createdAt || a.date || 0);
+            const dateB = new Date(b.lastUpdated || b.createdAt || b.date || 0);
             return dateB.getTime() - dateA.getTime();
         });
         
@@ -115,12 +115,14 @@ export default function Simulados() {
         if (!lastRef) return [];
         
         // BUG-10 FIX: Compare safely even if some rows only have YYYY-MM-DD
-        if (lastRef.createdAt) {
-            const lastTime = new Date(lastRef.createdAt).getTime();
+        const refDateStr = lastRef.lastUpdated || lastRef.createdAt;
+        if (refDateStr) {
+            const lastTime = new Date(refDateStr).getTime();
             const BATCH_TOLERANCE_MS = 2000;
             return rows.filter(r => {
-                if (!r.createdAt) return false;
-                const t = new Date(r.createdAt).getTime();
+                const rDateStr = r.lastUpdated || r.createdAt;
+                if (!rDateStr) return false;
+                const t = new Date(rDateStr).getTime();
                 return Math.abs(t - lastTime) <= BATCH_TOLERANCE_MS;
             });
         } else {
