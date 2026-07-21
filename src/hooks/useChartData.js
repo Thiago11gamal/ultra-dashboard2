@@ -6,6 +6,8 @@ import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 const EMPTY_OBJECT = {};
 const EMPTY_ARRAY = [];
 
+const getHistoryArray = (cat) => Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT).filter(Boolean);
+
 const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
 
 function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
@@ -16,14 +18,14 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
         if (!key) continue;
 
         const existing = aggregatedHistoryByDateMap.get(key);
-        const rawTotal = Number(h.total) || 0;
-        const rawCorrect = Number(h.correct) || 0;
+        const rawTotal = Number(h?.total) || 0;
+        const rawCorrect = Number(h?.correct) || 0;
         const score = getSafeScore(h, maxScore);
 
         let compTotal = rawTotal;
         let compCorrect = rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect;
 
-        if (rawTotal === 0 && h.score != null) {
+        if (rawTotal === 0 && h?.score != null) {
             compTotal = getSyntheticTotal(maxScore);
             const pct = Math.min(1, Math.max(0, score / maxScore));
             compCorrect = Math.round(pct * compTotal);
@@ -149,7 +151,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
 
 export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, maxScore = 100) {
     const categoriesVersion = useMemo(() => categories.map((cat) => {
-        const history = Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT);
+        const history = getHistoryArray(cat);
         const tasks = Array.isArray(cat?.tasks) ? cat.tasks : EMPTY_ARRAY;
         const histDigest = history.map((h) => [
             getDateKey(getHistoryDate(h)) || 'nodate',
@@ -169,8 +171,8 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
 
         valid.sort((a, b) => {
-            const historyA = Object.values(a.simuladoStats?.history || EMPTY_OBJECT);
-            const historyB = Object.values(b.simuladoStats?.history || EMPTY_OBJECT);
+            const historyA = getHistoryArray(a);
+            const historyB = getHistoryArray(b);
             const volA = historyA.reduce((sum, h) => sum + (Number(h.total) || 0), 0);
             const volB = historyB.reduce((sum, h) => sum + (Number(h.total) || 0), 0);
             return volB - volA;
@@ -185,7 +187,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
 
         const allDatesSet = new Set();
         activeCategories.forEach(cat => {
-            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
+            getHistoryArray(cat).forEach(h => {
                 const dateKey = getDateKey(getHistoryDate(h));
                 if (dateKey) allDatesSet.add(dateKey);
             });
@@ -204,7 +206,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
 
         activeCategories.forEach(cat => {
-            const history = Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).sort((a, b) => {
+            const history = getHistoryArray(cat).sort((a, b) => {
                 const dA = normalizeDate(getHistoryDate(a));
                 const dB = normalizeDate(getHistoryDate(b));
                 return (dA?.getTime() || 0) - (dB?.getTime() || 0);
@@ -284,7 +286,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         const allDatesSet = new Set();
         activeCategories.forEach(cat => {
-            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
+            getHistoryArray(cat).forEach(h => {
                 const dateKey = getDateKey(getHistoryDate(h));
                 if (dateKey) allDatesSet.add(dateKey);
             });
@@ -305,7 +307,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
 
         const rows = activeCategories.map(cat => {
             const dayMap = {};
-            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
+            getHistoryArray(cat).forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
@@ -345,7 +347,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         let totalQuestions = 0;
         let totalCorrect = 0;
         activeCategories.forEach(cat => {
-            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
+            getHistoryArray(cat).forEach(h => {
                 let tot = Number(h.total) || 0;
                 let corrNorm;
 
