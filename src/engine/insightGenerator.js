@@ -11,12 +11,41 @@ export function generateEvolutionInsights({
 }) {
     const defaultTitle = "Análise do Sistema";
 
-    if (!timeline?.length || !focusCategory) {
+    if (!timeline?.length) {
         return {
             type: 'info', icon: "📊", title: defaultTitle,
             text: "Ainda não existem dados suficientes.",
             details: "Continue realizando simulados para desbloquear insights avançados."
         };
+    }
+
+    if (!focusCategory) {
+        switch (activeEngine) {
+            case "raw_weekly":
+                return { type: 'info', icon: "📅", title: "Visão Global: Mapa de Calor", text: "Análise da sua frequência e eficiência geral.", details: "Selecione uma disciplina acima para uma análise profunda." };
+            case "raw":
+                return { type: 'info', icon: "📊", title: "Visão Global: Resultados Brutos", text: "Visão geral da sua volatilidade diária.", details: "Selecione uma disciplina acima para analisar a estabilidade." };
+            case "bayesian":
+                return { type: 'info', icon: "🧠", title: "Visão Global: Nível Bayesiano", text: "Domínio probabilístico estimado de todas as matérias.", details: "Selecione uma disciplina acima para ver o intervalo de confiança." };
+            case "stats":
+                return { type: 'info', icon: "📐", title: "Visão Global: Média Histórica", text: "Desempenho acumulado em todas as frentes.", details: "Selecione uma disciplina acima para ver a média específica." };
+            case "compare":
+                return { type: 'info', icon: "⚡", title: "Visão Global: Projeção Monte Carlo", text: "Visão probabilística global do seu futuro.", details: "Selecione uma disciplina acima para descobrir o que está segurando sua nota." };
+            case "subtopics":
+                return { type: 'info', icon: "🔬", title: "Visão Global: Auditoria de Assuntos", text: "Mapeamento completo de todos os seus subtópicos.", details: "Selecione uma disciplina acima para auditar pontos fracos." };
+            case "mc_density":
+                return { type: 'info', icon: "📉", title: "Visão Global: Densidade MC", text: "Acompanhamento global das suas projeções no tempo.", details: "Selecione uma disciplina acima para ver convergência específica." };
+            case "weekly_diff":
+                return { type: 'info', icon: "📆", title: "Visão Global: Acelerômetro Semanal", text: "Balanço geral de ganhos e perdas na semana.", details: "Selecione uma disciplina acima para focar no esforço semanal." };
+            case "today_vs_general":
+                return { type: 'info', icon: "⚖️", title: "Visão Global: Hoje vs Geral", text: "Comparativo do seu dia contra a média histórica geral.", details: "Selecione uma disciplina acima para um comparativo específico." };
+            default:
+                return {
+                    type: 'info', icon: "📊", title: "Visão Global",
+                    text: "Selecione uma disciplina acima para insights detalhados.",
+                    details: "A inteligência artificial analisa cada disciplina individualmente para gerar conselhos."
+                };
+        }
     }
 
     const lastPoint = timeline[timeline.length - 1];
