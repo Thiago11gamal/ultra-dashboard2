@@ -35,6 +35,8 @@ export function generateEvolutionInsights({
                 return { type: 'info', icon: "🔬", title: "Visão Global: Auditoria de Assuntos", text: "Mapeamento completo de todos os seus subtópicos.", details: "Selecione uma disciplina acima para auditar pontos fracos." };
             case "mc_density":
                 return { type: 'info', icon: "📉", title: "Visão Global: Densidade MC", text: "Acompanhamento global das suas projeções no tempo.", details: "Selecione uma disciplina acima para ver convergência específica." };
+            case "time_spent":
+                return { type: 'info', icon: "⏳", title: "Visão Global: Agilidade AI", text: "Visão geral da sua velocidade de resolução.", details: "Selecione uma disciplina acima para mapear gargalos de tempo específicos." };
             case "weekly_diff":
                 return { type: 'info', icon: "📆", title: "Visão Global: Acelerômetro Semanal", text: "Balanço geral de ganhos e perdas na semana.", details: "Selecione uma disciplina acima para focar no esforço semanal." };
             case "today_vs_general":
@@ -62,7 +64,8 @@ export function generateEvolutionInsights({
 
     // Lógica do Mapa de Calor (Raw Weekly)
     if (activeEngine === "raw_weekly") {
-        const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        const DAY_NAMES_SINGULAR = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+        const DAY_NAMES_PLURAL = ['domingos', 'segundas-feiras', 'terças-feiras', 'quartas-feiras', 'quintas-feiras', 'sextas-feiras', 'sábados'];
         const dayStats = {};
         const now = new Date();
         
@@ -98,8 +101,8 @@ export function generateEvolutionInsights({
             const worst = dayEntries[dayEntries.length - 1];
             return {
                 type: 'success', icon: "📅", title: "Padrão Semanal de Rendimento",
-                text: `Seu rendimento de pico ocorre aos ${DAY_NAMES[best.dow]}s.`,
-                details: `Melhor dia: ${DAY_NAMES[best.dow]} (${best.pct.toFixed(1)}%, ${best.total}q). Pior: ${DAY_NAMES[worst.dow]} (${worst.pct.toFixed(1)}%).`,
+                text: `Seu rendimento de pico ocorre aos **${DAY_NAMES_PLURAL[best.dow]}**.`,
+                details: `Melhor dia: **${DAY_NAMES_SINGULAR[best.dow]}** (${best.pct.toFixed(1)}%, ${best.total}q). Pior: **${DAY_NAMES_SINGULAR[worst.dow]}** (${worst.pct.toFixed(1)}%).`,
                 advice: "Alinhe seus simulados mais densos ao dia de melhor rendimento."
             };
         }

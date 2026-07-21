@@ -33,6 +33,17 @@ import { generateEvolutionInsights } from '../engine/insightGenerator';
 
 const EMPTY_ARRAY = [];
 
+function renderInsightText(text, textColorClass) {
+    if (typeof text !== 'string') return text;
+    const parts = text.split(/(\*\*.*?\*\*)/g).filter(Boolean);
+    return parts.map((part, idx) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={idx} className={`${textColorClass} font-black drop-shadow-[0_0_8px_currentColor]`}>{part.slice(2, -2)}</strong>;
+        }
+        return <React.Fragment key={idx}>{part}</React.Fragment>;
+    });
+}
+
 // Coloque esta função FORA do escopo do componente EvolutionChart
 function buildPredictiveCompareData(timeline, focusCategory, categoryLevels, activeMcProjectionSeries, projectDays, minScore, maxScore) {
     if (!focusCategory) return timeline;
@@ -895,13 +906,13 @@ export default React.memo(function EvolutionChart({
                                             <span className="px-2 py-0.5 rounded-full bg-white/5 text-[8px] font-black text-slate-500 border border-white/5 uppercase tracking-widest whitespace-nowrap">System Engine v4.0</span>
                                         </div>
                                         <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight break-words">
-                                            {insight.text}
+                                            {renderInsightText(insight.text, colors.text)}
                                         </h3>
                                     </div>
                                 </div>
                                 
                                 <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-3xl font-medium">
-                                    {insight.details}
+                                    {renderInsightText(insight.details, colors.text)}
                                 </p>
                             </div>
 
