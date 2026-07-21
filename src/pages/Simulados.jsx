@@ -565,7 +565,7 @@ const handleSimuladoAnalysis = (payload) => {
               simuladoRows={simuladoRowsArray}
               onDeleteSession={deleteSession}
               onDeleteSimulado={deleteSimulado}
-              mode="full"
+              mode="performance"
           />
         )}
     </PageErrorBoundary>);
