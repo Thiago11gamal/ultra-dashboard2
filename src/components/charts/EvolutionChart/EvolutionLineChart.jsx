@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useId, useState } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -9,16 +9,21 @@ import { normalizeDate } from '../../../utils/dateHelper';
 import { formatValue } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
-    const { cx, cy, fill, stroke } = props;
+    const { cx, cy, fill, stroke, onClick, isDimmed } = props;
     if (cx == null || cy == null) return null;
     return (
-        <g>
-            {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}
-            <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
-                <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
-                <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
-            </circle>
-            <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
+        <g onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default', pointerEvents: 'all' }}>
+            {!isDimmed && (
+                <>
+                    <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
+                        <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
+                    </circle>
+                    <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
+                </>
+            )}
+            {/* Invisible larger target for easy clicking when dimmed */}
+            {isDimmed && <circle cx={cx} cy={cy} r={15} fill="transparent" stroke="transparent" />}
         </g>
     );
 };
@@ -42,6 +47,15 @@ export function EvolutionLineChart({
 }) {
     const instanceId = useId().replace(/:/g, "");
     const shadowId = `el_lineShadow_${instanceId}`;
+
+    const [highlightedDataKey, setHighlightedDataKey] = useState(null);
+
+    const handleLegendClick = (e) => {
+        const key = e?.dataKey || e?.payload?.dataKey || (e?.payload && e.payload.id);
+        if (key) {
+            setHighlightedDataKey(prev => prev === key ? null : key);
+        }
+    };
 
 
 
@@ -196,15 +210,26 @@ export function EvolutionLineChart({
     };
 
     return (
-        <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
+        <div className="relative h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
+            {highlightedDataKey && (
+                <button 
+                    type="button" 
+                    onClick={() => setHighlightedDataKey(null)}
+                    className="absolute top-0 right-4 z-10 flex items-center gap-1.5 px-3 py-1 bg-slate-900 border border-slate-700 hover:bg-slate-800 hover:border-slate-500 text-slate-300 text-[10px] font-bold rounded-lg shadow-lg transition-all"
+                >
+                    <span>👁️</span> Mostrar Todos
+                </button>
+            )}
             <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
                 <ComposedChart 
                     data={enhancedChartData} 
                     syncId="evolutionSync"
-                    // 🎯 FIX: Aumento da margem direita (right: 110) para acomodar a Label formatada
                     margin={{ top: 20, right: 110, left: 0, bottom: 20 }} 
-                    style={{ outline: 'none' }} 
+                    style={{ outline: 'none', cursor: highlightedDataKey ? 'pointer' : 'default' }} 
                     tabIndex="-1"
+                    onClick={() => {
+                        if (highlightedDataKey) setHighlightedDataKey(null);
+                    }}
                 >
                     <defs>
                         {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
@@ -272,7 +297,7 @@ export function EvolutionLineChart({
                     />
 
                     <Tooltip 
-                        offset={25}
+                        offset={150}
                         cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '2 2' }}
                         content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} />} 
                     />
@@ -281,15 +306,24 @@ export function EvolutionLineChart({
                         verticalAlign="top" 
                         height={28}
                         iconSize={6}
-                        wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px' }} 
+                        onClick={handleLegendClick}
+                        wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px', cursor: 'pointer' }} 
                     />
 
                     {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
-                        const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : false;
-                        const hasFocus = showOnlyFocus ? !!focusSubjectId : false;
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
-                        const lineType = engine?.style || 'linear'; // FIX: Mudado de monotoneX para linear como padrão para evitar o bug do Recharts (spaghetti/zig-zag effect) com connectNulls
-                        const displayColor = cat.color || '#3b82f6';
+                        const lineType = engine?.style || 'linear';
+
+                        const isLegendHighlighted = highlightedDataKey === dataKey;
+                        const isAnyHighlighted = !!highlightedDataKey;
+
+                        const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : isLegendHighlighted;
+                        const hasFocus = showOnlyFocus ? !!focusSubjectId : isAnyHighlighted;
+                        
+                        let displayColor = cat.color || '#3b82f6';
+                        if (isLegendHighlighted) {
+                            displayColor = '#fbbf24'; // Vivid amber/gold highlight
+                        }
 
                         const lineOpacity = hasFocus ? (isFocused ? 1 : 0.4) : 0.8;
                         const lineWidth = hasFocus ? (isFocused ? 3.5 : 1.5) : 2;
@@ -314,7 +348,7 @@ export function EvolutionLineChart({
                                 key={`glow_${cat.id}`} 
                                 type={lineType} 
                                 dataKey={dataKey} 
-                                name={`${cat.name}_glow`}
+                                name={`_glow_${cat.name}`}
                                 stroke={displayColor} 
                                 strokeWidth={lineWidth + 4}
                                 strokeLinecap="round" 
@@ -337,9 +371,17 @@ export function EvolutionLineChart({
                                 strokeLinejoin="round"
                                 strokeOpacity={lineOpacity}
                                 dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
-                                activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" />}
-                                style={{ transition: 'opacity 0.2s ease' }}
+                                activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" isDimmed={hasFocus && !isFocused} onClick={(e) => {
+                                    if (e && e.stopPropagation) e.stopPropagation();
+                                    setHighlightedDataKey(dataKey);
+                                }} />}
+                                style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
                                 isAnimationActive={false}
+                                onClick={(props, e) => {
+                                    if (e && e.stopPropagation) e.stopPropagation();
+                                    if (props && props.nativeEvent && props.nativeEvent.stopPropagation) props.nativeEvent.stopPropagation();
+                                    setHighlightedDataKey(dataKey);
+                                }}
                             >
                                 <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />
                             </Line>

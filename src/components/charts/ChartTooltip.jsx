@@ -2,13 +2,13 @@ import React from 'react';
 import { CHART_COLORS } from '../../utils/chartConfig';
 import { formatValue } from '../../utils/scoreHelper';
 
-export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%' }) => {
+export const ChartTooltip = ({ active, payload, label, coordinate, viewBox, isCompare = false, chartData = [], unit = '%' }) => {
     if (!active || !payload?.length) return null;
 
     const currentData = chartData.find(d => d.displayDate === label || d.date === label);
 
     return (
-        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-sm z-50 backdrop-blur-xl">
+        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-sm z-50 backdrop-blur-xl pointer-events-none transition-transform duration-200">
             <p className="text-slate-300 mb-3 font-bold border-b border-white/10 pb-2 flex items-center justify-between">
                 <span>📅 {label}</span>
             </p>
