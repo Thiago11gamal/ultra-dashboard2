@@ -37,6 +37,34 @@ const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
 const CALIBRATION_ALERT_CACHE_MAX = 200;
 const EMPTY_ARRAY = [];
 
+function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
+  const safeMax = Math.max(1, Number(maxScore) || 100);
+  const safeMin = Math.min(Number(minScore) || 0, safeMax);
+
+  const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number(value) || 0));
+
+  // 1) Se existir targetScore explícito, ele é a meta em pontos.
+  if (user?.targetScore != null && Number.isFinite(Number(user.targetScore))) {
+    let ts = Number(user.targetScore);
+
+    // Compatibilidade: se o valor parecer percentual (ex: 70) e estiver acima do maxScore,
+    // converte para pontos.
+    if (ts > safeMax && ts <= 100) {
+      ts = (ts / 100) * safeMax;
+    }
+
+    return clamp(ts);
+  }
+
+  // 2) Fallback: targetProbability é percentual (0-100) e deve virar pontos.
+  if (user?.targetProbability != null && Number.isFinite(Number(user.targetProbability))) {
+    return clamp((Number(user.targetProbability) / 100) * safeMax);
+  }
+
+  // 3) Default seguro: 80% da escala.
+  return clamp(safeMax * 0.8);
+}
+
 export default function Coach() {
     const calibrationAlertCacheRef = useRef(new Map());
     const activeId = useAppStore(state => state.appState.activeId);
@@ -140,14 +168,24 @@ export default function Coach() {
 
     // Backfill de simulados agora é gerenciado no hook useMonteCarloStats via rawSimuladoRows (evita duplicação).
 
-    const lastPersistRef = useRef(0);
+    const lastPersistByCategoryRef = useRef(new Map());
     const persistCalibrationMetric = useCallback((metric) => {
-        if (!metric?.categoryId || !isMountedRef.current) return;
+        if (!isMountedRef.current || !metric) return;
 
-        // RATE-LIMIT: Evita loops se muitas métricas forem emitidas em sequência rápida
         const now = Date.now();
-        if (now - lastPersistRef.current < 500) return;
-        lastPersistRef.current = now;
+        const rawCategoryId = metric?.categoryId || metric?.categoryName;
+        if (!rawCategoryId) return;
+
+        const normalizedCategoryId = getSafeId(rawCategoryId);
+
+        const lastAt = Number(lastPersistByCategoryRef.current.get(normalizedCategoryId) || 0);
+        if (now - lastAt < 500) return;
+
+        lastPersistByCategoryRef.current.set(normalizedCategoryId, now);
+        if (lastPersistByCategoryRef.current.size > 200) {
+          const oldestKey = lastPersistByCategoryRef.current.keys().next().value;
+          lastPersistByCategoryRef.current.delete(oldestKey);
+        }
 
         const toFinite = (value, fallback = null) => {
             if (value === null || value === undefined || value === '') return fallback;
@@ -155,7 +193,6 @@ export default function Coach() {
             return Number.isFinite(n) ? n : fallback;
         };
         const metricTimestamp = metric?.timestamp || now;
-        const normalizedCategoryId = getSafeId(metric?.categoryId || metric?.categoryName);
         const avgBrier = toFinite(metric?.avgBrier, null);
         const ece = toFinite(metric?.ece, null);
         const probability = toFinite(metric?.probability, null);
@@ -295,10 +332,21 @@ export default function Coach() {
     // BUG-16 FIX: Bind maxScore dynamically to support contests scaled > 100
     const currentMaxScore = data?.maxScore ?? 100;
 
+    const targetScorePoints = useMemo(() => resolveTargetScorePoints({
+      user: userProfile,
+      minScore: data?.minScore,
+      maxScore: currentMaxScore
+    }), [userProfile, data?.minScore, currentMaxScore]);
+
+    const targetScoreLabel = useMemo(() => {
+      const safeMax = Math.max(1, Number(currentMaxScore) || 100);
+      return Math.round((targetScorePoints / safeMax) * 100);
+    }, [targetScorePoints, currentMaxScore]);
+
     const mcStats = useMonteCarloStats({
         categories: categories,
         goalDate: userProfile?.goalDate,
-        targetScore: userProfile?.targetProbability ?? 85,
+        targetScore: targetScorePoints,
         timeIndex: -1,
         timelineDates: EMPTY_ARRAY,
         minScore: data?.minScore ?? 0,
@@ -339,7 +387,7 @@ export default function Coach() {
         // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
         // lateral não fica "preso" aguardando cálculo síncrono.
         const analysisTimer = setTimeout(() => {
-            const targetScore = userProfile?.targetProbability ?? 85;
+            const targetScore = targetScorePoints;
             const collectedMetrics = [];
 
             const result = getSuggestedFocus(
@@ -349,7 +397,8 @@ export default function Coach() {
                 {
                     user: data.user,
                     targetScore,
-                    maxScore: data.maxScore ?? 100,
+                    targetScoreLabel,
+                    maxScore: currentMaxScore,
                     calibrationHistoryByCategory: calibrationHistoryRef.current,
                     flashcardDecks: flashcardDecks,
                     flashcardDue,
@@ -405,7 +454,10 @@ export default function Coach() {
         userProfile?.targetProbability,
         flashcardDue,
         flashcardDecks,
-        persistCalibrationMetric
+        persistCalibrationMetric,
+        targetScorePoints,
+        currentMaxScore,
+        targetScoreLabel
     ]);
 
     useEffect(() => {
@@ -435,7 +487,7 @@ export default function Coach() {
         timeoutRef.current = setTimeout(() => {
             if (!isMountedRef.current) return;
 
-            const targetScore = userProfile?.targetProbability ?? 85;
+            const targetScore = targetScorePoints;
             const collectedMetrics = [];
 
             // BUG-1 FIX: Use categories, history, studyLogs directly (now in dep array)
@@ -446,7 +498,8 @@ export default function Coach() {
                 {
                     user: data.user,
                     targetScore,
-                    maxScore: data.maxScore ?? 100,
+                    targetScoreLabel,
+                    maxScore: currentMaxScore,
                     calibrationHistoryByCategory: calibrationHistoryRef.current,
                     onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                     config: {
@@ -482,7 +535,7 @@ export default function Coach() {
             timeoutRef.current = null;
         }, 1500);
         // BUG-1 FIX: Added categories, history, studyLogs to prevent stale closure
-    }, [data, coachLoading, setData, persistCalibrationMetric, userProfile?.targetProbability, categories, history, studyLogs]);
+    }, [data, coachLoading, setData, persistCalibrationMetric, userProfile?.targetProbability, categories, history, studyLogs, targetScorePoints, targetScoreLabel, currentMaxScore]);
 
     // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
     const handleClearHistory = useCallback(() => {

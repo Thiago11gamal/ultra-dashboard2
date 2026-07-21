@@ -11,6 +11,7 @@ export const createStudySlice = (set, get) => ({
         set((state) => {
             const now = new Date().toISOString();
             const activeData = state.appState.contests[state.appState.activeId];
+            if (!activeData) return;
 
             const logId = generateId('log');
             const sessionId = generateId('session');
@@ -72,7 +73,11 @@ export const createStudySlice = (set, get) => ({
         let xpToDeduct = 0;
         set((state) => {
             const activeData = state.appState.contests[state.appState.activeId];
-            const safeSessions = Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {});
+            if (!activeData) return;
+
+            const safeSessions = Array.isArray(activeData.studySessions)
+              ? activeData.studySessions
+              : Object.values(activeData.studySessions || {});
             const sessionIndex = safeSessions.findIndex(s => s.id === sessionId);
             if (sessionIndex === -1) return;
 
@@ -83,7 +88,7 @@ export const createStudySlice = (set, get) => ({
             const bonusXP = session.taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
             xpToDeduct = baseXP + bonusXP;
 
-            const category = activeData.categories.find(c => c.id === session.categoryId);
+            const category = (activeData.categories || []).find(c => c.id === session.categoryId);
             if (category) {
                 category.totalMinutes = Math.max(0, (category.totalMinutes || 0) - (session.duration || 0));
             }

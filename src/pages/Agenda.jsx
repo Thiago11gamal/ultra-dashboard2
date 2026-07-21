@@ -250,7 +250,11 @@ export default function Agenda() {
                 <div key={ev.id} className="flex items-start justify-between rounded-xl bg-white/[0.025] px-3 py-2 text-sm border border-white/5">
                   <div>
                     <div className="font-medium leading-tight">{ev.title}</div>
-                    <div className="text-[11px] text-teal-300/90">{format(new Date(ev.date), 'dd/MM')} {ev.time ? `• ${ev.time}` : ''} • {ev.duration}min</div>
+                    <div className="text-[11px] text-teal-300/90">
+                      {format(new Date(ev.date + 'T12:00:00'), 'dd/MM')}
+                      {ev.time ? ` • ${ev.time}` : ''}
+                      {ev.duration ? ` • ${ev.duration}min` : ''}
+                    </div>
                   </div>
                   <button onClick={() => deleteEvent(ev.id)} className="text-rose-400/70 hover:text-rose-400">
                     <Trash2 size={15} />

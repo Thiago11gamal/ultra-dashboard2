@@ -50,7 +50,11 @@ const repairContestHistory = (data) => {
 
     // LETHAL OVERRIDE: If raw logs have significantly more data than aggregated history, rebuild it.
     // Even if history is not 0, we rebuild if discrepancy is high (>50% difference)
-    const uniqueDaysInLogs = new Set(myRows.map(r => getDateKey(r.date || r.createdAt || r.date?._seconds || r.createdAt?._seconds)).filter(Boolean)).size;
+    const uniqueDaysInLogs = new Set(
+      myRows
+        .map(r => getDateKey(r?.date?._seconds ? new Date(r.date._seconds * 1000) : (r?.createdAt?._seconds ? new Date(r.createdAt._seconds * 1000) : (r.date || r.createdAt))))
+        .filter(Boolean)
+    ).size;
     const currentUniqueDays = new Set(currentHistory.map(h => getDateKey(h.date))).size;
 
     // Verificação da flag isPercentage desativada como gatilho de perda (gerava falsos positivos)
@@ -73,7 +77,11 @@ const repairContestHistory = (data) => {
 
       const dailyStats = {};
       myRows.forEach(r => {
-        const dk = getDateKey(r.date || r.createdAt);
+        const dk = getDateKey(
+          r?.date?._seconds
+            ? new Date(r.date._seconds * 1000)
+            : (r?.createdAt?._seconds ? new Date(r.createdAt._seconds * 1000) : (r.date || r.createdAt))
+        );
         if (!dk) return;
         if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0 };
         
@@ -199,7 +207,7 @@ export const sanitizeContest = (data) => {
     // Math / Calibration history (lightweight for continuous calibration)
     calibrationEvents: Array.isArray(source.calibrationEvents) ? source.calibrationEvents.slice(-200) : [], // keep last 200 for walk-forward
     settings: {
-      darkMode: true,
+      darkMode: source.settings?.darkMode ?? true,
       soundEnabled: source.settings?.soundEnabled ?? true,
       pomodoroWork: Number(source.settings?.pomodoroWork) || 25,
       pomodoroBreak: Number(source.settings?.pomodoroBreak) || 5,
@@ -285,8 +293,12 @@ export const validateAppState = (data) => {
       history: Array.isArray(d.history) ? d.history : [],
       trash: Array.isArray(d.trash) ? d.trash.filter(item => {
         if (!item) return false;
-        // BUG LOGIC-02 FIX: Se não tiver deletedAt, assume agora para expirar em 30 dias
-        const deletedAt = item.deletedAt ? new Date(item.deletedAt) : new Date();
+
+        const parsedDeletedAt = item.deletedAt ? new Date(item.deletedAt) : null;
+        const deletedAt = parsedDeletedAt && !isNaN(parsedDeletedAt.getTime())
+          ? parsedDeletedAt
+          : new Date();
+
         return (new Date() - deletedAt) / (1000 * 60 * 60 * 24) <= 30;
       }) : [],
       hasSeenTour: Boolean(d.hasSeenTour),

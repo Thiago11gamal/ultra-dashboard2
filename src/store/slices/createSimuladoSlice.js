@@ -1,4 +1,5 @@
 import { computeCategoryStats } from '../../engine/stats.js';
+import { getSafeScore } from '../../utils/scoreHelper.js';
 
 export const createSimuladoSlice = (set) => ({
     resetSimuladoStats: () => set((state) => {
@@ -50,13 +51,16 @@ export const createSimuladoSlice = (set) => ({
                     
                     // 🎯 RECOMPUTAÇÃO IMEDIATA PÓS-EXCLUSÃO
                     if (newHistory.length > 0) {
-                        const newStats = computeCategoryStats(newHistory, c.weight || 1, 60, catMaxScore);
+                        const newStats = computeCategoryStats(newHistory, c.weight || 10, 60, catMaxScore);
                         if (newStats) {
                             const last = newHistory[newHistory.length - 1];
                             newStatsObj.average = Number((newStats.mean || 0).toFixed(2));
                             newStatsObj.trend = newStats.trend || 'stable';
                             // Garante o cálculo do último score baseado na escala correta
-                            newStatsObj.lastAttempt = Number(last?.score ?? ((Number(last?.total) > 0) ? (Number(last?.correct || 0) / Number(last?.total)) * catMaxScore : 0));
+                            const lastScore = last ? getSafeScore(last, catMaxScore) : NaN;
+                            newStatsObj.lastAttempt = Number.isFinite(lastScore)
+                              ? lastScore
+                              : Number(last?.score ?? ((Number(last?.total) > 0) ? (Number(last?.correct || 0) / Number(last?.total)) * catMaxScore : 0));
                             newStatsObj.level = newStats.level || 'BAIXO';
                         }
                     } else {

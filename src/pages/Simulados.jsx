@@ -33,7 +33,7 @@ export default function Simulados() {
     const studySessionsArray = React.useMemo(() => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}), [data]);
 
     const displayRows = React.useMemo(() => {
-        if (!categoriesArray.length) return [];
+        if (!categoriesArray.length || !data || !data.categories) return [];
         const todayKey = getDateKey(normalizeDate(new Date()));
         const rawTodayRows = simuladoRowsArray.filter(
             r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
@@ -196,7 +196,11 @@ const handleSimuladoAnalysis = (payload) => {
         ? prev.simuladoRows
         : Object.values(prev.simuladoRows || {});
 
+      // BUG-15 FIX: Validate that rowsToKeep doesn't duplicate recent manual inputs
+      const submittedIds = new Set(rawRows.map(r => r.id).filter(Boolean));
+
       const rowsToKeep = prevSimuladoRowsArray.filter((r) => {
+        if (r?.id && submittedIds.has(r.id)) return false;
         const isToday = getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey;
         const isManual = r && !r.isAuto && r.source !== 'ai-generated';
         return !(isToday && isManual);

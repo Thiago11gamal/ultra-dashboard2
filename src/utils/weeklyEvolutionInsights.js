@@ -45,6 +45,8 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
 
     windowData.forEach((week) => {
       const currentTime = toDateMs(week.week);
+      if (!Number.isFinite(currentTime)) return;
+      
       const deltaT = lastTime ? Math.max(1, (currentTime - lastTime) / 86400000) : 1;
       
       const alpha = 1 - Math.pow(1 - alphaBase, deltaT);

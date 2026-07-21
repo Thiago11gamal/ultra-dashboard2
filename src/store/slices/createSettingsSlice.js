@@ -1,5 +1,18 @@
 import { validateAppState, sanitizeContest } from '../schemas';
 
+const applyDarkModeToggle = (state) => {
+  const activeData = state.appState.contests[state.appState.activeId];
+  if (!activeData) return;
+
+  if (!activeData.settings) activeData.settings = {};
+
+  activeData.settings.darkMode = !(activeData.settings.darkMode ?? true);
+
+  state.appState.version = (state.appState.version || 0) + 1;
+  state.appState.lastUpdated = new Date().toISOString();
+  localStorage.setItem('ultra-sync-dirty', 'true');
+};
+
 export const createSettingsSlice = (set) => ({
     setHasSeenTour: (value) => set((state) => {
         state.appState.hasSeenTour = value;
@@ -20,6 +33,7 @@ export const createSettingsSlice = (set) => ({
         state.appState.dashboardFilter = nextFilter || 'all';
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
+        localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 
     updateCoachPlanner: (newPlannerData) => set((state) => {
@@ -32,19 +46,9 @@ export const createSettingsSlice = (set) => ({
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 
-    setThemeMode: () => set((state) => {
-        const activeData = state.appState.contests[state.appState.activeId];
-        if (!activeData) return;
-        if (!activeData.settings) activeData.settings = {};
-        activeData.settings.darkMode = !activeData.settings.darkMode;
-    }),
+    setThemeMode: () => set(applyDarkModeToggle),
 
-    toggleDarkMode: () => set((state) => {
-        const activeData = state.appState.contests[state.appState.activeId];
-        if (!activeData) return;
-        if (!activeData.settings) activeData.settings = {};
-        activeData.settings.darkMode = !activeData.settings.darkMode;
-    }),
+    toggleDarkMode: () => set(applyDarkModeToggle),
 
     setAppState: (newStateObj) => set((state) => {
         let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;

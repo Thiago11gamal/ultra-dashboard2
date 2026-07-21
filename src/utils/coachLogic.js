@@ -271,6 +271,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
+    const targetScoreLabel = options.targetScoreLabel ?? Math.round((targetScore / maxScore) * 100);
     
     let rawWeightVal = safeCategory.weight;
     if (typeof rawWeightVal === 'string') rawWeightVal = rawWeightVal.replace(',', '.');
@@ -519,6 +520,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         maxScore,
         minScore,
         targetScore,
+        targetScoreLabel,
         rawWeight,
         boundedWeight,
         weight,
@@ -1495,7 +1497,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 categoryId: cat.id, category: cat.name, catName: cat.name,
                 analysis: {
                     reason: "Monte Carlo — Zona de Perigo",
-                    details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias.`,
+                    details: `Apenas ${probPct}% de chance de bater a meta de ${options.targetScoreLabel ?? targetScore}% em 90 dias.`,
                     metrics: cat.urgency?.details?.humanReadable || {},
                     monteCarlo: mc || null,
                     verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
