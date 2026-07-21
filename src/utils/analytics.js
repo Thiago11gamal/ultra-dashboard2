@@ -47,7 +47,10 @@ export const calculateStudyStreak = (studyLogs) => {
 
     // 1. Agrupar por dia único (YYYY-MM-DD local) para ignorar horas/minutos
     const daySet = new Set(
-        logsArray.map(log => getDateKey(log.date)).filter(Boolean)
+        logsArray
+            .filter(log => log && log.date)
+            .map(log => getDateKey(log.date))
+            .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
     );
     const sortedDays = Array.from(daySet).sort((a, b) =>
         new Date(b) - new Date(a)

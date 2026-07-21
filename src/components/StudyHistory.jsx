@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
-import { normalizeDate, formatDuration as globalFormatDuration } from '../utils/dateHelper';
+import { normalizeDate, getDateKey, formatDuration as globalFormatDuration } from '../utils/dateHelper';
 
 const formatDuration = (minutes) => {
     return globalFormatDuration((minutes || 0) / 60);
@@ -392,25 +392,21 @@ const StudyHistory = React.memo(function StudyHistory({
 
                         {(() => {
                             const now = new Date();
-                            const todayStr = now.toDateString();
 
-                            // CORREÇÃO 5: Cálculo seguro do dia anterior (sem - 24*60*60*1000)
-                            const yesterday = new Date(now);
-                            yesterday.setDate(now.getDate() - 1);
-                            const yesterdayStr = yesterday.toDateString();
-
-                            // CORREÇÃO 6: Normalização de UTC para fuso local nas linhas
-                            const todayRows = simuladoRows.filter(r => {
-                                if (!r.createdAt || !r.validated) return false;
+                            // Agrupar todos os simulados do histórico por batchId ou data
+                            const groupedSimulados = Object.values(simuladoRows.reduce((acc, r) => {
+                                if (!r.date && !r.createdAt) return acc;
+                                const hasData = parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0;
+                                if (!r.validated && !hasData) return acc;
                                 const rDate = normalizeDate(r.date || r.createdAt);
-                                return rDate && rDate.toDateString() === todayStr;
-                            });
-
-                            const yesterdayRows = simuladoRows.filter(r => {
-                                if (!r.createdAt || !r.validated) return false;
-                                const rDate = normalizeDate(r.date || r.createdAt);
-                                return rDate && rDate.toDateString() === yesterdayStr;
-                            });
+                                if (!rDate) return acc;
+                                const key = r.batchId || getDateKey(rDate);
+                                if (!acc[key]) {
+                                    acc[key] = { key, date: rDate, rows: [], isAi: !!r.batchId };
+                                }
+                                acc[key].rows.push(r);
+                                return acc;
+                            }, {})).sort((a, b) => b.date.getTime() - a.date.getTime());
 
                             const renderSection = (rows, title, icon, isToday, side = 'left') => {
                                 const validRows = rows.filter(r => r.subject && r.topic);
@@ -447,11 +443,11 @@ const StudyHistory = React.memo(function StudyHistory({
                                     topics: Object.values(subj.topicMap).map(t => ({
                                         ...t,
                                         pct: t.total > 0 ? Math.round((t.correct / t.total) * 100) : 0
-                                    }))
+                                    })).sort((a, b) => a.pct - b.pct)
                                 })).sort((a, b) => {
-                                    const pctA = a.total > 0 ? (a.correct / a.total) * 100 : 0;
-                                    const pctB = b.total > 0 ? (b.correct / b.total) * 100 : 0;
-                                    return pctA - pctB;
+                                    const aPct = a.total > 0 ? (a.correct / a.total) * 100 : 0;
+                                    const bPct = b.total > 0 ? (b.correct / b.total) * 100 : 0;
+                                    return aPct - bPct;
                                 });
 
                                 // Helpers for status and actions
@@ -465,12 +461,6 @@ const StudyHistory = React.memo(function StudyHistory({
                                     if (pct >= 70) return 'Manter Revisão Periódica';
                                     if (pct >= 50) return 'Treino Prático Intensivo';
                                     return 'Revisão Teórica + Questões';
-                                };
-
-                                const getInsight = (pct) => {
-                                    if (pct >= 70) return `Excelente desempenho (${pct}%). Continue assim!`;
-                                    if (pct >= 50) return `Desempenho mediano (${pct}%). Pode evoluir mais.`;
-                                    return `Crítico (${pct}%). Atenção urgente necessária.`;
                                 };
 
                                 const globalInsight = globalPct >= 70
@@ -518,35 +508,46 @@ const StudyHistory = React.memo(function StudyHistory({
                                                     </div>
                                                     <div>
                                                         <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-0.5">Média Geral</h4>
-                                                        <p className="text-sm text-white font-medium">{globalInsight}</p>
+                                                        <p className="text-xl font-black text-white">{globalPct}%</p>
                                                     </div>
                                                 </div>
+                                                <p className="relative mt-3 text-xs text-slate-300 leading-relaxed font-medium">
+                                                    {globalInsight}
+                                                </p>
                                             </div>
 
                                             {/* Subjects List */}
                                             <div className="space-y-6">
                                                 {subjects.map((subj) => {
                                                     const subjPct = subj.total > 0 ? Math.round((subj.correct / subj.total) * 100) : 0;
-                                                    const insight = getInsight(subjPct);
-                                                    const subjColor = getSubjectColor(subj.name);
+                                                    const status = getStatus(subjPct);
 
                                                     return (
-                                                        <div key={subj.name} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60 mr-2">
-                                                            {/* Subject Header - Clean Spacing */}
-                                                            <div className="relative py-4 pr-10 flex items-center justify-between border-b border-indigo-500/20"
-                                                                style={{ borderLeft: `4px solid ${subjColor}`, paddingLeft: '28px' }}>
-                                                                <div className="flex items-center gap-3">
-                                                                    <h3 className="text-lg font-bold tracking-tight relative z-10" style={{ color: subjColor }}>{subj.name}</h3>
+                                                        <div key={subj.name} className="relative rounded-xl border border-slate-700/50 bg-slate-800/30 overflow-hidden group/subj hover:border-indigo-500/30 transition-all shadow-md">
+                                                            {/* Subject Header */}
+                                                            <div className="px-5 py-4 bg-slate-800/80 border-b border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                                <div className="flex flex-col min-w-0">
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <div className={`w-2 h-2 rounded-full bg-${status.color}-500 shadow-[0_0_8px_currentColor]`}></div>
+                                                                        <h4 className="text-sm font-bold text-slate-100 truncate">{subj.name}</h4>
+                                                                    </div>
+                                                                    <span className="text-[10px] text-slate-400 font-medium">
+                                                                        {subj.topics.length} t{subj.topics.length !== 1 ? 'ópicos' : 'ópico'} analisados
+                                                                    </span>
                                                                 </div>
-                                                                <span className="text-[10px] text-slate-300 italic" style={{ paddingRight: '24px' }}>
-                                                                    {insight}
-                                                                </span>
+
+                                                                <div className="flex items-center gap-4 shrink-0">
+                                                                    <div className="flex flex-col items-end">
+                                                                        <span className="text-lg font-black text-white">{subjPct}%</span>
+                                                                        <span className="text-[9px] text-slate-400 font-mono tracking-widest">{subj.correct}/{subj.total} acertos</span>
+                                                                    </div>
+                                                                </div>
                                                             </div>
 
-                                                            {/* Topics Table */}
-                                                            <div className="p-4">
-                                                                {/* Table Header */}
-                                                                <div className="hidden sm:grid grid-cols-12 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6 py-3 border-b border-indigo-500/20 mb-2">
+                                                            {/* Topics List */}
+                                                            <div className="p-2 sm:p-3">
+                                                                {/* Column Headers */}
+                                                                <div className="hidden sm:grid sm:grid-cols-12 gap-4 px-6 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">
                                                                     <div className="col-span-4">Assunto</div>
                                                                     <div className="col-span-3 text-center">Status</div>
                                                                     <div className="col-span-2 text-center">Desempenho</div>
@@ -575,7 +576,6 @@ const StudyHistory = React.memo(function StudyHistory({
                                                                                 </div>
                                                                                 <div className="w-full sm:col-span-2 flex flex-col items-center justify-center">
                                                                                     <div className="relative w-10 h-10">
-                                                                                        {/* CORREÇÃO 9: viewBox obrigatório para manter a geometria SVG */}
                                                                                         <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
                                                                                             <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent" className="stroke-slate-700/50" />
                                                                                             <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent"
@@ -592,7 +592,6 @@ const StudyHistory = React.memo(function StudyHistory({
                                                                                     <span className="text-[9px] text-slate-400 mt-1 font-mono">{topic.correct}/{topic.total}</span>
                                                                                 </div>
 
-                                                                                {/* CORREÇÃO 10: Sem padding Right hardcoded, usa margem fluida */}
                                                                                 <div className="w-full sm:col-span-3 text-center sm:text-right">
                                                                                     <span className="text-[10px] sm:text-xs text-slate-200 font-medium break-words">{action}</span>
                                                                                 </div>
@@ -610,10 +609,14 @@ const StudyHistory = React.memo(function StudyHistory({
                                 );
                             };
 
-                            const todaySection = renderSection(todayRows, 'Hoje', '⚡', true, 'left');
-                            const yesterdaySection = renderSection(yesterdayRows, 'Ontem', '🕰️', false, 'right');
+                            const renderedSections = groupedSimulados.map((group, index) => {
+                                const isToday = group.date.toDateString() === new Date().toDateString();
+                                const title = isToday ? 'Hoje' : group.date.toLocaleDateString('pt-BR');
+                                const icon = group.isAi ? '🤖' : (isToday ? '⚡' : '🕰️');
+                                return renderSection(group.rows, title, icon, isToday, index % 2 === 0 ? 'left' : 'right');
+                            }).filter(Boolean);
 
-                            if (!todaySection && !yesterdaySection) {
+                            if (renderedSections.length === 0) {
                                 return (
                                     <div className="flex flex-col items-center justify-center py-12">
                                         <div className="relative mb-4">
@@ -629,18 +632,8 @@ const StudyHistory = React.memo(function StudyHistory({
                             }
 
                             return (
-                                <div className="flex flex-col lg:flex-row gap-8 flex-1 overflow-y-visible" style={{ minHeight: '400px' }}>
-                                    {todaySection || (
-                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-slate-700/40">
-                                            <span className="text-xs text-slate-500 font-medium">Sem dados hoje</span>
-                                        </div>
-                                    )}
-
-                                    {yesterdaySection || (
-                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-slate-700/40">
-                                            <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
-                                        </div>
-                                    )}
+                                <div className={`grid grid-cols-1 ${renderedSections.length > 1 ? 'lg:grid-cols-2' : ''} gap-8 flex-1 overflow-y-visible`} style={{ minHeight: '400px' }}>
+                                    {renderedSections}
                                 </div>
                             );
                         })()}

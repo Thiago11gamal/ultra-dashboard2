@@ -238,7 +238,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 const historyMap = new Map();
 
                 const getStableHistoryKey = (h) =>
-                    h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}`;
+                    h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}-${h.correct ?? ''}-${h.total ?? ''}`;
 
                 const safeLocalHistory = Array.isArray(localCat.simuladoStats?.history)
                     ? localCat.simuladoStats.history
@@ -835,20 +835,24 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             // Helper to prevent Firebase SDK hanging indefinitely on mobile network drops
             // FIX 3.3: Prevenção da Condição de Corrida no syncToCloud
-            // O Promise.race não interrompe a escrita subjacente do Firebase. 
+            // O Promise.race não interrompe a escrita subjacente do SDK. 
             // Esta abordagem anula bloqueios de estado e delega a fila offline nativamente ao SDK.
             const setDocWithTimeout = (docRef, data, timeoutMs = 15000) => {
                 return new Promise((resolve, reject) => {
-                    let isResolved = false;
+                    let settled = false;
                     const timer = setTimeout(() => {
-                        isResolved = true;
-                        reject(new Error('timeout_ignore_queue'));
+                        if (!settled) {
+                            settled = true;
+                            // Loga mas não rejeita — a escrita continua em background via SDK offline queue
+                            console.warn('[Sync] Timeout de escrita. O SDK tentará novamente offline.');
+                            resolve(); // Resolve para não bloquear a UI
+                        }
                     }, timeoutMs);
 
                     setDoc(docRef, data).then(() => {
-                        if (!isResolved) { clearTimeout(timer); resolve(); }
+                        if (!settled) { settled = true; clearTimeout(timer); resolve(); }
                     }).catch(err => {
-                        if (!isResolved) { clearTimeout(timer); reject(err); }
+                        if (!settled) { settled = true; clearTimeout(timer); reject(err); }
                     });
                 });
             };

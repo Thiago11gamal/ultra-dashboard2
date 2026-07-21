@@ -37,12 +37,9 @@ export function parseLocaleNumber(value, fallback = NaN) {
         const parts = raw.split('.');
         const lastPart = parts[parts.length - 1];
         if (lastComma === -1 && parts.length === 2 && lastPart.length === 3) {
-            // Heurística de milhar: checa se os 3 dígitos são compatíveis com nota arredondada de milhar
-            if (/000|500/.test(lastPart)) {
-                raw = raw.replace(/\./g, '');
-            } else {
-                raw = raw.replace(/,/g, ''); // Trata como float padrão
-            }
+            // Qualquer grupo de exatamente 3 dígitos após ponto único é milhar
+            // (notas de prova não têm 3 casas decimais)
+            raw = raw.replace(/\./g, '');
         } else {
             raw = raw.replace(/,/g, '');
         }

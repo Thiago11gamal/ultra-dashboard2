@@ -59,11 +59,15 @@ export function analyzeProgressState(scores, config = {}) {
     // 4. Extract window
     // CORREÇÃO: Gerar a âncora sintética ANTES de ordenar para preservar o eixo cronológico verdadeiro
     const syntheticNow = Date.now();
-    const sortedScores = [...safeScores].map((d, index) => {
-        let time = typeof d === 'object' ? toDateMs(d.date) : NaN;
-        if (Number.isNaN(time)) time = syntheticNow - ((safeScores.length - index) * 86400000);
+    const sortedScores = safeScores
+      .filter(d => d != null)
+      .map((d, index) => {
+        let time = (d && typeof d === 'object') ? toDateMs(d.date) : NaN;
+        if (!Number.isFinite(time)) time = syntheticNow - ((safeScores.length - index) * 86400000);
         return { original: d, safeTime: time };
-    }).sort((a, b) => a.safeTime - b.safeTime);
+      })
+      .filter(item => Number.isFinite(item.safeTime))
+      .sort((a, b) => a.safeTime - b.safeTime);
 
     const validSortedScores = sortedScores.filter(d => {
         const score = typeof d.original === 'object' ? d.original.score : d.original;
