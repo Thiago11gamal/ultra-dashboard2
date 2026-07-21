@@ -584,6 +584,8 @@ export default function Coach() {
                     <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner">
                         <div className="flex items-center gap-3 sm:gap-4 px-2">
                             <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-rose-400" icon={<Zap size={14} />} />
+                            <div className="hidden sm:block w-px h-6 bg-white/10" />
+                            <MonteCarloDebugger stats={mcStats} />
                             <div className="w-px h-6 bg-white/10" />
                             <QuickStat
                                 label="Tendência"
@@ -594,8 +596,6 @@ export default function Coach() {
                             <div className="w-px h-6 bg-white/10" />
                             <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
                         </div>
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        <MonteCarloDebugger stats={mcStats} />
                     </div>
                 </div>
 
