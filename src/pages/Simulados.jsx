@@ -161,11 +161,11 @@ const lastSimuladoRows = React.useMemo(() => {
     );
     if (answeredRows.length === 0) return [];
   
-    // 2. Ordena por timestamp mais recente (lastUpdated > createdAt > date)
     const getTimestamp = (r) => {
       const raw = r.lastUpdated || r.createdAt || r.date;
       if (!raw) return 0;
-      const t = new Date(raw).getTime();
+      const parsed = normalizeDate(raw);
+      const t = parsed ? parsed.getTime() : new Date(raw).getTime();
       return Number.isFinite(t) ? t : 0;
     };
   
@@ -178,18 +178,15 @@ const lastSimuladoRows = React.useMemo(() => {
       return simuladoRowsArray.filter((r) => r.batchId === lastRef.batchId);
     }
   
-    // 4. Estratégia B: MESMA DATA (não mais "10 minutos")
+    // 4. Estratégia B: MESMA DATA
     //    Simulado manual = todas as rows da mesma data do último registro
-    const refDateKey =
-      lastRef.date ||
-      getDateKey(normalizeDate(lastRef.lastUpdated || lastRef.createdAt || new Date()));
+    const refDateKey = getDateKey(normalizeDate(lastRef.date || lastRef.lastUpdated || lastRef.createdAt || new Date()));
     if (!refDateKey) return [lastRef];
   
     return simuladoRowsArray.filter((r) => {
       // Não misturar IA com manual
       if (r.batchId !== lastRef.batchId) return false;
-      const rowDateKey =
-        r.date || getDateKey(normalizeDate(r.lastUpdated || r.createdAt || ''));
+      const rowDateKey = getDateKey(normalizeDate(r.date || r.lastUpdated || r.createdAt || ''));
       return rowDateKey === refDateKey;
     });
 }, [simuladoRowsArray]);
@@ -283,9 +280,15 @@ const handleSimuladoAnalysis = (payload) => {
           };
         });
 
-      const sortRowsByTime = (a, b) =>
-        new Date(a?.lastUpdated || a?.createdAt || a?.date || 0).getTime() -
-        new Date(b?.lastUpdated || b?.createdAt || b?.date || 0).getTime();
+      const getMs = (r) => {
+        const raw = r?.lastUpdated || r?.createdAt || r?.date;
+        if (!raw) return 0;
+        const parsed = normalizeDate(raw);
+        const t = parsed ? parsed.getTime() : new Date(raw).getTime();
+        return Number.isFinite(t) ? t : 0;
+      };
+
+      const sortRowsByTime = (a, b) => getMs(a) - getMs(b);
 
       const validatedRows = [...rowsToKeep, ...manualSubmittedRows]
         .sort(sortRowsByTime)
