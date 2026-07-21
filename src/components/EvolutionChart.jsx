@@ -35,10 +35,13 @@ const EMPTY_ARRAY = [];
 
 function renderInsightText(text, textColorClass) {
     if (typeof text !== 'string') return text;
-    const parts = text.split(/(\*\*.*?\*\*)/g).filter(Boolean);
+    const parts = text.split(/(\*\*.*?\*\*|!!.*?!!)/g).filter(Boolean);
     return parts.map((part, idx) => {
         if (part.startsWith('**') && part.endsWith('**')) {
             return <strong key={idx} className={`${textColorClass} font-black drop-shadow-[0_0_8px_currentColor]`}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith('!!') && part.endsWith('!!')) {
+            return <span key={idx} className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">{part.slice(2, -2)}</span>;
         }
         return <React.Fragment key={idx}>{part}</React.Fragment>;
     });
@@ -900,7 +903,7 @@ export default React.memo(function EvolutionChart({
                                     <div className="space-y-1 min-w-0">
                                         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                                             <span className={`text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] ${colors.text} drop-shadow-sm truncate`}>
-                                                {insight.title}
+                                                {renderInsightText(insight.title, colors.text)}
                                             </span>
                                             <div className="h-px w-6 sm:w-10 bg-white/10 hidden sm:block" />
                                             <span className="px-2 py-0.5 rounded-full bg-white/5 text-[8px] font-black text-slate-500 border border-white/5 uppercase tracking-widest whitespace-nowrap">System Engine v4.0</span>
@@ -929,7 +932,7 @@ export default React.memo(function EvolutionChart({
                                         </div>
                                         
                                         <p className={`text-sm sm:text-base font-bold leading-relaxed ${colors.text} relative z-10 drop-shadow-lg break-words`}>
-                                            {insight.advice}
+                                            {renderInsightText(insight.advice, colors.text)}
                                         </p>
                                         
                                         <div className="absolute -bottom-4 -right-4 p-6 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">

@@ -102,14 +102,14 @@ export function generateEvolutionInsights({
             return {
                 type: 'success', icon: "📅", title: "Padrão Semanal de Rendimento",
                 text: `Seu rendimento de pico ocorre aos **${DAY_NAMES_PLURAL[best.dow]}**.`,
-                details: `Melhor dia: **${DAY_NAMES_SINGULAR[best.dow]}** (${best.pct.toFixed(1)}%, ${best.total}q). Pior: **${DAY_NAMES_SINGULAR[worst.dow]}** (${worst.pct.toFixed(1)}%).`,
+                details: `Melhor dia: **${DAY_NAMES_SINGULAR[best.dow]}** (${best.pct.toFixed(1)}%, ${best.total}q). !!Pior: ${DAY_NAMES_SINGULAR[worst.dow]} (${worst.pct.toFixed(1)}%).!!`,
                 advice: "Alinhe seus simulados mais densos ao dia de melhor rendimento."
             };
         }
         return {
             type: 'info', icon: "📅", title: "Mapa de Calor",
             text: "Visualize sua constância semanal.",
-            details: "Células verdes indicam desempenho acima da meta, vermelhas indicam necessidade de atenção."
+            details: "Células verdes indicam desempenho acima da meta, !!vermelhas!! indicam necessidade de atenção."
         };
     }
 
@@ -129,7 +129,7 @@ export function generateEvolutionInsights({
         
         const maxSwing = Math.max(...recentScores) - Math.min(...recentScores);
 
-        if (maxSwing > 25 * scale) return { type: 'warning', icon: "⚠️", title: "Alta Volatilidade Detectada", text: `Variação de ${maxSwing.toFixed(0)}${unit}.`, advice: "Oscilações altas indicam 'chute' ou gaps de base." };
+        if (maxSwing > 25 * scale) return { type: 'warning', icon: "⚠️", title: "!!Alta Volatilidade Detectada!!", text: `!!Variação de ${maxSwing.toFixed(0)}${unit}.!!`, advice: "Oscilações altas indicam !!'chute'!! ou !!gaps de base!!. " };
         if (maxSwing < 8 * scale) return { type: 'success', icon: "✅", title: "Consistência Sólida", text: `Variação mínima de ${maxSwing.toFixed(0)}${unit}.`, advice: "Pronto para subir a dificuldade." };
         
         return { type: 'info', icon: "📊", title: "Desempenho Estável", text: `Oscilação de ${maxSwing.toFixed(0)}${unit}.` };
@@ -143,7 +143,7 @@ export function generateEvolutionInsights({
         const ciWidth = (ciHigh != null && ciLow != null) ? (ciHigh - ciLow) : null;
 
         if (ciWidth != null && ciWidth < 5 * scale) return { type: 'success', icon: "🎯", title: "Alta Precisão Bayesiana", text: `Seu nível real é ${bayesian.toFixed(1)}${unit}.`, advice: "Convergência máxima do algoritmo." };
-        if (ciWidth != null && ciWidth > 20 * scale) return { type: 'warning', icon: "🧠", title: "Incerteza Elevada", text: `Nível estimado: ${bayesian.toFixed(1)}${unit}.`, advice: "Faça mais simulados para estreitar a estimativa." };
+        if (ciWidth != null && ciWidth > 20 * scale) return { type: 'warning', icon: "🧠", title: "!!Incerteza Elevada!!", text: `Nível estimado: ${bayesian.toFixed(1)}${unit}.`, advice: "Faça mais simulados para estreitar a estimativa." };
         
         return { type: 'info', icon: "🧠", title: "Estimativa Bayesiana", text: `Nível Real: ${bayesian.toFixed(1)}${unit}.` };
     }
@@ -162,7 +162,7 @@ export function generateEvolutionInsights({
 
     // Lógica Raio-X de Assuntos (Subtopics)
     if (activeEngine === "subtopics") {
-        return { type: 'info', icon: "🔬", title: "Auditoria de Assuntos", text: "Navegando nos subtópicos da matéria.", advice: "Ataque os blocos vermelhos para subir seu percentual rapidamente." };
+        return { type: 'info', icon: "🔬", title: "Auditoria de Assuntos", text: "Navegando nos subtópicos da matéria.", advice: "Ataque os !!blocos vermelhos!! para subir seu percentual rapidamente." };
     }
 
     // Lógica Densidade MC (mc_density)
@@ -172,7 +172,7 @@ export function generateEvolutionInsights({
 
     // Lógica Semanal (weekly_diff)
     if (activeEngine === "weekly_diff") {
-        return { type: 'info', icon: "📆", title: "Acelerômetro Semanal", text: "Tração do seu estudo na última semana.", advice: "Monitore semanas negativas para evitar a curva do esquecimento." };
+        return { type: 'info', icon: "📆", title: "Acelerômetro Semanal", text: "Tração do seu estudo na última semana.", advice: "Monitore semanas !!negativas!! para evitar a !!curva do esquecimento!!." };
     }
 
     // Lógica Hoje vs Geral (today_vs_general)
@@ -182,7 +182,7 @@ export function generateEvolutionInsights({
 
     // Lógica Agilidade AI (time_spent)
     if (activeEngine === "time_spent") {
-        return { type: 'info', icon: "⏳", title: "Velocidade de Resolução", text: "Mapeando gargalos de tempo.", advice: "Cuidado com matérias lentas, elas roubam preciosos minutos da prova." };
+        return { type: 'info', icon: "⏳", title: "Velocidade de Resolução", text: "Mapeando gargalos de tempo.", advice: "Cuidado com matérias !!lentas!!, elas roubam preciosos minutos da prova." };
     }
 
     // Lógica de Alertas de Burnout e Consolidação (Fallback)
@@ -198,7 +198,7 @@ export function generateEvolutionInsights({
             })
             .reduce((sum, h) => sum + (parseInt(h.total, 10) || (h.score != null ? getSyntheticTotal(maxScore) : 0)), 0);
 
-        if (recentVolumeAlert > 40 && raw < bayesian - 10 * scale) return { type: 'danger', icon: "🚨", title: "Alerta de Burnout", text: `Volume alto, nota em queda.`, advice: "Dê um passo atrás e descanse." };
+        if (recentVolumeAlert > 40 && raw < bayesian - 10 * scale) return { type: 'danger', icon: "🚨", title: "!!Alerta de Burnout!!", text: `Volume alto, nota em !!queda!!.`, advice: "Dê um passo atrás e descanse." };
         if (raw > bayesian + 8 * scale) return { type: 'success', icon: "💡", title: "Conhecimento Consolidado", text: `Desempenho muito acima da média.`, advice: "O conhecimento assentou de vez." };
     }
 
