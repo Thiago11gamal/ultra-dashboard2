@@ -166,18 +166,29 @@ export const sanitizeContest = (data) => {
       name: cat.name || "Sem Nome",
       color: cat.color || "#3b82f6",
       icon: cat.icon || "📚",
-      tasks: (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).map(t => ({
-        id: t.id || generateId('task'),
-        text: t.text || t.title || "Nova Tarefa",
-        title: t.title || t.text || "Nova Tarefa",
-        completed: Boolean(t.completed),
-        completedAt: t.completedAt || null,
-        lastStudiedAt: t.lastStudiedAt || null,
-        priority: t.priority || "medium",
-        // BUG-01 & 02 FIX: Preserve awardedXP and studying status during sync/reload
-        ...(t.awardedXP != null ? { awardedXP: Number(t.awardedXP) } : {}),
-        ...(t.status ? { status: t.status } : {})
-      })).filter(t => t.id && (t.text || t.title)), // Skip Corrupted Tasks
+      tasks: (() => {
+        const rawTasks = (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).map(t => ({
+          id: t.id || generateId('task'),
+          text: t.text || t.title || t.topic || "Nova Tarefa",
+          title: t.title || t.text || t.topic || "Nova Tarefa",
+          completed: Boolean(t.completed),
+          completedAt: t.completedAt || null,
+          lastStudiedAt: t.lastStudiedAt || null,
+          priority: t.priority || "medium",
+          // BUG-01 & 02 FIX: Preserve awardedXP and studying status during sync/reload
+          ...(t.awardedXP != null ? { awardedXP: Number(t.awardedXP) } : {}),
+          ...(t.status ? { status: t.status } : {})
+        })).filter(t => t.id && (t.text || t.title)); // Skip Corrupted Tasks
+
+        // BUG 16 FIX: Deduplicação rigorosa por nome normalizado
+        const seenTaskNames = new Set();
+        return rawTasks.filter(t => {
+          const normName = t.text.toLowerCase().trim();
+          if (seenTaskNames.has(normName)) return false;
+          seenTaskNames.add(normName);
+          return true;
+        });
+      })(),
       weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
       maxScore: Number(cat.maxScore) || 100,
       minCutoff: Number(cat.minCutoff) || 0,
