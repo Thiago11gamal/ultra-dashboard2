@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
-import { normalizeDate, formatDuration as globalFormatDuration } from '../utils/dateHelper';
+import { normalizeDate, getDateKey, formatDuration as globalFormatDuration } from '../utils/dateHelper';
 
 const formatDuration = (minutes) => {
     return globalFormatDuration((minutes || 0) / 60);

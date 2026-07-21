@@ -104,8 +104,7 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     // [FIX 4] Jamais force um 0 em domínios não triviais. Deixe o filtro NaN tratar jusante.
     if (finiteValues.length === 0) return values;
     if (finiteValues.length < 5) {
-        // Retorna valores finitos apenas, preservando comprimento com null seguro
-        return values.map(v => Number.isFinite(v) ? v : null); 
+        return values; 
     }
 
     const sorted = [...finiteValues].sort((a, b) => a - b);
