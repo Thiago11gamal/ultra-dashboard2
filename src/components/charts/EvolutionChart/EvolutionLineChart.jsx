@@ -93,41 +93,59 @@ export function EvolutionLineChart({
         if (!finalPoints.length) return {};
 
         const range = maxScore - minScore;
-        const yPositions = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
+        const labels = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
         
         const topLimit = maxScore - (range * 0.02);
         const bottomLimit = minScore + (range * 0.05);
         const safeSpace = Math.max(0.1, topLimit - bottomLimit);
         
         const MIN_PCT_DISTANCE = range * 0.075; // 7.5% distance threshold
-        const requiredSpace = (yPositions.length - 1) * MIN_PCT_DISTANCE;
+        const requiredSpace = (labels.length - 1) * MIN_PCT_DISTANCE;
         
         // Dynamic compression if too many labels for the space
         const effectiveDistance = requiredSpace > safeSpace 
-            ? safeSpace / Math.max(1, yPositions.length - 1) 
+            ? safeSpace / Math.max(1, labels.length - 1) 
             : MIN_PCT_DISTANCE;
 
-        // Pass 1: Push down to separate colliding labels
-        for (let i = 1; i < yPositions.length; i++) {
-            if (yPositions[i - 1].yPos - yPositions[i].yPos < effectiveDistance) {
-                yPositions[i].yPos = yPositions[i - 1].yPos - effectiveDistance;
+        // Iterative relaxation algorithm to spread out colliding labels
+        const ITERATIONS = 15;
+        for (let iter = 0; iter < ITERATIONS; iter++) {
+            let overlapFound = false;
+            for (let i = 0; i < labels.length - 1; i++) {
+                const l1 = labels[i];
+                const l2 = labels[i + 1];
+                const diff = l1.yPos - l2.yPos; // Expect l1 > l2 since they are sorted descending
+                
+                if (diff < effectiveDistance) {
+                    overlapFound = true;
+                    const adjustment = (effectiveDistance - diff) / 2;
+                    l1.yPos += adjustment;
+                    l2.yPos -= adjustment;
+                }
             }
+            
+            // Apply boundary constraints gently (shift all to maintain separation)
+            if (labels.length > 0 && labels[0].yPos > topLimit) {
+                const diff = labels[0].yPos - topLimit;
+                labels.forEach(l => l.yPos -= diff);
+            }
+            
+            if (labels.length > 0 && labels[labels.length - 1].yPos < bottomLimit) {
+                const diff = bottomLimit - labels[labels.length - 1].yPos;
+                labels.forEach(l => l.yPos += diff);
+            }
+            
+            if (!overlapFound) break;
         }
 
-        // Pass 2: Bottom recovery (avoid falling off the bottom boundary)
-        if (yPositions.length > 0 && yPositions[yPositions.length - 1].yPos < bottomLimit) {
-            const shift = bottomLimit - yPositions[yPositions.length - 1].yPos;
-            yPositions.forEach(p => p.yPos += shift);
-        }
-
-        // Pass 3: Top recovery (avoid cutting the top of the chart)
-        if (yPositions.length > 0 && yPositions[0].yPos > topLimit) {
-            const shift = yPositions[0].yPos - topLimit;
-            yPositions.forEach(p => p.yPos -= shift);
+        // Force strict limits one last time for safety
+        for (let i = 0; i < labels.length; i++) {
+            if (labels[i].yPos > topLimit) labels[i].yPos = topLimit;
+            if (labels[i].yPos < bottomLimit) labels[i].yPos = bottomLimit;
         }
 
         const map = {};
-        yPositions.forEach(p => { map[p.id] = p.yPos; });
+        labels.forEach(p => { map[p.id] = p.yPos; });
         return map;
     }, [finalPoints, maxScore, minScore]);
 

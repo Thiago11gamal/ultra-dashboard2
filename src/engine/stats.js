@@ -18,10 +18,10 @@ export const RETENTION_DECAY_LONG = 0.992;  // long term consolidation
  * Combines short-term rapid decay with long-term slow decay.
  */
 export function computeImprovedRetentionProbability(historyLength, lastGapDays = 7, maxAlpha = 0.9) {
-  const shortDecay = Math.pow(RETENTION_DECAY_SHORT, Math.max(0, lastGapDays));
-  const longDecay = Math.pow(RETENTION_DECAY_LONG, Math.max(0, lastGapDays * 0.6));
-  const blended = 0.6 * shortDecay + 0.4 * longDecay;
-  return Math.max(0.15, Math.min(maxAlpha, blended * maxAlpha));
+    const shortDecay = Math.pow(RETENTION_DECAY_SHORT, Math.max(0, lastGapDays));
+    const longDecay = Math.pow(RETENTION_DECAY_LONG, Math.max(0, lastGapDays * 0.6));
+    const blended = 0.6 * shortDecay + 0.4 * longDecay;
+    return Math.max(0.15, Math.min(maxAlpha, blended * maxAlpha));
 }
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
@@ -41,8 +41,8 @@ export function getSortedHistory(history) {
                 return { original: h, time: index }; // Usa o index cronológico base
             }
             const t = h && (h.date || h.createdAt) ? safeDateParse(h.date || h.createdAt)?.getTime() ?? NaN : NaN;
-            return { 
-                original: h, 
+            return {
+                original: h,
                 time: t
             };
         })
@@ -86,7 +86,7 @@ export function pruneHistoryForMemory(history = [], maxPoints = 1500, maxAgeDays
     const targetCount = maxPoints - recentCount;
     const factor = older.length / targetCount;
     const sampledOlder = [];
-    
+
     for (let i = 0; i < targetCount; i++) {
         sampledOlder.push(older[Math.floor(i * factor)]);
     }
@@ -103,7 +103,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
 
     const now = options.referenceDate || Date.now();
-    
+
     // OTIMIZAÇÃO: Cache do tempo do elemento zero (Marco Zero Temporal)
     const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt)?.getTime() ?? NaN;
 
@@ -114,18 +114,18 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     let sumWXX = 0, cWXX = 0;
     let sumWXY = 0, cWXY = 0;
 
-    for(let i = 0; i < sorted.length; i++) {
+    for (let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
         const hDate = h.date || h.createdAt;
         const timeMs = safeDateParse(hDate)?.getTime() ?? NaN;
-        
+
         if (Number.isNaN(timeMs)) continue;
 
         const y = getSafeScore(h, maxScore);
         if (!Number.isFinite(y)) continue;
 
         const t = Math.max(0, (now - timeMs) / 86400000);
-        
+
         // Calcula o peso exponencial, mas NUNCA deixa zerar completamente (Bug 2 Fix)
         const EPSILON_WEIGHT = 1e-10;
         const rawWeight = Math.exp(-lambda * t);
@@ -136,16 +136,16 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
         // Kahan summation imperativo para evitar O(N) alocações de map
         const yW = w - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
-        
+
         const valWX = w * x;
         const yWX = valWX - cWX; const tWX = sumWX + yWX; cWX = (tWX - sumWX) - yWX; sumWX = tWX;
-        
+
         const valWY = w * y;
         const yWY = valWY - cWY; const tWY = sumWY + yWY; cWY = (tWY - sumWY) - yWY; sumWY = tWY;
-        
+
         const valWXX = w * x * x;
         const yWXX = valWXX - cWXX; const tWXX = sumWXX + yWXX; cWXX = (tWXX - sumWXX) - yWXX; sumWXX = tWXX;
-        
+
         const valWXY = w * x * y;
         const yWXY = valWXY - cWXY; const tWXY = sumWXY + yWXY; cWXY = (tWXY - sumWXY) - yWXY; sumWXY = tWXY;
     }
@@ -153,20 +153,20 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     // Regularização de Tikhonov (Ridge) para estabilizar a matriz inversa da Regressão WLS
     // Adicionamos um lambda epsilon baseado na escala dos dias. (Bug 4 Fix)
     // Ridge penalty proporcional à variância dos dados para estabilidade independente da escala
-    const RIDGE_PENALTY = Math.max(1e-8, (sumWXX > 0 ? sumWXX / Math.max(1, sumW) : 1) * 1e-4); 
+    const RIDGE_PENALTY = Math.max(1e-8, (sumWXX > 0 ? sumWXX / Math.max(1, sumW) : 1) * 1e-4);
     const safeSumW = Math.max(1e-15, sumW);
     // CORREÇÃO: Impedir o underflow de precisão (IEEE 754) que gera variâncias X negativas
     const varianceX = Math.max(0, sumWXX - (sumWX * sumWX) / safeSumW);
     const covXY = sumWXY - (sumWX * sumWY) / safeSumW;
 
     const regularizedDenominator = varianceX + RIDGE_PENALTY;
-    
+
     // Na hora da divisão final da regressão, adicione proteção contra pesos nulos (Bug 2 Fix)
     if (safeSumW < 1e-15 || regularizedDenominator < 1e-15) {
         const fallbackScore = getSafeScore(sorted[sorted.length - 1], maxScore);
         return { slope: 0, intercept: Number.isFinite(fallbackScore) ? fallbackScore : 0, slopeStdError: 1.5 };
     }
-    
+
     let slope = covXY / regularizedDenominator;
 
     // Clamp de segurança: um aluno não consegue aprender (nem desaprender) mais do 
@@ -185,7 +185,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options = {}) {
     const now = options.referenceDate || Date.now();
     const t0 = safeDateParse(sorted[0].date || sorted[0].createdAt)?.getTime() ?? NaN;
-    
+
     // Kahan summation para precisão institucional O(N)
     let sumW = 0, cW = 0;
     let sumW2 = 0, cW2 = 0;
@@ -211,38 +211,38 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
 
         const pred = intercept + slope * x;
         const residualSq = Math.pow(y - pred, 2);
-        
+
         // Inline Kahan Summation (Performance Crítica)
         const valW = w;
         const yW = valW - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
-        
+
         const valW2 = w * w;
         const yW2 = valW2 - cW2; const tW2 = sumW2 + yW2; cW2 = (tW2 - sumW2) - yW2; sumW2 = tW2;
-        
+
         const valWX = w * x;
         const yWX = valWX - cWX; const tWX = sumWX + yWX; cWX = (tWX - sumWX) - yWX; sumWX = tWX;
-        
+
         const valWXX = w * x * x;
         const yWXX = valWXX - cWXX; const tWXX = sumWXX + yWXX; cWXX = (tWXX - sumWXX) - yWXX; sumWXX = tWXX;
-        
+
         const valRSS = w * residualSq;
         const yRSS = valRSS - cRSS; const tRSS = rss + yRSS; cRSS = (tRSS - rss) - yRSS; rss = tRSS;
     }
 
     if (sumW2 <= 1e-15) return 1.5 * (maxScore / 100);
-    
+
     const effectiveN = (sumW * sumW) / sumW2;
     const scaleFactorFallback = maxScore / 100;
 
     if (effectiveN <= 2.1) return 1.5 * scaleFactorFallback;
 
     const variance = (rss / sumW) * (effectiveN / (effectiveN - 2));
-    
+
     // Bug 1.2 Fix: Colapso do Erro Padrão.
     // Usar a variância da variável independente (tempo) para evitar a singularidade,
     // em vez de verificar o pseudo-determinante cru que decai por causa do Shrinkage dos Pesos (w).
     const varX = (sumWXX - (sumWX * sumWX) / sumW) / sumW;
-    
+
     // Se a variação temporal for minúscula (todos os simulados no mesmo dia), 
     // a inclinação é matematicamente indeterminada. Recorremos ao standard error básico da média.
     if (varX <= 1e-8) {
@@ -264,14 +264,14 @@ function getHistoryTime(entry) {
 
 function getDynamicTrendThreshold(currentScore, maxScore) {
     const currentPct = currentScore / maxScore;
-    
+
     // Fator de amortecimento: se o aluno tirou 40%, damping = 0.6. Se tirou 95%, damping = 0.05.
     const damping = Math.max(0, 1 - currentPct);
-    
+
     // Curva de exigência: Inicia agressiva (ex: 4~5% para novatos) e cai para um mínimo de 0.2% para veteranos.
-    const baseRequirement = 0.05; 
-    const dynamicPct = (baseRequirement * Math.pow(damping, 1.5)) + 0.002; 
-    
+    const baseRequirement = 0.05;
+    const dynamicPct = (baseRequirement * Math.pow(damping, 1.5)) + 0.002;
+
     return dynamicPct * maxScore;
 }
 
@@ -279,21 +279,21 @@ function getDynamicTrendThreshold(currentScore, maxScore) {
 // com um piso de 5% e teto de 20% para evitar colapso bayesiano.
 function getDynamicPriorSD(history, maxScore) {
     if (!history || history.length < 5) return maxScore * 0.15; // Fallback inicial seguro
-    
+
     // CORREÇÃO MÁXIMA: Polimorfismo para ler corretamente arrays de números nus 
     // ou arrays de objetos complexos (impedindo NaN poisoning no Prior Bayesiano).
     const scores = history.map(h => {
         if (typeof h === 'number') return h;
         return getSafeScore(h, maxScore);
     }).filter(Number.isFinite);
-    
+
     if (scores.length < 5) return maxScore * 0.15;
-    
+
     const globalMean = mean(scores);
     const globalVar = scores.length > 1
         ? kahanSum(scores.map(s => Math.pow(s - globalMean, 2))) / (scores.length - 1)
         : 0;
-    
+
     const empiricalSD = Math.sqrt(globalVar);
     return Math.max(maxScore * 0.05, Math.min(maxScore * 0.20, empiricalSD));
 }
@@ -346,11 +346,11 @@ export const calcularDesvioPadrao = (arr) => {
     const clean = arr.map(Number).filter(Number.isFinite);
     if (clean.length <= 1) return 0;
     const m = kahanMean(clean);
-    
+
     const sumSq = clean.map(x => Math.pow(x - m, 2));
     // Este helper é usado pelos testes rigorosos como desvio padrão populacional (ddof=0).
     const v = clean.length > 0 ? kahanSum(sumSq) / clean.length : 0;
-    
+
     return Math.sqrt(v);
 };
 
@@ -366,29 +366,29 @@ export function calcularAssimetria(arr) {
         .filter(Number.isFinite);
     const n = clean.length;
     if (n < 3) return 0;
-    
+
     const m = mean(clean);
-    
+
     // CORREÇÃO: Utilizar a variância amostral (N-1) para o cálculo do Fisher-Pearson G1
     const sumSq = kahanSum(clean.map(val => Math.pow(val - m, 2)));
     const sampleVar = sumSq / (n - 1);
     const s = Math.sqrt(sampleVar);
-    
+
     // Tolerância de underflow. Se o desvio for inferior a 0.00001,
     // a assimetria é considerada estatisticamente nula.
     if (s < 1e-5) return 0;
 
     const cubeDiffs = clean.map(val => Math.pow(val - m, 3));
     const sumCube = kahanSum(cubeDiffs);
-    
+
     // FIX 3: Proteção sobre a raiz do desvio e não sobre o produto ao cubo.
     // Preserva o sinal e a magnitude de desvios padrão pequenos (ex: SD = 0.001)
     const safeS = Math.max(1e-5, s);
     const skewness = (n * sumCube) / ((n - 1) * (n - 2) * Math.pow(safeS, 3));
-    
+
     // Fallback absoluto: Se a divisão gerar valores indefinidos, exporta 0 (Simetria perfeita)
     if (Number.isNaN(skewness) || !Number.isFinite(skewness)) return 0;
-    
+
     return Math.max(-5, Math.min(5, skewness)); // Clamp para proteção de outliers
 }
 
@@ -404,14 +404,14 @@ export function calcularAssimetria(arr) {
  * @param {Object} options - Configurações extras (maxEffectiveN, priorMean, etc).
  */
 export function computeBayesianLevel(
-    historyOrScore, 
-    arg1 = 1, 
-    arg2 = 1, 
-    arg3 = 100, 
+    historyOrScore,
+    arg1 = 1,
+    arg2 = 1,
+    arg3 = 100,
     arg4 = {}
 ) {
     let history, alpha, beta, safeMaxScore, options;
-    
+
     // 1. Polimorfismo de Assinatura
     if (Array.isArray(historyOrScore)) {
         // Modo A: Histórico de Simulados (history, alpha0, beta0, maxScore, options)
@@ -429,7 +429,7 @@ export function computeBayesianLevel(
         const rawMax = Number(arg2);
         safeMaxScore = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
         options = arg3 || {};
-        
+
         const pct = Math.max(0, Math.min(1, score / safeMaxScore));
         alpha = pct * n_eff;
         beta = (1 - pct) * n_eff;
@@ -462,17 +462,17 @@ export function computeBayesianLevel(
     const totalQuestionsHist = history ? kahanSum(history.map(h => Number(h.total) || 20)) : 0;
     // CORREÇÃO: Usar obrigatoriamente a linha do tempo previamente ordenada (historySortedForGaps) 
     // para não distorcer o fluxo de tempo e explodir a memória ativa.
-    const historyDays = historySortedForGaps && historySortedForGaps.length > 1 
-        ? Math.max(1, (getHistoryTime(historySortedForGaps[historySortedForGaps.length - 1]) - getHistoryTime(historySortedForGaps[0])) / 86400000) 
+    const historyDays = historySortedForGaps && historySortedForGaps.length > 1
+        ? Math.max(1, (getHistoryTime(historySortedForGaps[historySortedForGaps.length - 1]) - getHistoryTime(historySortedForGaps[0])) / 86400000)
         : 1;
     const questionsPerDay = totalQuestionsHist / historyDays;
 
     const volumeCapacity = questionsPerDay * 30;
-    
+
     // O teto adapta-se à realidade hiperativa do aluno
     const dynamicAlphaCap = Math.max(250, Math.floor(Math.min(baseCapacity, volumeCapacity)));
     const dynamicEffectiveN = dynamicAlphaCap;
-    
+
     const refDateObj = options.referenceDate ? normalizeDate(options.referenceDate) : null;
     const now = refDateObj ? refDateObj.getTime() : Date.now();
 
@@ -486,7 +486,7 @@ export function computeBayesianLevel(
                 let rawPct = sScore / safeMaxScore;
                 rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
                 const validPct = Math.min(1, rawPct);
-                
+
                 const y = validPct - priorC;
                 const t = priorSum + y;
                 priorC = (t - priorSum) - y;
@@ -498,18 +498,18 @@ export function computeBayesianLevel(
     }
 
     // 1. Calcule o avgTotal UMA ÚNICA VEZ antes de entrar no loop do histórico
-    const avgTotal = history && history.length > 0 
-        ? (kahanSum(history.map(hh => Number(hh.total) || 20)) / history.length) 
+    const avgTotal = history && history.length > 0
+        ? (kahanSum(history.map(hh => Number(hh.total) || 20)) / history.length)
         : getSyntheticTotal(safeMaxScore);
-    
+
     // CORREÇÃO: Cache da base adaptativa fora do loop (O(N) vs O(N²))
-    const baseAdaptiveLambda = (history && history.length > 0) 
-        ? computeAdaptiveLambda(historySortedForGaps) 
+    const baseAdaptiveLambda = (history && history.length > 0)
+        ? computeAdaptiveLambda(historySortedForGaps)
         : 0.08;
 
     if (history && history.length > 0) {
         const sortedHistory = historySortedForGaps;
-        
+
         for (let i = 0; i < sortedHistory.length; i++) {
             const h = sortedHistory[i];
             let total = Number(h.total) || 0;
@@ -518,7 +518,7 @@ export function computeBayesianLevel(
             const isPurePercentage = ((!total || total === 0) && !Number.isNaN(getSafeScore(h, safeMaxScore)));
 
             const normalizedScore = getSafeScore(h, safeMaxScore);
-            
+
             // CORREÇÃO BLINDADA: Evita a injeção de veneno (NaN) nas pontuações Bayesianas
             if (Number.isNaN(normalizedScore)) continue;
 
@@ -536,21 +536,21 @@ export function computeBayesianLevel(
             // assumimos gap zero para não destruir os alphas e betas em cadeia.
             const entryDate = normalizeDate(getHistoryDateValue(h));
             const prevDate = i > 0 ? normalizeDate(getHistoryDateValue(sortedHistory[i - 1])) : entryDate;
-            
+
             // CORREÇÃO: Impedir que Invalid Dates gerem NaNs.
             const timeEntry = entryDate?.getTime();
             const timePrev = prevDate?.getTime();
-            const gapDays = (Number.isFinite(timeEntry) && Number.isFinite(timePrev)) 
-                ? Math.max(0, Math.floor((timeEntry - timePrev) / 86400000)) 
+            const gapDays = (Number.isFinite(timeEntry) && Number.isFinite(timePrev))
+                ? Math.max(0, Math.floor((timeEntry - timePrev) / 86400000))
                 : 0;
 
             // CORREÇÃO: Utilizar a constante pré-calculada
             const rawLambda = baseAdaptiveLambda * Math.exp(-0.15 * i);
-            const lambda = Math.max(0.005, rawLambda); 
+            const lambda = Math.max(0.005, rawLambda);
             const entryDecay = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
 
             const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
-            const macroDecay = Math.max(0.1, Math.exp(-0.005 * (gapDays || 0))); 
+            const macroDecay = Math.max(0.1, Math.exp(-0.005 * (gapDays || 0)));
             const retentionFloor = (cappedMaxN * 0.3) * macroDecay;
 
             if (entryDecay < 1.0) {
@@ -560,7 +560,7 @@ export function computeBayesianLevel(
                 const HARD_FLOOR = 3.0;
                 const safeFloor = Math.min(HARD_FLOOR, nBeforeDecay);
                 const nAfterDecay = Math.max(safeFloor, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * entryDecay)));
-                
+
                 // CORREÇÃO: A regressão à média em tempos de inatividade deve ancorar-se 
                 // no patamar consolidado do aluno até aquele momento (corte histórico).
                 const priorP = i > 0 ? runningPriors[i - 1] : runningPriors[0] || 0.5;
@@ -574,9 +574,9 @@ export function computeBayesianLevel(
             // [TRI FIX]: Se houver um peso/dificuldade no item, escalamos a confiança bayesiana.
             // Acertos em questões difíceis pesam mais na subida do nível.
             const itemWeight = Math.max(0.001, Number(h.weight || h.difficulty || 1.0));
-            
+
             // FIX #5: Synthetic N mais inteligente (Agora cacheado em O(1))
-            
+
             const stepCap = dynamicAlphaCap; // O limite cognitivo vivo
 
             // FIX 2: Blindagem contra Wipeout de Volume
@@ -586,7 +586,7 @@ export function computeBayesianLevel(
                 const syntheticN = Math.max(0, avgTotal * itemWeight);
                 let alphaHoje = pct * syntheticN;
                 let betaHoje = (1 - pct) * syntheticN;
-                
+
                 if ((alphaHoje + betaHoje) > stepCap) {
                     const clampDiario = stepCap / (alphaHoje + betaHoje);
                     alphaHoje *= clampDiario;
@@ -600,7 +600,7 @@ export function computeBayesianLevel(
                     const safeCorrect = Math.max(0, Math.min(total, correct));
                     let acertosHoje = Math.max(0, safeCorrect * itemWeight);
                     let errosHoje = Math.max(0, (total - safeCorrect) * itemWeight);
-                    
+
                     if ((acertosHoje + errosHoje) > stepCap) {
                         const clampDiario = stepCap / (acertosHoje + errosHoje);
                         acertosHoje *= clampDiario;
@@ -622,7 +622,7 @@ export function computeBayesianLevel(
             }
         }
     }
-    
+
     // Bug 1.1 Fix: Aplica o clamping do Leaky Bucket UMA ÚNICA VEZ após ingerir todo o histórico
     const nAfterLoop = alpha + beta;
     if (nAfterLoop > dynamicAlphaCap) {
@@ -630,7 +630,7 @@ export function computeBayesianLevel(
         alpha *= globalClamp;
         beta *= globalClamp;
     }
-    
+
     // Decaimento final até o dia de hoje (ou data de referência do gráfico)
     const lastEntry = (historySortedForGaps && historySortedForGaps.length > 0) ? historySortedForGaps[historySortedForGaps.length - 1] : null;
     const lastDateStr = lastEntry ? getHistoryDateValue(lastEntry) : options.lastEventDate;
@@ -638,20 +638,20 @@ export function computeBayesianLevel(
     if (lastDateStr) {
         const lastDate = normalizeDate(lastDateStr);
         const gapToToday = Math.max(0, Math.floor((now - (lastDate ? lastDate.getTime() : now)) / (1000 * 60 * 60 * 24)));
-        
+
         if (gapToToday > 0) {
             const finalLambdaBase = baseAdaptiveLambda;
             const rawFinalLambda = finalLambdaBase * Math.exp(-0.15 * ((historySortedForGaps ? historySortedForGaps.length : 0) || 1));
             const finalLambda = Math.max(0.005, rawFinalLambda);
-            
+
             const finalDecay = Math.exp(-finalLambda * gapToToday);
             const nBeforeDecay = alpha + beta;
             const currentP = nBeforeDecay > 0 ? alpha / nBeforeDecay : 0.5;
-            
-            const epistemicDecay = Math.pow(finalDecay, 0.35); 
+
+            const epistemicDecay = Math.pow(finalDecay, 0.35);
             const epistemicFloor = Math.max(3.0, Math.min(10.0, maxNEver * 0.05));
             const nAfterDecay = Math.max(epistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
-            
+
             // O mesmo tratamento de patamar empírico para o gap final (Hoje)
             const empiricalPriorFinal = runningPriors.length > 0 ? runningPriors[runningPriors.length - 1] : 0.5;
             const regressedP = (currentP * finalDecay) + (empiricalPriorFinal * (1 - finalDecay));
@@ -665,7 +665,7 @@ export function computeBayesianLevel(
     if (!Number.isFinite(n) || n <= 0) {
         return { mean: 0, sd: 0, ciLow: 0, ciHigh: 0, alpha: alpha0, beta: beta0, n: 0 };
     }
-    
+
     const effectiveN = Math.min(n, dynamicEffectiveN);
 
     const p = alpha / n;
@@ -676,16 +676,16 @@ export function computeBayesianLevel(
     const n_tilde = effectiveN + z2;
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
-    const mediaDeQuestoesDoAluno = history && history.length > 0 
-        ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) / history.length 
+    const mediaDeQuestoesDoAluno = history && history.length > 0
+        ? history.reduce((acc, h) => acc + (Number(h.total) || 20), 0) / history.length
         : 100;
     const TAMANHO_PROVA_ESTIMADO = Math.max(20, Math.round(mediaDeQuestoesDoAluno));
-    
+
     // CORREÇÃO: Clamp matemático. A incerteza epistêmica (falta de dados infinitos) 
     // nunca pode ser estatisticamente igual a zero (1e-6 previne o colapso do Monte Carlo).
     const rawEpistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;
     const epistemicVar = Math.max(1e-6, rawEpistemicVar);
-    
+
     const rawAleatoricVar = (p_tilde * (1 - p_tilde)) / TAMANHO_PROVA_ESTIMADO;
     const aleatoricVar = Math.max(1e-6, rawAleatoricVar);
 
@@ -740,7 +740,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     const rawSynthetic = getSyntheticTotal(safeMaxScore);
     const syntheticTotal = Number.isFinite(rawSynthetic) ? rawSynthetic : 20;
-    
+
     const historyWithSynthetics = history.map(h => {
         const score = getSafeScore(h, safeMaxScore);
         // CORREÇÃO: Se não há volume (total=0) mas a nota é válida, injetamos o volume sintético.
@@ -763,7 +763,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     // CORREÇÃO: Filtrar notas corrompidas ANTES de aplicar o peso de Kish na média,
     // garantindo que não dividimos por um denominador fantasma.
     const validHistoryForMean = historyToUse.filter(h => !Number.isNaN(getSafeScore(h, safeMaxScore)));
-    
+
     let sumWeightMean = 0;
     let sumScoreMean = 0;
 
@@ -793,28 +793,28 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const median = sortedScores.length % 2 === 0
             ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
             : sortedScores[Math.floor(sortedScores.length / 2)];
-        
+
         const absoluteDeviations = scores.map(s => Math.abs(s - median)).sort((a, b) => a - b);
         const rawMad = absoluteDeviations.length % 2 === 0
             ? (absoluteDeviations[absoluteDeviations.length / 2 - 1] + absoluteDeviations[absoluteDeviations.length / 2]) / 2
             : absoluteDeviations[Math.floor(absoluteDeviations.length / 2)];
-        const mad = rawMad > 0 ? rawMad * 1.4826 : 0.001 * safeMaxScore; 
+        const mad = rawMad > 0 ? rawMad * 1.4826 : 0.001 * safeMaxScore;
         const clampLimit = 3.5 * mad;
 
         // CORREÇÃO: Usar estritamente o validHistoryForMean para que os pesos (w) 
         // e a variância ponderada (wVarSum) sejam calculados numa amostra matematicamente pura.
         validHistoryForMean.forEach(h => {
             // Se não tem volume, o peso É ZERO. Não pode forçar 1. (Bug 1.1 Fix)
-            const w = Number(h.total) || 0; 
+            const w = Number(h.total) || 0;
             if (w > 0) {
                 const safeScore = getSafeScore(h, safeMaxScore);
                 // Winsorização robusta a outliers baseado no desvio absoluto mediano (MAD)
                 const robustScore = Math.max(median - clampLimit, Math.min(median + clampLimit, safeScore));
-                
+
                 // [TRI] Peso adicional de dificuldade se disponível
                 const difficultyWeight = Number(h.weight || h.difficulty || 1.0);
                 const effectiveWeight = w * difficultyWeight;
-                
+
                 wVarSum += effectiveWeight * Math.pow(robustScore - m, 2);
                 sumW += effectiveWeight;
                 sumW2 += Math.pow(effectiveWeight, 2);
@@ -823,22 +823,22 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
         // Estimador imparcial de variância ponderada com blindagem contra pesos dominantes únicos
         const kishDifference = sumW - (sumW > 0 ? (sumW2 / sumW) : 0);
-        
+
         // FIX: Se a diferença for muito pequena (um simulado engoliu 99% do peso), 
         // evitamos o magic number anterior e recuamos de forma conservadora para a soma bruta.
         const kishDenom = kishDifference > 1e-4 ? kishDifference : Math.max(1e-4, sumW);
 
-        const sampleVar = sumW > 0 
+        const sampleVar = sumW > 0
             ? wVarSum / kishDenom
             : 0; // Se não há pesos, não há variância.
 
         const POPULATION_SD = getDynamicPriorSD(historyToUse, safeMaxScore);
-        
+
         // 🎯 Teoria de Credibilidade de Bühlmann (Shrinkage Perfeito)
         // K = (Variância da População) / (Variância Esperada do Indivíduo)
         const popVar = Math.pow(POPULATION_SD, 2);
         // O piso da variância do aluno não pode ser zero absoluto (1e-6) 
-        const safeStudentVar = Math.max(popVar * 0.05, sampleVar); 
+        const safeStudentVar = Math.max(popVar * 0.05, sampleVar);
         let KAPPA = Math.max(0.1, Math.min(3.0, popVar / safeStudentVar)); // Teto reduzido para 3.0
 
         // PATCH 1: Acelerador de Confiança
@@ -847,9 +847,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const firstDateMs = firstDateParsed && !Number.isNaN(firstDateParsed.getTime()) ? firstDateParsed.getTime() : Date.now();
         const lastDateMs = lastDateParsed && !Number.isNaN(lastDateParsed.getTime()) ? lastDateParsed.getTime() : Date.now();
         const timeSpreadDays = Math.max(0, (lastDateMs - firstDateMs) / (1000 * 60 * 60 * 24));
-        
+
         if (historyToUse.length >= 2 && sampleVar < (0.0004 * safeMaxScore * safeMaxScore) && timeSpreadDays > 7) {
-            KAPPA = KAPPA * Math.exp(-timeSpreadDays / 14); 
+            KAPPA = KAPPA * Math.exp(-timeSpreadDays / 14);
         }
 
         // 🎯 Kish Effective Sample Size (Fix): Usa o volume de questões real para o shrinkage bayesiano
@@ -869,29 +869,29 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const safeSD = sd;
 
     const slopePerDay = calculateSlope(historyToUse, safeMaxScore);
-    
+
     // CORREÇÃO: Limpar falhas de regressão linear (divisões por zero no delta Time).
     // Se o slope explodir, assume inclinação 0 (estável).
     // CORREÇÃO MÁXIMA: Infinity bypass. Protege contra divisões por zero temporais (Delta-T = 0)
     // ao assumir inclinação nula se o algoritmo matemático retornar Infinitos ou NaNs.
     const safeSlope = !Number.isFinite(slopePerDay) ? 0 : slopePerDay;
-    
+
     const trendThreshold = getDynamicTrendThreshold(m, safeMaxScore);
     // CORREÇÃO: Filtrar o array que determina o limite da tendência para garantir
     // que o último ponto (lastScore) é matematicamente viável e não corrompe a regressão.
     const validHistoryForTrend = historyToUse.filter(h => !Number.isNaN(getSafeScore(h, safeMaxScore)));
-    
+
     const sortedForTrendCap = getSortedHistory(validHistoryForTrend);
-    
+
     const lastScore = sortedForTrendCap.length > 0
         ? getSafeScore(sortedForTrendCap[sortedForTrendCap.length - 1], safeMaxScore)
         : m;
-        
-    const limiteSuperior = safeMaxScore - lastScore; 
-    // A maior queda possível é perder o que já se tem (chegar a 0)
-    const limiteInferior = -lastScore; 
 
-    
+    const limiteSuperior = safeMaxScore - lastScore;
+    // A maior queda possível é perder o que já se tem (chegar a 0)
+    const limiteInferior = -lastScore;
+
+
     // Aplicação agora segura
     const rawTrend = Math.max(limiteInferior, Math.min(limiteSuperior, safeSlope * 30));
 
@@ -919,11 +919,11 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
  */
 export const calculateEMA = (scores, alpha = 0.25) => {
     if (!scores || scores.length === 0) return 0;
-    
+
     // O Marco Zero da EMA é estritamente o valor empírico mais antigo, NÃO ZERO. (Bug 4 Fix)
-    let ema = scores[0]; 
+    let ema = scores[0];
     const maxObserved = scores.reduce((a, b) => Math.max(a, b), 1);
-    
+
     // Começa a iteração a partir do 1 (segundo simulado)
     for (let i = 1; i < scores.length; i++) {
         // Dinamismo: O alpha deve ser maior se a nota subiu muito (absorvemos o sucesso rápido,
@@ -937,10 +937,10 @@ export const calculateEMA = (scores, alpha = 0.25) => {
         const downBonus = Math.min(0.03, 0.015 * (absDelta / range));
         const trendBonus = delta >= 0 ? upBonus : downBonus;
         const currentAlpha = Math.min(1, alpha + trendBonus);
-        
+
         ema = (scores[i] * currentAlpha) + (ema * (1 - currentAlpha));
     }
-    
+
     return ema;
 };
 
@@ -951,12 +951,12 @@ export const calculateEMA = (scores, alpha = 0.25) => {
  */
 export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
     if (!Array.isArray(historicData) || historicData.length === 0) return null;
-    
-    const validData = historicData.filter(d => 
+
+    const validData = historicData.filter(d =>
         Number.isFinite(d?.score) && (d?.timestamp != null || d?.date != null)
     );
     if (validData.length === 0) return null;
-    
+
     // Assumimos que historicData possui { score: number, timestamp: number }
     // O timestamp deve estar em milissegundos.
     const getTime = (d) => {
@@ -970,24 +970,24 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
 
     let ema = validData[0].score;
     let lastTime = getTime(validData[0]);
-    
-    for(let i = 1; i < validData.length; i++) {
+
+    for (let i = 1; i < validData.length; i++) {
         const currentItem = validData[i];
         const currentTime = getTime(currentItem);
         if (!Number.isFinite(currentTime) || !Number.isFinite(lastTime)) continue;
         // Gap em dias entre as provas
         const deltaDays = Math.max(0, (currentTime - lastTime) / 86400000);
-        
+
         // Se deltaDays é grande, o alpha sobe muito, forçando a EMA a "esquecer" 
         // o passado distante e ancorar na nota nova.
         const dynamicAlpha = 1 - Math.exp(-lambda * deltaDays);
         // Garantir um alpha mínimo mesmo se fez simulados no mesmo dia
-        const safeAlpha = Math.max(0.1, Math.min(1.0, dynamicAlpha)); 
-        
+        const safeAlpha = Math.max(0.1, Math.min(1.0, dynamicAlpha));
+
         ema = safeAlpha * currentItem.score + (1 - safeAlpha) * ema;
         lastTime = currentTime;
     }
-    
+
     return ema;
 };
 
@@ -997,12 +997,12 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
  */
 // Consolidated re-exports from canonical source (utils/calibration.js) 
 // to eliminate duplication bugs that could cause divergent diagnostics/math behavior or data errors.
-export { 
-  computeBrierScore,
-  computeLogLoss,
-  summarizeCalibration,
-  computeCalibrationDiagnostics,
-  shrinkProbabilityToNeutral 
+export {
+    computeBrierScore,
+    computeLogLoss,
+    summarizeCalibration,
+    computeCalibrationDiagnostics,
+    shrinkProbabilityToNeutral
 } from '../utils/calibration.js';
 
 /**
@@ -1030,26 +1030,26 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
         if (!Number.isFinite(cat.mean) || !cat.n) {
             return { ...cat, bayesianMean: cat.mean, bayesianSd: cat.sd };
         }
-        
+
         // Variância da estimativa da média local (sigma^2 / n)
         // Se a disciplina não tiver SD próprio, usamos o pooledSD
         const localSD = Number.isFinite(cat.sd) ? cat.sd : (pooledSD || 15);
         const localVar = Math.pow(localSD, 2) / Math.max(1, cat.n);
-        
+
         // BUG-FIX: Added parentheses to fix operator precedence. Was `localVar + tau2 || 1`
         // which parsed as `localVar + (tau2 || 1)`, returning `localVar + 1` when tau2=0,
         // making every B always ≈1 and shrinking all categories to the global mean.
         const denom = localVar + tau2;
         const B = denom > 1e-15 ? localVar / denom : 0;
-        
+
         // Média ajustada empiricamente (Bayes)
         const bayesianMean = B * globalMean + (1 - B) * cat.mean;
-        
+
         // CORREÇÃO: Aplicar shrinkage também ao SD para consistência com a média ajustada.
         // bayesianSd reflete a incerteza ponderada entre a variância populacional e a individual.
         const popVar = Math.pow(pooledSD || 15, 2);
         const bayesianSd = Math.sqrt(B * popVar + (1 - B) * Math.pow(localSD, 2));
-        
+
         return {
             ...cat,
             bayesianMean,
@@ -1062,10 +1062,10 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
 // INTEGRAÇÃO AGILIDADE AI: Extrai a velocidade do histórico e calcula a penalidade
 export function computeAgilityMetrics(history, targetSeconds = 120) {
     if (!Array.isArray(history) || history.length === 0) return { avgSeconds: 0, agilityPenalty: 0 };
-    
+
     let totalTimeSpent = 0;
     let totalTimedQuestions = 0;
-    
+
     for (const h of history) {
         if (h.timeSpent != null && h.timedQuestoes != null) {
             const ts = Number(h.timeSpent);
@@ -1076,14 +1076,14 @@ export function computeAgilityMetrics(history, targetSeconds = 120) {
             }
         }
     }
-    
+
     const avgSeconds = totalTimedQuestions > 0 ? totalTimeSpent / totalTimedQuestions : 0;
-    
+
     // MELHORIA: O alvo agora é parametrizável por disciplina (Matemática ~180s, Direito ~60s).
     // agilityPenalty varia de 0 (rápido) a 0.4 (muito lento)
     const safeTarget = Math.max(30, Number(targetSeconds) || 120);
     const agilityPenalty = avgSeconds > safeTarget ? Math.min(0.4, (avgSeconds - safeTarget) / (safeTarget * 1.25)) : 0;
-    
+
     return {
         avgSeconds: Math.round(avgSeconds),
         agilityPenalty: Number(agilityPenalty.toFixed(4))
@@ -1093,36 +1093,36 @@ export function computeAgilityMetrics(history, targetSeconds = 120) {
 
 export function calculateTrend(history, maxScore = 100) {
     if (!history || history.length < 2) return 0;
-    
+
     // CORREÇÃO B1+B4: Usar safeDateParse e getSafeScore para blindagem total contra NaN.
     // Suporte a createdAt para consistência com o ecossistema.
     const firstParsed = safeDateParse(history[0].date || history[0].createdAt);
     const firstDate = (firstParsed && firstParsed.getTime() !== 0) ? firstParsed.getTime() : Date.now();
-    
+
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
     let validN = 0;
-    
+
     for (let i = 0; i < history.length; i++) {
         const h = history[i];
         const dateParsed = safeDateParse(h.date || h.createdAt);
         if (!dateParsed || dateParsed.getTime() === 0) continue;
-        
+
         const x = (dateParsed.getTime() - firstDate) / 86400000;
         const y = getSafeScore(h, maxScore);
         if (!Number.isFinite(y)) continue;
-        
+
         sumX += x;
         sumY += y;
         sumXY += x * y;
         sumX2 += x * x;
         validN++;
     }
-    
+
     if (validN < 2) return 0;
     const denominator = (validN * sumX2) - (sumX * sumX);
     if (Math.abs(denominator) < 1e-12) return 0;
     const slopePerDay = ((validN * sumXY) - (sumX * sumY)) / denominator;
-    
+
     // Guarda final: se o resultado não for finito, retorna 0
     const result = slopePerDay * 10;
     return Number.isFinite(result) ? result : 0;
