@@ -230,7 +230,7 @@ export function simuladosToHistory(simulados, maxScore = 100) {
 
     return sorted
         .map(({ score, date, fatigueFlag }) => ({ score, date, fatigueFlag }))
-        .filter(item => typeof item.date === 'string' && item.date.length === 10);
+        .filter(item => typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(item.date.trim()));
 }
 
 const mcCache = new Map();

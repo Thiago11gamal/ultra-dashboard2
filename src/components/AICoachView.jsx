@@ -23,34 +23,49 @@ function renderBoldText(text) {
 
 function AICoachCard({ task, idx, onStartPomodoro }) {
     const [isExpanded, setIsExpanded] = useState(false);
-    const fullText = task.text || task.title || '';
+
+    const fullText = task?.text || task?.title || '';
     const separatorIndex = fullText.indexOf(':');
     const hasDetails = separatorIndex !== -1;
 
-    let subjectPart = String(task.category || task.catName || (hasDetails ? fullText.slice(0, separatorIndex) : fullText));
-    let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : fullText;
-    subjectPart = subjectPart.replace(/Foco em /i, '').trim();
+    const rawSubject = String(
+      task?.category ||
+      task?.catName ||
+      (hasDetails ? fullText.slice(0, separatorIndex) : fullText)
+    );
+
+    let subjectPart = rawSubject.replace(/Foco em /i, '').trim();
+
+    let actionPart = hasDetails
+      ? fullText.slice(separatorIndex + 1).trim()
+      : fullText;
 
     const isSystemAlert = /\[ALERTA MESTRE\]/i.test(actionPart);
-    const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert;
-    actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '');
+    const isPriority =
+      /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert;
 
-    actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
+    actionPart = actionPart
+      .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+      .replace(/\[ALERTA MESTRE\]\s*/i, '')
+      .replace(/^\[(.*?)\]\s*/i, '')
+      .replace(
+        /CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi,
+        ''
+      )
+      .trim();
+
     let topicPart = subjectPart;
-
-    actionPart = actionPart.replace(/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi, '').trim();
-
     let systemAlertMessage = null;
+
     if (isSystemAlert) {
-        systemAlertMessage = actionPart;
-        actionPart = "";
-        if (!topicPart) {
-            topicPart = subjectPart;
-        }
+      systemAlertMessage = actionPart;
+      actionPart = '';
+      if (!topicPart) topicPart = rawSubject;
     }
 
     const displayAssunto = topicPart || actionPart || 'Revisão Recomendada';
-    const displayMeta = actionPart && actionPart !== displayAssunto ? actionPart : null;
+    const displayMeta =
+      actionPart && actionPart !== displayAssunto ? actionPart : null;
 
     const CARD_COLORS = [
         { accent: 'border-l-violet-500', dot: 'bg-violet-500', badge: 'bg-violet-500/10 text-violet-300 border-violet-500/20', glow: 'from-violet-900/20', btnHover: 'hover:bg-violet-600 hover:text-white hover:border-violet-500 hover:shadow-[0_0_20px_-3px_rgba(139,92,246,0.4)]' },

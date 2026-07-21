@@ -638,10 +638,30 @@ export function simulateNormalDistribution(
     };
 }
 
+const mcCache = new Map();
+const MAX_CACHE_SIZE = 50;
+
+function hashObject(obj) {
+    try {
+        return JSON.stringify(obj);
+    } catch {
+        return null;
+    }
+}
+
 export function runMonteCarloAnalysis(params = {}) {
     if (!params || typeof params !== 'object' || Array.isArray(params)) {
         console.warn("[MC Engine] Fallback acionado. 'runMonteCarloAnalysis' requer objeto. Ignorando chamada bruta.");
         return monteCarloSimulation([], 85, 90, 5000, {});
+    }
+
+    const cacheKey = hashObject(params);
+    if (cacheKey && mcCache.has(cacheKey)) {
+        // Move to top (LRU)
+        const cached = mcCache.get(cacheKey);
+        mcCache.delete(cacheKey);
+        mcCache.set(cacheKey, cached);
+        return cached;
     }
 
     const {
@@ -712,7 +732,17 @@ export function runMonteCarloAnalysis(params = {}) {
         })
         .filter(row => Number.isFinite(row.score));
 
-    return monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
+    const result = monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
+    
+    if (cacheKey) {
+        if (mcCache.size >= MAX_CACHE_SIZE) {
+            const firstKey = mcCache.keys().next().value;
+            mcCache.delete(firstKey);
+        }
+        mcCache.set(cacheKey, result);
+    }
+    
+    return result;
 }
 
 export default {

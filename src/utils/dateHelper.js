@@ -50,11 +50,11 @@ export const getDateKey = (rawDate) => {
         } else {
             date = new Date(rawDate);
         }
-    } else if (typeof rawDate === 'string' && rawDate.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    } else if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
         // FIX CRÍTICO: Strings YYYY-MM-DD interpretadas por new Date() como meia-noite UTC,
         // o que recua 1 dia em fusos negativos (ex: UTC-4, 00:00 UTC = 20:00 do dia anterior).
         // Ao forçar T12:00:00-04:00 (meio-dia de Manaus), o dia do calendário fica 100% ancorado ao fuso alvo.
-        date = new Date(`${rawDate}T12:00:00-04:00`);
+        date = new Date(`${rawDate.trim()}T12:00:00-04:00`);
     } else {
         date = new Date(rawDate);
     }

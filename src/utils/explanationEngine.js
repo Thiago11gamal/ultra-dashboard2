@@ -87,10 +87,12 @@ export function detectPerformanceDrift({
     recentMean,
     baselineMean,
     recentVolatility,
+    maxScore = 100,
 }) {
     const alerts = [];
+    const scale = maxScore / 100;
 
-    if (recentMean < baselineMean - 12) {
+    if (recentMean < baselineMean - (12 * scale)) {
         alerts.push({
             type: 'performance_drop',
             severity: 'high',
@@ -98,7 +100,7 @@ export function detectPerformanceDrift({
         });
     }
 
-    if (recentVolatility > 20) {
+    if (recentVolatility > (20 * scale)) {
         alerts.push({
             type: 'high_volatility',
             severity: 'medium',
@@ -116,10 +118,13 @@ export function buildPredictionMood({
     if (probability >= 80 && confidenceTier === 'HIGH') {
         return 'stable';
     }
-    if (probability >= 50) {
+    if (probability >= 50 && probability < 80) {
         return 'moderate';
     }
-    return 'risk';
+    if (probability < 50 && probability > 0) {
+        return 'risk';
+    }
+    return 'unknown';
 }
 
 export function normalizeAlertSeverity(severity, confidenceTier) {

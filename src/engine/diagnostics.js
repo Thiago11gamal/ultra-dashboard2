@@ -42,16 +42,26 @@ function _mean(arr) {
 }
 
 function _variance(arr, mu = null) {
-  if (!arr || arr.length < 2) return 0;
-  const clean = arr.filter(v => Number.isFinite(v));
+  const clean = Array.isArray(arr)
+    ? arr.filter(v => Number.isFinite(v))
+    : [];
+
   if (clean.length < 2) return 0;
-  const m = mu !== null ? mu : _mean(clean);
+
+  const m = Number.isFinite(mu) ? mu : _mean(clean);
+  if (!Number.isFinite(m)) return 0;
+
   const devs = clean.map(v => (v - m) ** 2);
-  return kahanSum(devs) / (clean.length - 1);
+  const sum = kahanSum(devs);
+  const variance = sum / (clean.length - 1);
+
+  return Number.isFinite(variance) ? variance : 0;
 }
 
 function _std(arr, mu = null) {
-  return Math.sqrt(Math.max(0, _variance(arr, mu)));
+  const variance = _variance(arr, mu);
+  if (!Number.isFinite(variance)) return 0;
+  return Math.sqrt(Math.max(0, variance));
 }
 
 export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
@@ -67,7 +77,7 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
     const dateRaw = h?.date || h?.createdAt;
     const d = dateRaw ? new Date(dateRaw) : null;
     const t = d && !isNaN(d.getTime()) ? d.getTime() : null;
-    return { idx, score, date: dateRaw, t, finite: Number.isFinite(score) };
+    return { ...h, idx, score, date: dateRaw, t, finite: Number.isFinite(score) };
   });
 
   const finites = parsed.filter(p => p.finite);
@@ -79,8 +89,39 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
   }
 
   const uniqueScores = new Set(finites.map(p => p.score));
-  if (nFinite >= 5 && uniqueScores.size <= 1) {
-    issues.push({ type: 'data', severity: 'warning', msg: 'Todos os scores são idênticos — variância zero. Adicione variedade.', count: nFinite });
+  if (nFinite >= 3 && uniqueScores.size === 1) {
+    issues.push({ type: 'data', severity: 'warning', msg: 'Todos os scores são idênticos — variância zero. Adicione variedade ou verifique input.', count: nFinite });
+  }
+
+  const dateMap = new Map();
+  finites.forEach(p => {
+    const rawDate = p.date || p.createdAt;
+    if (!rawDate) return;
+    
+    // Simplification for groupKey to avoid importing getDateKey if missing
+    const dayKey = typeof rawDate === 'string' ? rawDate.split('T')[0] : String(rawDate);
+    if (!dayKey) return;
+  
+    const groupKey = [
+      dayKey,
+      p.categoryId || p.subject || 'geral',
+      p.id || p.simuladoId || 'sem-id',
+    ].join('|');
+  
+    if (!dateMap.has(groupKey)) dateMap.set(groupKey, []);
+    dateMap.get(groupKey).push(p.score);
+  });
+  
+  for (const [key, scores] of dateMap) {
+    const uniq = new Set(scores);
+  
+    if (uniq.size > 1) {
+      issues.push({
+        type: 'data',
+        severity: 'warning',
+        msg: `Registro duplicado/conflitante detectado (${key}): ${[...uniq].join(', ')}.`,
+      });
+    }
   }
 
   const times = finites.map(p => p.t).filter(t => t != null);
