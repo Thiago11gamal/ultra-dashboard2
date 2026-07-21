@@ -119,7 +119,8 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             }
             
             if (!c.tasks) return;
-            c.tasks.forEach(t => {
+            const safeCTasks = Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks);
+            safeCTasks.forEach(t => {
                 if (!t) return;
                 totalTasks++;
                 if (t.completed) {
@@ -1037,7 +1038,7 @@ export default function Pomodoro() {
                 ...prev,
                 categories: prev.categories?.map(c => c.id === activeSubject.categoryId ? {
                     ...c,
-                    tasks: c.tasks?.map(t => t.id === activeSubject.taskId ? { ...t, status: undefined } : t)
+                    tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t.id === activeSubject.taskId ? { ...t, status: undefined } : t)
                 } : c)
             }));
         }

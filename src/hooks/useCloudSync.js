@@ -156,8 +156,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             if (item.id) return item.id;
             return `${item.date || ''}-${item.categoryId || ''}-${item.taskId || JSON.stringify(item)}`;
         };
-        (arr1 || []).forEach(item => { if (item) map.set(getStableKey(item), item); });
-        (arr2 || []).forEach(item => { if (item) map.set(getStableKey(item), item); });
+        const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
+        const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
+        safeArr1.forEach(item => { if (item) map.set(getStableKey(item), item); });
+        safeArr2.forEach(item => { if (item) map.set(getStableKey(item), item); });
         return Array.from(map.values()).filter(Boolean);
     };
 
@@ -192,7 +194,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             return (Number.isFinite(aTime) ? aTime : 0) >= (Number.isFinite(bTime) ? bTime : 0) ? a : b;
         };
 
-        [...localTasks, ...cloudTasks].filter(Boolean).forEach(t => {
+        const safeLocalTasks = Array.isArray(localTasks) ? localTasks : Object.values(localTasks || {});
+        const safeCloudTasks = Array.isArray(cloudTasks) ? cloudTasks : Object.values(cloudTasks || {});
+        [...safeLocalTasks, ...safeCloudTasks].filter(Boolean).forEach(t => {
             const key = taskKey(t);
             if (key) {
                 taskMap.set(key, pickWinner(taskMap.get(key), t));
@@ -209,19 +213,24 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             return Number.isFinite(ms) ? ms : 0;
         };
 
-        (localCats || []).forEach(c => {
+        const safeLocalCats = Array.isArray(localCats) ? localCats : Object.values(localCats || {});
+        const safeCloudCats = Array.isArray(cloudCats) ? cloudCats : Object.values(cloudCats || {});
+
+        safeLocalCats.forEach(c => {
             if (c?.id) mergedCatsMap[c.id] = c;
         });
 
-        (cloudCats || []).forEach(c => {
+        safeCloudCats.forEach(c => {
             if (!c?.id) return;
             if (mergedCatsMap[c.id]) {
                 const localCat = mergedCatsMap[c.id];
                 const historyMap = new Map();
                 const getStableHistoryKey = (h) => h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}`;
                 
-                (localCat.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
-                (c.simuladoStats?.history || []).forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
+                const safeLocalHistory = Array.isArray(localCat.simuladoStats?.history) ? localCat.simuladoStats.history : Object.values(localCat.simuladoStats?.history || {});
+                const safeCloudHistory = Array.isArray(c.simuladoStats?.history) ? c.simuladoStats.history : Object.values(c.simuladoStats?.history || {});
+                safeLocalHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
+                safeCloudHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
 
                 mergedCatsMap[c.id] = {
                     ...localCat,

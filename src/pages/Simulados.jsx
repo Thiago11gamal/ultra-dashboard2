@@ -49,7 +49,8 @@ export default function Simulados() {
         });
 
         categoriesArray.forEach(cat => {
-            const tasks = cat.tasks || [];
+            const rawTasks = cat.tasks || [];
+            const tasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
 
             if (tasks.length === 0) {
                 const subjNorm = normalize(cat.name);

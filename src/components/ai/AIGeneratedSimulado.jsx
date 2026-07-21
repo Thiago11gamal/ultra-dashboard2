@@ -261,8 +261,10 @@ export default function AIGeneratedSimulado() {
             };
 
             const stillValidCat = restoredForm.categoryId && categories.some(c => c.id === restoredForm.categoryId);
-            const stillValidTask = restoredForm.taskId && stillValidCat && 
-                                   categories.find(c => c.id === restoredForm.categoryId)?.tasks?.some(t => t.id === restoredForm.taskId);
+            const catRef = categories.find(c => c.id === restoredForm.categoryId);
+            const catTasksRef = catRef?.tasks || [];
+            const safeTasksArray = Array.isArray(catTasksRef) ? catTasksRef : Object.values(catTasksRef);
+            const stillValidTask = restoredForm.taskId && stillValidCat && safeTasksArray.some(t => t.id === restoredForm.taskId);
 
             if (restoredForm.categoryId && !stillValidCat) {
               restoredForm = { ...restoredForm, categoryId: '', taskId: '', materia: '', assunto: '' };
@@ -309,7 +311,9 @@ export default function AIGeneratedSimulado() {
 
   const handleTaskSelect = (tskId) => {
     const cat = categories.find(c => c.id === form.categoryId);
-    const tsk = cat?.tasks?.find(t => t.id === tskId);
+    const rawCatTasks = cat?.tasks || [];
+    const safeCatTasks = Array.isArray(rawCatTasks) ? rawCatTasks : Object.values(rawCatTasks);
+    const tsk = safeCatTasks.find(t => t.id === tskId);
     setForm(prev => ({
       ...prev,
       taskId: tskId || '',
@@ -319,7 +323,8 @@ export default function AIGeneratedSimulado() {
 
   // Derivados para selects dependentes
   const selectedCategory = categories.find(c => c.id === form.categoryId);
-  const availableTasks = selectedCategory?.tasks || [];
+  const rawTasks = selectedCategory?.tasks || [];
+  const availableTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
 
   const generatePersonalizedSimulado = async () => {
     // 1. Encontra fraquezas
@@ -329,7 +334,9 @@ export default function AIGeneratedSimulado() {
       const level = stats?.level || 'BAIXO';
       const avg = stats?.average || 0;
       
-      cat.tasks?.forEach(tsk => {
+      const catTasksRaw = cat.tasks || [];
+      const safeCatTasks = Array.isArray(catTasksRaw) ? catTasksRaw : Object.values(catTasksRaw);
+      safeCatTasks.forEach(tsk => {
         const title = String(tsk.title || tsk.text || '').trim();
         if (title) {
           allTasks.push({ catId: cat.id, taskId: tsk.id, materia: cat.name, assunto: title, level, avg });
@@ -491,7 +498,9 @@ export default function AIGeneratedSimulado() {
 
         // Normaliza + vincula aos IDs exatos da matéria/assunto selecionados
         const cat = currentCategories.find(c => c.id === currentForm.categoryId);
-        const tsk = cat?.tasks?.find(t => t.id === currentForm.taskId);
+        const rawGenTasks = cat?.tasks || [];
+        const safeGenTasks = Array.isArray(rawGenTasks) ? rawGenTasks : Object.values(rawGenTasks);
+        const tsk = safeGenTasks.find(t => t.id === currentForm.taskId);
 
         const normalizedQuestions = generated.map((q) => ({
           ...q,
