@@ -12,10 +12,16 @@ import { getSafeId } from '../utils/idGenerator';
 
 function renderRecommendation(text) {
     const safeText = String(text || '');
-    const parts = safeText.split(/(\*\*.*?\*\*)/g).filter(Boolean);
+    const parts = safeText.split(/(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g).filter(Boolean);
     return parts.map((part, idx) => {
         if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={`rec-${idx}`} className="text-white not-italic">{part.slice(2, -2)}</strong>;
+            return <strong key={`rec-${idx}`} className="text-white not-italic drop-shadow-[0_0_8px_currentColor]">{renderRecommendation(part.slice(2, -2))}</strong>;
+        }
+        if (part.startsWith('!!') && part.endsWith('!!')) {
+            return <span key={`rec-${idx}`} className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">{renderRecommendation(part.slice(2, -2))}</span>;
+        }
+        if (part.startsWith('++') && part.endsWith('++')) {
+            return <span key={`rec-${idx}`} className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">{renderRecommendation(part.slice(2, -2))}</span>;
         }
         return <React.Fragment key={`rec-${idx}`}>{part}</React.Fragment>;
     });
