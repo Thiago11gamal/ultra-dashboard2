@@ -10,21 +10,39 @@ import { useAppStore } from '../store/useAppStore';
 import { displaySubject } from '../utils/displaySubject';
 import { getSafeId } from '../utils/idGenerator';
 
-function renderRecommendation(text) {
-    const safeText = String(text || '');
-    const parts = safeText.split(/(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g).filter(Boolean);
-    return parts.map((part, idx) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={`rec-${idx}`} className="text-white not-italic drop-shadow-[0_0_8px_currentColor]">{renderRecommendation(part.slice(2, -2))}</strong>;
-        }
-        if (part.startsWith('!!') && part.endsWith('!!')) {
-            return <span key={`rec-${idx}`} className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">{renderRecommendation(part.slice(2, -2))}</span>;
-        }
-        if (part.startsWith('++') && part.endsWith('++')) {
-            return <span key={`rec-${idx}`} className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">{renderRecommendation(part.slice(2, -2))}</span>;
-        }
-        return <React.Fragment key={`rec-${idx}`}>{part}</React.Fragment>;
-    });
+function renderRecommendation(text, depth = 0) {
+  if (depth > 6) return String(text || '');
+
+  const safeText = String(text || '');
+  const parts = safeText.split(/(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g).filter(Boolean);
+
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={`rec-${idx}`} className="text-white not-italic drop-shadow-[0_0_8px_currentColor]">
+          {renderRecommendation(part.slice(2, -2), depth + 1)}
+        </strong>
+      );
+    }
+
+    if (part.startsWith('!!') && part.endsWith('!!')) {
+      return (
+        <span key={`rec-${idx}`} className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">
+          {renderRecommendation(part.slice(2, -2), depth + 1)}
+        </span>
+      );
+    }
+
+    if (part.startsWith('++') && part.endsWith('++')) {
+      return (
+        <span key={`rec-${idx}`} className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">
+          {renderRecommendation(part.slice(2, -2), depth + 1)}
+        </span>
+      );
+    }
+
+    return <React.Fragment key={`rec-${idx}`}>{part}</React.Fragment>;
+  });
 }
 
 function getUrgencyConfig(score, status = '') {
@@ -61,21 +79,27 @@ function getUrgencyConfig(score, status = '') {
 }
 
 function MetricChip({ label, value, index }) {
-    return (
-        <Motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.05, duration: 0.3 }}
-            whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-            className="group/chip relative flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-md p-3 sm:p-4 transition-all cursor-default overflow-hidden"
-        >
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 leading-[1.35] truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors pb-px">{label}</span>
-            <span className="text-sm font-black text-slate-100 tracking-tight leading-[1.25] truncate min-w-0 block pb-px">
-                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-            </span>
-        </Motion.div>
-    );
+  return (
+    <Motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: index * 0.05, duration: 0.3 }}
+      whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
+      className="group/chip relative flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-md p-3 sm:p-4 transition-all cursor-default overflow-hidden"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
+      <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 leading-[1.35] truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors pb-px">
+        {label}
+      </span>
+      <span className="text-sm font-black text-slate-100 tracking-tight leading-[1.25] truncate min-w-0 block pb-px">
+        {value === null || value === undefined
+          ? '—'
+          : typeof value === 'object'
+            ? JSON.stringify(value)
+            : String(value)}
+      </span>
+    </Motion.div>
+  );
 }
 
 function UrgencyBar({ score, cfg }) {
@@ -100,67 +124,84 @@ function UrgencyBar({ score, cfg }) {
 }
 
 function MonteCarloGauge({ mc }) {
-    if (!mc || mc.probability == null) return null;
+  if (!mc || mc.probability == null) return null;
 
-    const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
-    const prob = Math.min(100, Math.max(0, rawProb));
-    const rawLow = Number.isFinite(Number(mc.ci95Low)) ? Number(mc.ci95Low) : prob - 5;
-    const low = Math.min(100, Math.max(0, rawLow));
-    const rawHigh = Number.isFinite(Number(mc.ci95High)) ? Number(mc.ci95High) : prob + 5;
-    const high = Math.min(100, Math.max(0, rawHigh));
+  const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
+  const prob = Math.min(100, Math.max(0, rawProb));
 
-    const isCritical = prob < (mc.thresholds?.danger ?? 30);
-    const color = isCritical ? 'bg-red-400' : (prob >= (mc.thresholds?.safe ?? 90) ? 'bg-emerald-400' : 'bg-indigo-400');
+  const rawLow = Number.isFinite(Number(mc.ci95Low)) ? Number(mc.ci95Low) : prob - 5;
+  const low = Math.min(100, Math.max(0, rawLow));
 
-    return (
+  const rawHigh = Number.isFinite(Number(mc.ci95High)) ? Number(mc.ci95High) : prob + 5;
+  const high = Math.min(100, Math.max(0, rawHigh));
+
+  const volatility = Number.isFinite(Number(mc.volatility)) ? Number(mc.volatility) : 0;
+
+  const isCritical = prob < (mc.thresholds?.danger ?? 30);
+  const color = isCritical
+    ? 'bg-red-400'
+    : prob >= (mc.thresholds?.safe ?? 90)
+      ? 'bg-emerald-400'
+      : 'bg-indigo-400';
+
+  return (
+    <Motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-3 p-4 bg-black/40 border border-white/10 relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 p-3 text-white/5">
+        <BrainCircuit size={48} />
+      </div>
+
+      <div className="relative z-10 flex justify-between items-end mb-2">
+        <div>
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">
+            Projeção MC (Matéria)
+          </span>
+          <span className="text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
+        </div>
+
+        <div className="text-right">
+          <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">
+            Volatilidade
+          </span>
+          <span className="text-xs font-mono font-bold text-amber-400">±{Math.round(volatility)} pts</span>
+        </div>
+      </div>
+
+      <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05] my-3">
         <Motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-3 p-4 bg-black/40 border border-white/10 relative overflow-hidden"
-        >
-            <div className="absolute top-0 right-0 p-3 text-white/5">
-                <BrainCircuit size={48} />
-            </div>
+          initial={{ width: 0 }}
+          animate={{ left: `${low}%`, width: `${Math.max(0, high - low)}%` }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+          className="absolute top-0 bottom-0 bg-white/10 rounded-full"
+        />
+        <Motion.div
+          initial={{ left: 0 }}
+          animate={{ left: `${prob}%` }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+          className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
+        />
+      </div>
 
-            <div className="relative z-10 flex justify-between items-end mb-2">
-                <div>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">Projeção MC (Matéria)</span>
-                    <span className="text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
-                </div>
-                <div className="text-right">
-                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">Volatilidade</span>
-                    <span className="text-xs font-mono font-bold text-amber-400">±{Math.round(mc.volatility)} pts</span>
-                </div>
-            </div>
+      <div className="flex justify-between mt-3 px-0.5">
+        <div className="flex flex-col">
+          <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">
+            Pior Cenário
+          </span>
+          <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(low)}%</span>
+        </div>
 
-            <div className="relative h-2.5 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05] my-3">
-                <Motion.div
-                    initial={{ width: 0 }}
-                    animate={{ left: `${low}%`, width: `${Math.max(0, high - low)}%` }}
-                    transition={{ duration: 1.5, ease: "easeOut" }}
-                    className="absolute top-0 bottom-0 bg-white/10 rounded-full"
-                />
-
-                <Motion.div
-                    initial={{ left: 0 }}
-                    animate={{ left: `${prob}%` }}
-                    transition={{ duration: 1.5, ease: "easeOut" }}
-                    className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
-                />
-            </div>
-
-            <div className="flex justify-between mt-3 px-0.5">
-                <div className="flex flex-col">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">Pior Cenário</span>
-                    <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(low)}%</span>
-                </div>
-                <div className="flex flex-col text-right">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">Teto Probabilístico</span>
-                    <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(high)}%</span>
-                </div>
-            </div>
-        </Motion.div>
-    );
+        <div className="flex flex-col text-right">
+          <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">
+            Teto Probabilístico
+          </span>
+          <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(high)}%</span>
+        </div>
+      </div>
+    </Motion.div>
+  );
 }
 
 export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
@@ -176,7 +217,18 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const statusLabel = String(urgency?.humanReadable?.Status || '');
 
     const calibrationOps = activeContest?.calibrationOps || {};
-    const isDegraded = calibrationOps[getSafeId(suggestion)]?.degraded;
+
+    let suggestionKey = '';
+    try {
+      suggestionKey = getSafeId(suggestion);
+    } catch {
+      suggestionKey = String(suggestion?.id || suggestion?.name || '');
+    }
+
+    const isDegraded = Boolean(
+      calibrationOps[suggestionKey]?.degraded ||
+      (suggestion?.id && calibrationOps[suggestion.id]?.degraded)
+    );
 
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
@@ -198,8 +250,10 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0 shadow-[0_0_8px_currentColor]`} />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <span className="text-sm font-bold text-slate-200 truncate">Motor de Produtividade</span>
-                            {suggestion.globalProjectedMean != null && (
-                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">GLOBAL {suggestion.globalProjectedMean}%</span>
+                            {suggestion.globalProjectedMean != null && Number.isFinite(Number(suggestion.globalProjectedMean)) && (
+                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">
+                                  GLOBAL {Number(suggestion.globalProjectedMean)}%
+                                </span>
                             )}
                         </div>
                     </div>
