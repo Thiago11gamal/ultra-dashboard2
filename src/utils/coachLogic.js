@@ -1826,12 +1826,16 @@ export function getCombinedHistory(history, simulados) {
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
 
-    const hasSimuladoForDate = new Set(allSimulados.map(s => s.date || s.createdAt));
+    const hasSimuladoForDate = new Set(
+      allSimulados
+        .map(s => getDateKey(s.date || s.createdAt))
+        .filter(Boolean)
+    );
     
     // Agrupa e adiciona o histórico legado
     const rowsByDate = {};
     (history || []).forEach(r => {
-        const dKey = r.date;
+        const dKey = getDateKey(r.date || r.createdAt);
         if (dKey && !hasSimuladoForDate.has(dKey)) {
             if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0 };
             rowsByDate[dKey].correct += (Number(r.correct) || 0);
