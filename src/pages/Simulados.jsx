@@ -13,6 +13,57 @@ import { generateId } from '../utils/idGenerator';
 import { ListChecks, Brain, History as HistoryIcon } from 'lucide-react';
 import StudyHistory from '../components/StudyHistory';
 
+function DailySummaryCards({ simuladoRows }) {
+  const summary = React.useMemo(() => {
+    const todayKey = getDateKey(normalizeDate(new Date()));
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayKey = getDateKey(normalizeDate(yesterdayDate));
+
+    const calcDay = (dayKey) => {
+      const rows = simuladoRows.filter((r) => {
+        const rk = getDateKey(normalizeDate(r.date || r.createdAt));
+        return rk === dayKey && (parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0);
+      });
+      const totalQ = rows.reduce((s, r) => s + (parseInt(r.total, 10) || 0), 0);
+      const totalC = rows.reduce((s, r) => s + (parseInt(r.correct, 10) || 0), 0);
+      const pct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
+      const subjects = new Set(rows.map((r) => r.subject).filter(Boolean)).size;
+      return { totalQ, totalC, pct, subjects, count: rows.length };
+    };
+
+    return { today: calcDay(todayKey), yesterday: calcDay(yesterdayKey) };
+  }, [simuladoRows]);
+
+  const Card = ({ label, data, accent }) => (
+    <div className={`glass p-5 rounded-2xl border-l-4 ${accent}`}>
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{label}</p>
+      {data.totalQ > 0 ? (
+        <>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-black text-white">{data.pct}%</span>
+            <span className="text-sm text-slate-400">acerto</span>
+          </div>
+          <div className="mt-2 flex gap-4 text-xs text-slate-400">
+            <span><strong className="text-white">{data.totalC}</strong>/{data.totalQ} questões</span>
+            <span><strong className="text-white">{data.subjects}</strong> matérias</span>
+            <span><strong className="text-white">{data.count}</strong> registros</span>
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-slate-500">Nenhum simulado registrado.</p>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <Card label="📅 Hoje" data={summary.today} accent="border-emerald-500" />
+      <Card label="📅 Ontem" data={summary.yesterday} accent="border-blue-500" />
+    </div>
+  );
+}
+
 export default function Simulados() {
     const data = useAppStore(useShallow(state => {
         const contest = state.appState?.contests?.[state.appState?.activeId] || {};
@@ -102,56 +153,45 @@ export default function Simulados() {
     }, [categoriesArray, simuladoRowsArray]);
 
 const lastSimuladoRows = React.useMemo(() => {
-  if (!simuladoRowsArray.length) return [];
-
-  // 1. Filtra apenas rows com dados reais (total > 0 ou correct > 0)
-  const answeredRows = simuladoRowsArray.filter(
-    (r) => parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0
-  );
-  if (answeredRows.length === 0) return [];
-
-  // 2. Ordena por timestamp mais recente (lastUpdated > createdAt > date)
-  const getTimestamp = (r) => {
-    const raw = r.lastUpdated || r.createdAt || r.date;
-    if (!raw) return 0;
-    const t = new Date(raw).getTime();
-    return Number.isFinite(t) ? t : 0;
-  };
-
-  const sorted = [...answeredRows].sort((a, b) => getTimestamp(b) - getTimestamp(a));
-  const lastRef = sorted[0];
-  if (!lastRef) return [];
-
-  // 3. Estratégia A: Se tem batchId, agrupa por batchId (simulados IA)
-  if (lastRef.batchId) {
-    return simuladoRowsArray.filter((r) => r.batchId === lastRef.batchId);
-  }
-
-  // 4. Estratégia B: Agrupa por data + proximidade temporal (simulados manuais)
-  const refDateKey =
-    lastRef.date ||
-    getDateKey(normalizeDate(lastRef.lastUpdated || lastRef.createdAt || new Date()));
-  if (!refDateKey) return [lastRef];
-
-  const refTime = getTimestamp(lastRef);
-  const BATCH_TOLERANCE_MS = 10 * 60 * 1000; // 10 minutos (mais tolerante)
-
-  return simuladoRowsArray.filter((r) => {
-    // Não misturar simulados IA com manuais (se um tem batchId e o outro não)
-    if (r.batchId !== lastRef.batchId) return false;
-
-    // Mesma data
-    const rowDateKey =
-      r.date || getDateKey(normalizeDate(r.lastUpdated || r.createdAt || ''));
-    if (rowDateKey !== refDateKey) return false;
-
-    // Se não tem timestamp, inclui (segurança)
-    const rowTime = getTimestamp(r);
-    if (rowTime === 0) return true;
-
-    // Dentro da janela temporal
-    return Math.abs(rowTime - refTime) <= BATCH_TOLERANCE_MS;
-  });
+    if (!simuladoRowsArray.length) return [];
+  
+    // 1. Filtra apenas rows com dados reais (total > 0 ou correct > 0)
+    const answeredRows = simuladoRowsArray.filter(
+      (r) => parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0
+    );
+    if (answeredRows.length === 0) return [];
+  
+    // 2. Ordena por timestamp mais recente (lastUpdated > createdAt > date)
+    const getTimestamp = (r) => {
+      const raw = r.lastUpdated || r.createdAt || r.date;
+      if (!raw) return 0;
+      const t = new Date(raw).getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
+  
+    const sorted = [...answeredRows].sort((a, b) => getTimestamp(b) - getTimestamp(a));
+    const lastRef = sorted[0];
+    if (!lastRef) return [];
+  
+    // 3. Estratégia A: batchId (Simulado IA)
+    if (lastRef.batchId) {
+      return simuladoRowsArray.filter((r) => r.batchId === lastRef.batchId);
+    }
+  
+    // 4. Estratégia B: MESMA DATA (não mais "10 minutos")
+    //    Simulado manual = todas as rows da mesma data do último registro
+    const refDateKey =
+      lastRef.date ||
+      getDateKey(normalizeDate(lastRef.lastUpdated || lastRef.createdAt || new Date()));
+    if (!refDateKey) return [lastRef];
+  
+    return simuladoRowsArray.filter((r) => {
+      // Não misturar IA com manual
+      if (r.batchId !== lastRef.batchId) return false;
+      const rowDateKey =
+        r.date || getDateKey(normalizeDate(r.lastUpdated || r.createdAt || ''));
+      return rowDateKey === refDateKey;
+    });
 }, [simuladoRowsArray]);
 
     const [mode, setMode] = useState('ai-generator'); // 'ai-generator' | 'analyzer' | 'history'
@@ -176,18 +216,21 @@ const lastSimuladoRows = React.useMemo(() => {
 
 
 const handleSimuladoAnalysis = (payload) => {
-  try {
-    const analysisResult = payload?.analysis || payload || {};
-    const rawRows = Array.isArray(payload?.rawRows) ? payload.rawRows : [];
-
-    const todayKey = getDateKey(normalizeDate(new Date()));
-    const nowIso = new Date().toISOString();
-    const batchId = generateId('batch');
-
-    let processedDisciplines = 0;
-    let finalTotalQ = 0;
-
-    setData((current) => {
+    try {
+      const analysisResult = payload?.analysis || payload || {};
+      const rawRows = Array.isArray(payload?.rawRows) ? payload.rawRows : [];
+  
+      const todayKey = getDateKey(normalizeDate(new Date()));
+      const nowIso = new Date().toISOString();
+      const batchId = generateId('batch');
+  
+      // Calcular ANTES de setData
+      const validRowsForToast = rawRows.filter(
+        (r) => r && r.subject && r.topic && Number(r.total) > 0
+      );
+      const totalQForToast = validRowsForToast.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  
+      setData((current) => {
       const prev = current || {};
 
       const newCategories = safeClone(
@@ -465,27 +508,22 @@ const handleSimuladoAnalysis = (payload) => {
           .slice(-100);
       }
 
-      processedDisciplines = totalProcessedDisciplines;
-      finalTotalQ = totalQ;
-
-      return {
-        ...prev,
-        categories: newCategories,
-        simuladoRows: validatedRows,
-        simulados: updatedSimulados,
-        lastUpdated: nowIso
-      };
-    });
-
-    if (finalTotalQ > 0 && processedDisciplines > 0) {
-      showToast('Simulado processado com sucesso!', 'success');
-      useAppStore.getState().awardExperience?.(500);
-    } else if (processedDisciplines > 0) {
-      showToast('Matérias encontradas, mas nenhuma questão válida foi salva hoje.', 'warning');
-    } else {
-      showToast('Nenhuma matéria correspondente encontrada.', 'warning');
-    }
-  } catch (err) {
+        return {
+          ...prev,
+          categories: newCategories,
+          simuladoRows: validatedRows,
+          simulados: updatedSimulados,
+          lastUpdated: nowIso
+        };
+      });
+  
+      if (totalQForToast > 0) {
+        showToast('Simulado processado com sucesso!', 'success');
+        useAppStore.getState().awardExperience?.(500);
+      } else {
+        showToast('Nenhuma questão válida encontrada.', 'warning');
+      }
+    } catch (err) {
     console.error('FATAL ERROR IN handleSimuladoAnalysis:', err);
     showToast('Erro fatal ao salvar simulado. Verifique os logs.', 'error');
   }
@@ -559,14 +597,17 @@ const handleSimuladoAnalysis = (payload) => {
               )}
           </div>
         ) : (
-          <StudyHistory
-              studySessions={studySessionsArray}
-              categories={categoriesArray}
-              simuladoRows={simuladoRowsArray}
-              onDeleteSession={deleteSession}
-              onDeleteSimulado={deleteSimulado}
-              mode="performance"
-          />
+          <div className="space-y-6">
+            <DailySummaryCards simuladoRows={simuladoRowsArray} />
+            <StudyHistory
+                studySessions={studySessionsArray}
+                categories={categoriesArray}
+                simuladoRows={simuladoRowsArray}
+                onDeleteSession={deleteSession}
+                onDeleteSimulado={deleteSimulado}
+                mode="performance"
+            />
+          </div>
         )}
     </PageErrorBoundary>);
 }

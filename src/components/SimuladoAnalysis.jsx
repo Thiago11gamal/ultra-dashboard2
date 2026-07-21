@@ -14,14 +14,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     // Using index as stable fallback avoids any mutation during render.
     const [prevPropRows, setPrevPropRows] = useState(propRows);
     const [rows, setLocalRows] = useState(() => (propRows && propRows.length > 0)
-        ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
+        ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${normalize(r.subject || '')}-${normalize(r.topic || '')}-${i}` }))
         : []
     );
 
     if (propRows !== prevPropRows) {
         setPrevPropRows(propRows);
         setLocalRows((propRows && propRows.length > 0)
-            ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
+            ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${normalize(r.subject || '')}-${normalize(r.topic || '')}-${i}` }))
             : []
         );
     }
@@ -35,9 +35,13 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
       [rows]
     );
 
+    const prevSignatureRef = React.useRef(rowsSignature);
     React.useEffect(() => {
-      setAnalysisData(null);
-      setLoading(false);
+        if (prevSignatureRef.current !== rowsSignature) {
+            prevSignatureRef.current = rowsSignature;
+            setAnalysisData(null);
+            setLoading(false);
+        }
     }, [rowsSignature]);
     const [error, setError] = useState(null);
     const [errorIndices, setErrorIndices] = useState(() => ({ subjects: new Set(), topics: new Set() }));
@@ -203,22 +207,30 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             });
 
             if (invalidSubjects.size > 0 || invalidTopics.size > 0) {
-                setErrorIndices({ subjects: invalidSubjects, topics: invalidTopics });
-
-                if (firstInvalidSubject && firstInvalidTopic) {
-                    setError(`Matéria '${firstInvalidSubject}' e Assunto '${firstInvalidTopic}' não encontrados.`);
-                } else if (firstInvalidSubject) {
-                    setError(`A matéria '${firstInvalidSubject}' não existe no Dashboard.`);
-                } else if (firstInvalidTopic) {
-                    setError(`O assunto '${firstInvalidTopic}' não existe na matéria '${targetSubject}'.`);
+                if (viewMode === 'report') {
+                    // Em modo relatório, NÃO bloquear por assunto não encontrado
+                    // Apenas renderizar o que existe
+                    setErrorIndices({ subjects: new Set(), topics: new Set() });
+                } else {
+                    setErrorIndices({ subjects: invalidSubjects, topics: invalidTopics });
+    
+                    if (firstInvalidSubject && firstInvalidTopic) {
+                        setError(`Matéria '${firstInvalidSubject}' e Assunto '${firstInvalidTopic}' não encontrados.`);
+                    } else if (firstInvalidSubject) {
+                        setError(`A matéria '${firstInvalidSubject}' não existe no Dashboard.`);
+                    } else if (firstInvalidTopic) {
+                        setError(`O assunto '${firstInvalidTopic}' não existe na matéria '${targetSubject}'.`);
+                    }
+    
+                    setAnalysisData(null);
+                    setLoading(false);
+                    return;
                 }
-
-                setAnalysisData(null);
-                setLoading(false);
-                return;
             }
             // Clear errors if all valid
-            setErrorIndices({ subjects: new Set(), topics: new Set() });
+            if (viewMode !== 'report') {
+                setErrorIndices({ subjects: new Set(), topics: new Set() });
+            }
         }
 
         // BUG FIX: Separation of row validation for Analytics vs Storage/Audit
