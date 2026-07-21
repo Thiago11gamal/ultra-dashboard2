@@ -104,49 +104,50 @@ export default function Simulados() {
 const lastSimuladoRows = React.useMemo(() => {
   if (!simuladoRowsArray.length) return [];
 
-  const rows = simuladoRowsArray;
-
-  const answeredRows = rows.filter(
+  // 1. Filtra apenas rows com dados reais (total > 0 ou correct > 0)
+  const answeredRows = simuladoRowsArray.filter(
     (r) => parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0
   );
-
   if (answeredRows.length === 0) return [];
 
-  const sorted = [...answeredRows].sort((a, b) => {
-    const dateA = new Date(a.lastUpdated || a.createdAt || a.date || 0);
-    const dateB = new Date(b.lastUpdated || b.createdAt || b.date || 0);
-    return dateB.getTime() - dateA.getTime();
-  });
+  // 2. Ordena por timestamp mais recente (lastUpdated > createdAt > date)
+  const getTimestamp = (r) => {
+    const raw = r.lastUpdated || r.createdAt || r.date;
+    if (!raw) return 0;
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t : 0;
+  };
 
+  const sorted = [...answeredRows].sort((a, b) => getTimestamp(b) - getTimestamp(a));
   const lastRef = sorted[0];
   if (!lastRef) return [];
 
+  // 3. Estratégia A: Se tem batchId, agrupa por batchId (simulados IA)
   if (lastRef.batchId) {
-    return rows.filter((r) => r.batchId === lastRef.batchId);
+    return simuladoRowsArray.filter((r) => r.batchId === lastRef.batchId);
   }
 
+  // 4. Estratégia B: Agrupa por data + proximidade temporal (simulados manuais)
   const refDateKey =
-    lastRef.date || getDateKey(normalizeDate(lastRef.lastUpdated || lastRef.createdAt || new Date()));
+    lastRef.date ||
+    getDateKey(normalizeDate(lastRef.lastUpdated || lastRef.createdAt || new Date()));
+  if (!refDateKey) return [lastRef];
 
-  if (!refDateKey) return [];
+  const refTime = getTimestamp(lastRef);
+  const BATCH_TOLERANCE_MS = 10 * 60 * 1000; // 10 minutos (mais tolerante)
 
-  const refTime = new Date(
-    lastRef.lastUpdated || lastRef.createdAt || `${refDateKey}T12:00:00`
-  ).getTime();
-
-  const BATCH_TOLERANCE_MS = 5 * 60 * 1000;
-
-  return rows.filter((r) => {
-    const rowDateKey = r.date || getDateKey(normalizeDate(r.lastUpdated || r.createdAt || ''));
+  return simuladoRowsArray.filter((r) => {
+    // Mesma data
+    const rowDateKey =
+      r.date || getDateKey(normalizeDate(r.lastUpdated || r.createdAt || ''));
     if (rowDateKey !== refDateKey) return false;
 
-    const rowTimeRaw = r.lastUpdated || r.createdAt;
-    if (!rowTimeRaw) return true;
+    // Se não tem timestamp, inclui (segurança)
+    const rowTime = getTimestamp(r);
+    if (rowTime === 0) return true;
 
-    const t = new Date(rowTimeRaw).getTime();
-    if (!Number.isFinite(t)) return true;
-
-    return Math.abs(t - refTime) <= BATCH_TOLERANCE_MS;
+    // Dentro da janela temporal
+    return Math.abs(rowTime - refTime) <= BATCH_TOLERANCE_MS;
   });
 }, [simuladoRowsArray]);
 
@@ -561,7 +562,7 @@ const handleSimuladoAnalysis = (payload) => {
               simuladoRows={simuladoRowsArray}
               onDeleteSession={deleteSession}
               onDeleteSimulado={deleteSimulado}
-              mode="performance"
+              mode="full"
           />
         )}
     </PageErrorBoundary>);

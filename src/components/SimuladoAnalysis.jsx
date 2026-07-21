@@ -28,6 +28,17 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
     // Helper to report changes up to parent
     const [analysisData, setAnalysisData] = useState(null);
+
+    // ✅ NOVO: Resetta analysisData quando as rows mudam (novo simulado salvo)
+    const rowsSignature = React.useMemo(
+      () => rows.map((r) => `${r.id || ''}-${r.total || 0}-${r.correct || 0}`).join('|'),
+      [rows]
+    );
+
+    React.useEffect(() => {
+      setAnalysisData(null);
+      setLoading(false);
+    }, [rowsSignature]);
     const [error, setError] = useState(null);
     const [errorIndices, setErrorIndices] = useState(() => ({ subjects: new Set(), topics: new Set() }));
 
@@ -371,10 +382,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     }, [categories, rows, viewMode, onAnalysisComplete]);
 
     React.useEffect(() => {
-        if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading) {
-            setTimeout(() => handleAnalyze(), 0);
+        if (viewMode === 'report' && rows.length > 0 && !loading) {
+            const timer = setTimeout(() => handleAnalyze(), 100);
+            return () => clearTimeout(timer);
         }
-    }, [viewMode, rows.length, analysisData, loading, handleAnalyze]);
+    }, [viewMode, rowsSignature, loading, handleAnalyze]);
 
     return (
         <div className={`w-full mx-auto space-y-6 animate-fade-in pb-20`}>
