@@ -50,7 +50,7 @@ export const createMonteCarloSlice = (set) => ({
         const activeId = state.appState.activeId;
         const activeData = state.appState.contests[activeId];
         if (!activeData) return;
-        activeData.historicalCutoffs = cutoffs; 8j7h6g54
+        activeData.historicalCutoffs = cutoffs;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
