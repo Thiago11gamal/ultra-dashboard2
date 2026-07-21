@@ -354,8 +354,10 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             return sTime < (mostRecentSimDate - SESSION_GAP_MS);
         });
         
+        // ✅ CORREÇÃO BUG #4: Fallback temporal correto
+        // Usa todos exceto o mais recente, mantendo decaimento temporal
         if (pastSimulados.length === 0 && relevantSimulados.length > 1) {
-            pastSimulados = relevantSimulados.slice(1);
+            pastSimulados = relevantSimulados.slice(0, -1); // Remove apenas o último (mais recente)
         }
         
         const notaBruta = calculateExponentialScore(relevantSimulados);
@@ -594,11 +596,13 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const volatilityRisk = mssdVolatility;
 
     const rawPain = performanceDeficit + memoryRisk + volatilityRisk;
-    const totalPain = Number.isFinite(rawPain) ? Math.max(1, rawPain) : 1;
+    // ✅ CORREÇÃO BUG #2: Piso mais alto para evitar explosão
+    const totalPain = Math.max(10, Number.isFinite(rawPain) ? rawPain : 10);
 
-    const dynamicScoreMax = Math.max(20, (performanceDeficit / totalPain) * 110);
-    const dynamicRecencyMax = Math.max(15, (memoryRisk / totalPain) * 110);
-    const dynamicInstabilityMax = Math.max(10, (volatilityRisk / totalPain) * 110);
+    // ✅ CORREÇÃO BUG #2: Clamp preventivo contra valores extremos
+    const dynamicScoreMax = Math.min(110, Math.max(20, (performanceDeficit / totalPain) * 110));
+    const dynamicRecencyMax = Math.min(110, Math.max(15, (memoryRisk / totalPain) * 110));
+    const dynamicInstabilityMax = Math.min(110, Math.max(10, (volatilityRisk / totalPain) * 110));
 
     const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.40; 
     
