@@ -305,7 +305,7 @@ export default function AIGeneratedSimulado() {
       clearTimeout(timeoutId1);
       clearTimeout(timeoutId2);
     };
-  }, [categories, nextAiId, showToast]);
+  }, [categories, showToast]);
 
   const handleInputChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -762,16 +762,16 @@ export default function AIGeneratedSimulado() {
           return prev - 1;
         });
 
-        // â±ï¸ O RELÃ“GIO INVISÃVEL
-        // A cada segundo contabiliza o tempo na questÃ£o atual, para gerar a barra fina exata de comparaÃ§Ã£o de agilidade
-        const currentQ = latestQuestionsRef.current[latestCurrentIndexRef.current];
-        if (currentQ) {
-            setTimePerQuestion(prev => ({
-                ...prev,
-                [currentQ.id]: (prev[currentQ.id] || 0) + 1
-            }));
+        // âœ… FIX: SÃ³ contabiliza tempo se o timer ainda nÃ£o terminou
+        if (!timerFinishTriggerRef.current) {
+          const currentQ = latestQuestionsRef.current[latestCurrentIndexRef.current];
+          if (currentQ) {
+              setTimePerQuestion(prev => ({
+                  ...prev,
+                  [currentQ.id]: (prev[currentQ.id] || 0) + 1
+              }));
+          }
         }
-
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -1376,7 +1376,7 @@ export default function SimuladoSetup({
   DIFFICULTIES,
   LOADING_MESSAGES
 }) {
-  const hasApiKey = true;
+  const hasApiKey = Boolean(import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_BACKEND_URL);
   const isReadyToGenerate = form.categoryId && form.taskId && hasApiKey;
 
 return (
@@ -7963,7 +7963,15 @@ export function PomodoroClock({
                         strokeWidth="14"
                         strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 110}
-                        style={{ strokeDashoffset: isRunning ? undefined : (2 * Math.PI * 110) * (timeLeft / ((mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (mode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60)) || 1)) }}
+                        style={{ strokeDashoffset: isRunning ? undefined : (() => {
+                          const totalTime = mode === 'work'
+                            ? Math.max(60, (safeSettings.pomodoroWork || 25) * 60)
+                            : mode === 'long_break'
+                              ? Math.max(60, (safeSettings.pomodoroLongBreak || 15) * 60)
+                              : Math.max(60, (safeSettings.pomodoroBreak || 5) * 60);
+                          const fraction = Math.max(0, Math.min(1, timeLeft / totalTime));
+                          return (2 * Math.PI * 110) * fraction;
+                        })() }}
                     />
                 </svg>
 
@@ -11004,12 +11012,11 @@ function buildPredictiveCompareData(
       const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
       const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
 
-      const dt = new Date(`${String(pts[lastIdx].date || '')}T12:00:00`);
-      if (Number.isNaN(dt.getTime())) return pts;
-
+      // âœ… FIX: Criar NOVO Date a cada iteraÃ§Ã£o a partir da data base
+      const baseDate = new Date(`${String(pts[lastIdx].date || '')}T12:00:00`);
+      if (Number.isNaN(baseDate.getTime())) return pts;
       const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
-      dt.setDate(dt.getDate() + forwardDays);
-
+      const dt = new Date(baseDate.getTime() + forwardDays * 24 * 60 * 60 * 1000);
       const iso = getDateKey(dt);
 
       futurePoints.push({
@@ -17595,9 +17602,10 @@ const Sidebar = React.memo(function Sidebar({
             }
         };
 
-        document.addEventListener('mousedown', handleClickOutside);
+        // âœ… FIX: Usar 'click' em vez de 'mousedown' para evitar conflito com o toggle
+        document.addEventListener('click', handleClickOutside);
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('click', handleClickOutside);
         };
     }, [collapsed, setCollapsed]);
 
@@ -18729,7 +18737,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         if (!goal) return null;
 
         const diffTime = goal.getTime() - localToday.getTime();
-        return Math.round(diffTime / (1000 * 60 * 60 * 24));
+        // âœ… FIX: Math.ceil para nÃ£o mostrar "0 dias" quando ainda hÃ¡ tempo
+        return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
     }, [user.goalDate]);
 
     return (
@@ -25575,16 +25584,15 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
         return calculateAdaptiveSlope(trendOrHistory, maxScore, opts);
     }
 
-    // Tetos estatÃ­sticos ajustados conforme plano de implementaÃ§Ã£o
-    const absoluteMax = 0.4; 
+    // âœ… FIX: Clamp proporcional Ã  escala da prova
+    const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
+    const absoluteMax = 0.004 * maxScore; // 0.4% da escala por dia
     
     let slope = Number(trendOrHistory) || 0;
-    
-    // Clamp absoluto
+
     if (slope > absoluteMax) slope = absoluteMax;
     if (slope < -absoluteMax) slope = -absoluteMax;
-    
-    // Regras adicionais de baseLimit podem ser aplicadas aqui usando a mesma variÃ¡vel
+
     return slope;
 }
 
@@ -28061,7 +28069,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
         if (accumulated.length > 0) {
             // BUG 4b FIX: Propagate maxScore to computeCategoryStats and computeBayesianLevel
             const lastEntry = accumulated.length > 0 ? accumulated[accumulated.length - 1] : null;
-            const bayStats = computeBayesianLevel([], bayAlpha, bayBeta, maxScore, {
+            const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, maxScore, {
                 referenceDate: date,
                 lastEventDate: lastEntry ? lastEntry.date : null
             });
@@ -28566,7 +28574,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const map = new Map();
         const getStableKey = (item) => {
             if (item.id) return item.id;
-            return `${item.date || ''}-${item.categoryId || ''}-${item.taskId || JSON.stringify(item)}`;
+            // âœ… FIX: Usar campos semÃ¢nticos estÃ¡veis em vez de JSON.stringify
+            return `${item.date || item.startTime || ''}-${item.categoryId || ''}-${item.taskId || ''}-${item.duration || item.minutes || ''}`;
         };
         const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
         const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
@@ -33156,6 +33165,7 @@ export default function Flashcards() {
     updatedStudyCards[studyIndex] = {
       ...updatedStudyCards[studyIndex],
       interval: newInterval,
+      ease: newEase,
       due: nextDue
     };
 
@@ -37074,14 +37084,16 @@ export const createSimuladoSlice = (set) => ({
 
     const matchesDate = (raw) => {
       if (!raw) return false;
-
       const normalizedRaw = String(raw);
-
       if (normalizedInput.includes('T')) {
         return normalizedRaw === normalizedInput;
       }
-
-      return normalizedRaw.startsWith(normalizedInput);
+      // âœ… FIX: ValidaÃ§Ã£o estrita de formato YYYY-MM-DD antes de comparar
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(normalizedInput)) return false;
+      // Compara apenas a parte da data (YYYY-MM-DD)
+      const rawDatePart = normalizedRaw.split('T')[0];
+      return rawDatePart === normalizedInput;
     };
 
     if (activeData.simuladoRows) {
@@ -38143,6 +38155,12 @@ export const useAppStore = create(
                     localStorage.removeItem('pomodoroState');
                     // MATH-03 / LEAK-01 FIX: Clear module-level MC cache on logout
                     clearMcCache();
+                    // âœ… FIX: Notificar outras abas para encerrar Pomodoro
+                    try {
+                        const channel = new BroadcastChannel('pomodoro_sync');
+                        channel.postMessage({ type: 'TIMER_RESET', tabId: 'reset-all' });
+                        channel.close();
+                    } catch { /* BroadcastChannel indisponÃ­vel */ }
                     set((state) => {
                         // Preservamos configuraÃ§Ãµes de UI (tema, etc) mas limpamos dados sensÃ­veis
                         const settings = state.appState.settings;
@@ -43621,11 +43639,19 @@ export const getDateKey = (rawDate) => {
  */
 export const getLocalMidnight = (date = new Date()) => {
     try {
+        // âœ… FIX: Usa o fuso canÃ´nico da aplicaÃ§Ã£o (America/Manaus)
+        const dateKey = getDateKey(date);
+        if (!dateKey) {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+        // Cria meia-noite no fuso de Manaus
+        return new Date(`${dateKey}T00:00:00-04:00`);
+    } catch {
         const d = new Date(date);
         d.setHours(0, 0, 0, 0);
         return d;
-    } catch {
-        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }
 };
 
@@ -45737,18 +45763,18 @@ body::before {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background-image:
-    radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(129, 140, 248, 0.1) 0px, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(244, 114, 182, 0.05) 0px, transparent 50%);
-  pointer-events: none;
+  width: 100vw;
+  height: 100vh;
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 35%),
+    radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 35%),
+    radial-gradient(circle at 50% 80%, rgba(59, 130, 246, 0.06), transparent 40%);
   z-index: -1;
   animation: meshMove 30s ease-in-out infinite alternate;
   opacity: var(--mesh-opacity, 1);
   /* PERFORM-01: GPU acceleration for fixed mesh */
-  will-change: transform;
+  /* will-change removido â€” sÃ³ ativar durante animaÃ§Ã£o se necessÃ¡rio */
+  transform: translateZ(0); /* GPU acceleration sem will-change permanente */
 }
 
 

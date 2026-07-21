@@ -32,14 +32,16 @@ export const createSimuladoSlice = (set) => ({
 
     const matchesDate = (raw) => {
       if (!raw) return false;
-
       const normalizedRaw = String(raw);
-
       if (normalizedInput.includes('T')) {
         return normalizedRaw === normalizedInput;
       }
-
-      return normalizedRaw.startsWith(normalizedInput);
+      // ✅ FIX: Validação estrita de formato YYYY-MM-DD antes de comparar
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(normalizedInput)) return false;
+      // Compara apenas a parte da data (YYYY-MM-DD)
+      const rawDatePart = normalizedRaw.split('T')[0];
+      return rawDatePart === normalizedInput;
     };
 
     if (activeData.simuladoRows) {

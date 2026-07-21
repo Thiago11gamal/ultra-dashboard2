@@ -227,6 +227,7 @@ export default function Flashcards() {
     updatedStudyCards[studyIndex] = {
       ...updatedStudyCards[studyIndex],
       interval: newInterval,
+      ease: newEase,
       due: nextDue
     };
 

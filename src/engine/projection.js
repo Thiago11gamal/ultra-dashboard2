@@ -278,16 +278,15 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
         return calculateAdaptiveSlope(trendOrHistory, maxScore, opts);
     }
 
-    // Tetos estatísticos ajustados conforme plano de implementação
-    const absoluteMax = 0.4; 
+    // ✅ FIX: Clamp proporcional à escala da prova
+    const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
+    const absoluteMax = 0.004 * maxScore; // 0.4% da escala por dia
     
     let slope = Number(trendOrHistory) || 0;
-    
-    // Clamp absoluto
+
     if (slope > absoluteMax) slope = absoluteMax;
     if (slope < -absoluteMax) slope = -absoluteMax;
-    
-    // Regras adicionais de baseLimit podem ser aplicadas aqui usando a mesma variável
+
     return slope;
 }
 

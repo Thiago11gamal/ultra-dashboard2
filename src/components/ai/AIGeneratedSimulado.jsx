@@ -304,7 +304,7 @@ export default function AIGeneratedSimulado() {
       clearTimeout(timeoutId1);
       clearTimeout(timeoutId2);
     };
-  }, [categories, nextAiId, showToast]);
+  }, [categories, showToast]);
 
   const handleInputChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -761,16 +761,16 @@ export default function AIGeneratedSimulado() {
           return prev - 1;
         });
 
-        // ⏱️ O RELÓGIO INVISÍVEL
-        // A cada segundo contabiliza o tempo na questão atual, para gerar a barra fina exata de comparação de agilidade
-        const currentQ = latestQuestionsRef.current[latestCurrentIndexRef.current];
-        if (currentQ) {
-            setTimePerQuestion(prev => ({
-                ...prev,
-                [currentQ.id]: (prev[currentQ.id] || 0) + 1
-            }));
+        // ✅ FIX: Só contabiliza tempo se o timer ainda não terminou
+        if (!timerFinishTriggerRef.current) {
+          const currentQ = latestQuestionsRef.current[latestCurrentIndexRef.current];
+          if (currentQ) {
+              setTimePerQuestion(prev => ({
+                  ...prev,
+                  [currentQ.id]: (prev[currentQ.id] || 0) + 1
+              }));
+          }
         }
-
       }, 1000);
     }
     return () => clearInterval(interval);

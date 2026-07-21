@@ -83,7 +83,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         if (!goal) return null;
 
         const diffTime = goal.getTime() - localToday.getTime();
-        return Math.round(diffTime / (1000 * 60 * 60 * 24));
+        // ✅ FIX: Math.ceil para não mostrar "0 dias" quando ainda há tempo
+        return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
     }, [user.goalDate]);
 
     return (

@@ -154,7 +154,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const map = new Map();
         const getStableKey = (item) => {
             if (item.id) return item.id;
-            return `${item.date || ''}-${item.categoryId || ''}-${item.taskId || JSON.stringify(item)}`;
+            // ✅ FIX: Usar campos semânticos estáveis em vez de JSON.stringify
+            return `${item.date || item.startTime || ''}-${item.categoryId || ''}-${item.taskId || ''}-${item.duration || item.minutes || ''}`;
         };
         const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
         const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});

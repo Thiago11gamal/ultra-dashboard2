@@ -129,7 +129,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
         if (accumulated.length > 0) {
             // BUG 4b FIX: Propagate maxScore to computeCategoryStats and computeBayesianLevel
             const lastEntry = accumulated.length > 0 ? accumulated[accumulated.length - 1] : null;
-            const bayStats = computeBayesianLevel([], bayAlpha, bayBeta, maxScore, {
+            const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, maxScore, {
                 referenceDate: date,
                 lastEventDate: lastEntry ? lastEntry.date : null
             });

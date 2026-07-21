@@ -90,11 +90,19 @@ export const getDateKey = (rawDate) => {
  */
 export const getLocalMidnight = (date = new Date()) => {
     try {
+        // ✅ FIX: Usa o fuso canônico da aplicação (America/Manaus)
+        const dateKey = getDateKey(date);
+        if (!dateKey) {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+        // Cria meia-noite no fuso de Manaus
+        return new Date(`${dateKey}T00:00:00-04:00`);
+    } catch {
         const d = new Date(date);
         d.setHours(0, 0, 0, 0);
         return d;
-    } catch {
-        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }
 };
 

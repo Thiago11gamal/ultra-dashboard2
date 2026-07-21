@@ -129,9 +129,10 @@ const Sidebar = React.memo(function Sidebar({
             }
         };
 
-        document.addEventListener('mousedown', handleClickOutside);
+        // ✅ FIX: Usar 'click' em vez de 'mousedown' para evitar conflito com o toggle
+        document.addEventListener('click', handleClickOutside);
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('click', handleClickOutside);
         };
     }, [collapsed, setCollapsed]);
 

@@ -161,12 +161,11 @@ function buildPredictiveCompareData(
       const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
       const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
 
-      const dt = new Date(`${String(pts[lastIdx].date || '')}T12:00:00`);
-      if (Number.isNaN(dt.getTime())) return pts;
-
+      // ✅ FIX: Criar NOVO Date a cada iteração a partir da data base
+      const baseDate = new Date(`${String(pts[lastIdx].date || '')}T12:00:00`);
+      if (Number.isNaN(baseDate.getTime())) return pts;
       const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
-      dt.setDate(dt.getDate() + forwardDays);
-
+      const dt = new Date(baseDate.getTime() + forwardDays * 24 * 60 * 60 * 1000);
       const iso = getDateKey(dt);
 
       futurePoints.push({

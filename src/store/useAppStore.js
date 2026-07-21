@@ -118,6 +118,12 @@ export const useAppStore = create(
                     localStorage.removeItem('pomodoroState');
                     // MATH-03 / LEAK-01 FIX: Clear module-level MC cache on logout
                     clearMcCache();
+                    // ✅ FIX: Notificar outras abas para encerrar Pomodoro
+                    try {
+                        const channel = new BroadcastChannel('pomodoro_sync');
+                        channel.postMessage({ type: 'TIMER_RESET', tabId: 'reset-all' });
+                        channel.close();
+                    } catch { /* BroadcastChannel indisponível */ }
                     set((state) => {
                         // Preservamos configurações de UI (tema, etc) mas limpamos dados sensíveis
                         const settings = state.appState.settings;
