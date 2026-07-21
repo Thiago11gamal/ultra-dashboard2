@@ -921,7 +921,7 @@ export default React.memo(function EvolutionChart({
 
                             {insight.advice && (
                                 <div className="w-full lg:w-[350px] shrink-0 mt-2 lg:mt-0">
-                                    <div className={`rounded-3xl bg-black/60 border ${colors.border} p-6 sm:p-8 relative shadow-2xl group-hover:bg-black/80 transition-all duration-500 overflow-hidden`}>
+                                    <div className={`rounded-md bg-black/60 border ${colors.border} p-6 sm:p-8 relative shadow-2xl group-hover:bg-black/80 transition-all duration-500 overflow-hidden`}>
                                         <div className={`absolute -right-12 -top-12 w-48 h-48 ${colors.glow} opacity-10 blur-3xl pointer-events-none`} />
                                         
                                         <div className="flex items-center gap-2 mb-3 relative z-10">
