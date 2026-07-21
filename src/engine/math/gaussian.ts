@@ -188,23 +188,26 @@ export function generateKDE(allScores: Float32Array | number[], projectedMean: n
     for (let i = 0; i <= plotSteps; i++) {
         const x = plotMin + i * stepSize;
         let density = 0;
+        if (x < minScore || x > maxScore) {
+            density = 0;
+        } else {
+            for (let j = 0; j < BIN_COUNT; j++) {
+                if (bins[j] === 0) continue;
+                const binX = plotMin + (j + 0.5) * binWidth;
 
-        for (let j = 0; j < BIN_COUNT; j++) {
-            if (bins[j] === 0) continue;
-            const binX = plotMin + (j + 0.5) * binWidth;
+                const dist = (x - binX) * invBandwidth;
+                const distReflMin = (x - (2 * minScore - binX)) * invBandwidth;
+                const distReflMax = (x - (2 * maxScore - binX)) * invBandwidth;
 
-            const dist = (x - binX) * invBandwidth;
-            const distReflMin = (x - (2 * minScore - binX)) * invBandwidth;
-            const distReflMax = (x - (2 * maxScore - binX)) * invBandwidth;
-
-            if (Math.abs(dist) < 4.0 || Math.abs(distReflMin) < 4.0 || Math.abs(distReflMax) < 4.0) {
-                let localDensity = Math.exp(-0.5 * dist * dist);
-                localDensity += Math.exp(-0.5 * distReflMin * distReflMin);
-                localDensity += Math.exp(-0.5 * distReflMax * distReflMax);
-                density += bins[j] * localDensity;
+                if (Math.abs(dist) < 4.0 || Math.abs(distReflMin) < 4.0 || Math.abs(distReflMax) < 4.0) {
+                    let localDensity = Math.exp(-0.5 * dist * dist);
+                    localDensity += Math.exp(-0.5 * distReflMin * distReflMin);
+                    localDensity += Math.exp(-0.5 * distReflMax * distReflMax);
+                    density += bins[j] * localDensity;
+                }
             }
+            density *= normFactor;
         }
-        density *= normFactor;
 
         if (density > maxY) maxY = density;
         xOut[i] = x;
