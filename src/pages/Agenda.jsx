@@ -251,7 +251,7 @@ export default function Agenda() {
                   <div>
                     <div className="font-medium leading-tight">{ev.title}</div>
                     <div className="text-[11px] text-teal-300/90">
-                      {format(new Date(ev.date + 'T12:00:00'), 'dd/MM')}
+                      {ev.date ? format(new Date(ev.date + 'T12:00:00'), 'dd/MM') : '--'}
                       {ev.time ? ` • ${ev.time}` : ''}
                       {ev.duration ? ` • ${ev.duration}min` : ''}
                     </div>

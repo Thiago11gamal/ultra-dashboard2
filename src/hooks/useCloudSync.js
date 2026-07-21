@@ -207,8 +207,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
     const mergeContestCategories = (localCats = [], cloudCats = [], preferCloudBase = false) => {
         const mergedCatsMap = {};
+
         const toDateMs = (value) => {
             if (!value) return 0;
+
             const ms = new Date(value).getTime();
             return Number.isFinite(ms) ? ms : 0;
         };
@@ -222,16 +224,36 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
         safeCloudCats.forEach(c => {
             if (!c?.id) return;
+
             if (mergedCatsMap[c.id]) {
                 const localCat = mergedCatsMap[c.id];
-                const baseCat = preferCloudBase ? { ...localCat, ...c } : { ...c, ...localCat };
+
+                const baseCat = preferCloudBase
+                    ? { ...localCat, ...c }
+                    : { ...c, ...localCat };
+
+                const catMaxScore = Number(c.maxScore ?? localCat.maxScore ?? 100) || 100;
+
                 const historyMap = new Map();
-                const getStableHistoryKey = (h) => h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}`;
-                
-                const safeLocalHistory = Array.isArray(localCat.simuladoStats?.history) ? localCat.simuladoStats.history : Object.values(localCat.simuladoStats?.history || {});
-                const safeCloudHistory = Array.isArray(c.simuladoStats?.history) ? c.simuladoStats.history : Object.values(c.simuladoStats?.history || {});
-                safeLocalHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
-                safeCloudHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
+
+                const getStableHistoryKey = (h) =>
+                    h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}`;
+
+                const safeLocalHistory = Array.isArray(localCat.simuladoStats?.history)
+                    ? localCat.simuladoStats.history
+                    : Object.values(localCat.simuladoStats?.history || {});
+
+                const safeCloudHistory = Array.isArray(c.simuladoStats?.history)
+                    ? c.simuladoStats.history
+                    : Object.values(c.simuladoStats?.history || {});
+
+                safeLocalHistory.forEach(h => {
+                    if (h?.date) historyMap.set(getStableHistoryKey(h), h);
+                });
+
+                safeCloudHistory.forEach(h => {
+                    if (h?.date) historyMap.set(getStableHistoryKey(h), h);
+                });
 
                 mergedCatsMap[c.id] = {
                     ...baseCat,
@@ -240,7 +262,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                         ...(localCat.simuladoStats || c.simuladoStats || {}),
                         ...(c.simuladoStats || {}),
                         history: Array.from(historyMap.values())
-                            .map(h => ({ ...h, score: getSafeScore(h, 100) }))
+                            .map(h => ({ ...h, score: getSafeScore(h, catMaxScore) }))
                             .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
                     }
                 };
@@ -253,10 +275,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     };
 
     const mergeContestPayload = (localContest, cloudContest, preferCloudBase = false) => {
-        const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
+        const base = preferCloudBase
+            ? { ...localContest, ...cloudContest }
+            : { ...cloudContest, ...localContest };
+
         return {
             ...base,
-            categories: mergeContestCategories(localContest.categories, cloudContest.categories, preferCloudBase),
+            categories: mergeContestCategories(
+                localContest.categories,
+                cloudContest.categories,
+                preferCloudBase
+            ),
             studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
             studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
             simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),
@@ -638,19 +667,26 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     }, [currentUser?.uid]);
     
     const performEmergencySync = useCallback(async () => {
-        if (isLocalMode || !currentUser?.uid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
-        
+        if (
+            isLocalMode ||
+            !currentUser?.uid ||
+            !appStateRef.current ||
+            !isParityValidatedRef.current ||
+            !db
+        ) return;
+
         if (debounceRef.current) clearTimeout(debounceRef.current);
-        
+
         const currentStateString = stateStringForSync(appStateRef.current);
+
         if (lastSyncedRef.current === currentStateString) return;
 
         try {
-            // BUG-03 FIX: Use a single consistent snapshot instead of mixing
-            // appStateRef.current (stale) with useAppStore.getState() (fresh).
             const syncState = useAppStore.getState().appState;
+
             const safeguardContest = (contest) => {
                 if (!contest) return contest;
+
                 return {
                     ...contest,
                     studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
@@ -660,15 +696,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             };
 
             const safeContests = syncState.contests
-                ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
+                ? Object.fromEntries(
+                    Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)])
+                )
                 : syncState.contests;
 
             const safeTrash = (syncState.trash || []).slice(-20);
 
-            // CRITICAL FIX: SafeClone aplicado ao EmergencySync para evitar que Promises, 
-            // refs do React, ou elementos do DOM invadam a store de sincronização.
-            // O Firestore disparava DataCloneError quando o utilizador minimizava a tela, 
-            // falhando silenciosamente e causando a perda de dados locais recentes.
             const stateToSave = cleanUndefined(safeClone({
                 ...syncState,
                 contests: safeContests,
@@ -679,25 +713,25 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             setInternalSyncing(true);
             logger.debug(`[Sync] Iniciando conexão segura com a nuvem...`);
-            // FIRE-AND-FORGET no mobile: iOS mata a thread no 'hidden'.
-            // Atualizamos a ref OTIMISTICAMENTE para não causar deadlock infinito 
-            // se o Promise nunca resolver devido ao App Suspense.
+
             setDoc(doc(db, 'backups', currentUser.uid), stateToSave)
-              .then(() => {
-                lastSyncedRef.current = currentStateString;
-                try {
-                  localStorage.removeItem('ultra-sync-dirty');
-                } catch (err) {
-                  logger.warn('[Sync] LocalStorage cleanup error:', err);
-                }
-              })
-              .catch(e => {
-                logger.error("[Sync] Erro no emergency-save:", e);
-                lastSyncedRef.current = null;
-              })
-              .finally(() => {
-                if (isMountedRef.current) setInternalSyncing(false);
-              });
+                .then(() => {
+                    lastSyncedRef.current = currentStateString;
+
+                    try {
+                        localStorage.removeItem('ultra-sync-dirty');
+                    } catch (err) {
+                        logger.warn('[Sync] LocalStorage cleanup error:', err);
+                    }
+                })
+                .catch(e => {
+                    logger.error("[Sync] Erro no emergency-save:", e);
+                    lastSyncedRef.current = null;
+                })
+                .finally(() => {
+                    if (isMountedRef.current) setInternalSyncing(false);
+                });
+
         } catch (e) {
             logger.error("[Sync] Erro na montagem do emergency-save:", e);
         }

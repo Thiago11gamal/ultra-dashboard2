@@ -126,15 +126,18 @@ export default function Flashcards() {
   };
 
   // Start study
-  function getDueCardsForDeck(deck) {
-    if (!deck?.cards) return [];
+  const getDueCardsForDeck = (deck) => {
+    if (!deck || !deck.cards) return [];
     const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
     return safeCards.filter(c => isFlashcardDue(c.due));
-  }
+  };
 
   const startStudy = (deck) => {
-    const safeCards = Array.isArray(deck?.cards) ? deck.cards : Object.values(deck?.cards || {});
-    if (!safeCards.length) {
+    if (!deck) return;
+
+    const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+
+    if (safeCards.length === 0) {
       showToast('Adicione cartões antes de estudar', 'error');
       return;
     }

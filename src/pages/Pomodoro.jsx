@@ -1,7 +1,7 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
-import { getLocalMidnight } from '../utils/dateHelper';
+import { getLocalMidnight, getDateKey } from '../utils/dateHelper';
 import { motion as Motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useActiveContest, usePomodoroState } from '../store/useSelectors';
@@ -56,7 +56,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             const dayOfWeek = d.getDay();
             if (dayOfWeek === 0 || dayOfWeek === 6) weekendMins += mins;
 
-            const dateStr = d.toISOString().split('T')[0];
+            const dateStr = getDateKey(log.date || log.createdAt) || getDateKey(d) || d.toISOString().split('T')[0];
             daysStudied.add(dateStr);
 
             if (t >= startOfToday) todayMins += mins;
@@ -71,7 +71,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let currentStreak = 0;
         let lastDate = null;
         sortedDays.forEach(dayStr => {
-            const current = new Date(dayStr).getTime();
+            const current = new Date(`${dayStr}T12:00:00`).getTime();
             if (lastDate) {
                 const diffDays = Math.round((current - lastDate) / 86400000);
                 if (diffDays === 1) {

@@ -2,15 +2,19 @@ import { toDateMs } from './dateHelper.js';
 
 export function computeTopRegressions({ viewMode, chartData = [], keys = [], activeKeys = {}, hiddenKeys = {} }) {
   if (viewMode !== 'variation' || !Array.isArray(chartData) || chartData.length === 0) return [];
+
   const latestWeekWithDelta = [...chartData].reverse().find(point =>
     keys.some(key => Number.isFinite(Number(point?.[`delta_${key}`])))
   );
+
   if (!latestWeekWithDelta) return [];
 
   return keys
     .map((key) => {
       const delta = latestWeekWithDelta[`delta_${key}`];
+
       if (!Number.isFinite(Number(delta)) || Number(delta) >= 0 || hiddenKeys[key]) return null;
+
       return {
         key,
         name: activeKeys[key]?.name || key,
@@ -27,28 +31,27 @@ export function computeTopRegressions({ viewMode, chartData = [], keys = [], act
 
 export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) {
   if (!Array.isArray(chartData) || chartData.length < 2) return null;
+
   const visibleKeys = keys.filter((key) => !hiddenKeys[key]);
   if (visibleKeys.length === 0) return null;
 
   const recentWindow = chartData.slice(-4);
   const previousWindow = chartData.slice(-8, -4);
+
   if (!previousWindow.length) return null;
 
-  // BUG-02 FIX: Substituímos o cálculo de Médias Simples por T-EMA (Time-Weighted Moving Average).
-  // Resolve a distorção temporal onde semanas antigas pesavam igual às recentes.
-  // Fórmula: α = 1 - (1 - α_base)^Δt
   const calculateEMA = (windowData, alphaBase = 0.3) => {
     if (!windowData.length) return null;
-    
+
     let ema = null;
     let lastTime = null;
 
     windowData.forEach((week) => {
       const currentTime = toDateMs(week.week);
+
       if (!Number.isFinite(currentTime)) return;
-      
+
       const deltaT = lastTime ? Math.max(1, (currentTime - lastTime) / 86400000) : 1;
-      
       const alpha = 1 - Math.pow(1 - alphaBase, deltaT);
       const safeAlpha = Math.min(0.9, alpha);
 
@@ -57,6 +60,7 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
 
       visibleKeys.forEach(key => {
         const meta = week[`meta_${key}`];
+
         if (meta && meta.currTot > 0 && Number.isFinite(Number(week[key]))) {
           weekSum += (Number(week[key]) * meta.currTot);
           weekVol += meta.currTot;
@@ -65,12 +69,14 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
 
       if (weekVol > 0) {
         const weekAvg = weekSum / weekVol;
+
         if (ema === null) {
           ema = weekAvg;
         } else {
           ema = (weekAvg * safeAlpha) + (ema * (1 - safeAlpha));
         }
       }
+
       lastTime = currentTime;
     });
 
