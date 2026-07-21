@@ -2,7 +2,7 @@ import React from 'react';
 import { CHART_COLORS } from '../../utils/chartConfig';
 import { formatValue } from '../../utils/scoreHelper';
 
-export const ChartTooltip = ({ active, payload, label, coordinate, viewBox, isCompare = false, chartData = [], unit = '%' }) => {
+export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%' }) => {
     if (!active || !payload?.length) return null;
 
     const currentData = chartData.find(d => d.displayDate === label || d.date === label);

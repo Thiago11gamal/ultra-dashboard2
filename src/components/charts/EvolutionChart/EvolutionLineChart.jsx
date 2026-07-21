@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import React, { useId, useState, useRef } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -22,8 +22,14 @@ const CustomActiveDot = (props) => {
                     <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
                 </>
             )}
-            {/* Invisible larger target for easy clicking when dimmed */}
-            {isDimmed && <circle cx={cx} cy={cy} r={15} fill="transparent" stroke="transparent" />}
+            {/* Dimmed dot - no glow, just a static smaller dot */}
+            {isDimmed && (
+                <>
+                    <circle cx={cx} cy={cy} r={4} fill={fill} opacity={0.5} stroke={stroke || "#ffffff"} strokeWidth={1} strokeOpacity={0.5} />
+                    {/* Invisible larger target for easy clicking when dimmed */}
+                    <circle cx={cx} cy={cy} r={15} fill="rgba(255,255,255,0.01)" stroke="transparent" />
+                </>
+            )}
         </g>
     );
 };
@@ -49,11 +55,15 @@ export function EvolutionLineChart({
     const shadowId = `el_lineShadow_${instanceId}`;
 
     const [highlightedDataKey, setHighlightedDataKey] = useState(null);
+    const isLineClicked = useRef(false);
 
     const handleLegendClick = (e) => {
-        const key = e?.dataKey || e?.payload?.dataKey || (e?.payload && e.payload.id);
-        if (key) {
-            setHighlightedDataKey(prev => prev === key ? null : key);
+        // Find the category ID from the clicked legend item (it usually passes payload)
+        const catId = e?.payload?.id || e?.id;
+        if (catId) {
+            isLineClicked.current = true;
+            setHighlightedDataKey(prev => prev === catId ? null : catId);
+            setTimeout(() => { isLineClicked.current = false; }, 50);
         }
     };
 
@@ -228,7 +238,9 @@ export function EvolutionLineChart({
                     style={{ outline: 'none', cursor: highlightedDataKey ? 'pointer' : 'default' }} 
                     tabIndex="-1"
                     onClick={() => {
-                        if (highlightedDataKey) setHighlightedDataKey(null);
+                        if (highlightedDataKey && !isLineClicked.current) {
+                            setHighlightedDataKey(null);
+                        }
                     }}
                 >
                     <defs>
@@ -312,9 +324,8 @@ export function EvolutionLineChart({
 
                     {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
-                        const lineType = engine?.style || 'linear';
-
-                        const isLegendHighlighted = highlightedDataKey === dataKey;
+                        // Determine focus state based on category ID rather than dataKey to survive engine changes
+                        const isLegendHighlighted = highlightedDataKey === cat.id;
                         const isAnyHighlighted = !!highlightedDataKey;
 
                         const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : isLegendHighlighted;
@@ -373,14 +384,18 @@ export function EvolutionLineChart({
                                 dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
                                 activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" isDimmed={hasFocus && !isFocused} onClick={(e) => {
                                     if (e && e.stopPropagation) e.stopPropagation();
-                                    setHighlightedDataKey(dataKey);
+                                    isLineClicked.current = true;
+                                    setHighlightedDataKey(cat.id);
+                                    setTimeout(() => { isLineClicked.current = false; }, 50);
                                 }} />}
                                 style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
                                 isAnimationActive={false}
                                 onClick={(props, e) => {
                                     if (e && e.stopPropagation) e.stopPropagation();
                                     if (props && props.nativeEvent && props.nativeEvent.stopPropagation) props.nativeEvent.stopPropagation();
-                                    setHighlightedDataKey(dataKey);
+                                    isLineClicked.current = true;
+                                    setHighlightedDataKey(cat.id);
+                                    setTimeout(() => { isLineClicked.current = false; }, 50);
                                 }}
                             >
                                 <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />
