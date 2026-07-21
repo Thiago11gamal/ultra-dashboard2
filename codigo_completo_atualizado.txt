@@ -26083,7 +26083,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   const normalized = _normalizeDiagnosticHistory(history, maxScore);
   if (normalized.length === 0) return noData;
 
-  const sorted = [...getSortedHistory(normalized)].reverse();
+  const sorted = [...getSortedHistory(normalized)].filter(h => h != null && typeof h === 'object').reverse();
 
   const daysSinceLast = daysSinceOverride !== null ? daysSinceOverride : Math.max(0, (Date.now() - _getEntryDate(sorted[0]).getTime()) / 86400000);
   const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore);
@@ -31935,7 +31935,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 const historyMap = new Map();
 
                 const getStableHistoryKey = (h) =>
-                    h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}`;
+                    h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}-${h.correct ?? ''}-${h.total ?? ''}`;
 
                 const safeLocalHistory = Array.isArray(localCat.simuladoStats?.history)
                     ? localCat.simuladoStats.history
@@ -32532,20 +32532,24 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             // Helper to prevent Firebase SDK hanging indefinitely on mobile network drops
             // FIX 3.3: PrevenÃ§Ã£o da CondiÃ§Ã£o de Corrida no syncToCloud
-            // O Promise.race nÃ£o interrompe a escrita subjacente do Firebase. 
+            // O Promise.race nÃ£o interrompe a escrita subjacente do SDK. 
             // Esta abordagem anula bloqueios de estado e delega a fila offline nativamente ao SDK.
             const setDocWithTimeout = (docRef, data, timeoutMs = 15000) => {
                 return new Promise((resolve, reject) => {
-                    let isResolved = false;
+                    let settled = false;
                     const timer = setTimeout(() => {
-                        isResolved = true;
-                        reject(new Error('timeout_ignore_queue'));
+                        if (!settled) {
+                            settled = true;
+                            // Loga mas nÃ£o rejeita â€” a escrita continua em background via SDK offline queue
+                            console.warn('[Sync] Timeout de escrita. O SDK tentarÃ¡ novamente offline.');
+                            resolve(); // Resolve para nÃ£o bloquear a UI
+                        }
                     }, timeoutMs);
 
                     setDoc(docRef, data).then(() => {
-                        if (!isResolved) { clearTimeout(timer); resolve(); }
+                        if (!settled) { settled = true; clearTimeout(timer); resolve(); }
                     }).catch(err => {
-                        if (!isResolved) { clearTimeout(timer); reject(err); }
+                        if (!settled) { settled = true; clearTimeout(timer); reject(err); }
                     });
                 });
             };
@@ -42418,14 +42422,16 @@ export const useAppStore = create(
                 partialize: (state) => ({
                     appState: {
                         ...state.appState,
-                        trash: [], 
+                        trash: (state.appState.trash || []).slice(-10),
                         contests: Object.keys(state.appState.contests || {}).reduce((acc, id) => {
+                            const c = state.appState.contests[id];
                             acc[id] = {
-                                ...state.appState.contests[id],
-                                simulados: [],
-                                studyLogs: [],
-                                monteCarloHistory: [],
-                                simuladoRows: []
+                                ...c,
+                                // Preserva Ãºltimos 50 registros para undo/redo funcional
+                                simulados: (c.simulados || []).slice(-50),
+                                studyLogs: (c.studyLogs || []).slice(-50),
+                                monteCarloHistory: (c.monteCarloHistory || []).slice(-30),
+                                simuladoRows: (c.simuladoRows || []).slice(-50),
                             };
                             return acc;
                         }, {})
@@ -42633,11 +42639,15 @@ export function analyzeProgressState(scores, config = {}) {
     // 4. Extract window
     // CORREÃ‡ÃƒO: Gerar a Ã¢ncora sintÃ©tica ANTES de ordenar para preservar o eixo cronolÃ³gico verdadeiro
     const syntheticNow = Date.now();
-    const sortedScores = [...safeScores].map((d, index) => {
-        let time = typeof d === 'object' ? toDateMs(d.date) : NaN;
-        if (Number.isNaN(time)) time = syntheticNow - ((safeScores.length - index) * 86400000);
+    const sortedScores = safeScores
+      .filter(d => d != null)
+      .map((d, index) => {
+        let time = (d && typeof d === 'object') ? toDateMs(d.date) : NaN;
+        if (!Number.isFinite(time)) time = syntheticNow - ((safeScores.length - index) * 86400000);
         return { original: d, safeTime: time };
-    }).sort((a, b) => a.safeTime - b.safeTime);
+      })
+      .filter(item => Number.isFinite(item.safeTime))
+      .sort((a, b) => a.safeTime - b.safeTime);
 
     const validSortedScores = sortedScores.filter(d => {
         const score = typeof d.original === 'object' ? d.original.score : d.original;
@@ -44518,8 +44528,8 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     // [FIX 4] Jamais force um 0 em domÃ­nios nÃ£o triviais. Deixe o filtro NaN tratar jusante.
     if (finiteValues.length === 0) return values;
     if (finiteValues.length < 5) {
-        // Retorna a sÃ©rie intacta. A injeÃ§Ã£o forÃ§ada de NaN colapsa motores a jusante.
-        return values; 
+        // Retorna valores finitos apenas, preservando comprimento com null seguro
+        return values.map(v => Number.isFinite(v) ? v : null); 
     }
 
     const sorted = [...finiteValues].sort((a, b) => a - b);
@@ -45096,7 +45106,10 @@ export const calculateStudyStreak = (studyLogs) => {
 
     // 1. Agrupar por dia Ãºnico (YYYY-MM-DD local) para ignorar horas/minutos
     const daySet = new Set(
-        logsArray.map(log => getDateKey(log.date)).filter(Boolean)
+        logsArray
+            .filter(log => log && log.date)
+            .map(log => getDateKey(log.date))
+            .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
     );
     const sortedDays = Array.from(daySet).sort((a, b) =>
         new Date(b) - new Date(a)
@@ -47828,7 +47841,10 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const targetScoreLabel = options.targetScoreLabel ?? Math.round((targetScore / maxScore) * 100);
     
     let rawWeightVal = safeCategory.weight;
-    if (typeof rawWeightVal === 'string') rawWeightVal = rawWeightVal.replace(',', '.');
+    if (typeof rawWeightVal === 'string') {
+      // Remove separadores de milhar BR antes de converter
+      rawWeightVal = rawWeightVal.replace(/\./g, '').replace(',', '.');
+    }
     const parsedWeight = Number(rawWeightVal);
     
     const rawWeight = Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 5;
@@ -48598,12 +48614,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }, 0).toFixed(2);
 
         const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
+        const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${options?.maxScore ?? 100}`;
         const lastSim = simCount > 0 ? (simulados[simCount-1].date || simulados[simCount-1].createdAt || '') : '';
         const lastLog = logCount > 0 ? (studyLogs[logCount-1].date || studyLogs[logCount-1].createdAt || '') : '';
 
         // Checksum injetado garante que qualquer ediÃ§Ã£o recalcule a urgÃªncia
         const tasksHash = (category?.tasks || []).reduce((acc, t) => acc + (t.completed ? 0 : 1) + (t.priority === 'high' ? 5 : 0), 0);
-        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
+        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
         
         if (_urgencyCache.has(cacheKey)) {
             return _urgencyCache.get(cacheKey);
@@ -50169,7 +50186,12 @@ export const calculateSubjectMastery = (subtopics) => {
  * format: prefix-timestamp-random
  */
 export const generateId = (prefix = 'id') => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${prefix}-${crypto.randomUUID()}`;
+  }
+  // Fallback para contextos HTTP nÃ£o-secure
+  const rand = () => Math.random().toString(36).substring(2, 10);
+  return `${prefix}-${Date.now().toString(36)}-${rand()}${rand()}`;
 };
 
 const stableIdMap = new WeakMap();
@@ -50203,7 +50225,10 @@ export const getSafeId = (task) => {
     }
     
     const text = task.text || task.title || "sem-nome";
-    const newId = `task-fb-${text.replace(/\s+/g, '').substring(0, 15)}-${crypto.randomUUID().substring(0, 8)}`;
+    const randPart = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID().substring(0, 8)
+      : Math.random().toString(36).substring(2, 10);
+    const newId = `task-fb-${text.replace(/\s+/g, '').substring(0, 15)}-${randPart}`;
     stableIdMap.set(task, newId);
     return newId;
 };
@@ -50505,12 +50530,9 @@ export function parseLocaleNumber(value, fallback = NaN) {
         const parts = raw.split('.');
         const lastPart = parts[parts.length - 1];
         if (lastComma === -1 && parts.length === 2 && lastPart.length === 3) {
-            // HeurÃ­stica de milhar: checa se os 3 dÃ­gitos sÃ£o compatÃ­veis com nota arredondada de milhar
-            if (/000|500/.test(lastPart)) {
-                raw = raw.replace(/\./g, '');
-            } else {
-                raw = raw.replace(/,/g, ''); // Trata como float padrÃ£o
-            }
+            // Qualquer grupo de exatamente 3 dÃ­gitos apÃ³s ponto Ãºnico Ã© milhar
+            // (notas de prova nÃ£o tÃªm 3 casas decimais)
+            raw = raw.replace(/\./g, '');
         } else {
             raw = raw.replace(/,/g, '');
         }
