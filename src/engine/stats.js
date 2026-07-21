@@ -733,7 +733,8 @@ export function computeBayesianLevel(
 }
 
 export function computeCategoryStats(history, weight, _daysValue = 60, maxScore = 100) {
-    if (!history || history.length === 0) return null;
+    const safeHistory = getSortedHistory(history);
+    if (!safeHistory || safeHistory.length === 0) return null;
 
     // MATH FIX: O filtro destruía as amostras que os usuários cadastravam só como "%" (total=0),
     // arruinando regressões inteiras da estatística se não houvesse input manual de volume de questões.
@@ -741,7 +742,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const rawSynthetic = getSyntheticTotal(safeMaxScore);
     const syntheticTotal = Number.isFinite(rawSynthetic) ? rawSynthetic : 20;
 
-    const historyWithSynthetics = history.map(h => {
+    const historyWithSynthetics = safeHistory.map(h => {
         const score = getSafeScore(h, safeMaxScore);
         // CORREÇÃO: Se não há volume (total=0) mas a nota é válida, injetamos o volume sintético.
         // Protegemos contra a perda do valor caso 'h' seja um número puro (polimorfismo).
@@ -771,7 +772,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const w = Number(h.total) || 0;
         if (w > 0) {
             // A média agora respeita o mesmo tensor geométrico da variância
-            const diffWeight = Number(h.weight || h.difficulty || 1.0);
+            const diffWeight = Math.max(0.001, Number.isFinite(Number(h.weight ?? h.difficulty)) ? Number(h.weight ?? h.difficulty) : 1);
             const effW = w * diffWeight;
             sumWeightMean += effW;
             sumScoreMean += getSafeScore(h, safeMaxScore) * effW;
@@ -812,7 +813,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
                 const robustScore = Math.max(median - clampLimit, Math.min(median + clampLimit, safeScore));
 
                 // [TRI] Peso adicional de dificuldade se disponível
-                const difficultyWeight = Number(h.weight || h.difficulty || 1.0);
+                const difficultyWeight = Math.max(0.001, Number.isFinite(Number(h.weight ?? h.difficulty)) ? Number(h.weight ?? h.difficulty) : 1);
                 const effectiveWeight = w * difficultyWeight;
 
                 wVarSum += effectiveWeight * Math.pow(robustScore - m, 2);
@@ -865,7 +866,8 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         variance = Math.pow(getDynamicPriorSD(historyToUse, safeMaxScore), 2);
     }
 
-    const sd = Math.max(Math.sqrt(variance), 0.001 * safeMaxScore);
+    const safeVariance = Math.max(0, Number.isFinite(variance) ? variance : 0);
+    const sd = Math.max(Math.sqrt(safeVariance), 0.001 * safeMaxScore);
     const safeSD = sd;
 
     const slopePerDay = calculateSlope(historyToUse, safeMaxScore);
