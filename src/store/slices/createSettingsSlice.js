@@ -20,7 +20,7 @@ export const createSettingsSlice = (set) => ({
     state.appState.lastUpdated = new Date().toISOString();
     localStorage.setItem('ultra-sync-dirty', 'true');
   }),
-
+  
   setDashboardFilter: (filterOrEvent) => set((state) => {
     const rawFilter = (filterOrEvent && typeof filterOrEvent === 'object' && 'target' in filterOrEvent)
       ? filterOrEvent.target?.value
@@ -31,7 +31,7 @@ export const createSettingsSlice = (set) => ({
     state.appState.lastUpdated = new Date().toISOString();
     localStorage.setItem('ultra-sync-dirty', 'true');
   }),
-
+  
   updateCoachPlanner: (newPlannerData) => set((state) => {
     const activeData = state.appState.contests[state.appState.activeId];
     if (!activeData) return;
@@ -41,52 +41,58 @@ export const createSettingsSlice = (set) => ({
     state.appState.lastUpdated = new Date().toISOString();
     localStorage.setItem('ultra-sync-dirty', 'true');
   }),
-
+  
   setThemeMode: () => set(applyDarkModeToggle),
   toggleDarkMode: () => set(applyDarkModeToggle),
-
+  
   setAppState: (newStateObj) => set((state) => {
     let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
     if (!nextState) return;
     if (nextState === state.appState) return;
+    
     nextState = validateAppState(nextState);
+    
     const nextContests = (nextState.contests && typeof nextState.contests === 'object')
       ? nextState.contests : state.appState.contests;
     const contestIds = Object.keys(nextContests || {});
     const fallbackActiveId = contestIds[0] || state.appState.activeId;
     const nextActiveId = (nextState.activeId && nextContests?.[nextState.activeId])
       ? nextState.activeId : fallbackActiveId;
+    
     const { history: _history, ...otherState } = nextState;
+    
     Object.assign(state.appState, {
       ...otherState,
       contests: nextContests,
       activeId: nextActiveId
     });
+    
     state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
   }),
-
-  // FIX: setData unificado — usa Object.assign em vez de sanitizeContest
+  
+  // ✅ FIX: setData unificado — usa Object.assign em vez de sanitizeContest
   // para evitar destruir o Proxy Immer. sanitizeContest é aplicado apenas
   // na validação de entrada (validateAppState), não em cada mutação.
   setData: (newDataCallback) => set((state) => {
     const contestId = state.appState.activeId;
     const currentData = state.appState.contests[contestId];
     if (!currentData) return;
-
+    
     const nextData = typeof newDataCallback === 'function'
       ? newDataCallback(currentData)
       : newDataCallback;
-
+    
     if (nextData !== undefined && nextData !== null && typeof nextData === 'object') {
-      // FIX: Object.assign preserva o Proxy Immer. sanitizeContest criaria
+      // ✅ FIX: Object.assign preserva o Proxy Immer. sanitizeContest criaria
       // um novo objeto plain, quebrando a tracking de mutação do Immer.
       Object.assign(state.appState.contests[contestId], nextData);
     }
-
+    
     const nowIso = new Date().toISOString();
     if (state.appState.contests[contestId]) {
       state.appState.contests[contestId].lastUpdated = nowIso;
     }
+    
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = nowIso;
     localStorage.setItem('ultra-sync-dirty', 'true');
