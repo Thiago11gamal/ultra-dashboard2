@@ -178,64 +178,65 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
     const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
     return 0.05 * range;
   }
-
-  // ✅ FIX: filtrar scores NaN e datas inválidas
-  const validPairs = [];
+  
   const firstDateObj = safeDateParse(safeHistory[0].date || safeHistory[0].createdAt);
-  const t0 = firstDateObj && !Number.isNaN(firstDateObj.getTime())
-    ? firstDateObj.getTime() : Date.now();
-
+  const t0 = firstDateObj ? firstDateObj.getTime() : Date.now();
+  
+  // ✅ FIX: Create aligned pairs to prevent index misalignment
+  const validPairs = [];
   for (let i = 0; i < safeHistory.length; i++) {
     const h = safeHistory[i];
     const score = getSafeScore(h, maxScore);
-    if (!Number.isFinite(score)) continue; // ← skip NaN
-
     const dateObj = safeDateParse(h.date || h.createdAt);
-    const t = dateObj && !Number.isNaN(dateObj.getTime()) ? dateObj.getTime() : NaN;
-    if (!Number.isFinite(t)) continue; // ← skip data inválida
-
-    validPairs.push({
-      score,
-      timeX: (t - t0) / 86400000,
-      fatigueFlag: h.fatigueFlag
-    });
+    const t = dateObj ? dateObj.getTime() : NaN;
+    
+    if (Number.isFinite(score) && Number.isFinite(t)) {
+      validPairs.push({
+        score: score,
+        timeX: (t - t0) / 86400000,
+        fatigueFlag: h.fatigueFlag
+      });
+    }
   }
-
+  
   const fn = validPairs.length;
   if (fn < 2) {
     const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
     return 0.05 * range;
   }
-
-  // Detrend via regressão linear simples
+  
   const scores = validPairs.map(p => p.score);
   const timeX = validPairs.map(p => p.timeX);
+  
   let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-  for (let i = 0; i < fn; i++) {
-    sumX += timeX[i]; sumY += scores[i];
-    sumXY += timeX[i] * scores[i]; sumXX += timeX[i] * timeX[i];
+  for(let i = 0; i < fn; i++) {
+    const tx = timeX[i];
+    sumX += tx;
+    sumY += scores[i];
+    sumXY += tx * scores[i];
+    sumXX += tx * tx;
   }
+  
   const det = fn * sumXX - sumX * sumX;
   const slope = det === 0 ? 0 : (fn * sumXY - sumX * sumY) / det;
-
-  const detrended = scores.map((y, i) => y - (slope * timeX[i]));
-
-  // MSSD = média dos quadrados das diferenças sucessivas
-  let sumSqDiff = 0, validTransitions = 0;
-  for (let i = 1; i < detrended.length; i++) {
-    const diff = detrended[i] - detrended[i - 1];
+  
+  const detrendedScores = scores.slice(0, fn).map((y, i) => y - (slope * timeX[i])).filter(Number.isFinite);
+  const dn = detrendedScores.length;
+  
+  let sumSqDiff = 0;
+  let validTransitions = 0;
+  
+  for (let i = 1; i < dn; i++) {
+    const diff = detrendedScores[i] - detrendedScores[i - 1];
     if (Number.isFinite(diff)) {
       const isFatigueDrop = diff < 0 && validPairs[i]?.fatigueFlag;
       const effectiveDiff = isFatigueDrop ? diff * 0.5 : diff;
-      sumSqDiff += effectiveDiff * effectiveDiff;
+      sumSqDiff += Math.pow(effectiveDiff, 2);
       validTransitions++;
     }
   }
-
-  const rmssd = validTransitions > 0
-    ? sumSqDiff / (2 * validTransitions)
-    : 0;
-
+  
+  const rmssd = (sumSqDiff) / (2 * Math.max(1, validTransitions));
   return Math.sqrt(Math.max(1e-6, rmssd));
 }
 
@@ -264,33 +265,40 @@ export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast 
 // -----------------------------
 // Drift Clampeado
 // -----------------------------
+// ✅ FIX: calculateSlope com clamp proporcional à escala
 export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options = {}) {
   if (Array.isArray(trendOrHistory)) {
     const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
     const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
-
-    // ✅ FIX: filtrar entradas com score inválido ANTES de calcular
-    const normalizedHistory = trendOrHistory
-      .map(item => {
-        if (typeof item === 'number') return { score: item, date: null };
-        if (item && typeof item === 'object') {
-          const s = Number(item.score);
-          return { score: Number.isFinite(s) ? s : NaN, date: item.date || item.createdAt || null };
-        }
-        return { score: NaN, date: null };
-      })
-      .filter(item => Number.isFinite(item.score)); // ← remove NaN
-
+    
+    const normalizedHistory = trendOrHistory.map(item => {
+      if (typeof item === 'number') {
+        return { score: item, date: null };
+      }
+      if (item && typeof item === 'object') {
+        return {
+          score: Number.isFinite(item.score) ? item.score : NaN,
+          date: item.date || item.createdAt || null
+        };
+      }
+      return { score: NaN, date: null };
+    }).filter(item => Number.isFinite(item.score));
+    
     if (normalizedHistory.length < 2) return 0;
     return calculateAdaptiveSlope(normalizedHistory, maxScore, opts);
   }
-
-  // Versão numérica direta (clamp proporcional à escala)
+  
+  // ✅ FIX: Clamp proporcional à escala da prova
   const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
-  const absoluteMax = 0.004 * maxScore;
+  const absoluteMax = 0.004 * maxScore; // 0.4% da escala por dia
+  
   let slope = Number(trendOrHistory) || 0;
-  if (!Number.isFinite(slope)) return 0; // ✅ FIX: NaN guard
-  return Math.max(-absoluteMax, Math.min(absoluteMax, slope));
+  if (!Number.isFinite(slope)) return 0;
+  
+  if (slope > absoluteMax) slope = absoluteMax;
+  if (slope < -absoluteMax) slope = -absoluteMax;
+  
+  return slope;
 }
 
 export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
