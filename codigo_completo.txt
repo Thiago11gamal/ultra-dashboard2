@@ -1,6 +1,4 @@
-﻿
-
-========== FILE: D:\Downloads\ultra-patched\src\components\ai\AIGeneratedSimulado.jsx ==========
+﻿==== D:\Downloads\ultra-patched\src\components\ai\AIGeneratedSimulado.jsx ====
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { generateAIQuestions } from '../../services/aiQuestionService';
 import { useAppStore } from '../../store/useAppStore';
@@ -81,6 +79,7 @@ export default function AIGeneratedSimulado() {
   const latestQuestionsRef = useRef(questions);
   const latestFormRef = useRef(form);
   const isFinishingRef = useRef(false);
+  const finishCalledRef = useRef(false);
   const latestCurrentIndexRef = useRef(currentIndex);
   const latestTimePerQuestionRef = useRef(timePerQuestion);
   const latestTimeLeftRef = useRef(timeLeft);
@@ -554,7 +553,7 @@ export default function AIGeneratedSimulado() {
 
       // FIX: todayKey agora Ã© definido corretamente
       const nowIso = new Date().toISOString();
-      const todayKey = getDateKey(new Date());
+      const todayKey = getDateKey(new Date()) || new Date().toISOString().slice(0, 10);
       const globalMixedEvent = {
         id: generateId('ai-sim'),
         date: todayKey,
@@ -594,23 +593,26 @@ export default function AIGeneratedSimulado() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveAIResultsToSystem, showToast, setData]);
 
-  // FIX: Timer effect com guarda contra dupla execuÃ§Ã£o
+  const finishMutexRef = useRef(false);
+
+  const safeFinish = useCallback(async () => {
+    if (finishMutexRef.current) return;
+    finishMutexRef.current = true;
+    try {
+      await handleFinish();
+    } finally {
+      setTimeout(() => { finishMutexRef.current = false; }, 1000);
+    }
+  }, [handleFinish]);
+
   const timerFinishTriggerRef = useRef(false);
-  const finishCalledRef = useRef(false);
 
   useEffect(() => {
-    if (timerFinishTriggerRef.current && !finishCalledRef.current) {
+    if (timerFinishTriggerRef.current) {
       timerFinishTriggerRef.current = false;
-      finishCalledRef.current = true;
-      handleFinish();
+      safeFinish();
     }
   });
-
-  useEffect(() => {
-    if (step !== 'playing') {
-      finishCalledRef.current = false;
-    }
-  }, [step]);
 
   useEffect(() => {
     let interval = null;
@@ -677,7 +679,7 @@ export default function AIGeneratedSimulado() {
       else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(curIdx - 1); }
       else if (e.key === 'ArrowRight' || e.key === 'Enter') {
         e.preventDefault();
-        if (curIdx < qLen - 1) goTo(curIdx + 1); else handleFinish();
+        if (curIdx < qLen - 1) goTo(curIdx + 1); else safeFinish();
       } else if (e.key.toLowerCase() === 'escape') {
         e.preventDefault();
         resetAll();
@@ -715,7 +717,7 @@ export default function AIGeneratedSimulado() {
       <SimuladoPlayer
         form={form} questions={questions} currentIndex={currentIndex} answers={answers}
         timeLeft={timeLeft} DIFFICULTIES={DIFFICULTIES} goTo={goTo} selectAnswer={selectAnswer}
-        handleFinish={handleFinish} resetAll={resetAll}
+        handleFinish={safeFinish} resetAll={resetAll}
       />
     );
   }
@@ -732,8 +734,8 @@ export default function AIGeneratedSimulado() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\ai\SimuladoPlayer.jsx ==========
-import React from 'react';
+==== D:\Downloads\ultra-patched\src\components\ai\SimuladoPlayer.jsx ====
+import React, { useRef } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, ArrowLeft, ArrowRight, Award, CheckCircle2, XCircle } from 'lucide-react';
@@ -755,8 +757,33 @@ export default function SimuladoPlayer({
   const timeColor = timeLeft < 180 ? 'text-red-400 border-red-500/30' : timeLeft < 300 ? 'text-amber-400 border-amber-500/30' : 'text-slate-300 border-white/10';
   const difficultyLabel = DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || form.dificuldade;
 
+  const touchStartX = useRef(null);
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!touchStartX.current) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX.current - touchEndX;
+
+    if (Math.abs(diff) > 50) { // Threshold de 50px
+      if (diff > 0 && currentIndex < questions.length - 1) {
+        goTo(currentIndex + 1); // Swipe left -> next
+      } else if (diff < 0 && currentIndex > 0) {
+        goTo(currentIndex - 1); // Swipe right -> prev
+      }
+    }
+    touchStartX.current = null;
+  };
+
 return (
-      <div className="w-full">
+      <div 
+        className="w-full"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* â•â•â• TOP BAR â•â•â• */}
         <div className="mb-6 rounded-2xl border border-white/[0.06] overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(30,27,75,0.4), rgba(15,23,42,0.7))', backdropFilter: 'blur(20px)' }}>
           <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -917,7 +944,7 @@ return (
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\ai\SimuladoResults.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\ai\SimuladoResults.jsx ====
 import React from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1187,7 +1214,7 @@ return (
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\ai\SimuladoSetup.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\ai\SimuladoSetup.jsx ====
 import React from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1566,7 +1593,7 @@ return (
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\Analytics\AnaliseRetencaoChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\Analytics\AnaliseRetencaoChart.jsx ====
 import React, { useId } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -1748,7 +1775,7 @@ export function AnaliseRetencaoChart({ data }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\Analytics\EvolucaoFocoChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\Analytics\EvolucaoFocoChart.jsx ====
 import React, { useId } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatDuration } from '../../../utils/dateHelper';
@@ -1824,7 +1851,7 @@ export function EvolucaoFocoChart({ data }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\Analytics\HorasDisciplinaChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\Analytics\HorasDisciplinaChart.jsx ====
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatDuration } from '../../../utils/dateHelper';
@@ -1917,7 +1944,7 @@ export function HorasDisciplinaChart({ data }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\__tests__\evolution-stats-bugs.test.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\__tests__\evolution-stats-bugs.test.jsx ====
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -1994,7 +2021,7 @@ describe('Evolution & Stats Bugs Audit', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\__tests__\evolutionComponents.test.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\__tests__\evolutionComponents.test.jsx ====
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -2112,7 +2139,7 @@ describe('evolution components render contracts', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\__tests__\TimeSpentChart.test.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\__tests__\TimeSpentChart.test.jsx ====
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -2258,7 +2285,7 @@ describe('TimeSpentChart bug fixes', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\CompareChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\CompareChart.jsx ====
 import React, { useId } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -2579,7 +2606,7 @@ export function CompareChart({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\CriticalTopicsAnalysis.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\CriticalTopicsAnalysis.jsx ====
 import React, { useState, useMemo } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -2863,7 +2890,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\DisciplinaCard.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\DisciplinaCard.jsx ====
 import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 
@@ -2946,7 +2973,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\EvolutionLineChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\EvolutionLineChart.jsx ====
 import React, { useId, useState, useRef } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -3372,7 +3399,7 @@ export function EvolutionLineChart({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\KpiCard.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\KpiCard.jsx ====
 import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 
@@ -3399,7 +3426,7 @@ export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, 
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\MonteCarloEvolutionChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\MonteCarloEvolutionChart.jsx ====
 import React, { useMemo, useId, useState, useCallback } from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine
@@ -3825,7 +3852,7 @@ export const MonteCarloEvolutionChart = ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\PerformanceBarChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\PerformanceBarChart.jsx ====
 import React, { useId } from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 import {
@@ -3990,7 +4017,7 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\RadarAnalysis.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\RadarAnalysis.jsx ====
 import React, { useId } from 'react';
 import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -4106,7 +4133,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\SubtopicsPerformanceChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\SubtopicsPerformanceChart.jsx ====
 import React, { useMemo, useState, useId, useCallback } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -4596,7 +4623,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\TimeSpentChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\TimeSpentChart.jsx ====
 import React, { useState, useMemo } from 'react';
 
 import { Clock } from 'lucide-react';
@@ -5037,7 +5064,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\TodayVsGeneralChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\TodayVsGeneralChart.jsx ====
 import React, { useMemo, useState } from 'react';
 import { 
     ResponsiveContainer, PieChart, Pie, Cell, 
@@ -5580,7 +5607,7 @@ export function TodayVsGeneralChart({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\WeeklyEvolutionView.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\WeeklyEvolutionView.jsx ====
 import React, { useMemo, useState, useCallback } from 'react';
 import {
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -5590,6 +5617,7 @@ import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
+import { APP_TIMEZONE } from '../../../utils/dateHelper';
 
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) => {
     if (active && payload && payload.length) {
@@ -5668,7 +5696,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
 
 const getMondayStr = (dateStr) => {
     const dt = typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr.trim())
-      ? new Date(`${dateStr.trim()}T12:00:00-04:00`)
+      ? new Date(`${dateStr.trim()}T12:00:00${APP_TIMEZONE}`)
         : new Date(dateStr);
     if (isNaN(dt.getTime())) return null;
     const day = dt.getDay();
@@ -6187,7 +6215,7 @@ export const WeeklyEvolutionView = ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\WeeklyPerformanceChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionChart\WeeklyPerformanceChart.jsx ====
 import React, { useId, useCallback } from 'react';
 import {
     ComposedChart,
@@ -6458,7 +6486,7 @@ export default WeeklyPerformanceChart;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\ChartTooltip.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\ChartTooltip.jsx ====
 import React from 'react';
 import { CHART_COLORS } from '../../utils/chartConfig';
 import { formatValue } from '../../utils/scoreHelper';
@@ -6591,7 +6619,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\DueForecastChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\DueForecastChart.jsx ====
 import React, { useId } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -6689,7 +6717,7 @@ export default function DueForecastChart({ data = [], height = 260 }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\EvolutionHeatmap.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\EvolutionHeatmap.jsx ====
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
@@ -6942,7 +6970,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\GaussianPlot.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\GaussianPlot.jsx ====
 import React, { useMemo, useState, useId, useRef, useEffect } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian.ts';
 import { formatDuration } from '../../utils/dateHelper';
@@ -6980,7 +7008,9 @@ export const GaussianPlot = ({
         return () => {
             if (hoverRafRef.current != null) {
                 cancelAnimationFrame(hoverRafRef.current);
+                hoverRafRef.current = null;
             }
+            pendingHoverRef.current = null; // âœ… Limpar pending tambÃ©m
         };
     }, []);
 
@@ -7363,7 +7393,7 @@ export const GaussianPlot = ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\MonteCarloConfig.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\MonteCarloConfig.jsx ====
 import React, { useRef, useState, useEffect, useMemo, startTransition } from 'react';
 import { Settings2, Check, Minus, Plus, Activity, Clock, Hash, ChevronUp, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
@@ -7773,7 +7803,7 @@ export const MonteCarloConfig = ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\charts\ReliabilityCurveChart.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\charts\ReliabilityCurveChart.jsx ====
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Target } from 'lucide-react';
@@ -7908,7 +7938,7 @@ export default function ReliabilityCurveChart({ buckets }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\coach\CoachMenuNav.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\coach\CoachMenuNav.jsx ====
 import React, { useRef, useEffect } from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 
@@ -8044,7 +8074,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\header\PageHeader.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\header\PageHeader.jsx ====
 import React from 'react';
 import { motion as Motion } from 'framer-motion';
 
@@ -8072,7 +8102,7 @@ export default PageHeader;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\pomodoro\PomodoroClock.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\pomodoro\PomodoroClock.jsx ====
 import React from 'react';
 
 const formatTime = (seconds) => {
@@ -8160,7 +8190,7 @@ export function PomodoroClock({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\pomodoro\PomodoroControls.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\pomodoro\PomodoroControls.jsx ====
 import React from 'react';
 import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react';
 
@@ -8202,7 +8232,7 @@ export function PomodoroControls({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\pomodoro\PomodoroHeader.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\pomodoro\PomodoroHeader.jsx ====
 import React from 'react';
 import { motion as Motion } from 'framer-motion';
 import { Zap, AlertCircle } from 'lucide-react';
@@ -8236,7 +8266,7 @@ export function PomodoroHeader({ mode, activeSubject, onManualExit }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\pomodoro\PomodoroProgress.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\pomodoro\PomodoroProgress.jsx ====
 import React from 'react';
 
 export function PomodoroProgress({
@@ -8311,7 +8341,7 @@ export function PomodoroProgress({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\__tests__\sidebar.logic.test.js ==========
+==== D:\Downloads\ultra-patched\src\components\__tests__\sidebar.logic.test.js ====
 import { describe, expect, it } from 'vitest';
 import { getContestDisplayName, isMenuItemActive } from '../sidebarUtils';
 
@@ -8334,7 +8364,7 @@ describe('Sidebar menu logic', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\ActivityHeatmap.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\ActivityHeatmap.jsx ====
 import React, { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -8533,7 +8563,7 @@ export default React.memo(ActivityHeatmap);
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\AICoachPlanner.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\AICoachPlanner.jsx ====
 import React, { useState, useMemo, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Play, BrainCircuit, Calendar } from 'lucide-react';
@@ -8729,9 +8759,16 @@ export default function AICoachPlanner() {
                 const activeId = prev?.appState?.activeId;
                 if (!activeId || !prev.appState.contests?.[activeId]) return;
                 const targetContest = prev.appState.contests[activeId];
+                
+                // âœ… Merge Granular para evitar vazamento de estado
                 const freshPlanner = { ...(targetContest.coachPlanner || {}) };
+                Object.keys(freshPlanner).forEach(day => {
+                    freshPlanner[day] = [...(freshPlanner[day] || [])];
+                });
+                
                 if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
                 if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
+                
                 targetContest.coachPlanner = freshPlanner;
                 targetContest.coachPlan = newCoachPlan;
             });
@@ -8870,7 +8907,7 @@ export default function AICoachPlanner() {
 }
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\AICoachView.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\AICoachView.jsx ====
 import React, { useMemo, useState } from 'react';
 import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle, Trophy, Activity } from 'lucide-react';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
@@ -9456,7 +9493,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 }
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\AICoachWidget.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\AICoachWidget.jsx ====
 import React, { useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 
@@ -9904,7 +9941,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 }
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\CategoryEditor.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\CategoryEditor.jsx ====
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Settings, X } from 'lucide-react';
@@ -10027,7 +10064,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\Checklist.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\Checklist.jsx ====
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Plus, Trash2, TrendingUp, TrendingDown, Minus, BarChart2, Play, Settings, Download, X } from 'lucide-react';
@@ -10654,7 +10691,7 @@ export default React.memo(Checklist);
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\ConfirmModal.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\ConfirmModal.jsx ====
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
@@ -10754,7 +10791,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\DueForecast.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\DueForecast.jsx ====
 import React, { useMemo } from 'react';
 import { Calendar, TrendingUp } from 'lucide-react';
 import { computeFlashcardDueForecast } from '../utils/analytics';
@@ -10873,7 +10910,7 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\ErrorBoundary.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\ErrorBoundary.jsx ====
 import React from 'react';
 
 class ErrorBoundary extends React.Component {
@@ -11041,9 +11078,35 @@ export function PageErrorBoundary({ children, pageName = 'esta pÃ¡gina' }) {
 
 export default ErrorBoundary;
 
+export class FeatureErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 rounded-xl bg-slate-900/50 border border-red-500/20 text-center">
+          <p className="text-red-400 text-sm">Falha ao renderizar componente.</p>
+          <button 
+            onClick={() => this.setState({ hasError: false })}
+            className="mt-2 text-xs text-slate-400 hover:text-white"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\EvolutionChart.jsx ==========
+
+==== D:\Downloads\ultra-patched\src\components\EvolutionChart.jsx ====
 import React, { useState, useMemo, useEffect } from "react";
 import {
     computeCategoryStats
@@ -11060,6 +11123,7 @@ import { useAppStore } from "../store/useAppStore";
 import { downsampleLTTB } from "../utils/downsample";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
+import { useShallow } from 'zustand/react/shallow';
 
 // Sub-components
 import { KpiCard } from "./charts/EvolutionChart/KpiCard";
@@ -11307,7 +11371,6 @@ const ENGINES = [
 
 
 export default React.memo(function EvolutionChart({
-    categories: rawCategories = [],
     targetScore = 80,
     goalDate,
     monteCarloHistory = [],
@@ -11317,6 +11380,11 @@ export default React.memo(function EvolutionChart({
     minScore = 0,
     maxScore = 100
 }) {
+    const rawCategories = useAppStore(useShallow(state => {
+        const contest = state.appState?.contests?.[state.appState?.activeId];
+        return contest?.categories ?? EMPTY_ARRAY;
+    }));
+
     const categories = useMemo(() => {
         const DEFAULT_PALETTE = [
             "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", 
@@ -12214,7 +12282,7 @@ export default React.memo(function EvolutionChart({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\GamificationComponents.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\GamificationComponents.jsx ====
 import React, { useMemo } from 'react';
 import { Flame, Trophy, Sparkles } from 'lucide-react';
 import { calculateStudyStreak } from '../utils/analytics';
@@ -12349,7 +12417,7 @@ export const XPHistory = ({ user }) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\Header.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\Header.jsx ====
 import React, { useState } from 'react';
 import { RotateCcw, CloudDownload, LayoutDashboard, Menu } from 'lucide-react';
 import { format } from 'date-fns';
@@ -12556,7 +12624,7 @@ export default Header;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\HelpGuide.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\HelpGuide.jsx ====
 import React, { useState } from 'react';
 import { HelpCircle, X, ChevronDown, ChevronUp, Gauge, BarChart3, Target, Brain, Calendar, Clock, Zap, TrendingUp, Trophy, Flame } from 'lucide-react';
 
@@ -12881,7 +12949,7 @@ export default function HelpGuide({ isOpen, onClose }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\LevelUpToast.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\LevelUpToast.jsx ====
 import React, { useEffect, useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 
@@ -12961,7 +13029,7 @@ export default function LevelUpToast({ level, title, onClose }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\Loading.css ==========
+==== D:\Downloads\ultra-patched\src\components\Loading.css ====
 @keyframes loading-bar {
     0% { transform: translateX(-100%); }
     50% { transform: translateX(0%); }
@@ -13009,7 +13077,7 @@ export default function LevelUpToast({ level, title, onClose }) {
 }
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\Login.css ==========
+==== D:\Downloads\ultra-patched\src\components\Login.css ====
 canvas {
     position: absolute;
     top: 0;
@@ -13263,7 +13331,7 @@ canvas {
 }
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\Login.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\Login.jsx ====
 import React, { useState } from 'react';
 import { useAuth } from '../context/useAuth';
 import { isLocalMode } from '../services/firebase';
@@ -13476,7 +13544,7 @@ export default function Login() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\MonteCarloDebugger.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\MonteCarloDebugger.jsx ====
 import React, { useState, useRef, useEffect } from 'react';
 import { FlaskConical as BeakerIcon, ChevronDown as ChevronDownIcon, ChevronUp as ChevronUpIcon } from 'lucide-react';
 
@@ -13568,7 +13636,7 @@ export default function MonteCarloDebugger({ stats }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\MonteCarloGauge.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\MonteCarloGauge.jsx ====
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -14129,7 +14197,7 @@ function AnimatedProbability({ value }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\NextGoalCard.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\NextGoalCard.jsx ====
 import React, { useMemo } from 'react';
 import { Target, Play, Clock, Info } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
@@ -14333,7 +14401,7 @@ export default React.memo(NextGoalCard);
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\OnboardingTour.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\OnboardingTour.jsx ====
 import React, { useCallback } from 'react';
 import Joyride, { STATUS } from 'react-joyride';
 import { useAppStore } from '../store/useAppStore';
@@ -14697,7 +14765,7 @@ export default function OnboardingTour() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\ParetoAnalysis.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\ParetoAnalysis.jsx ====
 import React, { useMemo } from 'react';
 import { Target, CheckCircle2, Zap } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
@@ -14911,7 +14979,7 @@ export default function ParetoAnalysis({ categories = [] }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\Paywall.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\Paywall.jsx ====
 import React, { useState, useRef, useEffect } from 'react';
 import { Lock, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
@@ -15001,13 +15069,23 @@ export default function Paywall({ user, onLogout }) {
                 if (url) {
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
+                    if (unsubRef.current) unsubRef.current(); // â† Cleanup imediato
                     logger.log("[Stripe] Redirecionando via URL...");
                     window.location.assign(url);
                 } else if (sessionId) {
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
+                    if (unsubRef.current) unsubRef.current(); // â† Cleanup imediato
                     logger.log("[Stripe] Redirecionando via SessionId...");
                     const stripe = await getStripe();
+                    
+                    // âœ… FIX: Verificar null
+                    if (!stripe) {
+                        setError('Stripe nÃ£o configurado. Verifique VITE_STRIPE_PUBLIC_KEY.');
+                        setLoading(false);
+                        return;
+                    }
+
                     stripe.redirectToCheckout({ sessionId });
                 }
             });
@@ -15093,7 +15171,7 @@ export default function Paywall({ user, onLogout }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\PerformanceTable.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\PerformanceTable.jsx ====
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
@@ -15332,7 +15410,7 @@ export default PerformanceTable;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\PersonalRanking.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\PersonalRanking.jsx ====
 import React from 'react';
 import { Trophy, Zap, Skull, ShieldAlert, Target, Star, Crown, TrendingUp } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
@@ -15535,7 +15613,7 @@ export default React.memo(PersonalRanking);
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\PomodoroTimer.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\PomodoroTimer.jsx ====
 /**
  * ============================================================================
  * ðŸ›¡ï¸ ULTRA-DASHBOARD: CORE POMODORO ENGINE - DO NOT MODIFY ðŸ›¡ï¸
@@ -15704,6 +15782,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         completedCycles,
         accumulatedMinutes
     });
+    const timeRef = useRef(timeLeft); // âœ… SÃ³ atualizado no RAF loop
 
     // ðŸ›¡ï¸ [SHIELD-REF] SincronizaÃ§Ã£o Imediata: Atualizamos as refs via Effect
     // Isso garante que skips/pauses disparados por eventos (que ocorrem apÃ³s o render) usem valores 100% atuais.
@@ -16115,6 +16194,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             const oldTime = stateRefs.current.timeLeft;
             const newTime = Math.max(0, startLeft - elapsedSeconds);
             stateRefs.current.timeLeft = newTime;
+            timeRef.current = newTime; // âœ… ref dedicada
 
             const currentTotalTime = stateRefs.current.mode === 'work'
                 ? (safeSettings.pomodoroWork || 25) * 60
@@ -16430,7 +16510,7 @@ export default function ProtectedPomodoro(props) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\PriorityProgress.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\PriorityProgress.jsx ====
 import React, { useMemo } from 'react';
 import { Info } from 'lucide-react';const priorityColors = {
     high: { label: 'Alta', bar: 'bg-red-500', bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' },
@@ -16581,7 +16661,7 @@ export default function PriorityProgress({ categories = [] }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\PromptModal.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\PromptModal.jsx ====
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
@@ -16723,7 +16803,7 @@ export default function PromptModal({ isOpen, onClose, onConfirm, title, placeho
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\RetentionPanel.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\RetentionPanel.jsx ====
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play, Info } from 'lucide-react';
 import { formatTimeAgo, toDateMs } from '../utils/dateHelper';
@@ -17250,7 +17330,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\Sidebar.css ==========
+==== D:\Downloads\ultra-patched\src\components\Sidebar.css ====
 /* Layout Base do Menu */
 .sidebar {
   width: 280px;
@@ -17669,7 +17749,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 }
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\Sidebar.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\Sidebar.jsx ====
 import React from 'react';
 import {
     LayoutDashboard,
@@ -18098,7 +18178,7 @@ export default Sidebar;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\sidebarUtils.js ==========
+==== D:\Downloads\ultra-patched\src\components\sidebarUtils.js ====
 export function getContestDisplayName(contestData) {
   if (typeof contestData === 'string') return contestData;
   const explicitName = contestData?.contestName ?? contestData?.name;
@@ -18116,7 +18196,7 @@ export function isMenuItemActive(currentPath, itemPath) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\SimuladoAnalysis.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\SimuladoAnalysis.jsx ====
 import React, { useState } from 'react';
 import { normalize, aliases } from '../utils/normalization';
 
@@ -18874,7 +18954,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\StatsCards.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\StatsCards.jsx ====
 import React, { useMemo, useRef } from 'react';
 import { Activity, TrendingUp, BarChart2, Trophy, Calendar, AlertCircle, Info, BookOpen } from 'lucide-react';
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency, buildAchievementStats } from '../utils/analytics';
@@ -19273,7 +19353,7 @@ export default React.memo(StatsCards);
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\StudyHistory.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\StudyHistory.jsx ====
 import React, { useMemo } from 'react';
 import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
@@ -19924,7 +20004,7 @@ export default StudyHistory;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\SubtopicsTable.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\SubtopicsTable.jsx ====
 import React, { useMemo } from 'react';
 import { Target, Hash, Wallet, Minus, TrendingUp, TrendingDown } from 'lucide-react';
 import { getSafeScore, formatValue, formatPercent } from '../utils/scoreHelper';
@@ -20137,7 +20217,7 @@ export default SubtopicsTable;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\Toast.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\Toast.jsx ====
 import React, { useEffect } from 'react';
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 
@@ -20181,7 +20261,7 @@ export default function Toast({ toast, onClose }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\TopicPerformance.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\TopicPerformance.jsx ====
 import React, { useState, useMemo } from 'react';
 import { getSafeScore, formatValue, formatPercent } from '../utils/scoreHelper';
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
@@ -20371,7 +20451,7 @@ export default function TopicPerformance({ categories = [] }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\TrashModal.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\TrashModal.jsx ====
 import React from 'react';
 import { X, RotateCcw, AlertTriangle, Trash2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -20479,7 +20559,7 @@ export default TrashModal;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\VerifiedStats.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\VerifiedStats.jsx ====
 import React, { useMemo } from 'react';
 import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Activity, AlertCircle, Settings2, Plus, RotateCcw, BookOpen } from 'lucide-react';
 import MonteCarloGauge from './MonteCarloGauge';
@@ -21369,7 +21449,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\VolumeRanking.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\VolumeRanking.jsx ====
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertCircle, Info } from 'lucide-react';
@@ -21548,7 +21628,7 @@ export default React.memo(VolumeRanking);
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\WeeklyAnalysis.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\WeeklyAnalysis.jsx ====
 import React, { useMemo } from 'react';
 import { BookOpen, Zap, Activity } from 'lucide-react';
 import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE } from '../utils/dateHelper';
@@ -21832,7 +21912,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\components\WelcomeScreen.jsx ==========
+==== D:\Downloads\ultra-patched\src\components\WelcomeScreen.jsx ====
 import React, { useState } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21932,7 +22012,7 @@ export default function WelcomeScreen({ onDismiss }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\config\gamification.js ==========
+==== D:\Downloads\ultra-patched\src\config\gamification.js ====
 export const XP_CONFIG = {
     task: {
         high: 200,      // Tarefas prioritÃ¡rias valem mais
@@ -22081,7 +22161,7 @@ export const ACHIEVEMENTS = [
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\context\AuthContext.jsx ==========
+==== D:\Downloads\ultra-patched\src\context\AuthContext.jsx ====
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
     createUserWithEmailAndPassword,
@@ -22245,14 +22325,14 @@ export function AuthProvider({ children }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\context\AuthContextValue.jsx ==========
+==== D:\Downloads\ultra-patched\src\context\AuthContextValue.jsx ====
 import { createContext } from 'react';
 
 export const AuthContext = createContext();
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\context\useAuth.jsx ==========
+==== D:\Downloads\ultra-patched\src\context\useAuth.jsx ====
 import { useContext } from 'react';
 import { AuthContext } from './AuthContextValue';
 
@@ -22262,7 +22342,7 @@ export function useAuth() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\data\initialData.js ==========
+==== D:\Downloads\ultra-patched\src\data\initialData.js ====
 // Initial data structure for the dashboard
 // Theme: Study/Exam Preparation (Ultra-Premium Version)
 
@@ -22356,7 +22436,7 @@ export const exportData = (state) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\math\bootstrap.js ==========
+==== D:\Downloads\ultra-patched\src\engine\math\bootstrap.js ====
 import { makeNormalRng } from '../random.js';
 import { kahanSum } from './kahan.js';
 
@@ -22490,7 +22570,7 @@ export function conformalPredictionInterval(residuals = [], alpha = 0.1, pointEs
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\math\constants.js ==========
+==== D:\Downloads\ultra-patched\src\engine\math\constants.js ====
 /**
  * Monte Carlo Engine - Math Constants
  * 
@@ -22506,7 +22586,7 @@ export const MIN_SD_FLOOR = 0.0001;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\math\kahan.js ==========
+==== D:\Downloads\ultra-patched\src\engine\math\kahan.js ====
 /**
  * Helper: verifica se o valor Ã© um array-like iterÃ¡vel com .length
  * Suporta Array, Float64Array, Float32Array, Int32Array, etc.
@@ -22574,7 +22654,7 @@ export function kahanMean(arr) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\math\percentile.js ==========
+==== D:\Downloads\ultra-patched\src\engine\math\percentile.js ====
 // ==========================================
 // SHARED STATISTICAL UTILITIES
 // ==========================================
@@ -22605,9 +22685,13 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
                 sorted = arr;
             } else {
                 const finiteData = [];
-                for (let i = 0; i < arr.length; i++) if (Number.isFinite(arr[i])) finiteData.push(arr[i]);
+                for (let i = 0; i < arr.length; i++) {
+                    if (Number.isFinite(arr[i])) finiteData.push(arr[i]);
+                }
                 if (finiteData.length === 0) return 0;
-                sorted = new arr.constructor(finiteData); // Keep relative order (already sorted)
+                // Ordenar explicitamente â€” a ordem original NÃƒO Ã© confiÃ¡vel com NaNs
+                finiteData.sort((a, b) => a - b);
+                sorted = new arr.constructor(finiteData);
             }
         } else {
             const hasNaN = arr.some(v => !Number.isFinite(Number(v)));
@@ -22747,7 +22831,7 @@ export function findScoreForPercentile(targetPercentile, minScore, maxScore, cdf
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\__tests__\numeric-robustness.test.js ==========
+==== D:\Downloads\ultra-patched\src\engine\__tests__\numeric-robustness.test.js ====
 import { describe, it, expect } from 'vitest';
 import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition } from '../math/gaussian.ts';
 import { getPercentile } from '../math/percentile.js';
@@ -22787,7 +22871,7 @@ describe('Numeric robustness: getPercentile with TypedArray containing NaN', () 
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\__tests__\regression.test.js ==========
+==== D:\Downloads\ultra-patched\src\engine\__tests__\regression.test.js ====
 // src/engine/__tests__/regression.test.js
 //
 // Testes de regressÃ£o para bugs corrigidos no ultra-dashboard2.
@@ -23196,7 +23280,7 @@ describe('NOVO: Bayesian Variance Clamp â€” PrevenÃ§Ã£o de Colapso', ()
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\analyticsStats.js ==========
+==== D:\Downloads\ultra-patched\src\engine\analyticsStats.js ====
 import { 
     computeCategoryStats, 
     computeBayesianLevel, 
@@ -23495,7 +23579,7 @@ export function generateAnalyticsStats({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\bugfix.regression.test.js ==========
+==== D:\Downloads\ultra-patched\src\engine\bugfix.regression.test.js ====
 // bugfix.regression.test.js
 import { describe, it, expect } from 'vitest';
 
@@ -23883,7 +23967,7 @@ describe('Regression: bugs crÃ­ticos', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\diagnostics.js ==========
+==== D:\Downloads\ultra-patched\src\engine\diagnostics.js ====
 /**
  * DIAGNOSTICS ENGINE v1.0 â€” Motor de DiagnÃ³stico AvanÃ§ado
  * AnÃ¡lises estatÃ­sticas avanÃ§adas para diagnÃ³stico de performance.
@@ -24603,7 +24687,7 @@ export function computeCategoryDiagnostics({
 }
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\heatmap.worker.js ==========
+==== D:\Downloads\ultra-patched\src\engine\heatmap.worker.js ====
 import { aggregateHeatmap } from '../utils/heatmapAggregation.js';
 
 self.onmessage = (e) => {
@@ -24621,7 +24705,7 @@ self.onmessage = (e) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\index.js ==========
+==== D:\Downloads\ultra-patched\src\engine\index.js ====
 /**
  * Monte Carlo Engine - Unified Export
  */
@@ -24641,7 +24725,7 @@ export * from './math/bootstrap.js';
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\insightGenerator.js ==========
+==== D:\Downloads\ultra-patched\src\engine\insightGenerator.js ====
 import { normalizeDate, toDateMs } from "../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper";
 
@@ -24926,7 +25010,7 @@ export function generateEvolutionInsights({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\mc.worker.js ==========
+==== D:\Downloads\ultra-patched\src\engine\mc.worker.js ====
 import { monteCarloSimulation } from './projection.js';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from './monteCarlo.js';
 import { resetGaussianCache } from './math/gaussian.ts';
@@ -25177,7 +25261,7 @@ export const __workerTesting = {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\monteCarlo.js ==========
+==== D:\Downloads\ultra-patched\src\engine\monteCarlo.js ====
 import { mulberry32 } from './random.js';
 import {
     normalCDF_complement,
@@ -25931,7 +26015,7 @@ export default {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\projection.js ==========
+==== D:\Downloads\ultra-patched\src\engine\projection.js ====
 // ==========================================
 // PROJECTION ENGINE - VersÃ£o Institucional 9.5
 // Seed fixa para estabilidade visual
@@ -26209,7 +26293,23 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
     if (Array.isArray(trendOrHistory)) {
         const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
         const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
-        return calculateAdaptiveSlope(trendOrHistory, maxScore, opts);
+
+        // Normalizar: garantir que cada item tenha {score, date}
+        const normalizedHistory = trendOrHistory.map(item => {
+            if (typeof item === 'number') {
+                return { score: item, date: null };
+            }
+            if (item && typeof item === 'object') {
+                return {
+                    score: Number.isFinite(item.score) ? item.score : NaN,
+                    date: item.date || item.createdAt || null
+                };
+            }
+            return { score: NaN, date: null };
+        }).filter(item => Number.isFinite(item.score));
+
+        if (normalizedHistory.length < 2) return 0;
+        return calculateAdaptiveSlope(normalizedHistory, maxScore, opts);
     }
 
     // âœ… FIX: Clamp proporcional Ã  escala da prova
@@ -26932,7 +27032,7 @@ export function monteCarloSimulation(
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\random.js ==========
+==== D:\Downloads\ultra-patched\src\engine\random.js ====
 export function mulberry32(seed) {
     return function () {
         seed = (seed + 0x6D2B79F5) | 0;
@@ -26981,7 +27081,7 @@ export function makeNormalRng(rng) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\stats.js ==========
+==== D:\Downloads\ultra-patched\src\engine\stats.js ====
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
 import { normalizeDate, safeDateParse } from '../utils/dateHelper.js';
 import { calculateSlope } from './projection.js';
@@ -27460,8 +27560,13 @@ export function computeBayesianLevel(
     if (history.length > 0) {
         const sortedHistory = historySortedForGaps;
 
-        for (let i = 0; i < sortedHistory.length; i++) {
-            const h = sortedHistory[i];
+        const MAX_ITERATIONS = 2000;
+        const historyToProcess = sortedHistory.length > MAX_ITERATIONS
+          ? sortedHistory.slice(-MAX_ITERATIONS) // Manter os mais recentes
+          : sortedHistory;
+
+        for (let i = 0; i < historyToProcess.length; i++) {
+            const h = historyToProcess[i];
 
             const totalRaw = Number(h?.total);
             const hasTotal = Number.isFinite(totalRaw) && totalRaw > 0;
@@ -27477,7 +27582,7 @@ export function computeBayesianLevel(
             const pct = Math.min(1, rawPct);
 
             const entryDate = normalizeDate(getHistoryDateValue(h));
-            const prevDate = i > 0 ? normalizeDate(getHistoryDateValue(sortedHistory[i - 1])) : entryDate;
+            const prevDate = i > 0 ? normalizeDate(getHistoryDateValue(historyToProcess[i - 1])) : entryDate;
 
             const timeEntry = entryDate?.getTime();
             const timePrev = prevDate?.getTime();
@@ -27556,6 +27661,19 @@ export function computeBayesianLevel(
 
                 alpha += Number.isFinite(acertosHoje) ? acertosHoje : 0;
                 beta += Number.isFinite(errosHoje) ? errosHoje : 0;
+            }
+
+            // âœ… RenormalizaÃ§Ã£o incremental a cada 50 iteraÃ§Ãµes
+            if (i % 50 === 0 && (alpha + beta) > dynamicAlphaCap * 2) {
+              const factor = dynamicAlphaCap / (alpha + beta);
+              alpha *= factor;
+              beta *= factor;
+            }
+
+            // âœ… Sanidade final â€” se alpha ou beta ficaram NaN/Infinity, resetar
+            if (!Number.isFinite(alpha) || !Number.isFinite(beta) || alpha < 0 || beta < 0) {
+              alpha = alpha0;
+              beta = beta0;
             }
 
             const currentN = alpha + beta;
@@ -28093,7 +28211,7 @@ export function calculateTrend(history, maxScore = 100) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\engine\variance.js ==========
+==== D:\Downloads\ultra-patched\src\engine\variance.js ====
 /**
  * Monte Carlo Engine - Variance Module
  * 
@@ -28572,7 +28690,7 @@ export default {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useChartData.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useChartData.js ====
 import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
@@ -28959,7 +29077,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useClock.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useClock.js ====
 import { useEffect, useState } from 'react';
 
 /**
@@ -29052,7 +29170,7 @@ export default useClock;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useCloudSync.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useCloudSync.js ====
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { db, isLocalMode } from '../services/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -29511,9 +29629,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (shouldPullCloud) {
         isCloudPullRef.current = true;
         if (isMountedRef.current) {
-          setAppState(() => mergeAppState(useAppStore.getState().appState, cloudData, { nonDestructive: mergeMode === "nonDestructive" }));
+          setAppState(() => {
+            const freshState = useAppStore.getState().appState;
+            return mergeAppState(freshState, cloudData, {
+              nonDestructive: mergeMode === "nonDestructive"
+            });
+          });
         }
-        lastSyncedRef.current = stateStringForSync(appStateRef.current);
+        lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
         setHasConflict(false);
         if (!wasAlreadyValidated && showToastRef.current) {
           showToastRef.current('Sincronizado via Nuvem! â˜ï¸âœ¨', 'success');
@@ -29782,7 +29905,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useGlobalToasts.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useGlobalToasts.js ====
 import { useState, useEffect } from 'react';
 
 /**
@@ -29817,7 +29940,7 @@ export function useGlobalToasts() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useIdleLogout.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useIdleLogout.js ====
 import { useEffect, useRef, useCallback } from 'react';
 import { logger } from '../utils/logger';
 
@@ -29881,7 +30004,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useLevelUp.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useLevelUp.js ====
 import { useState, useEffect } from 'react';
 
 /**
@@ -29910,7 +30033,7 @@ export function useLevelUp() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useModalAccessibility.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useModalAccessibility.js ====
 import { useEffect, useCallback } from 'react';
 
 export function useModalAccessibility(isOpen, onClose, modalRef) {
@@ -29974,7 +30097,7 @@ export function useModalAccessibility(isOpen, onClose, modalRef) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useMonteCarloStats.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useMonteCarloStats.js ====
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -30794,8 +30917,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
     return useMemo(() => ({
         ...memoizedStats,
-        isFlashing
-    }), [memoizedStats, isFlashing]);
+        isFlashing: false // Desativar flashing na engine de stats (fazer isso no componente visual)
+    }), [memoizedStats]);
 }
 
 // ðŸŽ¯ EFFECT: PersistÃªncia de HistÃ³rico de ProjeÃ§Ã£o (Snapshots)
@@ -30865,7 +30988,7 @@ function useMonteCarloHistoryRecorder({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useMonteCarloWorker.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useMonteCarloWorker.js ====
 /**
  * useMonteCarloWorker â€” Hook para offload Monte Carlo para Web Worker
  * 
@@ -31079,7 +31202,7 @@ export function useMonteCarloWorker() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\usePomodoroSync.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\usePomodoroSync.js ====
 import { useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
@@ -31124,8 +31247,10 @@ export function usePomodoroSync({
                     setIsRunning(true);
                     stateRefs.current.isRunning = true;
                     if (Number.isFinite(incomingTime) && incomingTime >= 0) {
-                        setTimeLeft(incomingTime);
+                        // A ref Ã© a fonte de verdade para o RAF loop
                         stateRefs.current.timeLeft = incomingTime;
+                        // O React state Ã© apenas para renderizaÃ§Ã£o visual
+                        setTimeLeft(incomingTime);
                     }
                     showToast('Protocolo ativo em outra aba ðŸ–¥ï¸', 'info');
                     break;
@@ -31213,7 +31338,7 @@ export function usePomodoroSync({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useSubscription.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useSubscription.js ====
 import { useState, useEffect } from 'react';
 import { db, isLocalMode } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
@@ -31297,7 +31422,7 @@ export function useSubscription(user) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useThemeSync.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useThemeSync.js ====
 import { useEffect } from 'react';
 
 /**
@@ -31350,7 +31475,7 @@ export function useThemeSync(darkModeSetting) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\hooks\useToast.js ==========
+==== D:\Downloads\ultra-patched\src\hooks\useToast.js ====
 import { useCallback } from 'react';
 
 export function useToast() {
@@ -31372,7 +31497,7 @@ export function useToast() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Activity.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Activity.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState } from 'react';
 import { CalendarDays, RotateCcw, X, Trophy, Target, BookOpen } from 'lucide-react';
@@ -31596,7 +31721,7 @@ export default function Activity() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Agenda.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Agenda.jsx ====
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
@@ -31920,7 +32045,7 @@ export default function Agenda() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Coach.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Coach.jsx ====
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     Brain,
@@ -32960,7 +33085,7 @@ function RaioXDashboard({ data }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Dashboard.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Dashboard.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
 import StatsCards from '../components/StatsCards';
@@ -33138,7 +33263,7 @@ export default function Dashboard() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Evolution.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Evolution.jsx ====
 import React from 'react';
 import EvolutionChart from '../components/EvolutionChart';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -33224,7 +33349,7 @@ export default function Evolution() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Flashcards.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Flashcards.jsx ====
 import React, { useState, useMemo } from 'react';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
@@ -33738,7 +33863,7 @@ export default function Flashcards() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\History.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\History.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
 import StudyHistory from '../components/StudyHistory';
@@ -33771,7 +33896,7 @@ export default function History() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Notes.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Notes.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { safeClone } from '../store/safeClone.js';
 import React, { useMemo } from 'react';
@@ -33903,7 +34028,7 @@ export default function Notes() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Pomodoro.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Pomodoro.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
@@ -35123,7 +35248,7 @@ export default function Pomodoro() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Retention.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Retention.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useMemo } from 'react';
 import RetentionPanel from '../components/RetentionPanel';
@@ -35176,32 +35301,32 @@ export default function Retention() {
             showToast('Categoria invÃ¡lida para retenÃ§Ã£o.', 'warning');
             return;
         }
-        
-        // Se a chamada veio do botÃ£o da task, selectedTask estarÃ¡ presente.
-        // Se veio do botÃ£o geral da categoria, selectedTask Ã© undefined, e o aluno quer estudar a matÃ©ria toda!
-        const isTaskSpecific = !!cat.selectedTask;
 
-        if (isTaskSpecific) {
-            const targetTask = cat.selectedTask;
-            startPomodoroSession({
-                categoryId: cat.id,
-                taskId: targetTask.id || targetTask.text,
-                category: cat.name,
-                task: targetTask.title || targetTask.text || 'Estudo',
-                priority: targetTask.priority,
-                source: 'retention'
-            });
-            navigate('/pomodoro');
-        } else {
-            // SessÃ£o na Categoria inteira
-            startPomodoroSession({
-                categoryId: cat.id,
-                taskId: cat.id, // O ID da task serÃ¡ o ID da prÃ³pria categoria
-                category: cat.name,
-                task: cat.name + ': RevisÃ£o Geral', // "MatemÃ¡tica: RevisÃ£o Geral", para que no Pomodoro apareÃ§a "RevisÃ£o Geral" com categoria "MatemÃ¡tica"
-                priority: 'normal',
-                source: 'retention'
-            });
+        const taskName = cat.selectedTask
+            ? (cat.selectedTask.title || cat.selectedTask.text || 'Estudo')
+            : cat.name;
+
+        // âœ… ConfirmaÃ§Ã£o antes de navegar
+        if (window.confirm(`Iniciar sessÃ£o de estudo para "${taskName}"?`)) {
+            if (cat.selectedTask) {
+                startPomodoroSession({
+                    categoryId: cat.id,
+                    taskId: cat.selectedTask.id || cat.selectedTask.text,
+                    category: cat.name,
+                    task: taskName,
+                    priority: cat.selectedTask.priority,
+                    source: 'retention'
+                });
+            } else {
+                startPomodoroSession({
+                    categoryId: cat.id,
+                    taskId: cat.id,
+                    category: cat.name,
+                    task: `${cat.name}: RevisÃ£o Geral`,
+                    priority: 'normal',
+                    source: 'retention'
+                });
+            }
             navigate('/pomodoro');
         }
     };
@@ -35267,7 +35392,7 @@ export default function Retention() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Sessions.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Sessions.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
 import StudyHistory from '../components/StudyHistory';
@@ -35314,7 +35439,7 @@ export default function Sessions() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Simulados.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Simulados.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useMemo } from 'react';
 import SimuladoAnalysis from '../components/SimuladoAnalysis';
@@ -35601,7 +35726,7 @@ export default function Simulados() {
       }
     });
     return rows;
-  }, [categoriesArray, simuladoRowsArray, data]);
+  }, [categoriesArray, simuladoRowsArray]);
 
   /* â”€â”€ FIX: Ãšltimo simulado â€” lÃ³gica corrigida e robusta â”€â”€ */
   const lastSimuladoData = useMemo(() => {
@@ -35967,7 +36092,7 @@ export default function Simulados() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Stats.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Stats.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useMemo } from 'react';
 import VerifiedStats from '../components/VerifiedStats';
@@ -36085,7 +36210,7 @@ export default function Stats() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\pages\Tasks.jsx ==========
+==== D:\Downloads\ultra-patched\src\pages\Tasks.jsx ====
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
 import PersonalRanking from '../components/PersonalRanking';
@@ -36156,7 +36281,7 @@ export default function Tasks() {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\services\aiQuestionService.js ==========
+==== D:\Downloads\ultra-patched\src\services\aiQuestionService.js ====
 import logger from '../utils/logger.js';
 import { getAuth } from 'firebase/auth';
 
@@ -36208,7 +36333,7 @@ export async function generateAIQuestions({ materia, assunto, dificuldade, quant
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\services\firebase.js ==========
+==== D:\Downloads\ultra-patched\src\services\firebase.js ====
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
@@ -36327,7 +36452,7 @@ export { db, auth, getAppAnalytics };
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createCategorySlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createCategorySlice.js ====
 import { generateId } from '../../utils/idGenerator';
 import { normalize } from '../../utils/normalization';
 import { safeClone } from '../safeClone.js';
@@ -36696,7 +36821,7 @@ export const createCategorySlice = (set) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createContestSlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createContestSlice.js ====
 import { generateId } from '../../utils/idGenerator';
 import { INITIAL_DATA } from '../../data/initialData';
 import { safeClone } from '../safeClone.js';
@@ -36798,7 +36923,7 @@ export const createContestSlice = (set) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createGamificationSlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createGamificationSlice.js ====
 import { calculateLevel } from '../../utils/gamification';
 import { buildAchievementStats } from '../../utils/analytics';
 import { ACHIEVEMENTS } from '../../config/gamification';
@@ -36882,7 +37007,7 @@ export const createGamificationSlice = (set, get) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createMonteCarloSlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createMonteCarloSlice.js ====
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
 import { safeClone } from '../safeClone.js';
 
@@ -36997,7 +37122,7 @@ export const createMonteCarloSlice = (set) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createPomodoroSlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createPomodoroSlice.js ====
 // BUG-9 FIX: FunÃ§Ã£o reutilizÃ¡vel para extrair categoria do texto da tarefa
 const extractCategoryFromTask = (task) => {
     if (task.catName) return task.catName;
@@ -37137,7 +37262,7 @@ export const createPomodoroSlice = (set, get) => ({
                     // BUG FIX: Evitar leak de accumulatedMinutes e completedCycles se o 
                     // utilizador repetir o pomodoro de 1 ciclo sem mudar de tarefa.
                     p.completedCycles = 0;
-                    p.accumulatedMinutes = 0;
+                    // accumulatedMinutes NÃƒO Ã© zerado aqui â€” o caller lÃª antes
                 } else {
                     const longBreakAfter = settings.longBreakAfter || 4;
                     const isLongBreak = (currentCycles % longBreakAfter === 0);
@@ -37304,7 +37429,7 @@ export const createPomodoroSlice = (set, get) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createSettingsSlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createSettingsSlice.js ====
 import { validateAppState, sanitizeContest } from '../schemas';
 
 const applyDarkModeToggle = (state) => {
@@ -37402,7 +37527,7 @@ export const createSettingsSlice = (set) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createSimuladoSlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createSimuladoSlice.js ====
 import { computeCategoryStats } from '../../engine/stats.js';
 import { getSafeScore } from '../../utils/scoreHelper.js';
 
@@ -37521,7 +37646,7 @@ export const createSimuladoSlice = (set) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createStudySlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createStudySlice.js ====
 import { generateId } from '../../utils/idGenerator';
 import { XP_CONFIG } from '../../config/gamification';
 import { SYNC_LOG_CAP } from '../../config';
@@ -37741,7 +37866,7 @@ export const createStudySlice = (set, get) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createTaskSlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createTaskSlice.js ====
 import { generateId } from '../../utils/idGenerator';
 import { getTaskXP } from '../../utils/gamification';
 
@@ -37878,7 +38003,7 @@ export const createTaskSlice = (set, get) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\slices\createTrashSlice.js ==========
+==== D:\Downloads\ultra-patched\src\store\slices\createTrashSlice.js ====
 import { generateId } from '../../utils/idGenerator';
 import { safeClone } from '../safeClone.js';
 
@@ -37955,88 +38080,28 @@ export const createTrashSlice = (set) => ({
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\safeClone.js ==========
+==== D:\Downloads\ultra-patched\src\store\safeClone.js ====
 /**
  * UtilitÃ¡rio de clonagem estrutural ultra-resiliente.
  * Protege a store contra DataCloneError limpando objetos nÃ£o-serializÃ¡veis.
  */
 export function safeClone(value, fallback = null) {
-  if (value === null || value === undefined) return value;
-
-  // FunÃ§Ã£o interna para encontrar o caminho do objeto problemÃ¡tico
-  const findOffendingPath = (obj, path = 'root', seen = new WeakSet()) => {
-    if (obj === null || typeof obj !== 'object') return null;
-    if (obj instanceof Date || obj instanceof RegExp) return null;
-    if (seen.has(obj)) return null;
-    seen.add(obj);
-
-    if (obj === window) return `${path} (is Window)`;
-    if (typeof Event !== 'undefined' && obj instanceof Event) return `${path} (is Event)`;
-    if (typeof HTMLElement !== 'undefined' && obj instanceof HTMLElement) return `${path} (is HTMLElement)`;
-    if (typeof Node !== 'undefined' && obj instanceof Node) return `${path} (is DOM Node)`;
-
-    for (const key in obj) {
-      try {
-        const result = findOffendingPath(obj[key], `${path}.${key}`, seen);
-        if (result) return result;
-      } catch {
-        return `${path}.${key} (Access Error)`;
-      }
-    }
-    return null;
-  };
-
   try {
-    // Tenta o clone nativo de alta performance
-    if (typeof structuredClone === 'function') {
-      return structuredClone(value);
-    }
-    throw new Error('structuredClone not available');
-  } catch (error) {
-    const offendingPath = findOffendingPath(value);
-    console.warn(`[SafeClone] Objeto nÃ£o-serializÃ¡vel detectado em: ${offendingPath || 'unknown'}. Aplicando limpeza JSON.`, error);
-
+    return structuredClone(value);
+  } catch (e) {
+    console.warn("structuredClone failed, falling back to JSON", e);
     try {
-      const seen = new WeakSet();
-      const isoDateFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d*)?(?:[-+]\d{2}:?\d{2}|Z)?$/;
-      const sanitized = JSON.parse(JSON.stringify(value, function(key, val) {
-        if (typeof val === 'function' || typeof val === 'symbol') return undefined;
-        
-        // ProteÃ§Ã£o contra Window, Event e DOM
-        if (val === window || 
-            (typeof Event !== 'undefined' && val instanceof Event) || 
-            (typeof HTMLElement !== 'undefined' && val instanceof HTMLElement) ||
-            (typeof Node !== 'undefined' && val instanceof Node)) {
-          return undefined;
-        }
-
-        if (val && typeof val === 'object') {
-          if (seen.has(val)) return undefined; // Corta a referÃªncia circular silenciosamente
-          seen.add(val);
-          
-          // PROTEÃ‡ÃƒO ADICIONAL: ReferÃªncias internas do React que podem vazar para o estado
-          if (key === '_reactInternalInstance' || key === '_reactFiber' || key === 'ref') {
-            return undefined;
-          }
-        }
-        return val;
-      }), function(key, val) {
-        if (typeof val === 'string' && isoDateFormat.test(val)) {
-            return new Date(val);
-        }
-        return val;
-      });
-      return sanitized;
-    } catch (jsonError) {
-      console.error('[SafeClone] Falha crÃ­tica ao clonar objeto. Usando fallback seguro.', jsonError);
-      return fallback !== null ? fallback : (typeof value === 'object' && value !== null ? { ...value } : value);
+      return JSON.parse(JSON.stringify(value));
+    } catch (e2) {
+      console.error("Total clone failure", e2);
+      return fallback;
     }
   }
 }
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\schemas.js ==========
+==== D:\Downloads\ultra-patched\src\store\schemas.js ====
 import { safeClone } from './safeClone.js';
 import { INITIAL_DATA } from '../data/initialData';
 import { generateId } from '../utils/idGenerator';
@@ -38387,7 +38452,7 @@ export const validateAppState = (data) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\useAppStore.js ==========
+==== D:\Downloads\ultra-patched\src\store\useAppStore.js ====
 import { safeClone } from './safeClone.js';
 import { create, useStore } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -38514,6 +38579,12 @@ export const useAppStore = create(
                         channel.postMessage({ type: 'TIMER_RESET', tabId: 'reset-all' });
                         channel.close();
                     } catch { /* BroadcastChannel indisponÃ­vel */ }
+
+                    // âœ… Limpar temporal PRIMEIRO para evitar subscribers lendo estado inconsistente
+                    if (useAppStore.temporal) {
+                        useAppStore.temporal.getState().clear();
+                    }
+
                     set((state) => {
                         // Preservamos configuraÃ§Ãµes de UI (tema, etc) mas limpamos dados sensÃ­veis
                         const settings = state.appState.settings;
@@ -38539,9 +38610,6 @@ export const useAppStore = create(
                             settings: settings // Preserva o tema escolhido
                         };
                     });
-                    
-                    // FIX: Purgar o histÃ³rico de Undo/Redo para impedir vazamento de dados
-                    useAppStore.temporal.getState().clear();
                 },
 
                 // Injetar os Slices
@@ -38661,7 +38729,7 @@ useAppStore.subscribe((state) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\store\useSelectors.js ==========
+==== D:\Downloads\ultra-patched\src\store\useSelectors.js ====
 import { useAppStore } from './useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -38721,7 +38789,7 @@ export const useUIState = () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\architecturalHardening.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\architecturalHardening.test.js ====
 /**
  * architecturalHardening.test.js â€” Testes para as CorreÃ§Ãµes MatemÃ¡ticas e LÃ³gicas Recentes
  * 
@@ -38902,7 +38970,7 @@ describe('Architectural Hardening: Rodadas 6-8', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\coachBacktest.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\coachBacktest.test.js ====
 import { describe, it, expect } from 'vitest';
 import { computeNDCGAtK, computeUplift, computeCalibratedError, compareStrategyRuns } from '../coachBacktest.js';
 
@@ -38933,7 +39001,7 @@ describe('coach offline backtest metrics', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\coachLogic.regression.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\coachLogic.regression.test.js ====
 import { describe, it, expect } from 'vitest';
 import {
   runCoachMonteCarlo,
@@ -39005,7 +39073,7 @@ describe('Coach math regressions â€” backtest weights bounded', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\dateHelper.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\dateHelper.test.js ====
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { normalizeDate, formatTimeAgo, getDateKey, toDateMs } from '../dateHelper';
 
@@ -39074,7 +39142,7 @@ describe('dateHelper formatTimeAgo', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\dueForecast.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\dueForecast.test.js ====
 import { describe, it, expect } from 'vitest';
 import { computeFlashcardDueForecast, getFlashcardDueTodayCount, getFlashcardMasteryPct } from '../analytics';
 import { getFlashcardTodayKey, getFlashcardNextDueKey } from '../dateHelper';
@@ -39141,7 +39209,7 @@ describe('Due Forecast + Flashcard date helpers', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\evolutionUtils.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\evolutionUtils.test.js ====
 import { describe, it, expect } from 'vitest';
 import { applyScenarioAdjustments, classifyScenarioSignal } from '../monteCarloScenario';
 import { aggregateHeatmap, getMondayKey } from '../heatmapAggregation';
@@ -39260,7 +39328,7 @@ describe('evolution utils', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\gamification.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\gamification.test.js ====
 import { describe, it, expect } from 'vitest';
 import { 
     calculateLevel, 
@@ -39439,7 +39507,7 @@ describe('Gamification Mathematics - Progressive & Exploitation-Safe Leveling', 
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\hardeningAudit.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\hardeningAudit.test.js ====
 /**
  * hardeningAudit.test.js â€” Testes para as CorreÃ§Ãµes Arquiteturais (Hardening) do Coach AI
  * 
@@ -39680,7 +39748,7 @@ describe('Hardening Audit: Erros 37-48', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\mathAudit.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\mathAudit.test.js ====
 /**
  * mathAudit.test.js â€” Testes para a Auditoria MatemÃ¡tica do Coach AI
  * 
@@ -40108,7 +40176,7 @@ describe('Regression: Pipeline output sanity', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\__tests__\weightSensitivity.test.js ==========
+==== D:\Downloads\ultra-patched\src\utils\__tests__\weightSensitivity.test.js ====
 import { describe, test, expect } from 'vitest';
 import { calculateUrgency } from '../coachLogic.js';
 
@@ -40159,7 +40227,7 @@ describe('Fix 1: Scale Invariance Audit (Weight Sensitivity)', () => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\adaptiveEngine.js ==========
+==== D:\Downloads\ultra-patched\src\utils\adaptiveEngine.js ====
 /**
  * adaptiveEngine.js â€” Adaptive Analytics Engine
  * 
@@ -40333,7 +40401,7 @@ export default { detectRegimeTransition };
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\adaptiveMath.js ==========
+==== D:\Downloads\ultra-patched\src\utils\adaptiveMath.js ====
 /**
  * UtilitÃ¡rios de MatemÃ¡tica Adaptativa para o Motor EstatÃ­stico
  */
@@ -40781,7 +40849,7 @@ export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificulda
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\aiSaveHelper.js ==========
+==== D:\Downloads\ultra-patched\src\utils\aiSaveHelper.js ====
 import { getDateKey, normalizeDate } from './dateHelper.js';
 import { generateId } from './idGenerator.js';
 import { normalize } from './normalization.js';
@@ -40967,7 +41035,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\analytics.js ==========
+==== D:\Downloads\ultra-patched\src\utils\analytics.js ====
 import { getXPProgress } from './gamification.js';
 import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
@@ -41010,61 +41078,51 @@ const distributeRoundingRemainder = (items, targetSum = 100) => {
 };
 
 export const calculateStudyStreak = (studyLogs) => {
-    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    if (!logsArray || logsArray.length === 0) {
-        return { current: 0, best: 0, longest: 0, isActive: false };
-    }
+  const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+  if (!logsArray || logsArray.length === 0) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
 
-    // 1. Agrupar por dia Ãºnico (YYYY-MM-DD local) para ignorar horas/minutos
-    const daySet = new Set(
-        logsArray
-            .filter(log => log && log.date)
-            .map(log => getDateKey(log.date))
-            .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
-    );
-    const sortedDays = Array.from(daySet).sort((a, b) =>
-        new Date(b) - new Date(a)
-    );
+  // âœ… Usa getDateKey (ancorado em America/Manaus) para TODAS as comparaÃ§Ãµes
+  const daySet = new Set(
+    logsArray
+      .filter(log => log && log.date)
+      .map(log => getDateKey(log.date))
+      .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
+  );
 
-    const todayStr = getDateKey(new Date());
-    const lastDayStr = sortedDays[0];
+  const sortedDays = Array.from(daySet).sort((a, b) =>
+    new Date(`${b}T12:00:00-04:00`) - new Date(`${a}T12:00:00-04:00`)
+  );
 
-    // 2. CÃ¡lculo do Gap (PerdÃ£o do Dia Atual)
-    // BUGFIX: NÃ£o usamos diferenÃ§a em ms do Date.now().
-    // Comparamos a diferenÃ§a entre as strings de data normalizadas para 12:00:00
-    // para evitar problemas de fuso horÃ¡rio e horÃ¡rio de verÃ£o.
-    const t = new Date(todayStr + 'T12:00:00');
-    const l = new Date((lastDayStr || todayStr) + 'T12:00:00');
-    const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
+  // âœ… todayStr tambÃ©m via getDateKey (Manaus)
+  const todayStr = getDateKey(new Date());
+  const lastDayStr = sortedDays[0];
 
-    // Se o gap for >= 2, ele pulou o dia de ontem INTEIRO. Streak quebrado.
-    if (diffDays >= 2) {
-        const longest = calculateLongest(sortedDays);
-        return { current: 0, best: longest, longest, isActive: false };
-    }
+  // ComparaÃ§Ã£o via strings YYYY-MM-DD (imune a timezone)
+  const t = new Date(`${todayStr}T12:00:00-04:00`);
+  const l = new Date(`${(lastDayStr || todayStr)}T12:00:00-04:00`);
+  const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
 
-    // 3. Contagem regressiva da Ofensiva
-    let streak = 0;
-    // O cursor comeÃ§a no Ãºltimo dia de estudo real
-    let dateCursor = new Date(lastDayStr + 'T12:00:00');
-
-    for (let i = 0; i < sortedDays.length * 2; i++) {
-        const dString = getDateKey(dateCursor);
-        if (daySet.has(dString)) {
-            streak++;
-            dateCursor.setDate(dateCursor.getDate() - 1);
-        } else {
-            break; // Fim da sequÃªncia
-        }
-    }
-
+  if (diffDays >= 2) {
     const longest = calculateLongest(sortedDays);
-    return {
-        current: streak,
-        best: longest,
-        longest: longest,
-        isActive: diffDays <= 1 // Ativo se estudou hoje ou ontem
-    };
+    return { current: 0, best: longest, longest, isActive: false };
+  }
+
+  let streak = 0;
+  let dateCursor = new Date(`${lastDayStr}T12:00:00-04:00`);
+  for (let i = 0; i < sortedDays.length * 2; i++) {
+    const dString = getDateKey(dateCursor);
+    if (daySet.has(dString)) {
+      streak++;
+      dateCursor.setDate(dateCursor.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  const longest = calculateLongest(sortedDays);
+  return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
 };
 
 
@@ -41932,7 +41990,7 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\backupManager.js ==========
+==== D:\Downloads\ultra-patched\src\utils\backupManager.js ====
 import { generateId } from './idGenerator';
 import DOMPurify from 'dompurify';
 
@@ -41959,7 +42017,7 @@ const validateFullBackup = (data) => {
 const sanitizeCategory = (cat) => ({
     ...cat,
     id: String(cat.id || generateId('cat')),
-    name: DOMPurify.sanitize(String(cat.name || "Sem Nome").substring(0, 50)),
+    name: DOMPurify.sanitize(String(cat.name || "Sem Nome")).substring(0, 50),
     // PRESERVE: Mantemos propriedades inerentes (maxScore, weight, simuladoStats, etc) atravÃ©s do spread acima
     priority: cat.priority || 'medium',
     completedAt: cat.completedAt || null,
@@ -42065,7 +42123,7 @@ export const parseImportedData = (content, currentAppState) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\calibration.js ==========
+==== D:\Downloads\ultra-patched\src\utils\calibration.js ====
 import { kahanSum } from '../engine/math/kahan.js';
 import { getDateKey } from './dateHelper.js';
 import { getSafeScore } from './scoreHelper.js';
@@ -42531,7 +42589,7 @@ export function buildCalibrationDashboardSeries(events = []) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\calibrationTelemetry.js ==========
+==== D:\Downloads\ultra-patched\src\utils\calibrationTelemetry.js ====
 const TELEMETRY_KEY = 'coach_calibration_events_v1';
 
 async function sendToFirebaseAnalytics(metric) {
@@ -42575,7 +42633,7 @@ export function logCalibrationTelemetryEvent(metric) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\chartConfig.js ==========
+==== D:\Downloads\ultra-patched\src\utils\chartConfig.js ====
 /**
  * Centralized Configuration for Charts
  */
@@ -42637,11 +42695,11 @@ export const CHART_DEFAULTS = {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\chartDataMappers.js ==========
+==== D:\Downloads\ultra-patched\src\utils\chartDataMappers.js ====
 /**
  * Mapper functions to transform application state into chart-ready data
  */
-import { normalizeDate } from './dateHelper.js';
+import { normalizeDate, getDateKey } from './dateHelper.js';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -42692,7 +42750,13 @@ export const mapRetentionData = (categories = []) => {
 
             // CÃLCULO DE MEIA-VIDA DINÃ‚MICA (Anti-PuniÃ§Ã£o de Maestria)
             // Assuntos consolidados (muitas questÃµes ou alta precisÃ£o) esquecem mais devagar.
-            const totalQ = toFiniteNumber(cat.simuladoStats?.totalQuestions, 0);
+            const history = Array.isArray(cat.simuladoStats?.history)
+              ? cat.simuladoStats.history
+              : Object.values(cat.simuladoStats?.history || {});
+            const totalQ = history.reduce((sum, h) => {
+              const t = Number(h?.total);
+              return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+            }, 0);
             const maxScore = Math.max(1, toFiniteNumber(cat.maxScore, 100));
             const accuracyData = cat.bayesianStats?.mean || cat.simuladoStats?.average;
             const accuracy = accuracyData ? (toFiniteNumber(accuracyData, 0) / maxScore) : 0;
@@ -42722,7 +42786,13 @@ export const mapRetentionData = (categories = []) => {
                     if (!Number.isFinite(days)) return;
                     
                     // Tasks individuais usam half-life padrÃ£o 7 a menos que a categoria seja mestre
-                    const totalQ = toFiniteNumber(cat.simuladoStats?.totalQuestions, 0);
+                    const history2 = Array.isArray(cat.simuladoStats?.history)
+                      ? cat.simuladoStats.history
+                      : Object.values(cat.simuladoStats?.history || {});
+                    const totalQ = history2.reduce((sum, h) => {
+                      const t = Number(h?.total);
+                      return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+                    }, 0);
                     const qNorm = Math.max(0, Math.min(1, totalQ / 120));
                     const halfLife = 7 + (7 * qNorm);
 
@@ -42757,17 +42827,8 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     // toLocaleDateString depende da localidade do browser e pode falhar o matching.
     // ðŸŽ¯ STABILITY FIX: Inclui o Ano na chave para evitar colisÃ£o entre anos diferentes (Bug do Fantasma do Ano Passado)
     const getFullKey = (dateObj) => {
-        try {
-            return new Intl.DateTimeFormat('en-GB', {
-                // timeZone removed to use user's local time instead of hard-coded Manaus (fixes date bugs for other regions)
-                day: '2-digit', month: '2-digit', year: 'numeric'
-            }).format(dateObj);
-        } catch {
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const year = dateObj.getFullYear();
-            return `${day}/${month}/${year}`;
-        }
+      // âœ… Usa getDateKey (ancorado em America/Manaus) em vez de Intl genÃ©rico
+      return getDateKey(dateObj);
     };
 
     const getDisplayKey = (dateObj) => {
@@ -42847,7 +42908,7 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\coachAdaptive.js ==========
+==== D:\Downloads\ultra-patched\src\utils\coachAdaptive.js ====
 import { monteCarloSimulation } from '../engine/monteCarlo.js';
 import { getSafeScore } from './scoreHelper.js';
 import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeCalibrationDiagnostics, fitIsotonicCalibration, predictIsotonicProbability, calibrateWithBBQ, conformalizedCalibrationInterval, computeStackingWeights } from './calibration.js';
@@ -43425,7 +43486,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\coachBacktest.js ==========
+==== D:\Downloads\ultra-patched\src\utils\coachBacktest.js ====
 export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
   const topK = Math.max(1, Math.min(k, predicted.length));
   const actualMap = new Map(actual.map((x) => [x.id, Number(x.relevance) || 0]));
@@ -43475,7 +43536,7 @@ export function compareStrategyRuns(runA = {}, runB = {}, metrics = ['ndcg']) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\coachLogic.js ==========
+==== D:\Downloads\ultra-patched\src\utils\coachLogic.js ====
 // ==================== CONSTANTES ====================
 import { calculateMSSD, calculateSlope, getSortedHistory } from '../engine/projection.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
@@ -43579,23 +43640,23 @@ const getDaysDiff = (newer, older) => {
  * SubstituiÃ§Ã£o da escada em degraus por uma curva Exponencial ContÃ­nua.
  */
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
-    // CORREÃ‡ÃƒO: ProteÃ§Ã£o vitalÃ­cia contra NaN para evitar aniquilaÃ§Ã£o multiplicativa da matriz de prioridades
-    if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0; 
-    if (daysToExam < 0) return 1.0; 
-    if (daysToExam === 0) return 2.0; 
-    
-    // CORREÃ‡ÃƒO: A urgÃªncia (Crunch) adapta-se ao tamanho da jornada do aluno.
-    let timeDivisor = 21; // PadrÃ£o
-    const safeFirstActivity = normalizeDate(firstActivityDate);
-    if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
-        const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
-        // BUG-FIX: Prevenir que daysToExam negativo zere totalJourneyDays
-        const totalJourneyDays = Math.max(1, ((normalizeDate(referenceDate) || referenceDate).getTime() - safeFirstActivity.getTime()) / 86400000) + Math.max(0, daysToExam);
-        // Se a jornada Ã© longa (ex: 300 dias), a rampa comeÃ§a mais cedo.
-        timeDivisor = Math.max(14, totalJourneyDays * 0.15); 
-    }
-    
-    const urgency = 1.0 + Math.exp(-daysToExam / timeDivisor);
+  if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
+  if (daysToExam < 0) return 1.0;
+  if (daysToExam === 0) return 2.0;
+
+  let timeDivisor = 21;
+  const safeFirstActivity = normalizeDate(firstActivityDate);
+  if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
+    const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
+    const refTime = referenceDate.getTime();
+    const firstTime = safeFirstActivity.getTime();
+    // ProteÃ§Ã£o: se qualquer valor for NaN, usar fallback
+    if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
+    const totalJourneyDays = Math.max(1, (refTime - firstTime) / 86400000) + Math.max(0, daysToExam);
+    timeDivisor = Math.max(14, totalJourneyDays * 0.15);
+  }
+  
+  const urgency = 1.0 + Math.exp(-daysToExam / timeDivisor);
     return Number(Math.min(2.0, urgency).toFixed(4));
 }
 
@@ -44531,7 +44592,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // Checksum injetado garante que qualquer ediÃ§Ã£o recalcule a urgÃªncia
         const tasksHash = (category?.tasks || []).reduce((acc, t) => acc + (t.completed ? 0 : 1) + (t.priority === 'high' ? 5 : 0), 0);
-        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
+        const activeId = useAppStore.getState().appState?.activeId || 'default';
+        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
         
         if (_urgencyCache.has(cacheKey)) {
             return _urgencyCache.get(cacheKey);
@@ -45345,7 +45407,7 @@ export function getCombinedHistory(history, simulados) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\dateHelper.js ==========
+==== D:\Downloads\ultra-patched\src\utils\dateHelper.js ====
 import { addDays } from 'date-fns';
 
 export const APP_TIMEZONE = 'America/Manaus';
@@ -45570,7 +45632,7 @@ export const isFlashcardDue = (cardDue, referenceKey = null) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\displaySubject.js ==========
+==== D:\Downloads\ultra-patched\src\utils\displaySubject.js ====
 import { normalize } from './normalization';
 
 const SUBJECT_MAP = {
@@ -45606,7 +45668,7 @@ export const displaySubject = (name) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\downsample.js ==========
+==== D:\Downloads\ultra-patched\src\utils\downsample.js ====
 import { toDateMs } from './dateHelper.js';
 
 /**
@@ -45684,7 +45746,7 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\explanationEngine.js ==========
+==== D:\Downloads\ultra-patched\src\utils\explanationEngine.js ====
 // ==========================================
 // HUMAN EXPLANATION ENGINE
 // Traduz telemetria matemÃ¡tica em linguagem natural
@@ -45858,7 +45920,7 @@ export function validatePrediction({ probability, interval, confidenceTier }) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\gamification.js ==========
+==== D:\Downloads\ultra-patched\src\utils\gamification.js ====
 import { XP_CONFIG } from '../config/gamification';
 // XP_CONFIG movido para src/config/gamification.js para centralizaÃ§Ã£o de verdade (Bug 1).
 
@@ -45944,7 +46006,7 @@ export const getLevelTitle = (level) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\heatmapAggregation.js ==========
+==== D:\Downloads\ultra-patched\src\utils\heatmapAggregation.js ====
 import { normalizeDate } from './dateHelper.js';
 
 export function getMondayKey(rawKey = '') {
@@ -46039,7 +46101,7 @@ export const calculateSubjectMastery = (subtopics) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\idGenerator.js ==========
+==== D:\Downloads\ultra-patched\src\utils\idGenerator.js ====
 /**
  * Generates a robust unique ID with a prefix
  * format: prefix-timestamp-random
@@ -46094,7 +46156,7 @@ export const getSafeId = (task) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\lazyRetry.js ==========
+==== D:\Downloads\ultra-patched\src\utils\lazyRetry.js ====
 import { lazy } from 'react';
 
 /**
@@ -46128,7 +46190,7 @@ export const lazyWithRetry = (componentImport) =>
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\logger.js ==========
+==== D:\Downloads\ultra-patched\src\utils\logger.js ====
 import { DEBUG_MODE } from '../config.js';
 
 /**
@@ -46162,7 +46224,7 @@ export default logger;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\monteCarloScenario.js ==========
+==== D:\Downloads\ultra-patched\src\utils\monteCarloScenario.js ====
 export const SCENARIO_CONFIG = {
   // BUG-5 FIX: meanBiasFactor Ã© percentual da escala (0.025 = 2.5% do maxScore)
   // Antes era absoluto (Â±2.5 pts), distorcendo provas fora da escala 0-100.
@@ -46217,7 +46279,7 @@ export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) 
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\normalization.js ==========
+==== D:\Downloads\ultra-patched\src\utils\normalization.js ====
 /**
  * Normalizes a string for consistent matching across the application.
  * Removes accents, converts to lowercase, trims whitespace, and removes common prefixes.
@@ -46286,7 +46348,7 @@ export const safeDivide = (numerator, denominator, fallback = 0) => {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\pdfExport.js ==========
+==== D:\Downloads\ultra-patched\src\utils\pdfExport.js ====
 import { toPng } from 'html-to-image';
 
 export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf', orientation = 'landscape') => {
@@ -46349,7 +46411,7 @@ export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf'
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\ProgressStateEngine.js ==========
+==== D:\Downloads\ultra-patched\src\utils\ProgressStateEngine.js ====
 /**
  * ProgressStateEngine
  * 
@@ -46581,7 +46643,7 @@ export default { analyzeProgressState, getUIHints };
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\scoreHelper.js ==========
+==== D:\Downloads\ultra-patched\src\utils\scoreHelper.js ====
 export function getSyntheticTotal(_maxScore = 100) {
   return 20;
 }
@@ -46834,7 +46896,7 @@ export function formatValue(value) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\storageSafe.js ==========
+==== D:\Downloads\ultra-patched\src\utils\storageSafe.js ====
 const QUARANTINE_PREFIX = 'quarantine:';
 
 export function quarantineRaw(key, raw, reason = null) {
@@ -46847,13 +46909,22 @@ export function quarantineRaw(key, raw, reason = null) {
   }
 }
 
-export function safeGetJSON(key, fallback = null) {
+export function safeGetJSON(key, fallback = null, validator = null) {
   let raw = null;
 
   try {
     raw = localStorage.getItem(key);
     if (raw == null) return fallback;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+
+    // ValidaÃ§Ã£o opcional de schema
+    if (typeof validator === 'function' && !validator(parsed)) {
+      console.warn(`[Storage] ValidaÃ§Ã£o falhou para ${key}, usando fallback`);
+      quarantineRaw(key, raw, 'Schema validation failed');
+      return fallback;
+    }
+
+    return parsed;
   } catch (err) {
     if (raw != null) {
       quarantineRaw(key, raw, err);
@@ -46879,7 +46950,7 @@ export function safeSetJSON(key, value) {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\utils\weeklyEvolutionInsights.js ==========
+==== D:\Downloads\ultra-patched\src\utils\weeklyEvolutionInsights.js ====
 import { toDateMs } from './dateHelper.js';
 
 export function computeTopRegressions({ viewMode, chartData = [], keys = [], activeKeys = {}, hiddenKeys = {} }) {
@@ -46981,7 +47052,7 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\App.jsx ==========
+==== D:\Downloads\ultra-patched\src\App.jsx ====
 import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
@@ -47405,7 +47476,7 @@ export default App;
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\config.js ==========
+==== D:\Downloads\ultra-patched\src\config.js ====
 // Global application configuration and constants
 
 export const SYNC_LOG_CAP = 500;
@@ -47420,7 +47491,7 @@ export default {
 
 
 
-========== FILE: D:\Downloads\ultra-patched\src\index.css ==========
+==== D:\Downloads\ultra-patched\src\index.css ====
 @import "tailwindcss";
 
 /* Custom CSS Variables */
@@ -48278,7 +48349,7 @@ input[type=range].custom-slider::-moz-range-thumb:active {
 }
 
 
-========== FILE: D:\Downloads\ultra-patched\src\main.jsx ==========
+==== D:\Downloads\ultra-patched\src\main.jsx ====
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -48300,4 +48371,6 @@ createRoot(rootElement).render(
     </AuthProvider>
   </ErrorBoundary>,
 )
+
+
 
