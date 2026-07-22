@@ -128,14 +128,25 @@ export default function AIGeneratedSimulado() {
       if (gen.status === 'done' && gen.questions?.length > 0) {
         timeoutId1 = setTimeout(() => {
           if (cancelled) return;
+          
           const f = gen.form || {};
           setForm({
             categoryId: f.categoryId || '', taskId: f.taskId || '',
             materia: f.materia || '', assunto: f.assunto || '',
             dificuldade: f.dificuldade || 'medio', quantidade: f.quantidade || 10,
           });
-          const cat = categories.find(c => c.id === f.categoryId);
+          
+          // âœ… FIX: Ler categories do store ATUAL, nÃ£o da closure
+          const currentCategories = useAppStore.getState().appState?.contests?.[
+            useAppStore.getState().appState?.activeId
+          ]?.categories || [];
+          const catsArray = Array.isArray(currentCategories) 
+            ? currentCategories 
+            : Object.values(currentCategories);
+          
+          const cat = catsArray.find(c => c.id === f.categoryId);
           const tsk = cat?.tasks?.find(t => t.id === f.taskId);
+          
           const normalizedQuestions = gen.questions.map((q) => ({
             ...q,
             id: q.id || nextAiId('ai-bg'),
@@ -143,6 +154,7 @@ export default function AIGeneratedSimulado() {
             materia: cat?.name || f.materia,
             assunto: tsk ? (tsk.title || tsk.text || f.assunto) : f.assunto,
           }));
+          
           isFinishingRef.current = false;
           setQuestions(normalizedQuestions);
           setAnswers({});
@@ -221,25 +233,38 @@ export default function AIGeneratedSimulado() {
         const age = Date.now() - savedAt;
         return age < 24 * 60 * 60 * 1000;
       }
+      
       if (isSimuladoDraftValid(draft)) {
         timeoutId2 = setTimeout(() => {
           if (cancelled) return;
+          
           const f = draft.form || {};
           let restoredForm = {
             categoryId: f.categoryId || '', taskId: f.taskId || '',
             materia: f.materia || '', assunto: f.assunto || '',
             dificuldade: f.dificuldade || 'medio', quantidade: f.quantidade || 10,
           };
-          const stillValidCat = restoredForm.categoryId && categories.some(c => c.id === restoredForm.categoryId);
-          const catRef = categories.find(c => c.id === restoredForm.categoryId);
+          
+          // âœ… FIX: Validar contra categories do store ATUAL
+          const currentCategories = useAppStore.getState().appState?.contests?.[
+            useAppStore.getState().appState?.activeId
+          ]?.categories || [];
+          const catsArray = Array.isArray(currentCategories) 
+            ? currentCategories 
+            : Object.values(currentCategories);
+          
+          const stillValidCat = restoredForm.categoryId && catsArray.some(c => c.id === restoredForm.categoryId);
+          const catRef = catsArray.find(c => c.id === restoredForm.categoryId);
           const catTasksRef = catRef?.tasks || [];
           const safeTasksArray = Array.isArray(catTasksRef) ? catTasksRef : Object.values(catTasksRef);
           const stillValidTask = restoredForm.taskId && stillValidCat && safeTasksArray.some(t => t.id === restoredForm.taskId);
+          
           if (restoredForm.categoryId && !stillValidCat) {
             restoredForm = { ...restoredForm, categoryId: '', taskId: '', materia: '', assunto: '' };
           } else if (restoredForm.taskId && !stillValidTask) {
             restoredForm = { ...restoredForm, taskId: '', assunto: '' };
           }
+          
           const questions = Array.isArray(draft.questions) ? draft.questions : [];
           const answers = Array.isArray(draft.answers) ? draft.answers : (draft.answers || {});
           const maxIndex = Math.max(0, questions.length - 1);
@@ -247,6 +272,7 @@ export default function AIGeneratedSimulado() {
             ? Math.min(Math.max(draft.currentIndex, 0), maxIndex) : 0;
           const timeLeft = Number.isFinite(draft.timeLeft)
             ? Math.max(0, draft.timeLeft) : draft.questions.length * 3 * 60;
+          
           setForm(restoredForm);
           setQuestions(questions);
           setAnswers(answers);
