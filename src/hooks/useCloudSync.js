@@ -456,9 +456,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (shouldPullCloud) {
         isCloudPullRef.current = true;
         if (isMountedRef.current) {
-          setAppState(() => mergeAppState(useAppStore.getState().appState, cloudData, { nonDestructive: mergeMode === "nonDestructive" }));
+          setAppState(() => {
+            const freshState = useAppStore.getState().appState;
+            return mergeAppState(freshState, cloudData, {
+              nonDestructive: mergeMode === "nonDestructive"
+            });
+          });
         }
-        lastSyncedRef.current = stateStringForSync(appStateRef.current);
+        lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
         setHasConflict(false);
         if (!wasAlreadyValidated && showToastRef.current) {
           showToastRef.current('Sincronizado via Nuvem! ☁️✨', 'success');

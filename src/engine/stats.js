@@ -574,6 +574,19 @@ export function computeBayesianLevel(
                 beta += Number.isFinite(errosHoje) ? errosHoje : 0;
             }
 
+            // ✅ Renormalização incremental a cada 50 iterações
+            if (i % 50 === 0 && (alpha + beta) > dynamicAlphaCap * 2) {
+              const factor = dynamicAlphaCap / (alpha + beta);
+              alpha *= factor;
+              beta *= factor;
+            }
+
+            // ✅ Sanidade final — se alpha ou beta ficaram NaN/Infinity, resetar
+            if (!Number.isFinite(alpha) || !Number.isFinite(beta) || alpha < 0 || beta < 0) {
+              alpha = alpha0;
+              beta = beta0;
+            }
+
             const currentN = alpha + beta;
             if (!Number.isFinite(currentN)) {
                 alpha = alpha0;

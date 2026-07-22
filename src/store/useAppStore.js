@@ -124,6 +124,12 @@ export const useAppStore = create(
                         channel.postMessage({ type: 'TIMER_RESET', tabId: 'reset-all' });
                         channel.close();
                     } catch { /* BroadcastChannel indisponível */ }
+
+                    // ✅ Limpar temporal PRIMEIRO para evitar subscribers lendo estado inconsistente
+                    if (useAppStore.temporal) {
+                        useAppStore.temporal.getState().clear();
+                    }
+
                     set((state) => {
                         // Preservamos configurações de UI (tema, etc) mas limpamos dados sensíveis
                         const settings = state.appState.settings;
@@ -149,9 +155,6 @@ export const useAppStore = create(
                             settings: settings // Preserva o tema escolhido
                         };
                     });
-                    
-                    // FIX: Purgar o histórico de Undo/Redo para impedir vazamento de dados
-                    useAppStore.temporal.getState().clear();
                 },
 
                 // Injetar os Slices

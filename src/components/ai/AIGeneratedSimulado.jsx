@@ -591,23 +591,26 @@ export default function AIGeneratedSimulado() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveAIResultsToSystem, showToast, setData]);
 
-  // FIX: Timer effect com guarda contra dupla execução
+  const finishMutexRef = useRef(false);
+
+  const safeFinish = useCallback(async () => {
+    if (finishMutexRef.current) return;
+    finishMutexRef.current = true;
+    try {
+      await handleFinish();
+    } finally {
+      setTimeout(() => { finishMutexRef.current = false; }, 1000);
+    }
+  }, [handleFinish]);
+
   const timerFinishTriggerRef = useRef(false);
-  const finishCalledRef = useRef(false);
 
   useEffect(() => {
-    if (timerFinishTriggerRef.current && !finishCalledRef.current) {
+    if (timerFinishTriggerRef.current) {
       timerFinishTriggerRef.current = false;
-      finishCalledRef.current = true;
-      handleFinish();
+      safeFinish();
     }
   });
-
-  useEffect(() => {
-    if (step !== 'playing') {
-      finishCalledRef.current = false;
-    }
-  }, [step]);
 
   useEffect(() => {
     let interval = null;
@@ -674,7 +677,7 @@ export default function AIGeneratedSimulado() {
       else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(curIdx - 1); }
       else if (e.key === 'ArrowRight' || e.key === 'Enter') {
         e.preventDefault();
-        if (curIdx < qLen - 1) goTo(curIdx + 1); else handleFinish();
+        if (curIdx < qLen - 1) goTo(curIdx + 1); else safeFinish();
       } else if (e.key.toLowerCase() === 'escape') {
         e.preventDefault();
         resetAll();
@@ -712,7 +715,7 @@ export default function AIGeneratedSimulado() {
       <SimuladoPlayer
         form={form} questions={questions} currentIndex={currentIndex} answers={answers}
         timeLeft={timeLeft} DIFFICULTIES={DIFFICULTIES} goTo={goTo} selectAnswer={selectAnswer}
-        handleFinish={handleFinish} resetAll={resetAll}
+        handleFinish={safeFinish} resetAll={resetAll}
       />
     );
   }

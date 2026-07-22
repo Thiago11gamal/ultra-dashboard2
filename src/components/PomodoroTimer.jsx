@@ -166,6 +166,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         completedCycles,
         accumulatedMinutes
     });
+    const timeRef = useRef(timeLeft); // ✅ Só atualizado no RAF loop
 
     // 🛡️ [SHIELD-REF] Sincronização Imediata: Atualizamos as refs via Effect
     // Isso garante que skips/pauses disparados por eventos (que ocorrem após o render) usem valores 100% atuais.
@@ -577,6 +578,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             const oldTime = stateRefs.current.timeLeft;
             const newTime = Math.max(0, startLeft - elapsedSeconds);
             stateRefs.current.timeLeft = newTime;
+            timeRef.current = newTime; // ✅ ref dedicada
 
             const currentTotalTime = stateRefs.current.mode === 'work'
                 ? (safeSettings.pomodoroWork || 25) * 60

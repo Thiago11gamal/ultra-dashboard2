@@ -14,6 +14,7 @@ import { useAppStore } from "../store/useAppStore";
 import { downsampleLTTB } from "../utils/downsample";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
+import { useShallow } from 'zustand/react/shallow';
 
 // Sub-components
 import { KpiCard } from "./charts/EvolutionChart/KpiCard";
@@ -261,7 +262,6 @@ const ENGINES = [
 
 
 export default React.memo(function EvolutionChart({
-    categories: rawCategories = [],
     targetScore = 80,
     goalDate,
     monteCarloHistory = [],
@@ -271,6 +271,11 @@ export default React.memo(function EvolutionChart({
     minScore = 0,
     maxScore = 100
 }) {
+    const rawCategories = useAppStore(useShallow(state => {
+        const contest = state.appState?.contests?.[state.appState?.activeId];
+        return contest?.categories ?? EMPTY_ARRAY;
+    }));
+
     const categories = useMemo(() => {
         const DEFAULT_PALETTE = [
             "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", 
