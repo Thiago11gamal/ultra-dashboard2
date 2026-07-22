@@ -164,3 +164,29 @@ export function PageErrorBoundary({ children, pageName = 'esta página' }) {
 }
 
 export default ErrorBoundary;
+
+export class FeatureErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 rounded-xl bg-slate-900/50 border border-red-500/20 text-center">
+          <p className="text-red-400 text-sm">Falha ao renderizar componente.</p>
+          <button 
+            onClick={() => this.setState({ hasError: false })}
+            className="mt-2 text-xs text-slate-400 hover:text-white"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}

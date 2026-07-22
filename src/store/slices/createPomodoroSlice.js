@@ -137,7 +137,7 @@ export const createPomodoroSlice = (set, get) => ({
                     // BUG FIX: Evitar leak de accumulatedMinutes e completedCycles se o 
                     // utilizador repetir o pomodoro de 1 ciclo sem mudar de tarefa.
                     p.completedCycles = 0;
-                    p.accumulatedMinutes = 0;
+                    // accumulatedMinutes NÃO é zerado aqui — o caller lê antes
                 } else {
                     const longBreakAfter = settings.longBreakAfter || 4;
                     const isLongBreak = (currentCycles % longBreakAfter === 0);

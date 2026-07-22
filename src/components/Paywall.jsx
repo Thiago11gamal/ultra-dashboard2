@@ -87,11 +87,13 @@ export default function Paywall({ user, onLogout }) {
                 if (url) {
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
+                    if (unsubRef.current) unsubRef.current(); // ← Cleanup imediato
                     logger.log("[Stripe] Redirecionando via URL...");
                     window.location.assign(url);
                 } else if (sessionId) {
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
+                    if (unsubRef.current) unsubRef.current(); // ← Cleanup imediato
                     logger.log("[Stripe] Redirecionando via SessionId...");
                     const stripe = await getStripe();
                     

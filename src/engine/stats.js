@@ -476,8 +476,13 @@ export function computeBayesianLevel(
     if (history.length > 0) {
         const sortedHistory = historySortedForGaps;
 
-        for (let i = 0; i < sortedHistory.length; i++) {
-            const h = sortedHistory[i];
+        const MAX_ITERATIONS = 2000;
+        const historyToProcess = sortedHistory.length > MAX_ITERATIONS
+          ? sortedHistory.slice(-MAX_ITERATIONS) // Manter os mais recentes
+          : sortedHistory;
+
+        for (let i = 0; i < historyToProcess.length; i++) {
+            const h = historyToProcess[i];
 
             const totalRaw = Number(h?.total);
             const hasTotal = Number.isFinite(totalRaw) && totalRaw > 0;
@@ -493,7 +498,7 @@ export function computeBayesianLevel(
             const pct = Math.min(1, rawPct);
 
             const entryDate = normalizeDate(getHistoryDateValue(h));
-            const prevDate = i > 0 ? normalizeDate(getHistoryDateValue(sortedHistory[i - 1])) : entryDate;
+            const prevDate = i > 0 ? normalizeDate(getHistoryDateValue(historyToProcess[i - 1])) : entryDate;
 
             const timeEntry = entryDate?.getTime();
             const timePrev = prevDate?.getTime();

@@ -101,23 +101,23 @@ const getDaysDiff = (newer, older) => {
  * Substituição da escada em degraus por uma curva Exponencial Contínua.
  */
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
-    // CORREÇÃO: Proteção vitalícia contra NaN para evitar aniquilação multiplicativa da matriz de prioridades
-    if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0; 
-    if (daysToExam < 0) return 1.0; 
-    if (daysToExam === 0) return 2.0; 
-    
-    // CORREÇÃO: A urgência (Crunch) adapta-se ao tamanho da jornada do aluno.
-    let timeDivisor = 21; // Padrão
-    const safeFirstActivity = normalizeDate(firstActivityDate);
-    if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
-        const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
-        // BUG-FIX: Prevenir que daysToExam negativo zere totalJourneyDays
-        const totalJourneyDays = Math.max(1, ((normalizeDate(referenceDate) || referenceDate).getTime() - safeFirstActivity.getTime()) / 86400000) + Math.max(0, daysToExam);
-        // Se a jornada é longa (ex: 300 dias), a rampa começa mais cedo.
-        timeDivisor = Math.max(14, totalJourneyDays * 0.15); 
-    }
-    
-    const urgency = 1.0 + Math.exp(-daysToExam / timeDivisor);
+  if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
+  if (daysToExam < 0) return 1.0;
+  if (daysToExam === 0) return 2.0;
+
+  let timeDivisor = 21;
+  const safeFirstActivity = normalizeDate(firstActivityDate);
+  if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
+    const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
+    const refTime = referenceDate.getTime();
+    const firstTime = safeFirstActivity.getTime();
+    // Proteção: se qualquer valor for NaN, usar fallback
+    if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
+    const totalJourneyDays = Math.max(1, (refTime - firstTime) / 86400000) + Math.max(0, daysToExam);
+    timeDivisor = Math.max(14, totalJourneyDays * 0.15);
+  }
+  
+  const urgency = 1.0 + Math.exp(-daysToExam / timeDivisor);
     return Number(Math.min(2.0, urgency).toFixed(4));
 }
 

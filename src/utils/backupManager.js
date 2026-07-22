@@ -24,7 +24,7 @@ const validateFullBackup = (data) => {
 const sanitizeCategory = (cat) => ({
     ...cat,
     id: String(cat.id || generateId('cat')),
-    name: DOMPurify.sanitize(String(cat.name || "Sem Nome").substring(0, 50)),
+    name: DOMPurify.sanitize(String(cat.name || "Sem Nome")).substring(0, 50),
     // PRESERVE: Mantemos propriedades inerentes (maxScore, weight, simuladoStats, etc) através do spread acima
     priority: cat.priority || 'medium',
     completedAt: cat.completedAt || null,

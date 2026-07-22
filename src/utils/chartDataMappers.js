@@ -52,7 +52,13 @@ export const mapRetentionData = (categories = []) => {
 
             // CÁLCULO DE MEIA-VIDA DINÂMICA (Anti-Punição de Maestria)
             // Assuntos consolidados (muitas questões ou alta precisão) esquecem mais devagar.
-            const totalQ = toFiniteNumber(cat.simuladoStats?.totalQuestions, 0);
+            const history = Array.isArray(cat.simuladoStats?.history)
+              ? cat.simuladoStats.history
+              : Object.values(cat.simuladoStats?.history || {});
+            const totalQ = history.reduce((sum, h) => {
+              const t = Number(h?.total);
+              return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+            }, 0);
             const maxScore = Math.max(1, toFiniteNumber(cat.maxScore, 100));
             const accuracyData = cat.bayesianStats?.mean || cat.simuladoStats?.average;
             const accuracy = accuracyData ? (toFiniteNumber(accuracyData, 0) / maxScore) : 0;
@@ -82,7 +88,13 @@ export const mapRetentionData = (categories = []) => {
                     if (!Number.isFinite(days)) return;
                     
                     // Tasks individuais usam half-life padrão 7 a menos que a categoria seja mestre
-                    const totalQ = toFiniteNumber(cat.simuladoStats?.totalQuestions, 0);
+                    const history2 = Array.isArray(cat.simuladoStats?.history)
+                      ? cat.simuladoStats.history
+                      : Object.values(cat.simuladoStats?.history || {});
+                    const totalQ = history2.reduce((sum, h) => {
+                      const t = Number(h?.total);
+                      return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+                    }, 0);
                     const qNorm = Math.max(0, Math.min(1, totalQ / 120));
                     const halfLife = 7 + (7 * qNorm);
 

@@ -10,13 +10,22 @@ export function quarantineRaw(key, raw, reason = null) {
   }
 }
 
-export function safeGetJSON(key, fallback = null) {
+export function safeGetJSON(key, fallback = null, validator = null) {
   let raw = null;
 
   try {
     raw = localStorage.getItem(key);
     if (raw == null) return fallback;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+
+    // Validação opcional de schema
+    if (typeof validator === 'function' && !validator(parsed)) {
+      console.warn(`[Storage] Validação falhou para ${key}, usando fallback`);
+      quarantineRaw(key, raw, 'Schema validation failed');
+      return fallback;
+    }
+
+    return parsed;
   } catch (err) {
     if (raw != null) {
       quarantineRaw(key, raw, err);

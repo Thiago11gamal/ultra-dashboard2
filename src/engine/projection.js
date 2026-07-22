@@ -275,7 +275,23 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
     if (Array.isArray(trendOrHistory)) {
         const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
         const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
-        return calculateAdaptiveSlope(trendOrHistory, maxScore, opts);
+
+        // Normalizar: garantir que cada item tenha {score, date}
+        const normalizedHistory = trendOrHistory.map(item => {
+            if (typeof item === 'number') {
+                return { score: item, date: null };
+            }
+            if (item && typeof item === 'object') {
+                return {
+                    score: Number.isFinite(item.score) ? item.score : NaN,
+                    date: item.date || item.createdAt || null
+                };
+            }
+            return { score: NaN, date: null };
+        }).filter(item => Number.isFinite(item.score));
+
+        if (normalizedHistory.length < 2) return 0;
+        return calculateAdaptiveSlope(normalizedHistory, maxScore, opts);
     }
 
     // ✅ FIX: Clamp proporcional à escala da prova

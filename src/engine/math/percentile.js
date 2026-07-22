@@ -28,9 +28,13 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
                 sorted = arr;
             } else {
                 const finiteData = [];
-                for (let i = 0; i < arr.length; i++) if (Number.isFinite(arr[i])) finiteData.push(arr[i]);
+                for (let i = 0; i < arr.length; i++) {
+                    if (Number.isFinite(arr[i])) finiteData.push(arr[i]);
+                }
                 if (finiteData.length === 0) return 0;
-                sorted = new arr.constructor(finiteData); // Keep relative order (already sorted)
+                // Ordenar explicitamente — a ordem original NÃO é confiável com NaNs
+                finiteData.sort((a, b) => a - b);
+                sorted = new arr.constructor(finiteData);
             }
         } else {
             const hasNaN = arr.some(v => !Number.isFinite(Number(v)));

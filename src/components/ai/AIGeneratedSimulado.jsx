@@ -78,6 +78,7 @@ export default function AIGeneratedSimulado() {
   const latestQuestionsRef = useRef(questions);
   const latestFormRef = useRef(form);
   const isFinishingRef = useRef(false);
+  const finishCalledRef = useRef(false);
   const latestCurrentIndexRef = useRef(currentIndex);
   const latestTimePerQuestionRef = useRef(timePerQuestion);
   const latestTimeLeftRef = useRef(timeLeft);
@@ -551,7 +552,7 @@ export default function AIGeneratedSimulado() {
 
       // FIX: todayKey agora é definido corretamente
       const nowIso = new Date().toISOString();
-      const todayKey = getDateKey(new Date());
+      const todayKey = getDateKey(new Date()) || new Date().toISOString().slice(0, 10);
       const globalMixedEvent = {
         id: generateId('ai-sim'),
         date: todayKey,

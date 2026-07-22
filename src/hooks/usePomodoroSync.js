@@ -42,8 +42,10 @@ export function usePomodoroSync({
                     setIsRunning(true);
                     stateRefs.current.isRunning = true;
                     if (Number.isFinite(incomingTime) && incomingTime >= 0) {
-                        setTimeLeft(incomingTime);
+                        // A ref é a fonte de verdade para o RAF loop
                         stateRefs.current.timeLeft = incomingTime;
+                        // O React state é apenas para renderização visual
+                        setTimeLeft(incomingTime);
                     }
                     showToast('Protocolo ativo em outra aba 🖥️', 'info');
                     break;

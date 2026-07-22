@@ -7,6 +7,7 @@ import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
+import { APP_TIMEZONE } from '../../../utils/dateHelper';
 
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) => {
     if (active && payload && payload.length) {
@@ -85,7 +86,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
 
 const getMondayStr = (dateStr) => {
     const dt = typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr.trim())
-      ? new Date(`${dateStr.trim()}T12:00:00-04:00`)
+      ? new Date(`${dateStr.trim()}T12:00:00${APP_TIMEZONE}`)
         : new Date(dateStr);
     if (isNaN(dt.getTime())) return null;
     const day = dt.getDay();

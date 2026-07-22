@@ -817,8 +817,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
     return useMemo(() => ({
         ...memoizedStats,
-        isFlashing
-    }), [memoizedStats, isFlashing]);
+        isFlashing: false // Desativar flashing na engine de stats (fazer isso no componente visual)
+    }), [memoizedStats]);
 }
 
 // 🎯 EFFECT: Persistência de Histórico de Projeção (Snapshots)
