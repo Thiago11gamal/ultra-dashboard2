@@ -3,11 +3,8 @@ import { validateAppState, sanitizeContest } from '../schemas';
 const applyDarkModeToggle = (state) => {
   const activeData = state.appState.contests[state.appState.activeId];
   if (!activeData) return;
-
   if (!activeData.settings) activeData.settings = {};
-
   activeData.settings.darkMode = !(activeData.settings.darkMode ?? true);
-
   state.appState.version = (state.appState.version || 0) + 1;
   state.appState.lastUpdated = new Date().toISOString();
   localStorage.setItem('ultra-sync-dirty', 'true');
@@ -16,11 +13,9 @@ const applyDarkModeToggle = (state) => {
 export const createSettingsSlice = (set) => ({
   setHasSeenTour: (value) => set((state) => {
     state.appState.hasSeenTour = value;
-
     if (value) {
       state.appState.lastSeenTourDate = new Date().toDateString();
     }
-
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = new Date().toISOString();
     localStorage.setItem('ultra-sync-dirty', 'true');
@@ -30,9 +25,7 @@ export const createSettingsSlice = (set) => ({
     const rawFilter = (filterOrEvent && typeof filterOrEvent === 'object' && 'target' in filterOrEvent)
       ? filterOrEvent.target?.value
       : filterOrEvent;
-
     const nextFilter = typeof rawFilter === 'string' ? rawFilter : 'all';
-
     state.appState.dashboardFilter = nextFilter || 'all';
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = new Date().toISOString();
@@ -42,50 +35,40 @@ export const createSettingsSlice = (set) => ({
   updateCoachPlanner: (newPlannerData) => set((state) => {
     const activeData = state.appState.contests[state.appState.activeId];
     if (!activeData) return;
-
     if (JSON.stringify(activeData.coachPlanner) === JSON.stringify(newPlannerData)) return;
-
     activeData.coachPlanner = newPlannerData;
-
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = new Date().toISOString();
     localStorage.setItem('ultra-sync-dirty', 'true');
   }),
 
   setThemeMode: () => set(applyDarkModeToggle),
-
   toggleDarkMode: () => set(applyDarkModeToggle),
 
   setAppState: (newStateObj) => set((state) => {
     let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
     if (!nextState) return;
     if (nextState === state.appState) return;
-
     nextState = validateAppState(nextState);
-
     const nextContests = (nextState.contests && typeof nextState.contests === 'object')
-      ? nextState.contests
-      : state.appState.contests;
-
+      ? nextState.contests : state.appState.contests;
     const contestIds = Object.keys(nextContests || {});
     const fallbackActiveId = contestIds[0] || state.appState.activeId;
-
     const nextActiveId = (nextState.activeId && nextContests?.[nextState.activeId])
-      ? nextState.activeId
-      : fallbackActiveId;
-
+      ? nextState.activeId : fallbackActiveId;
     const { history: _history, ...otherState } = nextState;
-
     Object.assign(state.appState, {
       ...otherState,
       contests: nextContests,
       activeId: nextActiveId
     });
-
     state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
   }),
 
-  setData: (newDataCallback, _shouldRecordHistory = true) => set((state) => {
+  // FIX: setData unificado — usa Object.assign em vez de sanitizeContest
+  // para evitar destruir o Proxy Immer. sanitizeContest é aplicado apenas
+  // na validação de entrada (validateAppState), não em cada mutação.
+  setData: (newDataCallback) => set((state) => {
     const contestId = state.appState.activeId;
     const currentData = state.appState.contests[contestId];
     if (!currentData) return;
@@ -95,15 +78,15 @@ export const createSettingsSlice = (set) => ({
       : newDataCallback;
 
     if (nextData !== undefined && nextData !== null && typeof nextData === 'object') {
-      state.appState.contests[contestId] = sanitizeContest(nextData);
+      // FIX: Object.assign preserva o Proxy Immer. sanitizeContest criaria
+      // um novo objeto plain, quebrando a tracking de mutação do Immer.
+      Object.assign(state.appState.contests[contestId], nextData);
     }
 
     const nowIso = new Date().toISOString();
-
     if (state.appState.contests[contestId]) {
       state.appState.contests[contestId].lastUpdated = nowIso;
     }
-
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = nowIso;
     localStorage.setItem('ultra-sync-dirty', 'true');

@@ -139,7 +139,7 @@ export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompleted
         return sum + getStudyMinutes(log);
     }, 0);
 
-    const pomodorosFromLogs = Math.floor(minutesToday / workDuration);
+    const pomodorosFromLogs = Number.isFinite(minutesToday) ? Math.floor(minutesToday / workDuration) : 0;
     const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
     
     // extraCompletedCycles are cycles from the current active session that haven't been 

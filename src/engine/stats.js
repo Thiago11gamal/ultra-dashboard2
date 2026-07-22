@@ -634,6 +634,12 @@ export function computeBayesianLevel(
         }
     }
 
+    // FIX: Sanidade final — se alpha ou beta ficaram NaN/Infinity, resetar para prior
+    if (!Number.isFinite(alpha) || !Number.isFinite(beta) || alpha < 0 || beta < 0) {
+      alpha = alpha0;
+      beta = beta0;
+    }
+
     const n = alpha + beta;
 
     if (!Number.isFinite(n) || n <= 0) {

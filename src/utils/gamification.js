@@ -10,9 +10,11 @@ import { XP_CONFIG } from '../config/gamification';
  * Nível 5: 1,600 XP (+700)
  */
 export const calculateLevel = (xpInput) => {
-    const xp = Number(xpInput) || 0;
+    const safeXp = Number.isFinite(Number(xpInput)) ? Number(xpInput) : 0;
+    if (safeXp < 0) return 1;
     // Formula: Level = floor(sqrt(XP / 100)) + 1
-    return Math.floor(Math.sqrt(Math.max(0, xp) / 100)) + 1;
+    const level = Math.floor(Math.sqrt(safeXp / 100)) + 1;
+    return Number.isNaN(level) ? 1 : level;
 };
 
 // Alias for compatibility

@@ -126,7 +126,11 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
     // Estados Locais
     const initialTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (mode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60);
-    const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', initialTime));
+    const [timeLeft, setTimeLeft] = useState(() => {
+        const saved = getSavedState('timeLeft', initialTime);
+        const t = Number(saved);
+        return Number.isFinite(t) && t > 0 ? t : (Number.isFinite(initialTime) ? initialTime : 25 * 60);
+    });
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
     const [speed, setSpeed] = useState(() => getSavedState('speed', 1));
     const [isMuted, setIsMuted] = useState(() => {

@@ -661,7 +661,7 @@ export function monteCarloSimulation(
     }
 
     let volatility = forcedVolatility !== undefined 
-        ? forcedVolatility 
+        ? Math.max(0.001 * (maxScore - minScore > 0 ? maxScore - minScore : maxScore), forcedVolatility)
         : calculateRobustVolatility(sortedHistory, maxScore, minScore, options);
     
     // Bug 2.2 Fix: Double Jeopardy (Evita dupla penalização se o overflowRatio já trucidou a média)
@@ -749,7 +749,8 @@ export function monteCarloSimulation(
     }
     // A volatilidade estocástica diária deve ser escalada pelo gap médio entre provas
     // para que a variância cresça corretamente como um Random Walk/OU process.
-    const dailyVolatility = Math.max(0.01, volatility / Math.sqrt(Math.max(1, medianGap)));
+    const dailyVolatility = Math.max(0.001 * (maxScore - minScore > 0 ? maxScore - minScore : maxScore),
+      volatility / Math.sqrt(Math.max(1, medianGap)));
 
     // [BUG-1 FIX] Usar o damping adaptativo em vez do hardcode de 45.
     // Com poucos dados/alta vol, dampingBase ≈ 30 (amortece rápido).
