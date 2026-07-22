@@ -46680,97 +46680,47 @@ export function parseLocaleNumber(value, fallback = NaN) {
 }
 
 export function getSafeScore(historyRow, maxScore = 100) {
-  const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0
+    ? Number(maxScore) : 100;
 
+  // Suporte a nÃºmero direto
   if (typeof historyRow === 'number') {
     return Math.max(0, Math.min(safeMaxScore, historyRow));
   }
   if (!historyRow) return NaN;
 
+  // â”€â”€ score explÃ­cito â”€â”€
   if (historyRow.score != null) {
     let s;
     if (typeof historyRow.score === 'number') {
       s = historyRow.score;
     } else {
-      let rawScore = String(historyRow.score);
-      const lastComma = rawScore.lastIndexOf(',');
-      const lastDot = rawScore.lastIndexOf('.');
-      if (lastComma > lastDot) {
-        rawScore = rawScore.replace(/\./g, '').replace(',', '.');
-      } else if (lastDot > lastComma) {
-        const parts = rawScore.split('.');
-        const lastPart = parts[parts.length - 1];
-        if (lastComma === -1 && parts.length === 2 && lastPart.length === 3 && !historyRow.isPercentage) {
-          rawScore = rawScore.replace(/\./g, '');
-        } else {
-          rawScore = rawScore.replace(/,/g, '');
-        }
-      } else {
-        rawScore = rawScore.replace(/[,.]/g, '');
-      }
-      s = parseFloat(rawScore);
+      // âœ… FIX: parse robusto de "1.234,56" / "1,234.56" / "1234"
+      s = parseLocaleNumber(historyRow.score, NaN);
     }
 
-    // FIX: isPercentage agora escala corretamente para qualquer maxScore
     if (historyRow.isPercentage) {
-      const pctValue = normalizePercentInput(s);
-      if (!Number.isFinite(pctValue)) return NaN;
-      // FIX: Clamp do percentual entre 0 e 100 antes de escalar
-      const clampedPct = Math.max(0, Math.min(100, pctValue));
-      s = (clampedPct / 100) * safeMaxScore;
+      const pct = normalizePercentInput(s);
+      if (!Number.isFinite(pct)) return NaN;
+      // âœ… FIX: clamp 0-100 ANTES de escalar
+      s = (Math.max(0, Math.min(100, pct)) / 100) * safeMaxScore;
     }
-
     return Number.isFinite(s) ? Math.max(0, Math.min(safeMaxScore, s)) : NaN;
   }
 
-  let rawTotal = String(historyRow.total !== null && historyRow.total !== undefined ? historyRow.total : '');
-  const ltC = rawTotal.lastIndexOf(',');
-  const ltD = rawTotal.lastIndexOf('.');
-  if (ltC > ltD) {
-    rawTotal = rawTotal.replace(/\./g, '').replace(',', '.');
-  } else if (ltD > ltC) {
-    const parts = rawTotal.split('.');
-    const lastPart = parts[parts.length - 1];
-    if (ltC === -1 && parts.length === 2 && lastPart.length === 3) {
-      rawTotal = rawTotal.replace(/\./g, '');
-    } else {
-      rawTotal = rawTotal.replace(/,/g, '');
-    }
-  } else {
-    rawTotal = rawTotal.replace(/[,.]/g, '');
-  }
-  const hasValidTotal = rawTotal !== undefined && rawTotal !== null && rawTotal !== '' && rawTotal !== 'NaN';
-  const total = hasValidTotal && Number.isFinite(Number(rawTotal)) ? Number(rawTotal) : NaN;
-
-  let rawCorrect = String(historyRow.correct !== null && historyRow.correct !== undefined ? historyRow.correct : '');
-  const lcX = rawCorrect.lastIndexOf(',');
-  const ldX = rawCorrect.lastIndexOf('.');
-  if (lcX > ldX) {
-    rawCorrect = rawCorrect.replace(/\./g, '').replace(',', '.');
-  } else if (ldX > lcX) {
-    const parts = rawCorrect.split('.');
-    const lastPart = parts[parts.length - 1];
-    if (lcX === -1 && parts.length === 2 && lastPart.length === 3) {
-      rawCorrect = rawCorrect.replace(/\./g, '');
-    } else {
-      rawCorrect = rawCorrect.replace(/,/g, '');
-    }
-  } else {
-    rawCorrect = rawCorrect.replace(/[,.]/g, '');
-  }
-  const hasValidCorrect = rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== '' && rawCorrect !== 'NaN';
-  const correct = hasValidCorrect && Number.isFinite(Number(rawCorrect)) ? Number(rawCorrect) : NaN;
+  // â”€â”€ fallback: correct/total â”€â”€
+  const total = parseLocaleNumber(historyRow.total, NaN);
+  const correct = parseLocaleNumber(historyRow.correct, NaN);
 
   if (historyRow.isPercentage) {
     if (!Number.isFinite(correct)) return NaN;
-    const pValue = normalizePercentInput(correct);
-    if (!Number.isFinite(pValue)) return NaN;
-    const clampedPct = Math.max(0, Math.min(100, pValue));
-    const scoreFromPercentage = (clampedPct / 100) * safeMaxScore;
-    return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(safeMaxScore, scoreFromPercentage)) : NaN;
+    const pct = normalizePercentInput(correct);
+    if (!Number.isFinite(pct)) return NaN;
+    const score = (Math.max(0, Math.min(100, pct)) / 100) * safeMaxScore;
+    return Number.isFinite(score) ? Math.max(0, Math.min(safeMaxScore, score)) : NaN;
   }
 
-  if (total > 0) {
+  if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
     return Math.max(0, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
   }
 
