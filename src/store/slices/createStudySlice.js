@@ -173,7 +173,7 @@ export const createStudySlice = (set, get) => ({
       const newLog = {
         id: logId,
         date: now,
-        categoryId: categoryId || 'flashcards',
+        categoryId: categoryId || null,
         taskId: deckId,
         minutes,
         taskTitle: 'Revisão de Flashcard',

@@ -343,6 +343,16 @@ export function simulateNormalDistribution(
         const cov = buildCovarianceMatrix(subjectStats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
         const psdCov = ensurePositiveSemiDefinite(cov);
         subjectCholesky = choleskyDecomposition(psdCov);
+
+        // ✅ FIX BUG-06: Validar e substituir elementos quase-zero na diagonal da Cholesky
+        // Previne singularidades na multiplicação downstream que arruínam as simulações
+        if (subjectCholesky) {
+            for (let i = 0; i < subjectCholesky.length; i++) {
+                if (!Number.isFinite(subjectCholesky[i][i]) || subjectCholesky[i][i] < 1e-8) {
+                    subjectCholesky[i][i] = 1e-8;
+                }
+            }
+        }
     }
 
     const choleskySize = subjectStats.length;

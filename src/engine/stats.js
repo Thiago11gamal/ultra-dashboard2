@@ -519,7 +519,11 @@ export function computeBayesianLevel(
 
             const cappedMaxN = Math.min(maxNEver, dynamicAlphaCap);
             const macroDecay = Math.max(0.1, Math.exp(-0.005 * (gapDays || 0)));
-            const retentionFloor = (cappedMaxN * 0.3) * macroDecay;
+
+            // ✅ FIX: Piso de retenção proporcional ao decaimento, NÃO ao histórico máximo.
+            // Usa um piso fixo pequeno (3-10) que decai com o tempo, permitindo
+            // que o aluno realmente "esqueça" após longos períodos sem estudo.
+            const retentionFloor = Math.max(3.0, Math.min(10.0, cappedMaxN * 0.05)) * macroDecay;
 
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
@@ -1089,36 +1093,35 @@ export function calculateTrend(history, maxScore = 100) {
 
     const safeMaxScore = safeMaxScoreValue(maxScore, 100);
 
-    const firstTime = safeDateParse(sorted[0]?.date ?? sorted[0]?.createdAt)?.getTime();
-    const firstDate = Number.isFinite(firstTime) ? firstTime : Date.now();
-
-    let sumX = 0;
-    let sumY = 0;
-    let sumXY = 0;
-    let sumX2 = 0;
-    let validN = 0;
-
+    // ✅ FIX: Filtrar entradas com datas válidas ANTES de calcular.
+    // Isso garante que firstDate sempre seja um timestamp válido.
+    const validEntries = [];
     for (let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
-
         const dateParsed = safeDateParse(h?.date ?? h?.createdAt);
         const time = dateParsed?.getTime();
-
-        if (!Number.isFinite(time)) continue;
-
-        const x = (time - firstDate) / 86400000;
         const y = getSafeScore(h, safeMaxScore);
+        if (Number.isFinite(time) && Number.isFinite(y)) {
+            validEntries.push({ time, y });
+        }
+    }
 
-        if (!Number.isFinite(y)) continue;
+    if (validEntries.length < 2) return 0;
 
+    // ✅ FIX: firstDate agora é garantidamente válido
+    const firstDate = validEntries[0].time;
+
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    const validN = validEntries.length;
+
+    for (let i = 0; i < validN; i++) {
+        const x = (validEntries[i].time - firstDate) / 86400000;
+        const y = validEntries[i].y;
         sumX += x;
         sumY += y;
         sumXY += x * y;
         sumX2 += x * x;
-        validN++;
     }
-
-    if (validN < 2) return 0;
 
     const denominator = (validN * sumX2) - (sumX * sumX);
     if (Math.abs(denominator) < 1e-12) return 0;

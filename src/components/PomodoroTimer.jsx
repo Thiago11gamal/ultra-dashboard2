@@ -499,21 +499,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             }
         }
 
-        // BUG-3 FIX: Ler accumulatedMinutes ANTES de chamar completePomodoroPhase,
-        // pois o slice pode zerar o valor durante a transição (ex: targetCycles===1).
-        const safeSessionMinutes = Number.isFinite(sessionMinutes) ? sessionMinutes : 0;
-        const currentAccumulated = Number.isFinite(stateRefs.current.accumulatedMinutes) ? stateRefs.current.accumulatedMinutes : 0;
-        // BUG-4 FIX: Só acumula minutos anteriores se estamos finalizando um bloco de trabalho.
-        // Em skip de pausa, currentAccumulated contém minutos já reportados — não re-somar.
-        const finalMinutes = completedMode === 'work'
-            ? Number((currentAccumulated + safeSessionMinutes).toFixed(2))
-            : 0;
-
         const targetSubject = activeSubjectRef.current;
-
-        if (isLastWorkSession && targetSubject) {
-            safeOnUpdateStudyTime(targetSubject.categoryId, finalMinutes, targetSubject.taskId);
-        }
 
         transitionTimeoutRef.current = setTimeout(() => {
             // 🟢 CÓDIGO NOVO 3: Proteção contra desmontagem súbita (Race Condition Fix)
@@ -523,8 +509,12 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 return; // Aborta a atualização visual se o componente já não existe
             }
 
-            // Passamos os minutos trabalhados para o Store persistir
-            completePomodoroPhase(isManual, sessionMinutes);
+            // ✅ FIX BUG-07: Passamos os minutos trabalhados e recebemos os totais reais
+            const savedMinutes = completePomodoroPhase(isManual, sessionMinutes);
+
+            if (isLastWorkSession && targetSubject && completedMode === 'work') {
+                safeOnUpdateStudyTime(targetSubject.categoryId, savedMinutes, targetSubject.taskId);
+            }
 
             if (typeof onSessionComplete === 'function') onSessionComplete();
 
@@ -555,7 +545,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
             if (isEndingCycle) {
                 // B-08 FIX: Passar flag de conclusão natural
-                safeOnFullCycleComplete(finalMinutes, source === 'natural');
+                // ✅ FIX BUG-07: Usar savedMinutes capturado de forma síncrona
+                safeOnFullCycleComplete(savedMinutes || 0, source === 'natural');
             }
         }, 50);
     }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, safeOnFullCycleComplete, onSessionComplete, syncChannel]);

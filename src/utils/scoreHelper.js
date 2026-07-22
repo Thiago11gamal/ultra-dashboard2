@@ -60,13 +60,18 @@ export function getSafeScore(historyRow, maxScore = 100) {
       s = parseLocaleNumber(historyRow.score, NaN);
     }
     
-    // ✅ FIX: isPercentage agora escala corretamente para qualquer maxScore
     if (historyRow.isPercentage) {
       const pctValue = normalizePercentInput(s);
       if (!Number.isFinite(pctValue)) return NaN;
-      // ✅ FIX: Clamp do percentual entre 0 e 100 antes de escalar
-      const clampedPct = Math.max(0, Math.min(100, pctValue));
-      s = (clampedPct / 100) * safeMaxScore;
+
+      // ✅ FIX: Se o valor excede 100, provavelmente NÃO é percentual.
+      // Trata como score absoluto para evitar inflação.
+      if (Math.abs(pctValue) > 100.01) {
+        s = Math.max(0, Math.min(safeMaxScore, pctValue));
+      } else {
+        const clampedPct = Math.max(0, Math.min(100, pctValue));
+        s = (clampedPct / 100) * safeMaxScore;
+      }
     }
     
     return Number.isFinite(s) ? Math.max(0, Math.min(safeMaxScore, s)) : NaN;
@@ -80,6 +85,10 @@ export function getSafeScore(historyRow, maxScore = 100) {
     if (!Number.isFinite(correct)) return NaN;
     const pValue = normalizePercentInput(correct);
     if (!Number.isFinite(pValue)) return NaN;
+    // ✅ FIX: Mesmo tratamento para correct como percentual
+    if (Math.abs(pValue) > 100.01) {
+      return Math.max(0, Math.min(safeMaxScore, pValue));
+    }
     const clampedPct = Math.max(0, Math.min(100, pValue));
     const scoreFromPercentage = (clampedPct / 100) * safeMaxScore;
     return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(safeMaxScore, scoreFromPercentage)) : NaN;

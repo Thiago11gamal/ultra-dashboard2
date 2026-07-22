@@ -237,9 +237,21 @@ export function computeAdaptiveSignal(historyOrScores = []) {
 
     const sumW = kahanSum(weighted);
     const sumW2 = kahanSum(weighted.map(w => w * w));
-    const effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
-    
-    const weightedMean = kahanSum(finiteScores.map((s, i) => s * weighted[i])) / Math.max(1e-9, sumW);
+
+    // ✅ FIX: Se os pesos decaíram para zero, fazer fallback para média simples.
+    // Isso evita que a média ponderada colapse para 0 quando todos os
+    // dados são "antigos" demais para o lambda configurado.
+    let effectiveN;
+    let weightedMean;
+
+    if (sumW < 1e-6) {
+      // Fallback: média simples (todos os pesos são efetivamente iguais)
+      effectiveN = finiteScores.length;
+      weightedMean = kahanMean(finiteScores);
+    } else {
+      effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
+      weightedMean = kahanSum(finiteScores.map((s, i) => s * weighted[i])) / sumW;
+    }
 
     // Robustez adaptativa: Huber-like clipping guiado por MAD para reduzir impacto de outliers
     const sorted = [...finiteScores].sort((a, b) => a - b);

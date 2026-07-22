@@ -691,10 +691,14 @@ export function monteCarloSimulation(
     const scoreRangeOU = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
     const normalizedVolOU = (volatility / scoreRangeOU) * 100;
     
-    // [BUG-2 FIX] Mean Reversion PROPORCIONAL à volatilidade:
-    // Séries voláteis precisam de reversão mais forte para não divergirem.
-    // Base: 0.02. Bonus proporcional à vol normalizada (até +0.08 para vol extrema).
-    const thetaOU = Math.min(0.15, 0.02 + 0.002 * Math.min(40, normalizedVolOU));
+    // ✅ FIX: thetaOU agora escala com a confiança da amostra.
+    // Poucos dados → reversão mais forte (conservador).
+    // Muitos dados → reversão mais fraca (confia na tendência).
+    const sampleConfidence = Math.min(1, sortedHistory.length / 15);
+    const thetaOU = Math.min(
+      0.15,
+      (0.02 + 0.06 * (1 - sampleConfidence)) + 0.002 * Math.min(40, normalizedVolOU)
+    );
 
     let residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
         if (i === 0) return 0;

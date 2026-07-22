@@ -114,10 +114,13 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
     const refTime = referenceDate.getTime();
     const firstTime = safeFirstActivity.getTime();
     
-    // ✅ FIX: Proteção: se qualquer valor for NaN, usar fallback
+    // ✅ FIX: Proteção contra datas futuras e valores NaN.
     if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
     
-    const totalJourneyDays = Math.max(1, (refTime - firstTime) / 86400000) + Math.max(0, daysToExam);
+    // ✅ FIX: Usar Math.abs para lidar com firstActivityDate no futuro.
+    // Se a data está no futuro, tratamos como se o aluno tivesse começado hoje.
+    const journeyDays = Math.abs(refTime - firstTime) / 86400000;
+    const totalJourneyDays = Math.max(1, journeyDays) + Math.max(0, daysToExam);
     timeDivisor = Math.max(14, totalJourneyDays * 0.15);
   }
   
@@ -772,21 +775,21 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     }
     if (srsBoost > 0) rotationPenalty *= 0.1;
 
-    const RAW_MAX_ACTUAL = dynamicScoreMax
-        + dynamicRecencyMax * 0.8 * crunchMultiplier * inefficiencyPenaltyMultiplier
-        + dynamicInstabilityMax
-        + (cfg.PRIORITY_BOOST + (cfg.SRS_BOOST * 2.0)) * crunchMultiplier
-        + (cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE)
-        + cfg.EFFICIENCY_MAX;
+    // ✅ FIX: Teto de normalização FIXO, independente do crunchMultiplier.
+    // O crunchMultiplier ainda afeta o weightedRaw (input), mas a
+    // normalização usa uma escala constante para comparabilidade temporal.
+    const NORMALIZATION_CEILING = 200; // Constante fixa
 
     const currentPriorityBoost = priorityBoost * crunchMultiplier;
     const currentSrsBoost = srsBoost * crunchMultiplier;
     const rawScore = Math.max(0, (scoreComponent + recencyComponent + instabilityComponent + currentPriorityBoost + currentSrsBoost + mcUrgencyBoost + efficiencyBridgeBoost + balanceBridgeBoost) - rotationPenalty);
 
+    // O crunchMultiplier continua a amplificar o rawScore (input),
+    // mas a normalização é estável:
     const weightedRaw = rawScore * weightMultiplier; 
 
     let normalized;
-    const CRITICAL_THRESHOLD = RAW_MAX_ACTUAL * 0.8; 
+    const CRITICAL_THRESHOLD = NORMALIZATION_CEILING * 0.8; // = 160, sempre
     
     if (weightedRaw <= 0) {
         normalized = 0;
@@ -794,8 +797,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         normalized = (weightedRaw / CRITICAL_THRESHOLD) * 80;
     } else {
         const excess = weightedRaw - CRITICAL_THRESHOLD;
-        const safeMaxActual = Math.max(1, RAW_MAX_ACTUAL);
-        const excessNormalized = 20 * (1 - Math.exp(-excess / (safeMaxActual * 0.4)));
+        const excessNormalized = 20 * (1 - Math.exp(-excess / (NORMALIZATION_CEILING * 0.4)));
         normalized = 80 + excessNormalized;
     }
 

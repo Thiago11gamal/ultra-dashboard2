@@ -65,10 +65,12 @@ export const getTaskXP = (task, completed) => {
     if (completed) {
         return baseXP;
     }
-    // BUG-12 FIX: Ao desmarcar, usar o XP que foi realmente concedido (se disponível),
-    // não o baseXP da prioridade atual. Previne exploit de mudar prioridade após completar.
-    const deduction = task.awardedXP !== undefined ? task.awardedXP : baseXP;
-    return -deduction;
+    // ✅ FIX BUG-11: Ao desmarcar, usar o XP que foi realmente concedido (se disponível),
+    // como um "recibo" imutável. Previne exploit de mudar prioridade após completar.
+    // Math.abs() e Number() protegem contra corrupção do estado (ex: negative awardedXP).
+    const rawAwarded = task.awardedXP !== undefined ? Number(task.awardedXP) : baseXP;
+    const deduction = Number.isFinite(rawAwarded) ? rawAwarded : baseXP;
+    return -Math.abs(deduction);
 };
 
 // Calculate Title based on Level

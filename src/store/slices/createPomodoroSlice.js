@@ -105,6 +105,8 @@ export const createPomodoroSlice = (set, get) => ({
 
     // TRANSIÇÃO ATÓMICA - Muda fase, acumula minutos, e avança ciclos numa única operação
     completePomodoroPhase: (isManual = false, manualMinutes = 0) => {
+        let savedMinutes = 0; // ✅ FIX BUG-07: variável para extrair minutos
+
         set((state) => {
             const p = state.appState.pomodoro;
             if (!p) return; // Shield: prevent crash if pomodoro state is missing
@@ -122,6 +124,8 @@ export const createPomodoroSlice = (set, get) => ({
                 } else if (manualMinutes > 0) {
                     p.accumulatedMinutes = (p.accumulatedMinutes || 0) + manualMinutes;
                 }
+                
+                savedMinutes = p.accumulatedMinutes; // ✅ FIX BUG-07: Captura para retorno
 
                 // Cada bloco de foco concluído conta 1 ciclo.
                 const currentCycles = Math.min(targetCycles, (p.completedCycles || 0) + 1);
@@ -166,6 +170,8 @@ export const createPomodoroSlice = (set, get) => ({
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
         });
+        
+        return savedMinutes; // ✅ FIX BUG-07: Retornar para salvar ANTES do reset de sessão
     },
 
     // RETROCESSO ATÓMICO - Volta para a fase anterior com limites de segurança
