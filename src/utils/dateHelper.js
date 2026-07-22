@@ -27,26 +27,27 @@ export const parseGoalDateUnified = (rawDate) => {
 export const getDateKey = (rawDate) => {
   if (!rawDate) return null;
   let date;
-
+  
   if (typeof rawDate === 'object' && (rawDate.seconds != null || rawDate._seconds != null)) {
     const secs = rawDate.seconds != null ? rawDate.seconds : rawDate._seconds;
     date = new Date(secs * 1000);
   } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
     const parts = rawDate.split(/[/-]/);
     if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
+      // ✅ FIX: Ancora ao meio-dia de Manaus (UTC-4)
       date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
     } else {
       date = new Date(rawDate);
     }
   } else if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
-    // FIX: Ancora ao meio-dia de Manaus para evitar shift de dia em UTC
+    // ✅ FIX: Ancora ao meio-dia de Manaus para evitar shift de dia em UTC
     date = new Date(`${rawDate.trim()}T12:00:00-04:00`);
   } else {
     date = new Date(rawDate);
   }
-
+  
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
-
+  
   try {
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: APP_TIMEZONE,
@@ -57,7 +58,7 @@ export const getDateKey = (rawDate) => {
     parts.forEach(({ type, value }) => p[type] = value);
     return `${p.year}-${p.month}-${p.day}`;
   } catch {
-    // FIX: Fallback usa offset fixo de Manaus em vez de timezone local do browser
+    // ✅ FIX: Fallback usa offset fixo de Manaus em vez de timezone local do browser
     const utcMs = date.getTime();
     const manausMs = utcMs - (4 * 60 * 60 * 1000);
     const manausDate = new Date(manausMs);
@@ -76,7 +77,7 @@ export const getLocalMidnight = (date = new Date()) => {
       d.setHours(0, 0, 0, 0);
       return d;
     }
-    // ✅ FIX: offset fixo de Manaus (-04:00), não timezone local do browser
+    // ✅ FIX: Offset fixo de Manaus (-04:00) em vez de timezone local
     return new Date(`${dateKey}T00:00:00-04:00`);
   } catch {
     const d = new Date(date);
@@ -94,36 +95,29 @@ export const formatDisplayDate = (dateStr) => {
 
 export const normalizeDate = (raw) => {
   if (!raw) return null;
-
-  // Firebase Timestamp
+  let d;
+  const isDateOnly = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  
   if (typeof raw === 'object' && (raw.seconds != null || raw._seconds != null)) {
     const secs = raw.seconds != null ? raw.seconds : raw._seconds;
-    const d = new Date(secs * 1000);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-
-  // String DD/MM/YYYY
-  if (typeof raw === 'string' && raw.includes('/')) {
+    d = new Date(secs * 1000);
+  } else if (typeof raw === 'string' && raw.includes('/')) {
     const parts = raw.split(/[/-]/);
     if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-      // ✅ FIX: ancorar ao meio-dia de Manaus (UTC-4)
-      const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
-      return Number.isNaN(d.getTime()) ? null : d;
+      // ✅ FIX: Ancora ao meio-dia de Manaus
+      d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
+    } else {
+      d = new Date(raw);
     }
-    const d = new Date(raw);
-    return Number.isNaN(d.getTime()) ? null : d;
+  } else if (typeof raw === 'string') {
+    // ✅ FIX: Strings YYYY-MM-DD ancoradas ao meio-dia de Manaus
+    d = isDateOnly ? new Date(`${raw}T12:00:00-04:00`) : new Date(raw);
+  } else {
+    d = new Date(raw);
   }
-
-  // String YYYY-MM-DD (data pura)
-  if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
-    // ✅ FIX: meio-dia de Manaus, NÃO UTC midnight
-    const d = new Date(`${raw.trim()}T12:00:00-04:00`);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-
-  // ISO completo ou timestamp numérico
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? null : d;
+  
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
+  return d;
 };
 
 export const toDateMs = (value) => {
@@ -140,23 +134,22 @@ export const formatTimeAgo = (date) => {
   if (!date) return 'Nunca';
   const timeMs = toDateMs(date);
   if (Number.isNaN(timeMs)) return 'Data inválida';
-
+  
   const rawDiff = Date.now() - timeMs;
   if (rawDiff < 0) {
     if (Math.abs(rawDiff) <= 60_000) return 'Agora há pouco';
     return 'No futuro';
   }
-
+  
   const diff = rawDiff;
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const days = Math.floor(hours / 24);
   const weeks = Math.floor(days / 7);
   const months = Math.floor(days / 30);
-
+  
   if (hours < 1) return 'Agora há pouco';
   if (hours < 24) return `${hours}h atrás`;
   if (days === 1) return 'Ontem';
-  // FIX: Removido dead code condicional inatingível
   if (days < 7) return `${days} dias atrás`;
   if (days < 30) return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
   return `${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
@@ -167,10 +160,12 @@ export const formatDuration = (decimalHours) => {
   const normalized = Math.max(0, safe);
   let hours = Math.floor(normalized);
   let minutes = Math.round((normalized - hours) * 60);
+  
   if (minutes >= 60) {
     hours += 1;
     minutes = 0;
   }
+  
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '0h00';
   return `${hours}h${String(Math.max(0, minutes)).padStart(2, '0')}`;
 };
