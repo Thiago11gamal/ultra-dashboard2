@@ -8,76 +8,87 @@ export const normalizePercentInput = (value) => {
   return n;
 };
 
+// ✅ FIX: Parser robusto para números com separadores BR (1.234,56)
 export function parseLocaleNumber(value, fallback = NaN) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
   if (value === null || value === undefined) return fallback;
+  
   let raw = String(value).trim();
   if (!raw) return fallback;
+  
   raw = raw.replace(/\s/g, '');
+  
   const lastComma = raw.lastIndexOf(',');
   const lastDot = raw.lastIndexOf('.');
+  
   if (lastComma > lastDot) {
+    // Formato BR: 1.234,56
     raw = raw.replace(/\./g, '').replace(',', '.');
   } else if (lastDot > lastComma) {
     const parts = raw.split('.');
     const lastPart = parts[parts.length - 1];
     if (lastComma === -1 && parts.length === 2 && lastPart.length === 3) {
+      // Formato US: 1.234 (milhar)
       raw = raw.replace(/\./g, '');
     } else {
+      // Formato US: 1,234.56
       raw = raw.replace(/,/g, '');
     }
   } else {
     raw = raw.replace(/[,.]/g, '');
   }
+  
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 export function getSafeScore(historyRow, maxScore = 100) {
-  const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0
-    ? Number(maxScore) : 100;
-
-  // Suporte a número direto
+  const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  
   if (typeof historyRow === 'number') {
     return Math.max(0, Math.min(safeMaxScore, historyRow));
   }
+  
   if (!historyRow) return NaN;
-
-  // ── score explícito ──
+  
   if (historyRow.score != null) {
     let s;
     if (typeof historyRow.score === 'number') {
       s = historyRow.score;
     } else {
-      // ✅ FIX: parse robusto de "1.234,56" / "1,234.56" / "1234"
+      // ✅ FIX: Usa parseLocaleNumber para tratar 1.234,56
       s = parseLocaleNumber(historyRow.score, NaN);
     }
-
+    
+    // ✅ FIX: isPercentage agora escala corretamente para qualquer maxScore
     if (historyRow.isPercentage) {
-      const pct = normalizePercentInput(s);
-      if (!Number.isFinite(pct)) return NaN;
-      // ✅ FIX: clamp 0-100 ANTES de escalar
-      s = (Math.max(0, Math.min(100, pct)) / 100) * safeMaxScore;
+      const pctValue = normalizePercentInput(s);
+      if (!Number.isFinite(pctValue)) return NaN;
+      // ✅ FIX: Clamp do percentual entre 0 e 100 antes de escalar
+      const clampedPct = Math.max(0, Math.min(100, pctValue));
+      s = (clampedPct / 100) * safeMaxScore;
     }
+    
     return Number.isFinite(s) ? Math.max(0, Math.min(safeMaxScore, s)) : NaN;
   }
-
-  // ── fallback: correct/total ──
+  
+  // ✅ FIX: Usa parseLocaleNumber para total e correct
   const total = parseLocaleNumber(historyRow.total, NaN);
   const correct = parseLocaleNumber(historyRow.correct, NaN);
-
+  
   if (historyRow.isPercentage) {
     if (!Number.isFinite(correct)) return NaN;
-    const pct = normalizePercentInput(correct);
-    if (!Number.isFinite(pct)) return NaN;
-    const score = (Math.max(0, Math.min(100, pct)) / 100) * safeMaxScore;
-    return Number.isFinite(score) ? Math.max(0, Math.min(safeMaxScore, score)) : NaN;
+    const pValue = normalizePercentInput(correct);
+    if (!Number.isFinite(pValue)) return NaN;
+    const clampedPct = Math.max(0, Math.min(100, pValue));
+    const scoreFromPercentage = (clampedPct / 100) * safeMaxScore;
+    return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(safeMaxScore, scoreFromPercentage)) : NaN;
   }
-
-  if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
+  
+  if (total > 0) {
     return Math.max(0, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
   }
-
+  
   return NaN;
 }
 
@@ -86,21 +97,21 @@ export function getSafeQuestionStats(historyRow, maxScore = 100, options = {}) {
   const syntheticTotal = Number.isFinite(Number(options.syntheticTotal))
     ? Math.max(0, Number(options.syntheticTotal))
     : getSyntheticTotal(safeMaxScore);
-
+  
   if (!historyRow || typeof historyRow !== 'object') {
     return { total: 0, correct: 0, wrong: 0, score: NaN, percentage: 0, hasData: false, isSynthetic: false };
   }
-
+  
   const rawTotal = parseLocaleNumber(historyRow.total, NaN);
   const rawCorrect = parseLocaleNumber(historyRow.correct, NaN);
   const rawWrong = parseLocaleNumber(historyRow.wrong, NaN);
   const safeScore = getSafeScore(historyRow, safeMaxScore);
+  
   const hasExplicitTotal = Number.isFinite(rawTotal) && rawTotal > 0;
-
   let total = hasExplicitTotal ? rawTotal : 0;
   let correct = NaN;
   let isSynthetic = false;
-
+  
   if (total > 0) {
     if (Number.isFinite(rawCorrect) && !historyRow.isPercentage) {
       correct = rawCorrect;
@@ -119,15 +130,15 @@ export function getSafeQuestionStats(historyRow, maxScore = 100, options = {}) {
     correct = (safeScore / safeMaxScore) * total;
     isSynthetic = true;
   }
-
+  
   if (!(total > 0)) {
     return { total: 0, correct: 0, wrong: 0, score: NaN, percentage: 0, hasData: false, isSynthetic };
   }
-
+  
   const boundedCorrect = Math.max(0, Math.min(total, Number.isFinite(correct) ? correct : 0));
   const wrong = Math.max(0, total - boundedCorrect);
   const score = (boundedCorrect / total) * safeMaxScore;
-
+  
   return {
     total, correct: boundedCorrect, wrong, score,
     percentage: (boundedCorrect / total) * 100,
@@ -141,27 +152,7 @@ export function formatPercent(value) {
   if (typeof value === 'number') {
     num = value;
   } else {
-    let raw = String(value || '');
-    const lastC = raw.lastIndexOf(',');
-    const lastD = raw.lastIndexOf('.');
-    if (lastC > lastD) {
-      raw = raw.replace(/\./g, '').replace(',', '.');
-    } else if (lastD > lastC) {
-      const parts = raw.split('.');
-      const lastPart = parts[parts.length - 1];
-      if (lastC === -1 && parts.length === 2 && lastPart.length === 3) {
-        if (/000|500/.test(lastPart)) {
-          raw = raw.replace(/\./g, '');
-        } else {
-          raw = raw.replace(/,/g, '');
-        }
-      } else {
-        raw = raw.replace(/,/g, '');
-      }
-    } else {
-      raw = raw.replace(/[,.]/g, '');
-    }
-    num = Number.isFinite(Number(raw)) ? Number(raw) : 0;
+    num = parseLocaleNumber(value, 0);
   }
   const formatted = parseFloat(num.toFixed(2));
   return `${formatted}%`;
@@ -173,27 +164,7 @@ export function formatValue(value) {
   if (typeof value === 'number') {
     num = value;
   } else {
-    let raw = String(value || '');
-    const lastC = raw.lastIndexOf(',');
-    const lastD = raw.lastIndexOf('.');
-    if (lastC > lastD) {
-      raw = raw.replace(/\./g, '').replace(',', '.');
-    } else if (lastD > lastC) {
-      const parts = raw.split('.');
-      const lastPart = parts[parts.length - 1];
-      if (lastC === -1 && parts.length === 2 && lastPart.length === 3) {
-        if (/000|500/.test(lastPart)) {
-          raw = raw.replace(/\./g, '');
-        } else {
-          raw = raw.replace(/,/g, '');
-        }
-      } else {
-        raw = raw.replace(/,/g, '');
-      }
-    } else {
-      raw = raw.replace(/[,.]/g, '');
-    }
-    num = (Number.isFinite(Number(raw)) ? Number(raw) : 0);
+    num = parseLocaleNumber(value, 0);
   }
   return String(parseFloat(num.toFixed(2)));
 }
