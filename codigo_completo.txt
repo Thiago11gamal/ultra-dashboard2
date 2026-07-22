@@ -43714,25 +43714,29 @@ const getDaysDiff = (newer, older) => {
  * Calcula o multiplicador de urgÃªncia baseado nos dias restantes para a prova.
  * SubstituiÃ§Ã£o da escada em degraus por uma curva Exponencial ContÃ­nua.
  */
+// âœ… FIX: getCrunchMultiplier com proteÃ§Ã£o contra datas invÃ¡lidas
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
   if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
   if (daysToExam < 0) return 1.0;
   if (daysToExam === 0) return 2.0;
-
+  
   let timeDivisor = 21;
+  
   const safeFirstActivity = normalizeDate(firstActivityDate);
   if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
     const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
     const refTime = referenceDate.getTime();
     const firstTime = safeFirstActivity.getTime();
-    // ProteÃ§Ã£o: se qualquer valor for NaN, usar fallback
+    
+    // âœ… FIX: ProteÃ§Ã£o: se qualquer valor for NaN, usar fallback
     if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
+    
     const totalJourneyDays = Math.max(1, (refTime - firstTime) / 86400000) + Math.max(0, daysToExam);
     timeDivisor = Math.max(14, totalJourneyDays * 0.15);
   }
   
   const urgency = 1.0 + Math.exp(-daysToExam / timeDivisor);
-    return Number(Math.min(2.0, urgency).toFixed(4));
+  return Number(Math.min(2.0, urgency).toFixed(4));
 }
 
 function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null) {
@@ -44645,61 +44649,61 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     return result;
 };
 
+// âœ… FIX: calculateUrgency com cache key incluindo scoreChecksum
 export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {
-    try {
-        const catId = category?.id || 'unknown';
-        const simCount = simulados.length;
-        const logCount = studyLogs.length;
-        // Entropia temporal: Invalida o cache a cada novo dia ou mudanÃ§a de volume
-        const todayStr = getDateKey(new Date());
-        
-        // Substitua o bloco de criaÃ§Ã£o do `cacheKey` dentro da funÃ§Ã£o `calculateUrgency`
-        const scoreChecksum = simulados.reduce((acc, s, index) => {
-            const parsed = getSafeScore(s, options.maxScore || 100);
-            const validVal = Number.isNaN(parsed) ? 0 : parsed;
-            return acc + (validVal * (index + 1) * 1.17); // Assimetria posicional
-        }, 0).toFixed(2);
-
-        const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
-        const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${options?.maxScore ?? 100}`;
-        const lastSim = simCount > 0 ? (simulados[simCount-1].date || simulados[simCount-1].createdAt || '') : '';
-        const lastLog = logCount > 0 ? (studyLogs[logCount-1].date || studyLogs[logCount-1].createdAt || '') : '';
-
-        // Checksum injetado garante que qualquer ediÃ§Ã£o recalcule a urgÃªncia
-        const tasksHash = (category?.tasks || []).reduce((acc, t) => acc + (t.completed ? 0 : 1) + (t.priority === 'high' ? 5 : 0), 0);
-        const activeId = useAppStore.getState().appState?.activeId || 'default';
-        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
-        
-        if (_urgencyCache.has(cacheKey)) {
-            return _urgencyCache.get(cacheKey);
-        }
-
-        const metrics = extractMetrics(category, simulados, studyLogs, options);
-        const scoreInfo = calculateUrgencyScore(metrics, options);
-        const result = generateCoachStrings(scoreInfo.weightedRaw, scoreInfo.normalized, metrics, scoreInfo, options);
-
-        if (typeof options.logger === 'function') {
-            try { options.logger({ categoryId: metrics.categoryId, name: metrics.safeCategory?.name, urgency: result }); } catch { /* ignore */ }
-        }
-
-        // PrevenÃ§Ã£o de OOM (Out Of Memory) no navegador do aluno
-        if (_urgencyCache.size > 80) {
-            const oldestKey = _urgencyCache.keys().next().value;
-            _urgencyCache.delete(oldestKey);
-        }
-        
-        _urgencyCache.set(cacheKey, result);
-        return result;
-        
-    } catch (err) {
-        console.error("[CoachLogic] Critical error in calculateUrgency:", err);
-        return {
-            score: 0,
-            normalizedScore: 0,
-            recommendation: "Erro no cÃ¡lculo: " + err.message,
-            details: { hasData: false, daysSinceLastStudy: 0, error: err.message, humanReadable: { "Status": "Erro" } }
-        };
+  try {
+    const catId = category?.id || 'unknown';
+    const simCount = simulados.length;
+    const logCount = studyLogs.length;
+    
+    const todayStr = getDateKey(new Date());
+    
+    // âœ… FIX: Score checksum para invalidar cache quando notas mudam
+    const scoreChecksum = simulados.reduce((acc, s, index) => {
+      const parsed = getSafeScore(s, options.maxScore || 100);
+      const validVal = Number.isNaN(parsed) ? 0 : parsed;
+      return acc + (validVal * (index + 1) * 1.17);
+    }, 0).toFixed(2);
+    
+    const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
+    const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${options?.maxScore ?? 100}`;
+    const lastSim = simCount > 0 ? (simulados[simCount-1].date || simulados[simCount-1].createdAt || '') : '';
+    const lastLog = logCount > 0 ? (studyLogs[logCount-1].date || studyLogs[logCount-1].createdAt || '') : '';
+    
+    const tasksHash = (category?.tasks || []).reduce((acc, t) => acc + (t.completed ? 0 : 1) + (t.priority === 'high' ? 5 : 0), 0);
+    const activeId = useAppStore.getState().appState?.activeId || 'default';
+    
+    // âœ… FIX: Cache key inclui scoreChecksum para invalidar quando notas mudam
+    const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
+    
+    if (_urgencyCache.has(cacheKey)) {
+      return _urgencyCache.get(cacheKey);
     }
+    
+    const metrics = extractMetrics(category, simulados, studyLogs, options);
+    const scoreInfo = calculateUrgencyScore(metrics, options);
+    const result = generateCoachStrings(scoreInfo.weightedRaw, scoreInfo.normalized, metrics, scoreInfo, options);
+    
+    if (typeof options.logger === 'function') {
+      try { options.logger({ categoryId: metrics.categoryId, name: metrics.safeCategory?.name, urgency: result }); } catch { /* ignore */ }
+    }
+    
+    if (_urgencyCache.size > 80) {
+      const oldestKey = _urgencyCache.keys().next().value;
+      _urgencyCache.delete(oldestKey);
+    }
+    
+    _urgencyCache.set(cacheKey, result);
+    return result;
+  } catch (err) {
+    console.error("[CoachLogic] Critical error in calculateUrgency:", err);
+    return {
+      score: 0,
+      normalizedScore: 0,
+      recommendation: "Erro no cÃ¡lculo: " + err.message,
+      details: { hasData: false, daysSinceLastStudy: 0, error: err.message, humanReadable: { "Status": "Erro" } }
+    };
+  }
 };
 
 /**
