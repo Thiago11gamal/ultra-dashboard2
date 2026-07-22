@@ -1,7 +1,7 @@
 /**
  * Mapper functions to transform application state into chart-ready data
  */
-import { normalizeDate } from './dateHelper.js';
+import { normalizeDate, getDateKey } from './dateHelper.js';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -117,17 +117,8 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     // toLocaleDateString depende da localidade do browser e pode falhar o matching.
     // 🎯 STABILITY FIX: Inclui o Ano na chave para evitar colisão entre anos diferentes (Bug do Fantasma do Ano Passado)
     const getFullKey = (dateObj) => {
-        try {
-            return new Intl.DateTimeFormat('en-GB', {
-                // timeZone removed to use user's local time instead of hard-coded Manaus (fixes date bugs for other regions)
-                day: '2-digit', month: '2-digit', year: 'numeric'
-            }).format(dateObj);
-        } catch {
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const year = dateObj.getFullYear();
-            return `${day}/${month}/${year}`;
-        }
+      // ✅ Usa getDateKey (ancorado em America/Manaus) em vez de Intl genérico
+      return getDateKey(dateObj);
     };
 
     const getDisplayKey = (dateObj) => {

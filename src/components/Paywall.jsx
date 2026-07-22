@@ -94,6 +94,14 @@ export default function Paywall({ user, onLogout }) {
                     clearTimeout(timeoutRef.current);
                     logger.log("[Stripe] Redirecionando via SessionId...");
                     const stripe = await getStripe();
+                    
+                    // ✅ FIX: Verificar null
+                    if (!stripe) {
+                        setError('Stripe não configurado. Verifique VITE_STRIPE_PUBLIC_KEY.');
+                        setLoading(false);
+                        return;
+                    }
+
                     stripe.redirectToCheckout({ sessionId });
                 }
             });

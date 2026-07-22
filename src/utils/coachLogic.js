@@ -1053,7 +1053,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // Checksum injetado garante que qualquer edição recalcule a urgência
         const tasksHash = (category?.tasks || []).reduce((acc, t) => acc + (t.completed ? 0 : 1) + (t.priority === 'high' ? 5 : 0), 0);
-        const cacheKey = `urg_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
+        const activeId = useAppStore.getState().appState?.activeId || 'default';
+        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
         
         if (_urgencyCache.has(cacheKey)) {
             return _urgencyCache.get(cacheKey);

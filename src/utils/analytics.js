@@ -40,61 +40,51 @@ const distributeRoundingRemainder = (items, targetSum = 100) => {
 };
 
 export const calculateStudyStreak = (studyLogs) => {
-    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    if (!logsArray || logsArray.length === 0) {
-        return { current: 0, best: 0, longest: 0, isActive: false };
-    }
+  const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+  if (!logsArray || logsArray.length === 0) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
 
-    // 1. Agrupar por dia único (YYYY-MM-DD local) para ignorar horas/minutos
-    const daySet = new Set(
-        logsArray
-            .filter(log => log && log.date)
-            .map(log => getDateKey(log.date))
-            .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
-    );
-    const sortedDays = Array.from(daySet).sort((a, b) =>
-        new Date(b) - new Date(a)
-    );
+  // ✅ Usa getDateKey (ancorado em America/Manaus) para TODAS as comparações
+  const daySet = new Set(
+    logsArray
+      .filter(log => log && log.date)
+      .map(log => getDateKey(log.date))
+      .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
+  );
 
-    const todayStr = getDateKey(new Date());
-    const lastDayStr = sortedDays[0];
+  const sortedDays = Array.from(daySet).sort((a, b) =>
+    new Date(`${b}T12:00:00-04:00`) - new Date(`${a}T12:00:00-04:00`)
+  );
 
-    // 2. Cálculo do Gap (Perdão do Dia Atual)
-    // BUGFIX: Não usamos diferença em ms do Date.now().
-    // Comparamos a diferença entre as strings de data normalizadas para 12:00:00
-    // para evitar problemas de fuso horário e horário de verão.
-    const t = new Date(todayStr + 'T12:00:00');
-    const l = new Date((lastDayStr || todayStr) + 'T12:00:00');
-    const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
+  // ✅ todayStr também via getDateKey (Manaus)
+  const todayStr = getDateKey(new Date());
+  const lastDayStr = sortedDays[0];
 
-    // Se o gap for >= 2, ele pulou o dia de ontem INTEIRO. Streak quebrado.
-    if (diffDays >= 2) {
-        const longest = calculateLongest(sortedDays);
-        return { current: 0, best: longest, longest, isActive: false };
-    }
+  // Comparação via strings YYYY-MM-DD (imune a timezone)
+  const t = new Date(`${todayStr}T12:00:00-04:00`);
+  const l = new Date(`${(lastDayStr || todayStr)}T12:00:00-04:00`);
+  const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
 
-    // 3. Contagem regressiva da Ofensiva
-    let streak = 0;
-    // O cursor começa no último dia de estudo real
-    let dateCursor = new Date(lastDayStr + 'T12:00:00');
-
-    for (let i = 0; i < sortedDays.length * 2; i++) {
-        const dString = getDateKey(dateCursor);
-        if (daySet.has(dString)) {
-            streak++;
-            dateCursor.setDate(dateCursor.getDate() - 1);
-        } else {
-            break; // Fim da sequência
-        }
-    }
-
+  if (diffDays >= 2) {
     const longest = calculateLongest(sortedDays);
-    return {
-        current: streak,
-        best: longest,
-        longest: longest,
-        isActive: diffDays <= 1 // Ativo se estudou hoje ou ontem
-    };
+    return { current: 0, best: longest, longest, isActive: false };
+  }
+
+  let streak = 0;
+  let dateCursor = new Date(`${lastDayStr}T12:00:00-04:00`);
+  for (let i = 0; i < sortedDays.length * 2; i++) {
+    const dString = getDateKey(dateCursor);
+    if (daySet.has(dString)) {
+      streak++;
+      dateCursor.setDate(dateCursor.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  const longest = calculateLongest(sortedDays);
+  return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
 };
 
 

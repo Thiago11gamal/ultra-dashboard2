@@ -193,9 +193,16 @@ export default function AICoachPlanner() {
                 const activeId = prev?.appState?.activeId;
                 if (!activeId || !prev.appState.contests?.[activeId]) return;
                 const targetContest = prev.appState.contests[activeId];
+                
+                // ✅ Merge Granular para evitar vazamento de estado
                 const freshPlanner = { ...(targetContest.coachPlanner || {}) };
+                Object.keys(freshPlanner).forEach(day => {
+                    freshPlanner[day] = [...(freshPlanner[day] || [])];
+                });
+                
                 if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
                 if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
+                
                 targetContest.coachPlanner = freshPlanner;
                 targetContest.coachPlan = newCoachPlan;
             });

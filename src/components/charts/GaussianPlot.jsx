@@ -35,7 +35,9 @@ export const GaussianPlot = ({
         return () => {
             if (hoverRafRef.current != null) {
                 cancelAnimationFrame(hoverRafRef.current);
+                hoverRafRef.current = null;
             }
+            pendingHoverRef.current = null; // ✅ Limpar pending também
         };
     }, []);
 

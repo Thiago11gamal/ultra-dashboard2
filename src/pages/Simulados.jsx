@@ -284,7 +284,7 @@ export default function Simulados() {
       }
     });
     return rows;
-  }, [categoriesArray, simuladoRowsArray, data]);
+  }, [categoriesArray, simuladoRowsArray]);
 
   /* ── FIX: Último simulado — lógica corrigida e robusta ── */
   const lastSimuladoData = useMemo(() => {

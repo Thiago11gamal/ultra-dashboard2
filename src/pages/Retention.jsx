@@ -50,32 +50,32 @@ export default function Retention() {
             showToast('Categoria inválida para retenção.', 'warning');
             return;
         }
-        
-        // Se a chamada veio do botão da task, selectedTask estará presente.
-        // Se veio do botão geral da categoria, selectedTask é undefined, e o aluno quer estudar a matéria toda!
-        const isTaskSpecific = !!cat.selectedTask;
 
-        if (isTaskSpecific) {
-            const targetTask = cat.selectedTask;
-            startPomodoroSession({
-                categoryId: cat.id,
-                taskId: targetTask.id || targetTask.text,
-                category: cat.name,
-                task: targetTask.title || targetTask.text || 'Estudo',
-                priority: targetTask.priority,
-                source: 'retention'
-            });
-            navigate('/pomodoro');
-        } else {
-            // Sessão na Categoria inteira
-            startPomodoroSession({
-                categoryId: cat.id,
-                taskId: cat.id, // O ID da task será o ID da própria categoria
-                category: cat.name,
-                task: cat.name + ': Revisão Geral', // "Matemática: Revisão Geral", para que no Pomodoro apareça "Revisão Geral" com categoria "Matemática"
-                priority: 'normal',
-                source: 'retention'
-            });
+        const taskName = cat.selectedTask
+            ? (cat.selectedTask.title || cat.selectedTask.text || 'Estudo')
+            : cat.name;
+
+        // ✅ Confirmação antes de navegar
+        if (window.confirm(`Iniciar sessão de estudo para "${taskName}"?`)) {
+            if (cat.selectedTask) {
+                startPomodoroSession({
+                    categoryId: cat.id,
+                    taskId: cat.selectedTask.id || cat.selectedTask.text,
+                    category: cat.name,
+                    task: taskName,
+                    priority: cat.selectedTask.priority,
+                    source: 'retention'
+                });
+            } else {
+                startPomodoroSession({
+                    categoryId: cat.id,
+                    taskId: cat.id,
+                    category: cat.name,
+                    task: `${cat.name}: Revisão Geral`,
+                    priority: 'normal',
+                    source: 'retention'
+                });
+            }
             navigate('/pomodoro');
         }
     };

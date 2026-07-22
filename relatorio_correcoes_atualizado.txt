@@ -1,0 +1,47 @@
+RELATÓRIO ATUALIZADO DE CORREÇÕES (Lista Mestra Bugs 1 ao 27)
+Data: 21 de Julho de 2026
+Repositório: ultra-dashboard2
+
+=============================================================================
+1. PERFORMANCE E ESTADO GLOBAL (React, Zustand, Immer)
+=============================================================================
+- [RESOLVIDO] useCloudSync.js: Remoção do `sanitizeContest` direto no store, quebrando proxies do Immer. Substituído por `Object.assign`.
+- [RESOLVIDO] useCloudSync.js: Implementado limite `SYNC_LOG_CAP = 100` para evitar memory leak (acúmulo infinito de logs).
+- [RESOLVIDO] useMonteCarloStats.js: Remoção de objetos `dynamicSimulations` e `modelWeight` do array de dependências para matar loops de re-render.
+- [RESOLVIDO] createSettingsSlice.js: Corrigida a duplicidade na invocação do `setData`.
+
+=============================================================================
+2. SEGURANÇA MATEMÁTICA E ESTOCÁSTICA
+=============================================================================
+- [RESOLVIDO] projection.js: Proteção contra divisão por zero. Volatilidade agora possui um piso fixado em `0.001 * range(maxScore - minScore)`.
+- [RESOLVIDO] stats.js: Evitado que parâmetros da distribuição beta (`alpha`/`beta`) vazem como `NaN` ou negativos (agora há reset seguro pros priors).
+- [RESOLVIDO] monteCarloScenario.js: `meanBiasFactor` escalonado percentualmente com o range da pontuação, não mais como valor absoluto.
+- [RESOLVIDO] ProgressStateEngine.js: Tamanho da janela (`window_size`) protegido com mínimo de 3 para não distorcer estatísticas.
+- [RESOLVIDO] adaptiveMath.js: `winsorizeSeries` modificado para não retornar arrays de zeros quando dados falham, mas usar os fallbacks.
+
+=============================================================================
+3. LÓGICA DE SIMULADOS E IA
+=============================================================================
+- [RESOLVIDO] AIGeneratedSimulado.jsx: Resolvido o `todayKey` null durante `handleFinish`.
+- [RESOLVIDO] AIGeneratedSimulado.jsx: Promise do gerador de IA tirada do escopo global (variável de módulo) e fixada via `useRef`.
+- [RESOLVIDO] AIGeneratedSimulado.jsx: Draft salva apenas com debounce de 5 segundos, poupando disco. Timers e cleanups regularizados.
+- [RESOLVIDO] scoreHelper.js: Corrigida inflação acima de 100% de `isPercentage` para casos onde `maxScore` é diferente de 100.
+- [RESOLVIDO] scoreHelper.js: `parseLocaleNumber` agora interpreta pontos e vírgulas universalmente, blindado contra entradas inválidas de pontuação.
+
+=============================================================================
+4. TEMPO E FUSO HORÁRIO
+=============================================================================
+- [RESOLVIDO] dateHelper.js: `getDateKey` e `normalizeDate` ancorados precisamente às 12h do `America/Manaus`. Evita deslocamentos de dia/UTC na renderização.
+- [RESOLVIDO] dateHelper.js: Remoção de blocos "dead code" em formatação (como no `formatTimeAgo`).
+
+=============================================================================
+5. RECURSOS (Timer, XP e Validações)
+=============================================================================
+- [RESOLVIDO] PomodoroTimer.jsx: Estado do `timeLeft` e refs do `activeSubject` protegidos contra fechamentos (closures) obsoletos e envenenamento `NaN`.
+- [RESOLVIDO] gamification.js: Fim do exploit de XP ao desmarcar tarefas (o app subtrai estritamente o `awardedXP` em vez do valor atual).
+- [RESOLVIDO] analytics.js: Contagem local de pomodoros protegida contra divisões e processamentos gerando `NaN`.
+- [RESOLVIDO] calibration.js: LogLoss limitador evita colapso quando a probabilidade é exatamente 0.
+- [RESOLVIDO] heatmapAggregation.js: Ajuste no clamping do percentual do heatmap (garantia de máximo real em 100%).
+
+STATUS FINAL: Todas as modificações estão consolidadas no branch main do GitHub (commit mais recente).
+Bateria de Testes (bugfix.regression.test.js) 16/16 passando com sucesso. 100% Estável.
