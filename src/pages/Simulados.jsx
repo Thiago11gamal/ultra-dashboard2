@@ -360,9 +360,9 @@ export default function Simulados() {
 
       setData((current) => {
         const prev = current || {};
-        const newCategories = structuredClone(
+        const newCategories = JSON.parse(JSON.stringify(
           Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories || {})
-        );
+        ));
         const prevSimuladoRowsArray = Array.isArray(prev.simuladoRows)
           ? prev.simuladoRows : Object.values(prev.simuladoRows || {});
 
