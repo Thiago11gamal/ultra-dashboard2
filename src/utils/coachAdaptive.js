@@ -247,11 +247,14 @@ export function simuladosToHistory(simulados, maxScore = 100) {
     .filter(item => typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(item.date.trim()));
 }
 
+import { clearEngineMcCache } from '../engine/monteCarlo.js';
+
 const mcCache = new Map();
 const MC_CACHE_MAX = 50;
 
 export function clearMcCache() {
   mcCache.clear();
+  clearEngineMcCache();
 }
 
 export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}) {

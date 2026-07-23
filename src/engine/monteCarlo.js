@@ -755,6 +755,11 @@ export function runMonteCarloAnalysis(params = {}) {
     return result;
 }
 
+export function clearEngineMcCache() {
+    mcCache.clear();
+}
+
 export default {
-    runMonteCarloAnalysis
+    runMonteCarloAnalysis,
+    clearEngineMcCache
 };
