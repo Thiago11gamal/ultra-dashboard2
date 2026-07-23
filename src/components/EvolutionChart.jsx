@@ -58,8 +58,8 @@ function filterHistoryByTimeWindow(history, timeWindow) {
 
   if (!withMs.length) return safeHistory.filter(Boolean);
 
-  const lastMs = Math.max(...withMs.map((x) => x.ms));
-  const limit = lastMs - days * 24 * 60 * 60 * 1000;
+  const referenceMs = toDateMs(getDateKey(new Date()));
+  const limit = referenceMs - days * 24 * 60 * 60 * 1000;
 
   return withMs.filter((x) => x.ms >= limit).map((x) => x.h);
 }
@@ -531,15 +531,12 @@ export default React.memo(function EvolutionChart({
                     return Number.isNaN(ms) ? Number.NaN : ms;
                 };
 
-                const lastValid = [...historical].reverse().find((d) => Number.isFinite(getDateMs(d)));
-
-                if (lastValid) {
-                    const limit = getDateMs(lastValid) - days * 24 * 60 * 60 * 1000;
-                    result = historical.filter((d) => {
-                        const ms = getDateMs(d);
-                        return Number.isFinite(ms) && ms >= limit;
-                    });
-                }
+                const referenceMs = toDateMs(getDateKey(new Date()));
+                const limit = referenceMs - days * 24 * 60 * 60 * 1000;
+                result = historical.filter((d) => {
+                    const ms = getDateMs(d);
+                    return Number.isFinite(ms) && ms >= limit;
+                });
             }
         }
 
