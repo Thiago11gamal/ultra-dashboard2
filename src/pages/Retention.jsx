@@ -4,6 +4,7 @@ import RetentionPanel from '../components/RetentionPanel';
 import { AnaliseRetencaoChart } from '../components/charts/Analytics/AnaliseRetencaoChart';
 import { mapRetentionData } from '../utils/chartDataMappers';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { BookOpen } from 'lucide-react';
@@ -11,16 +12,16 @@ import DueForecast from '../components/DueForecast';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
 
 export default function Retention() {
-    const categories = useAppStore(state => {
+    const categories = useAppStore(useShallow(state => {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
         const rawCategories = activeContest?.categories || [];
         return Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
-    });
-    const flashcardDecks = useAppStore(state => {
+    }));
+    const flashcardDecks = useAppStore(useShallow(state => {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
         const rawDecks = activeContest?.flashcardDecks || [];
         return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
-    });
+    }));
     const navigate = useNavigate();
     const showToast = useToast();
     const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
