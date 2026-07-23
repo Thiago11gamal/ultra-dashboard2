@@ -1,12 +1,16 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 
-const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: Icon, label, subtitle, tabId, panelId, disabled = false, tabRef }) {
+const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: Icon, label, subtitle, tabId, panelId, disabled = false, tabRef, tabKey }) {
+    const handleClick = useCallback(() => {
+        onClick(tabKey);
+    }, [onClick, tabKey]);
+
     return (
         <button
             ref={tabRef}
             type="button"
-            onClick={onClick}
+            onClick={handleClick}
             onKeyDown={onKeyDown}
             disabled={disabled}
             role="tab"
@@ -15,7 +19,6 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
             aria-disabled={disabled}
             id={tabId}
             tabIndex={active ? 0 : disabled ? -1 : -1}
-            // Removido scale-[1.02] da raiz para evitar Layout Shift
             className={`group relative min-w-0 rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 border transition-all duration-200 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e] focus-visible:ring-indigo-400/80
                 ${active
                     ? 'bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-600 border-white/20 text-white shadow-[0_10px_30px_rgba(79,70,229,0.35)] ring-1 ring-white/20'
@@ -23,7 +26,6 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
                 ${active ? 'mobile-menu-tab-active' : 'mobile-menu-tab-idle'}
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-            {/* Efeito de hover movido para o conteúdo interno (transform translate-x) */}
             <div className={`flex items-center gap-3 min-w-0 pl-1 transform transition-transform duration-200 ${!active && !disabled ? 'group-hover:translate-x-1' : ''}`}>
                 <div className={`shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center border transition-all duration-200 ${active ? 'bg-white/20 border-white/30' : 'bg-white/5 border-white/10 group-hover:bg-white/10'}`}>
                     <Icon size={16} strokeWidth={2.5} className={`shrink-0 transition-colors duration-200 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
@@ -42,10 +44,13 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
 export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     const availableTabs = ['insights', 'analytics'];
     
-    // Mapeamento de referências para gestão de foco sem setTimeout
+    // Fixo: Hooks não devem ser chamados dentro de literais de objeto
+    const insightsRef = useRef(null);
+    const analyticsRef = useRef(null);
+    
     const tabRefs = {
-        insights: useRef(null),
-        analytics: useRef(null)
+        insights: insightsRef,
+        analytics: analyticsRef
     };
 
     // Foca a aba recém ativada via teclado apenas se o foco estiver dentro do tablist
@@ -56,10 +61,10 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         }
     }, [activeTab]);
 
-    const activateTab = (tabKey) => {
+    const activateTab = useCallback((tabKey) => {
         if (!availableTabs.includes(tabKey)) return;
         onChangeTab(tabKey);
-    };
+    }, [onChangeTab]); // Manteve referência estável para não invalidar memoização
 
     const handleTabKeyDown = (event) => {
         const isLeft = event.key === 'ArrowLeft';
@@ -104,9 +109,10 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     className="grid grid-cols-2 gap-2 w-full xl:w-auto xl:min-w-[560px] coach-mobile-tabs self-center"
                 >
                     <MenuTab
+                        tabKey="insights"
                         tabRef={tabRefs.insights}
                         active={activeTab === 'insights'}
-                        onClick={() => activateTab('insights')}
+                        onClick={activateTab}
                         onKeyDown={handleTabKeyDown}
                         icon={Sparkles}
                         label="Plano de Estudos"
@@ -115,9 +121,10 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                         panelId="coach-panel-insights"
                     />
                     <MenuTab
+                        tabKey="analytics"
                         tabRef={tabRefs.analytics}
                         active={activeTab === 'analytics'}
-                        onClick={() => activateTab('analytics')}
+                        onClick={activateTab}
                         onKeyDown={handleTabKeyDown}
                         icon={BarChart3}
                         label="Raio-X Técnico"
@@ -130,3 +137,4 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         </div>
     );
 }
+
