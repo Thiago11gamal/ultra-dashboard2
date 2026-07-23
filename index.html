@@ -65,20 +65,19 @@
     }
   </style>
   <script>
-    window.onerror = function (msg) {
+    window.addEventListener('error', (event) => {
       const loaderText = document.querySelector('.loader-text');
 
-      if (loaderText) {
-        loaderText.textContent = 'Erro de carregamento: ' + msg;
-        loaderText.style.color = '#f87171';
-        loaderText.style.animation = 'none';
-      }
+      if (!loaderText) return;
 
-      return false;
-    };
+      loaderText.textContent = 'Erro de carregamento: ' + event.message;
+      loaderText.style.color = '#f87171';
+      loaderText.style.animation = 'none';
+    });
 
     const BUILD_VERSION = "2026-07-21-FIX"; // ideal: injetar via build/env
-    console.log("[Build] Versão:", BUILD_VERSION);
+    const buildVersion = typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : (window.__BUILD_VERSION__ || 'dev');
+    console.log("[Build] Versão:", buildVersion);
 
     setTimeout(() => {
       const loaderText = document.querySelector('.loader-text');
@@ -94,7 +93,7 @@
 
       const version = document.createElement("small");
       version.style.opacity = "0.5";
-      version.textContent = `Versão: ${BUILD_VERSION} | Verifique o painel VITE_.`;
+      version.textContent = `Versão: ${buildVersion} | Verifique o painel VITE_.`;
 
       const btn = document.createElement("button");
       btn.textContent = "Limpar dados e reiniciar";
@@ -107,14 +106,34 @@
       btn.style.cursor = "pointer";
       btn.style.fontSize = "12px";
 
-      btn.addEventListener("click", () => {
+      async function clearAllLocalData() {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+
+          if ('indexedDB' in window && typeof indexedDB.databases === 'function') {
+            const dbs = await indexedDB.databases();
+
+            if (Array.isArray(dbs)) {
+              dbs.forEach(db => {
+                if (db.name) indexedDB.deleteDatabase(db.name);
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Erro ao limpar dados locais:', error);
+        } finally {
+          location.reload();
+        }
+      }
+
+      btn.addEventListener("click", async () => {
         const ok = window.confirm(
           "Isso apagará os dados locais deste navegador. Deseja continuar?"
         );
 
         if (ok) {
-          localStorage.clear();
-          location.reload();
+          await clearAllLocalData();
         }
       });
 

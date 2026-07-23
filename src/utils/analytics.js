@@ -2,6 +2,8 @@ import { getXPProgress } from './gamification.js';
 import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
 import { format } from 'date-fns';
+import { toFinite } from '../engine/math/safe.js';
+import { safeDate, getLocalMidnight as safeGetLocalMidnight, getLocalEndOfDay } from '../engine/math/date.js';
 
 /**
  * Distributes a rounding remainder across items based on their decimal parts.
@@ -107,11 +109,10 @@ const calculateLongest = (uniqueDays) => {
     return longest;
 };
 
-const getStudyMinutes = (entry) => {
-    const duration = Number(entry?.duration);
-    const minutes = Number(entry?.minutes);
-    const raw = Number.isFinite(duration) ? duration : (Number.isFinite(minutes) ? minutes : 0);
-    return Math.max(0, raw);
+export const getStudyMinutes = (entry) => {
+    const minutes = toFinite(entry?.minutes ?? entry?.duration, 0);
+    if (!Number.isFinite(minutes) || minutes <= 0) return 0;
+    return minutes;
 };
 
 /**
@@ -119,21 +120,22 @@ const getStudyMinutes = (entry) => {
  * extraCompletedCycles cobre blocos de foco da sessão ativa ainda não persistidos em log.
  */
 export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompletedCycles = 0) => {
-    const startOfToday = getLocalMidnight().getTime();
+    const startOfToday = safeGetLocalMidnight(new Date()).getTime();
+    const endOfToday = getLocalEndOfDay(new Date()).getTime();
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
     const workDuration = Math.max(1, Number(pomodoroWork) || 25);
 
     const minutesToday = logsArray.reduce((sum, log) => {
-        const d = normalizeDate(log?.date);
-        if (!d || d.getTime() < startOfToday) return sum;
+        const d = safeDate(log?.date);
+        if (!d) return sum;
+        const t = d.getTime();
+        if (t < startOfToday || t > endOfToday) return sum;
         return sum + getStudyMinutes(log);
     }, 0);
 
     const pomodorosFromLogs = Number.isFinite(minutesToday) ? Math.floor(minutesToday / workDuration) : 0;
     const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
     
-    // extraCompletedCycles are cycles from the current active session that haven't been 
-    // committed to logs yet. We should just add them to the daily total.
     return pomodorosFromLogs + safeExtra;
 };
 
@@ -143,9 +145,10 @@ export const countPomodorosTotal = (studyLogs, studySessions, pomodoroWork = 25)
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
     const sessionsArray = Array.isArray(studySessions) ? studySessions : Object.values(studySessions || {});
 
-    const totalMinutes = sessionsArray.length > 0
-        ? sessionsArray.reduce((sum, s) => sum + getStudyMinutes(s), 0)
-        : logsArray.reduce((sum, log) => sum + getStudyMinutes(log), 0);
+    const logsMinutes = logsArray.reduce((sum, log) => sum + getStudyMinutes(log), 0);
+    const sessionsMinutes = sessionsArray.reduce((sum, s) => sum + getStudyMinutes(s), 0);
+    
+    const totalMinutes = Math.max(logsMinutes, sessionsMinutes);
 
     return Math.floor(totalMinutes / workDuration);
 };
@@ -209,12 +212,12 @@ export const buildAchievementStats = (contestData, options = {}) => {
 
     const { totalQuestions, totalCorrect, accuracy } = aggregateQuestionAccuracy(contestData);
 
-    let studiedEarly = contestData.user?.studiedEarly || false;
-    let studiedLate = contestData.user?.studiedLate || false;
+    let studiedEarly = Boolean(contestData.user?.studiedEarly);
+    let studiedLate = Boolean(contestData.user?.studiedLate);
     let studiedWeekend = false;
 
     studyLogs.forEach(log => {
-        const d = normalizeDate(log?.date);
+        const d = safeDate(log?.date);
         if (!d) return;
         const hr = d.getHours();
         const day = d.getDay();
