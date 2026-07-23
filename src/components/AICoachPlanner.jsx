@@ -190,12 +190,10 @@ export default function AICoachPlanner() {
             ];
 
             setData(prev => {
-                const activeId = prev?.appState?.activeId;
-                if (!activeId || !prev.appState.contests?.[activeId]) return;
-                const targetContest = prev.appState.contests[activeId];
+                if (!prev) return;
                 
                 // ✅ Merge Granular para evitar vazamento de estado
-                const freshPlanner = { ...(targetContest.coachPlanner || {}) };
+                const freshPlanner = { ...(prev.coachPlanner || {}) };
                 Object.keys(freshPlanner).forEach(day => {
                     freshPlanner[day] = [...(freshPlanner[day] || [])];
                 });
@@ -203,18 +201,16 @@ export default function AICoachPlanner() {
                 if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
                 if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
                 
-                targetContest.coachPlanner = freshPlanner;
-                targetContest.coachPlan = newCoachPlan;
+                prev.coachPlanner = freshPlanner;
+                prev.coachPlan = newCoachPlan;
             });
         } else {
             setData(prev => {
-                const activeId = prev?.appState?.activeId;
-                if (!activeId || !prev.appState.contests?.[activeId]) return;
-                const targetContest = prev.appState.contests[activeId];
-                const freshPlanner = { ...(targetContest.coachPlanner || {}) };
+                if (!prev) return;
+                const freshPlanner = { ...(prev.coachPlanner || {}) };
                 if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
                 if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
-                targetContest.coachPlanner = freshPlanner;
+                prev.coachPlanner = freshPlanner;
             });
         }
         setIsDragging(false);
