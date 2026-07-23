@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { normalize, aliases } from '../utils/normalization';
+import ConfirmModal from './ConfirmModal';
 
-import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';
 
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [], viewMode = 'both' }) {
     const categoriesArray = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -105,11 +106,15 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
 
 
+    const [showResetScoresConfirm, setShowResetScoresConfirm] = useState(false);
+
     const resetScores = () => {
-        if (window.confirm('Deseja zerar apenas os valores (Acertos/Total) e manter as matérias?')) {
-            const newRows = rows.map(row => ({ ...row, correct: 0, total: 0 }));
-            setRows(newRows);
-        }
+        setShowResetScoresConfirm(true);
+    };
+
+    const handleConfirmResetScores = () => {
+        const newRows = rows.map(row => ({ ...row, correct: 0, total: 0 }));
+        setRows(newRows);
     };
 
     const addTenToAll = () => {
@@ -748,6 +753,17 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 </div>
                 )}
             </div>
+
+            <ConfirmModal
+                isOpen={showResetScoresConfirm}
+                onClose={() => setShowResetScoresConfirm(false)}
+                onConfirm={handleConfirmResetScores}
+                title="Zerar Valores do Simulado"
+                message="Deseja zerar apenas os valores de acertos e total, mantendo todas as matérias cadastradas?"
+                confirmText="Zerar Valores"
+                type="warning"
+                icon={RotateCcw}
+            />
         </div>
     );
 }

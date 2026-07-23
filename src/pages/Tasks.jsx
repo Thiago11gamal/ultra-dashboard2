@@ -1,16 +1,22 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import React from 'react';
+import React, { useState } from 'react';
 import PersonalRanking from '../components/PersonalRanking';
 import VolumeRanking from '../components/VolumeRanking';
 import PerformanceTable from '../components/PerformanceTable';
 import SubtopicsTable from '../components/SubtopicsTable';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { RotateCcw } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Tasks() {
-  const rawCategories = useAppStore(state => state.appState.contests[state.appState.activeId]?.categories || []);
-  const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories)).map(c => ({
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const categories = useAppStore(useShallow(state => {
+    const activeContest = state.appState?.contests?.[state.appState?.activeId];
+    const raw = activeContest?.categories || [];
+    return Array.isArray(raw) ? raw : Object.values(raw || {});
+  })).map(c => ({
     ...c,
     tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
   }));
@@ -24,8 +30,7 @@ export default function Tasks() {
     return scores.length > 0 ? Math.max(...scores) : 100;
   }, [categories]);
   
-  const handleReset = () => {
-    if (!window.confirm('Resetar performance?')) return;
+  const handleResetConfirm = () => {
     resetSimuladoStats();
     showToast('Resetado com sucesso!', 'success');
   };
@@ -59,8 +64,8 @@ export default function Tasks() {
           <h2 className="text-2xl font-bold mb-10 flex items-center gap-3">
             📊 Quadro de Performance
             <button
-              onClick={handleReset}
-              className="p-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              onClick={() => setShowResetConfirm(true)}
+              className="p-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
               title="Resetar dados do quadro"
             >
               <RotateCcw size={16} />
@@ -72,6 +77,17 @@ export default function Tasks() {
           <SubtopicsTable categories={categories} maxScore={maxScore} />
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={handleResetConfirm}
+        title="Resetar Performance"
+        message="Tem certeza que deseja resetar os dados de estatística do quadro de performance?"
+        confirmText="Resetar Dados"
+        type="warning"
+        icon={RotateCcw}
+      />
     </PageErrorBoundary>
   );
 }

@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { generateId } from '../utils/idGenerator';
 import { getDateKey } from '../utils/dateHelper';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
+import ConfirmModal from '../components/ConfirmModal';
 
 const EMPTY_ARRAY = [];
 
@@ -22,6 +23,8 @@ export default function Agenda() {
   const categories = useMemo(() => Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {}), [rawCategories]);
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
+
+  const [eventToDelete, setEventToDelete] = useState(null);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -109,10 +112,16 @@ export default function Agenda() {
   };
 
   const deleteEvent = (id) => {
-    if (!window.confirm('Remover este compromisso?')) return;
-    const next = agenda.filter(e => e.id !== id);
+    const ev = agenda.find(e => e.id === id);
+    if (ev) setEventToDelete(ev);
+  };
+
+  const handleConfirmDeleteEvent = () => {
+    if (!eventToDelete) return;
+    const next = agenda.filter(e => e.id !== eventToDelete.id);
     persistAgenda(next);
     showToast('Removido da agenda', 'info');
+    setEventToDelete(null);
   };
 
   // Calendar day with event dot count
@@ -314,6 +323,17 @@ export default function Agenda() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
+        onConfirm={handleConfirmDeleteEvent}
+        title="Remover Compromisso"
+        message={`Deseja remover o compromisso "${eventToDelete?.title || ''}" da sua agenda?`}
+        confirmText="Remover"
+        type="danger"
+        icon={Trash2}
+      />
     </div>
     </PageErrorBoundary>
   );

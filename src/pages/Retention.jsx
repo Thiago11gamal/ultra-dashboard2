@@ -1,5 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import RetentionPanel from '../components/RetentionPanel';
 import { AnaliseRetencaoChart } from '../components/charts/Analytics/AnaliseRetencaoChart';
 import { mapRetentionData } from '../utils/chartDataMappers';
@@ -7,11 +7,21 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Play } from 'lucide-react';
 import DueForecast from '../components/DueForecast';
+import ConfirmModal from '../components/ConfirmModal';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
 
 export default function Retention() {
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        title: '',
+        message: ''
+    });
+
+    // useRef para evitar stale closure no callback do modal
+    const pendingCategoryRef = useRef(null);
+
     const categories = useAppStore(useShallow(state => {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
         const rawCategories = activeContest?.categories || [];
@@ -46,6 +56,36 @@ export default function Retention() {
         };
     }, [flashcardDecks]);
 
+    const handleConfirmSession = useCallback(() => {
+        const cat = pendingCategoryRef.current;
+        if (!cat) return;
+
+        const taskName = cat.selectedTask
+            ? (cat.selectedTask.title || cat.selectedTask.text || 'Estudo')
+            : cat.name;
+
+        if (cat.selectedTask) {
+            startPomodoroSession({
+                categoryId: cat.id,
+                taskId: cat.selectedTask.id || cat.selectedTask.text,
+                category: cat.name,
+                task: taskName,
+                priority: cat.selectedTask.priority,
+                source: 'retention'
+            });
+        } else {
+            startPomodoroSession({
+                categoryId: cat.id,
+                taskId: cat.id,
+                category: cat.name,
+                task: `${cat.name}: Revisão Geral`,
+                priority: 'normal',
+                source: 'retention'
+            });
+        }
+        navigate('/pomodoro');
+    }, [startPomodoroSession, navigate]);
+
     const handleSelectCategory = (cat) => {
         if (!cat?.id) {
             showToast('Categoria inválida para retenção.', 'warning');
@@ -56,29 +96,12 @@ export default function Retention() {
             ? (cat.selectedTask.title || cat.selectedTask.text || 'Estudo')
             : cat.name;
 
-        // ✅ Confirmação antes de navegar
-        if (window.confirm(`Iniciar sessão de estudo para "${taskName}"?`)) {
-            if (cat.selectedTask) {
-                startPomodoroSession({
-                    categoryId: cat.id,
-                    taskId: cat.selectedTask.id || cat.selectedTask.text,
-                    category: cat.name,
-                    task: taskName,
-                    priority: cat.selectedTask.priority,
-                    source: 'retention'
-                });
-            } else {
-                startPomodoroSession({
-                    categoryId: cat.id,
-                    taskId: cat.id,
-                    category: cat.name,
-                    task: `${cat.name}: Revisão Geral`,
-                    priority: 'normal',
-                    source: 'retention'
-                });
-            }
-            navigate('/pomodoro');
-        }
+        pendingCategoryRef.current = cat;
+        setConfirmModal({
+            isOpen: true,
+            title: 'Iniciar Sessão de Estudo',
+            message: `Iniciar sessão de estudo para "${taskName}"?`
+        });
     };
 
     return (<PageErrorBoundary pageName="Retenção">
@@ -136,6 +159,22 @@ export default function Retention() {
             {/* NOVA FEATURE: Previsão de Cartões a Vencer (Due Forecast) */}
             <DueForecast decks={flashcardDecks} horizon={14} />
         </div>
+
+        {/* Custom Confirmation Modal */}
+        <ConfirmModal
+            isOpen={confirmModal.isOpen}
+            onClose={() => {
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                pendingCategoryRef.current = null;
+            }}
+            onConfirm={handleConfirmSession}
+            title={confirmModal.title}
+            message={confirmModal.message}
+            confirmText="Iniciar Sessão"
+            cancelText="Cancelar"
+            type="primary"
+            icon={Play}
+        />
     </PageErrorBoundary>);
 }
 

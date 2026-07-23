@@ -8,6 +8,8 @@ import { format } from 'date-fns';
 import { getFlashcardTodayKey, getFlashcardNextDueKey, isFlashcardDue } from '../utils/dateHelper';
 import DueForecast from '../components/DueForecast';
 
+import ConfirmModal from '../components/ConfirmModal';
+
 const EMPTY_ARRAY = [];
 
 function getActiveContest(state) {
@@ -23,6 +25,7 @@ export default function Flashcards() {
   const logFlashcardReview = useAppStore(state => state.logFlashcardReview);
 
   const [selectedDeckId, setSelectedDeckId] = useState(null);
+  const [deckToDelete, setDeckToDelete] = useState(null);
   const [showCreateDeck, setShowCreateDeck] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
   const [newDeckSubject, setNewDeckSubject] = useState('');
@@ -78,11 +81,17 @@ export default function Flashcards() {
 
   // Delete deck
   const deleteDeck = (deckId) => {
-    if (!window.confirm('Excluir este deck e todos os cartões?')) return;
-    const next = decks.filter(d => d.id !== deckId);
+    const deck = decks.find(d => d.id === deckId);
+    if (deck) setDeckToDelete(deck);
+  };
+
+  const handleConfirmDeleteDeck = () => {
+    if (!deckToDelete) return;
+    const next = decks.filter(d => d.id !== deckToDelete.id);
     persistDecks(next);
-    if (selectedDeckId === deckId) setSelectedDeckId(null);
+    if (selectedDeckId === deckToDelete.id) setSelectedDeckId(null);
     showToast('Deck removido', 'info');
+    setDeckToDelete(null);
   };
 
   // Add card
@@ -504,6 +513,17 @@ export default function Flashcards() {
       {!selectedDeck && decks.length > 0 && (
         <p className="text-center text-slate-500 mt-4 text-sm">Selecione um deck acima para gerenciar ou estudar.</p>
       )}
+
+      <ConfirmModal
+        isOpen={!!deckToDelete}
+        onClose={() => setDeckToDelete(null)}
+        onConfirm={handleConfirmDeleteDeck}
+        title="Excluir Deck"
+        message={`Tem certeza que deseja excluir o deck "${deckToDelete?.name || ''}" e todos os seus cartões? Essa ação não pode ser desfeita.`}
+        confirmText="Excluir Deck"
+        type="danger"
+        icon={Trash2}
+      />
     </div>
     </PageErrorBoundary>
   );

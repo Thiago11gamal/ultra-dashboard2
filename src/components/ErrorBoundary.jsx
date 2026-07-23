@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ConfirmModal from './ConfirmModal';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -100,23 +101,7 @@ class ErrorBoundary extends React.Component {
 
                     <div className="mt-8 pt-8 border-t border-white/10 w-full max-w-2xl text-center">
                         <p className="text-xs text-slate-500 mb-4">Se recarregar não funcionar, seus dados locais podem estar corrompidos.</p>
-                        <button
-                            onClick={() => {
-                                if (window.confirm('ATENÇÃO: Isso apagará seus dados locais.\n\nContinuar?')) {
-                                    [
-                                        'ultra-dashboard-storage',
-                                        'ultra-dashboard-data',
-                                        'ultra-dashboard-v8',
-                                        'ultra-dashboard-storage-v8',
-                                        'ultra-dashboard-data-backup-safety'
-                                    ].forEach(key => localStorage.removeItem(key));
-                                    window.location.reload();
-                                }
-                            }}
-                            className="text-red-500/50 hover:text-red-500 text-xs font-mono hover:underline transition-colors"
-                        >
-                            Resetar App de Fábrica (Último Recurso)
-                        </button>
+                        <FactoryResetButton />
                     </div>
                 </div>
             );
@@ -164,6 +149,44 @@ export function PageErrorBoundary({ children, pageName = 'esta página' }) {
 }
 
 export default ErrorBoundary;
+
+/**
+ * FactoryResetButton — Functional component to use ConfirmModal
+ * inside the class-based ErrorBoundary.
+ */
+function FactoryResetButton() {
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    return (
+        <>
+            <button
+                onClick={() => setShowConfirm(true)}
+                className="text-red-500/50 hover:text-red-500 text-xs font-mono hover:underline transition-colors"
+            >
+                Resetar App de Fábrica (Último Recurso)
+            </button>
+            <ConfirmModal
+                isOpen={showConfirm}
+                onClose={() => setShowConfirm(false)}
+                onConfirm={() => {
+                    [
+                        'ultra-dashboard-storage',
+                        'ultra-dashboard-data',
+                        'ultra-dashboard-v8',
+                        'ultra-dashboard-storage-v8',
+                        'ultra-dashboard-data-backup-safety'
+                    ].forEach(key => localStorage.removeItem(key));
+                    window.location.reload();
+                }}
+                title="Resetar App de Fábrica"
+                message="ATENÇÃO: Isso apagará todos os seus dados locais permanentemente. Esta ação não pode ser desfeita."
+                confirmText="Apagar Tudo"
+                type="danger"
+            />
+        </>
+    );
+}
+
 
 export class FeatureErrorBoundary extends React.Component {
   constructor(props) {

@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { normalizeDate, getDateKey, formatDuration as globalFormatDuration } from '../utils/dateHelper';
+import ConfirmModal from './ConfirmModal';
 
 const formatDuration = (minutes) => {
     return globalFormatDuration((minutes || 0) / 60);
@@ -30,6 +31,7 @@ const StudyHistory = React.memo(function StudyHistory({
     const showToast = useToast();
     const [selectedWeekOffset, setSelectedWeekOffset] = React.useState(0);
     const [currentTime] = React.useState(() => Date.now()); // Fix B-13 Purity
+    const [sessionToDelete, setSessionToDelete] = useState(null);
 
     // Calculate total weeks available (Sunday to Sunday boundaries)
     const availableWeeks = useMemo(() => {
@@ -335,14 +337,7 @@ const StudyHistory = React.memo(function StudyHistory({
                                                             showToast('Erro: ID da sessão não encontrado.', 'error');
                                                             return;
                                                         }
-                                                        if (window.confirm('Excluir esta sessão de estudo? O tempo será subtraído da categoria.')) {
-                                                            try {
-                                                                onDeleteSession(session.id);
-                                                                showToast('Sessão excluída.', 'info');
-                                                            } catch {
-                                                                showToast('Erro ao excluir sessão.', 'error');
-                                                            }
-                                                        }
+                                                        setSessionToDelete(session);
                                                     }}
                                                     className="p-1.5 rounded-md bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
                                                     title="Excluir Sessão"
@@ -644,6 +639,26 @@ const StudyHistory = React.memo(function StudyHistory({
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={!!sessionToDelete}
+                onClose={() => setSessionToDelete(null)}
+                onConfirm={() => {
+                    if (sessionToDelete?.id) {
+                        try {
+                            onDeleteSession(sessionToDelete.id);
+                            showToast('Sessão excluída.', 'info');
+                        } catch {
+                            showToast('Erro ao excluir sessão.', 'error');
+                        }
+                    }
+                }}
+                title="Excluir Sessão de Estudo"
+                message="Excluir esta sessão de estudo? O tempo será subtraído da categoria."
+                confirmText="Excluir Sessão"
+                type="danger"
+                icon={Trash2}
+            />
         </div>
     );
 });

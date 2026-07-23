@@ -27,6 +27,7 @@ import { PomodoroProgress } from './pomodoro/PomodoroProgress';
 import { PomodoroControls } from './pomodoro/PomodoroControls';
 import { PomodoroHeader } from './pomodoro/PomodoroHeader';
 import { PomodoroClock } from './pomodoro/PomodoroClock';
+import ConfirmModal from './ConfirmModal';
 
 // 🛠️ [UTIL] Utilitários fora do componente para evitar recriação e melhorar performance
 // 🛡️ [FIX-TABID] window.name é "" por padrão em todas as abas, fazendo com que
@@ -117,6 +118,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     // Estados Globais (Zustand)
     const mode = useAppStore(state => state.appState?.pomodoro?.mode || 'work');
     const sessions = useAppStore(state => state.appState?.pomodoro?.sessions || 1);
+    const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
     const targetCycles = useAppStore(state => state.appState?.pomodoro?.targetCycles || 1);
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
     const completedCycles = useAppStore(state => state.appState?.pomodoro?.completedCycles || 0);
@@ -841,11 +843,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                     {!isProtocolInactive && (
                         <div className="w-full max-w-xs mt-8 pt-4 border-t border-white/5">
                             <button
-                                onClick={() => {
-                                    if (window.confirm("Deseja realmente abandonar a sessão? O progresso não salvo será perdido.")) {
-                                        handleManualExit();
-                                    }
-                                }}
+                                onClick={() => setShowAbandonConfirm(true)}
                                 className="w-full flex items-center justify-center gap-3 p-3 bg-red-950/20 hover:bg-red-900/40 border border-red-500/20 rounded-2xl transition-all text-xs font-bold text-red-400 group"
                             >
                                 <RotateCcw size={14} className="text-red-500 group-hover:rotate-[-90deg] transition-transform" />
@@ -870,6 +868,16 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                     totalTime={totalTime}
                 />
             </div>
+
+            <ConfirmModal
+                isOpen={showAbandonConfirm}
+                onClose={() => setShowAbandonConfirm(false)}
+                onConfirm={handleManualExit}
+                title="Abortar Sessão"
+                message="Deseja realmente abandonar a sessão? O progresso não salvo desta sessão será perdido."
+                confirmText="Abortar Sessão"
+                type="danger"
+            />
         </div>
     );
 }

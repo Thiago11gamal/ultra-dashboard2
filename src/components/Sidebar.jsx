@@ -144,16 +144,20 @@ const Sidebar = React.memo(function Sidebar({
         }
     };
 
-    const handleLogout = async () => {
-        if (window.confirm("Deseja realmente sair?")) {
-            try {
-                await logout();
-                useAppStore.getState().resetStore();
-                await del('ultra-dashboard-storage');
-                localStorage.clear();
-            } catch (err) {
-                console.error("Erro ao sair", err);
-            }
+    const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+
+    const handleLogout = () => {
+        setShowLogoutConfirm(true);
+    };
+
+    const handleConfirmLogout = async () => {
+        try {
+            await logout();
+            useAppStore.getState().resetStore();
+            await del('ultra-dashboard-storage');
+            localStorage.clear();
+        } catch (err) {
+            console.error("Erro ao sair", err);
         }
     };
 
@@ -414,6 +418,17 @@ const Sidebar = React.memo(function Sidebar({
                 message={`Tem certeza que deseja mover "${contestToDelete?.name}" para a lixeira? Todos os dados deste concurso serão arquivados.`}
                 confirmText="Mover para Lixeira"
                 type="danger"
+            />
+
+            <ConfirmModal
+                isOpen={showLogoutConfirm}
+                onClose={() => setShowLogoutConfirm(false)}
+                onConfirm={handleConfirmLogout}
+                title="Encerrar Sessão"
+                message="Deseja realmente sair da sua conta?"
+                confirmText="Sair da Conta"
+                type="danger"
+                icon={LogOut}
             />
         </>
     );
