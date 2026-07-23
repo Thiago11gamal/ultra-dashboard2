@@ -136,12 +136,20 @@ const StudyHistory = React.memo(function StudyHistory({
 
     // Get subject name by ID or fallback
     const getSubjectName = (categoryId, taskId, taskTitle = '') => {
-        if (taskTitle) return taskTitle;
+        const isInternalId = (str) => {
+            if (!str) return false;
+            const s = String(str);
+            return s.startsWith('task') || s.startsWith('cat-') || s.includes('-weaktopic-');
+        };
+
+        if (taskTitle && !isInternalId(taskTitle)) return taskTitle;
         if (!taskId) return '';
+        
         const cat = categories.find(c => c.id === categoryId);
-        if (!cat || !cat.tasks) return (String(taskId).startsWith('task') ? '' : taskId);
+        if (!cat || !cat.tasks) return isInternalId(taskId) ? '' : taskId;
+        
         const task = cat.tasks.find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
-        return task?.text || task?.title || (String(taskId).startsWith('task') ? '' : taskId);
+        return task?.text || task?.title || (isInternalId(taskId) ? '' : taskId);
     };
 
     const getCategoryIcon = (categoryId) => {
