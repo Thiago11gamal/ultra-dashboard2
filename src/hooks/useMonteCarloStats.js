@@ -206,9 +206,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
   const pureStatsHash = pureStatsData?.statsHash || 'null';
 
-  // FIX: useLayoutEffect para atualização síncrona da ref
+  // FIX: useEffect para atualização da ref (evita problemas com SSR e Concurrent Mode)
   const pureStatsDataRef = useRef(pureStatsData);
-  React.useLayoutEffect(() => { pureStatsDataRef.current = pureStatsData; }, [pureStatsData]);
+  useEffect(() => { pureStatsDataRef.current = pureStatsData; }, [pureStatsData]);
 
   const { runAnalysis } = useMonteCarloWorker();
   const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });

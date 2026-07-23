@@ -395,9 +395,17 @@ function Checklist({
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importSourceContest, setImportSourceContest] = useState('');
     const bottomRef = React.useRef(null);
+    const scrollTimerRef = React.useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+        };
+    }, []);
 
     const scrollToBottom = () => {
-        setTimeout(() => {
+        if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+        scrollTimerRef.current = setTimeout(() => {
             bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }, 100);
     };

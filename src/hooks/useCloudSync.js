@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { db, isLocalMode } from '../services/firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, runTransaction } from 'firebase/firestore';
 import { SYNC_LOG_CAP } from '../config';
 import { logger } from '../utils/logger';
 import { useAppStore } from '../store/useAppStore';
@@ -558,7 +558,18 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;
 
-      setDoc(doc(db, 'backups', currentUser.uid), stateToSave)
+      runTransaction(db, async (transaction) => {
+        const docRef = doc(db, 'backups', currentUser.uid);
+        const docSnap = await transaction.get(docRef);
+        const cloudData = docSnap.exists() ? docSnap.data() : null;
+        let mergedState = stateToSave;
+        if (cloudData) {
+          mergedState = mergeAppState(stateToSave, cloudData, { nonDestructive: true });
+        }
+        mergedState._syncVersion = currentVersion;
+        mergedState._syncTimestamp = Date.now();
+        transaction.set(docRef, mergedState);
+      })
         .then(() => {
           lastSyncedRef.current = currentStateString;
           try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
@@ -659,7 +670,19 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           const timer = setTimeout(() => {
             if (!settled) { settled = true; reject(new Error('Firestore timeout')); }
           }, timeoutMs);
-          setDoc(docRef, data).then(() => {
+          
+          runTransaction(db, async (transaction) => {
+            const docSnap = await transaction.get(docRef);
+            const cloudData = docSnap.exists() ? docSnap.data() : null;
+            let mergedState = data;
+            if (cloudData) {
+              mergedState = mergeAppState(data, cloudData, { nonDestructive: true });
+            }
+            mergedState._syncVersion = data._syncVersion || 0;
+            mergedState._syncTimestamp = Date.now();
+            transaction.set(docRef, mergedState);
+          })
+          .then(() => {
             if (!settled) { settled = true; clearTimeout(timer); resolve(); }
           }).catch(err => {
             if (!settled) { settled = true; clearTimeout(timer); reject(err); }

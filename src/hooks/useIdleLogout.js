@@ -11,6 +11,7 @@ import { logger } from '../utils/logger';
 export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
     const timerRef = useRef(null);
     const logoutRef = useRef(logout);
+    const lastActivityRef = useRef(Date.now());
 
     // LEAK-06 FIX: Keep logout function updated in a ref to avoid resetTimer dependency
     useEffect(() => {
@@ -18,6 +19,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
     }, [logout]);
 
     const resetTimer = useCallback(() => {
+        lastActivityRef.current = Date.now();
         if (timerRef.current) {
             clearTimeout(timerRef.current);
         }
@@ -47,10 +49,16 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             window.addEventListener(event, resetTimer);
         });
 
-        // ✅ FIX: Resetar timer quando a aba volta ao foco
+        // ✅ FIX: Computar tempo real ao voltar do background
         const handleVisibility = () => {
             if (document.visibilityState === 'visible') {
-                resetTimer();
+                const elapsed = Date.now() - (lastActivityRef.current || Date.now());
+                if (elapsed >= timeoutMs) {
+                    logger.log('[IdleLogout] Aba voltou ao foco e o tempo estava expirado. Deslogando...');
+                    if (logoutRef.current) logoutRef.current();
+                } else {
+                    resetTimer();
+                }
             }
         };
         document.addEventListener('visibilitychange', handleVisibility);

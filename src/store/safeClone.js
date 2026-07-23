@@ -2,13 +2,53 @@
  * Utilitário de clonagem estrutural ultra-resiliente.
  * Protege a store contra DataCloneError limpando objetos não-serializáveis.
  */
+function customDeepClone(obj, seen = new WeakMap()) {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (seen.has(obj)) return seen.get(obj);
+  
+  if (obj instanceof Date) return new Date(obj.getTime());
+  if (obj instanceof RegExp) return new RegExp(obj.source, obj.flags);
+  if (obj instanceof Map) {
+    const map = new Map();
+    seen.set(obj, map);
+    obj.forEach((value, key) => map.set(key, customDeepClone(value, seen)));
+    return map;
+  }
+  if (obj instanceof Set) {
+    const set = new Set();
+    seen.set(obj, set);
+    obj.forEach(value => set.add(customDeepClone(value, seen)));
+    return set;
+  }
+  
+  if (Array.isArray(obj)) {
+    const arr = [];
+    seen.set(obj, arr);
+    obj.forEach((item, i) => {
+      arr[i] = customDeepClone(item, seen);
+    });
+    return arr;
+  }
+  
+  const cloned = {};
+  seen.set(obj, cloned);
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      cloned[key] = customDeepClone(obj[key], seen);
+    }
+  }
+  return cloned;
+}
+
 export function safeClone(value, fallback = null) {
   try {
     return structuredClone(value);
   } catch (e) {
-    console.warn("structuredClone failed, falling back to JSON", e);
+    console.warn("structuredClone failed, falling back to customDeepClone", e);
     try {
-      return JSON.parse(JSON.stringify(value));
+      return customDeepClone(value);
     } catch (e2) {
       console.error("Total clone failure", e2);
       // ✅ FIX: Retornar objeto/array vazio em vez de null

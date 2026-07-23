@@ -697,11 +697,20 @@ export default function AIGeneratedSimulado() {
   const mountedRef = useRef(true);
   const didMountRestoreRef = useRef(false);
   const stepRef = useRef(step);
+  // ✅ FIX: AbortController para cancelar requests ao desmontar
+  const abortControllerRef = useRef(null);
   useEffect(() => { stepRef.current = step; }, [step]);
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => { 
+      mountedRef.current = false; 
+      // ✅ FIX: Abortar request pendente ao desmontar
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
   }, []);
 
   // FIX: activeGenerationPromise movido para useRef (não mais variável de módulo)
@@ -999,12 +1008,23 @@ export default function AIGeneratedSimulado() {
     const activeContestName = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.name || 'Concurso Geral';
 
     // FIX: Usar ref em vez de variável de módulo
+    // ✅ FIX: Criar AbortController para esta geração
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     const localPromise = (async () => {
       try {
         const generated = await generateAIQuestions({
           materia: 'Simulado Personalizado', assunto: assuntoString,
           dificuldade: adaptiveDifficulty, quantidade: 10, contestName: activeContestName,
         });
+
+        // ✅ FIX: Verificar se foi abortado antes de processar
+        if (signal.aborted) return null;
+
         if (!Array.isArray(generated) || generated.length === 0) {
           throw new Error('A IA não gerou questões válidas.');
         }
@@ -1016,6 +1036,7 @@ export default function AIGeneratedSimulado() {
         }));
         return normalizedQuestions;
       } catch (err) {
+        if (signal.aborted) return null; // ✅ FIX: Ignorar erros de abort
         localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify({
           status: 'error', errorMessage: err.message,
         }));
@@ -1069,6 +1090,13 @@ export default function AIGeneratedSimulado() {
     const activeContestName = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.name || 'Concurso Geral';
 
     // FIX: Usar ref em vez de variável de módulo
+    // ✅ FIX: Criar AbortController para esta geração
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     const localPromise = (async () => {
       try {
         const generated = await generateAIQuestions({
@@ -1076,6 +1104,10 @@ export default function AIGeneratedSimulado() {
           dificuldade: currentForm.dificuldade, quantidade: currentForm.quantidade,
           contestName: activeContestName,
         });
+
+        // ✅ FIX: Verificar se foi abortado antes de processar
+        if (signal.aborted) return null;
+
         if (!Array.isArray(generated) || generated.length === 0) {
           throw new Error('A IA não gerou questões válidas.');
         }
@@ -1094,6 +1126,7 @@ export default function AIGeneratedSimulado() {
         }));
         return normalizedQuestions;
       } catch (error) {
+        if (signal.aborted) return null; // ✅ FIX: Ignorar erros de abort
         localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify({
           status: 'error', form: currentForm, errorMessage: error.message || 'Erro ao gerar questões com IA.', failedAt: Date.now(),
         }));
@@ -1107,7 +1140,7 @@ export default function AIGeneratedSimulado() {
       if (activeGenerationRef.current === localPromise) {
         activeGenerationRef.current = null;
       }
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || !normalizedQuestions) return;
       isFinishingRef.current = false;
       setQuestions(normalizedQuestions);
       setAnswers({});
@@ -2452,12 +2485,10 @@ export default function AICoachPlanner() {
             ];
 
             setData(prev => {
-                const activeId = prev?.appState?.activeId;
-                if (!activeId || !prev.appState.contests?.[activeId]) return;
-                const targetContest = prev.appState.contests[activeId];
+                if (!prev) return;
                 
                 // ✅ Merge Granular para evitar vazamento de estado
-                const freshPlanner = { ...(targetContest.coachPlanner || {}) };
+                const freshPlanner = { ...(prev.coachPlanner || {}) };
                 Object.keys(freshPlanner).forEach(day => {
                     freshPlanner[day] = [...(freshPlanner[day] || [])];
                 });
@@ -2465,18 +2496,16 @@ export default function AICoachPlanner() {
                 if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
                 if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
                 
-                targetContest.coachPlanner = freshPlanner;
-                targetContest.coachPlan = newCoachPlan;
+                prev.coachPlanner = freshPlanner;
+                prev.coachPlan = newCoachPlan;
             });
         } else {
             setData(prev => {
-                const activeId = prev?.appState?.activeId;
-                if (!activeId || !prev.appState.contests?.[activeId]) return;
-                const targetContest = prev.appState.contests[activeId];
-                const freshPlanner = { ...(targetContest.coachPlanner || {}) };
+                if (!prev) return;
+                const freshPlanner = { ...(prev.coachPlanner || {}) };
                 if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
                 if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
-                targetContest.coachPlanner = freshPlanner;
+                prev.coachPlanner = freshPlanner;
             });
         }
         setIsDragging(false);
@@ -2655,12 +2684,17 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     actionPart = actionPart
       .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
       .replace(/\[ALERTA MESTRE\]\s*/i, '')
-      .replace(/^\[(.*?)\]\s*/i, '')
+      .replace(/^\[(.*?)\]/i, '$1') // ✅ Extrai o conteúdo se estiver entre chaves em vez de deletar
       .replace(
         /CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi,
         ''
       )
       .trim();
+
+    // Se o assunto for idêntico à matéria, exibe Revisão Geral
+    if (actionPart.toLowerCase() === subjectPart.toLowerCase()) {
+        actionPart = 'Revisão Geral';
+    }
 
     let topicPart = subjectPart;
     let systemAlertMessage = null;
@@ -2671,7 +2705,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
       if (!topicPart) topicPart = rawSubject;
     }
 
-    const displayAssunto = topicPart || actionPart || 'Revisão Recomendada';
+    const displayAssunto = actionPart || topicPart || 'Revisão Recomendada';
     const displayMeta =
       actionPart && actionPart !== displayAssunto ? actionPart : null;
 
@@ -4776,11 +4810,16 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     }
                     
                     const score = t.score != null ? Number(t.score) : getSafeScore(t, maxScore);
+                    // ✅ FIX: Se score é NaN (t.score null E total 0), pular esta entrada
+                    if (!Number.isFinite(score)) return;
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                     
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
                         ? ((normalizedScore - minScore) / range) * total
                         : (t.correct != null ? Number(t.correct) : ((normalizedScore - minScore) / range) * total);
+
+                    // ✅ FIX: Proteger contra NaN propagando para os acumuladores
+                    if (!Number.isFinite(correctCount)) return;
 
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
@@ -6607,8 +6646,9 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 contentStyle={CustomTooltipStyle}
                                 itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
                                 formatter={(value, name, props) => {
-                                    const entry = props.payload;
-                                    return [`${formatValue(value)}% (${entry.correct}/${entry.total} acertos)`, 'Precisão'];
+                                    const entry = props?.payload;
+                                    if (!entry) return [value, name];
+                                    return [`${formatValue(value)}% (${entry.correct || 0}/${entry.total || 0} acertos)`, 'Precisão'];
                                 }}
                                 labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
                             />
@@ -6628,6 +6668,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     content={(props) => {
                                         const { x, y, width, height, value, index } = props;
                                         const entry = chartData[index];
+                                        if (!entry) return null;
                                         return (
                                             <g>
                                                 <text x={x + width + 8} y={y + height / 2 + 4} fill="#ffffff" fontSize={12} fontWeight="black">
@@ -8959,6 +9000,35 @@ describe('TimeSpentChart bug fixes', () => {
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
+// ✅ FIX: Worker singleton compartilhado entre todas as instâncias
+let sharedWorker = null;
+let sharedWorkerRefCount = 0;
+
+function getSharedWorker() {
+  if (!sharedWorker) {
+    try {
+      sharedWorker = new Worker(
+        new URL('../../engine/heatmap.worker.js', import.meta.url),
+        { type: 'module' }
+      );
+    } catch (e) {
+      console.warn("[EvolutionHeatmap] Web Worker not available:", e);
+      return null;
+    }
+  }
+  sharedWorkerRefCount++;
+  return sharedWorker;
+}
+
+function releaseSharedWorker() {
+  sharedWorkerRefCount--;
+  if (sharedWorkerRefCount <= 0 && sharedWorker) {
+    sharedWorker.terminate();
+    sharedWorker = null;
+    sharedWorkerRefCount = 0;
+  }
+}
+
 export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', showOnlyFocus, focusSubjectId }) => {
     const { dates = [], rows = [] } = heatmapData || {};
     
@@ -8997,20 +9067,16 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
     const workerRef = useRef(null);
 
     useEffect(() => {
+        const worker = getSharedWorker();
+        workerRef.current = worker;
+        
         return () => {
-            if (workerRef.current) workerRef.current.terminate();
+            releaseSharedWorker();
+            workerRef.current = null;
         };
     }, []);
 
     useEffect(() => {
-        if (!workerRef.current) {
-            try {
-                workerRef.current = new Worker(new URL('../../engine/heatmap.worker.js', import.meta.url), { type: 'module' });
-            } catch (e) {
-                console.warn("[EvolutionHeatmap] Web Worker not available, fallback to sync.", e);
-            }
-        }
-        
         const worker = workerRef.current;
         if (!worker) {
             setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
@@ -11527,8 +11593,8 @@ function filterHistoryByTimeWindow(history, timeWindow) {
 
   if (!withMs.length) return safeHistory.filter(Boolean);
 
-  const lastMs = Math.max(...withMs.map((x) => x.ms));
-  const limit = lastMs - days * 24 * 60 * 60 * 1000;
+  const referenceMs = toDateMs(getDateKey(new Date()));
+  const limit = referenceMs - days * 24 * 60 * 60 * 1000;
 
   return withMs.filter((x) => x.ms >= limit).map((x) => x.h);
 }
@@ -12000,15 +12066,12 @@ export default React.memo(function EvolutionChart({
                     return Number.isNaN(ms) ? Number.NaN : ms;
                 };
 
-                const lastValid = [...historical].reverse().find((d) => Number.isFinite(getDateMs(d)));
-
-                if (lastValid) {
-                    const limit = getDateMs(lastValid) - days * 24 * 60 * 60 * 1000;
-                    result = historical.filter((d) => {
-                        const ms = getDateMs(d);
-                        return Number.isFinite(ms) && ms >= limit;
-                    });
-                }
+                const referenceMs = toDateMs(getDateKey(new Date()));
+                const limit = referenceMs - days * 24 * 60 * 60 * 1000;
+                result = historical.filter((d) => {
+                    const ms = getDateMs(d);
+                    return Number.isFinite(ms) && ms >= limit;
+                });
             }
         }
 
@@ -12268,7 +12331,7 @@ export default React.memo(function EvolutionChart({
                                 </button>
                             ))}
                         </div>
-                        {activeEngine !== 'compare' && activeEngine !== 'mc_density' && (
+                        {activeEngine !== 'compare' && activeEngine !== 'mc_density' ? (
                             <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
                                 className={`shrink-0 flex items-center justify-center gap-2 px-5 py-1.5 h-[34px] rounded-2xl text-xs font-bold border transition-all will-change-transform active:scale-[0.985] ${showOnlyFocus ? 'bg-amber-500/30 border-amber-500/60 text-amber-200 shadow-sm' : 'bg-slate-950/80 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 hover:border-slate-600'}`}>
                                 <span className="text-base">{showOnlyFocus ? '🎯' : '👁️'}</span>
@@ -12276,6 +12339,22 @@ export default React.memo(function EvolutionChart({
                                     {showOnlyFocus ? `Foco: ${focusCategory?.name}` : 'Ver Todas'}
                                 </span>
                             </button>
+                        ) : (
+                            <div className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-1.5 h-[34px] rounded-2xl text-xs font-bold border bg-indigo-500/10 border-indigo-500/30 text-indigo-300 shadow-sm transition-all hover:bg-indigo-500/20">
+                                <span className="text-base">🎯</span>
+                                <select
+                                    value={focusCategory?.id || ''}
+                                    onChange={(e) => setFocusSubjectId(e.target.value)}
+                                    className="bg-transparent outline-none cursor-pointer hover:text-indigo-200 appearance-none pr-5 relative max-w-[150px] truncate font-semibold"
+                                    style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' fill=\'%23818cf8\' viewBox=\'0 0 16 16\'%3E%3Cpath d=\'M8 11.5l-5-5h10l-5 5z\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right center' }}
+                                >
+                                    {categories.map(c => (
+                                        <option key={c.id} value={c.id} className="bg-slate-900 text-slate-200">
+                                            {c.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         )}
                      </div>
                  </div>
@@ -12431,9 +12510,18 @@ export default React.memo(function EvolutionChart({
                             <div className="w-full md:w-1/2 flex flex-col">
                                 <div className="flex items-center gap-2 mb-4 min-w-0">
                                     <Zap size={16} className="text-indigo-400 shrink-0" />
-                                    <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest truncate w-full block" title={focusCategory.name}>
-                                        Foco: {focusCategory.name}
-                                    </span>
+                                    <select
+                                        value={focusCategory?.id || ''}
+                                        onChange={(e) => setFocusSubjectId(e.target.value)}
+                                        className="bg-transparent text-[10px] font-black text-indigo-300 uppercase tracking-widest outline-none border-b border-indigo-500/30 pb-1 cursor-pointer hover:text-indigo-200 transition-colors appearance-none pr-4 relative w-auto max-w-full truncate"
+                                        style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' fill=\'%23818cf8\' viewBox=\'0 0 16 16\'%3E%3Cpath d=\'M8 11.5l-5-5h10l-5 5z\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right center' }}
+                                    >
+                                        {categories.map(c => (
+                                            <option key={c.id} value={c.id} className="bg-slate-900 text-slate-200">
+                                                FOCO: {c.name}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="h-[280px] w-full mb-2">
                                     <GaussianPlot
@@ -12814,7 +12902,7 @@ export default PageHeader;
 // File: src\components\Header.jsx
 // =================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RotateCcw, CloudDownload, LayoutDashboard, Menu } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12877,10 +12965,24 @@ const Header = React.memo(function Header({
         setLocalName(displayName);
     }
 
+    const debounceRef = useRef(null);
+
     const handleNameChange = (e) => {
-        setLocalName(e.target.value);
-        if (onUpdateName) onUpdateName(e.target.value);
+        const value = e.target.value;
+        setLocalName(value);
+        // ✅ FIX: Debounce de 500ms para evitar writes excessivos
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            if (onUpdateName) onUpdateName(value);
+        }, 500);
     };
+
+    // Adicionar cleanup:
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, []);
 
 
 
@@ -25090,11 +25192,11 @@ export function bootstrapCI(samples, statFn, {
  * Gives distribution-free coverage guarantees (approximate).
  * Use on historical residuals (actual - predicted).
  */
-export function conformalPredictionInterval(residuals = [], alpha = 0.1, pointEstimate = 0) {
+export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointEstimate = 0) {
   const clean = residuals.map(Number).filter(Number.isFinite);
   if (clean.length < 3) {
     // Fallback to normal-like
-    return { lower: pointEstimate - 8, upper: pointEstimate + 8, coverage: 0.9 };
+    return { lower: pointEstimate - 8, upper: pointEstimate + 8, coverage: 0.95 };
   }
   const sortedRes = [...clean].sort((a, b) => a - b);
   const n = sortedRes.length;
@@ -26512,6 +26614,8 @@ export function simulateNormalDistribution(
         ci95VisualLow: displayLow,
         ci95VisualHigh: displayHigh,
         ci95VisualClamped: wasVisualCIClamped,
+        ciConformalLow: statisticalCi95Low,
+        ciConformalHigh: statisticalCi95High,
         currentMean: safeCurrentMean,
         projectedMean,
         projectedSD,
@@ -27053,10 +27157,26 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     let projectedScore;
     const now = options.referenceDate || Date.now();
     
-    // Hoist variables that are needed both for asymptotic damping inside the random walk
-    // and for the margin of error calculation outside the block, avoiding redundant O(N) regressions.
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
     let eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
+
+    // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
+    let linearSlope = 0;
+    if (!(logisticFit.isLogistic && logisticFit.k > 0)) {
+        let trend = calculateTrend(sortedHistory);
+        linearSlope = calculateSlope(trend, options);
+    }
+
+    const dampingBase = computeAdaptiveDampingBase({
+        sampleSize: sortedHistory.length,
+        drift: linearSlope,
+        driftUncertainty: slopeStdError,
+        scaleFactor: maxScore / 100,
+        normalizedVol: (eventVolatility / (maxScore - minScore > 0 ? maxScore - minScore : maxScore)) * 100
+    });
+
+    const maxEffectiveDays = dampingBase * Math.log(1 + projectDays / dampingBase);
+    const effectiveDaysForDrift = Math.min(projectDays, maxEffectiveDays);
 
     if (logisticFit.isLogistic && logisticFit.k > 0) {
         const { k, intercept, L, t0 } = logisticFit;
@@ -27066,9 +27186,6 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         const safeMin = options.minScore || 0;
         projectedScore = safeMin + ((L - safeMin) / (1 + Math.exp(safeExponent)));
     } else {
-        let trend = calculateTrend(sortedHistory);
-        let linearSlope = calculateSlope(trend, options);
-        
         // Removemos a mistura corrompida. O EMA continuará a usar o `linearSlope`
         // para projetar o futuro no Random Walk.
 
@@ -27096,19 +27213,6 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
             }
         }
 
-        // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
-        // O `projectScore` agora partilha do mesmo amortecedor de volatilidade adaptativa (dampingBase)
-        // do Motor de Monte Carlo, estabilizando as trajetórias de UX que divergiam do back-end GARCH.
-        const dampingBase = computeAdaptiveDampingBase({
-            sampleSize: sortedHistory.length,
-            drift: linearSlope,
-            driftUncertainty: slopeStdError,
-            scaleFactor: maxScore / 100,
-            normalizedVol: (eventVolatility / (maxScore - minScore > 0 ? maxScore - minScore : maxScore)) * 100
-        });
-
-        const maxEffectiveDays = dampingBase * Math.log(1 + projectDays / dampingBase);
-        const effectiveDaysForDrift = Math.min(projectDays, maxEffectiveDays);
         
         // CORREÇÃO: Driftar a EMA da data do último teste até o dia de HOJE, 
         // para alinhar a origem do vetor temporal com a realidade atual.
@@ -27141,7 +27245,8 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const expectedFutureEvents = Math.max(1, projectDays / Math.max(0.5, avgGapDays));
     const randomWalkUncertainty = eventVolatility * Math.sqrt(expectedFutureEvents);
     
-    const angularUncertainty = slopeStdError * projectDays;
+    // Aplica o amortecimento do drift à incerteza angular (evita explosão da incerteza a longo prazo)
+    const angularUncertainty = slopeStdError * effectiveDaysForDrift;
     const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(randomWalkUncertainty, 2));
     // Usar T-Student adaptativo para amostras pequenas em vez de Z=1.96 fixo
     const tMult = getConfidenceMultiplier(sortedHistory.length);
@@ -27524,10 +27629,10 @@ export function monteCarloSimulation(
                     const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
                     shock = (rawEmpirical / standardizer) * adaptiveVol; 
                 } else {
-                    // PATCH: Gaussian Skew Adjustment
+                    // PATCH: Gaussian Skew Adjustment (Cornish-Fisher expansion to maintain zero mean)
                     const z = generateGaussian(rng);
-                    const skewCorrection = 1 + (residualsSkew * z) / 6.0; 
-                    shock = z * adaptiveVol * skewCorrection;
+                    const zCF = z + (residualsSkew * (z * z - 1)) / 6.0; 
+                    shock = zCF * adaptiveVol;
                 }
             } else if (safeResiduals.length > 5 && rng() > 0.3) {
                 const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
@@ -27623,7 +27728,7 @@ export function monteCarloSimulation(
 
     // NEW: Conformal intervals for more robust, distribution-free CIs
     const mcResiduals = results.map(r => r - meanResult);
-    const conformal = conformalPredictionInterval(mcResiduals, 0.1, meanResult); // ~90% coverage
+    const conformal = conformalPredictionInterval(mcResiduals, 0.05, meanResult); // 95% coverage
 
     return {
         // FIX #2: Valores brutos com precisão completa. toFixed removido do motor.
@@ -27639,19 +27744,18 @@ export function monteCarloSimulation(
         sd: finalSD,
         ci95Low: conformal.lower ?? getPercentile(results, 0.025, true),
         ci95High: conformal.upper ?? getPercentile(results, 0.975, true),
+        ciConformalLow: conformal.lower ?? getPercentile(results, 0.025, true),
+        ciConformalHigh: conformal.upper ?? getPercentile(results, 0.975, true),
         currentMean: baselineScore,
         drift: (drift * 30),
         volatility,
         confidence: sortedHistory.length < 5 ? 'low' : sortedHistory.length < 15 ? 'medium' : 'high',
         // NEW: non-linear trend availability
         trendType: typeof trendType !== 'undefined' ? trendType : 'linear',
-        // NEW: Conformal intervals
-        ciConformalLow: conformal.lower,
-        ciConformalHigh: conformal.upper,
         diagnostics: {
             trendType: typeof trendType !== 'undefined' ? trendType : 'linear',
             effectiveDriftSlope: typeof effectiveDriftSlope !== 'undefined' ? effectiveDriftSlope : 0,
-            conformalCoverage: 0.9,
+            conformalCoverage: 0.95,
             simulationCount: safeSimulations,
             historicalMean: historicalMean || null,
             effectiveN: Math.max(1, sortedHistory.length)
@@ -30802,6 +30906,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const currentStateString = stateStringForSync(appStateRef.current);
     if (lastSyncedRef.current === currentStateString) return;
 
+    // ✅ FIX: Capturar versão atual para verificação otimista
+    const currentVersion = appStateRef.current?.version || 0;
+
     try {
       const syncState = useAppStore.getState().appState;
       const safeguardContest = (contest) => {
@@ -30821,6 +30928,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         ...syncState, contests: safeContests, trash: safeTrash,
         history: [], _lastBackup: new Date().toISOString()
       }));
+
+      // ✅ FIX: Incluir version no payload para detecção de conflito
+      stateToSave._syncVersion = currentVersion;
+      stateToSave._syncTimestamp = Date.now();
 
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;
@@ -30960,6 +31071,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             ...freshState, contests: safeContests, trash: safeTrash,
             history: [], _lastBackup: new Date().toISOString()
           }));
+
+          // ✅ FIX: Incluir version no payload para detecção de conflito
+          stateToSave._syncVersion = freshState?.version || 0;
+          stateToSave._syncTimestamp = Date.now();
 
           await setDocWithTimeout(doc(db, 'backups', currentUser.uid), stateToSave, 15000);
           lastSyncedRef.current = currentStateString;
@@ -31115,6 +31230,14 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             window.addEventListener(event, resetTimer);
         });
 
+        // ✅ FIX: Resetar timer quando a aba volta ao foco
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                resetTimer();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
         return () => {
             // Cleanup on unmount
             if (timerRef.current) {
@@ -31123,6 +31246,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             events.forEach(event => {
                 window.removeEventListener(event, resetTimer);
             });
+            document.removeEventListener('visibilitychange', handleVisibility);
         };
     }, [resetTimer]);
 }
@@ -36607,7 +36731,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
         // Caso contrário, buscamos tarefas de alta prioridade nas categorias
         (categories || []).filter(Boolean).forEach(cat => {
-            (cat.tasks || []).filter(t => t && !t.completed && t.priority === 'high' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
+            const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+            safeTasks.filter(t => t && !t.completed && t.priority === 'high' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
                 tasks.push({ ...t, id: t.id || t.text, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
             });
         });
@@ -36615,7 +36740,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         // Fallback para prioridade média
         if (tasks.length === 0) {
             (categories || []).filter(Boolean).forEach(cat => {
-                (cat.tasks || []).filter(t => t && !t.completed && t.priority === 'medium' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
+                const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+                safeTasks.filter(t => t && !t.completed && t.priority === 'medium' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
                     tasks.push({ ...t, id: t.id || t.text, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
                 });
             });
@@ -36631,7 +36757,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
         if (base.length < 6) {
             (categories || []).filter(Boolean).forEach(cat => {
-                (cat.tasks || []).filter(t => t && !t.completed).forEach(t => {
+                const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+                safeTasks.filter(t => t && !t.completed).forEach(t => {
                     const normalizedId = t.id || t.text;
                     if (!normalizedId || seen.has(normalizedId) || base.length >= 6 || normalizedId === activeSubject?.taskId) return;
                     base.push({ ...t, id: normalizedId, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
@@ -36647,7 +36774,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         if (!activeSubject) return null;
 
         const currentCategory = (categories || []).find(c => c?.id === activeSubject.categoryId);
-        const categoryTasks = (currentCategory?.tasks || []).filter(Boolean);
+        const rawTasks = currentCategory?.tasks || [];
+        const safeCategoryTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
+        const categoryTasks = safeCategoryTasks.filter(Boolean);
         const total = categoryTasks.length;
         const completed = categoryTasks.filter(t => t.completed).length;
         const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -36698,7 +36827,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         };
     }, [activeSubject, categories]);
 
-    const cleanTaskText = (rawText) => {
+    const cleanTaskText = (rawText, catName) => {
         if (!rawText) return { displayTopic: '', secondaryText: '' };
         const fullText = rawText.trim();
         const parts = fullText.split(':');
@@ -36707,11 +36836,15 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
         
         // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE])
-        actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
+        actionPart = actionPart.replace(/^\[(.*?)\]/i, '$1').trim();
         let topicPart = parts[0] || '';
 
+        if (catName && actionPart.toLowerCase() === catName.toLowerCase()) {
+            actionPart = 'Revisão Geral';
+        }
+
         const displayTopic = actionPart || topicPart || '';
-        let secondaryText = (topicPart && actionPart !== topicPart) ? topicPart : '';
+        let secondaryText = (topicPart && actionPart !== topicPart && actionPart !== 'Revisão Geral') ? topicPart : '';
         
         if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
             secondaryText = '';
@@ -36781,7 +36914,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
                     <p className="text-xs text-slate-200 leading-relaxed relative z-10">
                         <span className="block mb-1">
-                            <strong className="text-cyan-300">Assunto atual:</strong> {cleanTaskText(activeTaskStats.topic).displayTopic}
+                            <strong className="text-cyan-300">Assunto atual:</strong> {cleanTaskText(activeTaskStats.topic, activeTaskStats.categoryName).displayTopic}
                         </span>
                         <span>
                             O <strong>assunto</strong> foi escolhido por {activeTaskStats.whySelected}. Progresso da <strong>matéria</strong>: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
@@ -36822,7 +36955,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
                     <h3 className="text-base font-semibold text-white mb-2 leading-tight">
                         {(() => {
-                            const recInfo = cleanTaskText(recommendedTask.text || recommendedTask.title);
+                            const recInfo = cleanTaskText(recommendedTask.text || recommendedTask.title, recommendedTask.catName || recommendedTask.category);
                             return recInfo.displayTopic;
                         })()}
                     </h3>
@@ -36877,7 +37010,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                             const taskId = task.id || task.text || `fallback-task-${idx}`;
                             const categoryName = task.catName || task.category || 'Sem Categoria';
                             const isActive = activeSubject?.taskId === taskId;
-                            const { displayTopic, secondaryText } = cleanTaskText(task.text || task.title);
+                            const { displayTopic, secondaryText } = cleanTaskText(task.text || task.title, categoryName);
                             
                             return (
                                 <Motion.button
@@ -36948,7 +37081,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
         
         // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE], [PROTOCOLO PRIORITÁRIO])
         targetText = targetText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
-        targetText = targetText.replace(/^\[(.*?)\]\s*/i, '').trim();
+        targetText = targetText.replace(/^\[(.*?)\]/i, '$1').trim();
 
         let subtitle = targetText.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
         if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
@@ -38669,7 +38802,12 @@ export function safeClone(value, fallback = null) {
       return JSON.parse(JSON.stringify(value));
     } catch (e2) {
       console.error("Total clone failure", e2);
-      return fallback;
+      // ✅ FIX: Retornar objeto/array vazio em vez de null
+      // para evitar crashes em spread operators e property access
+      if (fallback !== null) return fallback;
+      if (Array.isArray(value)) return [];
+      if (value && typeof value === 'object') return {};
+      return null;
     }
   }
 }
@@ -39716,8 +39854,44 @@ const extractCategoryFromTask = (task) => {
     if (task.category) return task.category;
     const t = task.text || task.title || '';
     const idx = t.indexOf(':');
-    const cat = idx > -1 ? t.substring(0, idx).trim() : t;
-    return (/^\d+$/.test(cat) || !cat) ? 'Geral' : cat;
+    if (idx > -1) {
+        const cat = t.substring(0, idx).trim();
+        return cat || 'Geral';
+    }
+    return 'Geral';
+};
+
+// FIX: Função para limpar o nome da tarefa vindo do Coach (remove brackets, etc)
+const formatTaskName = (task) => {
+    let taskName = task.text || task.title || '';
+    const cat = extractCategoryFromTask(task);
+    if (taskName) {
+        const sepIdx = taskName.indexOf(':');
+        if (sepIdx !== -1) {
+            let action = taskName.slice(sepIdx + 1).trim();
+            action = action
+              .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+              .replace(/\[ALERTA MESTRE\]\s*/i, '')
+              .replace(/^\[(.*?)\]/i, '$1')
+              .trim();
+            
+            if (action.toLowerCase() === cat.toLowerCase()) {
+                return 'Revisão Geral';
+            }
+            return action;
+        } else {
+            let cleanTask = taskName
+              .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+              .replace(/\[ALERTA MESTRE\]\s*/i, '')
+              .replace(/^\[(.*?)\]/i, '$1')
+              .trim();
+            if (cleanTask.toLowerCase() === cat.toLowerCase()) {
+                return 'Revisão Geral';
+            }
+            return cleanTask;
+        }
+    }
+    return taskName;
 };
 
 export const createPomodoroSlice = (set, get) => ({
@@ -39960,7 +40134,7 @@ export const createPomodoroSlice = (set, get) => ({
         const task = tasks[startIndex];
         const subject = {
             taskId: task.id || task.text,
-            task: task.text || task.title,
+            task: formatTaskName(task),
             category: extractCategoryFromTask(task),
             categoryId: task.categoryId || 'default',
             priority: 'high',
@@ -39998,7 +40172,7 @@ export const createPomodoroSlice = (set, get) => ({
         const nextTask = neuralQueue[currentIndex + 1];
         const nextSubject = {
             taskId: nextTask.id || nextTask.text,
-            task: nextTask.text || nextTask.title,
+            task: formatTaskName(nextTask),
             category: extractCategoryFromTask(nextTask),
             categoryId: nextTask.categoryId || 'default',
             priority: 'high',
@@ -41921,13 +42095,18 @@ export const calculateStudyStreak = (studyLogs) => {
     new Date(`${b}T12:00:00-04:00`) - new Date(`${a}T12:00:00-04:00`)
   );
 
+  // ✅ FIX: Se não há dias válidos após filter, retornar zeros
+  if (sortedDays.length === 0) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
+
   // ✅ todayStr também via getDateKey (Manaus)
   const todayStr = getDateKey(new Date());
   const lastDayStr = sortedDays[0];
 
   // Comparação via strings YYYY-MM-DD (imune a timezone)
   const t = new Date(`${todayStr}T12:00:00-04:00`);
-  const l = new Date(`${(lastDayStr || todayStr)}T12:00:00-04:00`);
+  const l = new Date(`${lastDayStr}T12:00:00-04:00`);
   const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
 
   if (diffDays >= 2) {
@@ -44389,7 +44568,7 @@ import { useAppStore } from '../store/useAppStore.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { safeDateParse as _safeDateParse, normalizeDate, getDateKey } from './dateHelper.js';
-import { normalize } from './normalization.js';
+import { normalize, isSubjectMatch } from './normalization.js';
 import { computeRollingCalibrationParams } from './calibration.js';
 import { 
     deriveAdaptiveRiskThresholds, 
@@ -44691,9 +44870,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         }
     }
 
-    const catNormalized = normalize(safeCategory?.name || "Sem Nome");
     const safeSimulados = Array.isArray(simulados) ? simulados : Object.values(simulados || {});
-    let relevantSimulados = safeSimulados.filter(s => s && normalize(s.subject || "") === catNormalized);
+    let relevantSimulados = safeSimulados.filter(s => s && isSubjectMatch(s.subject || "", safeCategory?.name || ""));
     relevantSimulados.sort((a, b) => {
         const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
         const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
@@ -45643,8 +45821,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
     const tasks = category.tasks || [];
     const topicMap = {};
 
-    const catNorm = normalize(category.name);
-    const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNorm);
+    const relevantSimulados = simulados.filter(s => isSubjectMatch(s.subject, category.name));
     const categorySimuladoCount = relevantSimulados.length;
 
     const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
@@ -46478,7 +46655,9 @@ export const formatWeekdayShortPtBR = (date) => {
 export const getFlashcardTodayKey = () => getDateKey(new Date());
 
 export const getFlashcardNextDueKey = (intervalDays = 1) => {
-  const safeDays = Math.max(1, Math.floor(Number(intervalDays) || 1));
+  // ✅ FIX: Validar e clamp intervalDays para prevenir datas absurdas
+  const raw = Number(intervalDays);
+  const safeDays = Math.max(1, Math.min(3650, Math.floor(Number.isFinite(raw) ? raw : 1)));
   const future = addDays(new Date(), safeDays);
   return getDateKey(future);
 };
@@ -47200,6 +47379,30 @@ export const aliases = {
     'direitos humanos': ['dh', 'humanos', 'd. humanos'],
     'direito civil': ['civil', 'dir. civil', 'd. civil', 'dc', 'dir civil'],
     'direito processual civil': ['processo civil', 'dpc', 'dir. proc. civil', 'dir proc civil']
+};
+
+/**
+ * Verifica se duas matérias correspondem, considerando o nome normalizado e os aliases.
+ */
+export const isSubjectMatch = (name1, name2) => {
+    if (!name1 || !name2) return false;
+    const n1 = normalize(name1);
+    const n2 = normalize(name2);
+    if (n1 === n2) return true;
+    
+    // Check if n2 is an alias of n1 (where n1 is a canonical key)
+    if (aliases[n1] && aliases[n1].some(a => normalize(a) === n2)) return true;
+    // Check if n1 is an alias of n2 (where n2 is a canonical key)
+    if (aliases[n2] && aliases[n2].some(a => normalize(a) === n1)) return true;
+    
+    // Check if both are aliases of the same canonical key
+    for (const [canonical, aliasList] of Object.entries(aliases)) {
+        const hasN1 = n1 === canonical || aliasList.some(a => normalize(a) === n1);
+        const hasN2 = n2 === canonical || aliasList.some(a => normalize(a) === n2);
+        if (hasN1 && hasN2) return true;
+    }
+    
+    return false;
 };
 /**
  * Normaliza um valor evitando divisão por zero e garantindo limites entre 0 e 1.

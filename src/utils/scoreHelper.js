@@ -98,7 +98,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
     return Math.max(0, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
   }
   
-  return NaN;
+  return 0;
 }
 
 export function getSafeQuestionStats(historyRow, maxScore = 100, options = {}) {
