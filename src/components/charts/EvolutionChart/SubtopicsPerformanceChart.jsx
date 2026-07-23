@@ -359,8 +359,9 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 contentStyle={CustomTooltipStyle}
                                 itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
                                 formatter={(value, name, props) => {
-                                    const entry = props.payload;
-                                    return [`${formatValue(value)}% (${entry.correct}/${entry.total} acertos)`, 'Precisão'];
+                                    const entry = props?.payload;
+                                    if (!entry) return [value, name];
+                                    return [`${formatValue(value)}% (${entry.correct || 0}/${entry.total || 0} acertos)`, 'Precisão'];
                                 }}
                                 labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
                             />
@@ -380,6 +381,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     content={(props) => {
                                         const { x, y, width, height, value, index } = props;
                                         const entry = chartData[index];
+                                        if (!entry) return null;
                                         return (
                                             <g>
                                                 <text x={x + width + 8} y={y + height / 2 + 4} fill="#ffffff" fontSize={12} fontWeight="black">
