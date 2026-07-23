@@ -456,7 +456,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
         // Caso contrário, buscamos tarefas de alta prioridade nas categorias
         (categories || []).filter(Boolean).forEach(cat => {
-            (cat.tasks || []).filter(t => t && !t.completed && t.priority === 'high' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
+            const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+            safeTasks.filter(t => t && !t.completed && t.priority === 'high' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
                 tasks.push({ ...t, id: t.id || t.text, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
             });
         });
@@ -464,7 +465,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         // Fallback para prioridade média
         if (tasks.length === 0) {
             (categories || []).filter(Boolean).forEach(cat => {
-                (cat.tasks || []).filter(t => t && !t.completed && t.priority === 'medium' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
+                const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+                safeTasks.filter(t => t && !t.completed && t.priority === 'medium' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
                     tasks.push({ ...t, id: t.id || t.text, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
                 });
             });
@@ -480,7 +482,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
         if (base.length < 6) {
             (categories || []).filter(Boolean).forEach(cat => {
-                (cat.tasks || []).filter(t => t && !t.completed).forEach(t => {
+                const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+                safeTasks.filter(t => t && !t.completed).forEach(t => {
                     const normalizedId = t.id || t.text;
                     if (!normalizedId || seen.has(normalizedId) || base.length >= 6 || normalizedId === activeSubject?.taskId) return;
                     base.push({ ...t, id: normalizedId, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
@@ -496,7 +499,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         if (!activeSubject) return null;
 
         const currentCategory = (categories || []).find(c => c?.id === activeSubject.categoryId);
-        const categoryTasks = (currentCategory?.tasks || []).filter(Boolean);
+        const rawTasks = currentCategory?.tasks || [];
+        const safeCategoryTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
+        const categoryTasks = safeCategoryTasks.filter(Boolean);
         const total = categoryTasks.length;
         const completed = categoryTasks.filter(t => t.completed).length;
         const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
