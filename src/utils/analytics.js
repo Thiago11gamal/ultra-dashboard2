@@ -59,13 +59,18 @@ export const calculateStudyStreak = (studyLogs) => {
     new Date(`${b}T12:00:00-04:00`) - new Date(`${a}T12:00:00-04:00`)
   );
 
+  // ✅ FIX: Se não há dias válidos após filter, retornar zeros
+  if (sortedDays.length === 0) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
+
   // ✅ todayStr também via getDateKey (Manaus)
   const todayStr = getDateKey(new Date());
   const lastDayStr = sortedDays[0];
 
   // Comparação via strings YYYY-MM-DD (imune a timezone)
   const t = new Date(`${todayStr}T12:00:00-04:00`);
-  const l = new Date(`${(lastDayStr || todayStr)}T12:00:00-04:00`);
+  const l = new Date(`${lastDayStr}T12:00:00-04:00`);
   const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
 
   if (diffDays >= 2) {

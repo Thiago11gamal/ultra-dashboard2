@@ -64,11 +64,20 @@ export default function AIGeneratedSimulado() {
   const mountedRef = useRef(true);
   const didMountRestoreRef = useRef(false);
   const stepRef = useRef(step);
+  // ✅ FIX: AbortController para cancelar requests ao desmontar
+  const abortControllerRef = useRef(null);
   useEffect(() => { stepRef.current = step; }, [step]);
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => { 
+      mountedRef.current = false; 
+      // ✅ FIX: Abortar request pendente ao desmontar
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
   }, []);
 
   // FIX: activeGenerationPromise movido para useRef (não mais variável de módulo)
@@ -366,12 +375,23 @@ export default function AIGeneratedSimulado() {
     const activeContestName = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.name || 'Concurso Geral';
 
     // FIX: Usar ref em vez de variável de módulo
+    // ✅ FIX: Criar AbortController para esta geração
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     const localPromise = (async () => {
       try {
         const generated = await generateAIQuestions({
           materia: 'Simulado Personalizado', assunto: assuntoString,
           dificuldade: adaptiveDifficulty, quantidade: 10, contestName: activeContestName,
         });
+
+        // ✅ FIX: Verificar se foi abortado antes de processar
+        if (signal.aborted) return null;
+
         if (!Array.isArray(generated) || generated.length === 0) {
           throw new Error('A IA não gerou questões válidas.');
         }
@@ -383,6 +403,7 @@ export default function AIGeneratedSimulado() {
         }));
         return normalizedQuestions;
       } catch (err) {
+        if (signal.aborted) return null; // ✅ FIX: Ignorar erros de abort
         localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify({
           status: 'error', errorMessage: err.message,
         }));
@@ -436,6 +457,13 @@ export default function AIGeneratedSimulado() {
     const activeContestName = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.name || 'Concurso Geral';
 
     // FIX: Usar ref em vez de variável de módulo
+    // ✅ FIX: Criar AbortController para esta geração
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     const localPromise = (async () => {
       try {
         const generated = await generateAIQuestions({
@@ -443,6 +471,10 @@ export default function AIGeneratedSimulado() {
           dificuldade: currentForm.dificuldade, quantidade: currentForm.quantidade,
           contestName: activeContestName,
         });
+
+        // ✅ FIX: Verificar se foi abortado antes de processar
+        if (signal.aborted) return null;
+
         if (!Array.isArray(generated) || generated.length === 0) {
           throw new Error('A IA não gerou questões válidas.');
         }
@@ -461,6 +493,7 @@ export default function AIGeneratedSimulado() {
         }));
         return normalizedQuestions;
       } catch (error) {
+        if (signal.aborted) return null; // ✅ FIX: Ignorar erros de abort
         localStorage.setItem(AI_GEN_STORAGE_KEY, JSON.stringify({
           status: 'error', form: currentForm, errorMessage: error.message || 'Erro ao gerar questões com IA.', failedAt: Date.now(),
         }));
@@ -474,7 +507,7 @@ export default function AIGeneratedSimulado() {
       if (activeGenerationRef.current === localPromise) {
         activeGenerationRef.current = null;
       }
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || !normalizedQuestions) return;
       isFinishingRef.current = false;
       setQuestions(normalizedQuestions);
       setAnswers({});

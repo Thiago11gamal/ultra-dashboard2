@@ -47,6 +47,14 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             window.addEventListener(event, resetTimer);
         });
 
+        // ✅ FIX: Resetar timer quando a aba volta ao foco
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                resetTimer();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
         return () => {
             // Cleanup on unmount
             if (timerRef.current) {
@@ -55,6 +63,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             events.forEach(event => {
                 window.removeEventListener(event, resetTimer);
             });
+            document.removeEventListener('visibilitychange', handleVisibility);
         };
     }, [resetTimer]);
 }

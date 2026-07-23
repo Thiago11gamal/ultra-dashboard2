@@ -77,11 +77,16 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     }
                     
                     const score = t.score != null ? Number(t.score) : getSafeScore(t, maxScore);
+                    // ✅ FIX: Se score é NaN (t.score null E total 0), pular esta entrada
+                    if (!Number.isFinite(score)) return;
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                     
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
                         ? ((normalizedScore - minScore) / range) * total
                         : (t.correct != null ? Number(t.correct) : ((normalizedScore - minScore) / range) * total);
+
+                    // ✅ FIX: Proteger contra NaN propagando para os acumuladores
+                    if (!Number.isFinite(correctCount)) return;
 
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;

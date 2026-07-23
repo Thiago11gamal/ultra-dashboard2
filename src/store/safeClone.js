@@ -11,7 +11,12 @@ export function safeClone(value, fallback = null) {
       return JSON.parse(JSON.stringify(value));
     } catch (e2) {
       console.error("Total clone failure", e2);
-      return fallback;
+      // ✅ FIX: Retornar objeto/array vazio em vez de null
+      // para evitar crashes em spread operators e property access
+      if (fallback !== null) return fallback;
+      if (Array.isArray(value)) return [];
+      if (value && typeof value === 'object') return {};
+      return null;
     }
   }
 }

@@ -213,7 +213,9 @@ export const formatWeekdayShortPtBR = (date) => {
 export const getFlashcardTodayKey = () => getDateKey(new Date());
 
 export const getFlashcardNextDueKey = (intervalDays = 1) => {
-  const safeDays = Math.max(1, Math.floor(Number(intervalDays) || 1));
+  // ✅ FIX: Validar e clamp intervalDays para prevenir datas absurdas
+  const raw = Number(intervalDays);
+  const safeDays = Math.max(1, Math.min(3650, Math.floor(Number.isFinite(raw) ? raw : 1)));
   const future = addDays(new Date(), safeDays);
   return getDateKey(future);
 };

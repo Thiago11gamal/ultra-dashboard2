@@ -528,6 +528,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const currentStateString = stateStringForSync(appStateRef.current);
     if (lastSyncedRef.current === currentStateString) return;
 
+    // ✅ FIX: Capturar versão atual para verificação otimista
+    const currentVersion = appStateRef.current?.version || 0;
+
     try {
       const syncState = useAppStore.getState().appState;
       const safeguardContest = (contest) => {
@@ -547,6 +550,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         ...syncState, contests: safeContests, trash: safeTrash,
         history: [], _lastBackup: new Date().toISOString()
       }));
+
+      // ✅ FIX: Incluir version no payload para detecção de conflito
+      stateToSave._syncVersion = currentVersion;
+      stateToSave._syncTimestamp = Date.now();
 
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;
@@ -686,6 +693,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             ...freshState, contests: safeContests, trash: safeTrash,
             history: [], _lastBackup: new Date().toISOString()
           }));
+
+          // ✅ FIX: Incluir version no payload para detecção de conflito
+          stateToSave._syncVersion = freshState?.version || 0;
+          stateToSave._syncTimestamp = Date.now();
 
           await setDocWithTimeout(doc(db, 'backups', currentUser.uid), stateToSave, 15000);
           lastSyncedRef.current = currentStateString;

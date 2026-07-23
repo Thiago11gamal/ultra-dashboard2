@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RotateCcw, CloudDownload, LayoutDashboard, Menu } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -61,10 +61,24 @@ const Header = React.memo(function Header({
         setLocalName(displayName);
     }
 
+    const debounceRef = useRef(null);
+
     const handleNameChange = (e) => {
-        setLocalName(e.target.value);
-        if (onUpdateName) onUpdateName(e.target.value);
+        const value = e.target.value;
+        setLocalName(value);
+        // ✅ FIX: Debounce de 500ms para evitar writes excessivos
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            if (onUpdateName) onUpdateName(value);
+        }, 500);
     };
+
+    // Adicionar cleanup:
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, []);
 
 
 

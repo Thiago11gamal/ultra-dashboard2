@@ -1,6 +1,35 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
+// ✅ FIX: Worker singleton compartilhado entre todas as instâncias
+let sharedWorker = null;
+let sharedWorkerRefCount = 0;
+
+function getSharedWorker() {
+  if (!sharedWorker) {
+    try {
+      sharedWorker = new Worker(
+        new URL('../../engine/heatmap.worker.js', import.meta.url),
+        { type: 'module' }
+      );
+    } catch (e) {
+      console.warn("[EvolutionHeatmap] Web Worker not available:", e);
+      return null;
+    }
+  }
+  sharedWorkerRefCount++;
+  return sharedWorker;
+}
+
+function releaseSharedWorker() {
+  sharedWorkerRefCount--;
+  if (sharedWorkerRefCount <= 0 && sharedWorker) {
+    sharedWorker.terminate();
+    sharedWorker = null;
+    sharedWorkerRefCount = 0;
+  }
+}
+
 export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', showOnlyFocus, focusSubjectId }) => {
     const { dates = [], rows = [] } = heatmapData || {};
     
@@ -39,20 +68,16 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
     const workerRef = useRef(null);
 
     useEffect(() => {
+        const worker = getSharedWorker();
+        workerRef.current = worker;
+        
         return () => {
-            if (workerRef.current) workerRef.current.terminate();
+            releaseSharedWorker();
+            workerRef.current = null;
         };
     }, []);
 
     useEffect(() => {
-        if (!workerRef.current) {
-            try {
-                workerRef.current = new Worker(new URL('../../engine/heatmap.worker.js', import.meta.url), { type: 'module' });
-            } catch (e) {
-                console.warn("[EvolutionHeatmap] Web Worker not available, fallback to sync.", e);
-            }
-        }
-        
         const worker = workerRef.current;
         if (!worker) {
             setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
