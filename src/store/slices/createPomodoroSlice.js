@@ -4,8 +4,11 @@ const extractCategoryFromTask = (task) => {
     if (task.category) return task.category;
     const t = task.text || task.title || '';
     const idx = t.indexOf(':');
-    const cat = idx > -1 ? t.substring(0, idx).trim() : t;
-    return (/^\d+$/.test(cat) || !cat) ? 'Geral' : cat;
+    if (idx > -1) {
+        const cat = t.substring(0, idx).trim();
+        return cat || 'Geral';
+    }
+    return 'Geral';
 };
 
 // FIX: Função para limpar o nome da tarefa vindo do Coach (remove brackets, etc)
@@ -26,6 +29,16 @@ const formatTaskName = (task) => {
                 return 'Revisão Geral';
             }
             return action;
+        } else {
+            let cleanTask = taskName
+              .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+              .replace(/\[ALERTA MESTRE\]\s*/i, '')
+              .replace(/^\[(.*?)\]/i, '$1')
+              .trim();
+            if (cleanTask.toLowerCase() === cat.toLowerCase()) {
+                return 'Revisão Geral';
+            }
+            return cleanTask;
         }
     }
     return taskName;

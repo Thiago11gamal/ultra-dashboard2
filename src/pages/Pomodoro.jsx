@@ -547,7 +547,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         };
     }, [activeSubject, categories]);
 
-    const cleanTaskText = (rawText) => {
+    const cleanTaskText = (rawText, catName) => {
         if (!rawText) return { displayTopic: '', secondaryText: '' };
         const fullText = rawText.trim();
         const parts = fullText.split(':');
@@ -556,11 +556,15 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
         
         // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE])
-        actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
+        actionPart = actionPart.replace(/^\[(.*?)\]/i, '$1').trim();
         let topicPart = parts[0] || '';
 
+        if (catName && actionPart.toLowerCase() === catName.toLowerCase()) {
+            actionPart = 'Revisão Geral';
+        }
+
         const displayTopic = actionPart || topicPart || '';
-        let secondaryText = (topicPart && actionPart !== topicPart) ? topicPart : '';
+        let secondaryText = (topicPart && actionPart !== topicPart && actionPart !== 'Revisão Geral') ? topicPart : '';
         
         if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
             secondaryText = '';
@@ -630,7 +634,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
                     <p className="text-xs text-slate-200 leading-relaxed relative z-10">
                         <span className="block mb-1">
-                            <strong className="text-cyan-300">Assunto atual:</strong> {cleanTaskText(activeTaskStats.topic).displayTopic}
+                            <strong className="text-cyan-300">Assunto atual:</strong> {cleanTaskText(activeTaskStats.topic, activeTaskStats.categoryName).displayTopic}
                         </span>
                         <span>
                             O <strong>assunto</strong> foi escolhido por {activeTaskStats.whySelected}. Progresso da <strong>matéria</strong>: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
@@ -671,7 +675,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
                     <h3 className="text-base font-semibold text-white mb-2 leading-tight">
                         {(() => {
-                            const recInfo = cleanTaskText(recommendedTask.text || recommendedTask.title);
+                            const recInfo = cleanTaskText(recommendedTask.text || recommendedTask.title, recommendedTask.catName || recommendedTask.category);
                             return recInfo.displayTopic;
                         })()}
                     </h3>
@@ -726,7 +730,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                             const taskId = task.id || task.text || `fallback-task-${idx}`;
                             const categoryName = task.catName || task.category || 'Sem Categoria';
                             const isActive = activeSubject?.taskId === taskId;
-                            const { displayTopic, secondaryText } = cleanTaskText(task.text || task.title);
+                            const { displayTopic, secondaryText } = cleanTaskText(task.text || task.title, categoryName);
                             
                             return (
                                 <Motion.button
@@ -797,7 +801,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
         
         // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE], [PROTOCOLO PRIORITÁRIO])
         targetText = targetText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
-        targetText = targetText.replace(/^\[(.*?)\]\s*/i, '').trim();
+        targetText = targetText.replace(/^\[(.*?)\]/i, '$1').trim();
 
         let subtitle = targetText.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
         if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
