@@ -8,6 +8,29 @@ const extractCategoryFromTask = (task) => {
     return (/^\d+$/.test(cat) || !cat) ? 'Geral' : cat;
 };
 
+// FIX: Função para limpar o nome da tarefa vindo do Coach (remove brackets, etc)
+const formatTaskName = (task) => {
+    let taskName = task.text || task.title || '';
+    const cat = extractCategoryFromTask(task);
+    if (taskName) {
+        const sepIdx = taskName.indexOf(':');
+        if (sepIdx !== -1) {
+            let action = taskName.slice(sepIdx + 1).trim();
+            action = action
+              .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+              .replace(/\[ALERTA MESTRE\]\s*/i, '')
+              .replace(/^\[(.*?)\]/i, '$1')
+              .trim();
+            
+            if (action.toLowerCase() === cat.toLowerCase()) {
+                return 'Revisão Geral';
+            }
+            return action;
+        }
+    }
+    return taskName;
+};
+
 export const createPomodoroSlice = (set, get) => ({
     setPomodoroActiveSubject: (subject) => {
         set((state) => {
@@ -248,7 +271,7 @@ export const createPomodoroSlice = (set, get) => ({
         const task = tasks[startIndex];
         const subject = {
             taskId: task.id || task.text,
-            task: task.text || task.title,
+            task: formatTaskName(task),
             category: extractCategoryFromTask(task),
             categoryId: task.categoryId || 'default',
             priority: 'high',
@@ -286,7 +309,7 @@ export const createPomodoroSlice = (set, get) => ({
         const nextTask = neuralQueue[currentIndex + 1];
         const nextSubject = {
             taskId: nextTask.id || nextTask.text,
-            task: nextTask.text || nextTask.title,
+            task: formatTaskName(nextTask),
             category: extractCategoryFromTask(nextTask),
             categoryId: nextTask.categoryId || 'default',
             priority: 'high',

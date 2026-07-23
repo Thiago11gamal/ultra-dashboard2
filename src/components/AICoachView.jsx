@@ -47,12 +47,17 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     actionPart = actionPart
       .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
       .replace(/\[ALERTA MESTRE\]\s*/i, '')
-      .replace(/^\[(.*?)\]\s*/i, '')
+      .replace(/^\[(.*?)\]/i, '$1') // ✅ Extrai o conteúdo se estiver entre chaves em vez de deletar
       .replace(
         /CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi,
         ''
       )
       .trim();
+
+    // Se o assunto for idêntico à matéria, exibe Revisão Geral
+    if (actionPart.toLowerCase() === subjectPart.toLowerCase()) {
+        actionPart = 'Revisão Geral';
+    }
 
     let topicPart = subjectPart;
     let systemAlertMessage = null;
@@ -63,7 +68,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
       if (!topicPart) topicPart = rawSubject;
     }
 
-    const displayAssunto = topicPart || actionPart || 'Revisão Recomendada';
+    const displayAssunto = actionPart || topicPart || 'Revisão Recomendada';
     const displayMeta =
       actionPart && actionPart !== displayAssunto ? actionPart : null;
 
