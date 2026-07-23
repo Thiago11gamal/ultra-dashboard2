@@ -41,7 +41,12 @@ function renderRecommendation(text, depth = 0) {
       );
     }
 
-    return <React.Fragment key={`rec-${idx}`}>{part}</React.Fragment>;
+    let cleanPart = part;
+    if (!part.startsWith('**') && !part.startsWith('!!') && !part.startsWith('++')) {
+      cleanPart = part.replace(/\*\*|!!|\+\+/g, '');
+    }
+
+    return <React.Fragment key={`rec-${idx}`}>{cleanPart}</React.Fragment>;
   });
 }
 

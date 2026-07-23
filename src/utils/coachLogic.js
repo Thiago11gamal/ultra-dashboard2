@@ -119,8 +119,8 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
     if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
     
     // ✅ FIX: Usar Math.abs para lidar com firstActivityDate no futuro.
-    // Se a data está no futuro, tratamos como se o aluno tivesse começado hoje.
-    const journeyDays = Math.abs(refTime - firstTime) / 86400000;
+    // ✅ FIX: Se a data está no futuro, tratamos como se o aluno tivesse começado hoje (sem viagens no tempo com valores negativos).
+    const journeyDays = Math.max(0, refTime - firstTime) / 86400000;
     const totalJourneyDays = Math.max(1, journeyDays) + Math.max(0, daysToExam);
     timeDivisor = Math.max(14, totalJourneyDays * 0.15);
   }
@@ -1381,7 +1381,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, 100) * 30 : 0;
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
-            daysSince = 60;
+            daysSince = 30; // Fallback mais brando para datas corrompidas (antes era 60)
         } else {
             daysSince = getDaysDiff(today, data.lastSeen);
         }
