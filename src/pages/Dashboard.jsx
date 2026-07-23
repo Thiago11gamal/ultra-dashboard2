@@ -153,6 +153,7 @@ export default function Dashboard() {
             <PriorityProgress categories={data.categories} />
 
             <div className="mt-4 tour-step-6">
+                {/* showSimuladoStats is intentionally omitted — stats panel shown only on Tasks page */}
                 <Checklist
                     categories={data.categories}
                     onToggleTask={toggleTask}

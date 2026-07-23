@@ -561,7 +561,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
           mean: baseline,
           sd: cat.bayesianSd ?? cat.sd,
           targetScore: (maxScore > 0 ? (debouncedTarget / maxScore) * catMaxScore : debouncedTarget),
-          simulations: Math.min(dynamicSimulationsRef.current || 2000, 3000),
+          simulations: Math.min(dynamicSimulations || 2000, 3000),
           categoryName: cat.name,
           minScore: catMinScore,
           maxScore: catMaxScore,
@@ -616,7 +616,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         };
       })
       .sort((a, b) => a.prob - b.prob);
-  }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays, minScore, modelHealth, modelWeight, rawSimuladoRows, calibrationSummary]);
+  }, [statsData, debouncedTarget, simulationData?.status, maxScore, effectiveSimulateToday, projectDays, minScore, modelHealth, modelWeight, rawSimuladoRows, calibrationSummary, dynamicSimulations]);
 
   useEffect(() => {
     if (!perSubjectProbs || perSubjectProbs.length === 0 || simulationData?.status !== 'ready') return;
@@ -645,7 +645,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         }
       });
     } catch { /* ignore */ }
-  }, [perSubjectProbs, debouncedTarget, simulationData?.status]);
+  }, [perSubjectProbs, debouncedTarget, simulationData?.status, pureStatsHash]);
 
   useEffect(() => {
     if (isFlashing) {

@@ -7,7 +7,6 @@ import { useAppStore } from '../store/useAppStore';
 import { normalize } from '../utils/normalization';
 import { safeClone } from '../store/safeClone.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
-import { sanitizeContest } from '../store/schemas'; // FIX: Import adicionado
 
 const cleanUndefined = (obj, seen = new WeakSet()) => {
   if (obj === null || typeof obj !== 'object') return obj;
@@ -77,7 +76,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return () => { isMountedRef.current = false; };
   }, []);
 
-  const _normName = normalize;
 
   const deduplicateCategoryNames = useCallback((contest) => {
     if (!Array.isArray(contest?.categories)) return contest;
@@ -221,7 +219,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return merged;
   };
 
-  const mergeContestPayload = (localContest, cloudContest, preferCloudBase = false) => {
+  const mergeContestPayload = useCallback((localContest, cloudContest, preferCloudBase = false) => {
     const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
     return {
       ...base,
@@ -239,7 +237,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       historicalCutoffs: [...new Set([...(localContest.historicalCutoffs || []), ...(cloudContest.historicalCutoffs || [])])],
       calibrationEvents: mergeArrays(localContest.calibrationEvents, cloudContest.calibrationEvents),
     };
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const mergeAppState = useCallback((local, cloud, options = {}) => {
     if (!cloud || typeof cloud !== 'object') {
@@ -336,7 +335,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       version: Math.max(local.version ?? 0, cloud.version ?? 0),
       lastUpdated: new Date(Math.max(cloudFullUpdate, localFullUpdate)).toISOString()
     };
-  }, [deduplicateCategoryNames]);
+  }, [deduplicateCategoryNames, mergeContestPayload]);
 
   const stateStringForSync = (state) => {
     if (!state) return '';
@@ -758,7 +757,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [syncTrigger, parityTick, currentUser?.uid]);
+  }, [syncTrigger, parityTick, currentUser?.uid, mergeAppState]);
 
   const forcePull = useCallback(() => {
     if (latestCloudDataRef.current && setAppState && isMountedRef.current) {

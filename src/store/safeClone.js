@@ -55,7 +55,12 @@ export function safeClone(value, fallback = null) {
     try {
       return customDeepClone(value);
     } catch (e2) {
-      console.error("Total clone failure", e2);
+      console.error("[safeClone] CRITICAL: Total clone failure — data may be lost!", {
+        type: typeof value,
+        isArray: Array.isArray(value),
+        keys: value && typeof value === 'object' ? Object.keys(value).slice(0, 5) : 'N/A',
+        error: e2.message
+      });
       // ✅ FIX: Retornar objeto/array vazio em vez de null
       // para evitar crashes em spread operators e property access
       if (fallback !== null) return fallback;

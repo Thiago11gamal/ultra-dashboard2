@@ -43,11 +43,7 @@ export default function Flashcards() {
 
   const selectedDeck = useMemo(() => decks.find(d => d.id === selectedDeckId), [decks, selectedDeckId]);
 
-  const dueCards = useMemo(() => {
-    if (!selectedDeck || !selectedDeck.cards) return [];
-    const safeCards = Array.isArray(selectedDeck.cards) ? selectedDeck.cards : Object.values(selectedDeck.cards || {});
-    return safeCards.filter(c => isFlashcardDue(c.due));
-  }, [selectedDeck]);
+
 
   function persistDecks(nextDecks) {
     setData(contest => ({
