@@ -158,12 +158,30 @@ export const SubtopicsPerformanceChart = React.memo(({
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
                     
-                    const score = getSafeScore(t, maxScore);
-                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
-                    const range = Math.max(1e-9, maxScore - minScore);
-                    const correctCount = total > 0
-                        ? ((normalizedScore - minScore) / range) * total
+                    const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+                    const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore - 1);
+
+                    const rawScore = getSafeScore(t, safeMaxScore);
+
+                    const score = Number.isFinite(rawScore)
+                      ? rawScore
+                      : safeMinScore;
+
+                    const normalizedScore = Math.max(
+                      safeMinScore,
+                      Math.min(safeMaxScore, score)
+                    );
+
+                    const range = Math.max(1e-9, safeMaxScore - safeMinScore);
+
+                    const rawCorrect =
+                      total > 0
+                        ? ((normalizedScore - safeMinScore) / range) * total
                         : (Number(t.correct) || 0);
+
+                    const correctCount = Number.isFinite(rawCorrect)
+                      ? rawCorrect
+                      : 0;
 
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
