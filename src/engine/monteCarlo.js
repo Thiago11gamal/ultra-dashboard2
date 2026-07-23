@@ -635,6 +635,8 @@ export function simulateNormalDistribution(
         ci95VisualLow: displayLow,
         ci95VisualHigh: displayHigh,
         ci95VisualClamped: wasVisualCIClamped,
+        ciConformalLow: statisticalCi95Low,
+        ciConformalHigh: statisticalCi95High,
         currentMean: safeCurrentMean,
         projectedMean,
         projectedSD,
