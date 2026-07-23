@@ -555,21 +555,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       stateToSave._syncVersion = currentVersion;
       stateToSave._syncTimestamp = Date.now();
 
+      const emergencyState = { ...stateToSave };
+      emergencyState._syncVersion = currentVersion;
+      emergencyState._syncTimestamp = Date.now();
+
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;
 
-      runTransaction(db, async (transaction) => {
-        const docRef = doc(db, 'backups', currentUser.uid);
-        const docSnap = await transaction.get(docRef);
-        const cloudData = docSnap.exists() ? docSnap.data() : null;
-        let mergedState = stateToSave;
-        if (cloudData) {
-          mergedState = mergeAppState(stateToSave, cloudData, { nonDestructive: true });
-        }
-        mergedState._syncVersion = currentVersion;
-        mergedState._syncTimestamp = Date.now();
-        transaction.set(docRef, mergedState);
-      })
+      setDoc(doc(db, 'backups', currentUser.uid), emergencyState)
         .then(() => {
           lastSyncedRef.current = currentStateString;
           try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
@@ -666,26 +659,28 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
       const setDocWithTimeout = (docRef, data, timeoutMs = 15000) => {
         return new Promise((resolve, reject) => {
-          let settled = false;
+          let isTimeout = false;
           const timer = setTimeout(() => {
-            if (!settled) { settled = true; reject(new Error('Firestore timeout')); }
+            isTimeout = true;
+            reject(new Error('Firestore timeout'));
           }, timeoutMs);
           
           runTransaction(db, async (transaction) => {
+            if (isTimeout) throw new Error('AbortTransaction');
             const docSnap = await transaction.get(docRef);
+            if (isTimeout) throw new Error('AbortTransaction');
+            
             const cloudData = docSnap.exists() ? docSnap.data() : null;
-            let mergedState = data;
-            if (cloudData) {
-              mergedState = mergeAppState(data, cloudData, { nonDestructive: true });
-            }
+            let mergedState = cloudData ? mergeAppState(data, cloudData, { nonDestructive: true }) : { ...data };
+            
             mergedState._syncVersion = data._syncVersion || 0;
             mergedState._syncTimestamp = Date.now();
             transaction.set(docRef, mergedState);
           })
           .then(() => {
-            if (!settled) { settled = true; clearTimeout(timer); resolve(); }
+            if (!isTimeout) { clearTimeout(timer); resolve(); }
           }).catch(err => {
-            if (!settled) { settled = true; clearTimeout(timer); reject(err); }
+            if (!isTimeout) { clearTimeout(timer); reject(err); }
           });
         });
       };

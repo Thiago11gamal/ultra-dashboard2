@@ -10,6 +10,11 @@ function customDeepClone(obj, seen = new WeakMap()) {
   
   if (obj instanceof Date) return new Date(obj.getTime());
   if (obj instanceof RegExp) return new RegExp(obj.source, obj.flags);
+  
+  if (typeof ArrayBuffer !== 'undefined' && (obj instanceof ArrayBuffer || ArrayBuffer.isView(obj))) return obj;
+  if (typeof Blob !== 'undefined' && obj instanceof Blob) return obj;
+  if (typeof File !== 'undefined' && obj instanceof File) return obj;
+  
   if (obj instanceof Map) {
     const map = new Map();
     seen.set(obj, map);

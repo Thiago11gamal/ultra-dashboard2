@@ -19,7 +19,12 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
     }, [logout]);
 
     const resetTimer = useCallback(() => {
-        lastActivityRef.current = Date.now();
+        const now = Date.now();
+        lastActivityRef.current = now;
+        try {
+            localStorage.setItem('ultra-last-activity', now.toString());
+        } catch (e) {}
+        
         if (timerRef.current) {
             clearTimeout(timerRef.current);
         }
@@ -49,14 +54,24 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             window.addEventListener(event, resetTimer);
         });
 
-        // ✅ FIX: Computar tempo real ao voltar do background
+        // ✅ FIX: Computar tempo real ao voltar do background cruzando com localStorage
         const handleVisibility = () => {
             if (document.visibilityState === 'visible') {
-                const elapsed = Date.now() - (lastActivityRef.current || Date.now());
+                let lastAct = lastActivityRef.current || Date.now();
+                try {
+                    const stored = localStorage.getItem('ultra-last-activity');
+                    if (stored) {
+                        const storedTime = parseInt(stored, 10);
+                        if (storedTime > lastAct) lastAct = storedTime;
+                    }
+                } catch (e) {}
+
+                const elapsed = Date.now() - lastAct;
                 if (elapsed >= timeoutMs) {
                     logger.log('[IdleLogout] Aba voltou ao foco e o tempo estava expirado. Deslogando...');
                     if (logoutRef.current) logoutRef.current();
                 } else {
+                    lastActivityRef.current = lastAct; // Sync ref with storage
                     resetTimer();
                 }
             }
