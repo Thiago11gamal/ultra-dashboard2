@@ -1000,13 +1000,10 @@ export function monteCarloSimulation(
         confidence: sortedHistory.length < 5 ? 'low' : sortedHistory.length < 15 ? 'medium' : 'high',
         // NEW: non-linear trend availability
         trendType: typeof trendType !== 'undefined' ? trendType : 'linear',
-        // NEW: Conformal intervals
-        ciConformalLow: conformal.lower,
-        ciConformalHigh: conformal.upper,
         diagnostics: {
             trendType: typeof trendType !== 'undefined' ? trendType : 'linear',
             effectiveDriftSlope: typeof effectiveDriftSlope !== 'undefined' ? effectiveDriftSlope : 0,
-            conformalCoverage: 0.9,
+            conformalCoverage: 0.95,
             simulationCount: safeSimulations,
             historicalMean: historicalMean || null,
             effectiveN: Math.max(1, sortedHistory.length)
