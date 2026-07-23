@@ -5,6 +5,7 @@ import {
     LabelList, Brush
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
+import { normalizeDate } from '../../../utils/dateHelper';
 
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke } = props;
@@ -38,7 +39,14 @@ export function CompareChart({
         glow: `cc_glow-${baseId}`
     }), [baseId]);
 
-    const chartData = React.useMemo(() => Array.isArray(filteredChartData) ? filteredChartData : [], [filteredChartData]);
+    const chartData = React.useMemo(() => {
+        const rawData = Array.isArray(filteredChartData) ? filteredChartData : [];
+        return [...rawData].sort((a, b) => {
+            const dateA = a.date ? (normalizeDate(a.date)?.getTime() ?? 0) : 0;
+            const dateB = b.date ? (normalizeDate(b.date)?.getTime() ?? 0) : 0;
+            return dateA - dateB;
+        });
+    }, [filteredChartData]);
 
     const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore
