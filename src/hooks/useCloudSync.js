@@ -209,6 +209,18 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return Object.values(mergedCatsMap);
   };
 
+  const mergeCoachPlanner = (localPlanner, cloudPlanner) => {
+    if (!localPlanner && !cloudPlanner) return undefined;
+    const local = localPlanner || {};
+    const cloud = cloudPlanner || {};
+    const allDays = new Set([...Object.keys(local), ...Object.keys(cloud)]);
+    const merged = {};
+    allDays.forEach(day => {
+      merged[day] = mergeArrays(local[day], cloud[day]);
+    });
+    return merged;
+  };
+
   const mergeContestPayload = (localContest, cloudContest, preferCloudBase = false) => {
     const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
     return {
@@ -218,6 +230,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
       simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),
       monteCarloHistory: mergeMonteCarloHistory(localContest.monteCarloHistory, cloudContest.monteCarloHistory),
+      coachPlan: mergeArrays(localContest.coachPlan, cloudContest.coachPlan),
+      coachPlanner: mergeCoachPlanner(localContest.coachPlanner, cloudContest.coachPlanner),
+      flashcardDecks: mergeArrays(localContest.flashcardDecks, cloudContest.flashcardDecks),
+      agenda: mergeArrays(localContest.agenda, cloudContest.agenda),
+      settings: { ...(cloudContest.settings || {}), ...(localContest.settings || {}) },
+      mcWeights: { ...(cloudContest.mcWeights || {}), ...(localContest.mcWeights || {}) },
+      historicalCutoffs: [...new Set([...(localContest.historicalCutoffs || []), ...(cloudContest.historicalCutoffs || [])])],
+      calibrationEvents: mergeArrays(localContest.calibrationEvents, cloudContest.calibrationEvents),
     };
   };
 
@@ -630,7 +650,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         return new Promise((resolve, reject) => {
           let settled = false;
           const timer = setTimeout(() => {
-            if (!settled) { settled = true; resolve(); }
+            if (!settled) { settled = true; reject(new Error('Firestore timeout')); }
           }, timeoutMs);
           setDoc(docRef, data).then(() => {
             if (!settled) { settled = true; clearTimeout(timer); resolve(); }

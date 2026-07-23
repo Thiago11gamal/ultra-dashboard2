@@ -159,10 +159,11 @@ export const createStudySlice = (set, get) => ({
       const normSubject = (subject || '').toLowerCase().trim();
 
       if (activeData.categories && normSubject) {
+        const normCatName = (name) => (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
         const match = activeData.categories.find(c =>
-          (c.name || '').toLowerCase().trim() === normSubject ||
-          (c.name || '').toLowerCase().includes(normSubject) ||
-          normSubject.includes((c.name || '').toLowerCase())
+          normCatName(c.name) === normSubject
+        ) || activeData.categories.find(c =>
+          normCatName(c.name).startsWith(normSubject) || normSubject.startsWith(normCatName(c.name))
         );
 
         if (match) categoryId = match.id;

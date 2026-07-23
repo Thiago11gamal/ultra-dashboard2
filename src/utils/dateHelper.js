@@ -73,16 +73,16 @@ export const getLocalMidnight = (date = new Date()) => {
   try {
     const dateKey = getDateKey(date);
     if (!dateKey) {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      return d;
+      // Fallback: extrair componentes UTC e ancorar em Manaus (UTC-4)
+      const utc = new Date(date);
+      return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
     }
     // ✅ FIX: Offset fixo de Manaus (-04:00) em vez de timezone local
     return new Date(`${dateKey}T00:00:00-04:00`);
   } catch {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    return d;
+    // Fallback: extrair componentes UTC e ancorar em Manaus (UTC-4)
+    const utc = new Date(date);
+    return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
   }
 };
 

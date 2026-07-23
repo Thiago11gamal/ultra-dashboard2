@@ -105,7 +105,7 @@ export default function Stats() {
                             </div>
                         )}
 
-                        <WeeklyAnalysis studyLogs={studyLogs} categories={categories} />
+                        {hasStudyLogs && <WeeklyAnalysis studyLogs={studyLogs} categories={categories} />}
                     </>
                 )}
             </div>

@@ -136,7 +136,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     const getDisplayKey = (dateObj) => {
         try {
             return new Intl.DateTimeFormat('en-GB', {
-                // timeZone removed to use user's local time instead of hard-coded Manaus (fixes date bugs for other regions)
+                timeZone: 'America/Manaus',
                 day: '2-digit', month: '2-digit'
             }).format(dateObj);
         } catch {
