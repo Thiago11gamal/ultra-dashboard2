@@ -38,6 +38,30 @@ export const aliases = {
     'direito civil': ['civil', 'dir. civil', 'd. civil', 'dc', 'dir civil'],
     'direito processual civil': ['processo civil', 'dpc', 'dir. proc. civil', 'dir proc civil']
 };
+
+/**
+ * Verifica se duas matérias correspondem, considerando o nome normalizado e os aliases.
+ */
+export const isSubjectMatch = (name1, name2) => {
+    if (!name1 || !name2) return false;
+    const n1 = normalize(name1);
+    const n2 = normalize(name2);
+    if (n1 === n2) return true;
+    
+    // Check if n2 is an alias of n1 (where n1 is a canonical key)
+    if (aliases[n1] && aliases[n1].some(a => normalize(a) === n2)) return true;
+    // Check if n1 is an alias of n2 (where n2 is a canonical key)
+    if (aliases[n2] && aliases[n2].some(a => normalize(a) === n1)) return true;
+    
+    // Check if both are aliases of the same canonical key
+    for (const [canonical, aliasList] of Object.entries(aliases)) {
+        const hasN1 = n1 === canonical || aliasList.some(a => normalize(a) === n1);
+        const hasN2 = n2 === canonical || aliasList.some(a => normalize(a) === n2);
+        if (hasN1 && hasN2) return true;
+    }
+    
+    return false;
+};
 /**
  * Normaliza um valor evitando divisão por zero e garantindo limites entre 0 e 1.
  * Se o máximo e o mínimo forem iguais (ex: primeira semana do aluno), 

@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { safeDateParse as _safeDateParse, normalizeDate, getDateKey } from './dateHelper.js';
-import { normalize } from './normalization.js';
+import { normalize, isSubjectMatch } from './normalization.js';
 import { computeRollingCalibrationParams } from './calibration.js';
 import { 
     deriveAdaptiveRiskThresholds, 
@@ -306,9 +306,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         }
     }
 
-    const catNormalized = normalize(safeCategory?.name || "Sem Nome");
     const safeSimulados = Array.isArray(simulados) ? simulados : Object.values(simulados || {});
-    let relevantSimulados = safeSimulados.filter(s => s && normalize(s.subject || "") === catNormalized);
+    let relevantSimulados = safeSimulados.filter(s => s && isSubjectMatch(s.subject || "", safeCategory?.name || ""));
     relevantSimulados.sort((a, b) => {
         const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
         const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
@@ -1258,8 +1257,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
     const tasks = category.tasks || [];
     const topicMap = {};
 
-    const catNorm = normalize(category.name);
-    const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNorm);
+    const relevantSimulados = simulados.filter(s => isSubjectMatch(s.subject, category.name));
     const categorySimuladoCount = relevantSimulados.length;
 
     const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
