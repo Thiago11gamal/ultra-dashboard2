@@ -30,10 +30,10 @@ export function PomodoroProgress({
                             <span className="text-[#2d1a12]/50">/ {targetCycles}</span>
                         </div>
                         <button onClick={() => {
-                            const newTarget = targetCycles + 1;
+                            const newTarget = Math.min(20, targetCycles + 1);
                             setTargetCycles(newTarget);
                             try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch { /* ignore */ }
-                        }} disabled={!activeSubject} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20">+</button>
+                        }} disabled={!activeSubject || targetCycles >= 20} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20 disabled:opacity-40">+</button>
                     </div>
                 </div>
 

@@ -482,7 +482,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             (categories || []).filter(Boolean).forEach(cat => {
                 (cat.tasks || []).filter(t => t && !t.completed).forEach(t => {
                     const normalizedId = t.id || t.text;
-                    if (!normalizedId || seen.has(normalizedId) || base.length >= 6 || normalizedId === currentTaskId) return;
+                    if (!normalizedId || seen.has(normalizedId) || base.length >= 6 || normalizedId === activeSubject?.taskId) return;
                     base.push({ ...t, id: normalizedId, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
                     seen.add(normalizedId);
                 });
@@ -490,7 +490,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         }
 
         return base.slice(0, 6);
-    }, [highPriorityTasks, categories]);
+    }, [highPriorityTasks, categories, activeSubject]);
 
     const activeTaskStats = useMemo(() => {
         if (!activeSubject) return null;
@@ -1030,15 +1030,16 @@ export default function Pomodoro() {
         };
     }, []);
 
-    const handleExit = (options = {}) => {
-        const currentSource = options.source || resolveSessionSource(activeSubject?.source);
+    const handleExit = useCallback((options = {}) => {
+        const subjectSnapshot = options._subjectSnapshot || activeSubject;
+        const currentSource = options.source || resolveSessionSource(subjectSnapshot?.source);
 
-        if (activeSubject) {
+        if (subjectSnapshot) {
             setData(prev => ({
                 ...prev,
-                categories: prev.categories?.map(c => c.id === activeSubject.categoryId ? {
+                categories: prev.categories?.map(c => c.id === subjectSnapshot.categoryId ? {
                     ...c,
-                    tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t.id === activeSubject.taskId ? { ...t, status: undefined } : t)
+                    tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t.id === subjectSnapshot.taskId ? { ...t, status: undefined } : t)
                 } : c)
             }));
         }
@@ -1046,7 +1047,7 @@ export default function Pomodoro() {
         setPomodoroActiveSubject(null);
         const returnPath = resolveReturnPath(currentSource, Boolean(options.forceDashboard));
         navigate(returnPath, { replace: Boolean(options.forceDashboard) });
-    };
+    }, [activeSubject, setData, setPomodoroActiveSubject, navigate]);
 
     const handleStartTask = (task, forcedSessionId = null, source = 'pomodoro') => {
         const sessionId = forcedSessionId || Date.now().toString();
@@ -1094,7 +1095,7 @@ export default function Pomodoro() {
         if (!wasNatural && !(neuralMode || currentSubject?.source === 'neural_core')) {
             showToast('Sessão pulada. Salvando progresso e retornando...', 'info');
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-            completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 400);
+            completionTimeoutRef.current = setTimeout(() => { handleExit({ _subjectSnapshot: currentSubject }); }, 400);
             return;
         }
 
@@ -1146,7 +1147,7 @@ export default function Pomodoro() {
                 }
 
                 showToast('Sessão finalizada! Retornando ao menu de origem...', 'info');
-                handleExit({ source: sourceAfterFinish });
+                handleExit({ source: sourceAfterFinish, _subjectSnapshot: currentSubject });
             }, 1000);
             return;
         } else {

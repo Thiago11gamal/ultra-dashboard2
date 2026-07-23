@@ -223,6 +223,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 transitionTimeoutRef.current = null;
             }
             setIsTransitioning(false);
+            isTransitioningRef.current = false;
         };
     }, []);
     const showToast = useToast();
@@ -359,28 +360,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         }
     }, [mode, sessions, targetCycles, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak]);
 
-    const [uiPosition] = useState(() => {
-        try {
-            const saved = localStorage.getItem('pomodoroPosition');
-            return saved !== null ? JSON.parse(saved) : { x: 0, y: 0 };
-        } catch (error) {
-            console.warn('[Shield] Failed to load UI position:', error);
-            return { x: 0, y: 0 };
-        }
-    });
 
-    // 🛡️ [SHIELD-04] Persistência de UI
-    useEffect(() => {
-        try { localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(isLayoutLocked)); } catch (error) {
-            console.error('Failed to save pomodoroLayoutLocked:', error);
-        }
-    }, [isLayoutLocked]);
-
-    useEffect(() => {
-        try { localStorage.setItem('pomodoroPosition', JSON.stringify(uiPosition)); } catch (error) {
-            console.error('Failed to save pomodoroPosition:', error);
-        }
-    }, [uiPosition]);
 
 
     // Sincronização Multi-Aba Robusta (Protocolo V2) delegada para o Hook Customizado

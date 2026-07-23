@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
-import { AlertTriangle, X, Check, Info } from 'lucide-react';
+import { AlertTriangle, X, Check, Info, Play } from 'lucide-react';
 
 const TYPE_CONFIG = {
     danger: {
