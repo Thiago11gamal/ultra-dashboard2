@@ -17,7 +17,7 @@ export default function Sessions() {
     const deleteSession = useAppStore(state => state.deleteSession);
     const deleteSimulado = useAppStore(state => state.deleteSimulado);
  
-    if (!data) {
+    if (!data?.studySessions?.length && !data?.simuladoRows?.length) {
         return (
             <PageErrorBoundary pageName="Sessões">
                 <div className="min-h-[50vh] flex items-center justify-center text-center px-4">

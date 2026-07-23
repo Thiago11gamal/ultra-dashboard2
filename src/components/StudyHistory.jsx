@@ -98,10 +98,14 @@ const StudyHistory = React.memo(function StudyHistory({
 
         // Selected week's data (group by day)
         const weekData = [];
+        const weekSessions = [];
         for (let i = 0; i < 7; i++) {
             const date = new Date(startOfWeek);
             date.setDate(startOfWeek.getDate() + i);
             const dateStr = date.toDateString();
+
+            const daySessions = sessionsByDateStr[dateStr]?.sessions || [];
+            weekSessions.push(...daySessions);
 
             weekData.push({
                 day: getDayName(date),
@@ -119,7 +123,7 @@ const StudyHistory = React.memo(function StudyHistory({
         // BUG-110: Garantir que minutes seja numérico antes de Math.max
         const maxDayMinutes = Math.max(...weekData.map(d => Number(d.minutes) || 0), 30);
 
-        return { todaySessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes, weekStart: startOfWeek, weekEnd: refWeekEnd };
+        return { todaySessions, weekSessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes, weekStart: startOfWeek, weekEnd: refWeekEnd };
     }, [studySessions, selectedWeekOffset, currentTime]);
 
     // Get category name by ID
@@ -293,16 +297,16 @@ const StudyHistory = React.memo(function StudyHistory({
                         </div>
                     </div>
 
-                    {/* Today's Sessions - Enhanced */}
+                    {/* Week Sessions - Enhanced */}
                     <div className="w-full glass p-4">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
                             <Zap size={14} />
-                            Sessões de Hoje ({stats.todaySessions.length})
+                            Sessões da Semana ({stats.weekSessions.length})
                         </h3>
 
-                        {stats.todaySessions.length > 0 ? (
+                        {stats.weekSessions.length > 0 ? (
                             <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar">
-                                {[...stats.todaySessions].reverse().map((session, idx) => (
+                                {[...stats.weekSessions].sort((a, b) => new Date(normalizeDate(b.startTime) || 0).getTime() - new Date(normalizeDate(a.startTime) || 0).getTime()).map((session, idx) => (
                                     <div key={session.id || idx} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
                                         <div className="flex items-center gap-2.5">
                                             <span className="text-lg">{getCategoryIcon(session.categoryId)}</span>
@@ -353,7 +357,7 @@ const StudyHistory = React.memo(function StudyHistory({
                         ) : (
                             <div className="text-center py-6 text-slate-500">
                                 <Clock size={28} className="mx-auto mb-2 opacity-30" />
-                                <p className="text-sm">Nenhuma sessão hoje ainda</p>
+                                <p className="text-sm">Nenhuma sessão nesta semana ainda</p>
                                 <p className="text-xs mt-1 text-slate-600">Use o Pomodoro para começar!</p>
                             </div>
                         )}
