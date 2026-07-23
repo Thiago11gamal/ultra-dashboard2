@@ -459,7 +459,7 @@ export default React.memo(function EvolutionChart({
                 setMcResult({ ...result, categoryId: focusCategory?.id });
 
                 const lastDateStr = hist[hist.length - 1].date;
-                const lastDate = new Date(`${lastDateStr}T12:00:00`);
+                const lastDate = new Date(`${lastDateStr}T12:00:00-04:00`);
 
                 if (Number.isNaN(lastDate.getTime())) return;
 
@@ -733,10 +733,10 @@ export default React.memo(function EvolutionChart({
         .recharts-legend-item-text { font-size: 11px !important; font-weight: 600; }
             `}</style>
 
-            <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
+            <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
                 <KpiCard value={safeGlobalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
                 <KpiCard value={safeGlobalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
-                <div className="col-span-2 sm:col-span-1">
+                <div className="col-span-1">
                     <KpiCard
                         value={`${safeGlobalMetrics.globalAccuracy.toFixed(2)}%`}
                         label="Precisão Global" color="#fb923c" icon="⚡"
@@ -1027,7 +1027,7 @@ export default React.memo(function EvolutionChart({
                 </div>
             )}
 
-            <div className="pt-20 relative z-0">
+            <div className="pt-10 relative z-0">
             {(() => {
                 const typeColors = {
                     success: {
@@ -1102,7 +1102,7 @@ export default React.memo(function EvolutionChart({
 
                             {insight.advice && (
                                 <div className="w-full lg:w-[350px] shrink-0 mt-2 lg:mt-0">
-                                    <div className={`rounded-md bg-black/60 border ${colors.border} p-6 sm:p-8 relative shadow-2xl group-hover:bg-black/80 transition-all duration-500 overflow-hidden`}>
+                                    <div className={`rounded-2xl bg-black/60 border ${colors.border} p-6 sm:p-8 relative shadow-2xl group-hover:bg-black/80 transition-all duration-500 overflow-hidden`}>
                                         <div className={`absolute -right-12 -top-12 w-48 h-48 ${colors.glow} opacity-10 blur-3xl pointer-events-none`} />
                                         
                                         <div className="flex items-center gap-2 mb-3 relative z-10">
@@ -1136,10 +1136,12 @@ export default React.memo(function EvolutionChart({
                                 <span className="opacity-60">Confiança do Modelo:</span>
                                 <span className="text-slate-300 bg-white/5 px-2 py-0.5 rounded border border-white/5 tracking-normal">{timeline.length >= 2 ? `${Math.min(99.9, 85 + Math.min(14.9, timeline.length * 0.8)).toFixed(1)}%` : '—'}</span>
                             </div>
-                            <div className="ml-auto hidden md:flex items-center gap-2 opacity-40 italic lowercase font-medium tracking-normal">
-                                <Loader2 size={10} className="animate-spin" />
-                                processando dados históricos em tempo real
-                            </div>
+                            {mcLoading && (
+                                <div className="ml-auto hidden md:flex items-center gap-2 opacity-60 text-indigo-300 italic lowercase font-medium tracking-normal">
+                                    <Loader2 size={10} className="animate-spin" />
+                                    processando projeções em tempo real
+                                </div>
+                            )}
                         </div>
                     </div>
                 );

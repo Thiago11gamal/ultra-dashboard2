@@ -53,7 +53,7 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                         <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
                             <BarChart
                                 data={chartData}
-                                margin={{ top: 20, right: 20, left: 10, bottom: 60 }}
+                                margin={{ top: 20, right: 20, left: 10, bottom: 85 }}
                                 barCategoryGap="25%"
                             >
                                 <defs>

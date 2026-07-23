@@ -50,7 +50,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         const topicMap = {};
 
         categories.forEach(cat => {
-            const history = Object.values(cat.simuladoStats?.history || {});
+            const historyRaw = cat.simuladoStats?.history;
+            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
             if (!history.length) return;
 
             const recentHistory = history.filter(h => {
@@ -122,7 +123,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         const rawData = categories.map(cat => {
             let total = 0;
             let correct = 0;
-            const history = Object.values(cat.simuladoStats?.history || {});
+            const historyRaw = cat.simuladoStats?.history;
+            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
 
             const recentHistory = history.filter(h => {
                 const d = normalizeDate(h.date);
@@ -213,8 +215,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)} minWidth={1}>
                                 <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 60, left: -10, bottom: 0 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.1)" horizontal={false} />
-                                    <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={80} />
+                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} allowDecimals={false} />
+                                    <YAxis type="category" dataKey="name" stroke="#94a3b8" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} width={80} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Bar dataKey="displayValue" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4}>
                                         {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
@@ -252,8 +254,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)} minWidth={1}>
                                 <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 60, left: -5, bottom: 0 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.1)" horizontal={false} />
-                                    <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={85} />
+                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} allowDecimals={false} />
+                                    <YAxis type="category" dataKey="name" stroke="#94a3b8" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} width={85} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => {
                                         const total = Number(props?.payload?.total) || 0;
                                         const correct = Number(props?.payload?.correct) || 0;

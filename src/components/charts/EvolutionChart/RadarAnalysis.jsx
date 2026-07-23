@@ -103,7 +103,13 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             formatter={(v) => [`${formatValue(v)}${unit}`, 'Nível']} 
                             contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#e2e8f0', fontSize: '11px' }} 
                         />
-                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '8px', color: '#64748b' }} />
+                        <Legend 
+                            payload={[
+                                { value: 'Meta', type: 'line', id: 'meta', color: '#22c55e' },
+                                { value: 'Seu Nível', type: 'line', id: 'nivel', color: '#6366f1' }
+                            ]}
+                            wrapperStyle={{ fontSize: '10px', paddingTop: '8px', color: '#64748b' }} 
+                        />
                     </RadarChart>
                 </ResponsiveContainer>
             </div>

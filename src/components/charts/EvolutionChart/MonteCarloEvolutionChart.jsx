@@ -191,7 +191,7 @@ export const MonteCarloEvolutionChart = ({
 
     return (
         <div className="w-full min-h-[400px] flex flex-col py-4 mt-2">
-            <div className="flex items-center justify-between mb-4 px-2 relative z-10">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-2 relative z-10">
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
                         <TrendingUp size={16} className="text-blue-400" />
