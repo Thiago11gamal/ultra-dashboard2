@@ -41,9 +41,9 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
     );
 });
 
+const AVAILABLE_TABS = ['insights', 'analytics'];
+
 export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
-    const availableTabs = ['insights', 'analytics'];
-    
     // Fixo: Hooks não devem ser chamados dentro de literais de objeto
     const insightsRef = useRef(null);
     const analyticsRef = useRef(null);
@@ -62,9 +62,9 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     }, [activeTab]);
 
     const activateTab = useCallback((tabKey) => {
-        if (!availableTabs.includes(tabKey)) return;
+        if (!AVAILABLE_TABS.includes(tabKey)) return;
         onChangeTab(tabKey);
-    }, [onChangeTab]); // Manteve referência estável para não invalidar memoização
+    }, [onChangeTab]);
 
     const handleTabKeyDown = (event) => {
         const isLeft = event.key === 'ArrowLeft';
@@ -75,23 +75,23 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         if (!isLeft && !isRight && !isHome && !isEnd) return;
 
         event.preventDefault();
-        const currentIndex = availableTabs.indexOf(activeTab);
+        const currentIndex = AVAILABLE_TABS.indexOf(activeTab);
 
         if (isHome) {
-            activateTab(availableTabs[0]);
+            activateTab(AVAILABLE_TABS[0]);
             return;
         }
 
         if (isEnd) {
-            activateTab(availableTabs[availableTabs.length - 1]);
+            activateTab(AVAILABLE_TABS[AVAILABLE_TABS.length - 1]);
             return;
         }
 
         const safeIndex = currentIndex >= 0 ? currentIndex : 0;
         const dir = isRight ? 1 : -1;
-        let nextIndex = (safeIndex + dir + availableTabs.length) % availableTabs.length;
+        let nextIndex = (safeIndex + dir + AVAILABLE_TABS.length) % AVAILABLE_TABS.length;
         
-        activateTab(availableTabs[nextIndex]);
+        activateTab(AVAILABLE_TABS[nextIndex]);
     };
 
     return (

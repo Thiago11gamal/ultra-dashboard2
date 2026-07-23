@@ -28,7 +28,7 @@ import { useAuth } from '../context/useAuth';
 import './Sidebar.css';
 import { del } from 'idb-keyval';
 import { useAppStore } from '../store/useAppStore';
-import { getContestDisplayName } from './sidebarUtils';
+import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
 
 const SECTIONS = [
     {
@@ -290,11 +290,8 @@ const Sidebar = React.memo(function Sidebar({
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
                                     
-                                    // FIX: Tratamento rigoroso para rotas-base ('/'), evitando que queries quebrem a indicação de aba ativa.
                                     const currentPath = location.pathname;
-                                    const isActive = item.path === '/' 
-                                        ? currentPath === '/' || currentPath.startsWith('/?') || currentPath.startsWith('/#')
-                                        : currentPath.startsWith(item.path);
+                                    const isActive = isMenuItemActive(currentPath, item.path);
 
                                     return (
                                         <Link
