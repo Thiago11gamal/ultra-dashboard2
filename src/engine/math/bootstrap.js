@@ -106,11 +106,11 @@ export function bootstrapCI(samples, statFn, {
  * Gives distribution-free coverage guarantees (approximate).
  * Use on historical residuals (actual - predicted).
  */
-export function conformalPredictionInterval(residuals = [], alpha = 0.1, pointEstimate = 0) {
+export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointEstimate = 0) {
   const clean = residuals.map(Number).filter(Number.isFinite);
   if (clean.length < 3) {
     // Fallback to normal-like
-    return { lower: pointEstimate - 8, upper: pointEstimate + 8, coverage: 0.9 };
+    return { lower: pointEstimate - 8, upper: pointEstimate + 8, coverage: 0.95 };
   }
   const sortedRes = [...clean].sort((a, b) => a - b);
   const n = sortedRes.length;

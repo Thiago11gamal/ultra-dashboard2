@@ -976,7 +976,7 @@ export function monteCarloSimulation(
 
     // NEW: Conformal intervals for more robust, distribution-free CIs
     const mcResiduals = results.map(r => r - meanResult);
-    const conformal = conformalPredictionInterval(mcResiduals, 0.1, meanResult); // ~90% coverage
+    const conformal = conformalPredictionInterval(mcResiduals, 0.05, meanResult); // 95% coverage
 
     return {
         // FIX #2: Valores brutos com precisão completa. toFixed removido do motor.
@@ -992,6 +992,8 @@ export function monteCarloSimulation(
         sd: finalSD,
         ci95Low: conformal.lower ?? getPercentile(results, 0.025, true),
         ci95High: conformal.upper ?? getPercentile(results, 0.975, true),
+        ciConformalLow: conformal.lower ?? getPercentile(results, 0.025, true),
+        ciConformalHigh: conformal.upper ?? getPercentile(results, 0.975, true),
         currentMean: baselineScore,
         drift: (drift * 30),
         volatility,
