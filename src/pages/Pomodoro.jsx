@@ -1,5 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
 import { getLocalMidnight, getDateKey } from '../utils/dateHelper';
 import { motion as Motion } from 'framer-motion';
