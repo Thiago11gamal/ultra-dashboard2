@@ -435,7 +435,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
     const highPriorityTasks = useMemo(() => {
         const tasks = [];
-        const recommendedId = recommendedTask?.id || recommendedTask?.text;
+        const recommendedId = (!activeSubject && recommendedTask) ? (recommendedTask.id || recommendedTask.text) : null;
         const currentTaskId = activeSubject?.taskId;
 
         // Se estiver em modo neural, priorizamos mostrar o resto da fila neural
@@ -482,7 +482,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             (categories || []).filter(Boolean).forEach(cat => {
                 (cat.tasks || []).filter(t => t && !t.completed).forEach(t => {
                     const normalizedId = t.id || t.text;
-                    if (!normalizedId || seen.has(normalizedId) || base.length >= 6) return;
+                    if (!normalizedId || seen.has(normalizedId) || base.length >= 6 || normalizedId === currentTaskId) return;
                     base.push({ ...t, id: normalizedId, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
                     seen.add(normalizedId);
                 });
@@ -559,8 +559,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
         let topicPart = parts[0] || '';
 
-        const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
-        let secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
+        const displayTopic = actionPart || topicPart || '';
+        let secondaryText = (topicPart && actionPart !== topicPart) ? topicPart : '';
         
         if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
             secondaryText = '';
