@@ -329,13 +329,28 @@ function getCpuAwareSimulationCap(defaultCap = 2500, cfg = {}) {
  * overconfidence em projeções baseadas em dados insuficientes.
  */
 export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, days = 90, agilityPenalty = 0) {
-  const safeTargetScore = (targetScore === null || targetScore === undefined || targetScore === '') 
-    ? Math.max(0, maxScore * 0.8) 
-    : (Number.isFinite(Number(targetScore)) ? Number(targetScore) : Math.max(0, maxScore * 0.8));
-  
-  let history = simuladosToHistory(relevantSimulados, maxScore);
-  
-  if (history.length < (cfg.MC_MIN_DATA_POINTS || 5)) return null;
+  const safeCfg = cfg || {};
+  const safeMaxScore =
+    Number.isFinite(Number(maxScore)) && Number(maxScore) > 0
+      ? Number(maxScore)
+      : 100;
+
+  const safeMinScore = 0;
+  const range = Math.max(1e-9, safeMaxScore - safeMinScore);
+  const minTarget = safeMinScore + 0.01 * range;
+  const defaultTarget = safeMinScore + 0.8 * range;
+
+  const safeTargetScore = Number.isFinite(Number(targetScore))
+    ? Math.max(minTarget, Math.min(safeMaxScore, Number(targetScore)))
+    : defaultTarget;
+
+  if (!Array.isArray(relevantSimulados)) {
+    return null;
+  }
+
+  let history = simuladosToHistory(relevantSimulados, safeMaxScore);
+
+  if (history.length < (safeCfg.MC_MIN_DATA_POINTS || 5)) return null;
   
   if (history.length > 2000) {
     history = pruneHistoryForMemory(history, 1200, 365*4);

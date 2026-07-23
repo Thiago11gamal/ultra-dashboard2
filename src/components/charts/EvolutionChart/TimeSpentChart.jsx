@@ -88,14 +88,14 @@ function HalfMoonGauge({ data }) {
                     
                     {/* Track Latest Average (Solid) */}
                     {hasLatest && data.latestSeconds > 0 && (
-                        <path d={makeArc(0, data.visualLatestSeconds || data.latestSeconds)} fill="none" stroke={latestColor} strokeWidth={strokeWidth} strokeLinecap="round" />
+                        <path d={makeArc(0, (data.visualLatestSeconds ?? data.latestSeconds))} fill="none" stroke={latestColor} strokeWidth={strokeWidth} strokeLinecap="round" />
                     )}
                     
                     {/* Absolute Marker (Pin) */}
                     {hasAbsolute && (
                         <g>
                             {(() => {
-                                const pos = getCoordinatesForValue(data.visualAbsoluteSeconds || data.absoluteLatestSeconds);
+                                const pos = getCoordinatesForValue(data.visualAbsoluteSeconds ?? data.absoluteLatestSeconds);
                                 return (
                                     <>
                                         <circle cx={pos.x} cy={pos.y} r={6} fill="#ffffff" stroke={absoluteColor} strokeWidth={2.5} className="shadow-lg drop-shadow-md" />

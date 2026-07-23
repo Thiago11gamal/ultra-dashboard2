@@ -98,17 +98,22 @@ export function TodayVsGeneralChart({
                 
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
-                const score = getSafeScore(h, maxScore);
-                
-                // Fallback para inserção de percentual direto (sem quantidade)
+
+                const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+
+                const rawScore = getSafeScore(h, safeMaxScore);
+
+                const score = Number.isFinite(rawScore)
+                  ? rawScore
+                  : 0;
+
                 if (tot === 0 && h.score != null) {
-                    tot = getSyntheticTotal(maxScore);
-                    corr = Math.round((score / maxScore) * tot);
+                  tot = getSyntheticTotal(safeMaxScore);
+                  corr = Math.round((score / safeMaxScore) * tot);
                 } else if (tot > 0 && h.correct == null) {
-                    // M4 FIX: Preserva o h.correct absoluto para evitar erros de precisão flutuante!
-                    corr = Math.round((score / maxScore) * tot);
+                  corr = Math.round((score / safeMaxScore) * tot);
                 }
-                
+
                 dayMap[dKey].correct += corr;
                 dayMap[dKey].total += tot;
             });
@@ -155,18 +160,24 @@ export function TodayVsGeneralChart({
                 const time = toDateMs(h.date || h.createdAt);
                 if (!time) return;
                 
-                const score = getSafeScore(h, maxScore);
+                const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+
+                const rawScore = getSafeScore(h, safeMaxScore);
+
+                const score = Number.isFinite(rawScore)
+                  ? rawScore
+                  : 0;
+                
                 const hDateKey = getDateKey(h.date || h.createdAt);
                 
-
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
+
                 if (tot === 0 && h.score != null) {
-                    tot = getSyntheticTotal(maxScore);
-                    corr = Math.round((score / maxScore) * tot);
+                    tot = getSyntheticTotal(safeMaxScore);
+                    corr = Math.round((score / safeMaxScore) * tot);
                 } else if (tot > 0 && h.correct == null) {
-                    // M4 FIX: Idem - não sobrescreve os acertos reais.
-                    corr = Math.round((score / maxScore) * tot);
+                    corr = Math.round((score / safeMaxScore) * tot);
                 }
 
                 if (tot === 0) return;

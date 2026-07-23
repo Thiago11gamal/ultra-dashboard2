@@ -6,6 +6,14 @@ import { normalizeDate, formatDuration, getDateKey } from '../utils/dateHelper';
 
 function ActivityHeatmap({ studyLogs = [] }) {
     const [monthOffset, setMonthOffset] = React.useState(0);
+    const [now, setNow] = React.useState(() => new Date());
+
+    React.useEffect(() => {
+        const id = setInterval(() => {
+            setNow(new Date());
+        }, 60 * 1000);
+        return () => clearInterval(id);
+    }, []);
 
 
     const currentMonth = useMemo(() => {
@@ -37,7 +45,7 @@ function ActivityHeatmap({ studyLogs = [] }) {
             currentWeek.push(null);
         }
 
-        const today = getDateKey(new Date()) || format(new Date(), 'yyyy-MM-dd');
+        const today = getDateKey(now) || format(now, 'yyyy-MM-dd');
 
         days.forEach(day => {
             const dateKey = getDateKey(day) || format(day, 'yyyy-MM-dd');
@@ -80,7 +88,7 @@ function ActivityHeatmap({ studyLogs = [] }) {
         const totalTimeStr = formatDuration(totalMinutes / 60);
 
         return { weeks, totalDays, studiedDays, totalMinutes, totalTimeStr };
-    }, [currentMonth, studyLogs]);
+    }, [currentMonth, studyLogs, now]);
 
     const levelColors = [
         'bg-slate-800/40 border-white/5',
