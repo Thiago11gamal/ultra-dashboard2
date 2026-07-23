@@ -405,10 +405,26 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     let projectedScore;
     const now = options.referenceDate || Date.now();
     
-    // Hoist variables that are needed both for asymptotic damping inside the random walk
-    // and for the margin of error calculation outside the block, avoiding redundant O(N) regressions.
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
     let eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
+
+    // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
+    let linearSlope = 0;
+    if (!(logisticFit.isLogistic && logisticFit.k > 0)) {
+        let trend = calculateTrend(sortedHistory);
+        linearSlope = calculateSlope(trend, options);
+    }
+
+    const dampingBase = computeAdaptiveDampingBase({
+        sampleSize: sortedHistory.length,
+        drift: linearSlope,
+        driftUncertainty: slopeStdError,
+        scaleFactor: maxScore / 100,
+        normalizedVol: (eventVolatility / (maxScore - minScore > 0 ? maxScore - minScore : maxScore)) * 100
+    });
+
+    const maxEffectiveDays = dampingBase * Math.log(1 + projectDays / dampingBase);
+    const effectiveDaysForDrift = Math.min(projectDays, maxEffectiveDays);
 
     if (logisticFit.isLogistic && logisticFit.k > 0) {
         const { k, intercept, L, t0 } = logisticFit;
@@ -418,9 +434,6 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         const safeMin = options.minScore || 0;
         projectedScore = safeMin + ((L - safeMin) / (1 + Math.exp(safeExponent)));
     } else {
-        let trend = calculateTrend(sortedHistory);
-        let linearSlope = calculateSlope(trend, options);
-        
         // Removemos a mistura corrompida. O EMA continuará a usar o `linearSlope`
         // para projetar o futuro no Random Walk.
 
@@ -448,19 +461,6 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
             }
         }
 
-        // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
-        // O `projectScore` agora partilha do mesmo amortecedor de volatilidade adaptativa (dampingBase)
-        // do Motor de Monte Carlo, estabilizando as trajetórias de UX que divergiam do back-end GARCH.
-        const dampingBase = computeAdaptiveDampingBase({
-            sampleSize: sortedHistory.length,
-            drift: linearSlope,
-            driftUncertainty: slopeStdError,
-            scaleFactor: maxScore / 100,
-            normalizedVol: (eventVolatility / (maxScore - minScore > 0 ? maxScore - minScore : maxScore)) * 100
-        });
-
-        const maxEffectiveDays = dampingBase * Math.log(1 + projectDays / dampingBase);
-        const effectiveDaysForDrift = Math.min(projectDays, maxEffectiveDays);
         
         // CORREÇÃO: Driftar a EMA da data do último teste até o dia de HOJE, 
         // para alinhar a origem do vetor temporal com a realidade atual.
@@ -493,7 +493,8 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const expectedFutureEvents = Math.max(1, projectDays / Math.max(0.5, avgGapDays));
     const randomWalkUncertainty = eventVolatility * Math.sqrt(expectedFutureEvents);
     
-    const angularUncertainty = slopeStdError * projectDays;
+    // Aplica o amortecimento do drift à incerteza angular (evita explosão da incerteza a longo prazo)
+    const angularUncertainty = slopeStdError * effectiveDaysForDrift;
     const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(randomWalkUncertainty, 2));
     // Usar T-Student adaptativo para amostras pequenas em vez de Z=1.96 fixo
     const tMult = getConfidenceMultiplier(sortedHistory.length);
@@ -876,10 +877,10 @@ export function monteCarloSimulation(
                     const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
                     shock = (rawEmpirical / standardizer) * adaptiveVol; 
                 } else {
-                    // PATCH: Gaussian Skew Adjustment
+                    // PATCH: Gaussian Skew Adjustment (Cornish-Fisher expansion to maintain zero mean)
                     const z = generateGaussian(rng);
-                    const skewCorrection = 1 + (residualsSkew * z) / 6.0; 
-                    shock = z * adaptiveVol * skewCorrection;
+                    const zCF = z + (residualsSkew * (z * z - 1)) / 6.0; 
+                    shock = zCF * adaptiveVol;
                 }
             } else if (safeResiduals.length > 5 && rng() > 0.3) {
                 const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
