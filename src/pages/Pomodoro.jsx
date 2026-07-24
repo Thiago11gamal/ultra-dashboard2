@@ -151,7 +151,9 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         }
 
         if (monthMins > 0) {
-            items.push({ icon: <BarChart3 size={14} className="text-cyan-400" />, text: `Mês: Absorção sustentada de ${Math.floor(monthMins / 60)}h brutas.` });
+            const m = Math.round(monthMins % 60);
+            const mStr = m > 0 ? ` ${m}m` : '';
+            items.push({ icon: <BarChart3 size={14} className="text-cyan-400" />, text: `Mês: Absorção sustentada de ${Math.floor(monthMins / 60)}h${mStr} brutas.` });
         }
 
         if (recentSimulados > 0) {
@@ -508,15 +510,19 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const totalMinutes = currentCategory?.totalMinutes || 0;
 
         const remaining = Math.max(total - completed, 0);
-        const gainIfComplete = total > 0 ? Number((100 / total).toFixed(1)) : 0;
+        const currentTask = categoryTasks.find(t => (t.id || t.text) === activeSubject.taskId);
+        const isCurrentCompleted = currentTask?.completed || false;
+        const gainIfComplete = (total > 0 && !isCurrentCompleted) ? Number((100 / total).toFixed(1)) : 0;
         const quality = completionPct >= 80 ? 'Maestria' : completionPct >= 40 ? 'Evolução' : 'Fase Inicial';
         const hitRate = completionPct;
         const missRate = Math.max(0, 100 - completionPct);
         const highPriorityCount = categoryTasks.filter(t => t.priority === 'high' && !t.completed).length;
 
-        const whySelected = activeSubject.priority === 'high'
-            ? 'ser um alvo crítico de alto impacto'
-            : 'apresentar alta sinergia com o seu ritmo atual';
+        const whySelected = isCurrentCompleted
+            ? 'necessidade de retenção de memória (Revisão Espaçada)'
+            : activeSubject.priority === 'high'
+                ? 'ser um alvo crítico de alto impacto'
+                : 'apresentar alta sinergia com o seu ritmo atual';
 
         const improveText = remaining > 0
             ? `Domine mais ${Math.min(remaining, 3)} assunto(s) para expandir seu domínio na matéria.`
@@ -643,7 +649,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                         </span>
                         <span>
                             O <strong>assunto</strong> foi escolhido por {activeTaskStats.whySelected}. Progresso da <strong>matéria</strong>: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
-                            Impacto na matéria ao concluir: <strong className="text-emerald-400">+{activeTaskStats.gainIfComplete}%</strong>.
+                            {activeTaskStats.gainIfComplete > 0 ? (
+                                <> Impacto na matéria ao concluir: <strong className="text-emerald-400">+{activeTaskStats.gainIfComplete}%</strong>.</>
+                            ) : (
+                                <> Sessão de revisão focada: <strong className="text-emerald-400">Manutenção de retenção</strong>.</>
+                            )}
                         </span>
                     </p>
                     <div className="mt-3 relative z-10">
