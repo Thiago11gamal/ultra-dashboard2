@@ -216,6 +216,8 @@ export default function Coach() {
       avgBrier, ece, probability, calibrationPenalty, reliability
     };
 
+    let wasPersisted = false;
+
     setData(prev => {
       if (!prev) return;
       const current = prev.calibrationHistoryByCategory || {};
@@ -303,8 +305,11 @@ export default function Coach() {
       prev.calibrationHistoryByCategory[normalizedCategoryId] = nextHistory;
       prev.calibrationOps = calibrationOps;
       prev.calibrationAuditLog = calibrationAuditLog;
+      wasPersisted = true;
       return;
     });
+
+    if (!wasPersisted) return;
 
     if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
       logCalibrationTelemetryEvent({ ...normalizedMetric, eventType: 'high_penalty_alert' });
