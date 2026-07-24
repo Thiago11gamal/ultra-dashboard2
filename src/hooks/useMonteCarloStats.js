@@ -269,7 +269,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
           const projectedTotalTimeSeconds = defaultExamTotalQuestions * globalAvgSeconds;
 
           result = await runAnalysis({
-            values: pureStatsData.globalHistory.map(h => h.score),
+            values: pureStatsData.globalHistory,
             dates: pureStatsData.globalHistory.map(h => h.date),
             meta: debouncedTarget,
             simulations: dynamicSimulationsRef.current,
@@ -363,7 +363,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
               };
             });
             result = runMonteCarloAnalysis({
-              values: pureStatsData.globalHistory.map(h => h.score),
+              values: pureStatsData.globalHistory,
               dates: pureStatsData.globalHistory.map(h => h.date),
               meta: debouncedTarget,
               simulations: Math.min(dynamicSimulationsRef.current, 2000),

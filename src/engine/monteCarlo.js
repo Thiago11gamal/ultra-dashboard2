@@ -742,7 +742,7 @@ export function runMonteCarloAnalysis(params = {}) {
             return {
                 ...baseObj,
                 score: isNuloOuVazio ? NaN : Number(rawScore),
-                date: safeDates[index] || getDateKey(new Date())
+                date: safeDates[index] || baseObj.date || getDateKey(new Date())
             };
         })
         .filter(row => Number.isFinite(row.score));
