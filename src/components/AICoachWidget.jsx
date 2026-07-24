@@ -17,21 +17,21 @@ function renderRecommendation(text, depth = 0) {
   const parts = safeText.split(/(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g).filter(Boolean);
 
   return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
         <strong key={`rec-${idx}`} className="text-white not-italic drop-shadow-[0_0_8px_currentColor]">
           {renderRecommendation(part.slice(2, -2), depth + 1)}
         </strong>
       );
     }
-    if (part.startsWith('!!') && part.endsWith('!!')) {
+    if (part.startsWith('!!') && part.endsWith('!!') && part.length >= 4) {
       return (
         <span key={`rec-${idx}`} className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">
           {renderRecommendation(part.slice(2, -2), depth + 1)}
         </span>
       );
     }
-    if (part.startsWith('++') && part.endsWith('++')) {
+    if (part.startsWith('++') && part.endsWith('++') && part.length >= 4) {
       return (
         <span key={`rec-${idx}`} className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">
           {renderRecommendation(part.slice(2, -2), depth + 1)}
@@ -39,10 +39,7 @@ function renderRecommendation(text, depth = 0) {
       );
     }
 
-    let cleanPart = part;
-    if (!part.startsWith('**') && !part.startsWith('!!') && !part.startsWith('++')) {
-      cleanPart = part.replace(/\*\*|!!|\+\+/g, '');
-    }
+    const cleanPart = part.replace(/\*\*|!!|\+\+/g, '');
     return <React.Fragment key={`rec-${idx}`}>{cleanPart}</React.Fragment>;
   });
 }

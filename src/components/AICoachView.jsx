@@ -19,10 +19,10 @@ function renderBoldText(text) {
   const safeText = String(text || '');
   const parts = safeText.split(/(\*\*.*?\*\*)/g).filter(Boolean);
   return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return <strong key={`bold-${idx}`} className="text-white font-black">{part.slice(2, -2)}</strong>;
     }
-    return <React.Fragment key={`bold-${idx}`}>{part}</React.Fragment>;
+    return <React.Fragment key={`bold-${idx}`}>{part.replace(/\*\*/g, '')}</React.Fragment>;
   });
 }
 
@@ -167,7 +167,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             <div className="flex items-center justify-between z-10 relative">
               <span className={`text-[9px] font-black tracking-widest uppercase ${safeVol > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
               <span className={`font-mono text-xs font-bold ${safeVol > 8 ? 'text-amber-300' : 'text-slate-300'}`}>
-                ±{safeVol > 0 && safeVol < 0.5 ? '<1' : Math.round(safeVol)}
+                {safeVol > 0 && safeVol < 0.5 ? '<1' : `±${Math.round(safeVol)}`}
               </span>
             </div>
             <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
