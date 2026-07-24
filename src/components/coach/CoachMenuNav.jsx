@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 
 const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: Icon, label, subtitle, tabId, panelId, disabled = false, tabRef, tabKey }) {
@@ -44,14 +44,13 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
 const AVAILABLE_TABS = ['insights', 'analytics'];
 
 export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
-    // Fixo: Hooks não devem ser chamados dentro de literais de objeto
     const insightsRef = useRef(null);
     const analyticsRef = useRef(null);
     
-    const tabRefs = {
+    const tabRefs = useMemo(() => ({
         insights: insightsRef,
         analytics: analyticsRef
-    };
+    }), []);
 
     // Foca a aba recém ativada via teclado apenas se o foco estiver dentro do tablist
     useEffect(() => {
@@ -59,14 +58,14 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         if (activeRef && document.activeElement && document.activeElement.getAttribute('role') === 'tab') {
             activeRef.focus();
         }
-    }, [activeTab]);
+    }, [activeTab, tabRefs]);
 
     const activateTab = useCallback((tabKey) => {
         if (!AVAILABLE_TABS.includes(tabKey)) return;
         onChangeTab(tabKey);
     }, [onChangeTab]);
 
-    const handleTabKeyDown = (event) => {
+    const handleTabKeyDown = useCallback((event) => {
         const isLeft = event.key === 'ArrowLeft';
         const isRight = event.key === 'ArrowRight';
         const isHome = event.key === 'Home';
@@ -92,7 +91,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         let nextIndex = (safeIndex + dir + AVAILABLE_TABS.length) % AVAILABLE_TABS.length;
         
         activateTab(AVAILABLE_TABS[nextIndex]);
-    };
+    }, [activeTab, activateTab]);
 
     return (
         <div className="mb-8 p-3 sm:p-4 rounded-3xl border border-violet-500/20 bg-slate-900/90 shadow-[0_18px_40px_rgba(2,6,23,0.5)] backdrop-blur-md">
