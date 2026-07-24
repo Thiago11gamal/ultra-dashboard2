@@ -401,6 +401,7 @@ export default React.memo(function EvolutionChart({
                 if (!dateKey || !Number.isFinite(score)) return null;
 
                 return {
+                    ...h,
                     date: dateKey,
                     score,
                     correct: h.correct,
@@ -442,7 +443,7 @@ export default React.memo(function EvolutionChart({
                 const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
 
                 const result = await runAnalysis({
-                    values: hist.map((h) => h.score),
+                    values: hist,
                     dates: hist.map((h) => h.date),
                     meta: targetScore,
                     projectionDays: projectDays,
