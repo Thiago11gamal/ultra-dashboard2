@@ -26,7 +26,6 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let yesterdayMins = 0;
         let weekMins = 0;
         let monthMins = 0;
-        
         let longestSession = 0;
         let nightMins = 0;
         let dawnMins = 0;
@@ -40,11 +39,11 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             if (!log || !log.date) return;
             const d = new Date(log.date || log.createdAt);
             const t = d.getTime();
-            if (Number.isNaN(t)) return; // Prevents "Invalid time value" from d.toISOString()
+            if (Number.isNaN(t)) return;
 
             const mins = Number(log.minutes) || 0;
-            
             totalStudyMins += mins;
+
             if (!earliestDate || t < earliestDate) earliestDate = t;
             if (mins > longestSession) longestSession = mins;
 
@@ -52,7 +51,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             if (hour >= 22 || hour < 4) nightMins += mins;
             else if (hour >= 4 && hour < 8) dawnMins += mins;
             else if (hour >= 18 && hour < 22) eveningMins += mins;
-            
+
             const dayOfWeek = d.getDay();
             if (dayOfWeek === 0 || dayOfWeek === 6) weekendMins += mins;
 
@@ -61,7 +60,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
 
             if (t >= startOfToday) todayMins += mins;
             else if (t >= startOfYesterday && t < startOfToday) yesterdayMins += mins;
-            
+
             if (t >= startOfWeek) weekMins += mins;
             if (t >= startOfMonth) monthMins += mins;
         });
@@ -70,15 +69,12 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let maxStreak = 0;
         let currentStreak = 0;
         let lastDate = null;
+
         sortedDays.forEach(dayStr => {
             const current = new Date(`${dayStr}T12:00:00`).getTime();
             if (lastDate) {
                 const diffDays = Math.round((current - lastDate) / 86400000);
-                if (diffDays === 1) {
-                    currentStreak++;
-                } else {
-                    currentStreak = 1;
-                }
+                currentStreak = (diffDays === 1) ? currentStreak + 1 : 1;
             } else {
                 currentStreak = 1;
             }
@@ -88,13 +84,25 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
 
         let bestSimulado = 0;
         let recentSimulados = 0;
+
         (simulados || []).forEach(s => {
             if (!s) return;
             const sTime = s.date ? new Date(s.date).getTime() : NaN;
             if (!Number.isNaN(sTime) && sTime >= startOfMonth) recentSimulados++;
-            
-            // Aceita score numérico (0-100) ou acertos brutos
-            const score = s.score || s.acertos || 0;
+
+            // FIX: normalizar para a escala 0-100.
+            // Antes: `s.score || s.acertos` misturava percentual com acertos brutos,
+            // comparando grandezas diferentes e inflando/achatando o "pico cognitivo".
+            const rawScore = Number(s.score);
+            const rawAcertos = Number(s.acertos);
+            const rawTotal = Number(s.total);
+
+            const score = Number.isFinite(rawScore)
+                ? rawScore
+                : (Number.isFinite(rawAcertos) && Number.isFinite(rawTotal) && rawTotal > 0
+                    ? (rawAcertos / rawTotal) * 100
+                    : 0);
+
             if (score > bestSimulado) bestSimulado = score;
         });
 
@@ -109,16 +117,14 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
 
         (categories || []).forEach(c => {
             if (!c) return;
-            
             if (c.totalMinutes > 0) activeCategories++;
             if (c.flashcardReviews) totalFlashcards += c.flashcardReviews;
             if (c.flashcardCorrect) correctFlashcards += c.flashcardCorrect;
-            
             if (c.totalMinutes && c.totalMinutes > mostStudiedCategory.mins) {
                 mostStudiedCategory = { name: c.name, mins: c.totalMinutes };
             }
-            
             if (!c.tasks) return;
+
             const safeCTasks = Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks);
             safeCTasks.forEach(t => {
                 if (!t) return;
@@ -139,80 +145,63 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         if (todayMins > 0) {
             items.push({ icon: <Flame size={14} className="text-amber-500" />, text: `Hoje: ${Math.round(todayMins)} minutos injetados no sistema.` });
         }
-        
         if (yesterdayMins > 0 && todayMins > yesterdayMins) {
             items.push({ icon: <TrendingUp size={14} className="text-emerald-500" />, text: `Evolução: Você superou o foco de ontem (+${Math.round(todayMins - yesterdayMins)} min).` });
         } else if (yesterdayMins > 0) {
             items.push({ icon: <Clock size={14} className="text-blue-400" />, text: `Ontem: ${Math.round(yesterdayMins)} minutos de neuro-plasticidade.` });
         }
-
         if (weekMins > 0) {
             items.push({ icon: <Calendar size={14} className="text-indigo-400" />, text: `Semana: ${Math.floor(weekMins / 60)}h ${Math.round(weekMins % 60)}m de imersão total.` });
         }
-
         if (monthMins > 0) {
             const m = Math.round(monthMins % 60);
             const mStr = m > 0 ? ` ${m}m` : '';
             items.push({ icon: <BarChart3 size={14} className="text-cyan-400" />, text: `Mês: Absorção sustentada de ${Math.floor(monthMins / 60)}h${mStr} brutas.` });
         }
-
         if (recentSimulados > 0) {
             items.push({ icon: <Target size={14} className="text-rose-400" />, text: `${recentSimulados} simulados enfrentados nos últimos 30 dias.` });
         }
-
         if (weekTasks > 0) {
             items.push({ icon: <CheckCircle2 size={14} className="text-emerald-400" />, text: `${weekTasks} missões liquidadas nesta semana.` });
         }
-
         if (completedTasks > 0) {
             const pct = Math.round((completedTasks / Math.max(1, totalTasks)) * 100);
             items.push({ icon: <Trophy size={14} className="text-yellow-500" />, text: `Eficácia: ${pct}% de conclusão global atingida.` });
         }
-        
         if (maxStreak >= 3) {
             items.push({ icon: <Flame size={14} className="text-orange-500" />, text: `Consistência de Aço: Maior ofensiva contínua já feita é de ${maxStreak} dias.` });
         }
-
         if (bestSimulado > 0) {
-            items.push({ icon: <Trophy size={14} className="text-yellow-400" />, text: `Pico cognitivo em simulados atingiu a marca de ${bestSimulado} pontos.` });
+            items.push({ icon: <Trophy size={14} className="text-yellow-400" />, text: `Pico cognitivo em simulados atingiu a marca de ${Math.round(bestSimulado)} pontos.` });
         }
-
         if (longestSession >= 45) {
             items.push({ icon: <BrainCircuit size={14} className="text-violet-400" />, text: `Resistência Neural: Sua maior sessão focada contínua durou ${Math.floor(longestSession / 60)}h ${Math.round(longestSession % 60)}m.` });
         }
-
         if (totalFlashcards > 0) {
             const fPct = Math.round((correctFlashcards / totalFlashcards) * 100);
             items.push({ icon: <Zap size={14} className="text-amber-400" />, text: `${totalFlashcards} Flashcards memorizados com ${fPct}% de precisão global.` });
         }
-
         if (mostStudiedCategory.mins >= 60) {
             items.push({ icon: <Target size={14} className="text-cyan-500" />, text: `Hiper-foco: ${Math.floor(mostStudiedCategory.mins / 60)}h ${Math.round(mostStudiedCategory.mins % 60)}m dedicadas apenas à disciplina "${mostStudiedCategory.name}".` });
         }
-
         if (nightMins > dawnMins * 1.5 && nightMins > 60) {
             items.push({ icon: <Moon size={14} className="text-indigo-300" />, text: `Coruja Ativa: Você já absorveu ${Math.round(nightMins / 60)}h brutas na madrugada.` });
         } else if (dawnMins > nightMins * 1.5 && dawnMins > 60) {
             items.push({ icon: <Sun size={14} className="text-amber-500" />, text: `Madrugador: O despertar matinal já produziu ${Math.round(dawnMins / 60)}h de fluxo cerebral intenso.` });
         }
-        
         if (weekendMins >= 120) {
             items.push({ icon: <Zap size={14} className="text-pink-500" />, text: `Inabalável: ${Math.round(weekendMins / 60)}h de treino ignorando os finais de semana.` });
         }
-
         if (activeCategories >= 3) {
             items.push({ icon: <BrainCircuit size={14} className="text-emerald-300" />, text: `Mente Plural: Você já expandiu conexões em ${activeCategories} áreas do conhecimento.` });
         }
-
         if (todayTasks >= 3) {
             items.push({ icon: <Target size={14} className="text-green-400" />, text: `Ritmo Acelerado: ${todayTasks} missões neutralizadas só hoje.` });
         }
-
         if (daysStudied.size >= 5 && totalStudyMins > 0) {
             const avg = Math.round(totalStudyMins / daysStudied.size);
             items.push({ icon: <BarChart3 size={14} className="text-teal-400" />, text: `Pace de Leão: Seu rendimento médio diário é de ${avg} minutos.` });
         }
-
         if (earliestDate) {
             const diffTime = Math.abs(new Date().getTime() - earliestDate);
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -220,11 +209,9 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
                 items.push({ icon: <Medal size={14} className="text-purple-400" />, text: `Veterano: O mapeamento neural desta conta foi iniciado há ${diffDays} dias.` });
             }
         }
-        
         if (eveningMins > 180) {
             items.push({ icon: <Flame size={14} className="text-orange-400" />, text: `Turno Estendido: ${Math.round(eveningMins / 60)}h focadas no período noturno (18h-22h).` });
         }
-
         if (totalStudyMins >= 600) {
             items.push({ icon: <Trophy size={14} className="text-yellow-300" />, text: `Master: Você acumula um tempo de voo absurdo de ${Math.round(totalStudyMins / 60)} horas totais.` });
         }
@@ -238,7 +225,6 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
     return (
         <div className="mb-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 relative overflow-hidden group/trivia">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover/trivia:opacity-100 transition-opacity" />
-            
             <div className="flex justify-between items-center mb-3 relative z-10">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2">
                     <Medal size={12} />
@@ -246,7 +232,6 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
                 </p>
                 <span className="text-[9px] font-black text-indigo-500/60 uppercase">Data Hub</span>
             </div>
-
             <div className="flex flex-col gap-2 relative z-10 w-full">
                 {trivia.map((item, i) => (
                     <div key={i} className="flex items-center gap-3 text-xs text-slate-300 bg-white/[0.02] border border-white/[0.05] px-3 py-2.5 rounded-xl w-full">
@@ -268,7 +253,6 @@ function AICoachPanel({ activeSubject, stats }) {
         iconType: 'Brain'
     };
 
-    // Fallback absoluto caso a função de inteligência crashe
     const insight = getCoachInsight(activeSubject, stats) || defaultInsight;
 
     const icons = {
@@ -279,28 +263,16 @@ function AICoachPanel({ activeSubject, stats }) {
 
     const colorMap = {
         red: {
-            border: 'border-red-500/30',
-            bg: 'bg-red-500/5',
-            glow: 'shadow-red-500/10',
-            text: 'text-red-400',
-            accent: 'bg-red-400',
-            gradient: 'from-red-500/20 via-red-500/5 to-transparent'
+            border: 'border-red-500/30', bg: 'bg-red-500/5', glow: 'shadow-red-500/10',
+            text: 'text-red-400', accent: 'bg-red-400', gradient: 'from-red-500/20 via-red-500/5 to-transparent'
         },
         emerald: {
-            border: 'border-emerald-500/30',
-            bg: 'bg-emerald-500/5',
-            glow: 'shadow-emerald-500/10',
-            text: 'text-emerald-400',
-            accent: 'bg-emerald-400',
-            gradient: 'from-emerald-500/20 via-emerald-500/5 to-transparent'
+            border: 'border-emerald-500/30', bg: 'bg-emerald-500/5', glow: 'shadow-emerald-500/10',
+            text: 'text-emerald-400', accent: 'bg-emerald-400', gradient: 'from-emerald-500/20 via-emerald-500/5 to-transparent'
         },
         indigo: {
-            border: 'border-indigo-500/30',
-            bg: 'bg-indigo-500/5',
-            glow: 'shadow-indigo-500/10',
-            text: 'text-indigo-400',
-            accent: 'bg-indigo-400',
-            gradient: 'from-indigo-500/20 via-indigo-500/5 to-transparent'
+            border: 'border-indigo-500/30', bg: 'bg-indigo-500/5', glow: 'shadow-indigo-500/10',
+            text: 'text-indigo-400', accent: 'bg-indigo-400', gradient: 'from-indigo-500/20 via-indigo-500/5 to-transparent'
         }
     };
 
@@ -320,16 +292,13 @@ function AICoachPanel({ activeSubject, stats }) {
             className={`relative rounded-xl border ${theme.border} ${theme.bg} ${theme.glow} backdrop-blur-xl p-4 mb-3 overflow-hidden group shadow-2xl`}
         >
             <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-40 pointer-events-none`} />
-
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
                 style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-
             <Motion.div
                 animate={{ top: ['-100%', '200%'] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                 className={`absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-20 pointer-events-none z-20`}
             />
-
             <div className="flex items-center gap-8 relative z-10">
                 <div className="relative shrink-0">
                     <Motion.div
@@ -341,7 +310,6 @@ function AICoachPanel({ activeSubject, stats }) {
                         {icons[insight?.iconType] || <BrainCircuit size={24} />}
                     </div>
                 </div>
-
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 shrink-0">
@@ -350,12 +318,10 @@ function AICoachPanel({ activeSubject, stats }) {
                         </div>
                         <div className={`h-[1px] flex-1 bg-gradient-to-r from-white/10 to-transparent`} />
                     </div>
-
                     <h3 className="text-lg font-black text-white mb-0.5 tracking-tight flex items-center gap-2">
                         <span className="truncate">{insight?.title || 'Analisando'}</span>
                         <span className={`w-1.5 h-1.5 rounded-full ${theme.accent} animate-pulse shrink-0`} />
                     </h3>
-
                     <div className="text-xs text-slate-300 leading-relaxed font-medium">
                         {formatText(insight?.text)}
                     </div>
@@ -387,18 +353,13 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         } catch { return { x: 0, y: 0 }; }
     });
 
-    // LEAK-05 FIX: Use a ref to capture uiPosition for the resize listener
-    // This prevents re-adding/removing the event listener on every drag pixel.
     const uiPosRef = useRef(uiPosition);
-    useEffect(() => {
-        uiPosRef.current = uiPosition;
-    }, [uiPosition]);
+    useEffect(() => { uiPosRef.current = uiPosition; }, [uiPosition]);
 
     useEffect(() => {
         const checkPos = () => {
             const currentPos = uiPosRef.current;
             if (currentPos.x !== 0 || currentPos.y !== 0) {
-                // Previne que o painel saia completamente da tela
                 const limitX = window.innerWidth - 100;
                 const limitY = window.innerHeight - 100;
                 if (Math.abs(currentPos.x) > limitX || Math.abs(currentPos.y) > limitY) {
@@ -412,10 +373,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
     }, []);
 
     const handleDragEnd = (_, info) => {
-        const newPos = {
-            x: uiPosition.x + info.offset.x,
-            y: uiPosition.y + info.offset.y
-        };
+        const newPos = { x: uiPosition.x + info.offset.x, y: uiPosition.y + info.offset.y };
         setUiPosition(newPos);
         try {
             localStorage.setItem('focusPanelPosition', JSON.stringify(newPos));
@@ -440,13 +398,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const recommendedId = (!activeSubject && recommendedTask) ? (recommendedTask.id || recommendedTask.text) : null;
         const currentTaskId = activeSubject?.taskId;
 
-        // Se estiver em modo neural, priorizamos mostrar o resto da fila neural
         if (neuralMode && neuralQueue && neuralQueue.length > 0) {
             const safeQueue = Array.isArray(neuralQueue) ? neuralQueue : Object.values(neuralQueue || {});
             const normalizedQueue = safeQueue.filter(Boolean);
             const currentIndex = normalizedQueue.findIndex(t => (t.id || t.text) === currentTaskId);
             const pendingQueue = currentIndex >= 0 ? normalizedQueue.slice(currentIndex) : normalizedQueue;
-
             return pendingQueue.map(t => ({
                 ...t,
                 id: t.id || t.text,
@@ -456,7 +412,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             }));
         }
 
-        // Caso contrário, buscamos tarefas de alta prioridade nas categorias
         (categories || []).filter(Boolean).forEach(cat => {
             const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
             safeTasks.filter(t => t && !t.completed && t.priority === 'high' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
@@ -464,7 +419,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             });
         });
 
-        // Fallback para prioridade média
         if (tasks.length === 0) {
             (categories || []).filter(Boolean).forEach(cat => {
                 const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
@@ -478,10 +432,10 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
     }, [categories, recommendedTask, activeSubject, neuralMode, neuralQueue]);
 
     const pendingCount = highPriorityTasks.filter(t => (t.id || t.text) !== activeSubject?.taskId).length;
+
     const visibleTasks = useMemo(() => {
         const base = [...highPriorityTasks];
         const seen = new Set(base.map(t => t?.id || t?.text).filter(Boolean));
-
         if (base.length < 6) {
             (categories || []).filter(Boolean).forEach(cat => {
                 const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
@@ -493,22 +447,20 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                 });
             });
         }
-
         return base.slice(0, 6);
     }, [highPriorityTasks, categories, activeSubject]);
 
     const activeTaskStats = useMemo(() => {
         if (!activeSubject) return null;
-
         const currentCategory = (categories || []).find(c => c?.id === activeSubject.categoryId);
         const rawTasks = currentCategory?.tasks || [];
         const safeCategoryTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
         const categoryTasks = safeCategoryTasks.filter(Boolean);
+
         const total = categoryTasks.length;
         const completed = categoryTasks.filter(t => t.completed).length;
         const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
         const totalMinutes = currentCategory?.totalMinutes || 0;
-
         const remaining = Math.max(total - completed, 0);
         const currentTask = categoryTasks.find(t => (t.id || t.text) === activeSubject.taskId);
         const isCurrentCompleted = currentTask?.completed || false;
@@ -529,7 +481,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             : 'Domínio quase absoluto da matéria. Excelente oportunidade para transição ou revisão profunda.';
 
         const statusVariants = [];
-        
         if (completionPct < 40) {
             statusVariants.push(`Fase de ignição: Cada assunto concluído gera um impacto de +${gainIfComplete}% na base da matéria.`);
             if (highPriorityCount > 0) statusVariants.push(`Estratégia Alpha: Focar nos ${highPriorityCount} assuntos críticos desta matéria trará o maior ROI de esforço.`);
@@ -540,17 +491,15 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             statusVariants.push(`Alta performance: Com ${hitRate}% de domínio da matéria, você está na fase de refinamento e maestria.`);
             statusVariants.push(`Retenção máxima: Seu nível atual nesta matéria reduz drasticamente a curva de esquecimento.`);
         }
-
         if (highPriorityCount > 0 && statusVariants.length < 3) {
             statusVariants.push(`Radar tático: Detectamos ${highPriorityCount} assunto(s) de prioridade máxima ainda em aberto nesta matéria.`);
         }
-        
         statusVariants.push(`Mapeamento: Seu fluxo nesta matéria já converteu ${hitRate}% de ruído em conhecimento estruturado.`);
 
         const variantSeed = String(activeSubject.taskId || activeSubject.task || '').length + completed + total;
         const statusLine = statusVariants[variantSeed % statusVariants.length];
 
-        return { 
+        return {
             total, completed, completionPct, gainIfComplete, quality, whySelected, improveText, hitRate, missRate, statusLine,
             categoryName: currentCategory?.name || 'Desconhecida',
             totalMinutes,
@@ -563,24 +512,17 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const fullText = rawText.trim();
         const parts = fullText.split(':');
         let actionPart = parts.length > 1 ? parts.slice(1).join(':').trim() : fullText;
-        
         actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
-        
-        // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE])
         actionPart = actionPart.replace(/^\[(.*?)\]/i, '$1').trim();
         let topicPart = parts[0] || '';
-
         if (catName && actionPart.toLowerCase() === catName.toLowerCase()) {
             actionPart = 'Revisão Geral';
         }
-
         const displayTopic = actionPart || topicPart || '';
         let secondaryText = (topicPart && actionPart !== topicPart && actionPart !== 'Revisão Geral') ? topicPart : '';
-        
         if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
             secondaryText = '';
         }
-        
         return { displayTopic, secondaryText };
     };
 
@@ -623,7 +565,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             {activeTaskStats && (
                 <div className="mb-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 relative overflow-hidden group/stats">
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover/stats:opacity-100 transition-opacity" />
-                    
                     <div className="flex justify-between items-center mb-3">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2 truncate pr-2">
                             <Target size={12} className="shrink-0" />
@@ -633,16 +574,14 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                             {activeTaskStats.completionPct}% Completo
                         </span>
                     </div>
-
                     <div className="w-full h-1.5 bg-cyan-950 rounded-full mb-3 overflow-hidden">
-                        <div 
+                        <div
                             className="h-full bg-cyan-400 rounded-full transition-all duration-1000 ease-out relative"
                             style={{ width: `${activeTaskStats.completionPct}%` }}
                         >
                             <div className="absolute inset-0 bg-white/20 animate-pulse" />
                         </div>
                     </div>
-
                     <p className="text-xs text-slate-200 leading-relaxed relative z-10">
                         <span className="block mb-1">
                             <strong className="text-cyan-300">Assunto atual:</strong> {cleanTaskText(activeTaskStats.topic, activeTaskStats.categoryName).displayTopic}
@@ -681,13 +620,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     <div className="absolute top-0 right-0 p-4 opacity-20 group-hover/card:scale-110 transition-transform">
                         <Zap size={48} className="text-indigo-400" />
                     </div>
-
                     <div className="flex items-center gap-3 mb-4">
                         <span className="inline-block px-3 py-1 rounded-lg bg-indigo-500/90 text-white text-[9px] font-bold uppercase tracking-widest">
                             ⚡ Recomendado pela IA
                         </span>
                     </div>
-
                     <h3 className="text-base font-semibold text-white mb-2 leading-tight">
                         {(() => {
                             const recInfo = cleanTaskText(recommendedTask.text || recommendedTask.title, recommendedTask.catName || recommendedTask.category);
@@ -697,7 +634,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     <p className="text-xs text-slate-400 mb-5 leading-relaxed">
                         Baseado na sua última performance, esta meta oferece a melhor janela de retenção agora.
                     </p>
-
                     <button
                         onClick={() => onStartTask(recommendedTask, null, 'neural_core')}
                         className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-semibold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 active:scale-[0.985]"
@@ -705,7 +641,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                         INICIAR AGORA
                         <ChevronRight size={16} className="group-hover/btn:translate-x-0.5 transition-transform" />
                     </button>
-
                     <div className="mt-4 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] bg-white/5 border border-white/10">
@@ -720,7 +655,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
             <div className="bg-[#08090f]/80 border border-white/[0.06] rounded-2xl p-4 backdrop-blur-md flex-1 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-rose-500" />
@@ -732,7 +666,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                         </span>
                     )}
                 </div>
-
                 {visibleTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center bg-white/[0.015] rounded-2xl border border-white/5">
                         <CheckCircle2 size={28} className="text-emerald-500/40 mb-3" />
@@ -746,7 +679,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                             const categoryName = task.catName || task.category || 'Sem Categoria';
                             const isActive = activeSubject?.taskId === taskId;
                             const { displayTopic, secondaryText } = cleanTaskText(task.text || task.title, categoryName);
-                            
                             return (
                                 <Motion.button
                                     key={`task-${taskId}-${idx}`}
@@ -760,7 +692,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                                         }`}
                                 >
                                     <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 ${isActive ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-transparent group-hover:bg-white/10'}`} />
-
                                     <div
                                         className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-base transition-transform group-hover:scale-105"
                                         style={{ backgroundColor: `${task.catColor || '#ffffff'}15`, border: `1px solid ${task.catColor || '#ffffff'}30` }}
@@ -799,51 +730,34 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
     );
 }
 
-
 function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
-
-    // 🛠️ Utilitário Radical: Extrai APENAS o identificador curto (ex: a1) como o assunto principal
     const cleanText = (text) => {
         if (!text) return '';
-
         const codeMatch = text.match(/\[([a-zA-Z]+[0-9]+[a-zA-Z0-9]*)\]/);
         if (codeMatch && codeMatch[1]) {
             return codeMatch[1];
         }
-
         const firstColon = text.indexOf(':');
         let targetText = firstColon > -1 ? text.substring(firstColon + 1) : text;
-        
-        // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE], [PROTOCOLO PRIORITÁRIO])
         targetText = targetText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
         targetText = targetText.replace(/^\[(.*?)\]/i, '$1').trim();
-
         let subtitle = targetText.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
         if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
-            
-        // Filter out AI generated status texts from legacy tasks
         if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(subtitle)) {
             subtitle = '';
         }
-
-        let cleaned = subtitle
-            .replace(/\s{2,}/g, ' ')
-            .trim();
-
+        let cleaned = subtitle.replace(/\s{2,}/g, ' ').trim();
         return cleaned || text;
     };
 
     return (
         <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] mb-0 sm:mb-6 rounded-3xl sm:rounded-3xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-8 py-6 sm:py-10 shadow-2xl relative overflow-hidden group mx-auto">
-            {/* Efeito de brilho sutil no topo da madeira */}
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
-
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative z-10">
                 <div className="flex items-center gap-6 min-w-0 flex-1">
                     <div className="w-16 h-16 rounded-2xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
                         <div className="text-2xl font-black text-[#2d1a12]/80">{activeSubject ? 'F' : '⚡'}</div>
                     </div>
-
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                             <span className="text-[11px] font-black uppercase tracking-[0.4em] text-[#2d1a12]/60 truncate">{activeSubject?.category || 'SISTEMA'}</span>
@@ -854,14 +768,12 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
                         </h1>
                     </div>
                 </div>
-
                 <div className="flex items-center gap-5 shrink-0">
                     <div className="flex flex-col items-end gap-1.5">
                         <span className="px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-[#2d1a12]/30 bg-[#2d1a12]/5 text-[#2d1a12]">
                             {neuralMode ? 'NEURAL' : 'MANUAL'}
                         </span>
                     </div>
-
                     <button
                         type="button"
                         onClick={onToggleLock}
@@ -878,61 +790,48 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
 export default function Pomodoro() {
     const activeId = useAppStore(state => state.appState?.activeId);
     const contest = useActiveContest() || EMPTY_OBJECT;
-    
     const rawCategories = contest.categories || EMPTY_ARRAY;
     const categories = React.useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
         ...c,
         tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
     })), [rawCategories]);
-
     const settings = contest.settings || EMPTY_OBJECT;
-
     const rawStudyLogs = contest.studyLogs || EMPTY_ARRAY;
     const studyLogs = React.useMemo(() => Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {}), [rawStudyLogs]);
-
     const rawSimulados = contest.simulados || EMPTY_ARRAY;
     const simulados = React.useMemo(() => Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {}), [rawSimulados]);
-    
     const user = contest.user || null;
 
-    // Hidratação validada (Considerando a nova referência EMPTY_OBJECT)
     const isHydrated = !!activeId && contest !== EMPTY_OBJECT;
 
     const setData = useAppStore(state => state.setData);
     const handleUpdateStudyTime = useAppStore(state => state.handleUpdateStudyTime);
-
     const location = useLocation();
     const navigate = useNavigate();
     const showToast = useToast();
     const completionTimeoutRef = React.useRef(null);
-
     const pomodoroState = usePomodoroState();
     const activeSubject = pomodoroState.activeSubject;
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
-
     const completedCycles = pomodoroState.completedCycles ?? 0;
     const neuralMode = pomodoroState.neuralMode;
     const neuralQueue = pomodoroState.neuralQueue || EMPTY_ARRAY;
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
-    
     const topRef = useRef(null);
 
-    // Auto-scroll para o topo (focando o relógio) quando uma matéria for selecionada
     useEffect(() => {
         if (activeSubject && topRef.current) {
-            // Em dispositivos móveis ou telas menores, rolar para o topo
             topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }, [activeSubject, activeSubject?.sessionInstanceId]);
 
     const resolveReturnPath = (source, forceDashboard = false) => {
         if (forceDashboard) return '/';
-
         const normalized = String(source || '').replace(/^\/+/, '');
         if (!normalized || normalized === 'pomodoro' || normalized === 'neural_core' || normalized === 'side_panel') {
             return '/pomodoro';
         }
-        if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
+if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
             return '/';
         }
         return `/${normalized}`;
@@ -941,9 +840,6 @@ export default function Pomodoro() {
     const resolveSessionSource = (subjectSource) => {
         const entry = String(entrySourceRef.current || '').replace(/^\/+/, '');
         const subject = String(subjectSource || '').replace(/^\/+/, '');
-
-        // Se o fluxo foi aberto a partir do dashboard (incluindo botão vermelho),
-        // dashboard prevalece como origem de retorno.
         if (entry === 'dashboard') return 'dashboard';
         return subject || entry || 'pomodoro';
     };
@@ -975,9 +871,8 @@ export default function Pomodoro() {
 
         const now = new Date();
         const startOfToday = getLocalMidnight().getTime();
-
         let consecutiveStudyMinutes = 0;
-        // Melhoria: Filtramos logs inválidos e ordenamos de forma mais segura
+
         const recentLogs = [...(studyLogs || [])]
             .filter(log => log && log.date && new Date(log.date).getTime() >= startOfToday)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -987,19 +882,18 @@ export default function Pomodoro() {
         for (const log of recentLogs) {
             const logDate = new Date(log.date).getTime();
             const minutes = Number(log.minutes) || 0;
-            
-            // Se o log for inválido ou futuro (erro de sistema), ignoramos
             if (!logDate || minutes <= 0) continue;
 
-            const gapInMinutes = Math.max(0, (lastTimeBoundary - logDate) / (1000 * 60));
+            // FIX: respeitar endDate quando disponível para um cálculo mais preciso
+            // do intervalo entre sessões (log.date pode ser o início ou o fim do registro).
+            const boundary = log.endDate ? new Date(log.endDate).getTime() : logDate;
 
-            // Definição de Streak: pausa de no máximo 90 minutos entre sessões
+            const gapInMinutes = Math.max(0, (lastTimeBoundary - boundary) / (1000 * 60));
             if (gapInMinutes > 90) {
                 break;
             }
 
             consecutiveStudyMinutes += minutes;
-            // O início desta sessão vira o novo limite para o próximo gap
             lastTimeBoundary = logDate - (minutes * 60 * 1000);
         }
 
@@ -1010,7 +904,6 @@ export default function Pomodoro() {
             user: user
         };
     }, [completedCycles, contest, studyLogs, settings, user]);
-
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
@@ -1029,7 +922,6 @@ export default function Pomodoro() {
         }
     }, [location.state, categories, activeSubject]);
 
-    // TOLERÂNCIA ALONGADA para a Válvula de Escape 
     useEffect(() => {
         let timeoutId;
         if (!isHydrated) {
@@ -1038,15 +930,11 @@ export default function Pomodoro() {
                 navigate('/');
             }, 6000);
         }
-        return () => {
-            if (timeoutId) clearTimeout(timeoutId);
-        };
+        return () => { if (timeoutId) clearTimeout(timeoutId); };
     }, [isHydrated, navigate, showToast]);
 
     useEffect(() => {
-        return () => {
-            if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-        };
+        return () => { if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current); };
     }, []);
 
     const handleExit = useCallback((options = {}) => {
@@ -1054,13 +942,19 @@ export default function Pomodoro() {
         const currentSource = options.source || resolveSessionSource(subjectSnapshot?.source);
 
         if (subjectSnapshot) {
-            setData(prev => ({
-                ...prev,
-                categories: prev.categories?.map(c => c.id === subjectSnapshot.categoryId ? {
-                    ...c,
-                    tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t.id === subjectSnapshot.taskId ? { ...t, status: undefined } : t)
-                } : c)
-            }));
+            // FIX: blindagem contra categories em formato de objeto (evita crash
+            // se o estado vier como {} em vez de []).
+            setData(prev => {
+                const rawCats = prev.categories;
+                const catsArray = Array.isArray(rawCats) ? rawCats : Object.values(rawCats || {});
+                return {
+                    ...prev,
+                    categories: catsArray.map(c => c.id === subjectSnapshot.categoryId ? {
+                        ...c,
+                        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t.id === subjectSnapshot.taskId ? { ...t, status: undefined } : t)
+                    } : c)
+                };
+            });
         }
 
         setPomodoroActiveSubject(null);
@@ -1073,7 +967,6 @@ export default function Pomodoro() {
         const pomodoroState = useAppStore.getState().appState?.pomodoro || {};
         const effectiveSource = (pomodoroState.neuralMode && source !== 'dashboard') ? 'neural_core' : source;
         const taskId = task?.id || task?.text;
-
         if (!taskId) return;
 
         if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
@@ -1083,15 +976,12 @@ export default function Pomodoro() {
                     highPriority.push({ ...t, id: t.id || t.text, categoryId: cat.id, catName: cat.name });
                 });
             });
-
             const queue = [...highPriority];
             let startIndex = queue.findIndex(t => (t.id || t.text) === taskId);
-
             if (startIndex === -1) {
                 queue.unshift({ ...task, id: taskId, categoryId: task.catId || task.categoryId, catName: task.catName || task.category });
                 startIndex = 0;
             }
-
             useAppStore.getState().startNeuralSession(queue, startIndex);
         } else {
             useAppStore.getState().setPomodoroActiveSubject({
@@ -1111,31 +1001,35 @@ export default function Pomodoro() {
         const { neuralMode } = useAppStore.getState().appState?.pomodoro || {};
         const store = useAppStore.getState();
 
-        if (!wasNatural && !(neuralMode || currentSubject?.source === 'neural_core')) {
-            showToast('Sessão pulada. Salvando progresso e retornando...', 'info');
+        // FIX: Sessão PULADA (não natural) nunca deve:
+        //  - exibir "Série finalizada!"
+        //  - auto-concluir a tarefa
+        //  - avançar a fila neural (sequenciar a próxima meta sem concluir a atual)
+        // Ela apenas salva o progresso e encerra o foco atual.
+        if (!wasNatural) {
+            showToast(`Sessão encerrada manualmente. ${totalMinutes} minutos salvos no histórico.`, 'info');
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-            completionTimeoutRef.current = setTimeout(() => { handleExit({ _subjectSnapshot: currentSubject }); }, 400);
+            completionTimeoutRef.current = setTimeout(() => {
+                useAppStore.getState().setPomodoroActiveSubject(null);
+            }, 400);
             return;
         }
 
         if (currentSubject) {
             showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
 
-            // B-08 FIX: Só auto-completa a tarefa se a conclusão foi natural (não pulada)
             const activeData = store.appState.contests[store.appState.activeId];
-            
-            if (wasNatural) {
-                if (neuralMode || currentSubject.source === 'neural_core') {
-                    store.toggleNeuralTask(currentSubject.taskId);
-                    showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
-                } else {
-                    const cat = (activeData?.categories || []).find(c => c && c.id === currentSubject.categoryId);
-                    const task = (cat?.tasks || []).find(t => t && (t.id || t.text) === currentSubject.taskId);
 
-                    if (task && !task.completed) {
-                        store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
-                        showToast(`Status: "${task.title || task.text}" concluído! ✅`, 'success');
-                    }
+            if (neuralMode || currentSubject.source === 'neural_core') {
+                store.toggleNeuralTask(currentSubject.taskId);
+                showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
+            } else {
+                const cat = (activeData?.categories || []).find(c => c && c.id === currentSubject.categoryId);
+                const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+                const task = catTasks.find(t => t && (t.id || t.text) === currentSubject.taskId);
+                if (task && !task.completed) {
+                    store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
+                    showToast(`Status: "${task.title || task.text}" concluído! ✅`, 'success');
                 }
             }
 
@@ -1148,7 +1042,6 @@ export default function Pomodoro() {
                     showToast('Todas as ações concluídas! Progresso salvo. 🏆', 'success');
                     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                     completionTimeoutRef.current = setTimeout(() => {
-                        // Fluxo neural: apenas encerra a sessão, sem redirecionar para dashboard.
                         useAppStore.getState().setPomodoroActiveSubject(null);
                     }, 1000);
                     return;
@@ -1164,7 +1057,6 @@ export default function Pomodoro() {
                     setPomodoroActiveSubject(null);
                     return;
                 }
-
                 showToast('Sessão finalizada! Retornando ao menu de origem...', 'info');
                 handleExit({ source: sourceAfterFinish, _subjectSnapshot: currentSubject });
             }, 1000);
@@ -1219,7 +1111,6 @@ export default function Pomodoro() {
                         key={activeSubject?.sessionInstanceId || 'idle'}
                     />
                 </div>
-
                 <FocusPanel
                     categories={categories || []}
                     activeSubject={activeSubject}
