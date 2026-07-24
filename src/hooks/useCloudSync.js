@@ -700,6 +700,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
               studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
               studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
               simuladoRows: (contest.simuladoRows || []).slice(-300),
+              calibrationAuditLog: (contest.calibrationAuditLog || []).slice(-150),
+              calibrationEvents: (contest.calibrationEvents || []).slice(-150),
+              coachPlan: (contest.coachPlan || []).slice(-100),
+              calibrationHistoryByCategory: contest.calibrationHistoryByCategory
+                ? Object.fromEntries(
+                    Object.entries(contest.calibrationHistoryByCategory).map(([catId, history]) => [
+                      catId,
+                      Array.isArray(history) ? history.slice(-50) : history
+                    ])
+                  )
+                : contest.calibrationHistoryByCategory,
             };
           };
           const safeContests = freshState.contests
