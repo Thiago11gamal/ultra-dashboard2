@@ -1,6 +1,8 @@
 import { kahanSum } from '../engine/math/kahan.js';
 import { getDateKey } from './dateHelper.js';
 import { getSafeScore } from './scoreHelper.js';
+// FIX-BUG-09: Matching exato em vez de fuzzy includes
+import { normalize, isSubjectMatch } from './normalization.js';
 
 export function computeBrierScore(probability01, observedBinary) {
     const rawP = Number(probability01);
@@ -184,16 +186,14 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
     const score = getSafeScore(row, maxScore);
     if (!Number.isFinite(score)) return;
 
-    // Find recent global or per-subject predictions that might match this simulado
     updated.forEach(ev => {
-      if (ev.observed != null) return; // already filled
+      if (ev.observed != null) return;
       if (!ev.category) return;
 
-      const isMatch = ev.category.toLowerCase().includes(subj.toLowerCase()) ||
-                      subj.toLowerCase().includes(ev.category.toLowerCase());
+      // FIX-BUG-09: Usar matching normalizado exato
+      const isMatch = isSubjectMatch(ev.category, subj);
 
       if (isMatch && ev.targetScore) {
-        // Simple rule: if the simulado score >= target, it was a "pass" for that prediction
         const passed = score >= Number(ev.targetScore);
         ev.observed = passed ? 1 : 0;
         ev.backfilled = true;

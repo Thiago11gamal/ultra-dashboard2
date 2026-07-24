@@ -106,25 +106,23 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
   if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
   if (daysToExam < 0) return 1.0;
   if (daysToExam === 0) return 2.0;
-  
+
   let timeDivisor = 21;
-  
   const safeFirstActivity = normalizeDate(firstActivityDate);
+
   if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
     const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
     const refTime = referenceDate.getTime();
     const firstTime = safeFirstActivity.getTime();
-    
-    // ✅ FIX: Proteção contra datas futuras e valores NaN.
+
     if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
-    
-    // ✅ FIX: Usar Math.abs para lidar com firstActivityDate no futuro.
-    // ✅ FIX: Se a data está no futuro, tratamos como se o aluno tivesse começado hoje (sem viagens no tempo com valores negativos).
+
     const journeyDays = Math.max(0, refTime - firstTime) / 86400000;
     const totalJourneyDays = Math.max(1, journeyDays) + Math.max(0, daysToExam);
-    timeDivisor = Math.max(14, totalJourneyDays * 0.15);
+    // FIX-LOGIC-02: Limitar timeDivisor a 60 para veteranos
+    timeDivisor = Math.max(14, Math.min(60, totalJourneyDays * 0.15));
   }
-  
+
   const urgency = 1.0 + Math.exp(-daysToExam / timeDivisor);
   return Number(Math.min(2.0, urgency).toFixed(4));
 }
@@ -166,47 +164,41 @@ export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, gl
  * com um piso de incerteza (Bayesian shrinkage) para evitar subestimar o risco em amostras pequenas.
  */
 export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
-    const n = history.length;
-    const fallbackVol = 0.08 * maxScore; // Piso de incerteza (8%)
-    if (n < 2) return fallbackVol;
-    
-    // CORREÇÃO MÁXIMA: Sanitizar vírgulas usando getSafeScore e remover provas nulas
-    // (NaN) em vez de injetar Zeros absolutos que arruínam a variância empírica.
-    const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
-    const validScores = safeHistory
-        .map(h => getSafeScore(h, maxScore))
-        .filter(s => Number.isFinite(s));
-        
-    const validN = validScores.length;
-    if (validN < 2) return fallbackVol;
+  const n = history.length;
+  const fallbackVol = 0.08 * maxScore;
+  if (n < 2) return fallbackVol;
 
-    const mean = kahanSum(validScores) / validN;
-    const devs = validScores.map(val => Math.pow(val - mean, 2));
-    const variance = kahanSum(devs) / (validN - 1);
-    const nPenalty = Math.max(1, 4 / validN); // Penaliza amostras muito pequenas
-    const empiricalVol = Math.sqrt(Math.max(0, variance));
-    
-    // Combinação Bayesiana simples: 70% empírico, 30% prior (piso) escalado por N
-    return (empiricalVol * 0.7) + (fallbackVol * 0.3 * nPenalty);
+  const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
+  const validScores = safeHistory
+    .map(h => getSafeScore(h, maxScore))
+    .filter(s => Number.isFinite(s));
+
+  const validN = validScores.length;
+  if (validN < 2) return fallbackVol;
+
+  const mean = kahanSum(validScores) / validN;
+  const devs = validScores.map(val => Math.pow(val - mean, 2));
+  const variance = kahanSum(devs) / (validN - 1);
+  const empiricalVol = Math.sqrt(Math.max(0, variance));
+
+  // FIX-LOGIC-03: Shrinkage Bayesiano proper em vez de 70/30 fixo
+  const shrinkFactor = validN / (validN + 4);
+  return empiricalVol * shrinkFactor + fallbackVol * (1 - shrinkFactor);
 }
 
+// FIX-LOGIC-07: sanitizeNum — tratar % e espaços
 export const sanitizeNum = (val) => {
-    if (val === null || val === undefined || val === '') return NaN;
-    
-    let str = String(val).trim();
-    
-    // Se possui vírgula, com certeza é formato PT-BR (ex: "1.234,56" ou "1,5")
-    if (str.includes(',')) {
-        return Number(str.replace(/\./g, '').replace(',', '.'));
-    }
-    
-    // Se tem pontos agrupando de 3 em 3 e não tem vírgula (ex: "1.000" ou "12.345")
-    if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
-        return Number(str.replace(/\./g, ''));
-    }
-    
-    // Caso contrário, confia no Number() nativo (ex: "1000" ou "1.5")
-    return Number(str);
+  if (val === null || val === undefined || val === '') return NaN;
+  let str = String(val).trim();
+  // FIX-LOGIC-07: Remover % e espaços
+  str = str.replace(/[%\s]/g, '');
+  if (str.includes(',')) {
+    return Number(str.replace(/\./g, '').replace(',', '.'));
+  }
+  if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+    return Number(str.replace(/\./g, ''));
+  }
+  return Number(str);
 };
 
 export const getCoachPriorities = (topicsData) => {
@@ -367,7 +359,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         // ✅ CORREÇÃO BUG #4: Fallback temporal correto
         // Usa todos exceto o mais recente, mantendo decaimento temporal
         if (pastSimulados.length === 0 && relevantSimulados.length > 1) {
-            pastSimulados = relevantSimulados.slice(0, -1); // Remove apenas o último (mais recente)
+            pastSimulados = relevantSimulados.slice(1); // FIX-BUG-01: Remove o PRIMEIRO (mais recente)
         }
         
         const notaBruta = calculateExponentialScore(relevantSimulados);
@@ -479,7 +471,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         : null;
 
     // Blend with global projected mean from Coach's MC stats for contest-aware conservatism
-    if (globalProjectedMean != null && globalProjectedMean < effectiveMCTarget) {
+    if (globalProjectedMean != null && globalProjectedMean < effectiveMCTarget && globalProjectedMean > averageScore) {
         const blend = 0.25;
         effectiveMCTarget = effectiveMCTarget * (1 - blend) + globalProjectedMean * blend;
     }
@@ -1455,8 +1447,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const performDeepCheck = (category, averageScore) => {
         // CORREÇÃO: Respeitar a âncora temporal da engine (options.now) para suportar Backtesting 
         const baseDate = options.now ? (normalizeDate(options.now) || new Date()) : new Date();
-        const thirtyDaysAgo = new Date(baseDate);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        // FIX-LOGIC-05: Usar timestamp direto
+        const thirtyDaysAgo = new Date(baseDate.getTime() - 30 * 24 * 60 * 60 * 1000);
         const cutoffTime = thirtyDaysAgo.getTime();
 
         const recentLogs = studyLogs.filter(l => l.categoryId === category.id && (normalizeDate(l.date) || new Date(0)).getTime() >= cutoffTime);

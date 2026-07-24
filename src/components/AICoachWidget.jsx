@@ -10,9 +10,9 @@ import { useAppStore } from '../store/useAppStore';
 import { displaySubject } from '../utils/displaySubject';
 import { getSafeId } from '../utils/idGenerator';
 
+// FIX-BUG-02: Regex com escape correto para **, !!, ++
 function renderRecommendation(text, depth = 0) {
   if (depth > 6) return String(text || '');
-
   const safeText = String(text || '');
   const parts = safeText.split(/(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g).filter(Boolean);
 
@@ -24,7 +24,6 @@ function renderRecommendation(text, depth = 0) {
         </strong>
       );
     }
-
     if (part.startsWith('!!') && part.endsWith('!!')) {
       return (
         <span key={`rec-${idx}`} className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">
@@ -32,7 +31,6 @@ function renderRecommendation(text, depth = 0) {
         </span>
       );
     }
-
     if (part.startsWith('++') && part.endsWith('++')) {
       return (
         <span key={`rec-${idx}`} className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">
@@ -45,7 +43,6 @@ function renderRecommendation(text, depth = 0) {
     if (!part.startsWith('**') && !part.startsWith('!!') && !part.startsWith('++')) {
       cleanPart = part.replace(/\*\*|!!|\+\+/g, '');
     }
-
     return <React.Fragment key={`rec-${idx}`}>{cleanPart}</React.Fragment>;
   });
 }
