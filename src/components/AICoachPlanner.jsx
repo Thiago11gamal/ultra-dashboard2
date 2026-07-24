@@ -195,41 +195,31 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
     const newCols = { ...columns, [source.droppableId]: startList, [destination.droppableId]: finishList };
     setColumns(newCols);
 
-    if (destination.droppableId === 'backlog' || source.droppableId === 'backlog') {
-      const systemAlerts = (coachPlan || []).filter(t => {
-        if (!t) return false;
-        const rawString = t.text || t.title || '';
-        return /\[ALERTA MESTRE\]|\[STATUS\]/i.test(rawString);
-      });
+    const systemAlerts = (coachPlan || []).filter(t => {
+      if (!t) return false;
+      const rawString = t.text || t.title || '';
+      return /\[ALERTA MESTRE\]|\[STATUS\]/i.test(rawString);
+    });
 
-      const newCoachPlan = [
-        ...systemAlerts,
-        ...(newCols.backlog || []),
-        ...(newCols.mon || []), ...(newCols.tue || []), ...(newCols.wed || []),
-        ...(newCols.thu || []), ...(newCols.fri || []), ...(newCols.sat || []),
-        ...(newCols.sun || [])
-      ];
+    const newCoachPlan = [
+      ...systemAlerts,
+      ...(newCols.backlog || []),
+      ...(newCols.mon || []), ...(newCols.tue || []), ...(newCols.wed || []),
+      ...(newCols.thu || []), ...(newCols.fri || []), ...(newCols.sat || []),
+      ...(newCols.sun || [])
+    ];
 
-      setData(prev => {
-        if (!prev) return;
-        const freshPlanner = { ...(prev.coachPlanner || {}) };
-        Object.keys(freshPlanner).forEach(day => {
-          freshPlanner[day] = [...(freshPlanner[day] || [])];
-        });
-        if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
-        if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
-        prev.coachPlanner = freshPlanner;
-        prev.coachPlan = newCoachPlan;
+    setData(prev => {
+      if (!prev) return;
+      const freshPlanner = { ...(prev.coachPlanner || {}) };
+      Object.keys(freshPlanner).forEach(day => {
+        freshPlanner[day] = [...(freshPlanner[day] || [])];
       });
-    } else {
-      setData(prev => {
-        if (!prev) return;
-        const freshPlanner = { ...(prev.coachPlanner || {}) };
-        if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
-        if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
-        prev.coachPlanner = freshPlanner;
-      });
-    }
+      if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
+      if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
+      prev.coachPlanner = freshPlanner;
+      prev.coachPlan = newCoachPlan;
+    });
 
     setIsDragging(false);
   };

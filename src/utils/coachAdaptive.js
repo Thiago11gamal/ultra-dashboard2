@@ -564,6 +564,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       conformalHigh: Number((conformal.high * 100).toFixed(2)),
       conformalQ: Number(conformal.qHat.toFixed(4)),
       stackingWeights,
+      predObsPairs,
       dataQuality: {
         historySize: history.length,
         predObsPairs: predObsPairs.length,
