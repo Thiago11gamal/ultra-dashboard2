@@ -660,16 +660,13 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         const globalProbability = options.globalMcStats && Number.isFinite(options.globalMcStats.probability) 
             ? options.globalMcStats.probability 
             : null;
-        if (globalProbability != null && globalProbability < (mcProbability * 0.8)) {
-            mcUrgencyBoost += 5; // small global risk boost
-            mcRiskLabel = mcRiskLabel || 'elevated_global_risk';
-        }
-    }
-
-    const hasHighPriorityTasks = safeCategory.tasks?.some(t => !t.completed && t.priority === 'high') || false;
+        if (globalProbability != null && globalProbabili    const safeTasksArray = Array.isArray(safeCategory.tasks) 
+        ? safeCategory.tasks 
+        : Object.values(safeCategory.tasks || {});
+    const hasHighPriorityTasks = safeTasksArray.some(t => t && !t.completed && t.priority === 'high');
     const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
 
-    const allTasks = Array.isArray(safeCategory.tasks) ? safeCategory.tasks : [];
+    const allTasks = safeTasksArray;
     const totalTasks = allTasks.length;
     const completedTasks = allTasks.filter(t => t?.completed).length;
     const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 1.0;
@@ -689,7 +686,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
     const totalHours = totalMinutes / 60;
 
-    const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(b.date) || new Date(0)).getTime());
+    const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime());
     const rollingWindowMs = 28 * MS_PER_DAY;
     const nowMs = metrics.referenceNow;
     const recentBaselineLogs = sortedLogsForBurnout.filter(log => (nowMs - (normalizeDate(log.date) || new Date(0)).getTime()) <= rollingWindowMs);
@@ -724,7 +721,11 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
         if (!c) return acc; // Blindagem contra categorias apagadas/fantasmas no estado
         let rawW = c.weight;
-        if (typeof rawW === 'string') rawW = rawW.replace(',', '.');
+        if (typeof rawW === 'string') rawW = rawW.replace(/\./g, '').replace(',', '.');
+        const parsedW = Number(rawW);
+        const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
+        return acc + w;
+    }, 0);
         const parsedW = Number(rawW);
         const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
         return acc + w;
@@ -1183,76 +1184,77 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 const MAX_CACHE_SIZE = 50; // Metade do tamanho anterior para manter memória baixa
 
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
-    const catId = category.id || category.name;
-    const openTasks = (category.tasks || []).filter(t => !t.completed).length;
+    const safeCat = category || {};
+    const catId = safeCat.id || safeCat.name || 'unknown';
+    const safeTasks = Array.isArray(safeCat.tasks)
+        ? safeCat.tasks
+        : Object.values(safeCat.tasks || {});
+    const openTasks = safeTasks.filter(t => t && !t.completed).length;
+
+    const safeSims = Array.isArray(simulados)
+        ? simulados
+        : Object.values(simulados || {});
     
-    // ✅ DEPOIS (Cache Isolado Estatisticamente)
     let lastSimTimestamp = 0;
-    let historyVolume = 0; // Novo marcador de entropia
-    if (simulados.length > 0) {
-        const lastSim = simulados.reduce((latest, current) => {
+    let historyVolume = 0;
+    if (safeSims.length > 0) {
+        const lastSim = safeSims.reduce((latest, current) => {
+            if (!latest) return current;
+            if (!current) return latest;
             const latestTime = (normalizeDate(latest.date || latest.createdAt) || new Date(0)).getTime();
             const currTime = (normalizeDate(current.date || current.createdAt) || new Date(0)).getTime();
             return currTime > latestTime ? current : latest;
-        }, simulados[0]);
-        lastSimTimestamp = (normalizeDate(lastSim.date || lastSim.createdAt) || new Date(0)).getTime();
-        historyVolume = simulados.length;
+        }, safeSims[0]);
+        if (lastSim) {
+            lastSimTimestamp = (normalizeDate(lastSim.date || lastSim.createdAt) || new Date(0)).getTime();
+        }
+        historyVolume = safeSims.length;
     }
 
-    // Adicione uma soma de controlo (checksum) das notas reais ao hash para invalidar o cache sempre que uma pontuação for alterada internamente.
-    // CORREÇÃO: Utilizar o extrator resiliente (getSafeScore) para o Checksum, 
-    // garantindo que a entropia numérica varia corretamente a cada edição do utilizador.
-    const scoreChecksum = simulados.reduce((acc, s, index) => {
+    const scoreChecksum = safeSims.reduce((acc, s, index) => {
+        if (!s) return acc;
         const parsed = getSafeScore(s, maxScore);
         const validVal = Number.isNaN(parsed) ? 0 : parsed;
-        // Injeção de assimetria posicional (index + 1) e ruído primo leve (1.17)
-        // para garantir que [30, 70] possua um Hash distinto de [70, 30].
         return acc + (validVal * (index + 1) * 1.17);
     }, 0);
 
-    // Adiciona entropia baseada nas tarefas e no histórico da própria categoria 
-    // para evitar colisões de cache entre concursos diferentes (BUG 7)
-    const tasksHash = (category.tasks || []).reduce((acc, t) => acc + (t.id || t.text || '').length, 0);
-    const historyLen = (category.simuladoStats && category.simuladoStats.history) 
-        ? (Array.isArray(category.simuladoStats.history) ? category.simuladoStats.history.length : Object.keys(category.simuladoStats.history).length) 
+    const tasksHash = safeTasks.reduce((acc, t) => acc + ((t?.id || t?.text || '').length), 0);
+    const historyLen = (safeCat.simuladoStats && safeCat.simuladoStats.history) 
+        ? (Array.isArray(safeCat.simuladoStats.history) ? safeCat.simuladoStats.history.length : Object.keys(safeCat.simuladoStats.history).length) 
         : 0;
 
-    // Injeção do volume histórico atua como 'salt' criptográfico para o cache, 
-    // garantindo que concursos distintos ou novos dados invalidem o estado corretamente.
-    // CORREÇÃO: Injetar entropia temporal (Data Atual ISO) na chave de cache para garantir 
-    // que o decaimento por repetição espaçada (SRS) é atualizado dia após dia.
     const todayStr = getDateKey(new Date());
-    const userId = category?.userId || simulados[0]?.userId || 'default';
+    const userId = safeCat?.userId || safeSims[0]?.userId || 'default';
     const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}`; 
     const cacheKey = `isolate_${catId}_${hash}`;
 
     if (_topicsCache.has(cacheKey)) {
-        // Renovar a posição na fila do Map (LRU)
         const result = _topicsCache.get(cacheKey);
         _topicsCache.delete(cacheKey);
         _topicsCache.set(cacheKey, result);
         return result;
     }
 
-    // CORREÇÃO: Em vez de destruir 100 itens (Jank Rendering), remove apenas o mais antigo.
     if (_topicsCache.size >= MAX_CACHE_SIZE) {
         const oldestKey = _topicsCache.keys().next().value;
         _topicsCache.delete(oldestKey);
     }
 
-    const result = _buildSortedTopicsImpl(category, simulados, maxScore);
+    const result = _buildSortedTopicsImpl(safeCat, safeSims, maxScore);
     _topicsCache.set(cacheKey, result);
     return result;
 }
 
 const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
-    const tasks = category.tasks || [];
+    const safeCat = category || {};
+    const tasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
+    const safeSims = Array.isArray(simulados) ? simulados : Object.values(simulados || {});
     const topicMap = {};
 
-    const relevantSimulados = simulados.filter(s => isSubjectMatch(s.subject, category.name));
+    const relevantSimulados = safeSims.filter(s => s && isSubjectMatch(s.subject, safeCat.name));
     const categorySimuladoCount = relevantSimulados.length;
 
-    const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
+    const history = (safeCat.simuladoStats && safeCat.simuladoStats.history) ? safeCat.simuladoStats.history : [];
 
     const todayForTopics = new Date();
 
