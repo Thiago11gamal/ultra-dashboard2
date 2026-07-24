@@ -54,48 +54,56 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                 </span>
                             </div>
                             <div className="grid grid-cols-4 gap-2 text-center">
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">Bruta</span>
-                                    <span className="text-xs font-mono text-orange-400 font-bold">
-                                        {rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}
-                                    </span>
-                                    {rawCorrect != null && rawTotal > 0 && (
-                                        <span className="text-[8px] text-slate-500 font-bold font-mono tracking-tighter absolute bottom-0 pb-[1px]">
-                                            {rawCorrect}/{rawTotal}
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Bruta</span>
+                                    <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
+                                        <span className="text-[11px] sm:text-xs font-mono text-orange-400 font-bold leading-none">
+                                            {rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}
                                         </span>
-                                    )}
+                                        {rawCorrect != null && rawTotal > 0 && (
+                                            <span className="text-[8px] text-slate-500 font-bold font-mono tracking-tighter mt-1 leading-none">
+                                                {rawCorrect}/{rawTotal}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
                                         <div className="h-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, rawVal)) : 0}%` }} />
                                     </div>
                                 </div>
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">Histórica</span>
-                                    <span className="text-xs font-mono text-blue-400 font-bold">
-                                        {statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}{unit}
-                                    </span>
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Histórica</span>
+                                    <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
+                                        <span className="text-[11px] sm:text-xs font-mono text-blue-400 font-bold leading-none">
+                                            {statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}{unit}
+                                        </span>
+                                    </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
                                         <div className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, statsVal)) : 0}%` }} />
                                     </div>
                                 </div>
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">Nível Real</span>
-                                    <span className="text-xs font-mono text-emerald-400 font-bold">
-                                        {bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}{unit}
-                                    </span>
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Nível Real</span>
+                                    <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
+                                        <span className="text-[11px] sm:text-xs font-mono text-emerald-400 font-bold leading-none">
+                                            {bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}{unit}
+                                        </span>
+                                    </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
                                         <div className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, bayVal)) : 0}%` }} />
                                     </div>
                                 </div>
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">Tendência</span>
-                                    <span className={`text-xs font-mono font-bold flex items-center justify-center gap-0.5 ${trendStatus === 'up' ? 'text-emerald-400' : trendStatus === 'down' ? 'text-rose-400' : 'text-slate-400'}`}>
-                                        {trendVal != null && Number.isFinite(Number(trendVal)) ? (
-                                            <>
-                                                {trendVal > 0 ? '↑' : trendVal < 0 ? '↓' : ''}
-                                                <span>{trendVal > 0 ? `+${formatValue(trendVal)}` : formatValue(trendVal)}</span>
-                                            </>
-                                        ) : '—'}
-                                    </span>
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Tendência</span>
+                                    <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
+                                        <span className={`text-[11px] sm:text-xs font-mono font-bold flex items-center justify-center gap-0.5 leading-none ${trendStatus === 'up' ? 'text-emerald-400' : trendStatus === 'down' ? 'text-rose-400' : 'text-slate-400'}`}>
+                                            {trendVal != null && Number.isFinite(Number(trendVal)) ? (
+                                                <>
+                                                    {trendVal > 0 ? '↑' : trendVal < 0 ? '↓' : ''}
+                                                    <span>{trendVal > 0 ? `+${formatValue(trendVal)}` : formatValue(trendVal)}</span>
+                                                </>
+                                            ) : '—'}
+                                        </span>
+                                    </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
                                         <div className={`h-full ${trendStatus === 'up' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] w-full' : trendStatus === 'down' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)] w-full' : 'bg-slate-500 w-full'}`} style={{ opacity: trendVal != null && Number.isFinite(Number(trendVal)) ? 1 : 0 }} />
                                     </div>
