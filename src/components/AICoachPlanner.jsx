@@ -250,7 +250,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
       const idT = getSafeId(t);
       const idTask = getSafeId(task);
       if (idT && idTask) return idT === idTask;
-      return t === task || t.title === task.title;
+      return t === task || (t.title && t.title === task.title);
     });
 
     if (startIndex === -1) {

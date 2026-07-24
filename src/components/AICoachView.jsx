@@ -296,7 +296,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
       const idT = getSafeId(t);
       const idTask = getSafeId(task);
       if (idT && idTask) return idT === idTask;
-      return t === task || t.title === task.title;
+      return t === task || (t.title && t.title === task.title);
     });
 
     let sessionTasks = unallocatedCards;
@@ -308,7 +308,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
           const idT = getSafeId(t);
           const idTask = getSafeId(task);
           if (idT && idTask) return idT === idTask;
-          return t === task || t.title === task.title;
+          return t === task || (t.title && t.title === task.title);
         })
       );
 
@@ -318,7 +318,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
           const idT = getSafeId(t);
           const idTask = getSafeId(task);
           if (idT && idTask) return idT === idTask;
-          return t === task || t.title === task.title;
+          return t === task || (t.title && t.title === task.title);
         });
         sourceContext = dayEntry[0];
       } else {
@@ -327,7 +327,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
           const idT = getSafeId(t);
           const idTask = getSafeId(task);
           if (idT && idTask) return idT === idTask;
-          return t === task || t.title === task.title;
+          return t === task || (t.title && t.title === task.title);
         });
       }
     }
@@ -560,7 +560,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                   }[type];
 
                   return (
-                    <div key={getSafeId(alertTask)} className={`relative overflow-hidden p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
+                    <div key={getSafeId(alertTask) || `sys-alert-${alertTask?.id || Math.random()}`} className={`relative overflow-hidden p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
                       <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
                       <div className="flex items-start gap-4">
                         <div className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
@@ -595,7 +595,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                               <span className="text-white ml-1">
                                 {Math.round(Number.isFinite(Number(alertTask.analysis.monteCarlo.probabilityRaw))
                                   ? Number(alertTask.analysis.monteCarlo.probabilityRaw)
-                                  : (alertTask.analysis.monteCarlo.probability || 0))}%
+                                  : Number(String(alertTask.analysis.monteCarlo.probability || 0).replace(/[^\d.-]/g, '')) || 0)}%
                               </span>
                             </span>
                           </div>
@@ -604,8 +604,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                               Volatilidade:{' '}
                               <span className="text-white ml-1">
-                                {(Number.isFinite(Number(alertTask.analysis.monteCarlo.volatility))
-                                  ? Number(alertTask.analysis.monteCarlo.volatility) : 0).toFixed(2)}
+                                {(Number(String(alertTask.analysis.monteCarlo.volatility || 0).replace(/[^\d.-]/g, '')) || 0).toFixed(2)}
                               </span>
                             </span>
                           </div>
