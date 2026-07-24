@@ -212,6 +212,7 @@ export function simuladosToHistory(simulados, maxScore = 100) {
     .map((s, idx) => {
       const parsed = Date.parse(s.date || s.createdAt);
       return {
+        ...s,
         score: getSafeScore(s, maxScore),
         rawTimestamp: Number.isFinite(parsed) ? parsed : 0,
         date: Number.isFinite(parsed) ? getDateKey(new Date(parsed)) : null,
@@ -243,7 +244,6 @@ export function simuladosToHistory(simulados, maxScore = 100) {
   }
   
   return sorted
-    .map(({ score, date, fatigueFlag }) => ({ score, date, fatigueFlag }))
     .filter(item => typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(item.date.trim()));
 }
 
