@@ -54,7 +54,7 @@ export function PomodoroProgress({
                                 <div className="relative w-4 h-4 rounded-full bg-[#2d1a12]/20 border border-[#2d1a12]/40 overflow-hidden shrink-0">
                                     <div
                                         ref={el => breakBallsRef.current[i] = el}
-                                        className="absolute bottom-0 w-full bg-emerald-600 transition-all"
+                                        className="absolute bottom-0 w-full bg-emerald-400 transition-all"
                                         style={{
                                             height: (i < sessions - 1) ? '100%' :
                                                 (sessions === i + 1 && (mode === 'break' || mode === 'long_break')) ? `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%` : '0%'
