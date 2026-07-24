@@ -29,20 +29,20 @@ import { displaySubject } from '../utils/displaySubject';
 import { formatDatePtBR, formatDateTimePtBR } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
 
-// FIX-CODE-02: Centralized constants
+// FIX-CODE-02: Constantes centralizadas
 const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
 const CALIBRATION_ALERT_CACHE_MAX = 200;
 const BRIER_VISUAL_MAX = 0.35;
 const EMPTY_ARRAY = Object.freeze([]);
 
-// FIX: Defensive normalization — accepts array OR object-map, never breaks with other types
+// FIX: Normalização defensiva — aceita array OU objeto-map, nunca quebra com outros tipos
 function normalizeToArray(value) {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return Object.values(value);
   return EMPTY_ARRAY;
 }
 
-// FIX: Central sanitization of maxScore (0, negative or NaN become 100)
+// FIX: Sanitização central de maxScore (0, negativo ou NaN viram 100)
 function sanitizeMaxScore(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : 100;
@@ -50,10 +50,10 @@ function sanitizeMaxScore(value) {
 
 function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
   const safeMax = sanitizeMaxScore(maxScore);
-  // FIX: negative minScore is no longer accepted
+  // FIX: minScore negativo não é mais aceito
   const safeMin = Math.max(0, Math.min(Number(minScore) || 0, safeMax));
   const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number(value) || 0));
-  // FIX: empty string ('') is no longer interpreted as target 0
+  // FIX: string vazia ('') não é mais interpretada como meta 0
   if (user?.targetScore != null && user.targetScore !== '' && Number.isFinite(Number(user.targetScore))) {
     let ts = Number(user.targetScore);
     if (ts > safeMax && ts <= 100) {
@@ -71,7 +71,7 @@ export default function Coach() {
   const calibrationAlertCacheRef = useRef(new Map());
   const activeId = useAppStore(state => state.appState.activeId);
 
-  // FIX: ref mirroring the active contest, to validate scheduled metrics
+  // FIX: ref espelhando o concurso ativo, para validar métricas agendadas
   const activeIdRef = useRef(activeId);
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
@@ -100,7 +100,7 @@ export default function Coach() {
   const showToastRef = useRef(showToast);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
 
-  // FIX: defensive normalization on all fields that could come as object-map
+  // FIX: normalização defensiva em todos os campos que podem vir como objeto-map
   const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
   const history = useMemo(() => normalizeToArray(rawHistory), [rawHistory]);
 
@@ -132,7 +132,7 @@ export default function Coach() {
   const safeActiveTab = activeTab === 'analytics' ? 'analytics' : 'insights';
   useEffect(() => {
     if (activeTab && activeTab !== safeActiveTab) {
-      console.warn(`[Coach.jsx] Invalid tab state: ${activeTab}, fallback activated.`);
+      console.warn(`[Coach.jsx] Estado de aba inválido: ${activeTab}, fallback ativado.`);
     }
   }, [activeTab, safeActiveTab]);
 
@@ -143,12 +143,12 @@ export default function Coach() {
   const lastPushedScoreRef = useRef(null);
   const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
   const isMountedRef = useRef(true);
-  // FIX-BUG-11: Track idle callbacks AND rAFs for proper cleanup
+  // FIX-BUG-11: Rastrear idle callbacks E rAFs para cleanup correto
   const idleCallbackIdsRef = useRef([]);
   const rafIdsRef = useRef([]);
   const lastPersistByCategoryRef = useRef(new Map());
 
-  // FIX: Cancels all pending work (prevents leaks between contests and after unmount)
+  // FIX: Cancela todo trabalho pendente (evita vazamento entre concursos e após unmount)
   const cancelPendingCalibrationWork = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -162,7 +162,7 @@ export default function Coach() {
     rafIdsRef.current = [];
   }, []);
 
-  // FIX-BUG-04 + FIX: beyond caches, cancels timeouts/idle/rAF pending when switching contest
+  // FIX-BUG-04 + FIX: além dos caches, cancela timeouts/idle/rAF pendentes ao trocar de concurso
   useEffect(() => {
     clearMcCache();
     clearUrgencyCache();
@@ -186,7 +186,7 @@ export default function Coach() {
 
   const persistCalibrationMetric = useCallback((metric) => {
     if (!isMountedRef.current || !metric) return;
-    // FIX: discards metrics collected in another contest (scheduled before switch)
+    // FIX: descarta métricas coletadas em outro concurso (agendadas antes da troca)
     if (metric.contestId && metric.contestId !== activeIdRef.current) return;
 
     const now = Date.now();
@@ -200,8 +200,8 @@ export default function Coach() {
       return Number.isFinite(n) ? n : fallback;
     };
 
-    // FIX: timestamp 0 or invalid is no longer treated inconsistently
-    const metricTimestamp = Number.isFinite(Number(metric?.timestamp))
+    // FIX: timestamp 0 ou inválido não é mais tratado de forma inconsistente
+    const metricTimestamp = metric?.timestamp && Number.isFinite(Number(metric.timestamp)) && Number(metric.timestamp) > 100000000000
       ? Number(metric.timestamp)
       : now;
     const avgBrier = toFinite(metric?.avgBrier, null);
@@ -215,8 +215,8 @@ export default function Coach() {
       calibrationPenalty > 0 || reliability.length > 0;
     if (!hasUsefulSignal) return;
 
-    // FIX: throttle is only recorded after validation
-    // (previously, useless metric blocked valid metric from same category for 500ms)
+    // FIX: throttle só é registrado depois da validação
+    // (antes, métrica inútil bloqueava métrica válida da mesma categoria por 500ms)
     const lastAt = Number(lastPersistByCategoryRef.current.get(normalizedCategoryId) || 0);
     if (now - lastAt < 500) return;
     lastPersistByCategoryRef.current.set(normalizedCategoryId, now);
@@ -234,7 +234,7 @@ export default function Coach() {
     };
 
     let wasPersisted = false;
-    // Note: setData follows Immer contract of rest of app (draft mutation)
+    // Nota: setData segue o contrato Immer do restante do app (mutação do draft)
     setData(prev => {
       if (!prev) return prev;
       const current = prev.calibrationHistoryByCategory || {};
@@ -243,8 +243,8 @@ export default function Coach() {
       const hasComparableLast = lastEntry && Number.isFinite(Number(lastEntry?.timestamp));
       if (hasComparableLast) {
         const metricDelta = (currentValue, previousValue) => {
-          const currentFinite = Number.isFinite(Number(currentValue));
-          const previousFinite = Number.isFinite(Number(previousValue));
+          const currentFinite = currentValue !== null && currentValue !== undefined && currentValue !== '' && Number.isFinite(Number(currentValue));
+          const previousFinite = previousValue !== null && previousValue !== undefined && previousValue !== '' && Number.isFinite(Number(previousValue));
           if (currentFinite && previousFinite) return Math.abs(Number(previousValue) - Number(currentValue));
           if (!currentFinite && !previousFinite) return 0;
           return Infinity;
@@ -278,7 +278,7 @@ export default function Coach() {
         item => Number.isFinite(Number(item?.timestamp)) && Number(item.timestamp) >= cutoff
       );
       const nextHistory = [...cleaned, normalizedMetric].slice(-60);
-      // FIX: 7-day window relative to metric timestamp (fixes retro-dated metrics)
+      // FIX: janela de 7 dias relativa ao timestamp da métrica (corrige métricas com data retroativa)
       const recent7 = nextHistory.filter(
         item => Number(item?.timestamp || 0) >= (metricTimestamp - 1000 * 60 * 60 * 24 * 7)
       );
@@ -298,7 +298,7 @@ export default function Coach() {
           updatedAt: now
         }
       };
-      // FIX-MEM-02: Prune audit log by time AND size
+      // FIX-MEM-02: Prune audit log por tempo E tamanho
       const auditCutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
       const calibrationAuditLog = [...(prev.calibrationAuditLog || []), {
         ...normalizedMetric,
@@ -317,7 +317,7 @@ export default function Coach() {
     });
     if (!wasPersisted) return;
 
-    // FIX: isolated telemetry — failure in it doesn't break alerts flow
+    // FIX: telemetria isolada — falha nela não quebra o fluxo de alertas
     try {
       if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
         logCalibrationTelemetryEvent({ ...normalizedMetric, eventType: 'high_penalty_alert' });
@@ -325,7 +325,7 @@ export default function Coach() {
         logCalibrationTelemetryEvent(normalizedMetric);
       }
     } catch (error) {
-      console.warn('[Coach.jsx] Failed to register calibration telemetry:', error);
+      console.warn('[Coach.jsx] Falha ao registrar telemetria de calibração:', error);
     }
 
     if (isDegraded) {
@@ -335,10 +335,10 @@ export default function Coach() {
       }
       const lastAlertAt = Number(calibrationAlertCacheRef.current.get(normalizedCategoryId) || 0);
       if (currentTime - lastAlertAt > ALERT_COOLDOWN_MS) {
-        // FIX: avgBrier can be null — do not show "NaN" in toast
+        // FIX: avgBrier pode ser null — não exibir "NaN" no toast
         const brierLabel = avgBrier !== null ? Number(avgBrier).toFixed(2) : '—';
         showToastRef.current(
-          `⚠️ Critical calibration in ${displaySubject(normalizedMetric.categoryName || 'category')} (Brier ${brierLabel}).`,
+          `⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || 'categoria')} (Brier ${brierLabel}).`,
           'warning'
         );
         calibrationAlertCacheRef.current.set(normalizedCategoryId, currentTime);
@@ -350,7 +350,7 @@ export default function Coach() {
     }
   }, [setData]);
 
-  // FIX: central scheduling with tracking/removal of IDs (idle AND rAF)
+  // FIX: agendamento central com rastreamento/remoção de IDs (idle E rAF)
   const scheduleCalibrationPersist = useCallback((metrics) => {
     metrics.forEach((metric) => {
       if ('requestIdleCallback' in window) {
@@ -372,7 +372,7 @@ export default function Coach() {
   }, [persistCalibrationMetric]);
 
   const combinedHistory = useMemo(() => getCombinedHistory(history, simulados), [history, simulados]);
-  // FIX: maxScore consistently sanitized throughout component
+  // FIX: maxScore sanitizado de forma consistente em todo o componente
   const currentMaxScore = sanitizeMaxScore(data?.maxScore);
   const targetScorePoints = useMemo(() => resolveTargetScorePoints({
     user: userProfile,
@@ -392,13 +392,13 @@ export default function Coach() {
     timelineDates: EMPTY_ARRAY,
     minScore: data?.minScore ?? 0,
     maxScore: currentMaxScore,
-    // FIX: passes NORMALIZED history (array), not raw field that could be object
+    // FIX: passa o histórico NORMALIZADO (array), não o campo bruto que pode ser objeto
     simuladoRows: history
   });
 
   const projectedScore = mcStats?.projectedMean ?? 0;
   const volatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
-  // FIX: NaN no longer leaks to UI (?? does not replace NaN)
+  // FIX: NaN não vaza mais para a UI (?? não substitui NaN)
   const safeVolatility = Number.isFinite(volatility) ? volatility : 0;
   const normalizedVolatility = useMemo(() => {
     const denom = Math.max(1, Number(currentMaxScore) || 1);
@@ -406,7 +406,7 @@ export default function Coach() {
   }, [safeVolatility, currentMaxScore]);
   const drift = useMemo(() => {
     const slope = calculateAdaptiveSlope(combinedHistory, currentMaxScore);
-    return Number.isFinite(slope) ? slope : 0; // FIX: NaN drift becomes 0
+    return Number.isFinite(slope) ? slope : 0; // FIX: drift NaN vira 0
   }, [combinedHistory, currentMaxScore]);
   const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
 
@@ -421,18 +421,18 @@ export default function Coach() {
 
   useEffect(() => {
     if (!isHydrated) return;
-    // FIX: uses normalized array (data.categories might be object without .length)
+    // FIX: usa o array normalizado (data.categories pode ser objeto sem .length)
     if (categories.length === 0) {
       setTimeout(() => setIsAnalyzing(false), 0);
       return;
     }
     let metricsTimer = null;
     const analysisTimer = setTimeout(() => {
-      // FIX: try/catch/finally — engine error no longer locks loading forever
+      // FIX: try/catch/finally — erro no motor não trava mais o loading eternamente
       try {
         const targetScore = targetScorePoints;
         const collectedMetrics = [];
-        const contestId = activeIdRef.current; // FIX: marks origin of each metric
+        const contestId = activeIdRef.current; // FIX: marca a origem de cada métrica
         const result = getSuggestedFocus(
           categories, history, studyLogs,
           {
@@ -451,7 +451,7 @@ export default function Coach() {
           }
         );
         const _mcCtx = mcStatsContextRef.current;
-        // FIX: validates Number.isFinite (NaN.toFixed doesn't break, but generated "NaN%" in UI)
+        // FIX: valida Number.isFinite (NaN.toFixed não quebra, mas gerava "NaN%" na UI)
         if (result && _mcCtx && Number.isFinite(Number(_mcCtx.projectedMean))) {
           result.globalMcContext = {
             projectedMean: Number(Number(_mcCtx.projectedMean).toFixed(1)),
@@ -468,9 +468,9 @@ export default function Coach() {
           }, 1000);
         }
       } catch (error) {
-        console.error('[Coach.jsx] Failed to calculate suggestedFocus:', error);
+        console.error('[Coach.jsx] Falha ao calcular suggestedFocus:', error);
         setSuggestedFocus(null);
-        showToastRef.current('Failed to process Coach analysis.', 'error');
+        showToastRef.current('Falha ao processar a análise do Coach.', 'error');
       } finally {
         setIsAnalyzing(false);
       }
@@ -514,18 +514,18 @@ export default function Coach() {
   const settingsData = data?.settings;
 
   const handleGenerateGoals = useCallback(() => {
-    // FIX: validates normalized array, not raw field
+    // FIX: valida o array normalizado, não o campo bruto
     if (categories.length === 0 || coachLoading) return;
     setCoachLoading(true);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       timeoutRef.current = null;
       if (!isMountedRef.current) return;
-      // FIX: try/catch/finally — error no longer locks button in eternal loading
+      // FIX: try/catch/finally — erro não trava mais o botão em loading eterno
       try {
         const targetScore = targetScorePoints;
         const collectedMetrics = [];
-        const contestId = activeIdRef.current; // FIX: marks origin of each metric
+        const contestId = activeIdRef.current; // FIX: marca a origem de cada métrica
         const newTasks = generateDailyGoals(
           categories, history, studyLogs,
           {
@@ -540,7 +540,7 @@ export default function Coach() {
             }
           }
         );
-        // FIX: newTasks might not be an array — validate before using .length
+        // FIX: newTasks pode não ser array — valida antes de usar .length
         if (Array.isArray(newTasks) && newTasks.length) {
           setData(prev => {
             if (!prev) return prev;
@@ -548,16 +548,16 @@ export default function Coach() {
             prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
             return;
           });
-          showToastRef.current('Suggestions generated!', 'success');
+          showToastRef.current('Sugestões geradas!', 'success');
         } else {
-          showToastRef.current('No suggestions needed.', 'info');
+          showToastRef.current('Nenhuma sugestão necessária.', 'info');
         }
         if (collectedMetrics.length > 0) {
           scheduleCalibrationPersist(collectedMetrics);
         }
       } catch (error) {
-        console.error('[Coach.jsx] Failed to generate daily goals:', error);
-        showToastRef.current('Error generating Coach suggestions.', 'error');
+        console.error('[Coach.jsx] Falha ao gerar metas diárias:', error);
+        showToastRef.current('Erro ao gerar as sugestões do Coach.', 'error');
       } finally {
         setCoachLoading(false);
       }
@@ -577,8 +577,8 @@ export default function Coach() {
     });
   }, [setData]);
 
-  // FIX (critical): eternal loading when data.categories was null/undefined.
-  // Now decision uses normalized `categories` and has dedicated empty state.
+  // FIX (crítico): loading eterno quando data.categories era null/undefined.
+  // Agora a decisão usa `categories` (normalizado) e há estado vazio dedicado.
   if (!isHydrated || isAnalyzing || !data) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -588,10 +588,10 @@ export default function Coach() {
         </div>
         <div className="flex flex-col items-center">
           <span className="text-white font-black uppercase tracking-widest text-xs">
-            Synchronizing Neural Networks
+            Sincronizando Redes Neurais
           </span>
           <span className="text-slate-500 text-[10px] mt-1 uppercase font-bold animate-pulse">
-            Processing Probabilities...
+            Processando Probabilidades...
           </span>
         </div>
       </div>
@@ -607,10 +607,10 @@ export default function Coach() {
           </div>
           <div className="flex flex-col items-center gap-1.5">
             <span className="text-white font-black uppercase tracking-widest text-xs">
-              No categories registered
+              Sem categorias cadastradas
             </span>
             <span className="text-slate-500 text-[10px] uppercase font-bold max-w-[300px] leading-relaxed">
-              Register the contest subjects to activate the Coach's statistical engine.
+              Cadastre as matérias do concurso para ativar o motor estatístico do Coach.
             </span>
           </div>
         </div>
@@ -618,13 +618,13 @@ export default function Coach() {
     );
   }
 
-  // FIX: GovernanceBanner — safe count (filter(Boolean)) and child with key
-  // straight in AnimatePresence so exit animation works
+  // FIX: GovernanceBanner — contagem segura (filter(Boolean)) e filho com key
+  // direto no AnimatePresence para a animação de saída funcionar
   const degradedCount = Object.values(data?.calibrationOps || {})
     .filter(Boolean)
     .filter(op => op.degraded === true).length;
 
-  // FIX (high): effect populates `globalMcContext`, but UI read `globalProjectedMean`
+  // FIX (alto): o efeito popula `globalMcContext`, mas a UI lia `globalProjectedMean`
   const globalProjectedMean =
     suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean;
   const showGlobalMc = Number.isFinite(Number(globalProjectedMean));
@@ -634,13 +634,13 @@ export default function Coach() {
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
         <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <PageHeader
-            title="Coach Analysis"
-            description="Statistical mentor processing your performance to optimize your approval."
+            title="Análise do Coach"
+            description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
           />
           <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner">
             <div className="flex items-center gap-3 sm:px-4 px-2">
               <QuickStat
-                label="Volatility"
+                label="Volatilidade"
                 value={`${normalizedVolatility.toFixed(1)}pp`}
                 color="text-rose-400"
                 icon={<Zap size={14} />}
@@ -649,13 +649,13 @@ export default function Coach() {
               <MonteCarloDebugger stats={mcStats} />
               <div className="w-px h-6 bg-white/10" />
               <QuickStat
-                label="Trend"
+                label="Tendência"
                 value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
                 color="text-emerald-400"
                 icon={<ArrowUpRight size={14} />}
               />
               <div className="w-px h-6 bg-white/10" />
-              <QuickStat label="Simulations" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
+              <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
             </div>
           </div>
         </div>
@@ -689,8 +689,8 @@ export default function Coach() {
                       <div className="mb-3 flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm">
                         <BookOpen className="text-amber-400" size={18} />
                         <div className="flex-1 text-amber-200">
-                          <span className="font-semibold">{flashcardDue} flashcards</span> pending for today.
-                          SRS improves retention and the model.
+                          <span className="font-semibold">{flashcardDue} flashcards</span> pendentes para hoje.
+                          SRS melhora retenção e o modelo.
                         </div>
                         <button
                           onClick={() => navigate('/flashcards')}
@@ -706,7 +706,7 @@ export default function Coach() {
                         <span className="font-mono text-base font-bold text-emerald-200">
                           {globalProjectedMean}%
                         </span>
-                        <span className="text-emerald-400/60">global context applied</span>
+                        <span className="text-emerald-400/60">contexto global aplicado</span>
                       </div>
                     )}
                     <AICoachView
@@ -760,10 +760,11 @@ function StatRow({ label, value, trend, color }) {
   );
 }
 
-// FIX: receives only what's needed (count), safely computed by parent
-const GovernanceBanner = React.memo(function GovernanceBanner({ degradedCount }) {
+// FIX: recebe apenas o necessário (contagem), calculada de forma segura pelo pai
+const GovernanceBanner = React.memo(React.forwardRef(function GovernanceBanner({ degradedCount }, ref) {
   return (
     <Motion.div
+      ref={ref}
       layout
       initial={{ height: 0, opacity: 0 }}
       animate={{ height: 'auto', opacity: 1 }}
@@ -775,20 +776,20 @@ const GovernanceBanner = React.memo(function GovernanceBanner({ degradedCount })
           <AlertCircle size={20} />
         </div>
         <div>
-          <h4 className="text-sm font-black text-rose-200 uppercase tracking-tight">Governance Alert</h4>
+          <h4 className="text-sm font-black text-rose-200 uppercase tracking-tight">Alerta de Governança</h4>
           <p className="text-[10px] text-rose-300/80 font-medium uppercase tracking-widest">
-            We detected <span className="text-rose-400 font-black">{degradedCount}</span> categories with degraded calibration.
+            Detectamos <span className="text-rose-400 font-black">{degradedCount}</span> categorias com calibração degradada.
           </p>
         </div>
       </div>
       <div className="hidden sm:block text-right">
         <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest leading-tight">
-          Coach is applying<br />conservative adjustments.
+          O Coach está aplicando<br />ajustes conservadores.
         </p>
       </div>
     </Motion.div>
   );
-});
+}));
 
 function RaioXDashboard({ data }) {
   const ops = data?.calibrationOps || {};
@@ -798,7 +799,7 @@ function RaioXDashboard({ data }) {
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
   };
-  // FIX-BUG-10: lazy state for mount "now"
+  // FIX-BUG-10: lazy state para o "now" do mount
   const [mountTime] = useState(() => Date.now());
 
   const calibrationSummary = useMemo(() => {
@@ -828,8 +829,8 @@ function RaioXDashboard({ data }) {
           .filter(h => h?.calibrationPenalty !== null && h?.calibrationPenalty !== undefined && h?.calibrationPenalty !== '')
           .map(h => Number(h.calibrationPenalty))
           .filter(Number.isFinite);
-        // FIX: without valid Brier there is no calibration to show
-        // (previously, penalty=0 made card appear with green "0.00", false positive)
+        // FIX: sem Brier válido não há calibração a exibir
+        // (antes, penalty=0 fazia o card aparecer com "0.00" verde, falso-positivo)
         if (brierValues.length === 0) return null;
         const avgBrier = brierValues.reduce((acc, val) => acc + val, 0) / brierValues.length;
         const avgPenalty = penaltyValues.length > 0
@@ -844,7 +845,7 @@ function RaioXDashboard({ data }) {
   const toPercentLabel = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return '-';
-    return `${Math.max(0, Math.min(100, Math.round(n)))}%`;
+    return `${Math.max(0, Math.min(100, Math.round(n * 100)))}%`;
   };
 
   const sortedLogs = useMemo(() => {
@@ -854,7 +855,7 @@ function RaioXDashboard({ data }) {
 
   const filteredLogs = useMemo(
     () => sortedLogs
-      // FIX: truthy string "false" no longer counts as degraded
+      // FIX: truthy em "false" (string) não conta mais como degradado
       .filter(log => filter === 'all' || (filter === 'degraded' && log?.degraded === true))
       .slice(0, 50),
     [sortedLogs, filter]
@@ -869,10 +870,10 @@ function RaioXDashboard({ data }) {
     ? eceValues.reduce((a, b) => a + b, 0) / eceValues.length : null;
 
   const categorySeriesMap = sortedLogs.reduce((acc, log) => {
-    const cat = log?.categoryName || 'Category';
+    const cat = log?.categoryName || 'Categoria';
     const brier = toFiniteNumber(log?.avgBrier, null);
     const ece = toFiniteNumber(log?.ece, null);
-    // FIX: missing values no longer become fabricated 0 in the chart
+    // FIX: valores ausentes não viram mais 0 fabricado no gráfico
     if (brier === null && ece === null) return acc;
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push({ ts: toFiniteNumber(log?.timestamp), brier, ece });
@@ -887,7 +888,7 @@ function RaioXDashboard({ data }) {
     ? [...categorySeriesMap[effectiveCategory]].sort((a, b) => a.ts - b.ts).slice(-12)
     : [];
 
-  // FIX: reusable width clamp (prevents negative/invalid width)
+  // FIX: clamp de largura reutilizável (evita width negativo/inválido)
   const toBarWidth = (value) => {
     const pct = (Number(value) || 0) * 100;
     return `${Math.max(0, Math.min(100, pct))}%`;
@@ -901,10 +902,10 @@ function RaioXDashboard({ data }) {
             <div>
               <h3 className="text-[11px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
                 <ShieldCheck size={14} />
-                Calibration Monitor
+                Monitor de Calibração
               </h3>
               <p className="text-[10px] text-slate-500 font-medium">
-                Tracking Brier Score (Projection Error) and Degradation
+                Acompanhamento de Brier Score (Erro de Projeção) e Degradação
               </p>
             </div>
           </div>
@@ -913,12 +914,12 @@ function RaioXDashboard({ data }) {
               const op = ops[row.categoryId] || {};
               const isDegraded = op?.degraded === true;
               const avgBrier = toFiniteNumber(row.avgBrier);
-              // FIX: clamp also on minimum (negative Brier doesn't generate invalid offset)
+              // FIX: clamp também no mínimo (Brier negativo não gera offset inválido)
               const brierPct = Math.max(0, Math.min(100, (avgBrier / BRIER_VISUAL_MAX) * 100));
               const radius = 14;
               const circ = 2 * Math.PI * radius;
               const offset = circ - (brierPct / 100) * circ;
-              // FIX: NaN no longer falls directly into green
+              // FIX: NaN não cai mais direto no verde
               const colorClass = !Number.isFinite(avgBrier)
                 ? 'text-slate-500'
                 : avgBrier >= 0.25
@@ -937,7 +938,7 @@ function RaioXDashboard({ data }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-inner ${isDegraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                           <div className={`w-1.5 h-1.5 rounded-full ${isDegraded ? 'bg-rose-400' : 'bg-emerald-400'} animate-pulse shadow-[0_0_8px_currentColor]`} />
-                          {isDegraded ? 'Degraded' : 'Stable'}
+                          {isDegraded ? 'Degradado' : 'Estável'}
                         </div>
                         <span className="text-[9px] font-mono text-slate-500 font-bold bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded-md">
                           n={row.count}
@@ -949,7 +950,7 @@ function RaioXDashboard({ data }) {
                         className="w-full h-full -rotate-90 transform drop-shadow-md"
                         viewBox="0 0 36 36"
                         role="img"
-                        aria-label={`Brier Score: ${avgBrier.toFixed(2)} out of ${BRIER_VISUAL_MAX} maximum`}
+                        aria-label={`Brier Score: ${avgBrier.toFixed(2)} de ${BRIER_VISUAL_MAX} máximo`}
                       >
                         <circle cx="18" cy="18" r={radius} fill="none" className="stroke-black/40" strokeWidth="3" />
                         <circle
@@ -971,21 +972,21 @@ function RaioXDashboard({ data }) {
                   <div className="flex items-center justify-between pt-3 border-t border-white/[0.05] mt-auto">
                     <div className="group/tooltip relative flex items-center gap-1 cursor-help">
                       <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover/tooltip:text-slate-300 transition-colors border-b border-dashed border-slate-600">
-                        Deviation (Brier)
+                        Desvio (Brier)
                       </span>
                       <div className="absolute bottom-full left-0 mb-2 w-48 p-2.5 bg-[#0a0c14] text-[10px] font-medium text-slate-300 rounded-lg shadow-2xl border border-white/10 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50">
-                        <strong className="text-white font-black block mb-1">Brier Score</strong>
-                        Measures the accuracy of Monte Carlo projections. The lower (green), the more assertive the engine.
+                        <strong className="text-white font-black block mb-1">Score de Brier</strong>
+                        Mede a precisão das projeções Monte Carlo. Quanto menor (verde), mais assertivo o motor.
                       </div>
                     </div>
                     {(() => {
                       const pen = toFiniteNumber(row.avgPenalty);
-                      // FIX: 0.005 limit eliminates "-0%" (Math.round(0.1) === 0)
+                      // FIX: limite 0.005 elimina o "-0%" (Math.round(0.1) === 0)
                       if (pen < 0.005) return null;
                       return (
                         <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/20 bg-amber-500/10">
                           <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">
-                            Penalty: <span className="font-mono">-{Math.round(pen * 100)}%</span>
+                            Pena: <span className="font-mono">-{Math.round(pen * 100)}%</span>
                           </span>
                         </div>
                       );
@@ -1000,10 +1001,10 @@ function RaioXDashboard({ data }) {
         <div className="w-full flex flex-col items-center justify-center py-12 text-center space-y-2 bg-slate-900/20 border border-white/5 rounded-3xl">
           <ShieldCheck size={32} className="text-slate-700/50 mb-3" />
           <p className="text-[11px] text-slate-500 font-black uppercase tracking-widest">
-            Insufficient technical sample
+            Amostra técnica insuficiente
           </p>
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight max-w-[250px] mx-auto leading-tight">
-            Requires <span className="text-indigo-400">3 simulations per subject</span> to calibrate the engine intelligence.
+            Requer <span className="text-indigo-400">3 simulados por matéria</span> para calibrar a inteligência do motor.
           </p>
         </div>
       )}
@@ -1012,20 +1013,20 @@ function RaioXDashboard({ data }) {
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em] flex items-center gap-2">
             <List size={14} className="text-indigo-400/80" />
-            Audit Log
+            Log de Auditoria
           </h3>
           <div className="flex gap-2 bg-slate-900/50 border border-white/5 rounded-xl p-0.5">
             <button
               onClick={() => setFilter('all')}
               className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${filter === 'all' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200'}`}
             >
-              All
+              Tudo
             </button>
             <button
               onClick={() => setFilter('degraded')}
               className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${filter === 'degraded' ? 'bg-rose-500/20 text-rose-300' : 'text-slate-400 hover:text-slate-200'}`}
             >
-              Degraded
+              Degradados
             </button>
           </div>
         </div>
@@ -1033,12 +1034,12 @@ function RaioXDashboard({ data }) {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Date</th>
-                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Category</th>
-                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (error)</th>
+                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
+                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
+                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
                 <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
-                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Adjustment</th>
-                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Final Prob</th>
+                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
+                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Prob Final</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -1074,10 +1075,10 @@ function RaioXDashboard({ data }) {
                   <td colSpan="6">
                     <div className="py-12 flex flex-col items-center justify-center text-center space-y-2 px-4">
                       <p className="text-[11px] text-slate-500 font-black uppercase tracking-widest">
-                        No registered event
+                        Nenhum evento registrado
                       </p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight max-w-[340px] mx-auto leading-tight">
-                        Diagnostics will appear automatically after reaching data maturity (n=3).
+                        Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).
                       </p>
                     </div>
                   </td>
@@ -1091,10 +1092,10 @@ function RaioXDashboard({ data }) {
       <div className="p-2 border-t border-white/5 pt-8">
         <div className="flex items-center justify-between mb-5 gap-3">
           <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">
-            Reliability (ECE)
+            Confiabilidade (ECE)
           </h3>
           <span className="text-[10px] font-black text-cyan-300 shrink-0">
-            {avgEce !== null ? `Average ECE: ${avgEce.toFixed(3)}` : 'No ECE'}
+            {avgEce !== null ? `ECE médio: ${avgEce.toFixed(3)}` : 'Sem ECE'}
           </span>
         </div>
         {latestWithReliability ? (
@@ -1102,7 +1103,7 @@ function RaioXDashboard({ data }) {
         ) : (
           <div className="w-full flex items-center justify-center py-12 bg-slate-900/20 border border-white/5 rounded-2xl">
             <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">
-              No reliability buckets yet
+              Sem buckets de confiabilidade ainda
             </p>
           </div>
         )}
@@ -1111,7 +1112,7 @@ function RaioXDashboard({ data }) {
       <div className="p-2 border-t border-white/5 pt-8">
         <div className="flex items-center justify-between mb-5 gap-3">
           <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">
-            Temporal Drift (Brier/ECE)
+            Drift Temporal (Brier/ECE)
           </h3>
           {categoryNames.length > 1 ? (
             <select
@@ -1125,7 +1126,7 @@ function RaioXDashboard({ data }) {
             </select>
           ) : (
             <span className="text-[10px] text-slate-400 font-bold">
-              {effectiveCategory ? displaySubject(effectiveCategory) : 'No category'}
+              {effectiveCategory ? displaySubject(effectiveCategory) : 'Sem categoria'}
             </span>
           )}
         </div>
@@ -1152,7 +1153,7 @@ function RaioXDashboard({ data }) {
         ) : (
           <div className="w-full flex items-center justify-center py-12 bg-slate-900/20 border border-white/5 rounded-2xl">
             <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">
-              Insufficient temporal data
+              Dados temporais insuficientes
             </p>
           </div>
         )}

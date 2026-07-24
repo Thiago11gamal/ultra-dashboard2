@@ -222,7 +222,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
       const changed = JSON.stringify(backfilled.slice(-3)) !== JSON.stringify(calibrationEvents.slice(-3));
       if (changed) {
         const setD = useAppStore.getState().setData;
-        if (setD) setD(c => ({ ...c, calibrationEvents: backfilled }));
+        if (setD) setD(c => { c.calibrationEvents = backfilled; return; });
       }
     } catch { /* ignore */ }
   }, [rawSimuladoRows, maxScore, calibrationEvents, statsData?.categoryStats]);
@@ -336,7 +336,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                   setDataFn(contest => {
                     const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
                     evs.push(ev);
-                    return { ...contest, calibrationEvents: evs.slice(-200) };
+                    contest.calibrationEvents = evs.slice(-200);
+                    return;
                   });
                 }
               }
@@ -436,7 +437,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                   setDataFn(contest => {
                     const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
                     evs.push(ev);
-                    return { ...contest, calibrationEvents: evs.slice(-200) };
+                    contest.calibrationEvents = evs.slice(-200);
+                    return;
                   });
                 }
               }
