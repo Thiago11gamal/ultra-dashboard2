@@ -212,7 +212,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
   const { runAnalysis } = useMonteCarloWorker();
   const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
-  const [isFlashing, setIsFlashing] = useState(false);
 
   useEffect(() => {
     if (!rawSimuladoRows || rawSimuladoRows.length === 0) return;
@@ -316,7 +315,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             }
           }
           setSimulationData({ status: 'ready', data: result });
-          setIsFlashing(true);
 
           try {
             const setDataFn = useAppStore.getState().setData;
@@ -417,7 +415,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             }
           }
           setSimulationData({ status: 'ready', data: result });
-          setIsFlashing(true);
 
           try {
             const setDataFn = useAppStore.getState().setData;
@@ -521,7 +518,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
           ...base.data,
           calibrationSummary,
           diagnostics: { ...(base.data.diagnostics || {}), calibrationSummary, modelHealth, modelWeight },
-          healthAdjustedProb: base.data.healthAdjustedProb || Math.max(0, Math.min(100,
+          healthAdjustedProb: base.data.healthAdjustedProb ?? Math.max(0, Math.min(100,
             (base.data.probability || 0) * (modelHealth || 0.5) + (50 * (1 - (modelHealth || 0.5)))
           ))
         }
@@ -649,12 +646,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     } catch { /* ignore */ }
   }, [perSubjectProbs, debouncedTarget, simulationData?.status, pureStatsHash]);
 
-  useEffect(() => {
-    if (isFlashing) {
-      const timer = setTimeout(() => setIsFlashing(false), 800);
-      return () => clearTimeout(timer);
-    }
-  }, [isFlashing]);
 
   const derivedMetrics = useMemo(() => {
     let sd = simulationData?.data?.sd ?? 0;
