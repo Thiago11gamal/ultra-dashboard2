@@ -3,72 +3,69 @@
  * 
  * Mantém o fallback síncrono se Web Workers não estiverem disponíveis.
  * Usa Vite's `?worker` import com module worker support.
+ * Modificado para usar um Singleton Worker, evitando memory leaks ao renderizar
+ * múltiplos gráficos/componentes que usam este hook.
  */
-import { useRef, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo.js';
 
-export function useMonteCarloWorker() {
-    const workerRef = useRef(null);
-    const requestIdRef = useRef(0);
-    const pendingRequestsRef = useRef(new Map());
+// --- SHARED WORKER SINGLETON ---
+let sharedWorker = null;
+let sharedRequestId = 0;
+const sharedPendingRequests = new Map();
 
-    useEffect(() => {
-        // 🎯 MEMORY LEAK PROTECTION: O Worker é instanciado apenas quando o componente que o usa está na tela.
-        let worker = null;
-        try {
-            worker = new Worker(
-                new URL('../engine/mc.worker.js', import.meta.url),
-                { type: 'module' }
-            );
+function initSharedWorker() {
+    if (sharedWorker) return;
+    try {
+        sharedWorker = new Worker(
+            new URL('../engine/mc.worker.js', import.meta.url),
+            { type: 'module' }
+        );
 
-            worker.onmessage = (e) => {
-                const { id, type, result, error } = e.data;
-                const pending = pendingRequestsRef.current.get(id);
-                if (!pending) return;
-                pendingRequestsRef.current.delete(id);
-                if (type === 'error') {
-                    pending.reject(new Error(error));
-                } else {
-                    pending.resolve(result);
-                }
-            };
-
-            worker.onerror = (err) => {
-                console.warn('[MC Worker] Error, falling back to main thread:', err.message);
-                for (const [id, pending] of pendingRequestsRef.current) {
-                    if (pending.worker === worker) {
-                        pending.reject(new Error('Worker error'));
-                        pendingRequestsRef.current.delete(id);
-                    }
-                }
-                worker.terminate();
-                if (workerRef.current === worker) workerRef.current = null;
-            };
-
-            workerRef.current = worker;
-        } catch (e) {
-            console.warn('[MC Worker] Not available, using main thread:', e.message);
-        }
-
-        const currentPending = pendingRequestsRef.current;
-        return () => {
-            const currentWorker = workerRef.current;
-            if (currentWorker) {
-                currentWorker.terminate();
-                workerRef.current = null;
+        sharedWorker.onmessage = (e) => {
+            const { id, type, result, error } = e.data;
+            const pending = sharedPendingRequests.get(id);
+            if (!pending) return;
+            sharedPendingRequests.delete(id);
+            if (type === 'error') {
+                pending.reject(new Error(error));
+            } else {
+                pending.resolve(result);
             }
-            for (const [_id, pending] of currentPending) {
-                if (pending.timeoutId) clearTimeout(pending.timeoutId);
-                pending.reject(new Error('Worker foi encerrado (component unmounted).'));
-            }
-            currentPending.clear();
         };
+
+        sharedWorker.onerror = (err) => {
+            console.warn('[MC Worker Singleton] Error, falling back to main thread:', err.message);
+            for (const [id, pending] of sharedPendingRequests) {
+                if (pending.worker === sharedWorker) {
+                    pending.reject(new Error('Worker error'));
+                    sharedPendingRequests.delete(id);
+                }
+            }
+            if (sharedWorker) {
+                sharedWorker.terminate();
+                sharedWorker = null;
+            }
+        };
+    } catch (e) {
+        console.warn('[MC Worker Singleton] Not available, using main thread:', e.message);
+    }
+}
+
+// Cleanup pending requests periodically if needed (optional)
+// But timeouts inside the Promise will handle stale requests.
+
+export function useMonteCarloWorker() {
+    // Initialize the singleton worker on first use
+    useEffect(() => {
+        initSharedWorker();
+        // We do NOT terminate the worker on unmount because it is shared.
+        // The worker lives for the lifetime of the application.
     }, []);
 
     const runAnalysis = useCallback(async (...args) => {
-        const worker = workerRef.current;
-        
-        if (!worker) {
+        // Fallback or initialization issue
+        if (!sharedWorker) {
             // FIX APLICADO: Garantindo que o motor síncrono receba um objeto único
             if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
                 return runMonteCarloAnalysis(args[0]);
@@ -92,7 +89,7 @@ export function useMonteCarloWorker() {
             }
         }
 
-        const id = ++requestIdRef.current;
+        const id = ++sharedRequestId;
         
         let payload;
         if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
@@ -112,82 +109,46 @@ export function useMonteCarloWorker() {
             const simCount = payload?.input?.simulations ?? payload?.options?.simulations ?? 5000;
             const timeoutMs = Math.min(30000, Math.max(10000, simCount * 3)); // 3ms/sim, cap 30s
 
+            // Capture current worker to prevent race conditions during recycling
+            const currentWorker = sharedWorker;
+
             const timeoutId = setTimeout(() => {
-                if (pendingRequestsRef.current.has(id)) {
-                    pendingRequestsRef.current.delete(id);
-                    console.warn(`[MC Worker] Request ${id} timed out. Recycling worker thread.`);
+                if (sharedPendingRequests.has(id)) {
+                    sharedPendingRequests.delete(id);
+                    console.warn(`[MC Worker Singleton] Request ${id} timed out. Recycling worker thread.`);
                     
-                    // LEAK-02 FIX: Kill the zombie worker AND clean up ALL its pending requests.
-                    // We must terminate the specific worker from the closure that timed out,
-                    // not necessarily workerRef.current, which might have already been recycled.
-                    const dyingWorker = worker;
+                    // Kill the zombie worker AND clean up ALL its pending requests.
+                    const dyingWorker = currentWorker;
                     
                     // Clean ALL pending requests from the dying worker
-                    for (const [pendingId, pending] of pendingRequestsRef.current) {
+                    for (const [pendingId, pending] of sharedPendingRequests) {
                         if (pending.worker === dyingWorker) {
                             clearTimeout(pending.timeoutId);
                             pending.reject(new Error('Worker recycled due to timeout'));
-                            pendingRequestsRef.current.delete(pendingId);
+                            sharedPendingRequests.delete(pendingId);
                         }
                     }
                     
-                    dyingWorker.terminate();
+                    if (dyingWorker) {
+                         dyingWorker.terminate();
+                    }
                     
-                    if (workerRef.current === dyingWorker) {
-                        workerRef.current = null;
+                    if (sharedWorker === dyingWorker) {
+                        sharedWorker = null;
                         
                         // Instantiate a fresh worker for subsequent requests.
-                        try {
-                            const newWorker = new Worker(
-                                new URL('../engine/mc.worker.js', import.meta.url),
-                                { type: 'module' }
-                            );
-
-                            // Re-bind handlers with a clean closure capturing ONLY the new instance
-                            newWorker.onmessage = (e) => {
-                                // BUG-FIX: Renamed from 'id' to 'msgId' to avoid shadowing the outer
-                                // 'id' variable from the Promise closure, which caused the recycled
-                                // worker to never resolve its pending requests.
-                                const { id: msgId, type: msgType, result: msgResult, error: msgError } = e.data;
-                                const pending = pendingRequestsRef.current.get(msgId);
-                                if (!pending) return;
-                                pendingRequestsRef.current.delete(msgId);
-                                if (msgType === 'error') {
-                                    pending.reject(new Error(msgError));
-                                } else {
-                                    pending.resolve(msgResult);
-                                }
-                            };
-
-                            newWorker.onerror = (err) => {
-                                console.warn('[MC Worker Recycled] Error, falling back to main thread:', err.message);
-                                for (const [id, pending] of pendingRequestsRef.current) {
-                                    if (pending.worker === newWorker) {
-                                        pending.reject(new Error('Worker error'));
-                                        pendingRequestsRef.current.delete(id);
-                                    }
-                                }
-                                newWorker.terminate();
-                                if (workerRef.current === newWorker) workerRef.current = null;
-                            };
-
-                            workerRef.current = newWorker;
-                        } catch (e) {
-                            console.error('[MC Worker] Failed to recycle worker:', e);
-                        }
+                        initSharedWorker();
                     }
                     
                     reject(new Error("A análise demorou muito tempo e foi interrompida para proteger a performance do sistema."));
                 }
             }, timeoutMs);
 
-            pendingRequestsRef.current.set(id, { 
-                worker, // Track request owner worker instance
-                timeoutId, // BUG 3 FIX: Guardar referência para limpeza
+            sharedPendingRequests.set(id, { 
+                worker: currentWorker, // Track request owner worker instance
+                timeoutId, // Guardar referência para limpeza
                 resolve: (data) => {
                     clearTimeout(timeoutId);
-                    // BUG 5 FIX: Resolver sempre o dado recebido para suportar concorrência nativa.
-                    // O debounce/abort deve ser gerenciado no nível do componente, não no worker.
                     resolve(data);
                 }, 
                 reject: (err) => {
@@ -197,10 +158,10 @@ export function useMonteCarloWorker() {
             });
             
             try {
-                worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
-            } catch {
+                currentWorker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
+            } catch (err) {
                 clearTimeout(timeoutId);
-                pendingRequestsRef.current.delete(id);
+                sharedPendingRequests.delete(id);
                 reject(new Error(`Falha ao enviar dados para o Worker (DataCloneError). Estrutura inválida.`));
             }
         });
