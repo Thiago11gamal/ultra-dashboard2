@@ -963,12 +963,13 @@ function RaioXDashboard({ data }) {
           </div>
         </div>
       ) : (
-        <div className="py-8 text-center space-y-2">
-          <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">
+        <div className="w-full flex flex-col items-center justify-center py-12 text-center space-y-2 bg-slate-900/20 border border-white/5 rounded-3xl">
+          <ShieldCheck size={32} className="text-slate-700/50 mb-3" />
+          <p className="text-[11px] text-slate-500 font-black uppercase tracking-widest">
             Amostra técnica insuficiente
           </p>
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight max-w-[200px] mx-auto leading-tight">
-            Requer <span className="text-indigo-400">3 simulados por matéria</span> para calibrar.
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight max-w-[250px] mx-auto leading-tight">
+            Requer <span className="text-indigo-400">3 simulados por matéria</span> para calibrar a inteligência do motor.
           </p>
         </div>
       )}
@@ -999,7 +1000,7 @@ function RaioXDashboard({ data }) {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
+                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
                 <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
                 <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
                 <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
@@ -1008,17 +1009,18 @@ function RaioXDashboard({ data }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filteredLogs.map((log, idx) => (
-                <tr
-                  key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`}
-                  className="group hover:bg-white/[0.02] transition-colors"
-                >
-                  <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono whitespace-nowrap">
-                    {toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}
-                  </td>
-                  <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
-                    {displaySubject(log.categoryName)}
-                  </td>
+              {filteredLogs.length > 0 ? (
+                filteredLogs.map((log, idx) => (
+                  <tr
+                    key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`}
+                    className="group hover:bg-white/[0.02] transition-colors"
+                  >
+                    <td className="py-3 px-4 text-[10px] text-slate-500 font-mono whitespace-nowrap">
+                      {toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}
+                    </td>
+                    <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
+                      {displaySubject(log.categoryName)}
+                    </td>
                   <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>
                     {toFiniteNumber(log?.avgBrier, null) !== null ? Number(log.avgBrier).toFixed(3) : '-'}
                   </td>
@@ -1033,20 +1035,23 @@ function RaioXDashboard({ data }) {
                     {toPercentLabel(log?.probability)}
                   </td>
                 </tr>
-              ))}
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6">
+                    <div className="py-12 flex flex-col items-center justify-center text-center space-y-2 px-4">
+                      <p className="text-[11px] text-slate-500 font-black uppercase tracking-widest">
+                        Nenhum evento registrado
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight max-w-[340px] mx-auto leading-tight">
+                        Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-
-          {filteredLogs.length === 0 && (
-            <div className="py-12 text-center space-y-2 px-4">
-              <p className="text-[11px] text-slate-500 font-black uppercase tracking-widest">
-                Nenhum evento registrado
-              </p>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight max-w-[340px] mx-auto leading-tight">
-                Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1062,9 +1067,11 @@ function RaioXDashboard({ data }) {
         {latestWithReliability ? (
           <ReliabilityCurveChart buckets={latestWithReliability.reliability} />
         ) : (
-          <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">
-            Sem buckets de confiabilidade ainda
-          </p>
+          <div className="w-full flex items-center justify-center py-12 bg-slate-900/20 border border-white/5 rounded-2xl">
+            <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">
+              Sem buckets de confiabilidade ainda
+            </p>
+          </div>
         )}
       </div>
 
@@ -1110,9 +1117,11 @@ function RaioXDashboard({ data }) {
             ))}
           </div>
         ) : (
-          <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">
-            Dados temporais insuficientes
-          </p>
+          <div className="w-full flex items-center justify-center py-12 bg-slate-900/20 border border-white/5 rounded-2xl">
+            <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">
+              Dados temporais insuficientes
+            </p>
+          </div>
         )}
       </div>
     </div>
