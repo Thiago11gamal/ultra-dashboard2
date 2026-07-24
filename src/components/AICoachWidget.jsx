@@ -361,20 +361,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} />
                                 )}
 
-                                {suggestion.urgency?.details?.monteCarlo?.diagnostics && (
-                                    <div className="text-[8px] bg-slate-900/50 border border-white/5 p-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-400 font-mono">
-                                        <div className="flex justify-between col-span-2">
-                                            <span>MC</span>
-                                            <span className="text-emerald-300">{suggestion.urgency.details.monteCarlo.diagnostics.simulationCount} sims</span>
-                                        </div>
-                                        {suggestion.urgency.details.monteCarlo.diagnostics?.modelHealth != null && (
-                                            <div>Health: {Number(suggestion.urgency.details.monteCarlo.diagnostics.modelHealth).toFixed(1)}</div>
-                                        )}
-                                        {suggestion.urgency.details.monteCarlo?.healthAdjustedProb != null && (
-                                            <div>Adj: {Number(suggestion.urgency.details.monteCarlo.healthAdjustedProb).toFixed(0)}%</div>
-                                        )}
-                                    </div>
-                                )}
                             </div>
                         </div>
 
