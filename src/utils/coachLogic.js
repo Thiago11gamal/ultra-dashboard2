@@ -1494,7 +1494,6 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
     const topicMap = {};
 
     const relevantSimulados = safeSims.filter(s => s && isSubjectMatch(s.subject, safeCat.name));
-    const categorySimuladoCount = relevantSimulados.length;
 
     const history = (safeCat.simuladoStats && safeCat.simuladoStats.history) ? safeCat.simuladoStats.history : [];
     const todayForTopics = new Date();

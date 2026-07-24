@@ -745,7 +745,7 @@ export function useMonteCarloStats({
       uncertainty
     };
   }, [
-    simulationData?.data,
+    simulationData,
     pureStatsData,
     maxScore,
     minScore,
