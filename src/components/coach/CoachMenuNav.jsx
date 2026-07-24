@@ -112,7 +112,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                 >
                     <MenuTab
                         tabKey="insights"
-                        tabRef={tabRefs.insights}
+                        tabRef={insightsRef}
                         active={activeTab === 'insights'}
                         onClick={activateTab}
                         onKeyDown={handleTabKeyDown}
@@ -124,7 +124,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     />
                     <MenuTab
                         tabKey="analytics"
-                        tabRef={tabRefs.analytics}
+                        tabRef={analyticsRef}
                         active={activeTab === 'analytics'}
                         onClick={activateTab}
                         onKeyDown={handleTabKeyDown}
