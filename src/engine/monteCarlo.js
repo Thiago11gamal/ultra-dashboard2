@@ -736,8 +736,11 @@ export function runMonteCarloAnalysis(params = {}) {
         .map((score, index) => {
             const rawScore = extractScore(score);
             const isNuloOuVazio = rawScore === null || rawScore === undefined || String(rawScore).trim() === '';
+            
+            const baseObj = (typeof score === 'object' && score !== null) ? score : {};
 
             return {
+                ...baseObj,
                 score: isNuloOuVazio ? NaN : Number(rawScore),
                 date: safeDates[index] || getDateKey(new Date())
             };

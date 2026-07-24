@@ -112,9 +112,10 @@ self.onmessage = function(e) {
 
                 const sanitizedInput = {
                     ...input,
+                    // FIX: Mantém o objeto inteiro para não perder metadata (fatigueFlag, weight, difficulty)
                     values: Array.isArray(input.values) ? input.values.map(v => {
                         if (typeof v === 'object' && v !== null) {
-                            return safeNum(v.score ?? v.value, NaN);
+                            return { ...v, score: safeNum(v.score ?? v.value, NaN) };
                         }
                         return safeNum(v, NaN);
                     }) : [],
@@ -143,7 +144,8 @@ self.onmessage = function(e) {
                 const options = sanitizeOptions(payload.options);
 
                 const sanitizedInput = {
-                    values: hist.map(h => typeof h === 'object' && h !== null ? (h.score ?? h.value ?? NaN) : h),
+                    // FIX: Mantém o objeto inteiro
+                    values: hist.map(h => typeof h === 'object' && h !== null ? { ...h, score: (h.score ?? h.value ?? NaN) } : h),
                     dates: hist.map(h => typeof h === 'object' && h !== null ? (h.date ?? '') : ''),
                     targetScore: safeNum(payload.targetScore, 0),
                     projectionDays: safeNum(payload.projectionDays, 90),
