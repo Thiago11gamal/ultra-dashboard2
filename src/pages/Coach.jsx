@@ -826,7 +826,7 @@ function RaioXDashboard({ data }) {
 
   const sortedLogs = useMemo(() => {
     const source = Array.isArray(data?.calibrationAuditLog) ? data.calibrationAuditLog : [];
-    return [...source].sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp));
+    return [...source].filter(Boolean).sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp));
   }, [data?.calibrationAuditLog]);
 
   const filteredLogs = useMemo(
@@ -1025,11 +1025,11 @@ function RaioXDashboard({ data }) {
                     <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
                       {displaySubject(log.categoryName)}
                     </td>
-                  <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {toFiniteNumber(log?.avgBrier, null) !== null ? Number(log.avgBrier).toFixed(3) : '-'}
+                  <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${Number(log?.avgBrier || 0) > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {toFiniteNumber(log?.avgBrier, null) !== null ? Number(log?.avgBrier).toFixed(3) : '-'}
                   </td>
                   <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>
-                    {toFiniteNumber(log?.ece, null) !== null ? Number(log.ece).toFixed(3) : '-'}
+                    {toFiniteNumber(log?.ece, null) !== null ? Number(log?.ece).toFixed(3) : '-'}
                   </td>
                   <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
                     {toFiniteNumber(log?.calibrationPenalty) > 0.001
