@@ -655,8 +655,9 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         mcUrgencyBoost = continuous.boost;
         mcRiskLabel = continuous.riskLabel;
 
-        // INTEGRATION: if global MC (from useMonteCarloStats) shows worse outlook than this category's, add extra nudge.
-        // This makes the Coach consider the overall contest projection.
+        const globalProbability = options.globalMcStats && Number.isFinite(options.globalMcStats.probability) 
+            ? options.globalMcStats.probability 
+            : null;
         if (globalProbability != null && globalProbability < (mcProbability * 0.8)) {
             mcUrgencyBoost += 5; // small global risk boost
             mcRiskLabel = mcRiskLabel || 'elevated_global_risk';
@@ -725,10 +726,6 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         if (!c) return acc; // Blindagem contra categorias apagadas/fantasmas no estado
         let rawW = c.weight;
         if (typeof rawW === 'string') rawW = rawW.replace(/\./g, '').replace(',', '.');
-        const parsedW = Number(rawW);
-        const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
-        return acc + w;
-    }, 0);
         const parsedW = Number(rawW);
         const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
         return acc + w;
@@ -1036,14 +1033,19 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
 // ✅ FIX: calculateUrgency com cache key incluindo scoreChecksum
 export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {
   try {
-    const catId = category?.id || 'unknown';
-    const simCount = simulados.length;
-    const logCount = studyLogs.length;
+    const safeCat = category || {};
+    const catId = safeCat.id || safeCat.name || 'unknown';
+    const safeSims = Array.isArray(simulados) ? simulados : Object.values(simulados || {});
+    const safeLogs = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    const safeTasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
+
+    const simCount = safeSims.length;
+    const logCount = safeLogs.length;
     
     const todayStr = getDateKey(new Date());
     
-    // ✅ FIX: Score checksum para invalidar cache quando notas mudam
-    const scoreChecksum = simulados.reduce((acc, s, index) => {
+    const scoreChecksum = safeSims.reduce((acc, s, index) => {
+      if (!s) return acc;
       const parsed = getSafeScore(s, options.maxScore || 100);
       const validVal = Number.isNaN(parsed) ? 0 : parsed;
       return acc + (validVal * (index + 1) * 1.17);
@@ -1051,20 +1053,19 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     
     const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
     const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${options?.maxScore ?? 100}`;
-    const lastSim = simCount > 0 ? (simulados[simCount-1].date || simulados[simCount-1].createdAt || '') : '';
-    const lastLog = logCount > 0 ? (studyLogs[logCount-1].date || studyLogs[logCount-1].createdAt || '') : '';
+    const lastSim = simCount > 0 ? (safeSims[simCount-1]?.date || safeSims[simCount-1]?.createdAt || '') : '';
+    const lastLog = logCount > 0 ? (safeLogs[logCount-1]?.date || safeLogs[logCount-1]?.createdAt || '') : '';
     
-    const tasksHash = (category?.tasks || []).reduce((acc, t) => acc + (t.completed ? 0 : 1) + (t.priority === 'high' ? 5 : 0), 0);
-    const activeId = useAppStore.getState().appState?.activeId || 'default';
+    const tasksHash = safeTasks.reduce((acc, t) => acc + (t?.completed ? 0 : 1) + (t?.priority === 'high' ? 5 : 0), 0);
+    const activeId = useAppStore.getState()?.appState?.activeId || 'default';
     
-    // ✅ FIX: Cache key inclui scoreChecksum para invalidar quando notas mudam
     const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}`;
     
     if (_urgencyCache.has(cacheKey)) {
       return _urgencyCache.get(cacheKey);
     }
     
-    const metrics = extractMetrics(category, simulados, studyLogs, options);
+    const metrics = extractMetrics(safeCat, safeSims, safeLogs, options);
     const scoreInfo = calculateUrgencyScore(metrics, options);
     const result = generateCoachStrings(scoreInfo.weightedRaw, scoreInfo.normalized, metrics, scoreInfo, options);
     
