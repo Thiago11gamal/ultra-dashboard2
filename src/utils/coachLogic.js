@@ -1411,14 +1411,22 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
     });
 
     topics.sort((a, b) => {
-        // CORREÇÃO: Apenas damos prioridade absoluta (Boost) se houver uma tarefa por fazer
+        // CORREÇÃO: Em vez de prioridade absoluta que oculta tópicos com muitos erros,
+        // damos um "boost" na pontuação de urgência final para tópicos com tarefas pendentes.
         const aNeedsAction = !a.completed && a.hasTasks;
         const bNeedsAction = !b.completed && b.hasTasks;
         
-        if (aNeedsAction && !bNeedsAction) return -1;
-        if (!aNeedsAction && bNeedsAction) return 1;
+        let aScore = a.urgencyScore + (aNeedsAction ? 50 : 0);
+        let bScore = b.urgencyScore + (bNeedsAction ? 50 : 0);
         
-        return b.urgencyScore - a.urgencyScore;
+        // Se um tópico está crítico (menos de 40% de acerto com volume de questões), ele ganha prioridade extra
+        if (a.total > 0 && a.percentage < 40) aScore += 80;
+        else if (a.total > 0 && a.percentage < 60) aScore += 40;
+        
+        if (b.total > 0 && b.percentage < 40) bScore += 80;
+        else if (b.total > 0 && b.percentage < 60) bScore += 40;
+
+        return bScore - aScore;
     });
 
     return topics;

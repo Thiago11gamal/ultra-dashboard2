@@ -241,10 +241,20 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         // BUG FIX: Separation of row validation for Analytics vs Storage/Audit
         // Somente processar linhas onde o TOTAL foi explicitamente digitado e é maior que zero.
         const rowsToProcess = rows.filter(r => r?.subject && parseInt(r?.total, 10) > 0);
+        
+        // Validação: avisar o usuário se preencheu acertos mas esqueceu do total
+        const rowsWithMissingTotal = rows.filter(r => r?.subject && parseInt(r?.correct, 10) > 0 && !(parseInt(r?.total, 10) > 0));
+        if (rowsWithMissingTotal.length > 0) {
+            setError(`O campo "Total" deve ser preenchido para o assunto '${rowsWithMissingTotal[0].topic || rowsWithMissingTotal[0].subject}'.`);
+            setLoading(false);
+            return;
+        }
+
         const validRowsForAnalysis = rowsToProcess.filter(r => String(r.topic || '').trim());
 
         if (rowsToProcess.length === 0) {
             setError("Preencha o desempenho em pelo menos um assunto.");
+            setLoading(false);
             return;
         }
 
