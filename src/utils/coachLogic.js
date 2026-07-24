@@ -690,7 +690,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
     const totalHours = totalMinutes / 60;
 
-    const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime());
+    const sortedLogsForBurnout = [...categoryStudyLogs].sort((a, b) => (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(b.date) || new Date(0)).getTime());
     const rollingWindowMs = 28 * MS_PER_DAY;
     const nowMs = metrics.referenceNow;
     const recentBaselineLogs = sortedLogsForBurnout.filter(log => (nowMs - (normalizeDate(log.date) || new Date(0)).getTime()) <= rollingWindowMs);

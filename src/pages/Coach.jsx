@@ -91,9 +91,8 @@ export default function Coach() {
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
 
-  // FIX-BUG-12: Atualizar ref diretamente no render (sem useEffect)
   const showToastRef = useRef(showToast);
-  showToastRef.current = showToast;
+  useEffect(() => { showToastRef.current = showToast; }, [showToast]);
 
   const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
   const history = useMemo(
@@ -762,8 +761,8 @@ function RaioXDashboard({ data }) {
     return Number.isFinite(n) ? n : fallback;
   };
 
-  // FIX-BUG-10: Usar ref para o "now" do mount em vez de Date.now() impuro
-  const mountTimeRef = useRef(Date.now());
+  // FIX-BUG-10: Usar lazy state para o "now" do mount em vez de Date.now() impuro
+  const [mountTime] = useState(() => Date.now());
 
   const calibrationSummary = useMemo(() => {
     const historyByCategory = data?.calibrationHistoryByCategory || {};
@@ -776,8 +775,8 @@ function RaioXDashboard({ data }) {
         }
       }
     }
-    // FIX-BUG-10: fallback estável via ref
-    const now = latestTs > 0 ? latestTs : mountTimeRef.current;
+    // FIX-BUG-10: fallback estável via state
+    const now = latestTs > 0 ? latestTs : mountTime;
 
     return Object.entries(historyByCategory)
       .map(([categoryId, history]) => {
