@@ -373,6 +373,7 @@ export function simulateNormalDistribution(
         let passedMins = true;
 
         if (subjectStats.length > 0) {
+            let subjectSum = 0;
             if (subjectCholesky) {
                 for (let k = 0; k < subjectStats.length; k++) {
                     const s = subjectStats[k];
@@ -403,10 +404,10 @@ export function simulateNormalDistribution(
                 for (let j = 0; j < subjectStats.length; j++) {
                     const s = subjectStats[j];
                     const raw = toFiniteNumber(s.mean, 0) + zCorrStatic[j];
+                    subjectSum += raw;
 
                     if (!Number.isFinite(raw) || raw < toFiniteNumber(s.minCutoff, 0)) {
                         passedMins = false;
-                        break;
                     }
                 }
             } else {
@@ -428,13 +429,14 @@ export function simulateNormalDistribution(
                         Math.max(sMin, sMax),
                         rng
                     );
+                    subjectSum += sScore;
 
                     if (!Number.isFinite(sScore) || sScore < toFiniteNumber(s.minCutoff, 0)) {
                         passedMins = false;
-                        break;
                     }
                 }
             }
+            score = subjectSum / subjectStats.length;
         }
 
         if (score >= currentTarget && passedMins) success++;

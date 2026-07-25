@@ -472,7 +472,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     }
 
     const categoryStudyLogs = safeStudyLogs.filter(log =>
-        log?.categoryId === categoryId &&
+        categoryId && log?.categoryId === categoryId &&
         (normalizeDate(log.date) || new Date(0)).getTime() > 0
     );
 
@@ -495,17 +495,17 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     }
 
     const trendHistory = [...simuladosWithMaxScore]
-        .sort((a, b) => {
-            const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
-            const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
-            return timeB - timeA;
-        })
-        .slice(0, 10)
         .map(s => ({
             score: getSafeScore(s, maxScore),
             date: s.date || s.createdAt
         }))
         .filter(t => Number.isFinite(t.score))
+        .sort((a, b) => {
+            const timeA = (normalizeDate(a.date) || new Date(0)).getTime();
+            const timeB = (normalizeDate(b.date) || new Date(0)).getTime();
+            return timeB - timeA;
+        })
+        .slice(0, 10)
         .reverse();
 
     const lastNScores = trendHistory.map(t => t.score);
@@ -1347,7 +1347,7 @@ export function analisarDesempenhoHistorico(historico) {
 
         return {
             score: (acertos / total) * 100,
-            total: 100,
+            total: total,
             date: safeDate.toISOString()
         };
     });
@@ -1973,7 +1973,29 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         }
     });
 
-    return allGeneratedTasks.slice(0, 12);
+    const interleaved = [];
+    const tasksByCat = {};
+    allGeneratedTasks.forEach(t => {
+        const cid = t.categoryId || 'global';
+        if (!tasksByCat[cid]) tasksByCat[cid] = [];
+        tasksByCat[cid].push(t);
+    });
+    
+    let added = true;
+    let idx = 0;
+    while (added && interleaved.length < 12) {
+        added = false;
+        for (const cid of Object.keys(tasksByCat)) {
+            if (idx < tasksByCat[cid].length) {
+                interleaved.push(tasksByCat[cid][idx]);
+                added = true;
+                if (interleaved.length >= 12) break;
+            }
+        }
+        idx++;
+    }
+
+    return interleaved;
 };
 
 export function getCognitiveState(stats) {
