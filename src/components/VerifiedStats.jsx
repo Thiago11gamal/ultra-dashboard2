@@ -291,6 +291,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // Se o cadeado está aberto e o valor da Store mudou (ex: vindo de outro dispositivo)
         if (Math.abs(parsedStore - targetScore) > 0.01) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setTargetScore(parsedStore);
         }
     }, [storeTarget, targetScore]);

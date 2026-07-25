@@ -519,7 +519,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
             {systemAlerts.length > 0 && (
               <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {systemAlerts.map(alertTask => {
+                {systemAlerts.map((alertTask, idx) => {
                   const rawText = alertTask.text || alertTask.title || '';
                   const cleanText = rawText
                     .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')

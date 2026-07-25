@@ -2,14 +2,14 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { generateAIQuestions } from '../../services/aiQuestionService';
 import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../../hooks/useToast';
-import { getDateKey, normalizeDate } from '../../utils/dateHelper';
+import { getDateKey } from '../../utils/dateHelper';
 import { generateId } from '../../utils/idGenerator';
 import { normalize } from '../../utils/normalization';
 import SimuladoSetup from './SimuladoSetup';
 import SimuladoPlayer from './SimuladoPlayer';
 import SimuladoResults from './SimuladoResults';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
-import { quarantineRaw, safeGetJSON } from '../../utils/storageSafe';
+import { safeGetJSON } from '../../utils/storageSafe';
 
 const DIFFICULTIES = [
   { value: 'facil', label: 'Fácil' },
@@ -610,7 +610,6 @@ export default function AIGeneratedSimulado() {
       });
       const cats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
       const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
-      const isExactClockValid = exactTotalTime > 0;
 
       for (const g of Object.values(groups)) {
         const cat = cats.find(c => normalize(c.name) === normalize(g.materia));

@@ -1,4 +1,4 @@
-import { validateAppState, sanitizeContest } from '../schemas';
+import { validateAppState } from '../schemas';
 
 const applyDarkModeToggle = (state) => {
   const activeData = state.appState.contests[state.appState.activeId];

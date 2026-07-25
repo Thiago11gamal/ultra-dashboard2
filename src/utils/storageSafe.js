@@ -33,7 +33,9 @@ export function safeGetJSON(key, fallback = null, validator = null) {
 
     try {
       localStorage.removeItem(key);
-    } catch {}
+    } catch {
+      /* ignore */
+    }
 
     return fallback;
   }

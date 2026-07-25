@@ -468,12 +468,12 @@ export function computeConsistencyIndex(history, maxScore = 100) {
 }
 
 export function computeStudyEfficiency(studySessions, simulados, maxScore = 100, categoryId = null, normalizeSubject = null) {
-  const noData = { efficiency: 0, questionsPerHour: 0, accuracyRate: 0, totalMinutes: 0, totalQuestions: 0, label: 'Sem dados' };
+  const _noData = { efficiency: 0, questionsPerHour: 0, accuracyRate: 0, totalMinutes: 0, totalQuestions: 0, label: 'Sem dados' };
 
   const sessions = (studySessions || []).filter((s) => !categoryId || s?.categoryId === categoryId);
   const totalMinutes = sessions.reduce((acc, s) => acc + (Number(s?.duration) || 0), 0);
 
-  const normalize = typeof normalizeSubject === 'function'
+  const _normalize = typeof normalizeSubject === 'function'
     ? normalizeSubject
     : (value) => String(value || '').toLowerCase().trim();
 
@@ -652,7 +652,7 @@ export function computeCategoryDiagnostics({
   const histArray = Array.isArray(history) ? history : Object.values(history || {});
   const safeHistory = histArray.length > 2500 ? pruneHistoryForMemory(histArray, 1500) : histArray;
 
-  const scores = safeHistory
+  const _scores = safeHistory
     .map((h) => getSafeScore(h, maxScore))
     .filter(Number.isFinite);
 

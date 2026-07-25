@@ -628,7 +628,7 @@ export function computeBayesianLevel(
         const gapToToday = Math.max(0, Math.floor((now - (lastDate ? lastDate.getTime() : now)) / 86400000));
 
         if (gapToToday > 0) {
-            const rawFinalLambda = baseAdaptiveLambda * Math.exp(-0.15 * ((historySortedForGaps.length || 1) || 1));
+            const rawFinalLambda = baseAdaptiveLambda * Math.exp(-0.15 * (historySortedForGaps.length || 1));
             const finalLambda = Math.max(0.005, Number.isFinite(rawFinalLambda) ? rawFinalLambda : baseAdaptiveLambda);
 
             const finalDecayRaw = Math.exp(-finalLambda * gapToToday);

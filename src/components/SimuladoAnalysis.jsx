@@ -36,6 +36,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
       [rows]
     );
 
+    const [loading, setLoading] = useState(false);
     const prevSignatureRef = React.useRef(rowsSignature);
     React.useEffect(() => {
         if (prevSignatureRef.current !== rowsSignature) {
@@ -60,8 +61,6 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         setLocalRows(newRows);
         if (onRowsChange) onRowsChange(Array.isArray(newRows) ? newRows : []);
     };
-
-    const [loading, setLoading] = useState(false);
 
     const updateRow = (index, field, value) => {
         setError(null);

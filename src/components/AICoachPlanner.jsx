@@ -172,6 +172,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
   // FIX-BUG-06: Depender de coachPlan (referência) em vez de coachPlan?.length
   useEffect(() => {
     if (!isDragging) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setColumns(getInitialColumns());
     }
   }, [coachPlan, coachPlanner, getInitialColumns, isDragging]);

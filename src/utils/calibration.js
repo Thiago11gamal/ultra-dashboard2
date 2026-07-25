@@ -2,7 +2,7 @@ import { kahanSum } from '../engine/math/kahan.js';
 import { getDateKey } from './dateHelper.js';
 import { getSafeScore } from './scoreHelper.js';
 // FIX-BUG-09: Matching exato em vez de fuzzy includes
-import { normalize, isSubjectMatch } from './normalization.js';
+import { isSubjectMatch } from './normalization.js';
 
 export function computeBrierScore(probability01, observedBinary) {
     const rawP = Number(probability01);

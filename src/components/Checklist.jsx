@@ -195,10 +195,7 @@ const CategoryAccordion = React.memo(({ category, onToggleTask, onDeleteTask, on
     const [isCategoryEditorOpen, setIsCategoryEditorOpen] = useState(false);
     const [taskToDelete, setTaskToDelete] = useState(null);
 
-    const rawTasks = category.tasks || [];
-    const tasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks || {});
-    
-    const rawAllTasks = category.originalTasks || rawTasks; // Use original/all tasks for progress bar
+    const rawAllTasks = category.originalTasks || category.tasks || []; // Use original/all tasks for progress bar
     const allTasks = Array.isArray(rawAllTasks) ? rawAllTasks : Object.values(rawAllTasks || {});
 
     const completedCount = allTasks.filter(t => t.completed).length;

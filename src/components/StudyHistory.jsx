@@ -158,7 +158,7 @@ const StudyHistory = React.memo(function StudyHistory({
     };
 
     // Helper to get color for performance subjects
-    const getSubjectColor = (name) => {
+    const _getSubjectColor = (name) => {
         const safeName = String(name || '').toLowerCase();
         const cat = categories.find(c => String(c?.name || '').toLowerCase() === safeName);
         if (cat?.color) return cat.color;
@@ -398,7 +398,6 @@ const StudyHistory = React.memo(function StudyHistory({
                         </div>
 
                         {(() => {
-                            const now = new Date();
 
                             // Agrupar todos os simulados do histórico por batchId ou data
                             const groupedSimulados = Object.values(simuladoRows.reduce((acc, r) => {
