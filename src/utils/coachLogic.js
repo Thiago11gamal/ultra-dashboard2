@@ -1493,14 +1493,11 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     return result.map(t => ({ ...t }));
 }
 
-const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
+const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
     const safeCat = category || {};
     const tasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
-    const safeSims = Array.isArray(simulados) ? simulados : Object.values(simulados || {});
 
     const topicMap = {};
-
-    const relevantSimulados = safeSims.filter(s => s && isSubjectMatch(s.subject, safeCat.name));
 
     const history = (safeCat.simuladoStats && safeCat.simuladoStats.history) ? safeCat.simuladoStats.history : [];
     const todayForTopics = new Date();
