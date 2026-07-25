@@ -66,7 +66,7 @@ export const DEFAULT_CONFIG = {
     CRITICAL_THRESHOLD: 122,
 
     // Monte Carlo
-    MC_SIMULATIONS: 1200,
+    MC_SIMULATIONS: 800,
     MC_MIN_DATA_POINTS: 3,
     MC_PROB_DANGER: 30,
     MC_PROB_SAFE: 90,
@@ -125,6 +125,7 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
     if (daysToExam === 0) return 2.0;
 
     let criticalHorizon = 21;
+    let timeDivisor = 7;
 
     const safeFirstActivity = normalizeDate(firstActivityDate);
     if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
@@ -138,9 +139,10 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
         const totalJourneyDays = Math.max(1, journeyDays) + Math.max(0, daysToExam);
 
         criticalHorizon = Math.max(14, Math.min(35, totalJourneyDays * 0.08));
+        timeDivisor = Math.max(7, Math.min(60, totalJourneyDays * 0.15));
     }
 
-    const urgency = 1.0 + (1.0 / (1.0 + Math.exp((daysToExam - criticalHorizon) / 7)));
+    const urgency = 1.0 + (1.0 / (1.0 + Math.exp((daysToExam - criticalHorizon) / timeDivisor)));
     return Number(Math.min(2.0, urgency).toFixed(4));
 }
 
@@ -715,7 +717,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         : 1.0;
 
     // SCORE: agora mede distância até a meta, não até 100%
-    const scoreComponent = clamp(gapRatio * cfg.SCORE_MAX, 0, cfg.SCORE_MAX);
+    const scoreComponent = clamp(gapRatio * cfg.SCORE_MAX * weightMultiplier, 0, cfg.SCORE_MAX * weightMultiplier);
 
     // RECENCY: recência desconhecida não é mais máxima
     const effectiveRiskDays = recencyUnknown ? 5 : Math.min(daysSinceLastStudy, 45);
@@ -931,10 +933,15 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         : 48;
 
     let rotationPenalty = 0;
+    const performanceRatio = maxScore > 0 ? averageScore / maxScore : 0;
+    const fatigueRatio = 1 + performanceRatio;
 
     if (exactHoursSinceLast < 24) {
-        const recentFatigue = Math.exp(-exactHoursSinceLast / 10);
-        rotationPenalty = Math.min(20, 12 * recentFatigue * (1 + (mssdVolatility / maxScore)));
+        const recentFatigue = Math.max(0.2, Math.exp(-exactHoursSinceLast / 12));
+        rotationPenalty = Math.min(30, 15 * recentFatigue * (1 + (mssdVolatility / maxScore)) * fatigueRatio);
+        
+        const baseAt24 = mssdVolatility > (maxScore * 0.05) ? 6 : 2;
+        rotationPenalty = Math.max(rotationPenalty, baseAt24 + 1);
     } else if (exactHoursSinceLast >= 24 && exactHoursSinceLast < 48 && !srsLabel) {
         rotationPenalty = mssdVolatility > (maxScore * 0.05) ? 6 : 2;
     }
