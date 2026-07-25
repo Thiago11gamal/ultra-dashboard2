@@ -717,7 +717,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         : 1.0;
 
     // SCORE: agora mede distância até a meta, não até 100%
-    const scoreComponent = clamp(gapRatio * cfg.SCORE_MAX * weightMultiplier, 0, cfg.SCORE_MAX * weightMultiplier);
+    const scoreComponent = clamp(gapRatio * cfg.SCORE_MAX, 0, cfg.SCORE_MAX);
 
     // RECENCY: recência desconhecida não é mais máxima
     const effectiveRiskDays = recencyUnknown ? 5 : Math.min(daysSinceLastStudy, 45);

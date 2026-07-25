@@ -10,7 +10,7 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         // Matéria com peso alto (8 -> multiplicador ~1.2)
         // Aluno com nota 0. Sem o fix, o scoreComponent estaria travado em dynamicScoreMax (45).
         // Com o fix, deve chegar a ~45 * 1.2 = 54.
-        const res = calculateUrgency(baseCategory, [], [], { maxScore: 100 });
+        const res = calculateUrgency(baseCategory, [{ subject: 'Matemática', score: 0, total: 100, date: '2026-01-01' }], [], { maxScore: 100 });
         
         // No config padrão: dynamicScoreMax = 45, dynamicRecencyMax = 25, dynamicInstabilityMax = 15
         // total ~85 + boosts.
