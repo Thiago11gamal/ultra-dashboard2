@@ -1,6 +1,6 @@
 import { monteCarloSimulation } from './projection.js';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from './monteCarlo.js';
-import { resetGaussianCache } from './math/gaussian.ts';
+import { resetGaussianCache } from './math/gaussian.js';
 
 function safeNum(val, fallback) {
     const hasFallback = arguments.length > 1;

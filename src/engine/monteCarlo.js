@@ -7,7 +7,7 @@ import {
     ensurePositiveSemiDefinite,
     choleskyDecomposition,
     applyCovariance
-} from './math/gaussian.ts';
+} from './math/gaussian.js';
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
 

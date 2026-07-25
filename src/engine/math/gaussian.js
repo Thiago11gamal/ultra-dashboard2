@@ -1,4 +1,4 @@
-// src/engine/math/gaussian.ts
+// src/engine/math/gaussian.js
 import { getPercentile } from './percentile.js';
 import { MIN_SD_FLOOR } from './constants.js';
 import { kahanSum } from './kahan.js';
@@ -7,7 +7,7 @@ import { kahanSum } from './kahan.js';
  * Abramowitz & Stegun approximation (formula 7.1.26) for Normal(0,1) CDF
  * Returns 1 - P(X <= z)
  */
-export function normalCDF_complement(z: number): number {
+export function normalCDF_complement(z) {
     if (z === Number.POSITIVE_INFINITY) return 0;
     if (z === Number.NEGATIVE_INFINITY) return 1;
     if (Number.isNaN(z)) return 0.5;
@@ -22,7 +22,7 @@ export function normalCDF_complement(z: number): number {
 /**
  * Standard Normal PDF: φ(z) = (1/√(2π)) · exp(-z²/2)
  */
-export function normalPDF(z: number): number {
+export function normalPDF(z) {
     if (!Number.isFinite(z)) return 0;
     return 0.3989422804014327 * Math.exp(-0.5 * z * z);
 }
@@ -30,14 +30,14 @@ export function normalPDF(z: number): number {
 /**
  * Média Exata da Normal Truncada em [a, b] com parâmetros (μ, σ).
  */
-export function truncatedNormalMean(mean: number, sd: number, a: number, b: number): number {
+export function truncatedNormalMean(mean, sd, a, b) {
     if (!Number.isFinite(sd) || sd <= 0) return Math.max(a, Math.min(b, mean));
     
     const alpha = (a - mean) / sd;
     const beta = (b - mean) / sd;
     
-    let denominator: number;
-    let phiAlpha: number;
+    let denominator;
+    let phiAlpha;
 
     if (alpha > 0 && beta > 0) {
         // Evita cancelamento catastrófico na cauda direita usando a Função de Sobrevivência (S)
@@ -59,11 +59,11 @@ export function truncatedNormalMean(mean: number, sd: number, a: number, b: numb
     const truncMean = mean + sd * (pdfAlpha - pdfBeta) / denominator;
     return Math.max(a, Math.min(b, truncMean));
 }
-const rngCache = new WeakMap<Function, number>();
+const rngCache = new WeakMap();
 
-export const generateGaussian = (rng: () => number = Math.random): number => {
+export const generateGaussian = (rng = Math.random) => {
     if (rngCache.has(rng)) {
-        const result = rngCache.get(rng)!;
+        const result = rngCache.get(rng);
         rngCache.delete(rng);
         return result;
     }
@@ -92,9 +92,9 @@ export const generateGaussian = (rng: () => number = Math.random): number => {
     return z0;
 };
 
-export function resetGaussianCache(): void {}
+export function resetGaussianCache() {}
 
-export function asymmetricGaussian(x: number, mean: number, sdLeft: number, sdRight: number, heightFactor: number = 1): number {
+export function asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor = 1) {
     const rawSd = x < mean ? sdLeft : sdRight;
     const currentSd = Math.max(1e-6, rawSd);
     // Removemos o normFactor do cálculo final para normalizar o pico visual (Peak = heightFactor),
@@ -102,10 +102,10 @@ export function asymmetricGaussian(x: number, mean: number, sdLeft: number, sdRi
     return heightFactor * Math.exp(-0.5 * Math.pow((x - mean) / currentSd, 2));
 }
 
-export function generateGaussianPoints(xMin: number, xMax: number, steps: number, mean: number, sdLeft: number, sdRight: number, heightFactor: number, xp: (v: number) => number, yp: (v: number) => number): string[] {
-    const points: Array<{x: number, y: number}> = [];
-    const safeXp = typeof xp === 'function' ? xp : (v: number) => v;
-    const safeYp = typeof yp === 'function' ? yp : (v: number) => v;
+export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight, heightFactor, xp, yp) {
+    const points = [];
+    const safeXp = typeof xp === 'function' ? xp : (v) => v;
+    const safeYp = typeof yp === 'function' ? yp : (v) => v;
     const safeSteps = Number.isFinite(steps) ? Math.max(1, Math.floor(steps)) : 1;
     const stepSize = (xMax - xMin) / safeSteps;
 
@@ -124,9 +124,7 @@ export function generateGaussianPoints(xMin: number, xMax: number, steps: number
         .map(p => `${safeXp(p.x)},${safeYp(p.y)}`);
 }
 
-export type PlotPoint = { x: number, y: number, density: number };
-
-export function generateKDE(allScores: Float32Array | number[], projectedMean: number, projectedSD: number, safeSimulations: number, minScore: number = 0, maxScore: number = 100): PlotPoint[] {
+export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore = 0, maxScore = 100) {
     if (!Number.isFinite(minScore) || !Number.isFinite(maxScore) || minScore >= maxScore) {
         return [];
     }
@@ -227,7 +225,7 @@ export function generateKDE(allScores: Float32Array | number[], projectedMean: n
     const normFactor2 = totalArea > 1e-15 ? 1 / totalArea : 1;
     const invMaxY = maxY > 1e-15 ? 1 / maxY : 0;
 
-    const finalPlot: PlotPoint[] = new Array(plotSteps + 1);
+    const finalPlot = new Array(plotSteps + 1);
     for (let i = 0; i <= plotSteps; i++) {
         const den = Math.max(0, densityOut[i]);
         finalPlot[i] = {
@@ -240,7 +238,7 @@ export function generateKDE(allScores: Float32Array | number[], projectedMean: n
     return finalPlot;
 }
 
-export function inverseNormalCDF(p: number): number {
+export function inverseNormalCDF(p) {
     if (p <= 0) return -8; 
     if (p >= 1) return 8;  
 
@@ -264,7 +262,7 @@ export function inverseNormalCDF(p: number): number {
     }
 }
 
-export function sampleTruncatedNormal(mean: number, sd: number, min: number, max: number, rng?: () => number, options?: { strict?: boolean }): number {
+export function sampleTruncatedNormal(mean, sd, min, max, rng, options) {
     if (!Number.isFinite(mean) || !Number.isFinite(sd) || !Number.isFinite(min) || !Number.isFinite(max)) {
         const lo = Number.isFinite(min) ? min : 0;
         const hi = Number.isFinite(max) ? max : lo;
@@ -281,8 +279,8 @@ export function sampleTruncatedNormal(mean: number, sd: number, min: number, max
 
     const alpha = (min - mean) / sd;
     const beta = (max - mean) / sd;
-    let diff: number;
-    let cdfMin: number;
+    let diff;
+    let cdfMin;
 
     if (alpha > 0 && beta > 0) {
         // Evita cancelamento catastrófico na cauda direita usando a Função de Sobrevivência (S)
@@ -304,9 +302,9 @@ export function sampleTruncatedNormal(mean: number, sd: number, min: number, max
         if (strictDeterminism) {
             throw new Error('STRICT_DETERMINISM: sampleTruncatedNormal requires a deterministic RNG function');
         }
-        if (!(globalThis as any).__MC_WARNED_FALLBACK_RNG__) {
+        if (!globalThis.__MC_WARNED_FALLBACK_RNG__) {
             console.warn('sampleTruncatedNormal: no RNG provided, falling back to Math.random() (non-deterministic)');
-            (globalThis as any).__MC_WARNED_FALLBACK_RNG__ = true;
+            globalThis.__MC_WARNED_FALLBACK_RNG__ = true;
         }
         rng = Math.random;
     }
@@ -322,7 +320,7 @@ export function sampleTruncatedNormal(mean: number, sd: number, min: number, max
     return Math.max(min, Math.min(max, rawScore));
 }
 
-export function ensurePositiveSemiDefinite(matrix: number[][], baseJitter: number = 1e-9): number[][] {
+export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
     const n = matrix.length;
     const cloneBase = matrix.map(row => [...row]);
 
@@ -353,7 +351,7 @@ export function ensurePositiveSemiDefinite(matrix: number[][], baseJitter: numbe
     return cloneBase.map((row, i) => row.map((v, j) => (i === j ? (v + fallbackJitter) : v)));
 }
 
-export function choleskyDecomposition(matrix: number[][]): number[][] {
+export function choleskyDecomposition(matrix) {
     const n = matrix.length;
     const lower = Array(n).fill(0).map(() => Array(n).fill(0));
     const EPS = 1e-12;
@@ -388,13 +386,13 @@ export function choleskyDecomposition(matrix: number[][]): number[][] {
     return lower;
 }
 
-export function applyCovariance(choleskyLower: number[][] | null | undefined, zVector: number[] | Float64Array | null | undefined, targetVector?: number[] | Float64Array): number[] | Float64Array {
+export function applyCovariance(choleskyLower, zVector, targetVector) {
     if (!choleskyLower || !zVector || choleskyLower.length !== zVector.length) {
         if (targetVector && zVector && targetVector !== zVector) {
             for(let i=0; i<zVector.length; i++) targetVector[i] = zVector[i];
             return targetVector;
         }
-        return zVector ? (targetVector === zVector ? targetVector : [...zVector] as number[]) : [];
+        return zVector ? (targetVector === zVector ? targetVector : [...zVector]) : [];
     }
     const n = zVector.length;
     const isInPlace = (targetVector === zVector);

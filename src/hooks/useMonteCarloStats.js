@@ -5,7 +5,7 @@ import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
 import { computeNonLinearTrend } from '../engine/projection';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
-import { normalCDF_complement } from '../engine/math/gaussian.ts';
+import { normalCDF_complement } from '../engine/math/gaussian.js';
 import {
   shrinkProbabilityToNeutral,
   recordPredictionEvent,
