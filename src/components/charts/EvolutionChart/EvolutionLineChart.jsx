@@ -5,6 +5,7 @@ import {
     LabelList, Brush
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
+import { ChartFrame } from "../ChartFrame";
 import { normalizeDate } from '../../../utils/dateHelper';
 import { formatValue } from '../../../utils/scoreHelper';
 
@@ -233,7 +234,8 @@ export function EvolutionLineChart({
                     <span>👁️</span> Mostrar Todos
                 </button>
             )}
-            <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
+            <ChartFrame minHeight={360} label="Traçando evolução">
+                <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
                 <ComposedChart 
                     data={enhancedChartData} 
                     syncId="evolutionSync"
@@ -416,7 +418,8 @@ export function EvolutionLineChart({
                         tickFormatter={(val) => val ? val.split('-').slice(1).reverse().join('/') : ''}
                     />
                 </ComposedChart>
-            </ResponsiveContainer>
+                </ResponsiveContainer>
+            </ChartFrame>
         </div>
     );
 }

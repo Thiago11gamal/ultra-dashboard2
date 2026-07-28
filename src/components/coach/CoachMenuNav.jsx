@@ -58,6 +58,7 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
 });
 
 export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
+    const isPremiumBool = Boolean(isPremium);
     const insightsRef = useRef(null);
     const analyticsRef = useRef(null);
 
@@ -87,7 +88,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                 nextIndex = e.key === 'ArrowRight' ? nextIndex + 1 : nextIndex - 1;
                 if (nextIndex >= tabs.length) nextIndex = 0;
                 if (nextIndex < 0) nextIndex = tabs.length - 1;
-            } while (nextIndex !== currentIndex && tabs[nextIndex].key === 'analytics' && !isPremium);
+            } while (nextIndex !== currentIndex && tabs[nextIndex].key === 'analytics' && !isPremiumBool);
             
             const nextTab = tabs[nextIndex];
             if (nextTab && nextTab.key !== activeTab) {
@@ -95,7 +96,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
             }
             // FIX: acesso a ref no render não ocorre, o foco acontece de forma assíncrona/após montagem
         }
-    }, [activeTab, onChangeTab, tabs, isPremium]);
+    }, [activeTab, onChangeTab, tabs, isPremiumBool]);
 
     // FIX: Restaura foco apenas quando usuário interage via teclado (evita roubar foco on mount)
     useEffect(() => {
@@ -122,7 +123,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                         subtitle={tab.subtitle}
                         tabId={TAB_IDS[tab.key]}
                         panelId={`coach-panel-${tab.key}`}
-                        disabled={tab.key === 'analytics' && !isPremium}
+                        disabled={tab.key === 'analytics' && !isPremiumBool}
                         tabRef={tab.tabRef}
                         tabKey={tab.key}
                     />

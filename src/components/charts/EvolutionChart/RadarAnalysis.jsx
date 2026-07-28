@@ -5,6 +5,7 @@ import {
 } from "recharts";
 // 🎯 FIX: Importação adicionada
 import { formatValue } from '../../../utils/scoreHelper';
+import { ChartFrame } from "../ChartFrame";
 
 const CustomTooltipStyle = {
     backgroundColor: 'rgba(15, 23, 42, 0.95)', 
@@ -44,7 +45,8 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
             </div>
 
             <div className="flex-1 min-h-[260px] sm:min-h-[300px] w-full relative">
-                <ResponsiveContainer width="100%" height="100%" minHeight={260} minWidth={1}>
+                <ChartFrame minHeight={260} label="Calibrando radar">
+                    <ResponsiveContainer width="100%" height="100%" minHeight={260} minWidth={1}>
                     <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
                         <defs>
                             <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
@@ -111,7 +113,8 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             wrapperStyle={{ fontSize: '10px', paddingTop: '8px', color: '#64748b' }} 
                         />
                     </RadarChart>
-                </ResponsiveContainer>
+                    </ResponsiveContainer>
+                </ChartFrame>
             </div>
         </div>
     );

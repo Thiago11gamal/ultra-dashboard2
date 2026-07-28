@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { normalizeDate, getDateKey, formatDisplayDate } from "../../../utils/dateHelper";
 import { getSafeScore, formatValue } from "../../../utils/scoreHelper";
+import { ChartFrame } from "../ChartFrame";
 
 const CustomTooltipStyle = {
     backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -350,7 +351,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                 </div>
             ) : viewMode === 'bars' ? (
                 <div className="w-full relative" style={{ height: Math.max(450, chartData.length * 60) }}>
-                    <ResponsiveContainer width="100%" height="100%" minHeight={450} minWidth={1}>
+                    <ChartFrame minHeight={450} label="Analisando subtópicos">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={450} minWidth={1}>
                         <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 110, left: -5, bottom: 0 }}>
                             <defs>
                                 <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
@@ -438,7 +440,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 />
                             </Bar>
                         </BarChart>
-                    </ResponsiveContainer>
+                        </ResponsiveContainer>
+                    </ChartFrame>
                 </div>
             ) : (
                 // 🎯 FIX: Altura reduzida de 750px para 500px para caber melhor na tela
@@ -449,7 +452,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                     {timeSeriesData.length > 0 ? (
                         <div className="w-full overflow-x-auto custom-scrollbar pb-2">
                             <div className="min-w-[700px] lg:min-w-full">
-                                <ResponsiveContainer width="100%" height={500} minWidth={1}>
+                                <ChartFrame minHeight={500} label="Analisando subtópicos">
+                                    <ResponsiveContainer width="100%" height={500} minWidth={1}>
                                     {/* 🎯 FIX: left de -20 para 0 para evitar corte do eixo Y */}
                                     <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
                                         <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
@@ -507,7 +511,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                                             );
                                         })}
                                     </LineChart>
-                                </ResponsiveContainer>
+                                    </ResponsiveContainer>
+                                </ChartFrame>
                             </div>
                         </div>
                     ) : (

@@ -4,6 +4,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, LabelList
 } from "recharts";
+import { ChartFrame } from "../ChartFrame";
 
 export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit = '%' }) {
     const instanceId = useId().replace(/:/g, "");
@@ -50,7 +51,8 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
             <div className="h-[320px] sm:h-[380px] w-full overflow-x-auto custom-scrollbar pb-2">
                 {chartData.length > 0 ? (
                     <div className="min-w-[600px] lg:min-w-full h-full">
-                        <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
+                        <ChartFrame minHeight={320} label="Distribuindo desempenho">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
                             <BarChart
                                 data={chartData}
                                 margin={{ top: 20, right: 20, left: 10, bottom: 85 }}
@@ -141,7 +143,8 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                     />
                                 </Bar>
                             </BarChart>
-                        </ResponsiveContainer>
+                            </ResponsiveContainer>
+                        </ChartFrame>
                     </div>
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">

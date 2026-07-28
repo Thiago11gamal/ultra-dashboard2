@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Target } from 'lucide-react';
+import { ChartFrame } from './ChartFrame';
 
 // FIX: conversão segura para percentual inteiro (nunca NaN)
 const toPercentInt = (value, fallback = 0) => {
@@ -83,7 +84,8 @@ const ReliabilityCurveChart = ({ buckets }) => {
             aria-label="Curva de confiabilidade comparando previsão do motor com taxa real de acerto"
             className="w-full h-48 sm:h-56"
         >
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartFrame minHeight={192} label="Curva de Confiabilidade">
+                <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                     data={chartData}
                     margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -131,7 +133,8 @@ const ReliabilityCurveChart = ({ buckets }) => {
                         animationDuration={1000}
                     />
                 </LineChart>
-            </ResponsiveContainer>
+                </ResponsiveContainer>
+            </ChartFrame>
         </div>
     );
 };

@@ -29,14 +29,25 @@ const deriveProjectId = (rawConfig) => {
     return null;
 };
 
+const safeEnv = (key, fallback) => {
+    try {
+        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
+            return import.meta.env[key];
+        }
+    } catch {
+        // ambiente sem suporte a import.meta
+    }
+    return fallback;
+};
+
 const rawConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.VITE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.VITE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.VITE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.VITE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || import.meta.env.VITE_APP_ID,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || import.meta.env.VITE_MEASUREMENT_ID
+    apiKey: safeEnv('VITE_FIREBASE_API_KEY', safeEnv('VITE_API_KEY', "AIzaSyBC_wZP2mlTNWtwKE5OYouoiPb7bDgxkXE")),
+    authDomain: safeEnv('VITE_FIREBASE_AUTH_DOMAIN', safeEnv('VITE_AUTH_DOMAIN', "liquita-67764.firebaseapp.com")),
+    projectId: safeEnv('VITE_FIREBASE_PROJECT_ID', safeEnv('VITE_PROJECT_ID', "liquita-67764")),
+    storageBucket: safeEnv('VITE_FIREBASE_STORAGE_BUCKET', safeEnv('VITE_STORAGE_BUCKET', "liquita-67764.firebasestorage.app")),
+    messagingSenderId: safeEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', safeEnv('VITE_MESSAGING_SENDER_ID', "709882079835")),
+    appId: safeEnv('VITE_FIREBASE_APP_ID', safeEnv('VITE_APP_ID', "1:709882079835:web:4742cf60ac1218607d6d7e")),
+    measurementId: safeEnv('VITE_FIREBASE_MEASUREMENT_ID', safeEnv('VITE_MEASUREMENT_ID', "G-D8NS2BNKD5"))
 };
 
 const derivedProjectId = deriveProjectId(rawConfig);
@@ -59,7 +70,7 @@ let db = null;
 let auth = null;
 
 // 3. Blindagem contra ausência de variáveis e objetos "Nulos" vazando para a aplicação
-export const isLocalMode = import.meta.env.VITE_LOCAL_MODE === 'true' || !firebaseConfig.apiKey || !firebaseConfig.projectId;
+export const isLocalMode = safeEnv('VITE_LOCAL_MODE', 'false') === 'true' || !firebaseConfig.apiKey || !firebaseConfig.projectId;
 
 if (isLocalMode) {
     console.warn(`%c[Firebase] Chaves ausentes. O Ultra Dashboard funcionará apenas em modo LOCAL (Offline).`, "color: #fbbf24; font-weight: bold;");
@@ -112,4 +123,4 @@ const getAppAnalytics = async () => {
     return null;
 };
 
-export { db, auth, getAppAnalytics };
+export { db, auth, getAppAnalytics, firebaseConfig };

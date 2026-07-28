@@ -128,8 +128,9 @@ export default function Coach() {
   const { isPremium } = useSubscription(userProfile);
   const navigate = useNavigate();
 
+  const isPremiumBool = Boolean(isPremium);
   const [activeTab, setActiveTab] = useState('insights');
-  const safeActiveTab = activeTab === 'analytics' ? 'analytics' : 'insights';
+  const safeActiveTab = (activeTab === 'analytics' && isPremiumBool) ? 'analytics' : 'insights';
   useEffect(() => {
     if (activeTab && activeTab !== safeActiveTab) {
       console.warn(`[Coach.jsx] Estado de aba inválido: ${activeTab}, fallback ativado.`);
@@ -725,7 +726,7 @@ export default function Coach() {
                 tabIndex={safeActiveTab === 'analytics' ? 0 : -1}
                 hidden={safeActiveTab !== 'analytics'}
               >
-                {safeActiveTab === 'analytics' && <RaioXDashboard data={data} />}
+                {safeActiveTab === 'analytics' && isPremiumBool && <RaioXDashboard data={data} />}
               </div>
             </Motion.div>
           </div>
