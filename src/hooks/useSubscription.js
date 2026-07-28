@@ -6,8 +6,15 @@ const ADMIN_UIDS = [
     'F4Py5tJoRjQmXTSPE6vQUX3th662',
 ];
 
+const ADMIN_EMAILS = [
+    'antunest040@gmail.com',
+];
+
 export function useSubscription(user) {
-    const isAdmin = Boolean(user?.uid && ADMIN_UIDS.includes(user.uid));
+    const isAdmin = Boolean(
+        (user?.uid && ADMIN_UIDS.includes(user.uid)) ||
+        (user?.email && ADMIN_EMAILS.includes(String(user.email).trim().toLowerCase()))
+    );
     const shouldBypassBilling = isLocalMode || isAdmin;
 
     const [isPremium, setIsPremium] = useState(shouldBypassBilling);
