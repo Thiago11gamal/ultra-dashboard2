@@ -159,7 +159,7 @@ export function useMonteCarloWorker() {
             
             try {
                 currentWorker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
-            } catch (_err) {
+            } catch {
                 clearTimeout(timeoutId);
                 sharedPendingRequests.delete(id);
                 reject(new Error(`Falha ao enviar dados para o Worker (DataCloneError). Estrutura inválida.`));

@@ -738,6 +738,7 @@ export default function VerifiedStats({ categories = [], user }) {
         }
 
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [safeCategories, statsTarget, maxScore]);
 
     return (

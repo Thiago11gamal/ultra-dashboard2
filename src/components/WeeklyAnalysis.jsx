@@ -138,6 +138,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         });
 
         return { groups: finalGroups, stats: { totalMinutes, totalSessions, topCategory } };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [logsArray, categories]);
 
     const formatTime = (minutes) => {

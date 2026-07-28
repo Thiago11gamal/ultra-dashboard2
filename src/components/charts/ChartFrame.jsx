@@ -6,6 +6,10 @@ import React, { useLayoutEffect, useRef, useState } from 'react';
  * Enquanto mede, exibe um placeholder ambient com shimmer — nunca um chart cego.
  * Reage a resize / aba que vira visível via ResizeObserver.
  */
+const isTestEnv =
+  (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') ||
+  (typeof window !== 'undefined' && window.navigator && /jsdom/i.test(window.navigator.userAgent || ''));
+
 export default function ChartFrame({
   children,
   minHeight = 320,
@@ -13,37 +17,23 @@ export default function ChartFrame({
   className = '',
 }) {
   const boxRef = useRef(null);
-  const [ready, setReady] = useState(false);
-  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [ready, setReady] = useState(() => Boolean(isTestEnv));
+  const [size, setSize] = useState(() => (isTestEnv ? { w: 800, h: Number(minHeight) || 320 } : { w: 0, h: 0 }));
 
   useLayoutEffect(() => {
     const el = boxRef.current;
-    if (!el) return;
-
-    // Em ambiente de testes (Vitest/Jest/jsdom), libere a montagem imediatamente
-    const isTestEnv =
-      (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') ||
-      (typeof window !== 'undefined' && window.navigator && /jsdom/i.test(window.navigator.userAgent || ''));
-
-    if (isTestEnv) {
-      setSize({ w: 800, h: Number(minHeight) || 320 });
-      setReady(true);
-      return;
-    }
-
-    const measure = () => {
-      const r = el.getBoundingClientRect();
-      const w = Math.floor(r.width);
-      const h = Math.floor(r.height);
-      setSize({ w, h });
-      setReady(w > 0 && h > 0);
-    };
-
-    measure(); // leitura síncrona antes do 1º paint do observer
+    if (!el || isTestEnv) return;
 
     let ro = null;
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(measure);
+      ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const w = Math.floor(entry.contentRect.width);
+          const h = Math.floor(entry.contentRect.height);
+          setSize({ w, h });
+          setReady(w > 0 && h > 0);
+        }
+      });
       ro.observe(el);
     }
     return () => {

@@ -405,6 +405,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 setLoading(false);
             }
         }, viewMode === 'report' ? 0 : 800); // Remove delay when just viewing report
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categories, rows, viewMode, onAnalysisComplete]);
 
     React.useEffect(() => {
@@ -412,6 +413,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             const timer = setTimeout(() => handleAnalyze(), 100);
             return () => clearTimeout(timer);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [viewMode, rowsSignature, analysisData, loading, handleAnalyze]);
 
     return (

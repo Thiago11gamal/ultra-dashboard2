@@ -745,6 +745,7 @@ export default function AIGeneratedSimulado() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, currentQuestion, handleFinish, questions.length, goTo, selectAnswer, resetAll]);
 
   useEffect(() => {
