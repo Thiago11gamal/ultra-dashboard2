@@ -1,40 +1,46 @@
 This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
 
-# File Summary
+<file_summary>
+This section contains a summary of this file.
 
-## Purpose
+<purpose>
 This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
 It is designed to be easily consumable by AI systems for analysis, code review,
 or other automated processes.
+</purpose>
 
-## File Format
+<file_format>
 The content is organized as follows:
 1. This summary section
 2. Repository information
 3. Directory structure
 4. Repository files (if enabled)
 5. Multiple file entries, each consisting of:
-  a. A header with the file path (## File: path/to/file)
-  b. The full contents of the file in a code block
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
 
-## Usage Guidelines
+<usage_guidelines>
 - This file should be treated as read-only. Any changes should be made to the
   original repository files, not this packed version.
 - When processing this file, use the file path to distinguish
   between different files in the repository.
 - Be aware that this file may contain sensitive information. Handle it with
   the same level of security as you would the original repository.
+</usage_guidelines>
 
-## Notes
+<notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
-- Only files matching these patterns are included: src/components/coach/CoachMenuNav.jsx, src/pages/Coach.jsx, src/components/AICoachView.jsx, src/components/AICoachPlanner.jsx, src/components/AICoachWidget.jsx, src/utils/coachLogic.js, src/utils/coachAdaptive.js, src/utils/calibrationTelemetry.js
+- Only files matching these patterns are included: src/components/coach/CoachMenuNav.jsx, src/pages/Coach.jsx, src/components/AICoachView.jsx, src/components/AICoachPlanner.jsx, src/components/AICoachWidget.jsx, src/utils/coachLogic.js, src/utils/coachAdaptive.js, src/utils/calibrationTelemetry.js, src/utils/displaySubject.js
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
 - Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
 
-# Directory Structure
-```
+</file_summary>
+
+<directory_structure>
 src/
   components/
     coach/
@@ -48,13 +54,15 @@ src/
     calibrationTelemetry.js
     coachAdaptive.js
     coachLogic.js
-```
+    displaySubject.js
+</directory_structure>
 
-# Files
+<files>
+This section contains the contents of the repository's files.
 
-## File: src/utils/calibrationTelemetry.js
-```javascript
+<file path="src/utils/calibrationTelemetry.js">
 const TELEMETRY_KEY = 'coach_calibration_events_v1';
+const TELEMETRY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
 
 async function sendToFirebaseAnalytics(metric) {
     try {
@@ -62,6 +70,7 @@ async function sendToFirebaseAnalytics(metric) {
         if (isLocalMode || !analytics) return;
         const { logEvent } = await import('firebase/analytics');
         logEvent(analytics, 'coach_calibration_event', {
+            event_type: String(metric.eventType || 'calibration'),
             category_id: String(metric.categoryId || 'unknown'),
             avg_brier: Number(metric.avgBrier || 0),
             calibration_penalty: Number(metric.calibrationPenalty || 0),
@@ -78,6 +87,7 @@ export function logCalibrationTelemetryEvent(metric) {
         const currentRaw = JSON.parse(localStorage.getItem(TELEMETRY_KEY) || '[]');
         const current = Array.isArray(currentRaw) ? currentRaw : [];
         const normalizedMetric = {
+            eventType: metric.eventType || 'calibration',
             categoryId: String(metric.categoryId || 'unknown'),
             avgBrier: Number(metric.avgBrier || 0),
             calibrationPenalty: Number(metric.calibrationPenalty || 0),
@@ -85,19 +95,85 @@ export function logCalibrationTelemetryEvent(metric) {
             ece: Number(metric.ece || 0),
             timestamp: Number(metric.timestamp || Date.now())
         };
+        const cutoff = Date.now() - TELEMETRY_RETENTION_MS;
         const next = [...current, normalizedMetric]
-            .filter(e => Number.isFinite(Number(e?.timestamp)))
+            .filter(e => Number.isFinite(Number(e?.timestamp)) && Number(e.timestamp) >= cutoff)
             .slice(-1000);
         localStorage.setItem(TELEMETRY_KEY, JSON.stringify(next));
+        void sendToFirebaseAnalytics(normalizedMetric);
     } catch {
         // best effort telemetry
     }
-    void sendToFirebaseAnalytics(metric);
 }
-```
+</file>
 
-## File: src/utils/coachAdaptive.js
-```javascript
+<file path="src/utils/displaySubject.js">
+import { normalize } from './normalization';
+
+const SUBJECT_MAP = {
+    'matematica': 'Matemática',
+    'portugues': 'Português',
+    'lingua portuguesa': 'Português',
+    'ingles': 'Inglês',
+    'ciencias': 'Ciências',
+    'historia': 'História',
+    'geografia': 'Geografia',
+    'biologia': 'Biologia',
+    'fisica': 'Física',
+    'quimica': 'Química',
+    'filosofia': 'Filosofia',
+    'sociologia': 'Sociologia',
+    'literatura': 'Literatura',
+    'redacao': 'Redação',
+    'informatica': 'Informática',
+    'noções de informática': 'Informática',
+    'raciocinio logico': 'Raciocínio Lógico',
+    'rlm': 'Raciocínio Lógico',
+    'direito constitucional': 'Dir. Constitucional',
+    'dir constitucional': 'Dir. Constitucional',
+    'dir. constitucional': 'Dir. Constitucional',
+    'direito administrativo': 'Dir. Administrativo',
+    'dir administrativo': 'Dir. Administrativo',
+    'dir. administrativo': 'Dir. Administrativo'
+};
+
+const PREPOSITIONS = new Set(['e', 'de', 'do', 'da', 'dos', 'das', 'com', 'em', 'no', 'na', 'por', 'para']);
+
+export const formatTitleCase = (str) => {
+    if (!str || typeof str !== 'string') return '';
+    return String(str)
+        .split(' ')
+        .filter(Boolean)
+        .map((word, index) => {
+            const lower = word.toLowerCase();
+            if (index > 0 && PREPOSITIONS.has(lower)) {
+                return lower;
+            }
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        })
+        .join(' ');
+};
+
+/**
+ * Canonical display name resolver for subjects.
+ * Single source of truth — respects 'Meu Painel' categories if provided.
+ */
+export const displaySubject = (name, categories = []) => {
+    if (!name) return '';
+    const nameStr = typeof name === 'object' && name.name ? String(name.name) : String(name);
+    if (!nameStr.trim()) return '';
+
+    if (Array.isArray(categories) && categories.length > 0) {
+        const normName = normalize(nameStr);
+        const match = categories.find(c => c && (c.id === nameStr || normalize(c.name || '') === normName));
+        if (match && match.name) return match.name;
+    }
+    const norm = normalize(nameStr);
+    return SUBJECT_MAP[norm] || formatTitleCase(nameStr);
+};
+</file>
+
+<file path="src/utils/coachAdaptive.js">
 import { monteCarloSimulation } from '../engine/monteCarlo.js';
 import { getSafeScore } from './scoreHelper.js';
 import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeCalibrationDiagnostics, fitIsotonicCalibration, predictIsotonicProbability, calibrateWithBBQ, conformalizedCalibrationInterval, computeStackingWeights } from './calibration.js';
@@ -105,6 +181,17 @@ import { getDateKey, safeDateParse } from './dateHelper.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { detectDataAnomalies } from '../engine/diagnostics.js';
 import { pruneHistoryForMemory } from '../engine/stats.js';
+import { safeArray } from './coachSafe.js';
+
+function hashString(str) {
+  let h = 0;
+  const s = String(str || '');
+  for (let i = 0; i < s.length; i++) {
+    h = (h << 5) - h + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h).toString(36);
+}
 
 /**
  * Deriva thresholds adaptativos de risco (danger/safe) para Monte Carlo.
@@ -191,9 +278,8 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
   const isZeroVariance = cleanScores.every(s => s === median);
   
   if (isZeroVariance) {
-    // Aluno consistente: gap estreito, thresholds próximos da média
-    const danger = Math.max(15, median - 10);
-    const safe = Math.min(95, median + 10);
+    const danger = Math.max(15, Math.min(70, median - 12.5));
+    const safe = Math.min(95, Math.max(danger + 25, median + 12.5));
     return { danger, safe };
   }
   
@@ -273,7 +359,7 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
 }
 
 export function deriveBacktestWeights(rawScores = [], maxScore = 100) {
-  const scores = (Array.isArray(rawScores) ? rawScores : []).filter(Number.isFinite);
+  const scores = safeArray(rawScores).map(Number).filter(Number.isFinite);
   const n = scores.length;
   
   if (n < 2) return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 1, uplift: 0, effectiveN: n };
@@ -448,7 +534,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     return null;
   }
 
-  let history = simuladosToHistory(relevantSimulados, safeMaxScore);
+  let history = simuladosToHistory(relevantSimulados, safeMaxScore)
+    .filter(h => Number.isFinite(h.score));
 
   if (history.length < (safeCfg.MC_MIN_DATA_POINTS || 5)) return null;
   
@@ -483,8 +570,25 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const lastDate = history[history.length - 1]?.date || '';
   const calibHash = `${cfg.MC_CALIBRATION_BRIER_BASELINE ?? ''}-${cfg.MC_CALIBRATION_MAX_PENALTY ?? ''}-${cfg.MC_CALIBRATION_NEUTRAL_PCT ?? ''}-${cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY ?? ''}-${cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false}`;
   const adaptiveHash = adaptive ? `${adaptive.mcSimulations || 0}-${adaptive.decayK || 0}` : 'no-adapt';
-  const userId = cfg?.userId || 'default';
-  const hash = `${userId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}-ag${agilityPenalty}`;
+  const cfgHash = hashString(JSON.stringify({
+    cap: cfg.MC_SIMULATION_CAP,
+    force: cfg.MC_FORCE_MAX_SIMULATIONS,
+    min: cfg.MC_MIN_DATA_POINTS,
+    low: cfg.MC_LOW_SAMPLE_THRESHOLD,
+    horizon: cfg.MC_BACKTEST_HORIZON,
+    horizonMax: cfg.MC_BACKTEST_HORIZON_MAX,
+    bins: [cfg.MC_ECE_BINS_MIN, cfg.MC_ECE_BINS_MID, cfg.MC_ECE_BINS_MAX],
+    calib: [
+      cfg.MC_CALIBRATION_BRIER_BASELINE,
+      cfg.MC_CALIBRATION_MAX_PENALTY,
+      cfg.MC_CALIBRATION_NEUTRAL_PCT,
+      cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY,
+      cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false
+    ]
+  }));
+  const contestId = cfg?.contestId || cfg?.userId || 'default';
+
+  const hash = `${contestId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}-${cfgHash}-ag${agilityPenalty}`;
   
   if (mcCache.has(hash)) {
     const val = mcCache.get(hash);
@@ -631,7 +735,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       : (stackedProb01 * 100);
     
     const extraLowSampleShrink = isLowSample
-      ? Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold) * (1 / dataQuality)
+      ? Math.min(
+          0.9,
+          Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold) * (1 / dataQuality)
+        )
       : 0;
     
     const adjustedProbability = isLowSample
@@ -691,10 +798,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     return null;
   }
 }
-```
+</file>
 
-## File: src/components/AICoachWidget.jsx
-```javascript
+<file path="src/components/AICoachWidget.jsx">
 import React, { useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 
@@ -705,7 +811,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { displaySubject } from '../utils/displaySubject';
-import { getSafeId } from '../utils/idGenerator';
+import { getCalibrationKey } from '../utils/coachSafe.js';
 
 // FIX-BUG-02: Regex com escape correto para **, !!, ++
 function renderRecommendation(text, depth = 0) {
@@ -819,17 +925,22 @@ function UrgencyBar({ score, cfg }) {
     );
 }
 
-function MonteCarloGauge({ mc }) {
+function MonteCarloGauge({ mc, maxScore = 100 }) {
   if (!mc || mc.probability == null) return null;
+
+  const safeMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
+
+  const toPct = (value, fallback) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(100, Math.max(0, (n / safeMax) * 100));
+  };
 
   const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
   const prob = Math.min(100, Math.max(0, rawProb));
 
-  const rawLow = Number.isFinite(Number(mc.ci95Low)) ? Number(mc.ci95Low) : prob - 5;
-  const low = Math.min(100, Math.max(0, rawLow));
-
-  const rawHigh = Number.isFinite(Number(mc.ci95High)) ? Number(mc.ci95High) : prob + 5;
-  const high = Math.min(100, Math.max(0, rawHigh));
+  const low = mc.ci95Low != null ? toPct(mc.ci95Low, prob - 5) : Math.max(0, prob - 5);
+  const high = mc.ci95High != null ? toPct(mc.ci95High, prob + 5) : Math.min(100, prob + 5);
 
   const volatility = Number.isFinite(Number(mc.volatility)) ? Number(mc.volatility) : 0;
 
@@ -909,23 +1020,18 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const topic = suggestion.weakestTopic;
     const urgency = suggestion?.urgency?.details ?? { hasData: false };
     const monteCarloData = suggestion?.urgency?.monteCarlo || suggestion?.urgency?.details?.monteCarlo || urgency?.monteCarlo;
+    const safeMaxScore = Number(activeContest?.maxScore) > 0 ? Number(activeContest.maxScore) : 100;
     const urgencyScoreRaw = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
     const urgencyScore = Number.isFinite(Number(urgencyScoreRaw)) ? Number(urgencyScoreRaw) : 0;
     const statusLabel = String(urgency?.humanReadable?.Status || '');
 
     const calibrationOps = activeContest?.calibrationOps || {};
 
-    let suggestionKey = '';
-    try {
-      suggestionKey = getSafeId(suggestion);
-    } catch {
-      suggestionKey = String(suggestion?.id || suggestion?.name || '');
-    }
-
-    const isDegraded = Boolean(
-      calibrationOps[suggestionKey]?.degraded ||
-      (suggestion?.id && calibrationOps[suggestion.id]?.degraded)
+    const categoryKey = getCalibrationKey(
+      suggestion?.categoryId || suggestion?.id || suggestion?.name
     );
+
+    const isDegraded = Boolean(calibrationOps[categoryKey]?.degraded);
 
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
@@ -1013,7 +1119,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
                                 <div>
                                     <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-3">
-                                        {displaySubject(suggestion.name)}
+                                        {displaySubject(suggestion.name, activeContest?.categories || [])}
                                     </h2>
                                     {topic && (
                                         <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl border text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>
@@ -1056,7 +1162,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             <div className="space-y-6">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {monteCarloData && (
-                                    <MonteCarloGauge mc={monteCarloData} />
+                                    <MonteCarloGauge mc={monteCarloData} maxScore={safeMaxScore} />
                                 )}
 
                             </div>
@@ -1112,7 +1218,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                         {monteCarloData?.diagnostics && (
                                             <div className="mt-3 text-[9px] text-slate-400 bg-white/[0.015] rounded p-2 border border-white/5">
                                                 <div>Simulações: <span className="font-mono text-slate-200">{monteCarloData.diagnostics.simulationCount}</span></div>
-                                                {monteCarloData.diagnostics.convergence && <div>Convergência: {monteCarloData.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {Number(monteCarloData.diagnostics.convergence.achievedSE).toFixed(4)})</div>}
+                                                {monteCarloData.diagnostics.convergence && <div>Convergência: {monteCarloData.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {Number(monteCarloData.diagnostics.convergence?.achievedSE ?? 0).toFixed(4)})</div>}
                                                 {monteCarloData.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(monteCarloData.diagnostics.effectiveN).toFixed(1)}</span></div>}
                                             </div>
                                         )}
@@ -1126,10 +1232,146 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
         </Motion.div>
     );
 }
-```
+</file>
 
-## File: src/components/AICoachPlanner.jsx
-```javascript
+<file path="src/components/coach/CoachMenuNav.jsx">
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import { Sparkles, BarChart3 } from 'lucide-react';
+
+const TAB_IDS = {
+    insights: 'coach-tab-insights',
+    analytics: 'coach-tab-analytics'
+};
+
+const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: Icon, label, subtitle, tabId, panelId, disabled = false, tabRef, tabKey }) {
+    const handleClick = useCallback(() => {
+        onClick(tabKey);
+    }, [onClick, tabKey]);
+    return (
+        <button
+            ref={tabRef}
+            type="button"
+            onClick={handleClick}
+            onKeyDown={onKeyDown}
+            disabled={disabled}
+            role="tab"
+            aria-selected={active}
+            aria-controls={panelId}
+            aria-disabled={disabled}
+            id={tabId}
+            // FIX: expressão redundante simplificada (roving tabindex correto)
+            tabIndex={active ? 0 : -1}
+            className={`group relative min-w-0 rounded-2xl p-4 transition-all duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0c14] ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${active
+                ? 'bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30'
+                : 'bg-slate-900/40 border-white/5 hover:bg-slate-800/60 hover:border-white/10'
+                } border`}
+        >
+            {active && (
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/5 to-purple-500/5 blur-md -z-10" />
+            )}
+            <div className="flex items-center gap-4">
+                <div className={`shrink-0 flex items-center justify-center w-10 h-10 rounded-xl border transition-colors duration-300 ${active
+                    ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
+                    : 'bg-slate-800/50 border-white/5 text-slate-500 group-hover:text-slate-400'
+                    }`}>
+                    <Icon size={20} className={active ? 'drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : ''} />
+                </div>
+                <div className="flex flex-col items-start min-w-0 text-left">
+                    <span className={`text-sm font-black tracking-tight truncate w-full transition-colors duration-300 ${active ? 'text-white' : 'text-slate-300 group-hover:text-white'
+                        }`}>
+                        {label}
+                    </span>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest truncate w-full transition-colors duration-300 ${active ? 'text-indigo-400/80' : 'text-slate-500'
+                        }`}>
+                        {subtitle}
+                    </span>
+                </div>
+            </div>
+            {active && (
+                <div className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 w-12 h-[2px] bg-indigo-500 rounded-t-full shadow-[0_-2px_8px_rgba(99,102,241,0.5)]" />
+            )}
+        </button>
+    );
+});
+
+export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
+    const isPremiumBool = Boolean(isPremium);
+    const insightsRef = useRef(null);
+    const analyticsRef = useRef(null);
+
+    const tabs = useMemo(() => [
+        {
+            key: 'insights',
+            label: 'Plano de Estudo',
+            subtitle: 'Sugestões & Metas',
+            icon: Sparkles,
+            tabRef: insightsRef
+        },
+        {
+            key: 'analytics',
+            label: 'Raio-X Técnico',
+            subtitle: 'Calibração & Desvios',
+            icon: BarChart3,
+            tabRef: analyticsRef
+        }
+    ], []);
+
+    const handleKeyDown = useCallback((e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const currentIndex = tabs.findIndex(t => t.key === activeTab);
+            let nextIndex = currentIndex;
+            do {
+                nextIndex = e.key === 'ArrowRight' ? nextIndex + 1 : nextIndex - 1;
+                if (nextIndex >= tabs.length) nextIndex = 0;
+                if (nextIndex < 0) nextIndex = tabs.length - 1;
+            } while (nextIndex !== currentIndex && tabs[nextIndex].key === 'analytics' && !isPremiumBool);
+            
+            const nextTab = tabs[nextIndex];
+            if (nextTab && nextTab.key !== activeTab) {
+                onChangeTab(nextTab.key);
+            }
+            // FIX: acesso a ref no render não ocorre, o foco acontece de forma assíncrona/após montagem
+        }
+    }, [activeTab, onChangeTab, tabs, isPremiumBool]);
+
+    // FIX: Restaura foco apenas quando usuário interage via teclado (evita roubar foco on mount)
+    useEffect(() => {
+        const activeItem = tabs.find(t => t.key === activeTab);
+        if (activeItem?.tabRef?.current && document.activeElement?.getAttribute?.('role') === 'tab') {
+            activeItem.tabRef.current.focus();
+        }
+    }, [activeTab, tabs]);
+
+    return (
+        <div
+            role="tablist"
+            aria-label="Navegação do Coach"
+            className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-8"
+        >
+            {tabs.map((tab) => (
+                <div key={tab.key} className="flex-1">
+                    <MenuTab
+                        active={activeTab === tab.key}
+                        onClick={onChangeTab}
+                        onKeyDown={handleKeyDown}
+                        icon={tab.icon}
+                        label={tab.label}
+                        subtitle={tab.subtitle}
+                        tabId={TAB_IDS[tab.key]}
+                        panelId={`coach-panel-${tab.key}`}
+                        disabled={tab.key === 'analytics' && !isPremiumBool}
+                        tabRef={tab.tabRef}
+                        tabKey={tab.key}
+                    />
+                </div>
+            ))}
+        </div>
+    );
+}
+</file>
+
+<file path="src/components/AICoachPlanner.jsx">
 import React, { useState, useMemo, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Play, BrainCircuit, Calendar } from 'lucide-react';
@@ -1150,26 +1392,44 @@ const DAYS = [
 ];
 
 // FIX-CODE-09: Comparador custom para React.memo
-const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro }) => {
+const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categories = [], onStartPomodoro }) => {
   const sanitizeHtml = (str) => typeof str === 'string' ? str.replace(/<[^>]*>?/gm, '').trim() : '';
   const rawText = task.text || task.title || '';
-  const fullText = sanitizeHtml(rawText) ?? rawText;
+  const fullText = sanitizeHtml(rawText) || rawText;
   const parts = fullText.split(':');
   const hasDetails = parts.length > 1;
 
-  let subject = String(task.category || task.catName || (hasDetails ? parts[0] : fullText));
+  let subject = String(task.subjectName || task.category || task.catName || (hasDetails ? parts[0] : fullText));
   let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
+
   subject = subject.replace(/Foco em /i, '').trim();
 
-  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart);
-  actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
-  actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
+  const isSystemAlert = /\[ALERTA MESTRE\]|\[STATUS\]/i.test(actionPart);
+  const isSrsCard = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
+  const isSafeCard = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
+  const isChaosCard = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert || (task?.priority === 'high' && !isSrsCard && !isSafeCard && !isChaosCard);
 
-  let topicPart = subject;
-  const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
-  let secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
+  actionPart = actionPart
+    .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+    .replace(/\[ALERTA MESTRE\]\s*/i, '')
+    .replace(/\[STATUS\]\s*/i, '')
+    .trim();
 
-  if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
+  let topicLabel = '';
+  const bracketMatch = actionPart.match(/^\[(.*?)\]\s*(.*)$/i);
+  if (bracketMatch) {
+    topicLabel = bracketMatch[1].trim();
+    actionPart = bracketMatch[2].trim();
+  }
+
+  let displayTopic = task.topicName || topicLabel || actionPart || subject || 'Revisão Recomendada';
+  if (displayTopic.toLowerCase() === subject.toLowerCase() && !task.topicName && !task.analysis?.label && !task.analysis?.reason) {
+    displayTopic = 'Revisão Geral';
+  }
+  let secondaryText = actionPart && actionPart !== displayTopic ? actionPart : '';
+
+  if (/Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
     secondaryText = '';
   }
 
@@ -1205,7 +1465,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
                     : `bg-black/30 ${accentColor} border-white/10`
                 }`}>
                   <div className={`w-1 h-1 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
-                  <span className="leading-[1.32] truncate">{displaySubject(subject)}</span>
+                  <span className="leading-[1.32] truncate">{displaySubject(subject, categories)}</span>
                 </div>
                 {/* FIX-A11Y-02: aria-label no botão */}
                 <button
@@ -1213,7 +1473,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
                   onPointerDown={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                   onTouchStart={(e) => e.stopPropagation()}
-                  aria-label={`Iniciar estudo: ${displaySubject(subject)}`}
+                  aria-label={`Iniciar estudo: ${displaySubject(subject, categories)}`}
                   className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
                     !isBacklog && dayTheme
                       ? `${dayTheme.text} hover:bg-white/10`
@@ -1238,18 +1498,21 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     </Draggable>
   );
 }, (prev, next) => {
-  // FIX-CODE-09: Comparador custom para evitar re-renders desnecessários
   return prev.stableId === next.stableId &&
     prev.index === next.index &&
     prev.isBacklog === next.isBacklog &&
     prev.task?.text === next.task?.text &&
+    prev.task?.title === next.task?.title &&
     prev.task?.completed === next.task?.completed &&
-    prev.dayTheme?.id === next.dayTheme?.id;
+    prev.dayTheme?.id === next.dayTheme?.id &&
+    prev.onStartPomodoro === next.onStartPomodoro &&
+    prev.categories === next.categories;
 });
 
 // FIX-CODE-07: Aceitar props em vez de ignorá-las
-export default function AICoachPlanner({ plannerData: propPlannerData, onStartPomodoro: propOnStart }) {
+export default function AICoachPlanner({ plannerData: propPlannerData, categories: propCategories, onStartPomodoro: propOnStart }) {
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
+  const categories = propCategories || activeContest?.categories || [];
   const defaultCoachPlan = useMemo(() => [], []);
   const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
 
@@ -1300,6 +1563,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
   }, [coachPlan, coachPlanner]);
 
   const [columns, setColumns] = useState(() => getInitialColumns());
+
+  const columnsRef = React.useRef(columns);
+  React.useEffect(() => {
+    columnsRef.current = columns;
+  }, [columns]);
 
   // FIX-BUG-06: Depender de coachPlan (referência) em vez de coachPlan?.length
   useEffect(() => {
@@ -1363,11 +1631,14 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
       propOnStart(task);
       return;
     }
+
     if (!task) return;
 
+    const cols = columnsRef.current;
+
     let sessionTasks = dayId === 'backlog'
-      ? (columns.backlog || [])
-      : (columns[dayId] || []);
+      ? (cols.backlog || [])
+      : (cols[dayId] || []);
 
     let startIndex = sessionTasks.findIndex(t => {
       const idT = getSafeId(t);
@@ -1385,7 +1656,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
     const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext: dayId }));
     startNeuralSession(sessionWithContext, startIndex);
     navigate('/pomodoro');
-  }, [columns, startNeuralSession, navigate, propOnStart]);
+  }, [startNeuralSession, navigate, propOnStart]);
 
   return (
     <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
@@ -1415,7 +1686,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
                 >
                   {(columns.backlog || []).filter(Boolean).map((task, idx) => {
                     const safeId = getSafeId(task) || `fallback-backlog-${idx}`;
-                    return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog onStartPomodoro={handleStartTask} />;
+                    return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog categories={categories} onStartPomodoro={handleStartTask} />;
                   })}
                   {provided.placeholder}
                 </div>
@@ -1470,7 +1741,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
                         >
                           {(columns[day.id] || []).filter(Boolean).map((task, idx) => {
                             const safeId = getSafeId(task) || `fallback-${day.id}-${idx}`;
-                            return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} onStartPomodoro={handleStartTask} />;
+                            return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} categories={categories} onStartPomodoro={handleStartTask} />;
                           })}
                           {provided.placeholder}
                         </div>
@@ -1486,10 +1757,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
     </DragDropContext>
   );
 }
-```
+</file>
 
-## File: src/components/AICoachView.jsx
-```javascript
+<file path="src/components/AICoachView.jsx">
 import React, { useMemo, useState } from 'react';
 import {
   Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download,
@@ -1527,7 +1797,7 @@ const CARD_COLORS = [
   { accent: 'border-l-amber-500', dot: 'bg-amber-500', badge: 'bg-amber-500/10 text-amber-300 border-amber-500/20', glow: 'from-amber-900/20', btnHover: 'hover:bg-amber-500 hover:text-amber-950 hover:border-amber-400 hover:shadow-[0_0_20px_-3px_rgba(245,158,11,0.4)]' },
 ];
 
-function AICoachCard({ task, idx, onStartPomodoro }) {
+function AICoachCard({ task, idx, categories, onStartPomodoro }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const fullText = task?.text || task?.title || '';
 
@@ -1535,7 +1805,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
   const hasDetails = separatorIndex !== -1;
 
   const rawSubject = String(
-    task?.category || task?.catName ||
+    task?.subjectName || task?.category || task?.catName ||
     (hasDetails ? fullText.slice(0, separatorIndex) : fullText)
   );
 
@@ -1543,16 +1813,20 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
   let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : fullText;
 
   const isSystemAlert = /\[ALERTA MESTRE\]/i.test(actionPart);
-  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert;
+  const isSrsTask = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
+  const isSafeTask = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
+  const isChaosTask = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert || (task?.priority === 'high' && !isSrsTask && !isSafeTask && !isChaosTask);
 
   actionPart = actionPart
     .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
     .replace(/\[ALERTA MESTRE\]\s*/i, '')
     .replace(/^\[(.*?)\]/i, '$1')
-    .replace(/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi, '')
+    .replace(/Revisão Geral Complementar(\s*\(Volume\s*\d+\))?|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi, '')
     .trim();
 
-  if (actionPart.toLowerCase() === subjectPart.toLowerCase()) {
+  const isIdenticalToSubject = actionPart.toLowerCase() === subjectPart.toLowerCase();
+  if (isIdenticalToSubject && !task?.topicName && !task?.analysis?.label && !task?.analysis?.reason) {
     actionPart = 'Revisão Geral';
   }
 
@@ -1565,7 +1839,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     if (!topicPart) topicPart = rawSubject;
   }
 
-  const displayAssunto = actionPart || topicPart || 'Revisão Recomendada';
+  const displayAssunto = task?.topicName || actionPart || topicPart || 'Revisão Recomendada';
   const displayMeta = actionPart && actionPart !== displayAssunto ? actionPart : null;
 
   const col = CARD_COLORS[idx % CARD_COLORS.length];
@@ -1574,41 +1848,74 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
   const safeProb = Number(safeProbRaw) || 0;
   const safeVol = Number(task.analysis?.monteCarlo?.volatility) || 0;
 
+  const isCompleted = Boolean(task?.completed || task?.status === 'completed');
+  const isStudying = task?.status === 'studying';
+  const isSrs = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
+  const isSafe = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
+  const isChaos = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+
   return (
     <div
       className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
-        isPriority
+        isCompleted
+          ? 'opacity-75 border-emerald-500/20 border-l-4 sm:border-l-8 border-l-emerald-500'
+          : isPriority
           ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]'
           : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
       }`}
     >
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] via-[#0a0c14]/0 to-transparent ${isPriority ? 'from-rose-900/30' : col.glow}`} />
 
-      {isPriority && (
+      {isPriority && !isCompleted && (
         <div className="absolute -top-20 -right-20 w-56 h-56 bg-rose-600/20 blur-[80px] rounded-full pointer-events-none animate-pulse" />
       )}
 
       <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-5 gap-4">
         <div className="flex flex-col items-start gap-2 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            {isPriority && (
+            <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full shrink-0`}>
+              <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
+              <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart, categories)}</span>
+            </div>
+
+            {isCompleted ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
+                <span>✓ Concluído</span>
+              </div>
+            ) : isStudying ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 animate-pulse shrink-0">
+                <span>⚡ Em Estudo</span>
+              </div>
+            ) : isPriority ? (
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-rose-500/10 text-rose-300 shadow-[0_0_20px_-2px_rgba(225,29,72,0.5)] border border-rose-500/40 shrink-0 relative group/badge">
                 <div className="absolute inset-0 bg-rose-400/20 blur-md animate-pulse" />
                 <Target size={12} className="shrink-0 relative z-10 text-rose-400" />
                 <span className="relative z-10 text-rose-200">Alvo Prioritário</span>
               </div>
+            ) : isSrs ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">
+                <span>🔄 Revisão SRS</span>
+              </div>
+            ) : isSafe ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
+                <span>🛡️ Manutenção</span>
+              </div>
+            ) : isChaos ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">
+                <span>🌪️ Oscilação</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-slate-800/60 text-slate-400 border border-white/5 shrink-0">
+                <span>⏳ Pendente</span>
+              </div>
             )}
-            <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full shrink-0`}>
-              <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
-              <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart)}</span>
-            </div>
           </div>
         </div>
 
         {/* FIX-A11Y-02: aria-label no botão de play */}
         <button
           onClick={(e) => { e.stopPropagation(); onStartPomodoro(task); }}
-          aria-label={`Iniciar sessão de estudo: ${displaySubject(subjectPart)}`}
+          aria-label={`Iniciar sessão de estudo: ${displaySubject(subjectPart, categories)}`}
           className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${
             isPriority
               ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
@@ -1740,6 +2047,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
   const [viewMode, setViewMode] = useState('planner');
 
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
+  const categories = activeContest?.categories || [];
 
   const coachPlanner = useMemo(() => {
     const raw = activeContest?.coachPlanner || {};
@@ -1971,6 +2279,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                       key={getSafeId(task) || `coach-card-${idx}`}
                       task={task}
                       idx={idx}
+                      categories={categories}
                       onStartPomodoro={handleStartNeural}
                     />
                   ))}
@@ -1998,7 +2307,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             <div className="space-y-6 mb-8">
               {suggestedFocus ? (
                 <div className="w-full">
-                  <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
+                  <AICoachWidget
+                    key={suggestedFocus?.id || 'coach-widget'}
+                    suggestion={suggestedFocus}
+                    onGenerateGoals={onGenerateGoals}
+                    loading={loading}
+                  />
                 </div>
               ) : (
                 <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
@@ -2019,7 +2333,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     .replace(/\[STATUS\]\s*/i, '');
 
                   const separatorIndex = cleanText.indexOf(':');
-                  const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
+                  const rawSubjectAlert = alertTask.subjectName || alertTask.category || (separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema');
+                  const subjectName = displaySubject(rawSubjectAlert, categories);
                   const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
 
                   let type = 'info';
@@ -2132,155 +2447,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             )}
 
             {/* FIX-CODE-07: Passar props corretamente */}
-            <AICoachPlanner plannerData={coachPlanner} onStartPomodoro={handleStartNeural} />
+            <AICoachPlanner plannerData={coachPlanner} categories={categories} onStartPomodoro={handleStartNeural} />
           </Motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
-```
+</file>
 
-## File: src/components/coach/CoachMenuNav.jsx
-```javascript
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
-import { Sparkles, BarChart3 } from 'lucide-react';
-
-const TAB_IDS = {
-    insights: 'coach-tab-insights',
-    analytics: 'coach-tab-analytics'
-};
-
-const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: Icon, label, subtitle, tabId, panelId, disabled = false, tabRef, tabKey }) {
-    const handleClick = useCallback(() => {
-        onClick(tabKey);
-    }, [onClick, tabKey]);
-    return (
-        <button
-            ref={tabRef}
-            type="button"
-            onClick={handleClick}
-            onKeyDown={onKeyDown}
-            disabled={disabled}
-            role="tab"
-            aria-selected={active}
-            aria-controls={panelId}
-            aria-disabled={disabled}
-            id={tabId}
-            // FIX: expressão redundante simplificada (roving tabindex correto)
-            tabIndex={active ? 0 : -1}
-            className={`group relative min-w-0 rounded-2xl p-4 transition-all duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0c14] ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${active
-                ? 'bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30'
-                : 'bg-slate-900/40 border-white/5 hover:bg-slate-800/60 hover:border-white/10'
-                } border`}
-        >
-            {active && (
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/5 to-purple-500/5 blur-md -z-10" />
-            )}
-            <div className="flex items-center gap-4">
-                <div className={`shrink-0 flex items-center justify-center w-10 h-10 rounded-xl border transition-colors duration-300 ${active
-                    ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
-                    : 'bg-slate-800/50 border-white/5 text-slate-500 group-hover:text-slate-400'
-                    }`}>
-                    <Icon size={20} className={active ? 'drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : ''} />
-                </div>
-                <div className="flex flex-col items-start min-w-0 text-left">
-                    <span className={`text-sm font-black tracking-tight truncate w-full transition-colors duration-300 ${active ? 'text-white' : 'text-slate-300 group-hover:text-white'
-                        }`}>
-                        {label}
-                    </span>
-                    <span className={`text-[10px] font-bold uppercase tracking-widest truncate w-full transition-colors duration-300 ${active ? 'text-indigo-400/80' : 'text-slate-500'
-                        }`}>
-                        {subtitle}
-                    </span>
-                </div>
-            </div>
-            {active && (
-                <div className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 w-12 h-[2px] bg-indigo-500 rounded-t-full shadow-[0_-2px_8px_rgba(99,102,241,0.5)]" />
-            )}
-        </button>
-    );
-});
-
-export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
-    const isPremiumBool = Boolean(isPremium);
-    const insightsRef = useRef(null);
-    const analyticsRef = useRef(null);
-
-    const tabs = useMemo(() => [
-        {
-            key: 'insights',
-            label: 'Plano de Estudo',
-            subtitle: 'Sugestões & Metas',
-            icon: Sparkles,
-            tabRef: insightsRef
-        },
-        {
-            key: 'analytics',
-            label: 'Raio-X Técnico',
-            subtitle: 'Calibração & Desvios',
-            icon: BarChart3,
-            tabRef: analyticsRef
-        }
-    ], []);
-
-    const handleKeyDown = useCallback((e) => {
-        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-            e.preventDefault();
-            const currentIndex = tabs.findIndex(t => t.key === activeTab);
-            let nextIndex = currentIndex;
-            do {
-                nextIndex = e.key === 'ArrowRight' ? nextIndex + 1 : nextIndex - 1;
-                if (nextIndex >= tabs.length) nextIndex = 0;
-                if (nextIndex < 0) nextIndex = tabs.length - 1;
-            } while (nextIndex !== currentIndex && tabs[nextIndex].key === 'analytics' && !isPremiumBool);
-            
-            const nextTab = tabs[nextIndex];
-            if (nextTab && nextTab.key !== activeTab) {
-                onChangeTab(nextTab.key);
-            }
-            // FIX: acesso a ref no render não ocorre, o foco acontece de forma assíncrona/após montagem
-        }
-    }, [activeTab, onChangeTab, tabs, isPremiumBool]);
-
-    // FIX: Restaura foco apenas quando usuário interage via teclado (evita roubar foco on mount)
-    useEffect(() => {
-        const activeItem = tabs.find(t => t.key === activeTab);
-        if (activeItem?.tabRef?.current && document.activeElement?.getAttribute?.('role') === 'tab') {
-            activeItem.tabRef.current.focus();
-        }
-    }, [activeTab, tabs]);
-
-    return (
-        <div
-            role="tablist"
-            aria-label="Navegação do Coach"
-            className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-8"
-        >
-            {tabs.map((tab) => (
-                <div key={tab.key} className="flex-1">
-                    <MenuTab
-                        active={activeTab === tab.key}
-                        onClick={onChangeTab}
-                        onKeyDown={handleKeyDown}
-                        icon={tab.icon}
-                        label={tab.label}
-                        subtitle={tab.subtitle}
-                        tabId={TAB_IDS[tab.key]}
-                        panelId={`coach-panel-${tab.key}`}
-                        disabled={tab.key === 'analytics' && !isPremiumBool}
-                        tabRef={tab.tabRef}
-                        tabKey={tab.key}
-                    />
-                </div>
-            ))}
-        </div>
-    );
-}
-```
-
-## File: src/pages/Coach.jsx
-```javascript
+<file path="src/pages/Coach.jsx">
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Brain, Zap, AlertCircle, ArrowUpRight, ShieldCheck, Dna, List, BookOpen
@@ -2310,7 +2486,7 @@ import {
 } from '../utils/calibration.js';
 import { displaySubject } from '../utils/displaySubject';
 import { formatDatePtBR, formatDateTimePtBR } from '../utils/dateHelper';
-import { getSafeId } from '../utils/idGenerator';
+import { getCalibrationKey } from '../utils/coachSafe.js';
 
 // FIX-CODE-02: Constantes centralizadas
 const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
@@ -2444,6 +2620,7 @@ export default function Coach() {
     idleCallbackIdsRef.current = [];
     rafIdsRef.current.forEach(id => cancelAnimationFrame(id));
     rafIdsRef.current = [];
+    setCoachLoading(false);
   }, []);
 
   // FIX-BUG-04 + FIX: além dos caches, cancela timeouts/idle/rAF pendentes ao trocar de concurso
@@ -2453,6 +2630,7 @@ export default function Coach() {
     clearTopicsCache();
     calibrationAlertCacheRef.current.clear();
     lastPersistByCategoryRef.current.clear();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cancelPendingCalibrationWork();
   }, [activeId, cancelPendingCalibrationWork]);
 
@@ -2476,7 +2654,7 @@ export default function Coach() {
     const now = Date.now();
     const rawCategoryId = metric?.categoryId || metric?.categoryName;
     if (!rawCategoryId) return;
-    const normalizedCategoryId = getSafeId(rawCategoryId);
+    const normalizedCategoryId = getCalibrationKey(rawCategoryId);
 
     const toFinite = (value, fallback = null) => {
       if (value === null || value === undefined || value === '') return fallback;
@@ -2655,9 +2833,12 @@ export default function Coach() {
     });
   }, [persistCalibrationMetric]);
 
-  const combinedHistory = useMemo(() => getCombinedHistory(history, simulados), [history, simulados]);
   // FIX: maxScore sanitizado de forma consistente em todo o componente
   const currentMaxScore = sanitizeMaxScore(data?.maxScore);
+  const combinedHistory = useMemo(
+    () => getCombinedHistory(history, simulados, currentMaxScore),
+    [history, simulados, currentMaxScore]
+  );
   const targetScorePoints = useMemo(() => resolveTargetScorePoints({
     user: userProfile,
     minScore: data?.minScore,
@@ -2680,7 +2861,7 @@ export default function Coach() {
     simuladoRows: history
   });
 
-  const projectedScore = mcStats?.projectedMean ?? 0;
+  const projectedScore = mcStats?.projectedMean;
   const volatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
   // FIX: NaN não vaza mais para a UI (?? não substitui NaN)
   const safeVolatility = Number.isFinite(volatility) ? volatility : 0;
@@ -2730,7 +2911,8 @@ export default function Coach() {
             onCalibrationMetric: (metric) => collectedMetrics.push({ ...metric, contestId }),
             globalMcStats: mcStatsContextRef.current,
             config: {
-              MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+              MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false,
+              userId: activeIdRef.current
             }
           }
         );
@@ -2772,21 +2954,17 @@ export default function Coach() {
   ]);
 
   useEffect(() => {
+    if (!Number.isFinite(projectedScore)) return;
+
     if (
-      typeof projectedScore === 'number' &&
-      !Number.isNaN(projectedScore) &&
-      projectedScore !== lastPushedScoreRef.current
+      lastPushedScoreRef.current === null ||
+      Math.abs(projectedScore - lastPushedScoreRef.current) > 0.01
     ) {
-      if (
-        lastPushedScoreRef.current === null ||
-        Math.abs(projectedScore - lastPushedScoreRef.current) > 0.01
-      ) {
-        lastPushedScoreRef.current = projectedScore;
-        const timer = setTimeout(() => {
-          if (updateCoachScore) updateCoachScore(projectedScore);
-        }, 0);
-        return () => clearTimeout(timer);
-      }
+      lastPushedScoreRef.current = projectedScore;
+      const timer = setTimeout(() => {
+        if (updateCoachScore) updateCoachScore(projectedScore);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [projectedScore, updateCoachScore]);
 
@@ -2820,7 +2998,8 @@ export default function Coach() {
             calibrationHistoryByCategory: calibrationHistoryRef.current,
             onCalibrationMetric: (metric) => collectedMetrics.push({ ...metric, contestId }),
             config: {
-              MC_ENABLE_ADAPTIVE_CALIBRATION: settingsData?.adaptiveCalibrationEnabled !== false
+              MC_ENABLE_ADAPTIVE_CALIBRATION: settingsData?.adaptiveCalibrationEnabled !== false,
+              userId: activeIdRef.current
             }
           }
         );
@@ -3031,18 +3210,7 @@ function QuickStat({ label, value, color, icon }) {
   );
 }
 
-function StatRow({ label, value, trend, color }) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className={`text-xs font-black ${color}`}>{value}</span>
-        {trend === 'up' && <ArrowUpRight size={12} className="text-emerald-500" />}
-        {trend === 'down' && <AlertCircle size={12} className="text-rose-500" />}
-      </div>
-    </div>
-  );
-}
+
 
 // FIX: recebe apenas o necessário (contagem), calculada de forma segura pelo pai
 const GovernanceBanner = React.memo(React.forwardRef(function GovernanceBanner({ degradedCount }, ref) {
@@ -3153,24 +3321,35 @@ function RaioXDashboard({ data }) {
   const avgEce = eceValues.length
     ? eceValues.reduce((a, b) => a + b, 0) / eceValues.length : null;
 
-  const categorySeriesMap = sortedLogs.reduce((acc, log) => {
-    const cat = log?.categoryName || 'Categoria';
-    const brier = toFiniteNumber(log?.avgBrier, null);
-    const ece = toFiniteNumber(log?.ece, null);
-    // FIX: valores ausentes não viram mais 0 fabricado no gráfico
-    if (brier === null && ece === null) return acc;
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push({ ts: toFiniteNumber(log?.timestamp), brier: brier ?? 0, ece: ece ?? 0 });
-    return acc;
-  }, {});
+  const categorySeriesMap = useMemo(() => {
+    return sortedLogs.reduce((acc, log) => {
+      const cat = log?.categoryName || 'Categoria';
+      const brier = toFiniteNumber(log?.avgBrier, null);
+      const ece = toFiniteNumber(log?.ece, null);
+
+      if (brier === null && ece === null) return acc;
+
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push({
+        ts: toFiniteNumber(log?.timestamp),
+        brier,
+        ece
+      });
+
+      return acc;
+    }, {});
+  }, [sortedLogs]);
 
   const categoryNames = Object.keys(categorySeriesMap);
   const [seriesCategory, setSeriesCategory] = useState(() => categoryNames[0] || '');
   const effectiveCategory = categoryNames.includes(seriesCategory)
     ? seriesCategory : (categoryNames[0] || '');
-  const temporalSeries = effectiveCategory
-    ? [...categorySeriesMap[effectiveCategory]].sort((a, b) => a.ts - b.ts).slice(-12)
-    : [];
+  const temporalSeries = useMemo(() => {
+    if (!effectiveCategory) return [];
+    return [...(categorySeriesMap[effectiveCategory] || [])]
+      .sort((a, b) => a.ts - b.ts)
+      .slice(-12);
+  }, [categorySeriesMap, effectiveCategory]);
 
   // FIX: clamp de largura reutilizável (evita width negativo/inválido)
   const toBarWidth = (value) => {
@@ -3427,10 +3606,14 @@ function RaioXDashboard({ data }) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                    <div className="h-full bg-rose-400/80" style={{ width: toBarWidth(point.brier) }} />
+                    {Number.isFinite(point.brier) ? (
+                      <div className="h-full bg-rose-400/80" style={{ width: toBarWidth(point.brier) }} />
+                    ) : null}
                   </div>
                   <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                    <div className="h-full bg-cyan-400/80" style={{ width: toBarWidth(point.ece) }} />
+                    {Number.isFinite(point.ece) ? (
+                      <div className="h-full bg-cyan-400/80" style={{ width: toBarWidth(point.ece) }} />
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -3447,10 +3630,9 @@ function RaioXDashboard({ data }) {
     </div>
   );
 }
-```
+</file>
 
-## File: src/utils/coachLogic.js
-```javascript
+<file path="src/utils/coachLogic.js">
 // ==================== CONSTANTES ====================
 import { calculateMSSD, calculateSlope, getSortedHistory } from '../engine/projection.js';
 import { useAppStore } from '../store/useAppStore.js';
@@ -3471,6 +3653,7 @@ import {
 import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { computeAgilityMetrics } from '../engine/stats.js';
+import { safeArray, getCalibrationKey } from './coachSafe.js';
 
 export {
     deriveAdaptiveRiskThresholds,
@@ -3752,7 +3935,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const safeCategory = category || {};
     const categoryId = safeCategory.id;
 
-    const calibrationHistory = options.calibrationHistoryByCategory?.[categoryId] || [];
+    const calibrationHistory = options.calibrationHistoryByCategory?.[getCalibrationKey(categoryId)] || [];
     const rollingCalibration = computeRollingCalibrationParams(calibrationHistory, {
         baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
         maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY,
@@ -4353,10 +4536,11 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         srsLabel = srsData.label;
     }
 
+    const maxSrsBoost = cfg.SRS_BOOST * 2;
     const currentSrsBoost = clamp(
         srsBoost * (crunchMultiplier > 1 ? 1.10 : 1),
         0,
-        cfg.SRS_BOOST
+        maxSrsBoost
     );
 
     const currentPriorityBoost = clamp(
@@ -4668,7 +4852,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     if (result.details?.monteCarlo && typeof options.onCalibrationMetric === 'function') {
         options.onCalibrationMetric({
             categoryId: metrics.categoryId || null,
-            categoryName: scoreInfo.nome || metrics.categoryName || 'Disciplina',
+            categoryName: metrics.safeCategory?.name || metrics.categoryName || 'Disciplina',
             timestamp: Date.now(),
             avgBrier: result.details.monteCarlo.avgBrier,
             ece: result.details.monteCarlo.ece,
@@ -4710,8 +4894,18 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
         const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${options?.maxScore ?? 100}`;
 
-        const lastSim = simCount > 0 ? (safeSims[simCount - 1]?.date || safeSims[simCount - 1]?.createdAt || '') : '';
-        const lastLog = logCount > 0 ? (safeLogs[logCount - 1]?.date || safeLogs[logCount - 1]?.createdAt || '') : '';
+        const logsForChecksum = [...safeLogs].sort((a, b) => {
+            const timeA = (normalizeDate(a?.date || a?.createdAt) || new Date(0)).getTime();
+            const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
+            return timeA - timeB;
+        });
+
+        const lastSim = simsForChecksum.length > 0
+            ? (simsForChecksum[simsForChecksum.length - 1]?.date || simsForChecksum[simsForChecksum.length - 1]?.createdAt || '')
+            : '';
+        const lastLog = logsForChecksum.length > 0
+            ? (logsForChecksum[logsForChecksum.length - 1]?.date || logsForChecksum[logsForChecksum.length - 1]?.createdAt || '')
+            : '';
 
         const tasksHash = safeTasks.reduce((acc, t) => acc + (t?.completed ? 0 : 1) + (t?.priority === 'high' ? 5 : 0), 0);
 
@@ -4729,7 +4923,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             )
             : 'noglobal';
 
-        const calibrationHash = (options.calibrationHistoryByCategory?.[catId] || []).length;
+        const calibrationHash = (options.calibrationHistoryByCategory?.[getCalibrationKey(catId)] || []).length;
 
         const goalKey = options?.user?.goalDate
             ? `_gd${getDateKey(options.user.goalDate) || String(options.user.goalDate)}`
@@ -4952,7 +5146,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
 
     const topicMap = {};
 
-    const history = (safeCat.simuladoStats && safeCat.simuladoStats.history) ? safeCat.simuladoStats.history : [];
+    const history = safeArray(safeCat.simuladoStats?.history);
     const todayForTopics = new Date();
 
     const sortedTopicsHistory = [...history].sort((a, b) => {
@@ -5170,10 +5364,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const targetScore = options.targetScore ?? 80;
     const maxScore = options.maxScore ?? 100;
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
+    const safeSimulados = safeArray(simulados);
+    const safeStudyLogs = safeArray(studyLogs);
 
     const ranked = categories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
+        urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, { ...options, allCategories: categories })
     })).sort((a, b) => {
         const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
         const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
@@ -5187,14 +5383,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const thirtyDaysAgo = new Date(baseDate.getTime() - 30 * 24 * 60 * 60 * 1000);
         const cutoffTime = thirtyDaysAgo.getTime();
 
-        const recentLogs = studyLogs.filter(l =>
+        const recentLogs = safeStudyLogs.filter(l =>
             l.categoryId === category.id &&
             (normalizeDate(l.date) || new Date(0)).getTime() >= cutoffTime
         );
 
         const catNormalized = normalize(category.name);
 
-        const recentSims = simulados.filter(s =>
+        const recentSims = safeSimulados.filter(s =>
             normalize(s.subject) === catNormalized &&
             (normalizeDate(s.date || s.createdAt) || new Date(0)).getTime() >= cutoffTime
         );
@@ -5223,11 +5419,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
 
     topCategories.forEach((cat) => {
-        const weakTopics = getWeakestTopicsList(cat, simulados, maxScore, tasksPerCategory);
+        const weakTopics = getWeakestTopicsList(cat, safeSimulados, maxScore, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
 
         const iterations = tasksPerCategory;
-        const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
+        const getPriorityLabel = () => allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
 
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
@@ -5242,11 +5438,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-danger-${mcProbKey}-${mcIdSuffix}`,
-                text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
+                text: `${cat.name}: ${getPriorityLabel()}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
                 completed: false,
+                status: 'pending',
+                priority: 'high',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: 'Vetor Crítico — Intervenção Exigida',
                 analysis: {
                     reason: "Monte Carlo — Zona de Perigo",
                     details: `Apenas ${probPct}% de chance de bater a meta de ${options.targetScoreLabel ?? targetScore}% em 90 dias.`,
@@ -5260,11 +5460,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}-${mcIdSuffix}`,
-                text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
+                text: `${cat.name}: ${getPriorityLabel()}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
                 completed: false,
+                status: 'pending',
+                priority: 'high',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: 'Oscilação Estatística — Caos Detectado',
                 analysis: {
                     reason: "Monte Carlo — Caos Estatístico",
                     details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)}. Probabilidade: ${probPct}%.`,
@@ -5275,14 +5479,19 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             });
         } else if (cat.urgency?.details?.srsLabel) {
             const srsKey = cat.urgency?.details?.srsLabel.replace(/\s/g, '').substring(0, 15);
+            const srsTopic = weakTopics[0]?.name || 'Revisão Espaçada (SRS)';
 
             allGeneratedTasks.push({
                 id: `${cat.id}-srs-${srsKey}`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
+                text: `${cat.name}: ${getPriorityLabel()}[${srsTopic}]`,
                 completed: false,
+                status: 'pending',
+                priority: 'high',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: srsTopic,
                 analysis: {
                     reason: "Revisão Espaçada (SRS) Ativada",
                     label: cat.urgency?.details?.srsLabel,
@@ -5296,11 +5505,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-safe-${mcProbKey}-${mcIdSuffix}`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
+                text: `${cat.name}: ${getPriorityLabel()}[Manutenção - ${cat.name}]`,
                 completed: false,
+                status: 'pending',
+                priority: 'low',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: `Manutenção — ${cat.name}`,
                 analysis: {
                     reason: "Monte Carlo — Cruzeiro Seguro",
                     details: `${probPct}% de probabilidade de atingir a meta.`,
@@ -5312,11 +5525,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         } else if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap) {
             allGeneratedTasks.push({
                 id: `${cat.id}-trap-trap`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
+                text: `${cat.name}: ${getPriorityLabel()}[Prática Intensiva de Questões]`,
                 completed: false,
+                status: 'pending',
+                priority: 'medium',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: 'Prática Intensiva de Questões',
                 analysis: {
                     reason: "Detector de Pseudo-Estudo",
                     details: "Alta carga horária com baixíssimo volume de exercícios.",
@@ -5342,11 +5559,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         if (isAgilityProblem) {
             allGeneratedTasks.push({
                 id: `${cat.id}-agility-${avgSeconds}`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
+                text: `${cat.name}: ${getPriorityLabel()}[Treino de Agilidade - Cronômetro]`,
                 completed: false,
+                status: 'pending',
+                priority: 'medium',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: 'Treino de Agilidade — Cronômetro',
                 analysis: {
                     reason: "Motor de Agilidade AI",
                     details: `Seu tempo médio (${avgSeconds}s/questão) está alto, embora sua taxa de acertos seja excelente.`,
@@ -5363,8 +5584,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
 
             const topicLabel = weakTopic
-                ? `${priorityLabel}[${weakTopic.name}]`
-                : `${priorityLabel}[${cat.name}]`;
+                ? `${getPriorityLabel()}[${weakTopic.name}]`
+                : `${getPriorityLabel()}[Revisão Geral Complementar]`;
 
             const uniqueIdSuffix = weakTopic
                 ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total}-${i}`)
@@ -5372,24 +5593,33 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             if (weakTopic) {
                 let reasonStr = "";
+                let topicPriority = 'medium';
 
                 if (weakTopic.isUntested) {
                     reasonStr = "Tópico Novo / Não Testado";
+                    topicPriority = 'medium';
                 } else if (weakTopic.manualPriority > 0) {
                     reasonStr = "Alta Prioridade Manual";
+                    topicPriority = 'high';
                 } else if (weakTopic.percentage < 70) {
                     reasonStr = "Baixa Performance";
+                    topicPriority = 'high';
                 } else {
                     reasonStr = "Aperfeiçoamento Contínuo";
+                    topicPriority = 'medium';
                 }
 
                 allGeneratedTasks.push({
                     id: `${cat.id}-weaktopic-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}`,
                     completed: false,
+                    status: 'pending',
+                    priority: topicPriority,
                     categoryId: cat.id,
                     category: cat.name,
                     catName: cat.name,
+                    subjectName: cat.name,
+                    topicName: weakTopic.name,
                     analysis: {
                         reason: `Tópico Selecionado: ${weakTopic.name}`,
                         details: reasonStr,
@@ -5409,30 +5639,66 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 });
             } else {
-                allGeneratedTasks.push({
-                    id: `${cat.id}-general-review-${uniqueIdSuffix}-it${i}`,
-                    text: `${cat.name}: ${topicLabel}Revisão Geral Complementar (Volume ${i + 1})`,
-                    completed: false,
-                    categoryId: cat.id,
-                    category: cat.name,
-                    catName: cat.name,
-                    analysis: {
-                        reason: "Revisão Geral Complementar",
-                        metrics: cat.urgency?.details?.humanReadable || {},
-                        monteCarlo: mc || null,
-                        categoryDetails: {
-                            "Total Urgency": Math.round(cat.urgency.score),
-                            ...cat.urgency?.details?.components
+                const alreadyHasGeneral = allGeneratedTasks.some(
+                    t => t.categoryId === cat.id && (
+                        /Revisão Geral/i.test(String(t.text || t.topicName || '')) ||
+                        String(t.text || '').trim().endsWith(`[${cat.name}]`)
+                    )
+                );
+                if (!alreadyHasGeneral) {
+                    allGeneratedTasks.push({
+                        id: `${cat.id}-general-review-${uniqueIdSuffix}-it0`,
+                        text: `${cat.name}: ${getPriorityLabel()}[Revisão Geral]`,
+                        completed: false,
+                        status: 'pending',
+                        priority: 'medium',
+                        categoryId: cat.id,
+                        category: cat.name,
+                        catName: cat.name,
+                        subjectName: cat.name,
+                        topicName: 'Revisão Geral Complementar',
+                        analysis: {
+                            reason: "Revisão Geral Complementar",
+                            details: "Prática global da disciplina e resolução variada de exercícios.",
+                            metrics: cat.urgency?.details?.humanReadable || {},
+                            monteCarlo: mc || null,
+                            categoryDetails: {
+                                "Total Urgency": Math.round(cat.urgency.score),
+                                ...cat.urgency?.details?.components
+                            }
                         }
-                    }
-                });
+                    });
+                }
+                break; // Evita gerar repetições extras sem subtópicos na mesma rodada
             }
         }
     });
 
+    const seenTaskKeys = new Set();
+    const deduplicatedTasks = allGeneratedTasks.filter(t => {
+        const rawText = String(t.text || t.title || '');
+        const catNameLower = String(t.catName || t.category || '').trim().toLowerCase();
+        let cleanTitle = rawText
+            .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+            .replace(/\[ALERTA MESTRE\]\s*/i, '')
+            .replace(/Revisão Geral Complementar.*$/i, 'Revisão Geral')
+            .replace(/Revisão Complementar.*$/i, 'Revisão Geral')
+            .trim()
+            .toLowerCase();
+
+        if (catNameLower && cleanTitle.endsWith(`[${catNameLower}]`)) {
+            cleanTitle = cleanTitle.replace(`[${catNameLower}]`, '[revisão geral]');
+        }
+
+        const key = `${t.categoryId || 'global'}::${cleanTitle}`;
+        if (seenTaskKeys.has(key)) return false;
+        seenTaskKeys.add(key);
+        return true;
+    });
+
     const interleaved = [];
     const tasksByCat = {};
-    allGeneratedTasks.forEach(t => {
+    deduplicatedTasks.forEach(t => {
         const cid = t.categoryId || 'global';
         if (!tasksByCat[cid]) tasksByCat[cid] = [];
         tasksByCat[cid].push(t);
@@ -5600,12 +5866,12 @@ export function getCoachInsight(activeSubject, stats) {
     };
 }
 
-export function getCombinedHistory(history, simulados) {
+export function getCombinedHistory(history, simulados, maxScore = 100) {
     const deduplicatedMap = new Map();
-    const allSimulados = [...(simulados || [])];
+    const allSimulados = safeArray(simulados);
 
     allSimulados.forEach((s, idx) => {
-        const safeScore = getSafeScore(s, 100);
+        const safeScore = getSafeScore(s, maxScore);
         const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${Number.isFinite(safeScore) ? safeScore.toFixed(2) : '0.00'}`;
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
@@ -5618,7 +5884,7 @@ export function getCombinedHistory(history, simulados) {
 
     const rowsByDate = {};
 
-    (history || []).forEach(r => {
+    safeArray(history).forEach(r => {
         const dKey = getDateKey(r.date || r.createdAt);
 
         if (dKey && !hasSimuladoForDate.has(dKey)) {
@@ -5647,4 +5913,6 @@ export function getCombinedHistory(history, simulados) {
 
     return getSortedHistory(Array.from(deduplicatedMap.values()));
 }
-```
+</file>
+
+</files>
