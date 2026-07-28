@@ -28,13 +28,20 @@ export default function ChartFrame({
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver((entries) => {
         for (const entry of entries) {
-          const w = Math.floor(entry.contentRect.width);
-          const h = Math.floor(entry.contentRect.height);
+          const r = entry.contentRect || el.getBoundingClientRect();
+          const w = Math.floor(r.width);
+          const h = Math.floor(r.height);
           setSize({ w, h });
           setReady(w > 0 && h > 0);
         }
       });
       ro.observe(el);
+    } else {
+      const r = el.getBoundingClientRect();
+      const w = Math.floor(r.width) || 800;
+      const h = Math.floor(r.height) || Number(minHeight) || 320;
+      setSize({ w, h });
+      setReady(true);
     }
     return () => {
       if (ro) ro.disconnect();
