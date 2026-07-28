@@ -178,7 +178,7 @@ function MonteCarloGauge({ mc }) {
         />
         <Motion.div
           initial={{ left: 0 }}
-          animate={{ left: `${prob}%` }}
+          animate={{ left: `${Math.min(97, Math.max(1, prob))}%` }}
           transition={{ duration: 1.5, ease: "easeOut" }}
           className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
         />
@@ -211,6 +211,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
     const topic = suggestion.weakestTopic;
     const urgency = suggestion?.urgency?.details ?? { hasData: false };
+    const monteCarloData = suggestion?.urgency?.monteCarlo || suggestion?.urgency?.details?.monteCarlo || urgency?.monteCarlo;
     const urgencyScoreRaw = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
     const urgencyScore = Number.isFinite(Number(urgencyScoreRaw)) ? Number(urgencyScoreRaw) : 0;
     const statusLabel = String(urgency?.humanReadable?.Status || '');
@@ -357,8 +358,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
                             <div className="space-y-6">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
-                                {suggestion.urgency?.details?.monteCarlo && (
-                                    <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} />
+                                {monteCarloData && (
+                                    <MonteCarloGauge mc={monteCarloData} />
                                 )}
 
                             </div>
@@ -394,28 +395,28 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                                 </div>
                                             ))}
                                         </div>
-                                        {urgency?.monteCarlo?.explainability?.note && (
+                                        {monteCarloData?.explainability?.note && (
                                             <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-500/5 p-3">
                                                 <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-black mb-1">
                                                     Explicabilidade Monte Carlo
                                                 </p>
                                                 <p className="text-[10px] text-cyan-100/70 mb-2">
-                                                    Qualidade da calibração: <span className="font-black uppercase">{urgency.monteCarlo.explainability.calibrationQuality || 'n/a'}</span>
-                                                    {urgency.monteCarlo.explainability.confidenceAdjusted
-                                                        ? ` • ajuste ${Number.isFinite(Number(urgency.monteCarlo.explainability.confidenceAdjustmentPct)) ? Number(urgency.monteCarlo.explainability.confidenceAdjustmentPct) : 0}%`
+                                                    Qualidade da calibração: <span className="font-black uppercase">{monteCarloData.explainability.calibrationQuality || 'n/a'}</span>
+                                                    {monteCarloData.explainability.confidenceAdjusted
+                                                        ? ` • ajuste ${Number.isFinite(Number(monteCarloData.explainability.confidenceAdjustmentPct)) ? Number(monteCarloData.explainability.confidenceAdjustmentPct) : 0}%`
                                                         : ''}
                                                 </p>
                                                 <p className="text-xs text-slate-300 leading-relaxed">
-                                                    {urgency.monteCarlo.explainability.note}
+                                                    {monteCarloData.explainability.note}
                                                 </p>
                                             </div>
                                         )}
 
-                                        {urgency?.monteCarlo?.diagnostics && (
+                                        {monteCarloData?.diagnostics && (
                                             <div className="mt-3 text-[9px] text-slate-400 bg-white/[0.015] rounded p-2 border border-white/5">
-                                                <div>Simulações: <span className="font-mono text-slate-200">{urgency.monteCarlo.diagnostics.simulationCount}</span></div>
-                                                {urgency.monteCarlo.diagnostics.convergence && <div>Convergência: {urgency.monteCarlo.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {Number(urgency.monteCarlo.diagnostics.convergence.achievedSE).toFixed(4)})</div>}
-                                                {urgency.monteCarlo.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(urgency.monteCarlo.diagnostics.effectiveN).toFixed(1)}</span></div>}
+                                                <div>Simulações: <span className="font-mono text-slate-200">{monteCarloData.diagnostics.simulationCount}</span></div>
+                                                {monteCarloData.diagnostics.convergence && <div>Convergência: {monteCarloData.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {Number(monteCarloData.diagnostics.convergence.achievedSE).toFixed(4)})</div>}
+                                                {monteCarloData.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(monteCarloData.diagnostics.effectiveN).toFixed(1)}</span></div>}
                                             </div>
                                         )}
                                     </Motion.div>

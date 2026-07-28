@@ -877,7 +877,7 @@ function RaioXDashboard({ data }) {
     // FIX: valores ausentes não viram mais 0 fabricado no gráfico
     if (brier === null && ece === null) return acc;
     if (!acc[cat]) acc[cat] = [];
-    acc[cat].push({ ts: toFiniteNumber(log?.timestamp), brier, ece });
+    acc[cat].push({ ts: toFiniteNumber(log?.timestamp), brier: brier ?? 0, ece: ece ?? 0 });
     return acc;
   }, {});
 
@@ -1138,7 +1138,9 @@ function RaioXDashboard({ data }) {
               <div key={idx} className="space-y-1">
                 <div className="flex justify-between text-[9px] text-slate-500 font-mono">
                   <span>{point.ts > 0 ? formatDatePtBR(point.ts) : '-'}</span>
-                  <span>Brier {point.brier.toFixed(3)} · ECE {point.ece.toFixed(3)}</span>
+                  <span>
+                    Brier {Number.isFinite(point?.brier) ? point.brier.toFixed(3) : '-'} · ECE {Number.isFinite(point?.ece) ? point.ece.toFixed(3) : '-'}
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="h-1.5 bg-slate-800 rounded overflow-hidden">

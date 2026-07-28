@@ -101,7 +101,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     // FIX: Restaura foco apenas quando usuário interage via teclado (evita roubar foco on mount)
     useEffect(() => {
         const activeItem = tabs.find(t => t.key === activeTab);
-        if (activeItem?.tabRef?.current && document.activeElement?.role === 'tab') {
+        if (activeItem?.tabRef?.current && document.activeElement?.getAttribute?.('role') === 'tab') {
             activeItem.tabRef.current.focus();
         }
     }, [activeTab, tabs]);

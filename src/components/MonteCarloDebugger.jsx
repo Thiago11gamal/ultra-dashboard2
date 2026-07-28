@@ -42,7 +42,7 @@ export default function MonteCarloDebugger({ stats }) {
                 </div>
                 <div className="flex items-center gap-1">
                     <span className="text-sm font-black text-emerald-400 tracking-tighter">
-                        {Number(probability).toFixed(0)}%
+                        {Number.isFinite(Number(probability)) ? Number(probability).toFixed(0) : '0'}%
                     </span>
                     {isOpen ? (
                         <ChevronUpIcon size={12} className="text-slate-500" />
@@ -56,23 +56,33 @@ export default function MonteCarloDebugger({ stats }) {
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-64 space-y-2 z-[9999] animate-fade-in">
                     <div className="grid grid-cols-2 gap-x-2 gap-y-2 items-center text-[10px]">
                         <span className="text-slate-500">Probabilidade Bruta</span>
-                        <span className="text-right font-medium text-emerald-400">{Number(rawProbability).toFixed(2)}%</span>
+                        <span className="text-right font-medium text-emerald-400">
+                            {Number.isFinite(Number(rawProbability)) ? Number(rawProbability).toFixed(2) : '0.00'}%
+                        </span>
                         
                         <span className="text-slate-500">Probabilidade Calibrada</span>
-                        <span className="text-right font-medium text-amber-400">{Number(probability).toFixed(2)}%</span>
+                        <span className="text-right font-medium text-amber-400">
+                            {Number.isFinite(Number(probability)) ? Number(probability).toFixed(2) : '0.00'}%
+                        </span>
                         
                         <span className="col-span-2 border-t border-white/5 my-1"></span>
 
                         <span className="text-slate-500">Penalidade Calibração</span>
-                        <span className="text-right font-medium text-rose-400">{((calibrationPenalty || 0) * 100).toFixed(1)}%</span>
+                        <span className="text-right font-medium text-rose-400">
+                            {Number.isFinite(Number(calibrationPenalty)) ? (Number(calibrationPenalty) * 100).toFixed(1) : '0.0'}%
+                        </span>
                         
                         <span className="col-span-2 border-t border-white/5 my-1"></span>
 
                         <span className="text-slate-500">Desvio Padrão Atual</span>
-                        <span className="text-right font-medium">{Number(statsData?.rawPooledSD || 0).toFixed(2)}</span>
+                        <span className="text-right font-medium">
+                            {Number.isFinite(Number(statsData?.rawPooledSD)) ? Number(statsData.rawPooledSD).toFixed(2) : '0.00'}
+                        </span>
                         
                         <span className="text-slate-500">Desvio Padrão Inflado</span>
-                        <span className="text-right font-medium text-amber-400">{Number(statsData?.pooledSD || 0).toFixed(2)}</span>
+                        <span className="text-right font-medium text-amber-400">
+                            {Number.isFinite(Number(statsData?.pooledSD)) ? Number(statsData.pooledSD).toFixed(2) : '0.00'}
+                        </span>
                         
                         <span className="col-span-2 border-t border-white/5 my-1"></span>
 
