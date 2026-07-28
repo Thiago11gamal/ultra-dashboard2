@@ -1,4 +1,5 @@
 const TELEMETRY_KEY = 'coach_calibration_events_v1';
+const TELEMETRY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
 
 async function sendToFirebaseAnalytics(metric) {
     try {
@@ -6,6 +7,7 @@ async function sendToFirebaseAnalytics(metric) {
         if (isLocalMode || !analytics) return;
         const { logEvent } = await import('firebase/analytics');
         logEvent(analytics, 'coach_calibration_event', {
+            event_type: String(metric.eventType || 'calibration'),
             category_id: String(metric.categoryId || 'unknown'),
             avg_brier: Number(metric.avgBrier || 0),
             calibration_penalty: Number(metric.calibrationPenalty || 0),
@@ -22,6 +24,7 @@ export function logCalibrationTelemetryEvent(metric) {
         const currentRaw = JSON.parse(localStorage.getItem(TELEMETRY_KEY) || '[]');
         const current = Array.isArray(currentRaw) ? currentRaw : [];
         const normalizedMetric = {
+            eventType: metric.eventType || 'calibration',
             categoryId: String(metric.categoryId || 'unknown'),
             avgBrier: Number(metric.avgBrier || 0),
             calibrationPenalty: Number(metric.calibrationPenalty || 0),
@@ -29,12 +32,13 @@ export function logCalibrationTelemetryEvent(metric) {
             ece: Number(metric.ece || 0),
             timestamp: Number(metric.timestamp || Date.now())
         };
+        const cutoff = Date.now() - TELEMETRY_RETENTION_MS;
         const next = [...current, normalizedMetric]
-            .filter(e => Number.isFinite(Number(e?.timestamp)))
+            .filter(e => Number.isFinite(Number(e?.timestamp)) && Number(e.timestamp) >= cutoff)
             .slice(-1000);
         localStorage.setItem(TELEMETRY_KEY, JSON.stringify(next));
+        void sendToFirebaseAnalytics(normalizedMetric);
     } catch {
         // best effort telemetry
     }
-    void sendToFirebaseAnalytics(metric);
 }

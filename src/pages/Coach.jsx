@@ -27,7 +27,7 @@ import {
 } from '../utils/calibration.js';
 import { displaySubject } from '../utils/displaySubject';
 import { formatDatePtBR, formatDateTimePtBR } from '../utils/dateHelper';
-import { getSafeId } from '../utils/idGenerator';
+import { getCalibrationKey } from '../utils/coachSafe.js';
 
 // FIX-CODE-02: Constantes centralizadas
 const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
@@ -161,6 +161,7 @@ export default function Coach() {
     idleCallbackIdsRef.current = [];
     rafIdsRef.current.forEach(id => cancelAnimationFrame(id));
     rafIdsRef.current = [];
+    setCoachLoading(false);
   }, []);
 
   // FIX-BUG-04 + FIX: além dos caches, cancela timeouts/idle/rAF pendentes ao trocar de concurso
@@ -170,6 +171,7 @@ export default function Coach() {
     clearTopicsCache();
     calibrationAlertCacheRef.current.clear();
     lastPersistByCategoryRef.current.clear();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cancelPendingCalibrationWork();
   }, [activeId, cancelPendingCalibrationWork]);
 
@@ -193,7 +195,7 @@ export default function Coach() {
     const now = Date.now();
     const rawCategoryId = metric?.categoryId || metric?.categoryName;
     if (!rawCategoryId) return;
-    const normalizedCategoryId = getSafeId(rawCategoryId);
+    const normalizedCategoryId = getCalibrationKey(rawCategoryId);
 
     const toFinite = (value, fallback = null) => {
       if (value === null || value === undefined || value === '') return fallback;
@@ -372,9 +374,12 @@ export default function Coach() {
     });
   }, [persistCalibrationMetric]);
 
-  const combinedHistory = useMemo(() => getCombinedHistory(history, simulados), [history, simulados]);
   // FIX: maxScore sanitizado de forma consistente em todo o componente
   const currentMaxScore = sanitizeMaxScore(data?.maxScore);
+  const combinedHistory = useMemo(
+    () => getCombinedHistory(history, simulados, currentMaxScore),
+    [history, simulados, currentMaxScore]
+  );
   const targetScorePoints = useMemo(() => resolveTargetScorePoints({
     user: userProfile,
     minScore: data?.minScore,
@@ -397,7 +402,7 @@ export default function Coach() {
     simuladoRows: history
   });
 
-  const projectedScore = mcStats?.projectedMean ?? 0;
+  const projectedScore = mcStats?.projectedMean;
   const volatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
   // FIX: NaN não vaza mais para a UI (?? não substitui NaN)
   const safeVolatility = Number.isFinite(volatility) ? volatility : 0;
@@ -447,7 +452,8 @@ export default function Coach() {
             onCalibrationMetric: (metric) => collectedMetrics.push({ ...metric, contestId }),
             globalMcStats: mcStatsContextRef.current,
             config: {
-              MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+              MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false,
+              userId: activeIdRef.current
             }
           }
         );
@@ -489,21 +495,17 @@ export default function Coach() {
   ]);
 
   useEffect(() => {
+    if (!Number.isFinite(projectedScore)) return;
+
     if (
-      typeof projectedScore === 'number' &&
-      !Number.isNaN(projectedScore) &&
-      projectedScore !== lastPushedScoreRef.current
+      lastPushedScoreRef.current === null ||
+      Math.abs(projectedScore - lastPushedScoreRef.current) > 0.01
     ) {
-      if (
-        lastPushedScoreRef.current === null ||
-        Math.abs(projectedScore - lastPushedScoreRef.current) > 0.01
-      ) {
-        lastPushedScoreRef.current = projectedScore;
-        const timer = setTimeout(() => {
-          if (updateCoachScore) updateCoachScore(projectedScore);
-        }, 0);
-        return () => clearTimeout(timer);
-      }
+      lastPushedScoreRef.current = projectedScore;
+      const timer = setTimeout(() => {
+        if (updateCoachScore) updateCoachScore(projectedScore);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [projectedScore, updateCoachScore]);
 
@@ -537,7 +539,8 @@ export default function Coach() {
             calibrationHistoryByCategory: calibrationHistoryRef.current,
             onCalibrationMetric: (metric) => collectedMetrics.push({ ...metric, contestId }),
             config: {
-              MC_ENABLE_ADAPTIVE_CALIBRATION: settingsData?.adaptiveCalibrationEnabled !== false
+              MC_ENABLE_ADAPTIVE_CALIBRATION: settingsData?.adaptiveCalibrationEnabled !== false,
+              userId: activeIdRef.current
             }
           }
         );
@@ -748,18 +751,7 @@ function QuickStat({ label, value, color, icon }) {
   );
 }
 
-function StatRow({ label, value, trend, color }) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className={`text-xs font-black ${color}`}>{value}</span>
-        {trend === 'up' && <ArrowUpRight size={12} className="text-emerald-500" />}
-        {trend === 'down' && <AlertCircle size={12} className="text-rose-500" />}
-      </div>
-    </div>
-  );
-}
+
 
 // FIX: recebe apenas o necessário (contagem), calculada de forma segura pelo pai
 const GovernanceBanner = React.memo(React.forwardRef(function GovernanceBanner({ degradedCount }, ref) {
@@ -870,24 +862,35 @@ function RaioXDashboard({ data }) {
   const avgEce = eceValues.length
     ? eceValues.reduce((a, b) => a + b, 0) / eceValues.length : null;
 
-  const categorySeriesMap = sortedLogs.reduce((acc, log) => {
-    const cat = log?.categoryName || 'Categoria';
-    const brier = toFiniteNumber(log?.avgBrier, null);
-    const ece = toFiniteNumber(log?.ece, null);
-    // FIX: valores ausentes não viram mais 0 fabricado no gráfico
-    if (brier === null && ece === null) return acc;
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push({ ts: toFiniteNumber(log?.timestamp), brier: brier ?? 0, ece: ece ?? 0 });
-    return acc;
-  }, {});
+  const categorySeriesMap = useMemo(() => {
+    return sortedLogs.reduce((acc, log) => {
+      const cat = log?.categoryName || 'Categoria';
+      const brier = toFiniteNumber(log?.avgBrier, null);
+      const ece = toFiniteNumber(log?.ece, null);
+
+      if (brier === null && ece === null) return acc;
+
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push({
+        ts: toFiniteNumber(log?.timestamp),
+        brier,
+        ece
+      });
+
+      return acc;
+    }, {});
+  }, [sortedLogs]);
 
   const categoryNames = Object.keys(categorySeriesMap);
   const [seriesCategory, setSeriesCategory] = useState(() => categoryNames[0] || '');
   const effectiveCategory = categoryNames.includes(seriesCategory)
     ? seriesCategory : (categoryNames[0] || '');
-  const temporalSeries = effectiveCategory
-    ? [...categorySeriesMap[effectiveCategory]].sort((a, b) => a.ts - b.ts).slice(-12)
-    : [];
+  const temporalSeries = useMemo(() => {
+    if (!effectiveCategory) return [];
+    return [...(categorySeriesMap[effectiveCategory] || [])]
+      .sort((a, b) => a.ts - b.ts)
+      .slice(-12);
+  }, [categorySeriesMap, effectiveCategory]);
 
   // FIX: clamp de largura reutilizável (evita width negativo/inválido)
   const toBarWidth = (value) => {
@@ -1144,10 +1147,14 @@ function RaioXDashboard({ data }) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                    <div className="h-full bg-rose-400/80" style={{ width: toBarWidth(point.brier) }} />
+                    {Number.isFinite(point.brier) ? (
+                      <div className="h-full bg-rose-400/80" style={{ width: toBarWidth(point.brier) }} />
+                    ) : null}
                   </div>
                   <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                    <div className="h-full bg-cyan-400/80" style={{ width: toBarWidth(point.ece) }} />
+                    {Number.isFinite(point.ece) ? (
+                      <div className="h-full bg-cyan-400/80" style={{ width: toBarWidth(point.ece) }} />
+                    ) : null}
                   </div>
                 </div>
               </div>

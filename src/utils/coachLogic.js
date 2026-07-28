@@ -18,6 +18,7 @@ import {
 import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { computeAgilityMetrics } from '../engine/stats.js';
+import { safeArray, getCalibrationKey } from './coachSafe.js';
 
 export {
     deriveAdaptiveRiskThresholds,
@@ -299,7 +300,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const safeCategory = category || {};
     const categoryId = safeCategory.id;
 
-    const calibrationHistory = options.calibrationHistoryByCategory?.[categoryId] || [];
+    const calibrationHistory = options.calibrationHistoryByCategory?.[getCalibrationKey(categoryId)] || [];
     const rollingCalibration = computeRollingCalibrationParams(calibrationHistory, {
         baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
         maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY,
@@ -900,10 +901,11 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         srsLabel = srsData.label;
     }
 
+    const maxSrsBoost = cfg.SRS_BOOST * 2;
     const currentSrsBoost = clamp(
         srsBoost * (crunchMultiplier > 1 ? 1.10 : 1),
         0,
-        cfg.SRS_BOOST
+        maxSrsBoost
     );
 
     const currentPriorityBoost = clamp(
@@ -1215,7 +1217,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     if (result.details?.monteCarlo && typeof options.onCalibrationMetric === 'function') {
         options.onCalibrationMetric({
             categoryId: metrics.categoryId || null,
-            categoryName: scoreInfo.nome || metrics.categoryName || 'Disciplina',
+            categoryName: metrics.safeCategory?.name || metrics.categoryName || 'Disciplina',
             timestamp: Date.now(),
             avgBrier: result.details.monteCarlo.avgBrier,
             ece: result.details.monteCarlo.ece,
@@ -1257,8 +1259,18 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
         const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${options?.maxScore ?? 100}`;
 
-        const lastSim = simCount > 0 ? (safeSims[simCount - 1]?.date || safeSims[simCount - 1]?.createdAt || '') : '';
-        const lastLog = logCount > 0 ? (safeLogs[logCount - 1]?.date || safeLogs[logCount - 1]?.createdAt || '') : '';
+        const logsForChecksum = [...safeLogs].sort((a, b) => {
+            const timeA = (normalizeDate(a?.date || a?.createdAt) || new Date(0)).getTime();
+            const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
+            return timeA - timeB;
+        });
+
+        const lastSim = simsForChecksum.length > 0
+            ? (simsForChecksum[simsForChecksum.length - 1]?.date || simsForChecksum[simsForChecksum.length - 1]?.createdAt || '')
+            : '';
+        const lastLog = logsForChecksum.length > 0
+            ? (logsForChecksum[logsForChecksum.length - 1]?.date || logsForChecksum[logsForChecksum.length - 1]?.createdAt || '')
+            : '';
 
         const tasksHash = safeTasks.reduce((acc, t) => acc + (t?.completed ? 0 : 1) + (t?.priority === 'high' ? 5 : 0), 0);
 
@@ -1276,7 +1288,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             )
             : 'noglobal';
 
-        const calibrationHash = (options.calibrationHistoryByCategory?.[catId] || []).length;
+        const calibrationHash = (options.calibrationHistoryByCategory?.[getCalibrationKey(catId)] || []).length;
 
         const goalKey = options?.user?.goalDate
             ? `_gd${getDateKey(options.user.goalDate) || String(options.user.goalDate)}`
@@ -1499,7 +1511,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
 
     const topicMap = {};
 
-    const history = (safeCat.simuladoStats && safeCat.simuladoStats.history) ? safeCat.simuladoStats.history : [];
+    const history = safeArray(safeCat.simuladoStats?.history);
     const todayForTopics = new Date();
 
     const sortedTopicsHistory = [...history].sort((a, b) => {
@@ -1717,10 +1729,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const targetScore = options.targetScore ?? 80;
     const maxScore = options.maxScore ?? 100;
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
+    const safeSimulados = safeArray(simulados);
+    const safeStudyLogs = safeArray(studyLogs);
 
     const ranked = categories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
+        urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, { ...options, allCategories: categories })
     })).sort((a, b) => {
         const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
         const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
@@ -1734,14 +1748,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const thirtyDaysAgo = new Date(baseDate.getTime() - 30 * 24 * 60 * 60 * 1000);
         const cutoffTime = thirtyDaysAgo.getTime();
 
-        const recentLogs = studyLogs.filter(l =>
+        const recentLogs = safeStudyLogs.filter(l =>
             l.categoryId === category.id &&
             (normalizeDate(l.date) || new Date(0)).getTime() >= cutoffTime
         );
 
         const catNormalized = normalize(category.name);
 
-        const recentSims = simulados.filter(s =>
+        const recentSims = safeSimulados.filter(s =>
             normalize(s.subject) === catNormalized &&
             (normalizeDate(s.date || s.createdAt) || new Date(0)).getTime() >= cutoffTime
         );
@@ -1770,7 +1784,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
 
     topCategories.forEach((cat) => {
-        const weakTopics = getWeakestTopicsList(cat, simulados, maxScore, tasksPerCategory);
+        const weakTopics = getWeakestTopicsList(cat, safeSimulados, maxScore, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
 
         const iterations = tasksPerCategory;
@@ -2147,12 +2161,12 @@ export function getCoachInsight(activeSubject, stats) {
     };
 }
 
-export function getCombinedHistory(history, simulados) {
+export function getCombinedHistory(history, simulados, maxScore = 100) {
     const deduplicatedMap = new Map();
-    const allSimulados = [...(simulados || [])];
+    const allSimulados = safeArray(simulados);
 
     allSimulados.forEach((s, idx) => {
-        const safeScore = getSafeScore(s, 100);
+        const safeScore = getSafeScore(s, maxScore);
         const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${Number.isFinite(safeScore) ? safeScore.toFixed(2) : '0.00'}`;
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
@@ -2165,7 +2179,7 @@ export function getCombinedHistory(history, simulados) {
 
     const rowsByDate = {};
 
-    (history || []).forEach(r => {
+    safeArray(history).forEach(r => {
         const dKey = getDateKey(r.date || r.createdAt);
 
         if (dKey && !hasSimuladoForDate.has(dKey)) {

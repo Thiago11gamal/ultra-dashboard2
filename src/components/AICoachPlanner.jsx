@@ -21,21 +21,27 @@ const DAYS = [
 const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro }) => {
   const sanitizeHtml = (str) => typeof str === 'string' ? str.replace(/<[^>]*>?/gm, '').trim() : '';
   const rawText = task.text || task.title || '';
-  const fullText = sanitizeHtml(rawText) ?? rawText;
+  const fullText = sanitizeHtml(rawText) || rawText;
   const parts = fullText.split(':');
   const hasDetails = parts.length > 1;
 
   let subject = String(task.category || task.catName || (hasDetails ? parts[0] : fullText));
   let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
+
   subject = subject.replace(/Foco em /i, '').trim();
 
   const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart);
   actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
-  actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
 
-  let topicPart = subject;
-  const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
-  let secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
+  let topicLabel = '';
+  const bracketMatch = actionPart.match(/^\[(.*?)\]\s*(.*)$/i);
+  if (bracketMatch) {
+    topicLabel = bracketMatch[1].trim();
+    actionPart = bracketMatch[2].trim();
+  }
+
+  const displayTopic = topicLabel || actionPart || subject || 'Revisão Recomendada';
+  let secondaryText = actionPart && actionPart !== displayTopic ? actionPart : '';
 
   if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
     secondaryText = '';
@@ -106,13 +112,14 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     </Draggable>
   );
 }, (prev, next) => {
-  // FIX-CODE-09: Comparador custom para evitar re-renders desnecessários
   return prev.stableId === next.stableId &&
     prev.index === next.index &&
     prev.isBacklog === next.isBacklog &&
     prev.task?.text === next.task?.text &&
+    prev.task?.title === next.task?.title &&
     prev.task?.completed === next.task?.completed &&
-    prev.dayTheme?.id === next.dayTheme?.id;
+    prev.dayTheme?.id === next.dayTheme?.id &&
+    prev.onStartPomodoro === next.onStartPomodoro;
 });
 
 // FIX-CODE-07: Aceitar props em vez de ignorá-las
@@ -168,6 +175,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
   }, [coachPlan, coachPlanner]);
 
   const [columns, setColumns] = useState(() => getInitialColumns());
+
+  const columnsRef = React.useRef(columns);
+  React.useEffect(() => {
+    columnsRef.current = columns;
+  }, [columns]);
 
   // FIX-BUG-06: Depender de coachPlan (referência) em vez de coachPlan?.length
   useEffect(() => {
@@ -231,11 +243,14 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
       propOnStart(task);
       return;
     }
+
     if (!task) return;
 
+    const cols = columnsRef.current;
+
     let sessionTasks = dayId === 'backlog'
-      ? (columns.backlog || [])
-      : (columns[dayId] || []);
+      ? (cols.backlog || [])
+      : (cols[dayId] || []);
 
     let startIndex = sessionTasks.findIndex(t => {
       const idT = getSafeId(t);
@@ -253,7 +268,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
     const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext: dayId }));
     startNeuralSession(sessionWithContext, startIndex);
     navigate('/pomodoro');
-  }, [columns, startNeuralSession, navigate, propOnStart]);
+  }, [startNeuralSession, navigate, propOnStart]);
 
   return (
     <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>

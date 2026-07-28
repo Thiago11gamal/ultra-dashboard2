@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { displaySubject } from '../utils/displaySubject';
-import { getSafeId } from '../utils/idGenerator';
+import { getCalibrationKey } from '../utils/coachSafe.js';
 
 // FIX-BUG-02: Regex com escape correto para **, !!, ++
 function renderRecommendation(text, depth = 0) {
@@ -122,17 +122,22 @@ function UrgencyBar({ score, cfg }) {
     );
 }
 
-function MonteCarloGauge({ mc }) {
+function MonteCarloGauge({ mc, maxScore = 100 }) {
   if (!mc || mc.probability == null) return null;
+
+  const safeMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
+
+  const toPct = (value, fallback) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(100, Math.max(0, (n / safeMax) * 100));
+  };
 
   const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
   const prob = Math.min(100, Math.max(0, rawProb));
 
-  const rawLow = Number.isFinite(Number(mc.ci95Low)) ? Number(mc.ci95Low) : prob - 5;
-  const low = Math.min(100, Math.max(0, rawLow));
-
-  const rawHigh = Number.isFinite(Number(mc.ci95High)) ? Number(mc.ci95High) : prob + 5;
-  const high = Math.min(100, Math.max(0, rawHigh));
+  const low = mc.ci95Low != null ? toPct(mc.ci95Low, prob - 5) : Math.max(0, prob - 5);
+  const high = mc.ci95High != null ? toPct(mc.ci95High, prob + 5) : Math.min(100, prob + 5);
 
   const volatility = Number.isFinite(Number(mc.volatility)) ? Number(mc.volatility) : 0;
 
@@ -212,23 +217,18 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const topic = suggestion.weakestTopic;
     const urgency = suggestion?.urgency?.details ?? { hasData: false };
     const monteCarloData = suggestion?.urgency?.monteCarlo || suggestion?.urgency?.details?.monteCarlo || urgency?.monteCarlo;
+    const safeMaxScore = Number(activeContest?.maxScore) > 0 ? Number(activeContest.maxScore) : 100;
     const urgencyScoreRaw = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
     const urgencyScore = Number.isFinite(Number(urgencyScoreRaw)) ? Number(urgencyScoreRaw) : 0;
     const statusLabel = String(urgency?.humanReadable?.Status || '');
 
     const calibrationOps = activeContest?.calibrationOps || {};
 
-    let suggestionKey = '';
-    try {
-      suggestionKey = getSafeId(suggestion);
-    } catch {
-      suggestionKey = String(suggestion?.id || suggestion?.name || '');
-    }
-
-    const isDegraded = Boolean(
-      calibrationOps[suggestionKey]?.degraded ||
-      (suggestion?.id && calibrationOps[suggestion.id]?.degraded)
+    const categoryKey = getCalibrationKey(
+      suggestion?.categoryId || suggestion?.id || suggestion?.name
     );
+
+    const isDegraded = Boolean(calibrationOps[categoryKey]?.degraded);
 
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
@@ -359,7 +359,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             <div className="space-y-6">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {monteCarloData && (
-                                    <MonteCarloGauge mc={monteCarloData} />
+                                    <MonteCarloGauge mc={monteCarloData} maxScore={safeMaxScore} />
                                 )}
 
                             </div>
@@ -415,7 +415,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                         {monteCarloData?.diagnostics && (
                                             <div className="mt-3 text-[9px] text-slate-400 bg-white/[0.015] rounded p-2 border border-white/5">
                                                 <div>Simulações: <span className="font-mono text-slate-200">{monteCarloData.diagnostics.simulationCount}</span></div>
-                                                {monteCarloData.diagnostics.convergence && <div>Convergência: {monteCarloData.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {Number(monteCarloData.diagnostics.convergence.achievedSE).toFixed(4)})</div>}
+                                                {monteCarloData.diagnostics.convergence && <div>Convergência: {monteCarloData.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {Number(monteCarloData.diagnostics.convergence?.achievedSE ?? 0).toFixed(4)})</div>}
                                                 {monteCarloData.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(monteCarloData.diagnostics.effectiveN).toFixed(1)}</span></div>}
                                             </div>
                                         )}

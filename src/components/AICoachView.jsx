@@ -506,7 +506,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             <div className="space-y-6 mb-8">
               {suggestedFocus ? (
                 <div className="w-full">
-                  <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
+                  <AICoachWidget
+                    key={suggestedFocus?.id || 'coach-widget'}
+                    suggestion={suggestedFocus}
+                    onGenerateGoals={onGenerateGoals}
+                    loading={loading}
+                  />
                 </div>
               ) : (
                 <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">

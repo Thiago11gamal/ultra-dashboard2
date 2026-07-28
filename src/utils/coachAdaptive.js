@@ -5,6 +5,17 @@ import { getDateKey, safeDateParse } from './dateHelper.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { detectDataAnomalies } from '../engine/diagnostics.js';
 import { pruneHistoryForMemory } from '../engine/stats.js';
+import { safeArray } from './coachSafe.js';
+
+function hashString(str) {
+  let h = 0;
+  const s = String(str || '');
+  for (let i = 0; i < s.length; i++) {
+    h = (h << 5) - h + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h).toString(36);
+}
 
 /**
  * Deriva thresholds adaptativos de risco (danger/safe) para Monte Carlo.
@@ -91,9 +102,8 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
   const isZeroVariance = cleanScores.every(s => s === median);
   
   if (isZeroVariance) {
-    // Aluno consistente: gap estreito, thresholds próximos da média
-    const danger = Math.max(15, median - 10);
-    const safe = Math.min(95, median + 10);
+    const danger = Math.max(15, Math.min(70, median - 12.5));
+    const safe = Math.min(95, Math.max(danger + 25, median + 12.5));
     return { danger, safe };
   }
   
@@ -173,7 +183,7 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
 }
 
 export function deriveBacktestWeights(rawScores = [], maxScore = 100) {
-  const scores = (Array.isArray(rawScores) ? rawScores : []).filter(Number.isFinite);
+  const scores = safeArray(rawScores).map(Number).filter(Number.isFinite);
   const n = scores.length;
   
   if (n < 2) return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 1, uplift: 0, effectiveN: n };
@@ -348,7 +358,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     return null;
   }
 
-  let history = simuladosToHistory(relevantSimulados, safeMaxScore);
+  let history = simuladosToHistory(relevantSimulados, safeMaxScore)
+    .filter(h => Number.isFinite(h.score));
 
   if (history.length < (safeCfg.MC_MIN_DATA_POINTS || 5)) return null;
   
@@ -383,8 +394,25 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const lastDate = history[history.length - 1]?.date || '';
   const calibHash = `${cfg.MC_CALIBRATION_BRIER_BASELINE ?? ''}-${cfg.MC_CALIBRATION_MAX_PENALTY ?? ''}-${cfg.MC_CALIBRATION_NEUTRAL_PCT ?? ''}-${cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY ?? ''}-${cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false}`;
   const adaptiveHash = adaptive ? `${adaptive.mcSimulations || 0}-${adaptive.decayK || 0}` : 'no-adapt';
-  const userId = cfg?.userId || 'default';
-  const hash = `${userId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}-ag${agilityPenalty}`;
+  const cfgHash = hashString(JSON.stringify({
+    cap: cfg.MC_SIMULATION_CAP,
+    force: cfg.MC_FORCE_MAX_SIMULATIONS,
+    min: cfg.MC_MIN_DATA_POINTS,
+    low: cfg.MC_LOW_SAMPLE_THRESHOLD,
+    horizon: cfg.MC_BACKTEST_HORIZON,
+    horizonMax: cfg.MC_BACKTEST_HORIZON_MAX,
+    bins: [cfg.MC_ECE_BINS_MIN, cfg.MC_ECE_BINS_MID, cfg.MC_ECE_BINS_MAX],
+    calib: [
+      cfg.MC_CALIBRATION_BRIER_BASELINE,
+      cfg.MC_CALIBRATION_MAX_PENALTY,
+      cfg.MC_CALIBRATION_NEUTRAL_PCT,
+      cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY,
+      cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false
+    ]
+  }));
+  const contestId = cfg?.contestId || cfg?.userId || 'default';
+
+  const hash = `${contestId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}-${cfgHash}-ag${agilityPenalty}`;
   
   if (mcCache.has(hash)) {
     const val = mcCache.get(hash);
@@ -531,7 +559,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       : (stackedProb01 * 100);
     
     const extraLowSampleShrink = isLowSample
-      ? Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold) * (1 / dataQuality)
+      ? Math.min(
+          0.9,
+          Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold) * (1 / dataQuality)
+        )
       : 0;
     
     const adjustedProbability = isLowSample
