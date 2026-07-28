@@ -18,20 +18,29 @@ const DAYS = [
 ];
 
 // FIX-CODE-09: Comparador custom para React.memo
-const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro }) => {
+const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categories = [], onStartPomodoro }) => {
   const sanitizeHtml = (str) => typeof str === 'string' ? str.replace(/<[^>]*>?/gm, '').trim() : '';
   const rawText = task.text || task.title || '';
   const fullText = sanitizeHtml(rawText) || rawText;
   const parts = fullText.split(':');
   const hasDetails = parts.length > 1;
 
-  let subject = String(task.category || task.catName || (hasDetails ? parts[0] : fullText));
+  let subject = String(task.subjectName || task.category || task.catName || (hasDetails ? parts[0] : fullText));
   let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
 
   subject = subject.replace(/Foco em /i, '').trim();
 
-  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart);
-  actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
+  const isSystemAlert = /\[ALERTA MESTRE\]|\[STATUS\]/i.test(actionPart);
+  const isSrsCard = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
+  const isSafeCard = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
+  const isChaosCard = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert || (task?.priority === 'high' && !isSrsCard && !isSafeCard && !isChaosCard);
+
+  actionPart = actionPart
+    .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+    .replace(/\[ALERTA MESTRE\]\s*/i, '')
+    .replace(/\[STATUS\]\s*/i, '')
+    .trim();
 
   let topicLabel = '';
   const bracketMatch = actionPart.match(/^\[(.*?)\]\s*(.*)$/i);
@@ -40,8 +49,8 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     actionPart = bracketMatch[2].trim();
   }
 
-  let displayTopic = topicLabel || actionPart || subject || 'Revisão Recomendada';
-  if (displayTopic.toLowerCase() === subject.toLowerCase()) {
+  let displayTopic = task.topicName || topicLabel || actionPart || subject || 'Revisão Recomendada';
+  if (displayTopic.toLowerCase() === subject.toLowerCase() && !task.topicName && !task.analysis?.label && !task.analysis?.reason) {
     displayTopic = 'Revisão Geral';
   }
   let secondaryText = actionPart && actionPart !== displayTopic ? actionPart : '';
@@ -82,7 +91,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
                     : `bg-black/30 ${accentColor} border-white/10`
                 }`}>
                   <div className={`w-1 h-1 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
-                  <span className="leading-[1.32] truncate">{displaySubject(subject)}</span>
+                  <span className="leading-[1.32] truncate">{displaySubject(subject, categories)}</span>
                 </div>
                 {/* FIX-A11Y-02: aria-label no botão */}
                 <button
@@ -90,7 +99,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
                   onPointerDown={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                   onTouchStart={(e) => e.stopPropagation()}
-                  aria-label={`Iniciar estudo: ${displaySubject(subject)}`}
+                  aria-label={`Iniciar estudo: ${displaySubject(subject, categories)}`}
                   className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
                     !isBacklog && dayTheme
                       ? `${dayTheme.text} hover:bg-white/10`
@@ -122,12 +131,14 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     prev.task?.title === next.task?.title &&
     prev.task?.completed === next.task?.completed &&
     prev.dayTheme?.id === next.dayTheme?.id &&
-    prev.onStartPomodoro === next.onStartPomodoro;
+    prev.onStartPomodoro === next.onStartPomodoro &&
+    prev.categories === next.categories;
 });
 
 // FIX-CODE-07: Aceitar props em vez de ignorá-las
-export default function AICoachPlanner({ plannerData: propPlannerData, onStartPomodoro: propOnStart }) {
+export default function AICoachPlanner({ plannerData: propPlannerData, categories: propCategories, onStartPomodoro: propOnStart }) {
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
+  const categories = propCategories || activeContest?.categories || [];
   const defaultCoachPlan = useMemo(() => [], []);
   const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
 
@@ -301,7 +312,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
                 >
                   {(columns.backlog || []).filter(Boolean).map((task, idx) => {
                     const safeId = getSafeId(task) || `fallback-backlog-${idx}`;
-                    return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog onStartPomodoro={handleStartTask} />;
+                    return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog categories={categories} onStartPomodoro={handleStartTask} />;
                   })}
                   {provided.placeholder}
                 </div>
@@ -356,7 +367,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, onStartPo
                         >
                           {(columns[day.id] || []).filter(Boolean).map((task, idx) => {
                             const safeId = getSafeId(task) || `fallback-${day.id}-${idx}`;
-                            return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} onStartPomodoro={handleStartTask} />;
+                            return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} categories={categories} onStartPomodoro={handleStartTask} />;
                           })}
                           {provided.placeholder}
                         </div>

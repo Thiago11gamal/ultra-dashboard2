@@ -1788,7 +1788,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const mc = cat.urgency?.details?.monteCarlo;
 
         const iterations = tasksPerCategory;
-        const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
+        const getPriorityLabel = () => allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
 
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
@@ -1803,11 +1803,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-danger-${mcProbKey}-${mcIdSuffix}`,
-                text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
+                text: `${cat.name}: ${getPriorityLabel()}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
                 completed: false,
+                status: 'pending',
+                priority: 'high',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: 'Vetor Crítico — Intervenção Exigida',
                 analysis: {
                     reason: "Monte Carlo — Zona de Perigo",
                     details: `Apenas ${probPct}% de chance de bater a meta de ${options.targetScoreLabel ?? targetScore}% em 90 dias.`,
@@ -1821,11 +1825,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}-${mcIdSuffix}`,
-                text: `${cat.name}: ${priorityLabel}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
+                text: `${cat.name}: ${getPriorityLabel()}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
                 completed: false,
+                status: 'pending',
+                priority: 'high',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: 'Oscilação Estatística — Caos Detectado',
                 analysis: {
                     reason: "Monte Carlo — Caos Estatístico",
                     details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)}. Probabilidade: ${probPct}%.`,
@@ -1836,14 +1844,19 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             });
         } else if (cat.urgency?.details?.srsLabel) {
             const srsKey = cat.urgency?.details?.srsLabel.replace(/\s/g, '').substring(0, 15);
+            const srsTopic = weakTopics[0]?.name || 'Revisão Espaçada (SRS)';
 
             allGeneratedTasks.push({
                 id: `${cat.id}-srs-${srsKey}`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
+                text: `${cat.name}: ${getPriorityLabel()}[${srsTopic}]`,
                 completed: false,
+                status: 'pending',
+                priority: 'high',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: srsTopic,
                 analysis: {
                     reason: "Revisão Espaçada (SRS) Ativada",
                     label: cat.urgency?.details?.srsLabel,
@@ -1857,11 +1870,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-safe-${mcProbKey}-${mcIdSuffix}`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
+                text: `${cat.name}: ${getPriorityLabel()}[Manutenção - ${cat.name}]`,
                 completed: false,
+                status: 'pending',
+                priority: 'low',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: `Manutenção — ${cat.name}`,
                 analysis: {
                     reason: "Monte Carlo — Cruzeiro Seguro",
                     details: `${probPct}% de probabilidade de atingir a meta.`,
@@ -1873,11 +1890,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         } else if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap) {
             allGeneratedTasks.push({
                 id: `${cat.id}-trap-trap`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
+                text: `${cat.name}: ${getPriorityLabel()}[Prática Intensiva de Questões]`,
                 completed: false,
+                status: 'pending',
+                priority: 'medium',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: 'Prática Intensiva de Questões',
                 analysis: {
                     reason: "Detector de Pseudo-Estudo",
                     details: "Alta carga horária com baixíssimo volume de exercícios.",
@@ -1903,11 +1924,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         if (isAgilityProblem) {
             allGeneratedTasks.push({
                 id: `${cat.id}-agility-${avgSeconds}`,
-                text: `${cat.name}: ${priorityLabel}[${cat.name}]`,
+                text: `${cat.name}: ${getPriorityLabel()}[Treino de Agilidade - Cronômetro]`,
                 completed: false,
+                status: 'pending',
+                priority: 'medium',
                 categoryId: cat.id,
                 category: cat.name,
                 catName: cat.name,
+                subjectName: cat.name,
+                topicName: 'Treino de Agilidade — Cronômetro',
                 analysis: {
                     reason: "Motor de Agilidade AI",
                     details: `Seu tempo médio (${avgSeconds}s/questão) está alto, embora sua taxa de acertos seja excelente.`,
@@ -1924,8 +1949,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
 
             const topicLabel = weakTopic
-                ? `${priorityLabel}[${weakTopic.name}]`
-                : `${priorityLabel}[${cat.name}]`;
+                ? `${getPriorityLabel()}[${weakTopic.name}]`
+                : `${getPriorityLabel()}[Revisão Geral Complementar]`;
 
             const uniqueIdSuffix = weakTopic
                 ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total}-${i}`)
@@ -1933,24 +1958,33 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             if (weakTopic) {
                 let reasonStr = "";
+                let topicPriority = 'medium';
 
                 if (weakTopic.isUntested) {
                     reasonStr = "Tópico Novo / Não Testado";
+                    topicPriority = 'medium';
                 } else if (weakTopic.manualPriority > 0) {
                     reasonStr = "Alta Prioridade Manual";
+                    topicPriority = 'high';
                 } else if (weakTopic.percentage < 70) {
                     reasonStr = "Baixa Performance";
+                    topicPriority = 'high';
                 } else {
                     reasonStr = "Aperfeiçoamento Contínuo";
+                    topicPriority = 'medium';
                 }
 
                 allGeneratedTasks.push({
                     id: `${cat.id}-weaktopic-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}`,
                     completed: false,
+                    status: 'pending',
+                    priority: topicPriority,
                     categoryId: cat.id,
                     category: cat.name,
                     catName: cat.name,
+                    subjectName: cat.name,
+                    topicName: weakTopic.name,
                     analysis: {
                         reason: `Tópico Selecionado: ${weakTopic.name}`,
                         details: reasonStr,
@@ -1972,18 +2006,22 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             } else {
                 const alreadyHasGeneral = allGeneratedTasks.some(
                     t => t.categoryId === cat.id && (
-                        /Revisão Geral/i.test(String(t.text || '')) ||
+                        /Revisão Geral/i.test(String(t.text || t.topicName || '')) ||
                         String(t.text || '').trim().endsWith(`[${cat.name}]`)
                     )
                 );
                 if (!alreadyHasGeneral) {
                     allGeneratedTasks.push({
                         id: `${cat.id}-general-review-${uniqueIdSuffix}-it0`,
-                        text: `${cat.name}: ${priorityLabel}[Revisão Geral]`,
+                        text: `${cat.name}: ${getPriorityLabel()}[Revisão Geral]`,
                         completed: false,
+                        status: 'pending',
+                        priority: 'medium',
                         categoryId: cat.id,
                         category: cat.name,
                         catName: cat.name,
+                        subjectName: cat.name,
+                        topicName: 'Revisão Geral Complementar',
                         analysis: {
                             reason: "Revisão Geral Complementar",
                             details: "Prática global da disciplina e resolução variada de exercícios.",

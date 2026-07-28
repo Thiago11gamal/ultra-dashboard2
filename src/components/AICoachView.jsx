@@ -35,7 +35,7 @@ const CARD_COLORS = [
   { accent: 'border-l-amber-500', dot: 'bg-amber-500', badge: 'bg-amber-500/10 text-amber-300 border-amber-500/20', glow: 'from-amber-900/20', btnHover: 'hover:bg-amber-500 hover:text-amber-950 hover:border-amber-400 hover:shadow-[0_0_20px_-3px_rgba(245,158,11,0.4)]' },
 ];
 
-function AICoachCard({ task, idx, onStartPomodoro }) {
+function AICoachCard({ task, idx, categories, onStartPomodoro }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const fullText = task?.text || task?.title || '';
 
@@ -43,7 +43,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
   const hasDetails = separatorIndex !== -1;
 
   const rawSubject = String(
-    task?.category || task?.catName ||
+    task?.subjectName || task?.category || task?.catName ||
     (hasDetails ? fullText.slice(0, separatorIndex) : fullText)
   );
 
@@ -51,7 +51,10 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
   let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : fullText;
 
   const isSystemAlert = /\[ALERTA MESTRE\]/i.test(actionPart);
-  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert;
+  const isSrsTask = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
+  const isSafeTask = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
+  const isChaosTask = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert || (task?.priority === 'high' && !isSrsTask && !isSafeTask && !isChaosTask);
 
   actionPart = actionPart
     .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
@@ -60,7 +63,8 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     .replace(/Revisão Geral Complementar(\s*\(Volume\s*\d+\))?|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi, '')
     .trim();
 
-  if (actionPart.toLowerCase() === subjectPart.toLowerCase()) {
+  const isIdenticalToSubject = actionPart.toLowerCase() === subjectPart.toLowerCase();
+  if (isIdenticalToSubject && !task?.topicName && !task?.analysis?.label && !task?.analysis?.reason) {
     actionPart = 'Revisão Geral';
   }
 
@@ -73,7 +77,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     if (!topicPart) topicPart = rawSubject;
   }
 
-  const displayAssunto = actionPart || topicPart || 'Revisão Recomendada';
+  const displayAssunto = task?.topicName || actionPart || topicPart || 'Revisão Recomendada';
   const displayMeta = actionPart && actionPart !== displayAssunto ? actionPart : null;
 
   const col = CARD_COLORS[idx % CARD_COLORS.length];
@@ -82,41 +86,74 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
   const safeProb = Number(safeProbRaw) || 0;
   const safeVol = Number(task.analysis?.monteCarlo?.volatility) || 0;
 
+  const isCompleted = Boolean(task?.completed || task?.status === 'completed');
+  const isStudying = task?.status === 'studying';
+  const isSrs = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
+  const isSafe = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
+  const isChaos = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+
   return (
     <div
       className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
-        isPriority
+        isCompleted
+          ? 'opacity-75 border-emerald-500/20 border-l-4 sm:border-l-8 border-l-emerald-500'
+          : isPriority
           ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]'
           : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
       }`}
     >
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] via-[#0a0c14]/0 to-transparent ${isPriority ? 'from-rose-900/30' : col.glow}`} />
 
-      {isPriority && (
+      {isPriority && !isCompleted && (
         <div className="absolute -top-20 -right-20 w-56 h-56 bg-rose-600/20 blur-[80px] rounded-full pointer-events-none animate-pulse" />
       )}
 
       <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-5 gap-4">
         <div className="flex flex-col items-start gap-2 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            {isPriority && (
+            <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full shrink-0`}>
+              <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
+              <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart, categories)}</span>
+            </div>
+
+            {isCompleted ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
+                <span>✓ Concluído</span>
+              </div>
+            ) : isStudying ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 animate-pulse shrink-0">
+                <span>⚡ Em Estudo</span>
+              </div>
+            ) : isPriority ? (
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-rose-500/10 text-rose-300 shadow-[0_0_20px_-2px_rgba(225,29,72,0.5)] border border-rose-500/40 shrink-0 relative group/badge">
                 <div className="absolute inset-0 bg-rose-400/20 blur-md animate-pulse" />
                 <Target size={12} className="shrink-0 relative z-10 text-rose-400" />
                 <span className="relative z-10 text-rose-200">Alvo Prioritário</span>
               </div>
+            ) : isSrs ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">
+                <span>🔄 Revisão SRS</span>
+              </div>
+            ) : isSafe ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
+                <span>🛡️ Manutenção</span>
+              </div>
+            ) : isChaos ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">
+                <span>🌪️ Oscilação</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-slate-800/60 text-slate-400 border border-white/5 shrink-0">
+                <span>⏳ Pendente</span>
+              </div>
             )}
-            <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full shrink-0`}>
-              <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
-              <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart)}</span>
-            </div>
           </div>
         </div>
 
         {/* FIX-A11Y-02: aria-label no botão de play */}
         <button
           onClick={(e) => { e.stopPropagation(); onStartPomodoro(task); }}
-          aria-label={`Iniciar sessão de estudo: ${displaySubject(subjectPart)}`}
+          aria-label={`Iniciar sessão de estudo: ${displaySubject(subjectPart, categories)}`}
           className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${
             isPriority
               ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
@@ -248,6 +285,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
   const [viewMode, setViewMode] = useState('planner');
 
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
+  const categories = activeContest?.categories || [];
 
   const coachPlanner = useMemo(() => {
     const raw = activeContest?.coachPlanner || {};
@@ -479,6 +517,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                       key={getSafeId(task) || `coach-card-${idx}`}
                       task={task}
                       idx={idx}
+                      categories={categories}
                       onStartPomodoro={handleStartNeural}
                     />
                   ))}
@@ -532,7 +571,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     .replace(/\[STATUS\]\s*/i, '');
 
                   const separatorIndex = cleanText.indexOf(':');
-                  const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
+                  const rawSubjectAlert = alertTask.subjectName || alertTask.category || (separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema');
+                  const subjectName = displaySubject(rawSubjectAlert, categories);
                   const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
 
                   let type = 'info';
@@ -645,7 +685,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             )}
 
             {/* FIX-CODE-07: Passar props corretamente */}
-            <AICoachPlanner plannerData={coachPlanner} onStartPomodoro={handleStartNeural} />
+            <AICoachPlanner plannerData={coachPlanner} categories={categories} onStartPomodoro={handleStartNeural} />
           </Motion.div>
         )}
       </AnimatePresence>

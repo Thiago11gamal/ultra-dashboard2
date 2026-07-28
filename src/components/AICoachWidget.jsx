@@ -316,7 +316,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
                                 <div>
                                     <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-3">
-                                        {displaySubject(suggestion.name)}
+                                        {displaySubject(suggestion.name, activeContest?.categories || [])}
                                     </h2>
                                     {topic && (
                                         <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl border text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>
