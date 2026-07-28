@@ -1970,30 +1970,62 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 });
             } else {
-                allGeneratedTasks.push({
-                    id: `${cat.id}-general-review-${uniqueIdSuffix}-it${i}`,
-                    text: `${cat.name}: ${topicLabel}Revisão Geral Complementar (Volume ${i + 1})`,
-                    completed: false,
-                    categoryId: cat.id,
-                    category: cat.name,
-                    catName: cat.name,
-                    analysis: {
-                        reason: "Revisão Geral Complementar",
-                        metrics: cat.urgency?.details?.humanReadable || {},
-                        monteCarlo: mc || null,
-                        categoryDetails: {
-                            "Total Urgency": Math.round(cat.urgency.score),
-                            ...cat.urgency?.details?.components
+                const alreadyHasGeneral = allGeneratedTasks.some(
+                    t => t.categoryId === cat.id && (
+                        /Revisão Geral/i.test(String(t.text || '')) ||
+                        String(t.text || '').trim().endsWith(`[${cat.name}]`)
+                    )
+                );
+                if (!alreadyHasGeneral) {
+                    allGeneratedTasks.push({
+                        id: `${cat.id}-general-review-${uniqueIdSuffix}-it0`,
+                        text: `${cat.name}: ${priorityLabel}[Revisão Geral]`,
+                        completed: false,
+                        categoryId: cat.id,
+                        category: cat.name,
+                        catName: cat.name,
+                        analysis: {
+                            reason: "Revisão Geral Complementar",
+                            details: "Prática global da disciplina e resolução variada de exercícios.",
+                            metrics: cat.urgency?.details?.humanReadable || {},
+                            monteCarlo: mc || null,
+                            categoryDetails: {
+                                "Total Urgency": Math.round(cat.urgency.score),
+                                ...cat.urgency?.details?.components
+                            }
                         }
-                    }
-                });
+                    });
+                }
+                break; // Evita gerar repetições extras sem subtópicos na mesma rodada
             }
         }
     });
 
+    const seenTaskKeys = new Set();
+    const deduplicatedTasks = allGeneratedTasks.filter(t => {
+        const rawText = String(t.text || t.title || '');
+        const catNameLower = String(t.catName || t.category || '').trim().toLowerCase();
+        let cleanTitle = rawText
+            .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+            .replace(/\[ALERTA MESTRE\]\s*/i, '')
+            .replace(/Revisão Geral Complementar.*$/i, 'Revisão Geral')
+            .replace(/Revisão Complementar.*$/i, 'Revisão Geral')
+            .trim()
+            .toLowerCase();
+
+        if (catNameLower && cleanTitle.endsWith(`[${catNameLower}]`)) {
+            cleanTitle = cleanTitle.replace(`[${catNameLower}]`, '[revisão geral]');
+        }
+
+        const key = `${t.categoryId || 'global'}::${cleanTitle}`;
+        if (seenTaskKeys.has(key)) return false;
+        seenTaskKeys.add(key);
+        return true;
+    });
+
     const interleaved = [];
     const tasksByCat = {};
-    allGeneratedTasks.forEach(t => {
+    deduplicatedTasks.forEach(t => {
         const cid = t.categoryId || 'global';
         if (!tasksByCat[cid]) tasksByCat[cid] = [];
         tasksByCat[cid].push(t);

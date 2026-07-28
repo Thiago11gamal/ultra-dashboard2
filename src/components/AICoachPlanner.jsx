@@ -40,10 +40,13 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onSta
     actionPart = bracketMatch[2].trim();
   }
 
-  const displayTopic = topicLabel || actionPart || subject || 'Revisão Recomendada';
+  let displayTopic = topicLabel || actionPart || subject || 'Revisão Recomendada';
+  if (displayTopic.toLowerCase() === subject.toLowerCase()) {
+    displayTopic = 'Revisão Geral';
+  }
   let secondaryText = actionPart && actionPart !== displayTopic ? actionPart : '';
 
-  if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
+  if (/Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
     secondaryText = '';
   }
 

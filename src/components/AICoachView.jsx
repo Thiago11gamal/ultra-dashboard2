@@ -57,7 +57,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
     .replace(/\[ALERTA MESTRE\]\s*/i, '')
     .replace(/^\[(.*?)\]/i, '$1')
-    .replace(/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi, '')
+    .replace(/Revisão Geral Complementar(\s*\(Volume\s*\d+\))?|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi, '')
     .trim();
 
   if (actionPart.toLowerCase() === subjectPart.toLowerCase()) {
