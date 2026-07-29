@@ -52,7 +52,6 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
   const parsed = parseCoachTask({ ...task, text: fullText }, categories);
 
   const subjectPart = parsed.subject;
-  const actionPart = parsed.action;
   const isSystemAlert = parsed.isSystemAlert;
 
   const isSrsTask = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));

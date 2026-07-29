@@ -27,8 +27,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   const parsed = parseCoachTask({ ...task, text: fullText }, categories);
 
   const subject = parsed.subjectRaw;
-  const actionPart = parsed.action;
-  const isSystemAlert = parsed.isSystemAlert;
 
   const isSrsCard = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
   const isSafeCard = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));

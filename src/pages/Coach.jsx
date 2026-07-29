@@ -747,7 +747,7 @@ export default function Coach() {
 
 function CalibrationAuditPopover({ categoryId = null }) {
   const [isOpen, setIsOpen] = useState(false);
-  const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId, isOpen]);
+  const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId]);
 
   if (!import.meta.env.DEV && summary.count === 0) return null;
 

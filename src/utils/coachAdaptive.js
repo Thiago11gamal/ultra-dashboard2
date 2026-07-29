@@ -5,7 +5,7 @@ import { getDateKey, safeDateParse } from './dateHelper.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { detectDataAnomalies } from '../engine/diagnostics.js';
 import { pruneHistoryForMemory } from '../engine/stats.js';
-import { safeArray } from './coachSafe.js';
+import { safeArray, toFiniteNumber } from './coachSafe.js';
 
 function hashString(str) {
   let h = 0;
@@ -149,7 +149,7 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
 
   const maxDangerBoost = (Number(cfg.MC_BOOST_DANGER_BASE) || 12) + (Number(cfg.MC_BOOST_DANGER_RANGE) || 13);
   const baseDangerBoost = Number(cfg.MC_BOOST_DANGER_BASE) || 12;
-  const minBoost = toFiniteCfg(cfg.MC_BOOST_SAFE_PENALTY, -8);
+  const minBoost = toFiniteNumber(cfg.MC_BOOST_SAFE_PENALTY, -8);
 
   // ✅ CORREÇÃO BUG #1: Função smoothstep para interpolação C¹ contínua
   const smoothstep = (x) => x * x * (3 - 2 * x);
@@ -378,9 +378,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const dataQuality = Math.max(0.3, 1 - (dataIssues * 0.15));
   
   const lowSampleThreshold = Math.max(Number(cfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (cfg.MC_MIN_DATA_POINTS || 5) + 2);
-  const isLowSample = history.length < lowSampleThreshold || dataIssues > 0;
-  const neutralPct = toFiniteCfg(cfg.MC_CALIBRATION_NEUTRAL_PCT, 50);
-  const maxAppliedPenalty = toFiniteCfg(cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
+  const neutralPct = toFiniteNumber(cfg.MC_CALIBRATION_NEUTRAL_PCT, 50);
+  const maxAppliedPenalty = toFiniteNumber(cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
 
   const sumCorrect = history.reduce((acc, h) => acc + Number(h.score || 0), 0);
 
