@@ -16,36 +16,40 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
     for (const h of history) {
         const key = getDateKey(getHistoryDate(h));
         if (!key) continue;
-
         const existing = aggregatedHistoryByDateMap.get(key);
         const rawTotal = Number(h?.total) || 0;
         const rawCorrect = Number(h?.correct) || 0;
         const score = getSafeScore(h, maxScore);
+        const safeScore = Number.isFinite(score) ? score : 0;   // ✅ LOTE-01
 
         let compTotal = rawTotal;
-        let compCorrect = rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect;
-
+        let compCorrect = rawTotal > 0 ? Math.round((safeScore / maxScore) * rawTotal) : rawCorrect;
         if (rawTotal === 0 && h?.score != null) {
             compTotal = getSyntheticTotal(maxScore);
-            const pct = Math.min(1, Math.max(0, score / maxScore));
+            const pct = Math.min(1, Math.max(0, safeScore / maxScore));
             compCorrect = Math.round(pct * compTotal);
         }
+        // ✅ LOTE-01 FIX: correct ∈ [0, total] e nunca NaN
+        compCorrect = Math.max(0, Math.min(compTotal, Number.isFinite(compCorrect) ? compCorrect : 0));
 
         if (existing) {
             existing.compCorrect = (existing.compCorrect || 0) + compCorrect;
             existing.compTotal = (existing.compTotal || 0) + compTotal;
             existing.total += rawTotal;
-            existing.correct += rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect;
-            existing.score = (existing.compCorrect / existing.compTotal) * maxScore;
+            existing.correct += rawTotal > 0
+                ? Math.max(0, Math.min(rawTotal, Math.round((safeScore / maxScore) * rawTotal)))
+                : Math.max(0, rawCorrect);
+            // ✅ LOTE-01 FIX: divisão por zero
+            existing.score = existing.compTotal > 0 ? (existing.compCorrect / existing.compTotal) * maxScore : 0;
         } else {
             aggregatedHistoryByDateMap.set(key, {
                 ...h,
                 date: key,
-                correct: rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect,
+                correct: rawTotal > 0 ? Math.round((safeScore / maxScore) * rawTotal) : rawCorrect,
                 total: rawTotal,
                 compCorrect,
                 compTotal,
-                score
+                score: safeScore
             });
         }
     }
@@ -224,7 +228,10 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 const rawTotal = Number(h.total) || 0;
                 const rawC = Number(h.correct) || 0;
                 const score = getSafeScore(h, maxScore);
-                const corrNorm = rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawC;
+                if (!Number.isFinite(score)) return;   // ✅ LOTE-01 FIX
+                const corrNorm = rawTotal > 0
+                    ? Math.max(0, Math.min(rawTotal, Math.round((score / maxScore) * rawTotal)))
+                    : Math.max(0, rawC);
 
                 let compTotal = rawTotal;
                 let compCorrect = corrNorm;
@@ -315,6 +322,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 let raw = Number(h.correct) || 0;
                 let corrNorm;
                 const score = getSafeScore(h, maxScore);
+                if (!Number.isFinite(score)) return;   // ✅ LOTE-01 FIX
                 if (h.score != null && tot === 0) {
                     // BUG 4 FIX: No heatmap, não injetamos volume sintético para não sujar o visual
                     // de questões totais, mas mostramos a cor/porcentagem calculada.
@@ -349,23 +357,16 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         activeCategories.forEach(cat => {
             getHistoryArray(cat).forEach(h => {
                 let tot = Number(h.total) || 0;
+                const score = getSafeScore(h, maxScore);
+                if (!Number.isFinite(score)) return;   // ✅ LOTE-01 FIX
                 let corrNorm;
-
-                // BUG 3 FIX: Incorporar simulados percentuais na Acurácia Global
-                // FIX BUG 2 (Matemática): Previne distorção na quantidade absoluta total.
-                // Se o usuário apenas inseriu nota (tot = 0), computamos isso com volume mínimo (1)
-                // para que a nota participe da Global Accuracy, sem adicionar centenas de questões 
-                // fantasmas ao "Total de Questões" resolvido.
                 if (tot === 0 && h.score != null) {
                     tot = 1;
-                    corrNorm = (getSafeScore(h, maxScore) / maxScore) * tot;
+                    corrNorm = (score / maxScore) * tot;
                 } else {
                     const raw = Number(h.correct) || 0;
-                    corrNorm = tot > 0
-                        ? Math.round((getSafeScore(h, maxScore) / maxScore) * tot)
-                        : raw;
+                    corrNorm = tot > 0 ? Math.round((score / maxScore) * tot) : raw;
                 }
-
                 totalQuestions += tot;
                 totalCorrect += corrNorm;
             });

@@ -442,26 +442,28 @@ export function computeBayesianLevel(
     const refDateObj = options.referenceDate ? normalizeDate(options.referenceDate) : null;
     const now = refDateObj && Number.isFinite(refDateObj.getTime()) ? refDateObj.getTime() : Date.now();
 
-    const runningPriors = new Float64Array(historySortedForGaps.length);
+    // ✅ LOTE-01 FIX: priors calculados SOBRE O MESMO ARRAY iterado abaixo.
+    // Antes o slice(-2000) acontecia depois, desalinhando runningPriors[i].
+    const MAX_ITERATIONS = 2000;
+    const historyToProcess = historySortedForGaps.length > MAX_ITERATIONS
+        ? historySortedForGaps.slice(-MAX_ITERATIONS)
+        : historySortedForGaps;
 
-    if (historySortedForGaps.length > 0) {
+    const runningPriors = new Float64Array(historyToProcess.length);
+    if (historyToProcess.length > 0) {
         let priorSum = 0, priorC = 0, priorCount = 0;
-
-        for (let j = 0; j < historySortedForGaps.length; j++) {
-            const sScore = getSafeScore(historySortedForGaps[j], safeMaxScore);
-
+        for (let j = 0; j < historyToProcess.length; j++) {
+            const sScore = getSafeScore(historyToProcess[j], safeMaxScore);
             if (Number.isFinite(sScore)) {
                 let rawPct = sScore / safeMaxScore;
                 rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
                 const validPct = Math.min(1, rawPct);
-
                 const y = validPct - priorC;
                 const t = priorSum + y;
                 priorC = (t - priorSum) - y;
                 priorSum = t;
                 priorCount++;
             }
-
             runningPriors[j] = priorCount > 0 ? priorSum / priorCount : 0.5;
         }
     }
@@ -478,12 +480,6 @@ export function computeBayesianLevel(
         : 0.08;
 
     if (history.length > 0) {
-        const sortedHistory = historySortedForGaps;
-
-        const MAX_ITERATIONS = 2000;
-        const historyToProcess = sortedHistory.length > MAX_ITERATIONS
-          ? sortedHistory.slice(-MAX_ITERATIONS) // Manter os mais recentes
-          : sortedHistory;
 
         for (let i = 0; i < historyToProcess.length; i++) {
             const h = historyToProcess[i];
@@ -1128,7 +1124,7 @@ export function calculateTrend(history, maxScore = 100) {
     if (Math.abs(denominator) < 1e-12) return 0;
 
     const slopePerDay = ((validN * sumXY) - (sumX * sumY)) / denominator;
-    const result = slopePerDay * 10;
-
-    return Number.isFinite(result) ? result : 0;
+    // ✅ LOTE-01 FIX: slope POR DIA. O "* 10" anterior inflava trendValue em 10×
+    // e fazia o clamp do calculateSlope saturar uma ordem de grandeza antes.
+    return Number.isFinite(slopePerDay) ? slopePerDay : 0;
 }

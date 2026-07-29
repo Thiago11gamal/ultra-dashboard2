@@ -75,12 +75,22 @@ export function TodayVsGeneralChart({
     globalMetrics = {}, 
     targetScore = 80,
     maxScore = 100, 
+    minScore = 0,          // ✅ LOTE-01
     unit = '%',
     simuladoRows = []
 }) {
-    // 1. Média Geral (Absoluta)
-    const generalAccuracy = globalMetrics?.globalAccuracy || 0;
-    const scale = maxScore / 100;
+    // ✅ LOTE-01 FIX: globalAccuracy chega como PERCENTUAL; o gráfico vive em PONTOS.
+    const generalAccuracy = useMemo(() => {
+        const pct = Number(globalMetrics?.globalAccuracy);
+        const safePct = Number.isFinite(pct) ? pct : 0;
+        const safeMax = Math.max(1, Number(maxScore) || 100);
+        const safeMin = Math.min(Number(minScore) || 0, safeMax);
+        return Math.max(safeMin, Math.min(safeMax, (safePct / 100) * safeMax));
+    }, [globalMetrics?.globalAccuracy, maxScore, minScore]);
+
+    const scale = Math.max(1, Number(maxScore) || 100) / 100;
+    // ✅ LOTE-01 FIX: margens proporcionais à escala (2 pts fixos só valiam em 0–100)
+    const stabilityMargin = Math.max(1, ((Number(maxScore) || 100) - (Number(minScore) || 0)) * 0.02);
     const [nowMs] = useState(() => Date.now());
     const [todayKey] = useState(() => getDateKey(new Date()));
 
@@ -266,7 +276,7 @@ export function TodayVsGeneralChart({
             const prevAcc = data.length > 1 ? data[lastIdx - 1].accuracy : data[0].accuracy;
             data[lastIdx].lastTestAcc = latestAcc;
             
-            const marginLine = 2; // 2% margin for stability
+            const marginLine = stabilityMargin; // ✅ LOTE-01 FIX
             if (latestAcc < prevAcc - marginLine) {
                 data[lastIdx].lastTestColor = COLORS.gaugeFillDanger;
             } else if (latestAcc > prevAcc + marginLine) {
@@ -292,7 +302,7 @@ export function TodayVsGeneralChart({
     const deltaAbs = Math.abs(delta);
     
     // Stable Margin logic for delta
-    const marginDelta = 2; // 2% margin
+    const marginDelta = stabilityMargin; // ✅ LOTE-01 FIX
     let deltaStatus = 'stable';
     if (delta > marginDelta) deltaStatus = 'positive';
     else if (delta < -marginDelta) deltaStatus = 'negative';

@@ -898,6 +898,7 @@ export default React.memo(function EvolutionChart({
                         globalMetrics={safeGlobalMetrics}
                         targetScore={targetScore}
                         maxScore={maxScore}
+                        minScore={minScore}   // ✅ LOTE-01
                         unit={unit}
                         simuladoRows={simuladoRowsArray}
                     />

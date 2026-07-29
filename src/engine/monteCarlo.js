@@ -61,6 +61,7 @@ function sanitizeSubjects(subjects) {
         const safeMinScore = toFiniteNumber(s?.minScore, DEFAULT_DOMAIN_MIN);
         const safeMaxScore = toFiniteNumber(s?.maxScore, DEFAULT_DOMAIN_MAX);
         const safeImmunity = toFiniteNumber(s?.immunityFactor, 1.0);
+        const safeWeight = Math.max(1e-6, toFiniteNumber(s?.weight, 1));   // ✅ LOTE-01
 
         return {
             ...s,
@@ -69,7 +70,8 @@ function sanitizeSubjects(subjects) {
             minCutoff: safeMinCutoff,
             minScore: safeMinScore,
             maxScore: safeMaxScore,
-            immunityFactor: safeImmunity
+            immunityFactor: safeImmunity,
+            weight: safeWeight                                              // ✅ LOTE-01
         };
     });
 }
@@ -373,55 +375,50 @@ export function simulateNormalDistribution(
         let passedMins = true;
 
         if (subjectStats.length > 0) {
+            // ✅ LOTE-01 FIX: clamp por disciplina + média ponderada
             let subjectSum = 0;
+            let weightSum = 0;
             if (subjectCholesky) {
                 for (let k = 0; k < subjectStats.length; k++) {
                     const s = subjectStats[k];
-
                     const sMin = clamp(toFiniteNumber(s.minScore, minScore), minScore, maxScore);
                     const sMax = clamp(toFiniteNumber(s.maxScore, maxScore), minScore, maxScore);
-
                     const lower = Math.min(sMin, sMax);
                     const upper = Math.max(sMin, sMax);
-
                     const safeSubjectMean = toFiniteNumber(s.mean, 0);
                     const safeSubjectSd = Math.max(1e-6, toFiniteNumber(s.sd, 1));
-
                     let zMin = (lower - safeSubjectMean) / safeSubjectSd;
                     let zMax = (upper - safeSubjectMean) / safeSubjectSd;
-
                     let zLow = Math.min(zMin, zMax);
                     let zHigh = Math.max(zMin, zMax);
-
                     if (!Number.isFinite(zLow)) zLow = -6;
                     if (!Number.isFinite(zHigh)) zHigh = 6;
-
                     zVecStatic[k] = sampleTruncatedNormal(0, 1, zLow, zHigh, rng);
                 }
-
                 applyCovariance(subjectCholesky, zVecStatic, zCorrStatic);
-
                 for (let j = 0; j < subjectStats.length; j++) {
                     const s = subjectStats[j];
+                    const sMin = clamp(toFiniteNumber(s.minScore, minScore), minScore, maxScore);
+                    const sMax = clamp(toFiniteNumber(s.maxScore, maxScore), minScore, maxScore);
+                    const weight = Math.max(1e-6, toFiniteNumber(s.weight, 1));
                     const raw = toFiniteNumber(s.mean, 0) + zCorrStatic[j];
-                    subjectSum += raw;
-
-                    if (!Number.isFinite(raw) || raw < toFiniteNumber(s.minCutoff, 0)) {
+                    const subjScore = clamp(raw, Math.min(sMin, sMax), Math.max(sMin, sMax));  // ✅ FIX
+                    subjectSum += subjScore * weight;
+                    weightSum += weight;
+                    if (!Number.isFinite(subjScore) || subjScore < toFiniteNumber(s.minCutoff, 0)) {
                         passedMins = false;
                     }
                 }
             } else {
                 for (let j = 0; j < subjectStats.length; j++) {
                     const s = subjectStats[j];
-
                     const sMin = clamp(toFiniteNumber(s.minScore, minScore), minScore, maxScore);
                     const sMax = clamp(toFiniteNumber(s.maxScore, maxScore), minScore, maxScore);
-
                     const effSd = Math.max(
                         1e-6,
                         toFiniteNumber(s.sd, 1) * Math.max(0.80, toFiniteNumber(s.immunityFactor, 1.0))
                     );
-
+                    const weight = Math.max(1e-6, toFiniteNumber(s.weight, 1));
                     const sScore = sampleTruncatedNormal(
                         toFiniteNumber(s.mean, 0),
                         effSd,
@@ -429,14 +426,14 @@ export function simulateNormalDistribution(
                         Math.max(sMin, sMax),
                         rng
                     );
-                    subjectSum += sScore;
-
+                    subjectSum += sScore * weight;
+                    weightSum += weight;
                     if (!Number.isFinite(sScore) || sScore < toFiniteNumber(s.minCutoff, 0)) {
                         passedMins = false;
                     }
                 }
             }
-            score = subjectSum / subjectStats.length;
+            score = weightSum > 0 ? subjectSum / weightSum : score;
         }
 
         if (score >= currentTarget && passedMins) success++;

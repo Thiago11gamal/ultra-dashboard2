@@ -310,10 +310,7 @@ export function useMonteCarloStats({
       if (changed) {
         const setD = useAppStore.getState().setData;
         if (setD) {
-          setD(c => {
-            c.calibrationEvents = backfilled;
-            return;
-          });
+          setD(c => ({ ...c, calibrationEvents: backfilled }));
         }
       }
     } catch {
@@ -455,12 +452,8 @@ export function useMonteCarloStats({
           result = await runAnalysis(normalPayload);
 
           if (!result || result.probability == null) {
-            result = await runAnalysis(
-              pureStatsData.bayesianMean,
-              pureStatsData.pooledSD,
-              debouncedTarget,
-              normalPayload
-            );
+            // ✅ LOTE-01 FIX: fallback síncrono com a MESMA API de objeto
+            result = simulateNormalDistribution({ ...normalPayload, historicalCutoffs });
           }
         }
 
@@ -497,13 +490,9 @@ export function useMonteCarloStats({
 
                 if (ev) {
                   setDataFn(contest => {
-                    const evs = Array.isArray(contest.calibrationEvents)
-                      ? contest.calibrationEvents.slice()
-                      : [];
-
+                    const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
                     evs.push(ev);
-                    contest.calibrationEvents = evs.slice(-200);
-                    return;
+                    return { ...contest, calibrationEvents: evs.slice(-200) };
                   });
                 }
               }
@@ -625,13 +614,9 @@ export function useMonteCarloStats({
 
                 if (ev) {
                   setDataFn(contest => {
-                    const evs = Array.isArray(contest.calibrationEvents)
-                      ? contest.calibrationEvents.slice()
-                      : [];
-
+                    const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
                     evs.push(ev);
-                    contest.calibrationEvents = evs.slice(-200);
-                    return;
+                    return { ...contest, calibrationEvents: evs.slice(-200) };
                   });
                 }
               }
@@ -865,10 +850,16 @@ export function useMonteCarloStats({
           ? clamp(currentBaseline + totalTrendProjection, catMinScore, catMaxScore)
           : currentBaseline;
 
+        // ✅ LOTE-01 FIX: meta projetada no INTERVALO real, respeitando minScore
+        const globalRange = Math.max(1e-9, Number(maxScore) - Number(minScore));
+        const catRange = Math.max(1e-9, catMaxScore - catMinScore);
+        const targetRatio = clamp((Number(debouncedTarget) - Number(minScore)) / globalRange, 0, 1);
+        const subjectTarget = clamp(catMinScore + targetRatio * catRange, catMinScore, catMaxScore);
+
         const result = simulateNormalDistribution({
           mean: baseline,
           sd: cat.bayesianSd ?? cat.sd,
-          targetScore: (maxScore > 0 ? (debouncedTarget / maxScore) * catMaxScore : debouncedTarget),
+          targetScore: subjectTarget,   // ✅ LOTE-01 FIX
           simulations: Math.min(dynamicSimulations || 2000, 3000),
           categoryName: cat.name,
           minScore: catMinScore,
