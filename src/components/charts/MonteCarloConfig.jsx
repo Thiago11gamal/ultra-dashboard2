@@ -207,7 +207,7 @@ export const MonteCarloConfig = ({
                                 { ratio: 0.75, label: 'Optimized', color: 'text-blue-500/60' },
                                 { ratio: 0.9, label: 'Elite', color: 'text-slate-600' }
                             ].map(({ ratio, label, color }, i) => {
-                                const val = Math.round(maxScore * ratio);
+                                const val = Math.round(safeMaxScore * ratio);
                                 const percent = Math.max(0, Math.min(100, ((val - sliderMin) / sliderRange) * 100));
                                 return (
                                     <div key={i} className="absolute flex flex-col items-center" style={{ left: `calc(${percent}% + ${8 - percent * 0.16}px)`, transform: 'translateX(-50%)' }}>
@@ -237,7 +237,7 @@ export const MonteCarloConfig = ({
                                     if (e.key === 'Enter') {
                                         e.preventDefault();
                                         const val = parseFloat(newCutoff);
-                                        if (!isNaN(val) && val >= 0 && val <= maxScore) {
+                                        if (!isNaN(val) && val >= safeMinScore && val <= safeMaxScore) {
                                             if (typeof setHistoricalCutoffs === 'function') {
                                                 setHistoricalCutoffs([...historicalCutoffs, val]);
                                             }
@@ -251,7 +251,7 @@ export const MonteCarloConfig = ({
                                 type="button"
                                 onClick={() => {
                                     const val = parseFloat(newCutoff);
-                                    if (!isNaN(val) && val >= 0 && val <= maxScore) {
+                                    if (!isNaN(val) && val >= safeMinScore && val <= safeMaxScore) {
                                         if (typeof setHistoricalCutoffs === 'function') {
                                             setHistoricalCutoffs([...historicalCutoffs, val]);
                                         }
