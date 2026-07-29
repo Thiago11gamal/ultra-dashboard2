@@ -861,8 +861,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
         let KAPPA = Math.max(0.1, Math.min(3.0, Number.isFinite(ratio) ? ratio : 3.0));
 
-        const firstDateParsed = safeDateParse(getHistoryDateValue(historyToUse[0]));
-        const lastDateParsed = safeDateParse(getHistoryDateValue(historyToUse[historyToUse.length - 1]));
+        const sortedForDates = getSortedHistory(historyToUse);
+        const firstDateParsed = safeDateParse(getHistoryDateValue(sortedForDates[0]));
+        const lastDateParsed = safeDateParse(getHistoryDateValue(sortedForDates[sortedForDates.length - 1]));
 
         const firstDateMs = firstDateParsed && Number.isFinite(firstDateParsed.getTime())
             ? firstDateParsed.getTime()
