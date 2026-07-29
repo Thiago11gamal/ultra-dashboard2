@@ -142,7 +142,7 @@ return (
                     <div className="text-center p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tempo Gasto</div>
                       <div className="text-white font-medium text-[15px]">
-                        {Math.floor((results?.timeSpentSecs || 0) / 60)}m {((results?.timeSpentSecs || 0) % 60).toString().padStart(2, '0')}s
+                        {Math.floor(Math.round(results?.timeSpentSecs || 0) / 60)}m {(Math.round(results?.timeSpentSecs || 0) % 60).toString().padStart(2, '0')}s
                       </div>
                     </div>
                   </div>

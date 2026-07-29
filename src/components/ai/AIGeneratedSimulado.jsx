@@ -608,12 +608,14 @@ export default function AIGeneratedSimulado() {
         const spent = latestTimePerQuestionRef.current[q.id] || 0;
         groups[key].timeSpent += spent;
       });
-      const cats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
+      const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
+      const cats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
       const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
 
       for (const g of Object.values(groups)) {
         const cat = cats.find(c => normalize(c.name) === normalize(g.materia));
-        const tsk = cat?.tasks?.find(t => normalize(t.title || t.text || '') === normalize(g.assunto));
+        const catTasks = cat?.tasks ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks)) : [];
+        const tsk = catTasks.find(t => normalize(t.title || t.text || '') === normalize(g.assunto));
         const subForm = {
           ...f, materia: g.materia, assunto: g.assunto,
           categoryId: cat ? cat.id : null, taskId: tsk ? tsk.id : null,
@@ -788,5 +790,15 @@ export default function AIGeneratedSimulado() {
       />
     );
   }
-  return null;
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 p-8 text-center bg-slate-900/60 rounded-2xl border border-white/5 mx-auto">
+      <p className="text-sm text-slate-400">Nenhuma questão ativa ou estado de simulado divergente.</p>
+      <button
+        onClick={resetAll}
+        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-white text-sm transition-colors"
+      >
+        Voltar ao início
+      </button>
+    </div>
+  );
 }

@@ -476,12 +476,15 @@ export default function Simulados() {
           };
         };
 
+        const subjectsToProcess = new Set();
         const dataToProcess = analysisResult?.disciplines || analysisResult;
         if (Array.isArray(dataToProcess)) {
-          dataToProcess.forEach((disc) => { if (disc && disc.name) processStats(disc.name); });
+          dataToProcess.forEach((disc) => { if (disc && disc.name) subjectsToProcess.add(disc.name); });
         } else if (dataToProcess && typeof dataToProcess === 'object') {
-          Object.keys(dataToProcess).forEach((rawSubject) => { if (rawSubject) processStats(rawSubject); });
+          Object.keys(dataToProcess).forEach((rawSubject) => { if (rawSubject) subjectsToProcess.add(rawSubject); });
         }
+        manualSubmittedRows.forEach((r) => { if (r && r.subject) subjectsToProcess.add(r.subject); });
+        subjectsToProcess.forEach((subName) => processStats(subName));
 
         // Evento global de simulado
         const todayValidatedRows = validatedRows.filter(

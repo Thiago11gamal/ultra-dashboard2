@@ -249,15 +249,16 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             return;
         }
 
-        const validRowsForAnalysis = rowsToProcess.filter(r => String(r.topic || '').trim());
-
         if (rowsToProcess.length === 0) {
             setError("Preencha o desempenho em pelo menos um assunto.");
             setLoading(false);
             return;
         }
 
-        const validRows = validRowsForAnalysis;
+        const validRows = rowsToProcess.map(r => ({
+            ...r,
+            topic: String(r.topic || '').trim() || 'Geral'
+        }));
 
 
 
