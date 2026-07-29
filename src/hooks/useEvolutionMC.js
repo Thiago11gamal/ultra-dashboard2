@@ -43,10 +43,10 @@ export function useEvolutionMC({
   useEffect(() => {
     // ✅ LOTE-05: só dispara o Monte Carlo nos engines que consomem o resultado
     const isMcEngine = activeEngine === 'compare' || activeEngine === 'mc_density';
-    if (!isMcEngine) { setMcLoading(false); return; }
+    if (!isMcEngine) { queueMicrotask(() => setMcLoading(false)); return; }
 
     if (!focusCategory?.id || !Array.isArray(historyArray) || historyArray.length === 0) {
-      setMcLoading(false);
+      queueMicrotask(() => setMcLoading(false));
       return;
     }
 
@@ -61,7 +61,7 @@ export function useEvolutionMC({
       .filter(Boolean)
       .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
 
-    if (hist.length < 1) { setMcLoading(false); return; }
+    if (hist.length < 1) { queueMicrotask(() => setMcLoading(false)); return; }
 
     let cancelled = false;
     const workerDebounceTimeout = setTimeout(async () => {

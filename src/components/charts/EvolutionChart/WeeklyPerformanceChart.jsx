@@ -93,7 +93,7 @@ const WeeklyPerformanceChart = ({
             });
         }
         return days;
-    }, [categories, studyLogs, showOnlyFocus, focusSubjectId, safeMaxScore]);
+    }, [categories, studyLogs, showOnlyFocus, focusSubjectId, safeMaxScore, safeMinScore]);
 
 
     const renderTooltip = useCallback(({ active, payload, label }) => {

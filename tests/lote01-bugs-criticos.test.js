@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateTrend } from '../src/engine/stats.js';
-import { runMonteCarloAnalysis, simulateNormalDistribution } from '../src/engine/monteCarlo.js';
+import { simulateNormalDistribution } from '../src/engine/monteCarlo.js';
 
 describe('LOTE 01 — Bugs Críticos — Validação', () => {
     it('1.5 calculateTrend retorna slope por dia (sem multiplicar por 10)', () => {
