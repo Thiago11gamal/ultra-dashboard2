@@ -11,7 +11,7 @@ export const createTaskSlice = (set, get) => ({
             const category = activeData.categories.find(c => c.id === categoryId);
             if (!category) return;
 
-            const task = category.tasks.find(t => t.id === taskId);
+            const task = category.tasks.find(t => t && (t.id || t.text) === taskId);
             if (!task) return;
 
             const completed = !task.completed;
@@ -38,6 +38,7 @@ export const createTaskSlice = (set, get) => ({
     },
 
     toggleNeuralTask: (taskId) => {
+        let pendingXpChange = 0;
         set((state) => {
             const activeData = state.appState.contests[state.appState.activeId];
             if (!activeData) return;
@@ -49,6 +50,7 @@ export const createTaskSlice = (set, get) => ({
                 const task = activeData.coachPlan.find(t => t && (t.id === taskId || t.text === taskId));
                 if (task && !task.completed) {
                     task.completed = true;
+                    pendingXpChange += getTaskXP(task, true);
                     found = true;
                 }
             }
@@ -59,6 +61,23 @@ export const createTaskSlice = (set, get) => ({
                     const task = (dayTasks || []).find(t => t && (t.id === taskId || t.text === taskId));
                     if (task && !task.completed) {
                         task.completed = true;
+                        pendingXpChange += getTaskXP(task, true);
+                        found = true;
+                    }
+                });
+            }
+
+            // Search in categories (Priority tasks in Pomodoro Focus Panel / Neural Core)
+            if (activeData.categories) {
+                (Array.isArray(activeData.categories) ? activeData.categories : Object.values(activeData.categories)).forEach(cat => {
+                    const task = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(t => t && (t.id === taskId || t.text === taskId));
+                    if (task && !task.completed) {
+                        task.completed = true;
+                        task.completedAt = new Date().toISOString();
+                        task.lastStudiedAt = new Date().toISOString();
+                        const xp = getTaskXP(task, true);
+                        task.awardedXP = Math.abs(xp);
+                        pendingXpChange += xp;
                         found = true;
                     }
                 });
@@ -70,6 +89,10 @@ export const createTaskSlice = (set, get) => ({
                 localStorage.setItem('ultra-sync-dirty', 'true');
             }
         });
+
+        if (pendingXpChange !== 0 && get().awardExperience) {
+            get().awardExperience(pendingXpChange);
+        }
     },
 
     addTask: (categoryId, title) => set((state) => {

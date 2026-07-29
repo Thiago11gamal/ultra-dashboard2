@@ -23,7 +23,7 @@ export function PomodoroControls({
                     disabled={isProtocolInactive}
                     className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full flex items-center justify-center border-4 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
                 >
-                    {isRunning ? <Pause size={48} className="sm:size-64" /> : <Play size={48} className="sm:size-64 ml-2" />}
+                    {isRunning ? <Pause size={48} className="sm:w-16 sm:h-16" /> : <Play size={48} className="sm:w-16 sm:h-16 ml-2" />}
                 </button>
             </div>
 

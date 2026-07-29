@@ -60,15 +60,17 @@ export function PomodoroClock({
                         strokeWidth="14"
                         strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 110}
-                        style={{ strokeDashoffset: isRunning ? undefined : (() => {
-                          const totalTime = mode === 'work'
-                            ? Math.max(60, (safeSettings.pomodoroWork || 25) * 60)
-                            : mode === 'long_break'
-                              ? Math.max(60, (safeSettings.pomodoroLongBreak || 15) * 60)
-                              : Math.max(60, (safeSettings.pomodoroBreak || 5) * 60);
-                          const fraction = Math.max(0, Math.min(1, timeLeft / totalTime));
-                          return (2 * Math.PI * 110) * fraction;
-                        })() }}
+                        style={{
+                            strokeDashoffset: (() => {
+                                const totalTime = mode === 'work'
+                                    ? Math.max(1, (safeSettings.pomodoroWork || 25) * 60)
+                                    : mode === 'long_break'
+                                        ? Math.max(1, (safeSettings.pomodoroLongBreak || 15) * 60)
+                                        : Math.max(1, (safeSettings.pomodoroBreak || 5) * 60);
+                                const fraction = Math.max(0, Math.min(1, timeLeft / totalTime));
+                                return (2 * Math.PI * 110) * fraction;
+                            })()
+                        }}
                     />
                 </svg>
 

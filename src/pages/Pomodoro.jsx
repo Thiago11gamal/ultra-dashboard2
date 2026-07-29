@@ -512,8 +512,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const fullText = rawText.trim();
         const parts = fullText.split(':');
         let actionPart = parts.length > 1 ? parts.slice(1).join(':').trim() : fullText;
-        actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
-        actionPart = actionPart.replace(/^\[(.*?)\]/i, '$1').trim();
+        actionPart = actionPart
+            .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+            .replace(/\[ALERTA MESTRE\]\s*/i, '')
+            .replace(/^\[(.*?)\]/i, '$1')
+            .trim();
         let topicPart = parts[0] || '';
         if (catName && actionPart.toLowerCase() === catName.toLowerCase()) {
             actionPart = 'Revisão Geral';
@@ -733,14 +736,13 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
     const cleanText = (text) => {
         if (!text) return '';
-        const codeMatch = text.match(/\[([a-zA-Z]+[0-9]+[a-zA-Z0-9]*)\]/);
-        if (codeMatch && codeMatch[1]) {
-            return codeMatch[1];
-        }
         const firstColon = text.indexOf(':');
         let targetText = firstColon > -1 ? text.substring(firstColon + 1) : text;
-        targetText = targetText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
-        targetText = targetText.replace(/^\[(.*?)\]/i, '$1').trim();
+        targetText = targetText
+            .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
+            .replace(/\[ALERTA MESTRE\]\s*/i, '')
+            .replace(/^\[(.*?)\]/i, '$1')
+            .trim();
         let subtitle = targetText.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
         if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
         if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(subtitle)) {
@@ -894,7 +896,8 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
             }
 
             consecutiveStudyMinutes += minutes;
-            lastTimeBoundary = logDate - (minutes * 60 * 1000);
+            const sessionStartTime = log.endDate ? logDate : (logDate - (minutes * 60 * 1000));
+            lastTimeBoundary = sessionStartTime;
         }
 
         return {

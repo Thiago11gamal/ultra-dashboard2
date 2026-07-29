@@ -332,6 +332,7 @@ export const createPomodoroSlice = (set, get) => ({
 
         set((state) => {
             state.appState.pomodoro.activeSubject = nextSubject;
+            state.appState.pomodoro.mode = 'work';
             state.appState.pomodoro.sessions = 1;
             state.appState.pomodoro.completedCycles = 0;
             // B-02 FIX: Zerar minutos acumulados para não inflar a próxima tarefa
