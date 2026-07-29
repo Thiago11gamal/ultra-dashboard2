@@ -230,12 +230,22 @@ export const parseNoonLocal = (input) => {
   if (!input) return null;
   try {
     const key = getDateKey(input);
-    if (!key) return null;
+    if (!key) {
+      const fallback = normalizeDate(input);
+      if (!fallback || Number.isNaN(fallback.getTime())) return null;
+      fallback.setHours(12, 0, 0, 0);
+      return fallback;
+    }
     const [y, m, d] = key.split('-').map(Number);
-    if (!y || !m || !d) return null;
-    return new Date(y, m - 1, d, 12, 0, 0, 0);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+    const fullYear = y >= 0 && y < 100 ? y + 2000 : y;
+    const date = new Date(0);
+    date.setFullYear(fullYear, m - 1, d);
+    date.setHours(12, 0, 0, 0);
+    return date;
   } catch {
     return null;
   }
 };
+
 

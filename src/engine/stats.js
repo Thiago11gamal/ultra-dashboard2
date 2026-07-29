@@ -1129,5 +1129,9 @@ export function calculateSlopePerDay(history, maxScore = 100) {
     return Number.isFinite(slopePerDay) ? slopePerDay : 0;
 }
 
+/**
+ * @deprecated Use calculateSlopePerDay instead. Renomeado no Lote 05 para indicar a unidade explícita [pts/dia].
+ */
 export const calculateTrend = calculateSlopePerDay;
+
 

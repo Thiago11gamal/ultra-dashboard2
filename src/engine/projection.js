@@ -13,7 +13,7 @@ import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian } from './math/gaussian.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
-import { weightedRegression, calculateSlopeStdError, getSortedHistory, calculateTrend } from './stats.js';
+import { weightedRegression, calculateSlopeStdError, getSortedHistory, calculateSlopePerDay, calculateTrend } from './stats.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 export { weightedRegression, calculateSlopeStdError, getSortedHistory };
@@ -268,8 +268,8 @@ export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast 
 // ✅ FIX: calculateSlope com clamp proporcional à escala
 export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options = {}) {
   if (Array.isArray(trendOrHistory)) {
-    const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
     const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
+    const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
     
     const normalizedHistory = trendOrHistory.map(item => {
       if (typeof item === 'number') {
@@ -288,9 +288,12 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
     return calculateAdaptiveSlope(normalizedHistory, maxScore, opts);
   }
   
-  // ✅ FIX: Clamp proporcional à escala da prova
-  const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
-  const absoluteMax = 0.004 * maxScore; // 0.4% da escala por dia
+  // ✅ FIX: Clamp proporcional à amplitude real (maxScore - minScore) da prova
+  const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
+  const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
+  const minScore = Number.isFinite(opts?.minScore) ? Number(opts.minScore) : 0;
+  const range = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
+  const absoluteMax = 0.004 * range; // 0.4% da amplitude real por dia
   
   let slope = Number(trendOrHistory) || 0;
   if (!Number.isFinite(slope)) return 0;
@@ -302,7 +305,7 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
 }
 
 export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
-    const trend = calculateTrend(history, maxScore);
+    const trend = calculateSlopePerDay(history, maxScore);
     return calculateSlope(trend, maxScore, options);
 }
 
@@ -337,7 +340,7 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
                 score: s,
                 date: getDateKey(new Date(Date.now() - (recentRaw.length - 1 - idx) * 7 * 86400000))
             }));
-            const recentTrend = calculateTrend(recentAsObjects, maxScore);
+            const recentTrend = calculateSlopePerDay(recentAsObjects, maxScore);
             const recentSlope = calculateSlope(recentTrend, maxScore, options);
             const slopeMultiplier = recentSlope > 0 ? Math.min(1, recentSlope / (maxScore * 0.01)) : 0;
             
@@ -411,7 +414,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
     let linearSlope = 0;
     if (!(logisticFit.isLogistic && logisticFit.k > 0)) {
-        let trend = calculateTrend(sortedHistory, maxScore);
+        let trend = calculateSlopePerDay(sortedHistory, maxScore);
         linearSlope = calculateSlope(trend, maxScore, options);
     }
 

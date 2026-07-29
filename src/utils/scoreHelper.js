@@ -184,34 +184,47 @@ export function formatValue(value) {
 
 /**
  * Converte qualquer valor em pontos (ScorePoints) no domínio [minScore, maxScore].
+ * Padrão (unit = 'points') assume que val já está em pontos e aplica clamp no intervalo.
  */
-export function toPoints(val, maxScore = 100, minScore = 0) {
+export function toPoints(val, maxScore = 100, minScore = 0, unit = 'points') {
   const v = Number(val);
-  if (!Number.isFinite(v)) return minScore;
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > minScore ? Number(maxScore) : 100;
   const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  if (!Number.isFinite(v)) return safeMin;
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMin ? Number(maxScore) : 100;
   const range = safeMax - safeMin;
 
-  if (v >= 0 && v <= 1 && safeMax > 1) {
+  if (unit === 'pct' || unit === '%') {
+    return Math.max(safeMin, Math.min(safeMax, safeMin + (v / 100) * range));
+  }
+  if (unit === 'ratio') {
     return Math.max(safeMin, Math.min(safeMax, safeMin + v * range));
   }
-  if (safeMax !== 100 && v >= 0 && v <= 100) {
-    return Math.max(safeMin, Math.min(safeMax, safeMin + (v / 100) * range));
+  if (unit === 'auto') {
+    if (v >= 0 && v <= 1 && safeMax > 1) {
+      return Math.max(safeMin, Math.min(safeMax, safeMin + v * range));
+    }
+    if (safeMax !== 100 && v >= 0 && v <= 100) {
+      return Math.max(safeMin, Math.min(safeMax, safeMin + (v / 100) * range));
+    }
   }
   return Math.max(safeMin, Math.min(safeMax, v));
 }
 
 /**
- * Converte pontos (ScorePoints) ou razão (ScoreRatio) em percentual (ScorePct) [0, 100].
+ * Converte valor em percentual (ScorePct) [0, 100].
+ * Padrão (unit = 'points') converte pontos na escala [minScore, maxScore] para % [0, 100].
  */
-export function toPct(val, maxScore = 100, minScore = 0) {
+export function toPct(val, maxScore = 100, minScore = 0, unit = 'points') {
   const v = Number(val);
   if (!Number.isFinite(v)) return 0;
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > minScore ? Number(maxScore) : 100;
   const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMin ? Number(maxScore) : 100;
   const range = safeMax - safeMin;
 
-  if (v >= 0 && v <= 1 && safeMax > 1) {
+  if (unit === 'ratio') {
+    return Math.max(0, Math.min(100, v * 100));
+  }
+  if (unit === 'auto' && v >= 0 && v <= 1 && safeMax > 1) {
     return Math.max(0, Math.min(100, v * 100));
   }
   return Math.max(0, Math.min(100, ((v - safeMin) / range) * 100));
@@ -220,7 +233,20 @@ export function toPct(val, maxScore = 100, minScore = 0) {
 /**
  * Converte qualquer pontuação para razão proporcional (ScoreRatio) [0, 1].
  */
-export function toRatio(val, maxScore = 100, minScore = 0) {
-  return Math.max(0, Math.min(1, toPct(val, maxScore, minScore) / 100));
+export function toRatio(val, maxScore = 100, minScore = 0, unit = 'points') {
+  return Math.max(0, Math.min(1, toPct(val, maxScore, minScore, unit) / 100));
 }
+
+export function pointsToPct(points, maxScore = 100, minScore = 0) {
+  return toPct(points, maxScore, minScore, 'points');
+}
+
+export function pctToPoints(pct, maxScore = 100, minScore = 0) {
+  return toPoints(pct, maxScore, minScore, 'pct');
+}
+
+export function ratioToPoints(ratio, maxScore = 100, minScore = 0) {
+  return toPoints(ratio, maxScore, minScore, 'ratio');
+}
+
 
