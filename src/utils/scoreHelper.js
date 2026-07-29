@@ -237,16 +237,14 @@ export function toRatio(val, maxScore = 100, minScore = 0, unit = 'points') {
   return Math.max(0, Math.min(1, toPct(val, maxScore, minScore, unit) / 100));
 }
 
-export function pointsToPct(points, maxScore = 100, minScore = 0) {
-  return toPct(points, maxScore, minScore, 'points');
-}
+export {
+  ratioToPoints,
+  pctToPoints,
+  pointsToRatio,
+  pointsToPct,
+  toAccuracyRatio,
+  ratioToCorrect
+} from './scoreHelper.conversions.js';
 
-export function pctToPoints(pct, maxScore = 100, minScore = 0) {
-  return toPoints(pct, maxScore, minScore, 'pct');
-}
-
-export function ratioToPoints(ratio, maxScore = 100, minScore = 0) {
-  return toPoints(ratio, maxScore, minScore, 'ratio');
-}
 
 

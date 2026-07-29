@@ -9,35 +9,31 @@ import { normalize, aliases } from '../../../utils/normalization';
 import { Zap, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 const COLORS = {
-    gaugeBg: '#1e293b',    // slate-800
-    gaugeFillValid: '#a855f7', // purple-500
-    gaugeFillDanger: '#ef4444',// red-500
-    gaugeFillSuccess: '#22c55e',// green-500
-    reference: '#94a3b8',  // slate-400
-    neonLine: '#c084fc',   // purple-400
+    gaugeBg: '#1e293b',
+    gaugeFillValid: '#a855f7',
+    gaugeFillDanger: '#ef4444',
+    gaugeFillSuccess: '#22c55e',
+    reference: '#94a3b8',
+    neonLine: '#c084fc',
 };
 
 const CustomTooltipTimeline = ({ active, payload, unit }) => {
     const safeFix = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0).toFixed(1);
-
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
             <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl">
                 <p className="text-slate-300 text-xs font-bold mb-1">{data.displayDate}</p>
-                
                 <p className="text-white text-sm font-black flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.neonLine }}></span>
                     Média: {safeFix(data.accuracy)}{unit}
                 </p>
-                
                 {data.lastTestAcc != null && (
                     <p className="text-white text-sm font-black flex items-center gap-2 mt-1">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.lastTestColor || COLORS.gaugeFillValid }}></span>
                         Último: {safeFix(data.lastTestAcc)}{unit}
                     </p>
                 )}
-
                 <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-wider">{data.total} questões</p>
             </div>
         );
@@ -47,11 +43,9 @@ const CustomTooltipTimeline = ({ active, payload, unit }) => {
 
 const CustomTooltipPie = ({ active, payload, unit }) => {
     const safeFix = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0).toFixed(1);
-
     if (active && payload && payload.length) {
         const data = payload[0].payload;
-        if (data.trueValue == null) return null; // Não mostra se o arco for vazio/sem dados
-        
+        if (data.trueValue == null) return null;
         return (
             <div 
                 className="bg-slate-900 border border-slate-700 p-2 rounded-xl shadow-xl z-50 pointer-events-none"
@@ -75,11 +69,13 @@ export function TodayVsGeneralChart({
     globalMetrics = {}, 
     targetScore = 80,
     maxScore = 100, 
-    minScore = 0,          // ✅ LOTE-01
+    minScore = 0,          // ✅ AUDIT FIX: novo prop (piso da escala)
     unit = '%',
     simuladoRows = []
-}) {
-    // ✅ LOTE-01 FIX: globalAccuracy chega como PERCENTUAL; o gráfico vive em PONTOS.
+ }) {
+    // ✅ AUDIT FIX (CRÍTICO): globalAccuracy chega do useChartData como PERCENTUAL (0-100),
+    // mas este gráfico opera em PONTOS (domain [0,maxScore]; accuracy = correct/total*maxScore).
+    // Converter na fronteira para alinhar unidades ANTES de qualquer comparação/ReferenceLine.
     const generalAccuracy = useMemo(() => {
         const pct = Number(globalMetrics?.globalAccuracy);
         const safePct = Number.isFinite(pct) ? pct : 0;
@@ -89,66 +85,47 @@ export function TodayVsGeneralChart({
     }, [globalMetrics?.globalAccuracy, maxScore, minScore]);
 
     const scale = Math.max(1, Number(maxScore) || 100) / 100;
-    // ✅ LOTE-01 FIX: margens proporcionais à escala (2 pts fixos só valiam em 0–100)
+    // ✅ AUDIT FIX: margens de estabilidade proporcionais à escala (2 pts fixos só valiam em 0-100)
     const stabilityMargin = Math.max(1, ((Number(maxScore) || 100) - (Number(minScore) || 0)) * 0.02);
+
     const [nowMs] = useState(() => Date.now());
     const [todayKey] = useState(() => getDateKey(new Date()));
 
-    // 2. Extrair dados diários agregados (Últimos 14 dias)
     const { dailyData, lastActiveEntry, isToday } = useMemo(() => {
         const dayMap = {};
-        
         activeCategories.forEach(cat => {
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const dKey = getDateKey(h.date || h.createdAt);
                 if (!dKey) return;
-                
                 if (!dayMap[dKey]) dayMap[dKey] = { correct: 0, total: 0 };
-                
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
-
                 const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-
                 const rawScore = getSafeScore(h, safeMaxScore);
-
-                const score = Number.isFinite(rawScore)
-                  ? rawScore
-                  : 0;
-
+                const score = Number.isFinite(rawScore) ? rawScore : 0;
                 if (tot === 0 && h.score != null) {
                   tot = getSyntheticTotal(safeMaxScore);
                   corr = Math.round((score / safeMaxScore) * tot);
                 } else if (tot > 0 && h.correct == null) {
                   corr = Math.round((score / safeMaxScore) * tot);
                 }
-
                 dayMap[dKey].correct += corr;
                 dayMap[dKey].total += tot;
             });
         });
-        
         const sortedDates = Object.keys(dayMap).sort();
         const result = sortedDates.slice(-14).map(date => {
             const [, m, d] = date.split('-');
             const entry = dayMap[date];
             const acc = entry.total > 0 ? (entry.correct / entry.total) * maxScore : 0;
-            return {
-                date,
-                displayDate: `${d}/${m}`,
-                accuracy: acc,
-                total: entry.total,
-            };
+            return { date, displayDate: `${d}/${m}`, accuracy: acc, total: entry.total };
         });
-
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
         const _isToday = lastEntry ? lastEntry.date === todayKey : false;
-
         return { dailyData: result, lastActiveEntry: lastEntry, isToday: _isToday };
     }, [activeCategories, maxScore, todayKey]);
 
-    // Extrair histórico acumulado em múltiplos recortes de tempo
     const temporalMetrics = useMemo(() => {
         const buckets = {
             today: { correct: 0, total: 0 },
@@ -157,69 +134,39 @@ export function TodayVsGeneralChart({
             month3: { correct: 0, total: 0 },
             month6: { correct: 0, total: 0 }
         };
-
         const now = nowMs;
         const ms1Week = 7 * 24 * 60 * 60 * 1000;
         const ms1Month = 30 * 24 * 60 * 60 * 1000;
         const ms3Months = 90 * 24 * 60 * 60 * 1000;
         const ms6Months = 180 * 24 * 60 * 60 * 1000;
-
         activeCategories.forEach(cat => {
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const time = toDateMs(h.date || h.createdAt);
                 if (!time) return;
-                
                 const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-
                 const rawScore = getSafeScore(h, safeMaxScore);
-
-                const score = Number.isFinite(rawScore)
-                  ? rawScore
-                  : 0;
-                
+                const score = Number.isFinite(rawScore) ? rawScore : 0;
                 const hDateKey = getDateKey(h.date || h.createdAt);
-                
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
-
                 if (tot === 0 && h.score != null) {
                     tot = getSyntheticTotal(safeMaxScore);
                     corr = Math.round((score / safeMaxScore) * tot);
                 } else if (tot > 0 && h.correct == null) {
                     corr = Math.round((score / safeMaxScore) * tot);
                 }
-
                 if (tot === 0) return;
-
-                if (hDateKey === todayKey) {
-                    buckets.today.correct += corr;
-                    buckets.today.total += tot;
-                }
-                if (now - time <= ms1Week) {
-                    buckets.week.correct += corr;
-                    buckets.week.total += tot;
-                }
-                if (now - time <= ms1Month) {
-                    buckets.month.correct += corr;
-                    buckets.month.total += tot;
-                }
-                if (now - time <= ms3Months) {
-                    buckets.month3.correct += corr;
-                    buckets.month3.total += tot;
-                }
-                if (now - time <= ms6Months) {
-                    buckets.month6.correct += corr;
-                    buckets.month6.total += tot;
-                }
+                if (hDateKey === todayKey) { buckets.today.correct += corr; buckets.today.total += tot; }
+                if (now - time <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
+                if (now - time <= ms1Month) { buckets.month.correct += corr; buckets.month.total += tot; }
+                if (now - time <= ms3Months) { buckets.month3.correct += corr; buckets.month3.total += tot; }
+                if (now - time <= ms6Months) { buckets.month6.correct += corr; buckets.month6.total += tot; }
             });
         });
 
-        // --- CALCULA "ÚLTIMO" ---
-        // Extrai exatamente o percentual do ÚLTIMO simulado real validado (IA ou Manual)
         let latestAcc = null;
         const safeRowsArray = Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {});
-        
         if (safeRowsArray.length > 0) {
             const activeCategoryMap = new Set();
             activeCategories.forEach(c => {
@@ -232,7 +179,6 @@ export function TodayVsGeneralChart({
                 }
             });
             const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
-            
             const sortedRows = [...safeRowsArray]
                 .filter(r => {
                     if (!r || (!r.createdAt && !r.date) || r.validated === false) return false;
@@ -246,15 +192,12 @@ export function TodayVsGeneralChart({
                     const timeB = new Date(b.createdAt || b.date).getTime();
                     return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
                 });
-
             if (sortedRows.length > 0) {
                 const latestRow = sortedRows[0];
                 latestAcc = getSafeScore(latestRow, maxScore);
             }
         }
-
         const getAcc = (b) => b.total > 0 ? (b.correct / b.total) * maxScore : null;
-
         return [
             { id: 'month6', label: '6 Meses', val: getAcc(buckets.month6), rIn: 70, rOut: 80 },
             { id: 'month3', label: '3 Meses', val: getAcc(buckets.month3), rIn: 82, rOut: 92 },
@@ -275,18 +218,17 @@ export function TodayVsGeneralChart({
             const lastIdx = data.length - 1;
             const prevAcc = data.length > 1 ? data[lastIdx - 1].accuracy : data[0].accuracy;
             data[lastIdx].lastTestAcc = latestAcc;
-            
-            const marginLine = stabilityMargin; // ✅ LOTE-01 FIX
+            const marginLine = stabilityMargin;   // ✅ AUDIT FIX (antes: 2 fixo)
             if (latestAcc < prevAcc - marginLine) {
                 data[lastIdx].lastTestColor = COLORS.gaugeFillDanger;
             } else if (latestAcc > prevAcc + marginLine) {
                 data[lastIdx].lastTestColor = COLORS.gaugeFillValid;
             } else {
-                data[lastIdx].lastTestColor = '#eab308'; // Stable / Yellow
+                data[lastIdx].lastTestColor = '#eab308';
             }
         }
         return data;
-    }, [dailyData, latestAcc]);
+    }, [dailyData, latestAcc, stabilityMargin]);
 
     if (!dailyData || dailyData.length === 0) {
         return (
@@ -300,16 +242,13 @@ export function TodayVsGeneralChart({
     const focusAccuracy = lastActiveEntry ? lastActiveEntry.accuracy : 0;
     const delta = focusAccuracy - generalAccuracy;
     const deltaAbs = Math.abs(delta);
-    
-    // Stable Margin logic for delta
-    const marginDelta = stabilityMargin; // ✅ LOTE-01 FIX
+    const marginDelta = stabilityMargin;   // ✅ AUDIT FIX (antes: 2 fixo)
     let deltaStatus = 'stable';
     if (delta > marginDelta) deltaStatus = 'positive';
     else if (delta < -marginDelta) deltaStatus = 'negative';
 
     const todayMetric = temporalMetrics.find(t => t.id === 'today');
     const todayAcc = todayMetric?.val ?? null;
-
     const deltaLastVsToday = (latestAcc != null && todayAcc != null) ? latestAcc - todayAcc : null;
     let lastVsTodayStatus = 'stable';
     if (deltaLastVsToday !== null) {
@@ -324,14 +263,10 @@ export function TodayVsGeneralChart({
         return '#facc15';
     };
 
-    // Usaremos a cor do arco 'Hoje' para o texto central, ou a cor geral.
-
-    // Helper for safe rendering
     const safeFix = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0).toFixed(1);
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[400px]">
-            {/* Painel Esquerdo: O Velocímetro / Dashboard de Hoje */}
             <div className="w-full lg:w-1/3 min-w-[280px] bg-black/40 border border-slate-700/50 rounded-3xl p-6 flex flex-col items-center justify-center relative shadow-inner overflow-hidden group">
                 <div className="absolute top-4 left-4 flex items-center gap-2">
                     <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
@@ -341,8 +276,6 @@ export function TodayVsGeneralChart({
                         {isToday ? "Sessão de Hoje" : "Última Sessão"}
                     </span>
                 </div>
-
-                {/* Legenda dos Anéis */}
                 <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
                     {temporalMetrics.slice().reverse().map(metric => {
                         if (metric.val == null) {
@@ -366,7 +299,6 @@ export function TodayVsGeneralChart({
                         );
                     })}
                 </div>
-
                 <div className="relative w-[260px] h-[140px] mt-6 flex justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -400,8 +332,6 @@ export function TodayVsGeneralChart({
                             <Tooltip content={<CustomTooltipPie unit={unit} />} cursor={false} offset={0} isAnimationActive={false} />
                         </PieChart>
                     </ResponsiveContainer>
-                    
-                    {/* Texto Central do Gauge */}
                     <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end pb-1 pointer-events-none">
                         <div className="text-4xl sm:text-5xl font-black text-white drop-shadow-lg tabular-nums tracking-tight">
                             {safeFix(focusAccuracy)}<span className="text-xl text-slate-400 ml-1">{unit}</span>
@@ -411,8 +341,6 @@ export function TodayVsGeneralChart({
                         </span>
                     </div>
                 </div>
-
-                {/* Badges de Comparação (Deltas) */}
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
                     <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${
                         deltaStatus === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
@@ -429,7 +357,6 @@ export function TodayVsGeneralChart({
                             <span className="text-[7px] uppercase tracking-wider opacity-70">Geral</span>
                         </div>
                     </div>
-
                     {deltaLastVsToday !== null && (
                         <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${
                             lastVsTodayStatus === 'positive' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' :
@@ -448,8 +375,6 @@ export function TodayVsGeneralChart({
                         </div>
                     )}
                 </div>
-                
-                {/* Info adicional da Meta */}
                 <div className="w-full flex justify-between items-center mt-6 pt-4 border-t border-white/5 px-2">
                     <div className="flex flex-col">
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Média Geral</span>
@@ -461,8 +386,6 @@ export function TodayVsGeneralChart({
                     </div>
                 </div>
             </div>
-
-            {/* Painel Direito: Linha do Tempo Analítica */}
             <div className="w-full lg:w-2/3 flex-1 bg-black/20 border border-slate-700/30 rounded-3xl p-4 sm:p-6 flex flex-col relative">
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex flex-col">
@@ -474,7 +397,6 @@ export function TodayVsGeneralChart({
                         </p>
                     </div>
                 </div>
-                
                 <div className="flex-1 w-full min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: -20, bottom: 10 }}>
@@ -503,8 +425,6 @@ export function TodayVsGeneralChart({
                                 tickFormatter={(v) => `${v}${unit === '%' ? '' : unit}`} 
                             />
                             <Tooltip content={<CustomTooltipTimeline unit={unit} />} cursor={{ stroke: '#ffffff1a', strokeWidth: 2 }} />
-                            
-                            {/* Linha de Referência da Média Geral */}
                             <ReferenceLine 
                                 y={generalAccuracy} 
                                 stroke={COLORS.reference} 
@@ -513,8 +433,6 @@ export function TodayVsGeneralChart({
                                 opacity={0.6}
                                 label={{ position: 'top', value: 'MÉDIA GERAL', fill: COLORS.reference, fontSize: 9, fontWeight: 800, textAnchor: 'end', dx: -10 }}
                             />
-                            
-                            {/* Linha da Evolução Diária */}
                             <Line 
                                 type="monotoneX" 
                                 dataKey="accuracy" 
@@ -535,8 +453,6 @@ export function TodayVsGeneralChart({
                                     fontWeight={700}
                                 />
                             </Line>
-
-                            {/* Barra do Último Simulado (aparece apenas no último dia) */}
                             <Bar dataKey="lastTestAcc" barSize={16} radius={[4,4,0,0]} isAnimationActive={true} animationDuration={1200} fill={COLORS.gaugeFillValid}>
                                 {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.lastTestColor || COLORS.gaugeFillValid} style={{ filter: entry.lastTestColor ? `drop-shadow(0 0 6px ${entry.lastTestColor}80)` : 'none' }} />
