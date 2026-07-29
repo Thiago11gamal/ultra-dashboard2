@@ -246,6 +246,9 @@ export const sanitizeContest = (data) => {
       completedCycles: Number(source.settings?.completedCycles) || 0,
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
+    historicalCutoffs: Array.isArray(source.historicalCutoffs)
+      ? source.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
+      : [],
     // BUG-10 REVERSION: monteCarloHistory MUST be an Array for charts and slices to work.
     // Migration: If it's an object (legacy), convert it to an array of {date, probability}.
     monteCarloHistory: (() => {

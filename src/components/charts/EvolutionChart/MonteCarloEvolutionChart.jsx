@@ -36,7 +36,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                     </div>
                     <div className="mt-2 bg-black/40 rounded-lg border border-white/5 p-2">
                         <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-slate-400">Hoje:</span>
+                            <span className="text-[10px] font-bold text-slate-400">{dataPoint.date === 'Hoje' || dataPoint.date === 'HOJE' ? 'Hoje:' : 'Esperado:'}</span>
                             <span className="text-[10px] font-mono text-white">
                                 {unit === 'horas' ? formatDuration(pointMean) : `${formatValue(pointMean)}${unit}`}
                             </span>

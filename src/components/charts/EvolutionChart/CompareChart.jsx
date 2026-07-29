@@ -6,7 +6,8 @@ import {
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
-import { normalizeDate } from '../../../utils/dateHelper';
+import { normalizeDate, formatDisplayDate } from '../../../utils/dateHelper';
+import { formatValue } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke } = props;
@@ -235,18 +236,14 @@ export function CompareChart({
                     <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
                     <XAxis 
                         dataKey="date" 
-                        tickFormatter={(val) => {
-                            if (!val) return '';
-                            const parts = String(val).split('-');
-                            return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : val;
-                        }}
+                        tickFormatter={formatDisplayDate}
                         tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} 
                         dy={12} 
                         axisLine={false} 
                         tickLine={false} 
                         minTickGap={35} 
                     />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[safeMinScore, safeMaxScore]} allowDataOverflow={false} tickFormatter={(v) => `${v}${unit}`} width={50} />
+                    <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[safeMinScore, safeMaxScore]} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} width={50} />
                     
                     <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
                         label={{ value: `META ${targetScore}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideBottomLeft', dy: -6, dx: 5 }} />
@@ -310,7 +307,7 @@ export function CompareChart({
                         height={30} 
                         stroke="#64748b" 
                         fill="rgba(15, 23, 42, 0.4)" 
-                        tickFormatter={(val) => val ? val.split('-').slice(1).reverse().join('/') : ''}
+                        tickFormatter={formatDisplayDate}
                     />
                 </ComposedChart>
                 </ResponsiveContainer>

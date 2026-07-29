@@ -307,10 +307,10 @@ export default React.memo(function EvolutionChart({
     const projectDays = useMemo(() => {
         if (!goalDate) return 30;
         const now = new Date();
-        now.setHours(0, 0, 0, 0);
+        now.setHours(12, 0, 0, 0);
         const goal = parseGoalDateLocal(goalDate);
         if (!goal) return 30;
-        goal.setHours(0, 0, 0, 0);
+        goal.setHours(12, 0, 0, 0);
         const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
         const safeDays = diffDays > 0 ? diffDays : 1;
         return Math.min(3650, safeDays);

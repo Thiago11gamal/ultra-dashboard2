@@ -35,12 +35,14 @@ export const getDateKey = (rawDate) => {
     const parts = rawDate.split(/[/-]/);
     if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
       // ✅ FIX: Ancora ao meio-dia de Manaus (UTC-4)
+      // eslint-disable-next-line no-restricted-syntax
       date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
     } else {
       date = new Date(rawDate);
     }
   } else if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
     // ✅ FIX: Ancora ao meio-dia de Manaus para evitar shift de dia em UTC
+    // eslint-disable-next-line no-restricted-syntax
     date = new Date(`${rawDate.trim()}T12:00:00-04:00`);
   } else {
     date = new Date(rawDate);
@@ -49,24 +51,22 @@ export const getDateKey = (rawDate) => {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
   
   try {
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: APP_TIMEZONE,
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    });
-    const parts = formatter.formatToParts(date);
-    const p = {};
-    parts.forEach(({ type, value }) => p[type] = value);
-    return `${p.year}-${p.month}-${p.day}`;
+    // ✅ FIX: Formata na timezone explicitamente ligada a Manaus (UTC-4) em vez de UTC genérico
+    const f = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Manaus',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(date);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
   } catch {
-    // ✅ FIX: Fallback usa offset fixo de Manaus em vez de timezone local do browser
-    const utcMs = date.getTime();
-    const manausMs = utcMs - (4 * 60 * 60 * 1000);
-    const manausDate = new Date(manausMs);
-    const year = manausDate.getUTCFullYear();
-    const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(manausDate.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    // ignore
   }
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 export const getLocalMidnight = (date = new Date()) => {
@@ -78,6 +78,7 @@ export const getLocalMidnight = (date = new Date()) => {
       return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
     }
     // ✅ FIX: Offset fixo de Manaus (-04:00) em vez de timezone local
+    // eslint-disable-next-line no-restricted-syntax
     return new Date(`${dateKey}T00:00:00-04:00`);
   } catch {
     // Fallback: extrair componentes UTC e ancorar em Manaus (UTC-4)
@@ -88,8 +89,9 @@ export const getLocalMidnight = (date = new Date()) => {
 
 export const formatDisplayDate = (dateStr) => {
   if (!dateStr) return '';
-  const parts = String(dateStr).split('-');
-  if (parts.length < 3) return dateStr;
+  const cleanStr = String(dateStr).split('T')[0];
+  const parts = cleanStr.split('-');
+  if (parts.length < 3) return cleanStr;
   return `${parts[2]}/${parts[1]}`;
 };
 
@@ -105,12 +107,14 @@ export const normalizeDate = (raw) => {
     const parts = raw.split(/[/-]/);
     if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
       // ✅ FIX: Ancora ao meio-dia de Manaus
+      // eslint-disable-next-line no-restricted-syntax
       d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
     } else {
       d = new Date(raw);
     }
   } else if (typeof raw === 'string') {
     // ✅ FIX: Strings YYYY-MM-DD ancoradas ao meio-dia de Manaus
+    // eslint-disable-next-line no-restricted-syntax
     d = isDateOnly ? new Date(`${raw}T12:00:00-04:00`) : new Date(raw);
   } else {
     d = new Date(raw);

@@ -1,7 +1,7 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
-import { getLocalMidnight, getDateKey } from '../utils/dateHelper';
+import { getLocalMidnight, getDateKey, parseNoonLocal } from '../utils/dateHelper';
 import { motion as Motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useActiveContest, usePomodoroState } from '../store/useSelectors';
@@ -71,7 +71,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let lastDate = null;
 
         sortedDays.forEach(dayStr => {
-            const current = new Date(`${dayStr}T12:00:00`).getTime();
+            const current = parseNoonLocal(dayStr).getTime();
             if (lastDate) {
                 const diffDays = Math.round((current - lastDate) / 86400000);
                 currentStreak = (diffDays === 1) ? currentStreak + 1 : 1;

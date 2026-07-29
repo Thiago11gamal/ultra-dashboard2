@@ -1,5 +1,5 @@
 import { getXPProgress } from './gamification.js';
-import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
+import { normalizeDate, getLocalMidnight, getDateKey, parseNoonLocal, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
 import { format } from 'date-fns';
 import { toFinite } from '../engine/math/safe.js';
@@ -56,7 +56,7 @@ export const calculateStudyStreak = (studyLogs) => {
   );
 
   const sortedDays = Array.from(daySet).sort((a, b) =>
-    new Date(`${b}T12:00:00-04:00`) - new Date(`${a}T12:00:00-04:00`)
+    parseNoonLocal(b) - parseNoonLocal(a)
   );
 
   // ✅ FIX: Se não há dias válidos após filter, retornar zeros
@@ -69,8 +69,8 @@ export const calculateStudyStreak = (studyLogs) => {
   const lastDayStr = sortedDays[0];
 
   // Comparação via strings YYYY-MM-DD (imune a timezone)
-  const t = new Date(`${todayStr}T12:00:00-04:00`);
-  const l = new Date(`${lastDayStr}T12:00:00-04:00`);
+  const t = parseNoonLocal(todayStr);
+  const l = parseNoonLocal(lastDayStr);
   const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
 
   if (diffDays >= 2) {
@@ -79,7 +79,7 @@ export const calculateStudyStreak = (studyLogs) => {
   }
 
   let streak = 0;
-  let dateCursor = new Date(`${lastDayStr}T12:00:00-04:00`);
+  let dateCursor = parseNoonLocal(lastDayStr);
   for (let i = 0; i < sortedDays.length * 2; i++) {
     const dString = getDateKey(dateCursor);
     if (daySet.has(dString)) {
@@ -101,8 +101,8 @@ const calculateLongest = (uniqueDays) => {
     let current = 1;
     // uniqueDays está ordenado DECRESCENTE — iteramos do mais recente ao mais antigo
     for (let i = 1; i < uniqueDays.length; i++) {
-        const dCurrent = new Date(`${uniqueDays[i]}T12:00:00`);
-        const dPrev = new Date(`${uniqueDays[i - 1]}T12:00:00`);
+        const dCurrent = parseNoonLocal(uniqueDays[i]);
+        const dPrev = parseNoonLocal(uniqueDays[i - 1]);
         const diff = Math.round((dPrev - dCurrent) / (1000 * 60 * 60 * 24));
         if (diff === 1) {
             current++;

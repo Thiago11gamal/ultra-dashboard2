@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toPoints, toPct, toRatio, pointsToPct, pctToPoints, ratioToPoints } from '../src/utils/scoreHelper.js';
+import { toPoints, toPct, pointsToPct, pctToPoints } from '../src/utils/scoreHelper.js';
 import { calculateSlope } from '../src/engine/projection.js';
 import { parseNoonLocal } from '../src/utils/dateHelper.js';
 

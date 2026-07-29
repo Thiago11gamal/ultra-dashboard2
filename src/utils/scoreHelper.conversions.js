@@ -21,7 +21,7 @@ function safeDomain(maxScore, minScore) {
 
 /** Razão [0,1] → pontos na escala [minScore, maxScore]. */
 export function ratioToPoints(ratio, maxScore, minScore = 0) {
-  const { max, min, range } = safeDomain(maxScore, minScore);
+  const { min, range } = safeDomain(maxScore, minScore);
   return min + clamp(toNum(ratio, 0), 0, 1) * range;
 }
 

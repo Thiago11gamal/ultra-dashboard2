@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
-import { normalizeDate } from '../../../utils/dateHelper';
+import { normalizeDate, formatDisplayDate } from '../../../utils/dateHelper';
 import { formatValue } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
@@ -273,11 +273,7 @@ export function EvolutionLineChart({
 
                     <XAxis
                         dataKey="date"
-                        tickFormatter={(val) => {
-                            if (!val) return '';
-                            const parts = String(val).split('-');
-                            return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : val;
-                        }}
+                        tickFormatter={formatDisplayDate}
                         tick={{ fontSize: 9, fill: '#64748b', fontWeight: 500 }}
                         dy={10}
                         axisLine={{ stroke: '#334155', strokeWidth: 1 }}
@@ -415,7 +411,7 @@ export function EvolutionLineChart({
                         height={30} 
                         stroke="#64748b" 
                         fill="rgba(15, 23, 42, 0.4)" 
-                        tickFormatter={(val) => val ? val.split('-').slice(1).reverse().join('/') : ''}
+                        tickFormatter={formatDisplayDate}
                     />
                 </ComposedChart>
                 </ResponsiveContainer>

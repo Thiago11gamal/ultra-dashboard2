@@ -79,6 +79,8 @@ export default function MonteCarloGauge({
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const activeUser = useAppStore(state => state.appState?.contests?.[activeId]?.user);
+    const historicalCutoffs = useAppStore(state => state.appState?.contests?.[activeId]?.historicalCutoffs) || [];
+    const setHistoricalCutoffs = useAppStore(state => state.setHistoricalCutoffs);
 
     // Prioritize sync prop if provided
     const showPerSubject = syncShowSubjects !== undefined ? syncShowSubjects : localShowPerSubject;
@@ -463,6 +465,8 @@ export default function MonteCarloGauge({
                     user={activeUser}
                     minScore={minScore}
                     maxScore={maxScore}
+                    historicalCutoffs={historicalCutoffs}
+                    setHistoricalCutoffs={setHistoricalCutoffs}
                 />
             )}
         </div>

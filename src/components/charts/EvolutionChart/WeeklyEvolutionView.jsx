@@ -7,7 +7,8 @@ import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
-import { APP_TIMEZONE } from '../../../utils/dateHelper';
+import { APP_TIMEZONE, parseNoonLocal } from '../../../utils/dateHelper';
+import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
 
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) => {
     if (active && payload && payload.length) {
@@ -86,7 +87,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
 
 const getMondayStr = (dateStr) => {
     const dt = typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr.trim())
-      ? new Date(`${dateStr.trim()}T12:00:00${APP_TIMEZONE}`)
+      ? parseNoonLocal(dateStr)
         : new Date(dateStr);
     if (isNaN(dt.getTime())) return null;
     const day = dt.getDay();
@@ -213,8 +214,8 @@ export const WeeklyEvolutionView = ({
         const scoreRange = Math.max(1e-9, upperBound - lowerBound);
         // ✅ LOTE-02 FIX: 2 pts de estabilidade só fazem sentido em 0–100
         const stableThreshold = Math.max(0.5, scoreRange * 0.02);
-        const toRatio = (score) => (Math.max(lowerBound, Math.min(upperBound, Number(score) || lowerBound)) - lowerBound) / scoreRange;
-        const fromRatio = (ratio) => lowerBound + (Math.max(0, Math.min(1, Number(ratio) || 0)) * scoreRange);
+        const toRatio = (score) => pointsToRatio(score, upperBound, lowerBound);
+        const fromRatio = (ratio) => ratioToPoints(ratio, upperBound, lowerBound);
         const weeksTemp = {};
 
         const processHistory = (historyArray, itemId) => {
