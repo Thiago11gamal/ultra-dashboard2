@@ -211,6 +211,8 @@ export const WeeklyEvolutionView = ({
         const lowerBound = Math.min(safeMinScore, safeMaxScore);
         const upperBound = Math.max(safeMinScore, safeMaxScore);
         const scoreRange = Math.max(1e-9, upperBound - lowerBound);
+        // ✅ LOTE-02 FIX: 2 pts de estabilidade só fazem sentido em 0–100
+        const stableThreshold = Math.max(0.5, scoreRange * 0.02);
         const toRatio = (score) => (Math.max(lowerBound, Math.min(upperBound, Number(score) || lowerBound)) - lowerBound) / scoreRange;
         const fromRatio = (ratio) => lowerBound + (Math.max(0, Math.min(1, Number(ratio) || 0)) * scoreRange);
         const weeksTemp = {};
@@ -299,7 +301,7 @@ export const WeeklyEvolutionView = ({
                         const safeDelta = Number.isFinite(currentPct - prevPct) ? (currentPct - prevPct) : 0;
                         const delta = Number(safeDelta.toFixed(2));
 
-                        const isStable = Math.abs(delta) <= 2;
+                        const isStable = Math.abs(delta) <= stableThreshold;   // antes: <= 2
                         dataPoint[`delta_${id}`] = delta;
                         dataPoint[`deltaColor_${id}`] = isStable ? '#eab308' : (delta > 0 ? '#10b981' : '#ef4444');
 

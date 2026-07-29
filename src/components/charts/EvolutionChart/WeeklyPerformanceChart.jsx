@@ -96,7 +96,9 @@ const WeeklyPerformanceChart = ({
         if (!(active && payload && payload.length)) return null;
 
         // Dedup para evitar que Line e Area sobrepostos com o mesmo dataKey apareçam duas vezes
-        const uniquePayload = payload.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+        const uniquePayload = payload
+            .filter((v) => !String(v.name || '').startsWith('_'))   // ✅ LOTE-02
+            .filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
 
         return (
             <div className="bg-slate-950/80 border border-white/10 p-3 sm:p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl">
@@ -221,10 +223,13 @@ const WeeklyPerformanceChart = ({
                             yAxisId="right"
                             type="monotoneX"
                             dataKey="acertos"
+                            name="_acertos_area"                 // ✅ LOTE-02
                             stroke="none"
                             fill={`url(#areaGrad_${instanceId})`}
                             animationDuration={1500}
                             connectNulls={true}
+                            legendType="none"
+                            tooltipType="none" // ✅ LOTE-02
                         />
 
                         {/* Bottom Layer: Glow effect */}
@@ -232,7 +237,7 @@ const WeeklyPerformanceChart = ({
                             yAxisId="right"
                             type="monotoneX"
                             dataKey="acertos"
-                            name="acertos_glow"
+                            name="_acertos_glow"                 // ✅ LOTE-02
                             stroke="#34d399"
                             strokeWidth={7}
                             strokeOpacity={0.3}
@@ -242,6 +247,7 @@ const WeeklyPerformanceChart = ({
                             animationDuration={1500}
                             connectNulls={true}
                             legendType="none"
+                            tooltipType="none" // ✅ LOTE-02
                         />
                         {/* Top Layer: Main Line */}
                         <Line

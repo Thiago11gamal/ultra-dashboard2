@@ -6,9 +6,10 @@ import { getSyntheticTotal } from '../../../utils/scoreHelper';
 
 const formatTime = (s) => {
     if (s == null || !Number.isFinite(Number(s))) return 'N/A';
-    const safe = Math.max(0, Number(s));
-    const m = Math.floor(safe / 60);
-    const sec = Math.round(safe % 60);
+    // ✅ LOTE-02 FIX: arredondar ANTES de separar minutos/segundos
+    const total = Math.round(Math.max(0, Number(s)));
+    const m = Math.floor(total / 60);
+    const sec = total % 60;
     return m === 0 ? `${sec}s` : sec === 0 ? `${m}m` : `${m}m ${String(sec).padStart(2, '0')}s`;
 };
 

@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
     computeCategoryStats
 } from "../engine";
+import { runMonteCarloAnalysis } from "../engine/monteCarlo";   // ✅ LOTE-02 (fallback)
 import { useChartData } from "../hooks/useChartData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
-import { getDateKey, toDateMs } from "../utils/dateHelper";
+import { getDateKey, toDateMs, normalizeDate } from "../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";
@@ -162,11 +163,13 @@ function buildPredictiveCompareData(
       const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
       const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
 
-      // ✅ FIX: Criar NOVO Date a cada iteração a partir da data base
-      const baseDate = new Date(`${String(pts[lastIdx].date || '')}T12:00:00-04:00`);
-      if (Number.isNaN(baseDate.getTime())) return pts;
+      // ✅ LOTE-02 FIX: parse local normalizado (o "-04:00" fixo virava o dia em outros fusos)
+      const baseParsed = normalizeDate(pts[lastIdx].date);
+      if (!baseParsed || Number.isNaN(baseParsed.getTime())) return pts;
+      const baseMs = baseParsed.setHours(12, 0, 0, 0);
+
       const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
-      const dt = new Date(baseDate.getTime() + forwardDays * 24 * 60 * 60 * 1000);
+      const dt = new Date(baseMs + forwardDays * 24 * 60 * 60 * 1000);
       const iso = getDateKey(dt);
 
       futurePoints.push({
@@ -387,6 +390,10 @@ export default React.memo(function EvolutionChart({
     const currentFocusLevel = focusCategory ? categoryLevels[focusCategory.id] : undefined;
 
     useEffect(() => {
+        // ✅ LOTE-02 FIX: não disparar o worker em engines que não usam MC
+        const isMcEngine = activeEngine === "compare" || activeEngine === "mc_density";
+        if (!isMcEngine) { setMcLoading(false); return; }
+
         if (!focusCategory?.id || !Array.isArray(historyArray) || historyArray.length === 0) {
             setMcLoading(false);
             return;
@@ -460,9 +467,11 @@ export default React.memo(function EvolutionChart({
                 setMcResult({ ...result, categoryId: focusCategory?.id });
 
                 const lastDateStr = hist[hist.length - 1].date;
-                const lastDate = new Date(`${lastDateStr}T12:00:00-04:00`);
+                // ✅ LOTE-02 FIX: sem timezone hardcoded
+                const lastDate = normalizeDate(lastDateStr);
 
-                if (Number.isNaN(lastDate.getTime())) return;
+                if (!lastDate || Number.isNaN(lastDate.getTime())) return;
+                lastDate.setHours(12, 0, 0, 0);
 
                 const nextDate = new Date(lastDate);
                 nextDate.setDate(nextDate.getDate() + (projectDays || 30));
@@ -479,6 +488,25 @@ export default React.memo(function EvolutionChart({
                 });
             } catch (err) {
                 console.warn('[EvolutionChart] Worker MC falhou, tentando sync:', err);
+                // ✅ LOTE-02 FIX: fallback síncrono real (o catch era vazio)
+                if (!cancelled) {
+                    try {
+                        const fallback = runMonteCarloAnalysis({
+                            values: hist,
+                            dates: hist.map((h) => h.date),
+                            meta: targetScore,
+                            simulations: 1500,
+                            projectionDays: projectDays,
+                            minScore,
+                            maxScore,
+                            currentMean: currentFocusLevel,
+                            forcedBaseline: currentFocusLevel
+                        });
+                        if (fallback) setMcResult({ ...fallback, categoryId: focusCategory?.id });
+                    } catch (syncErr) {
+                        console.error('[EvolutionChart] Fallback sync MC falhou:', syncErr);
+                    }
+                }
             } finally {
                 if (!cancelled) setMcLoading(false);
             }
@@ -496,7 +524,8 @@ export default React.memo(function EvolutionChart({
         projectDays,
         runAnalysis,
         minScore,
-        maxScore
+        maxScore,
+        activeEngine   // ✅ LOTE-02
     ]);
 
     const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;

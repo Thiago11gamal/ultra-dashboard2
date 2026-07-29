@@ -5,7 +5,7 @@ import {
     LineChart, Line, Legend
 } from "recharts";
 import { normalizeDate, getDateKey, formatDisplayDate } from "../../../utils/dateHelper";
-import { getSafeScore, formatValue } from "../../../utils/scoreHelper";
+import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import { ChartFrame } from "../ChartFrame";
 
 const CustomTooltipStyle = {
@@ -105,7 +105,9 @@ export const SubtopicsPerformanceChart = React.memo(({
     const accuracyUnit = '%';
     
     const range = maxScore - minScore;
-    const targetScorePct = range > 0 ? ((targetScore - minScore) / range) * 100 : 0;
+    const targetScorePct = range > 0
+        ? Math.max(0, Math.min(100, ((targetScore - minScore) / range) * 100))   // ✅ LOTE-02
+        : 0;
 
     const renderLineTooltip = useCallback(
         (props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />,
@@ -156,7 +158,9 @@ export const SubtopicsPerformanceChart = React.memo(({
                         topicMap[key] = { name: n, correct: 0, total: 0 };
                     }
 
-                    const total = parseInt(t.total, 10) || 0;
+                    let total = parseInt(t.total, 10) || 0;
+                    // ✅ LOTE-02 FIX: entradas percentuais recebem volume sintético (antes eram descartadas)
+                    if (total === 0 && t.score != null) total = getSyntheticTotal(maxScore);
                     if (total === 0) return;
                     
                     const safeMaxScore = Math.max(1, Number(maxScore) || 100);
@@ -236,7 +240,9 @@ export const SubtopicsPerformanceChart = React.memo(({
                     const topicName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
                     
-                    const total = parseInt(t.total, 10) || 0;
+                    let total = parseInt(t.total, 10) || 0;
+                    // ✅ LOTE-02 FIX: entradas percentuais recebem volume sintético (antes eram descartadas)
+                    if (total === 0 && t.score != null) total = getSyntheticTotal(maxScore);
                     if (total === 0) return;
 
                     topicVolumeMap[topicName] = (topicVolumeMap[topicName] || 0) + total;

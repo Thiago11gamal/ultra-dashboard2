@@ -17,10 +17,11 @@ function ActivityHeatmap({ studyLogs = [] }) {
 
 
     const currentMonth = useMemo(() => {
-        const base = new Date();
+        // ✅ LOTE-02 FIX: base em `now` (o intervalo de 60s já força re-render)
+        const base = new Date(now.getFullYear(), now.getMonth(), 1);
         return monthOffset < 0 ? subMonths(base, Math.abs(monthOffset)) :
             monthOffset > 0 ? addMonths(base, monthOffset) : base;
-    }, [monthOffset]);
+    }, [monthOffset, now]);
 
     const calendarData = useMemo(() => {
         const start = startOfMonth(currentMonth);

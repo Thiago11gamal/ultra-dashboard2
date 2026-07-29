@@ -91,12 +91,18 @@ export const MonteCarloEvolutionChart = ({
     const [scenario, setScenario] = useState('base');
     const scenarioLabels = useMemo(() => Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel])), []);
 
+    // ✅ LOTE-02 FIX: ReferenceArea com y1 > maxScore é inválido; meta deve viver no domínio
+    const safeTargetScore = useMemo(() => {
+        const t = Number(targetScore);
+        return Math.max(minScore, Math.min(maxScore, Number.isFinite(t) ? t : minScore));
+    }, [targetScore, minScore, maxScore]);
+
     const targetOffset = useMemo(() => {
         const range = maxScore - minScore;
         if (range <= 0) return 0;
-        const pct = 1 - (targetScore - minScore) / range;
+        const pct = 1 - (safeTargetScore - minScore) / range;
         return Math.max(0, Math.min(1, pct));
-    }, [targetScore, maxScore, minScore]);
+    }, [safeTargetScore, maxScore, minScore]);
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
@@ -157,8 +163,8 @@ export const MonteCarloEvolutionChart = ({
     // M1 FIX: Callback estável para o Tooltip — arrow function inline criaria nova referência
     // a cada render, quebrando a memoização do Recharts e causando re-renders desnecessários.
     const renderTooltip = useCallback(
-        (props) => <MonteCarloTooltip {...props} unit={unit} targetScore={targetScore} maxScore={maxScore} minScore={minScore} />,
-        [unit, targetScore, maxScore, minScore]
+        (props) => <MonteCarloTooltip {...props} unit={unit} targetScore={safeTargetScore} maxScore={maxScore} minScore={minScore} />,
+        [unit, safeTargetScore, maxScore, minScore]
     );
 
     if (formattedData.length === 0) {
@@ -221,7 +227,7 @@ export const MonteCarloEvolutionChart = ({
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-black/40 border border-white/5">
                         <Target size={12} className="text-slate-500" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
-                            Meta: <strong className="text-white">{unit === 'horas' ? formatDuration(targetScore) : unit === '%' ? formatValue(targetScore) : targetScore} {unit}</strong>
+                            Meta: <strong className="text-white">{unit === 'horas' ? formatDuration(safeTargetScore) : unit === '%' ? formatValue(safeTargetScore) : safeTargetScore} {unit}</strong>
                             <small className="text-slate-500 ml-1">({scenarioLabels[scenario]})</small>
                         </span>
                     </div>
@@ -277,9 +283,9 @@ export const MonteCarloEvolutionChart = ({
                             <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
                             
                             {/* Glowing Target Zone */}
-                            <ReferenceArea y1={targetScore} y2={maxScore} fill={`url(#targetGlow-${rawId})`} />
+                            <ReferenceArea y1={safeTargetScore} y2={maxScore} fill={`url(#targetGlow-${rawId})`} />
                             <ReferenceLine 
-                                y={targetScore} 
+                                y={safeTargetScore} 
                                 stroke="#10b981" 
                                 strokeDasharray="4 2" 
                                 strokeWidth={1.5}

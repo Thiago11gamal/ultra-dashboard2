@@ -88,23 +88,29 @@ export function CompareChart({
             ? safeSpace / Math.max(1, yPos.length - 1) 
             : MIN_PCT_DISTANCE;
 
-        // Pass 1: Espaçamento de cima para baixo
-        for (let i = 1; i < yPos.length; i++) {
-            if (yPos[i - 1].yPos - yPos[i].yPos < effectiveDistance) {
-                yPos[i].yPos = yPos[i - 1].yPos - effectiveDistance;
+        // ✅ LOTE-02 FIX: os 3 passes sequenciais podiam estourar o teto logo após
+        // corrigir o chão. Relaxamento iterativo com re-cheque de limites.
+        for (let iter = 0; iter < 15; iter++) {
+            let moved = false;
+            for (let i = 1; i < yPos.length; i++) {
+                if (yPos[i - 1].yPos - yPos[i].yPos < effectiveDistance) {
+                    const mid = (yPos[i - 1].yPos + yPos[i].yPos) / 2;
+                    yPos[i - 1].yPos = mid + effectiveDistance / 2;
+                    yPos[i].yPos = mid - effectiveDistance / 2;
+                    moved = true;
+                }
             }
-        }
-
-        // Pass 2: Chão - Recupera caso tenha vazado pelo fundo
-        if (yPos.length > 0 && yPos[yPos.length - 1].yPos < bottomLimit) {
-            const shift = bottomLimit - yPos[yPos.length - 1].yPos;
-            yPos.forEach(p => p.yPos += shift);
-        }
-
-        // Pass 3: Teto - Previne estourar o gráfico pra cima e cortar label
-        if (yPos.length > 0 && yPos[0].yPos > topLimit) {
-            const shift = yPos[0].yPos - topLimit;
-            yPos.forEach(p => p.yPos -= shift);
+            if (yPos[0].yPos > topLimit) {
+                const shift = yPos[0].yPos - topLimit;
+                yPos.forEach(p => p.yPos -= shift);
+                moved = true;
+            }
+            if (yPos[yPos.length - 1].yPos < bottomLimit) {
+                const shift = bottomLimit - yPos[yPos.length - 1].yPos;
+                yPos.forEach(p => p.yPos += shift);
+                moved = true;
+            }
+            if (!moved) break;
         }
 
         return yPos;
@@ -165,28 +171,14 @@ export function CompareChart({
         const offset = getOffset(type, value, index, viewBox);
         const xOff = isMc ? 12 : 10;
         const formatted = (Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2) + unit;
+        const boxWidth = Math.max(42, formatted.length * 7 + 14);   // ✅ LOTE-02 (42px cortava "1200.00%")
         return (
             <g>
-                <rect
-                    x={x + xOff - 2}
-                    y={y - 10 + offset}
-                    width={42}
-                    height={20}
-                    rx={10}
-                    fill={color}
-                    fillOpacity={0.15}
-                    stroke={color}
-                    strokeOpacity={0.4}
-                />
-                <text 
-                    x={x + xOff + 19} 
-                    y={y + 4 + offset} 
-                    fill={color} 
-                    fontSize={11} 
-                    fontWeight="black" 
-                    textAnchor="middle"
-                    style={{ textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}
-                >
+                <rect x={x + xOff - 2} y={y - 10 + offset} width={boxWidth} height={20} rx={10}
+                      fill={color} fillOpacity={0.15} stroke={color} strokeOpacity={0.4} />
+                <text x={x + xOff - 2 + boxWidth / 2} y={y + 4 + offset} fill={color} fontSize={11}
+                      fontWeight="black" textAnchor="middle"
+                      style={{ textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}>
                     {formatted}
                 </text>
             </g>
