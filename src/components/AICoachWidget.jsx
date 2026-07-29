@@ -7,33 +7,46 @@ import {
     Clock, CheckCircle2, Database, Flame, Loader2
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import { displaySubject } from '../utils/displaySubject';
+import { displaySubject, displayTopic } from '../utils/displaySubject';
 import { getCalibrationKey } from '../utils/coachSafe.js';
+import { RX_REC_MARKUP } from '../utils/coachText';
 
 // FIX-BUG-02: Regex com escape correto para **, !!, ++
 function renderRecommendation(text, depth = 0) {
   if (depth > 6) return String(text || '');
+
   const safeText = String(text || '');
-  const parts = safeText.split(/(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g).filter(Boolean);
+  const parts = safeText.split(RX_REC_MARKUP).filter(Boolean);
 
   return parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
-        <strong key={`rec-${idx}`} className="text-white not-italic drop-shadow-[0_0_8px_currentColor]">
+        <strong
+          key={`rec-${idx}`}
+          className="text-white not-italic drop-shadow-[0_0_8px_currentColor]"
+        >
           {renderRecommendation(part.slice(2, -2), depth + 1)}
         </strong>
       );
     }
+
     if (part.startsWith('!!') && part.endsWith('!!') && part.length >= 4) {
       return (
-        <span key={`rec-${idx}`} className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">
+        <span
+          key={`rec-${idx}`}
+          className="text-rose-500 font-bold drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]"
+        >
           {renderRecommendation(part.slice(2, -2), depth + 1)}
         </span>
       );
     }
+
     if (part.startsWith('++') && part.endsWith('++') && part.length >= 4) {
       return (
-        <span key={`rec-${idx}`} className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">
+        <span
+          key={`rec-${idx}`}
+          className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+        >
           {renderRecommendation(part.slice(2, -2), depth + 1)}
         </span>
       );
@@ -127,26 +140,47 @@ function MonteCarloGauge({ mc, maxScore = 100 }) {
 
   const safeMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
 
-  const toPct = (value, fallback) => {
+  const clampPct = (value) => Math.min(100, Math.max(0, Number(value) || 0));
+
+  const prob = clampPct(mc.probability);
+
+  const toScorePct = (value) => {
     const n = Number(value);
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(100, Math.max(0, (n / safeMax) * 100));
+    if (!Number.isFinite(n)) return null;
+    return clampPct((n / safeMax) * 100);
   };
 
-  const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
-  const prob = Math.min(100, Math.max(0, rawProb));
+  let low = toScorePct(mc.ci95Low);
+  let high = toScorePct(mc.ci95High);
 
-  const low = mc.ci95Low != null ? toPct(mc.ci95Low, prob - 5) : Math.max(0, prob - 5);
-  const high = mc.ci95High != null ? toPct(mc.ci95High, prob + 5) : Math.min(100, prob + 5);
+  if (low == null || high == null) {
+    low = Math.max(0, prob - 5);
+    high = Math.min(100, prob + 5);
+  }
+
+  if (low > high) {
+    [low, high] = [high, low];
+  }
 
   const volatility = Number.isFinite(Number(mc.volatility)) ? Number(mc.volatility) : 0;
+  const highVolThreshold = 8 * (safeMax / 100);
+  const isHighVol = volatility > highVolThreshold;
 
-  const isCritical = prob < (mc.thresholds?.danger ?? 30);
+  const danger = Number(mc.thresholds?.danger) || 30;
+  const safe = Number(mc.thresholds?.safe) || 90;
+
+  const isCritical = prob < danger;
+  const isSafe = prob >= safe;
+
   const color = isCritical
     ? 'bg-red-400'
-    : prob >= (mc.thresholds?.safe ?? 90)
+    : isSafe
       ? 'bg-emerald-400'
       : 'bg-indigo-400';
+
+  const hasConformal =
+    Number.isFinite(Number(mc.conformalLow)) &&
+    Number.isFinite(Number(mc.conformalHigh));
 
   return (
     <Motion.div
@@ -161,16 +195,24 @@ function MonteCarloGauge({ mc, maxScore = 100 }) {
       <div className="relative z-10 flex justify-between items-end mb-2">
         <div>
           <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">
-            Projeção MC (Matéria)
+            Projeção MC
           </span>
-          <span className="text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
+          <span className="text-2xl font-black text-white tracking-tighter">
+            {Math.round(prob)}%
+          </span>
         </div>
 
         <div className="text-right">
           <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">
             Volatilidade
           </span>
-          <span className="text-xs font-mono font-bold text-amber-400">±{Math.round(volatility)} pts</span>
+          <span
+            className={`text-xs font-mono font-bold ${
+              isHighVol ? 'text-amber-400' : 'text-slate-300'
+            }`}
+          >
+            ±{Math.round(volatility)} pts
+          </span>
         </div>
       </div>
 
@@ -178,13 +220,13 @@ function MonteCarloGauge({ mc, maxScore = 100 }) {
         <Motion.div
           initial={{ width: 0 }}
           animate={{ left: `${low}%`, width: `${Math.max(0, high - low)}%` }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
+          transition={{ duration: 1.5, ease: 'easeOut' }}
           className="absolute top-0 bottom-0 bg-white/10 rounded-full"
         />
         <Motion.div
           initial={{ left: 0 }}
           animate={{ left: `${Math.min(97, Math.max(1, prob))}%` }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
+          transition={{ duration: 1.5, ease: 'easeOut' }}
           className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
         />
       </div>
@@ -194,16 +236,38 @@ function MonteCarloGauge({ mc, maxScore = 100 }) {
           <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">
             Pior Cenário
           </span>
-          <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(low)}%</span>
+          <span className="text-[10px] font-mono font-bold text-slate-400">
+            {Math.round(low)}%
+          </span>
         </div>
 
         <div className="flex flex-col text-right">
           <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">
             Teto Probabilístico
           </span>
-          <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(high)}%</span>
+          <span className="text-[10px] font-mono font-bold text-slate-400">
+            {Math.round(high)}%
+          </span>
         </div>
       </div>
+
+      {hasConformal && (
+        <div className="mt-3 text-[10px] text-cyan-200/80 border border-cyan-400/15 bg-cyan-500/5 rounded-lg px-3 py-2">
+          Intervalo calibrado:{' '}
+          <span className="font-mono font-bold">
+            {Number(mc.conformalLow).toFixed(0)}%–{Number(mc.conformalHigh).toFixed(0)}%
+          </span>
+        </div>
+      )}
+
+      {Number.isFinite(Number(mc.effectiveMCTarget)) && (
+        <div className="mt-2 text-[10px] text-slate-400">
+          Meta operacional:{' '}
+          <span className="font-bold text-slate-200">
+            {Math.round((Number(mc.effectiveMCTarget) / safeMax) * 100)}%
+          </span>
+        </div>
+      )}
     </Motion.div>
   );
 }
@@ -322,7 +386,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                         <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl border text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>
                                             <Target size={16} />
                                             <span className="truncate max-w-[200px] sm:max-w-[300px]" title={typeof topic === 'string' ? topic : topic?.name}>
-                                                {typeof topic === 'string' ? topic : (topic?.name || 'Tópico Geral')}
+                                                {displayTopic(typeof topic === 'string' ? topic : (topic?.name || 'Tópico Geral'))}
                                             </span>
                                         </div>
                                     )}

@@ -18,6 +18,7 @@ import {
 import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { computeAgilityMetrics } from '../engine/stats.js';
+import { cleanCoachTags } from './coachText.js';
 import { safeArray, getCalibrationKey } from './coachSafe.js';
 
 export {
@@ -2043,9 +2044,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const deduplicatedTasks = allGeneratedTasks.filter(t => {
         const rawText = String(t.text || t.title || '');
         const catNameLower = String(t.catName || t.category || '').trim().toLowerCase();
-        let cleanTitle = rawText
-            .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
-            .replace(/\[ALERTA MESTRE\]\s*/i, '')
+        let cleanTitle = cleanCoachTags(rawText)
             .replace(/Revisão Geral Complementar.*$/i, 'Revisão Geral')
             .replace(/Revisão Complementar.*$/i, 'Revisão Geral')
             .trim()

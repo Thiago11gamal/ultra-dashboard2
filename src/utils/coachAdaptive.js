@@ -132,6 +132,12 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
  * Calcula o boost contínuo de urgência baseado na probabilidade Monte Carlo.
  * 
  * ✅ CORREÇÃO BUG #1: Suavização C¹ contínua usando smoothstep.
+const toFiniteCfg = (value, fallback) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+/**
  * Elimina descontinuidades na derivada que causavam "saltos visuais"
  * quando a probabilidade cruzava o limiar de perigo.
  */
@@ -140,16 +146,16 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
   const p = Math.max(0, Math.min(100, Number(probability) || 0));
   const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER || 30));
   const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE || 90));
-  
+
   const maxDangerBoost = (Number(cfg.MC_BOOST_DANGER_BASE) || 12) + (Number(cfg.MC_BOOST_DANGER_RANGE) || 13);
   const baseDangerBoost = Number(cfg.MC_BOOST_DANGER_BASE) || 12;
-  const minBoost = Number(cfg.MC_BOOST_SAFE_PENALTY) || -8;
-  
+  const minBoost = toFiniteCfg(cfg.MC_BOOST_SAFE_PENALTY, -8);
+
   // ✅ CORREÇÃO BUG #1: Função smoothstep para interpolação C¹ contínua
   const smoothstep = (x) => x * x * (3 - 2 * x);
-  
+
   let boost = 0;
-  
+
   if (p <= d) {
     // Zona Crítica (0% até Perigo): Escala de maxDangerBoost (25) descendo até baseDangerBoost (12)
     const ratio = d > 0 ? Math.max(0, Math.min(1, p / d)) : 0;
@@ -164,18 +170,18 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
     // Modo Cruzeiro (>= Segurança): Fixo no alívio de -8
     boost = minBoost;
   }
-  
+
   // MATH-FIX: Se a volatilidade for alta, reduzimos o 'alívio' (boost negativo).
   const lowVolLimit = (Number(cfg.MC_VOLATILITY_HIGH || 8) * 0.7) * (safeMaxScore / 100);
   if (Number.isFinite(volatility) && volatility >= lowVolLimit && boost < 0) {
     boost *= 0.25;
   }
-  
+
   let riskLabel = 'ok';
   if (p <= d) riskLabel = 'critical';
   else if (p < s) riskLabel = 'moderate';
-  else if (p >= s && boost < 0) riskLabel = 'safe';
-  
+  else riskLabel = 'safe';
+
   return {
     boost: Number(boost.toFixed(4)),
     riskLabel
@@ -373,27 +379,37 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   
   const lowSampleThreshold = Math.max(Number(cfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (cfg.MC_MIN_DATA_POINTS || 5) + 2);
   const isLowSample = history.length < lowSampleThreshold || dataIssues > 0;
-  
-  // ✅ CORREÇÃO BUG #3: Penalty conservador para amostras pequenas
-  const lowSamplePenalty = history.length < 8 
-    ? Math.min(0.15, (8 - history.length) * 0.02) 
-    : 0;
-  
-  const sumCorrect = (relevantSimulados || []).reduce((a, s) => a + getSafeScore(s, maxScore), 0);
-  const sequenceChecksum = (relevantSimulados || []).reduce((acc, sim, idx) => {
-    const score = getSafeScore(sim, maxScore);
-    const date = String(sim?.date || sim?.createdAt || '');
-    const subject = String(sim?.subject || '');
+  const neutralPct = toFiniteCfg(cfg.MC_CALIBRATION_NEUTRAL_PCT, 50);
+  const maxAppliedPenalty = toFiniteCfg(cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
+
+  const sumCorrect = history.reduce((acc, h) => acc + Number(h.score || 0), 0);
+
+  const sequenceChecksum = history.reduce((acc, h, idx) => {
+    const score = Number(h.score || 0);
+    const date = String(h?.date || '');
+    const subject = String(h?.subject || '');
+
     let charSum = 0;
     const token = `${date}|${subject}`;
-    for (let i = 0; i < token.length; i++) charSum += token.charCodeAt(i);
+
+    for (let i = 0; i < token.length; i++) {
+      charSum += token.charCodeAt(i);
+    }
+
     return acc + ((idx + 1) * Math.round(score * 100)) + charSum;
   }, 0);
-  
+
   const firstDate = history[0]?.date || '';
   const lastDate = history[history.length - 1]?.date || '';
   const calibHash = `${cfg.MC_CALIBRATION_BRIER_BASELINE ?? ''}-${cfg.MC_CALIBRATION_MAX_PENALTY ?? ''}-${cfg.MC_CALIBRATION_NEUTRAL_PCT ?? ''}-${cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY ?? ''}-${cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false}`;
-  const adaptiveHash = adaptive ? `${adaptive.mcSimulations || 0}-${adaptive.decayK || 0}` : 'no-adapt';
+  const adaptiveHash = adaptive
+    ? [
+        adaptive.mcSimulations || 0,
+        adaptive.decayK || 0,
+        Number(adaptive.calibrationBaseline || 0).toFixed(4),
+        Number(adaptive.calibrationMaxPenalty || 0).toFixed(4)
+      ].join('-')
+    : 'no-adapt';
   const cfgHash = hashString(JSON.stringify({
     cap: cfg.MC_SIMULATION_CAP,
     force: cfg.MC_FORCE_MAX_SIMULATIONS,
@@ -432,7 +448,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       safeTargetScore,
       days,
       safeSimulations,
-      { maxScore, agilityPenalty, globalBaselinePct: cfg.MC_CALIBRATION_NEUTRAL_PCT }
+      { maxScore, agilityPenalty, globalBaselinePct: neutralPct }
     );
     
     const enableAdaptiveCalibration = cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false;
@@ -480,7 +496,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             safeTargetScore,
             gapDays,
             Math.min(500, Math.max(200, Math.floor(safeSimulations * 0.35))),
-            { maxScore }
+            { maxScore, agilityPenalty, globalBaselinePct: neutralPct }
           );
           
           const p = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
@@ -525,9 +541,6 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       }
     }
     
-    // ✅ CORREÇÃO BUG #3: Aplicar penalty de amostra pequena
-    calibrationPenalty = Math.max(calibrationPenalty, lowSamplePenalty);
-    
     let isotonicModel = [];
     let stackingWeights = [0.34, 0.33, 0.33];
     
@@ -549,30 +562,35 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       (stackingWeights[2] || 0) * bbqProb01
     ));
     
+    const lowSampleShrink = history.length < lowSampleThreshold
+      ? Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold)
+      : 0;
+
+    const anomalyShrink = Math.min(0.2, dataIssues * 0.05);
+
+    const totalShrink = Math.min(
+      0.65,
+      calibrationPenalty + lowSampleShrink + anomalyShrink
+    );
+
     const probability = enableAdaptiveCalibration
       ? shrinkProbabilityToNeutral(
           stackedProb01 * 100,
-          calibrationPenalty,
-          cfg.MC_CALIBRATION_NEUTRAL_PCT || 50,
-          cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY || 0.5
+          totalShrink,
+          neutralPct,
+          maxAppliedPenalty
         )
       : (stackedProb01 * 100);
     
-    const extraLowSampleShrink = isLowSample
-      ? Math.min(
-          0.9,
-          Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold) * (1 / dataQuality)
-        )
-      : 0;
-    
-    const adjustedProbability = isLowSample
-      ? shrinkProbabilityToNeutral(probability, extraLowSampleShrink, cfg.MC_CALIBRATION_NEUTRAL_PCT || 50, 0.5)
-      : probability;
-    
-    const ciLow = Number(result.ci95Low) || 0;
-    const ciHigh = Number(result.ci95High) || 0;
+    let ciLow = Number(result.ci95Low) || 0;
+    let ciHigh = Number(result.ci95High) || 0;
+
+    if (ciLow > ciHigh) {
+      [ciLow, ciHigh] = [ciHigh, ciLow];
+    }
+
     const ciMid = (ciLow + ciHigh) / 2;
-    const ciExpand = isLowSample ? (1 + Math.max(0, extraLowSampleShrink * 1.8)) : 1;
+    const ciExpand = 1 + Math.max(0, totalShrink * 1.2);
     const widenedCiLow = Math.max(0, ciMid - ((ciMid - ciLow) * ciExpand));
     const widenedCiHigh = Math.min(maxScore, ciMid + ((ciHigh - ciMid) * ciExpand));
     
@@ -580,7 +598,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     
     const finalResult = {
       diagnostics: result?.diagnostics || null,
-      probability: adjustedProbability,
+      probability,
+      probabilityRaw: stackedProb01 * 100,
+      shrinkTotal: Number(totalShrink.toFixed(4)),
+      lowSampleShrink: Number(lowSampleShrink.toFixed(4)),
+      anomalyShrink: Number(anomalyShrink.toFixed(4)),
+      targetScore: safeTargetScore,
       volatility: (Number(result.volatility) || 0) * (1 + (enableAdaptiveCalibration ? calibrationPenalty * 0.8 : 0)),
       mean: result.mean,
       ci95Low: widenedCiLow,
@@ -590,7 +613,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       ece,
       reliability,
       sampleSize: history.length,
-      lowSampleAdjustment: Number(extraLowSampleShrink.toFixed(4)),
+      lowSampleAdjustment: Number(totalShrink.toFixed(4)),
       conformalLow: Number((conformal.low * 100).toFixed(2)),
       conformalHigh: Number((conformal.high * 100).toFixed(2)),
       conformalQ: Number(conformal.qHat.toFixed(4)),

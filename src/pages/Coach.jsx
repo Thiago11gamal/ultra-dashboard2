@@ -21,7 +21,11 @@ import {
 } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 import { useNavigate } from 'react-router-dom';
-import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
+import {
+  logCalibrationTelemetryEvent,
+  getCalibrationTelemetrySummary,
+  clearCalibrationTelemetry
+} from '../utils/calibrationTelemetry';
 import {
   CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS
 } from '../utils/calibration.js';
@@ -652,6 +656,8 @@ export default function Coach() {
               <div className="hidden sm:block w-px h-6 bg-white/10" />
               <MonteCarloDebugger stats={mcStats} />
               <div className="w-px h-6 bg-white/10" />
+              <CalibrationAuditPopover />
+              <div className="w-px h-6 bg-white/10" />
               <QuickStat
                 label="Tendência"
                 value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
@@ -736,6 +742,63 @@ export default function Coach() {
         </div>
       </div>
     </PageErrorBoundary>
+  );
+}
+
+function CalibrationAuditPopover({ categoryId = null }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId, isOpen]);
+
+  if (!import.meta.env.DEV && summary.count === 0) return null;
+
+  return (
+    <div className="relative font-mono text-[11px] select-none shrink-0">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex flex-col min-w-[70px] sm:min-w-[75px] text-left hover:opacity-85 transition-all active:scale-95 group focus:outline-none"
+        title="Auditoria de Calibração Monte Carlo"
+      >
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span className="text-sky-400 opacity-80 group-hover:animate-pulse">
+            <ShieldCheck size={14} />
+          </span>
+          <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">TELEMETRIA</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-black text-sky-400 tracking-tighter">
+            {summary.count}x
+          </span>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-4 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-64 space-y-2 z-[9999] animate-fade-in">
+          <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
+            <span className="text-xs font-bold text-white">Telemetria MC</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); clearCalibrationTelemetry(); setIsOpen(false); }}
+              className="text-[9px] text-rose-400 hover:underline"
+            >
+              Limpar
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-2 items-center text-[10px]">
+            <span className="text-slate-500">Amostras</span>
+            <span className="text-right font-medium text-sky-400">{summary.count}</span>
+
+            <span className="text-slate-500">Brier Médio</span>
+            <span className="text-right font-medium text-emerald-400">
+              {summary.avgBrier !== null ? summary.avgBrier.toFixed(4) : 'N/A'}
+            </span>
+
+            <span className="text-slate-500">Penalidade Média</span>
+            <span className="text-right font-medium text-amber-400">
+              {summary.avgPenalty !== null ? `${(summary.avgPenalty * 100).toFixed(1)}%` : '0.0%'}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

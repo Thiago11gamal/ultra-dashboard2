@@ -13,16 +13,27 @@ import { exportComponentAsPDF } from '../utils/pdfExport';
 import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { useToast } from '../hooks/useToast';
+import { isSystemAlertTask, parseCoachTask, RX_BOLD } from '../utils/coachText';
 
 // FIX-BUG-02: Regex com escape correto para **bold**
 function renderBoldText(text) {
   const safeText = String(text || '');
-  const parts = safeText.split(/(\*\*.*?\*\*)/g).filter(Boolean);
+  const parts = safeText.split(RX_BOLD).filter(Boolean);
+
   return parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-      return <strong key={`bold-${idx}`} className="text-white font-black">{part.slice(2, -2)}</strong>;
+      return (
+        <strong key={`bold-${idx}`} className="text-white font-black">
+          {part.slice(2, -2)}
+        </strong>
+      );
     }
-    return <React.Fragment key={`bold-${idx}`}>{part.replace(/\*\*/g, '')}</React.Fragment>;
+
+    return (
+      <React.Fragment key={`bold-${idx}`}>
+        {part.replace(/\*\*/g, '')}
+      </React.Fragment>
+    );
   });
 }
 
@@ -35,50 +46,24 @@ const CARD_COLORS = [
   { accent: 'border-l-amber-500', dot: 'bg-amber-500', badge: 'bg-amber-500/10 text-amber-300 border-amber-500/20', glow: 'from-amber-900/20', btnHover: 'hover:bg-amber-500 hover:text-amber-950 hover:border-amber-400 hover:shadow-[0_0_20px_-3px_rgba(245,158,11,0.4)]' },
 ];
 
-function AICoachCard({ task, idx, categories, onStartPomodoro }) {
+function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const fullText = task?.text || task?.title || '';
+  const parsed = parseCoachTask({ ...task, text: fullText }, categories);
 
-  const separatorIndex = fullText.indexOf(':');
-  const hasDetails = separatorIndex !== -1;
+  const subjectPart = parsed.subject;
+  const actionPart = parsed.action;
+  const isSystemAlert = parsed.isSystemAlert;
 
-  const rawSubject = String(
-    task?.subjectName || task?.category || task?.catName ||
-    (hasDetails ? fullText.slice(0, separatorIndex) : fullText)
-  );
-
-  let subjectPart = rawSubject.replace(/Foco em /i, '').trim();
-  let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : fullText;
-
-  const isSystemAlert = /\[ALERTA MESTRE\]/i.test(actionPart);
   const isSrsTask = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
   const isSafeTask = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
   const isChaosTask = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
-  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert || (task?.priority === 'high' && !isSrsTask && !isSafeTask && !isChaosTask);
 
-  actionPart = actionPart
-    .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
-    .replace(/\[ALERTA MESTRE\]\s*/i, '')
-    .replace(/^\[(.*?)\]/i, '$1')
-    .replace(/Revisão Geral Complementar(\s*\(Volume\s*\d+\))?|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./gi, '')
-    .trim();
+  const isPriority = parsed.priority === 'high' || isSrsTask || isSafeTask || isChaosTask;
 
-  const isIdenticalToSubject = actionPart.toLowerCase() === subjectPart.toLowerCase();
-  if (isIdenticalToSubject && !task?.topicName && !task?.analysis?.label && !task?.analysis?.reason) {
-    actionPart = 'Revisão Geral';
-  }
-
-  let topicPart = subjectPart;
-  let systemAlertMessage = null;
-
-  if (isSystemAlert) {
-    systemAlertMessage = actionPart;
-    actionPart = '';
-    if (!topicPart) topicPart = rawSubject;
-  }
-
-  const displayAssunto = task?.topicName || actionPart || topicPart || 'Revisão Recomendada';
-  const displayMeta = actionPart && actionPart !== displayAssunto ? actionPart : null;
+  const systemAlertMessage = isSystemAlert ? (parsed.action || parsed.topic) : null;
+  const displayAssunto = parsed.topic;
+  const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
 
   const col = CARD_COLORS[idx % CARD_COLORS.length];
 
@@ -86,11 +71,15 @@ function AICoachCard({ task, idx, categories, onStartPomodoro }) {
   const safeProb = Number(safeProbRaw) || 0;
   const safeVol = Number(task.analysis?.monteCarlo?.volatility) || 0;
 
-  const isCompleted = Boolean(task?.completed || task?.status === 'completed');
-  const isStudying = task?.status === 'studying';
-  const isSrs = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
-  const isSafe = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
-  const isChaos = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+  const safeMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const highVolThreshold = 8 * (safeMax / 100);
+  const isHighVol = safeVol > highVolThreshold;
+
+  const isCompleted = parsed.isCompleted;
+  const isStudying = parsed.isStudying;
+  const isSrs = isSrsTask;
+  const isSafe = isSafeTask;
+  const isChaos = isChaosTask;
 
   return (
     <div
@@ -125,32 +114,31 @@ function AICoachCard({ task, idx, categories, onStartPomodoro }) {
                 <span>⚡ Em Estudo</span>
               </div>
             ) : isPriority ? (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-rose-500/10 text-rose-300 shadow-[0_0_20px_-2px_rgba(225,29,72,0.5)] border border-rose-500/40 shrink-0 relative group/badge">
-                <div className="absolute inset-0 bg-rose-400/20 blur-md animate-pulse" />
-                <Target size={12} className="shrink-0 relative z-10 text-rose-400" />
-                <span className="relative z-10 text-rose-200">Alvo Prioritário</span>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-rose-500/10 text-rose-300 border border-rose-500/30 shrink-0">
+                <span>⚡ Alta Prioridade</span>
               </div>
-            ) : isSrs ? (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">
-                <span>🔄 Revisão SRS</span>
+            ) : null}
+
+            {isSrs && (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-sky-500/10 text-sky-300 border border-sky-500/30 shrink-0">
+                <span>🧠 Flashcard SRS</span>
               </div>
-            ) : isSafe ? (
+            )}
+
+            {isSafe && (
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
                 <span>🛡️ Manutenção</span>
               </div>
-            ) : isChaos ? (
+            )}
+
+            {isChaos && (
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">
-                <span>🌪️ Oscilação</span>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-slate-800/60 text-slate-400 border border-white/5 shrink-0">
-                <span>⏳ Pendente</span>
+                <span>⚡ Oscilação</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* FIX-A11Y-02: aria-label no botão de play */}
         <button
           onClick={(e) => { e.stopPropagation(); onStartPomodoro(task); }}
           aria-label={`Iniciar sessão de estudo: ${displaySubject(subjectPart, categories)}`}
@@ -166,31 +154,30 @@ function AICoachCard({ task, idx, categories, onStartPomodoro }) {
       </div>
 
       <div className="relative z-10 flex-1 mb-5">
-        <h3 className="text-[17px] sm:text-xl font-black text-white leading-[1.2] mb-1.5 tracking-tighter line-clamp-4">
-          {displayAssunto}
-        </h3>
+        {systemAlertMessage ? (
+          <h4 className="text-sm sm:text-base font-extrabold text-amber-300 tracking-tight leading-snug">
+            ⚠️ {renderBoldText(systemAlertMessage)}
+          </h4>
+        ) : (
+          <>
+            {displayAssunto && (
+              <h4 className="text-base sm:text-lg font-black text-white tracking-tight leading-snug">
+                {renderBoldText(displayAssunto)}
+              </h4>
+            )}
 
-        {systemAlertMessage && (
-          <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-2.5 shadow-[inset_0_0_15px_rgba(225,29,72,0.05)]">
-            <AlertCircle size={14} className="text-rose-400 mt-0.5 shrink-0" />
-            <span className="text-[11px] sm:text-[12px] text-rose-300/90 leading-relaxed font-medium">
-              {systemAlertMessage}
-            </span>
-          </div>
-        )}
-
-        {displayMeta && (
-          <div className="relative mt-2">
-            <p className="text-[11px] sm:text-[12px] text-slate-400/80 leading-relaxed font-medium line-clamp-3 pr-2">
-              {displayMeta}
-            </p>
-          </div>
+            {displayMeta && (
+              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-2xl font-medium">
+                {renderBoldText(displayMeta)}
+              </p>
+            )}
+          </>
         )}
       </div>
 
-      {task.analysis?.monteCarlo && (
+      {(task.analysis?.monteCarlo?.probability != null || safeVol > 0) && (
         <div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
-          <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi hover:bg-white/[0.04] transition-colors">
+          <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
             <div className="flex items-center justify-between z-10 relative">
               <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
               <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(safeProb)}%</span>
@@ -202,13 +189,13 @@ function AICoachCard({ task, idx, categories, onStartPomodoro }) {
 
           <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
             <div className="flex items-center justify-between z-10 relative">
-              <span className={`text-[9px] font-black tracking-widest uppercase ${safeVol > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
-              <span className={`font-mono text-xs font-bold ${safeVol > 8 ? 'text-amber-300' : 'text-slate-300'}`}>
+              <span className={`text-[9px] font-black tracking-widest uppercase ${isHighVol ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
+              <span className={`font-mono text-xs font-bold ${isHighVol ? 'text-amber-300' : 'text-slate-300'}`}>
                 {safeVol > 0 && safeVol < 0.5 ? '<1' : `±${Math.round(safeVol)}`}
               </span>
             </div>
             <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-              <div className={`h-full rounded-full transition-all duration-1000 ${safeVol > 8 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (safeVol / 20) * 100))}%` }} />
+              <div className={`h-full rounded-full transition-all duration-1000 ${isHighVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (safeVol / 20) * 100))}%` }} />
             </div>
           </div>
         </div>
@@ -286,6 +273,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
   const categories = activeContest?.categories || [];
+  const safeMaxScore = Number(activeContest?.maxScore) > 0 ? Number(activeContest.maxScore) : 100;
 
   const coachPlanner = useMemo(() => {
     const raw = activeContest?.coachPlanner || {};
@@ -302,12 +290,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
   }, [activeContest?.coachPlan]);
 
   const systemAlerts = useMemo(
-    () => coachPlanRaw.filter(task => /\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')),
+    () => coachPlanRaw.filter(task => isSystemAlertTask(task?.text || task?.title || '')),
     [coachPlanRaw]
   );
 
   const actionableTasks = useMemo(
-    () => coachPlanRaw.filter(task => !/\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')),
+    () => coachPlanRaw.filter(task => !isSystemAlertTask(task?.text || task?.title || '')),
     [coachPlanRaw]
   );
 
@@ -518,6 +506,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                       task={task}
                       idx={idx}
                       categories={categories}
+                      maxScore={safeMaxScore}
                       onStartPomodoro={handleStartNeural}
                     />
                   ))}
@@ -564,16 +553,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             {systemAlerts.length > 0 && (
               <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {systemAlerts.map((alertTask, idx) => {
-                  const rawText = alertTask.text || alertTask.title || '';
-                  const cleanText = rawText
-                    .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
-                    .replace(/\[ALERTA MESTRE\]\s*/i, '')
-                    .replace(/\[STATUS\]\s*/i, '');
-
-                  const separatorIndex = cleanText.indexOf(':');
-                  const rawSubjectAlert = alertTask.subjectName || alertTask.category || (separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema');
-                  const subjectName = displaySubject(rawSubjectAlert, categories);
-                  const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
+                  const parsedAlert = parseCoachTask(alertTask, categories);
+                  const cleanText = alertTask.text || alertTask.title || '';
+                  const subjectName = parsedAlert.subject;
+                  const message = parsedAlert.action || cleanText;
 
                   let type = 'info';
                   let titlePart = message;

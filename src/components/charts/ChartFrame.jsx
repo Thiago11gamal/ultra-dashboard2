@@ -57,9 +57,8 @@ export default function ChartFrame({
       {/* Placeholder vivo — só some quando o chart tem onde nascer */}
       <div
         aria-hidden={ready}
-        className={`absolute inset-0 grid place-items-center transition-opacity duration-500 ${
-          ready ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
+        className={`absolute inset-0 grid place-items-center transition-opacity duration-500 ${ready ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
       >
         {/* camada ambient: varredura sutil, sem gradiente de "AI hero" */}
         <div className="absolute inset-0 bg-[#0b0e18]" />
@@ -85,9 +84,8 @@ export default function ChartFrame({
 
       {/* O gráfico só monta com área válida — adeus, width(-1) */}
       <div
-        className={`relative h-full w-full transition-all duration-500 ${
-          ready ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.98]'
-        }`}
+        className={`relative h-full w-full transition-all duration-500 ${ready ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.98]'
+          }`}
       >
         {ready ? children : null}
       </div>

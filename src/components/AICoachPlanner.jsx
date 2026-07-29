@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
+import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
 
 // FIX-CODE-10: Removidos espaços extras nas classes Tailwind
 const DAYS = [
@@ -22,42 +23,21 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   const sanitizeHtml = (str) => typeof str === 'string' ? str.replace(/<[^>]*>?/gm, '').trim() : '';
   const rawText = task.text || task.title || '';
   const fullText = sanitizeHtml(rawText) || rawText;
-  const parts = fullText.split(':');
-  const hasDetails = parts.length > 1;
 
-  let subject = String(task.subjectName || task.category || task.catName || (hasDetails ? parts[0] : fullText));
-  let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
+  const parsed = parseCoachTask({ ...task, text: fullText }, categories);
 
-  subject = subject.replace(/Foco em /i, '').trim();
+  const subject = parsed.subjectRaw;
+  const actionPart = parsed.action;
+  const isSystemAlert = parsed.isSystemAlert;
 
-  const isSystemAlert = /\[ALERTA MESTRE\]|\[STATUS\]/i.test(actionPart);
   const isSrsCard = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
   const isSafeCard = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
   const isChaosCard = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
-  const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert || (task?.priority === 'high' && !isSrsCard && !isSafeCard && !isChaosCard);
 
-  actionPart = actionPart
-    .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
-    .replace(/\[ALERTA MESTRE\]\s*/i, '')
-    .replace(/\[STATUS\]\s*/i, '')
-    .trim();
+  const isPriority = parsed.priority === 'high' || isSrsCard || isSafeCard || isChaosCard;
 
-  let topicLabel = '';
-  const bracketMatch = actionPart.match(/^\[(.*?)\]\s*(.*)$/i);
-  if (bracketMatch) {
-    topicLabel = bracketMatch[1].trim();
-    actionPart = bracketMatch[2].trim();
-  }
-
-  let displayTopic = task.topicName || topicLabel || actionPart || subject || 'Revisão Recomendada';
-  if (displayTopic.toLowerCase() === subject.toLowerCase() && !task.topicName && !task.analysis?.label && !task.analysis?.reason) {
-    displayTopic = 'Revisão Geral';
-  }
-  let secondaryText = actionPart && actionPart !== displayTopic ? actionPart : '';
-
-  if (/Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
-    secondaryText = '';
-  }
+  let displayTopic = parsed.topic;
+  let secondaryText = parsed.action && parsed.action !== parsed.topic ? parsed.action : '';
 
   const cardBg = !isBacklog && dayTheme ? dayTheme.cardBg : 'bg-white/[0.02]';
   const cardBorder = !isBacklog && dayTheme ? dayTheme.cardBorder : 'border-white/[0.05]';
@@ -173,8 +153,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
     const activeBacklog = (coachPlan || []).filter(t => {
       if (!t) return false;
-      const rawStr = t.text || t.title || '';
-      if (/\[ALERTA MESTRE\]|\[STATUS\]/i.test(rawStr)) return false;
+      if (isSystemAlertTask(t)) return false;
       const sid = getSafeId(t);
       return !allAssignedIds.has(sid);
     });
@@ -224,8 +203,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
     const systemAlerts = (coachPlan || []).filter(t => {
       if (!t) return false;
-      const rawString = t.text || t.title || '';
-      return /\[ALERTA MESTRE\]|\[STATUS\]/i.test(rawString);
+      return isSystemAlertTask(t);
     });
 
     const newCoachPlan = [

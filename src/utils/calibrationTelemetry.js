@@ -42,3 +42,47 @@ export function logCalibrationTelemetryEvent(metric) {
         // best effort telemetry
     }
 }
+
+export function getCalibrationTelemetrySummary(categoryId = null) {
+  try {
+    const currentRaw = JSON.parse(localStorage.getItem(TELEMETRY_KEY) || '[]');
+    const current = Array.isArray(currentRaw) ? currentRaw : [];
+    const filtered = categoryId
+      ? current.filter(item => String(item.categoryId) === String(categoryId))
+      : current;
+
+    if (filtered.length === 0) {
+      return {
+        count: 0,
+        avgBrier: null,
+        avgPenalty: null,
+        lastTimestamp: null
+      };
+    }
+
+    const totalBrier = filtered.reduce((sum, item) => sum + Number(item.avgBrier || 0), 0);
+    const totalPenalty = filtered.reduce((sum, item) => sum + Number(item.calibrationPenalty || 0), 0);
+
+    return {
+      count: filtered.length,
+      avgBrier: Number((totalBrier / filtered.length).toFixed(4)),
+      avgPenalty: Number((totalPenalty / filtered.length).toFixed(4)),
+      lastTimestamp: filtered[filtered.length - 1]?.timestamp || null
+    };
+  } catch {
+    return {
+      count: 0,
+      avgBrier: null,
+      avgPenalty: null,
+      lastTimestamp: null
+    };
+  }
+}
+
+export function clearCalibrationTelemetry() {
+  try {
+    localStorage.removeItem(TELEMETRY_KEY);
+  } catch {
+    // ignore
+  }
+}
