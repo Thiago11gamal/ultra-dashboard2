@@ -410,6 +410,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                 : 'bg-slate-800/40 text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800'
                             }`}
                         title="Ordenar pelas matérias mais lentas"
+                        aria-pressed={sortOrder === 'slower'}
                     >
                         🐢 Mais Lentas
                     </button>
@@ -420,6 +421,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                                 : 'bg-slate-800/40 text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800'
                             }`}
                         title="Ordenar pelas matérias mais rápidas"
+                        aria-pressed={sortOrder === 'faster'}
                     >
                         ⚡ Mais Rápidas
                     </button>

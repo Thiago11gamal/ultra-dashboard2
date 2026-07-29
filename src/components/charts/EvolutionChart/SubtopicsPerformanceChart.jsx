@@ -335,12 +335,14 @@ export const SubtopicsPerformanceChart = React.memo(({
                     <button
                         onClick={() => setViewMode('bars')}
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
+                        aria-pressed={viewMode === 'bars'}
                     >
                         Ranking (Barras)
                     </button>
                     <button
                         onClick={() => setViewMode('lines')}
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'lines' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
+                        aria-pressed={viewMode === 'lines'}
                     >
                         Tempo (Linhas)
                     </button>
