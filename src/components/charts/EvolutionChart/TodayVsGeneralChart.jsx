@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
+import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 import { normalize, aliases } from '../../../utils/normalization';
 import { Zap, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
@@ -188,8 +189,8 @@ export function TodayVsGeneralChart({
                     return subjMatches || idMatches;
                 })
                 .sort((a, b) => {
-                    const timeA = new Date(a.createdAt || a.date).getTime();
-                    const timeB = new Date(b.createdAt || b.date).getTime();
+                    const timeA = toDateMs(a.createdAt || a.date);
+                    const timeB = toDateMs(b.createdAt || b.date);
                     return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
                 });
             if (sortedRows.length > 0) {
@@ -197,7 +198,7 @@ export function TodayVsGeneralChart({
                 latestAcc = getSafeScore(latestRow, maxScore);
             }
         }
-        const getAcc = (b) => b.total > 0 ? (b.correct / b.total) * maxScore : null;
+        const getAcc = (b) => b.total > 0 ? ratioToPoints(b.correct / b.total, maxScore, minScore) : null;
         return [
             { id: 'month6', label: '6 Meses', val: getAcc(buckets.month6), rIn: 70, rOut: 80 },
             { id: 'month3', label: '3 Meses', val: getAcc(buckets.month3), rIn: 82, rOut: 92 },
@@ -206,7 +207,7 @@ export function TodayVsGeneralChart({
             { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 115, rOut: 122 },
             { id: 'last', label: 'Último', val: latestAcc, rIn: 124, rOut: 130 }
         ];
-    }, [activeCategories, maxScore, nowMs, todayKey, simuladoRows]);
+    }, [activeCategories, maxScore, minScore, nowMs, todayKey, simuladoRows]);
 
     const lastMetric = temporalMetrics.find(t => t.id === 'last');
     const latestAcc = lastMetric?.val ?? null;

@@ -1,12 +1,16 @@
 import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
+import { pointsToPct } from '../../../utils/scoreHelper.conversions';
 
-export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100 }) {
+export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100, minScore = 0 }) {
     const safeMax = Math.max(1, Number(maxScore) || 100);   // ✅ LOTE-03
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const val = level || 0;
     const ok = val >= target;
-    const mid = val >= target * 0.75;
+    const midThreshold = safeMin + (target - safeMin) * 0.75;
+    const mid = val >= midThreshold;
     const statusColor = ok ? '#22c55e' : mid ? '#f59e0b' : '#ef4444';
+    const progressWidth = Math.max(0, Math.min(100, pointsToPct(val, safeMax, safeMin)));
 
     const rawVal = metrics ? metrics[`raw_${cat.id}`] : null;
     const statsVal = metrics ? metrics[`stats_${cat.id}`] : null;
@@ -23,7 +27,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
             {/* Progress Bar (Bottom) */}
             <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-800/60 overflow-hidden">
-                <div className="h-full transition-all duration-700" style={{ width: `${(val / safeMax) * 100}%`, backgroundColor: statusColor }} />
+                <div className="h-full transition-all duration-700" style={{ width: `${progressWidth}%`, backgroundColor: statusColor }} />
             </div>
 
             <div className="relative z-10 flex items-center justify-end mb-2 w-full">

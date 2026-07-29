@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper.js';
 import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper.js';
+import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions.js';
 
 const WeeklyPerformanceChart = ({
     categories = [],
@@ -19,9 +20,11 @@ const WeeklyPerformanceChart = ({
     showOnlyFocus = false,
     focusSubjectId = null,
     maxScore = 100,
+    minScore = 0,
     unit = '%'
 }) => {
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeUnit = typeof unit === 'string' && unit.length <= 4 ? unit : '%';
     const instanceId = useId().replace(/:/g, "");
     const barGradId = `wp_barGrad_${instanceId}`;
@@ -67,7 +70,8 @@ const WeeklyPerformanceChart = ({
                         if (q < 1) return; 
 
                         const score = getSafeScore(h, safeMaxScore);
-                        const weightedCorrect = (score / safeMaxScore) * q;
+                        const ratio = pointsToRatio(score, safeMaxScore, safeMinScore);
+                        const weightedCorrect = ratio * q;
                         if (!Number.isFinite(weightedCorrect)) return;
                         correctTotal += weightedCorrect;
                         questionsTotal += q;
@@ -75,11 +79,11 @@ const WeeklyPerformanceChart = ({
                 });
             });
 
-            const acertosRaw = questionsTotal > 0 ? (correctTotal / questionsTotal) * safeMaxScore : null;
-            const safeAcertosRaw = Number.isFinite(acertosRaw) ? acertosRaw : 0;
+            const acertosRaw = questionsTotal > 0 ? ratioToPoints(correctTotal / questionsTotal, safeMaxScore, safeMinScore) : null;
+            const safeAcertosRaw = Number.isFinite(acertosRaw) ? acertosRaw : safeMinScore;
             const acertos = acertosRaw == null
                 ? null
-                : Number(Math.max(0, Math.min(safeMaxScore, safeAcertosRaw)).toFixed(2)); // FIX: Clamp preventivo absoluto
+                : Number(Math.max(safeMinScore, Math.min(safeMaxScore, safeAcertosRaw)).toFixed(2));
 
             days.push({
                 data: i === 0 ? "HOJE" : dow,
@@ -200,7 +204,7 @@ const WeeklyPerformanceChart = ({
                             tickLine={false}
                             tick={{ fill: '#64748b', fontSize: 10 }}
                             tickFormatter={(v) => `${v}${safeUnit}`}
-                            domain={[0, safeMaxScore]}
+                            domain={[safeMinScore, safeMaxScore]}
                             allowDataOverflow={true} // FIX: Evita quebras se o dado estourar (embora já estejamos com clamp)
                         />
 

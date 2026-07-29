@@ -4,7 +4,7 @@ import {
     ResponsiveContainer, LabelList, Cell, ReferenceLine,
     LineChart, Line, Legend
 } from "recharts";
-import { normalizeDate, getDateKey, formatDisplayDate } from "../../../utils/dateHelper";
+import { normalizeDate, getDateKey, formatDisplayDate, parseNoonLocal } from "../../../utils/dateHelper";
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import { ChartFrame } from "../ChartFrame";
 
@@ -473,7 +473,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                             axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                             tickLine={false}
                                             tickFormatter={(val) => {
-                                                const d = new Date(val);
+                                                const d = parseNoonLocal(val) || new Date(val);
                                                 return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
                                             }}
                                         />
