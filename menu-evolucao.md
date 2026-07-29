@@ -1,7 +1,7 @@
 # Código Completo - Menu Evolução (Ultra Dashboard)
 
 Este arquivo reúne todo o código-fonte (página, componentes UI, subcomponentes de gráficos, hooks, utilitários e motores estatísticos) relacionado ao **Menu Evolução** do Ultra Dashboard para auditoria externa.
-**Data de Geração**: 2026-07-29T16:19:15.187Z
+**Data de Geração**: 2026-07-29T16:31:13.369Z
 **Total de Arquivos**: 26
 
 ## Índice de Arquivos
@@ -8234,7 +8234,7 @@ export function generateEvolutionInsights({
 ---
 
 ## File: `src/engine/stats.js`
-*Linhas: 1131 | Tamanho: 43.45 KB*
+*Linhas: 1134 | Tamanho: 43.51 KB*
 
 ```javascript
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
@@ -9320,7 +9320,7 @@ export function computeAgilityMetrics(history, targetSeconds = 120) {
     };
 }
 
-export function calculateTrend(history, maxScore = 100) {
+export function calculateSlopePerDay(history, maxScore = 100) {
     const safeHistory = toHistoryArray(history);
     if (safeHistory.length < 2) return 0;
 
@@ -9367,6 +9367,9 @@ export function calculateTrend(history, maxScore = 100) {
     // e fazia o clamp do calculateSlope saturar uma ordem de grandeza antes.
     return Number.isFinite(slopePerDay) ? slopePerDay : 0;
 }
+
+export const calculateTrend = calculateSlopePerDay;
+
 ```
 
 ---
