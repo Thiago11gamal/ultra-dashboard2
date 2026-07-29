@@ -13,7 +13,7 @@ import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian } from './math/gaussian.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 import { kahanSum, kahanMean } from './math/kahan.js';
-import { weightedRegression, calculateSlopeStdError, getSortedHistory, calculateSlopePerDay, calculateTrend } from './stats.js';
+import { weightedRegression, calculateSlopeStdError, getSortedHistory, calculateSlopePerDay } from './stats.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 export { weightedRegression, calculateSlopeStdError, getSortedHistory };

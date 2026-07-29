@@ -1,35 +1,42 @@
-import React from 'react';
 import { describe, it, expect } from 'vitest';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderHook } from '@testing-library/react';
 import { useChartData } from '../useChartData';
 
-function renderHook(hookFn) {
-  let result = { current: null };
-  function TestComponent() {
-    result.current = hookFn();
-    return null;
-  }
-  renderToStaticMarkup(React.createElement(TestComponent));
-  return { result };
-}
+const mkCat = (history) => ({ id: 'mat', name: 'Matemática', simuladoStats: { history } });
 
-describe('useChartData', () => {
-  it('LOTE-01 · timeline 100% livre de NaN com entradas corrompidas', () => {
-    const categories = [{
-      id: 'mat', name: 'Matemática',
-      simuladoStats: { history: [
-        { date: '2026-07-01', score: null, total: 0 },
-        { date: '2026-07-02', score: 'lixo', total: 10 },
-        { date: '2026-07-03', score: 80, total: 20, correct: 16 }
-      ]}
-    }];
+const assertNoNaN = (timeline) => {
+  timeline.forEach(point => {
+    Object.values(point).forEach(v => {
+      if (typeof v === 'number') expect(Number.isNaN(v)).toBe(false);
+    });
+  });
+};
+
+describe('useChartData — blindagem NaN (BATCH-01)', () => {
+  it('timeline 100% livre de NaN com entradas corrompidas', () => {
+    const categories = [mkCat([
+      { date: '2026-07-01', score: null, total: 0 },
+      { date: '2026-07-02', score: 'lixo', total: 10 },
+      { date: '2026-07-03', score: 80, total: 20, correct: 16 }
+    ])];
     const { result } = renderHook(() => useChartData(categories, {}, 100));
     expect(result.current.timeline.length).toBeGreaterThan(0);
-    result.current.timeline.forEach(point => {
-      Object.values(point).forEach(v => {
-        if (typeof v === 'number') expect(Number.isNaN(v)).toBe(false);
-      });
-    });
+    assertNoNaN(result.current.timeline);
+    expect(Number.isFinite(result.current.globalMetrics.globalAccuracy)).toBe(true);
+  });
+
+  it('não produz NaN quando compTotal é 0 (divisão por zero)', () => {
+    const categories = [mkCat([{ date: '2026-07-01', score: 0, total: 0 }])];
+    const { result } = renderHook(() => useChartData(categories, {}, 100));
+    assertNoNaN(result.current.timeline);
+  });
+
+  it('correct nunca excede total (clamp no acumulado bayesiano)', () => {
+    const categories = [mkCat([
+      { date: '2026-07-01', score: 100, total: 10, correct: 999 }
+    ])];
+    const { result } = renderHook(() => useChartData(categories, {}, 100));
+    assertNoNaN(result.current.timeline);
     expect(Number.isFinite(result.current.globalMetrics.globalAccuracy)).toBe(true);
   });
 });

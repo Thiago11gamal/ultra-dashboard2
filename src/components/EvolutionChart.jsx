@@ -1,15 +1,12 @@
-import React, { useState, useMemo, useEffect } from "react";
-import {
-    computeCategoryStats
-} from "../engine";
-import { runMonteCarloAnalysis } from "../engine/monteCarlo";   // ✅ LOTE-02 (fallback)
+import React, { useState, useMemo } from "react";
 import { useChartData } from "../hooks/useChartData";
+import { useEvolutionMC } from "../hooks/useEvolutionMC";
+import { useCategoryLevels } from "../hooks/useCategoryLevels";
+import { useSubjectAggData } from "../hooks/useSubjectAggData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey, toDateMs, normalizeDate } from "../utils/dateHelper";
-import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";
-import { useMonteCarloWorker } from "../hooks/useMonteCarloWorker";
 import { GaussianPlot } from "./charts/GaussianPlot";
 import { useAppStore } from "../store/useAppStore";
 import { downsampleLTTB } from "../utils/downsample";
@@ -39,30 +36,6 @@ const EMPTY_OBJECT = {};
 function safeFiniteNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
-}
-
-function filterHistoryByTimeWindow(history, timeWindow) {
-  const days = Number.parseInt(timeWindow, 10);
-  const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
-
-  if (timeWindow === "all" || !Number.isFinite(days) || days <= 0) {
-    return safeHistory.filter(Boolean);
-  }
-
-  const withMs = safeHistory
-    .filter(Boolean)
-    .map((h) => ({
-      h,
-      ms: toDateMs(getDateKey(h?.date))
-    }))
-    .filter((x) => Number.isFinite(x.ms));
-
-  if (!withMs.length) return safeHistory.filter(Boolean);
-
-  const referenceMs = toDateMs(getDateKey(new Date()));
-  const limit = referenceMs - days * 24 * 60 * 60 * 1000;
-
-  return withMs.filter((x) => x.ms >= limit).map((x) => x.h);
 }
 
 function renderInsightText(text, textColorClass) {
@@ -311,7 +284,6 @@ export default React.memo(function EvolutionChart({
         (state) => state.appState?.contests?.[state.appState?.activeId]?.mcWeights || EMPTY_OBJECT
     );
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore);
-    const { runAnalysis } = useMonteCarloWorker();
     const monteCarloHistoryArray = useMemo(
         () => (Array.isArray(monteCarloHistory) ? monteCarloHistory : Object.values(monteCarloHistory || {})),
         [monteCarloHistory]
@@ -326,7 +298,6 @@ export default React.memo(function EvolutionChart({
         () => (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})),
         [simuladoRows]
     );
-    const [mcLoading, setMcLoading] = useState(false);
     const safeGlobalMetrics = useMemo(() => ({
         totalQuestions: Number(globalMetrics?.totalQuestions) || 0,
         totalCorrect: Number(globalMetrics?.totalCorrect) || 0,
@@ -355,181 +326,15 @@ export default React.memo(function EvolutionChart({
         return found || categories[0];
     }, [categories, focusSubjectId]);
 
-    const categoryLevels = useMemo(() => {
-        const map = {};
-        const lastPoint = timeline.length > 0 ? timeline[timeline.length - 1] : null;
+    const categoryLevels = useCategoryLevels(categories, timeline, activeEngine, maxScore);
 
-        categories.forEach(cat => {
-            const prefix = activeEngine === 'raw' ? 'raw_' : activeEngine === 'stats' ? 'stats_' : 'bay_';
-            const fromTimeline = lastPoint?.[`${prefix}${cat.id}`];
-            
-            if (fromTimeline != null) {
-                map[cat.id] = fromTimeline;
-                return;
-            }
-            
-            const historyRaw = cat.simuladoStats?.history;
-            const history = historyRaw ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw)) : [];
-            if (!history.length) { map[cat.id] = 0; return; }
-            const stats = computeCategoryStats(history, 100, 60, maxScore);
-            map[cat.id] = stats?.mean || 0;
-        });
-        return map;
-    }, [categories, timeline, activeEngine, maxScore]);
+    const subjectAggData = useSubjectAggData({
+        categories, showOnlyFocus, focusCategory, timeWindow, maxScore, minScore
+    });
 
-    const [mcResult, setMcResult] = useState(null);
-    const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
-
-    const historyRaw = focusCategory?.simuladoStats?.history;
-
-    const historyArray = useMemo(() => {
-        if (!historyRaw) return EMPTY_ARRAY;
-        return Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
-    }, [historyRaw]);
-
-    const currentFocusLevel = focusCategory ? categoryLevels[focusCategory.id] : undefined;
-
-    useEffect(() => {
-        // ✅ LOTE-02 FIX: não disparar o worker em engines que não usam MC
-        const isMcEngine = activeEngine === "compare" || activeEngine === "mc_density";
-        if (!isMcEngine) { setMcLoading(false); return; }
-
-        if (!focusCategory?.id || !Array.isArray(historyArray) || historyArray.length === 0) {
-            setMcLoading(false);
-            return;
-        }
-
-        const hist = [...historyArray]
-            .filter((h) => h && h.date)
-            .map((h) => {
-                const dateKey = getDateKey(h.date);
-                const score = getSafeScore(h, maxScore);
-
-                if (!dateKey || !Number.isFinite(score)) return null;
-
-                return {
-                    ...h,
-                    date: dateKey,
-                    score,
-                    correct: h.correct,
-                    total: h.total
-                };
-            })
-            .filter(Boolean)
-            .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
-
-        if (hist.length < 1) {
-            setMcLoading(false);
-            return;
-        }
-
-        let cancelled = false;
-
-        const workerDebounceTimeout = setTimeout(async () => {
-            setMcLoading(true);
-
-            try {
-                let totalTimeSpent = 0;
-                let totalTimedQuestions = 0;
-
-                historyArray.forEach((rawH) => {
-                    if (rawH && rawH.timeSpent != null && rawH.timedQuestoes != null) {
-                        totalTimeSpent += Number(rawH.timeSpent);
-                        totalTimedQuestions += Number(rawH.timedQuestoes);
-                    }
-                });
-
-                const avgSeconds = totalTimedQuestions > 0 ? totalTimeSpent / totalTimedQuestions : 0;
-
-                const store = useAppStore.getState();
-                const activeId = store.appState?.activeId;
-                const contest = store.appState?.contests?.[activeId];
-
-                const defaultExamTotalQuestions = contest?.examTotalQuestions || 100;
-                const examDurationMinutes = contest?.examDurationMinutes || 240;
-                const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
-
-                const result = await runAnalysis({
-                    values: hist,
-                    dates: hist.map((h) => h.date),
-                    meta: targetScore,
-                    projectionDays: projectDays,
-                    minScore,
-                    maxScore,
-                    currentMean: currentFocusLevel,
-                    forcedBaseline: currentFocusLevel,
-                    projectedTotalTimeSeconds,
-                    examDurationMinutes
-                });
-
-                if (cancelled || !result) return;
-
-                setMcResult({ ...result, categoryId: focusCategory?.id });
-
-                const lastDateStr = hist[hist.length - 1].date;
-                // ✅ LOTE-02 FIX: sem timezone hardcoded
-                const lastDate = normalizeDate(lastDateStr);
-
-                if (!lastDate || Number.isNaN(lastDate.getTime())) return;
-                lastDate.setHours(12, 0, 0, 0);
-
-                const nextDate = new Date(lastDate);
-                nextDate.setDate(nextDate.getDate() + (projectDays || 30));
-
-                const p50 = result.projectedMean ?? result.mean ?? 0;
-                const lo = result.ci95Low ?? result.ci95StatLow ?? 0;
-                const hi = result.ci95High ?? result.ci95StatHigh ?? 100;
-
-                setMcProjectionSeries({
-                    date: getDateKey(nextDate),
-                    mc_p50: p50,
-                    mc_band: [lo, hi],
-                    categoryId: focusCategory?.id
-                });
-            } catch (err) {
-                console.warn('[EvolutionChart] Worker MC falhou, tentando sync:', err);
-                // ✅ LOTE-02 FIX: fallback síncrono real (o catch era vazio)
-                if (!cancelled) {
-                    try {
-                        const fallback = runMonteCarloAnalysis({
-                            values: hist,
-                            dates: hist.map((h) => h.date),
-                            meta: targetScore,
-                            simulations: 1500,
-                            projectionDays: projectDays,
-                            minScore,
-                            maxScore,
-                            currentMean: currentFocusLevel,
-                            forcedBaseline: currentFocusLevel
-                        });
-                        if (fallback) setMcResult({ ...fallback, categoryId: focusCategory?.id });
-                    } catch (syncErr) {
-                        console.error('[EvolutionChart] Fallback sync MC falhou:', syncErr);
-                    }
-                }
-            } finally {
-                if (!cancelled) setMcLoading(false);
-            }
-        }, 600);
-
-        return () => {
-            cancelled = true;
-            clearTimeout(workerDebounceTimeout);
-        };
-    }, [
-        focusCategory?.id,
-        currentFocusLevel,
-        historyArray,
-        targetScore,
-        projectDays,
-        runAnalysis,
-        minScore,
-        maxScore,
-        activeEngine   // ✅ LOTE-02
-    ]);
-
-    const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;
-    const activeMcProjectionSeries = mcProjectionSeries?.categoryId === focusCategory?.id ? mcProjectionSeries : null;
+    const { mcLoading, activeMcResult, activeMcProjectionSeries } = useEvolutionMC({
+        focusCategory, categoryLevels, projectDays, targetScore, minScore, maxScore, activeEngine
+    });
 
     const compareData = useMemo(() => {
         return buildPredictiveCompareData(
@@ -594,97 +399,6 @@ export default React.memo(function EvolutionChart({
             meta: targetScore
         }));
     }, [categories, targetScore, categoryLevels]);
-
-    const subjectAggData = useMemo(() => {
-        if (!categories || !categories.length) return [];
-
-        return categories
-            .filter((cat) => !showOnlyFocus || cat.id === focusCategory?.id)
-            .map((cat) => {
-                const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
-                    .filter((h) => h && h.materia !== 'Simulado Personalizado');
-
-                const totalQ = history.reduce((s, h) => {
-                    let tot = Number(h.total) || 0;
-                    if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
-
-                    const score = getSafeScore(h, maxScore);
-                    if (!Number.isFinite(score)) return s;
-
-                    return s + tot;
-                }, 0);
-
-                const totalCorrect = Math.round(
-                    history.reduce((s, h) => {
-                        let tot = Number(h.total) || 0;
-                        if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
-
-                        const range = Math.max(1e-9, maxScore - minScore);
-                        const score = getSafeScore(h, maxScore);
-                        if (!Number.isFinite(score)) return s;
-
-                        const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
-
-                        return s + ((normalizedScore - minScore) / range) * tot;
-                    }, 0)
-                );
-
-                const stats = history.reduce(
-                    (acc, h) => {
-                        let rootTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
-                        let topicsTs = 0;
-                        let topicsTimedQ = 0;
-                        let hasTopicWithTime = false;
-
-                        if (Array.isArray(h.topics)) {
-                            for (const t of h.topics) {
-                                const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                                const tTot =
-                                    typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
-                                        ? t.timedQuestoes
-                                        : Number(t.total) || 0;
-
-                                if (tTs !== null && tTs > 0 && tTot > 0) {
-                                    topicsTs += tTs;
-                                    topicsTimedQ += tTot;
-                                    hasTopicWithTime = true;
-                                }
-                            }
-                        }
-
-                        if (hasTopicWithTime) {
-                            return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-                        } else if (rootTs !== null && rootTs > 0 && Number(h.total) > 0) {
-                            return { ts: acc.ts + rootTs, tq: acc.tq + Number(h.total) };
-                        } else if (rootTs !== null && rootTs > 0 && h.score != null) {
-                            return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(maxScore) };
-                        }
-
-                        return acc;
-                    },
-                    { ts: 0, tq: 0 }
-                );
-
-                const timedQuestoes = stats.tq;
-                const timeSpent = stats.ts;
-
-                const safeName = String(cat.name || 'Sem nome');
-                const shortName = safeName.length > 18 ? safeName.substring(0, 16) + '…' : safeName;
-
-                return {
-                    name: shortName,
-                    fullName: safeName,
-                    questoes: totalQ,
-                    timedQuestoes,
-                    acertos: totalCorrect,
-                    timeSpent,
-                    color: cat.color,
-                    id: cat.id
-                };
-            })
-            .filter((d) => d.questoes > 0)
-            .sort((a, b) => b.questoes - a.questoes);
-    }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore, timeWindow]);
 
     const insight = useMemo(() => {
         return generateEvolutionInsights({

@@ -1,47 +1,20 @@
-# Contrato de Operação da Store (`useAppStore`)
+# Contrato do `useAppStore`
 
-## 1. Mutações e Retorno Imutável em `setData`
-O método `setData` (e suas variações no store Zustand do Ultra Dashboard) opera sob uma política **duplamente compatível**: o callback de atualização **DEVE SEMPRE** retornar um novo objeto imutável (`{ ...prev, ... }`).
+## `setData(updater)`
 
-### Por que retornar um novo objeto?
-Ao retornar imutável:
-- Funciona perfeitamente em modo **Zustand Puro (functional updater)** sem Immer (`setData(prev => ({ ...prev, prop: val }))`).
-- Funciona sem conflito caso **Immer** esteja habilitado no middleware (no Immer, retornar um novo objeto substitui o draft de forma limpa).
+`updater` recebe o contest ativo e **DEVE retornar um novo objeto**.
 
----
+```js
+// ✅ CORRETO — funciona em Zustand puro E com middleware immer
+setData(contest => ({
+  ...contest,
+  calibrationEvents: [...(contest.calibrationEvents || []), ev].slice(-200)
+}));
 
-## 2. Exemplo Canônico (Atualização de Categoria/Simulado)
-
-```javascript
-// ✅ CANÔNICO: Retorno imutável no setData
-useAppStore.getState().setData(prevData => {
-    if (!prevData || !Array.isArray(prevData.categories)) return prevData;
-
-    const updatedCategories = prevData.categories.map(cat => {
-        if (cat.id !== targetCatId) return cat;
-        return {
-            ...cat,
-            targetScore: safeTargetScore,
-            updatedAt: new Date().toISOString()
-        };
-    });
-
-    return {
-        ...prevData,
-        categories: updatedCategories
-    };
-});
+// ❌ ERRADO — mutação sem retorno só funciona com immer; quebra em Zustand puro
+setData(c => { c.calibrationEvents = backfilled; return; });
 ```
 
-### ❌ O que NUNCA fazer
-```javascript
-// ❌ PROIBIDO: Mutação direta sem retorno (pode falhar se Immer for removido ou em testes unitários simples)
-useAppStore.getState().setData(prevData => {
-    prevData.categories[0].targetScore = 80;
-});
-```
-
----
-
-## 3. Garantias para Testes (`vitest`)
-Em testes unitários onde `indexedDB` não está presente, a store opera em **modo fallback / lock de emergência**, mantendo a coerência em memória sem disparar exceções persistentes na camada de storage.
+Regra adotada em toda a base (LOTE-02/05): **sempre retorno imutável**.
+Nenhum `setState` mutacional sem retorno, mesmo que o store atual use immer —
+isso preserva a portabilidade e evita o bug silencioso de "estado não atualiza".
