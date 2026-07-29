@@ -564,7 +564,7 @@ export function simulateNormalDistribution(
     const empiricalVsAnalyticalGap = Math.abs(finiteEmpiricalProbability - finiteAnalyticalProbability);
 
     const lowSimulation = safeSimulations < 1200;
-    const highTruncationStress = truncNormFactor < 1e-6;
+    const highTruncationStress = isUnderflowStress || truncNormFactor < 1e-6;
 
     const pHat = finiteEmpiricalProbability / 100;
     const empiricalStdErrRaw = Math.sqrt(Math.max(1e-12, (pHat * (1 - pHat)) / Math.max(1, safeSimulations))) * 100;

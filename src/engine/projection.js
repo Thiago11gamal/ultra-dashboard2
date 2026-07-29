@@ -337,7 +337,7 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
                 score: s,
                 date: getDateKey(new Date(Date.now() - (recentRaw.length - 1 - idx) * 7 * 86400000))
             }));
-            const recentTrend = calculateTrend(recentAsObjects);
+            const recentTrend = calculateTrend(recentAsObjects, maxScore);
             const recentSlope = calculateSlope(recentTrend, maxScore, options);
             const slopeMultiplier = recentSlope > 0 ? Math.min(1, recentSlope / (maxScore * 0.01)) : 0;
             
@@ -411,8 +411,8 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
     let linearSlope = 0;
     if (!(logisticFit.isLogistic && logisticFit.k > 0)) {
-        let trend = calculateTrend(sortedHistory);
-        linearSlope = calculateSlope(trend, options);
+        let trend = calculateTrend(sortedHistory, maxScore);
+        linearSlope = calculateSlope(trend, maxScore, options);
     }
 
     const dampingBase = computeAdaptiveDampingBase({
