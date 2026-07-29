@@ -334,7 +334,9 @@ export function generateAnalyticsStats({
     const estimatedRho = getAdaptiveInterSubjectCorrelation(
         categoryStats.map(cat => ({ sd: cat.sd ?? cat.volatility, weight: cat.weight })),
         simuladoRows,
-        subjectNames
+        subjectNames,
+        undefined,
+        safeMaxScore
     );
 
     const pooledVariance = computeWeightedVariance(

@@ -821,6 +821,7 @@ export default React.memo(function EvolutionChart({
                         <div className="flex items-center justify-between gap-1 bg-slate-950/80 border border-slate-700/50 rounded-2xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner backdrop-blur-sm">
                             {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
                                 <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
+                                    aria-pressed={timeWindow === w.value}
                                     className={`shrink-0 flex-1 sm:flex-none px-4 py-1.5 rounded-2xl text-xs font-bold transition-all duration-150 will-change-transform ${timeWindow === w.value ? 'bg-indigo-600/40 text-indigo-200 shadow-sm border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 border border-transparent hover:scale-[1.01]'}`}>
                                     {w.label}
                                 </button>
@@ -828,6 +829,7 @@ export default React.memo(function EvolutionChart({
                         </div>
                         {activeEngine !== 'compare' && activeEngine !== 'mc_density' ? (
                             <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
+                                aria-pressed={showOnlyFocus}
                                 className={`shrink-0 flex items-center justify-center gap-2 px-5 py-1.5 h-[34px] rounded-2xl text-xs font-bold border transition-all will-change-transform active:scale-[0.985] ${showOnlyFocus ? 'bg-amber-500/30 border-amber-500/60 text-amber-200 shadow-sm' : 'bg-slate-950/80 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 hover:border-slate-600'}`}>
                                 <span className="text-base">{showOnlyFocus ? '🎯' : '👁️'}</span>
                                 <span className="hidden sm:inline truncate max-w-[150px] font-semibold">
@@ -866,6 +868,7 @@ export default React.memo(function EvolutionChart({
                                     type="button"
                                     key={eng.id}
                                     onClick={() => setActiveEngine(eng.id)}
+                                    aria-pressed={active}
                                     className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[118px] h-[78px] rounded-2xl transition-all duration-150 border will-change-transform ${active ? 'shadow-md scale-[1.03] z-10' : 'bg-white/[0.015] border-white/[0.04] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300 hover:border-white/15 hover:scale-[1.015]'}`}
                                     style={active ? { backgroundColor: `${eng.color}12`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}20, 0 4px 12px -2px rgba(0,0,0,0.3)` } : {}}
                                 >

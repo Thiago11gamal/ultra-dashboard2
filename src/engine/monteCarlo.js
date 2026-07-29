@@ -700,7 +700,8 @@ export function runMonteCarloAnalysis(params = {}) {
     const resolvedTarget = clamp(toFiniteNumber(rawResolvedTarget, domainMin), domainMin, domainMax);
 
     const safeSimulations = sanitizeSimulations(simulations);
-    const safeProjectionDays = Math.max(1, Math.floor(toFiniteNumber(projectionDays, 90)));
+    // ✅ LOTE-03 FIX: "simular hoje" é um caso de uso válido (effectiveSimulateToday)
+    const safeProjectionDays = Math.max(0, Math.floor(toFiniteNumber(projectionDays, 90)));
 
     const safeSubjects = objSubjects === undefined ? undefined : sanitizeSubjects(objSubjects);
 

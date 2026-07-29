@@ -225,3 +225,17 @@ export const isFlashcardDue = (cardDue, referenceKey = null) => {
   const todayKey = referenceKey || getFlashcardTodayKey();
   return cardDue <= todayKey;
 };
+
+export const parseNoonLocal = (input) => {
+  if (!input) return null;
+  try {
+    const key = getDateKey(input);
+    if (!key) return null;
+    const [y, m, d] = key.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d, 12, 0, 0, 0);
+  } catch {
+    return null;
+  }
+};
+

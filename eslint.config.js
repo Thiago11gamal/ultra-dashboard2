@@ -27,6 +27,13 @@ export default defineConfig([
     ],
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.0.type='TemplateLiteral']",
+          message: 'Use parseNoonLocal()/normalizeDate() — nunca concatene timezone manualmente.',
+        },
+      ],
     },
   },
 ])

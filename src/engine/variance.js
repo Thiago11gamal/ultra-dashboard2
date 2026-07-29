@@ -43,7 +43,7 @@ export const INTER_SUBJECT_CORRELATION = 0.25; // Prior / fallback correlation b
  * Tries to estimate from real user performance history (simulado rows) when sufficient data exists.
  * Falls back gracefully to the conservative prior.
  */
-export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION) {
+export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION, maxScore = 100) {
   try {
     const safeSimuladoRows = (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})).filter(Boolean);
     if (!Array.isArray(safeSimuladoRows) || safeSimuladoRows.length < 5 || !Array.isArray(categoryNames) || categoryNames.length < 2) {
@@ -57,7 +57,7 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
       if (!dateKey) return;
       const subj = normalize(row.subject || row.categoryName || row.name);
       if (!subj) return;
-      const score = getSafeScore(row);
+      const score = getSafeScore(row, maxScore);
       if (!Number.isFinite(score)) return;
 
       if (!byDate[dateKey]) byDate[dateKey] = {};

@@ -87,9 +87,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
                     // ✅ FIX: Proteger contra NaN propagando para os acumuladores
                     if (!Number.isFinite(correctCount)) return;
+                    const safeCorrect = Math.max(0, Math.min(total, correctCount));   // ✅ LOTE-03
 
                     topicMap[key].total += total;
-                    topicMap[key].correct += correctCount;
+                    topicMap[key].correct += safeCorrect;
                 });
             }
         });
@@ -151,8 +152,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     ? ((normalizedScore - minScore) / range) * t
                     : (h.correct != null ? Number(h.correct) : ((normalizedScore - minScore) / range) * t);
                 
+                if (!Number.isFinite(correctCount)) continue;
+                const safeCorrect = Math.max(0, Math.min(t, correctCount));   // ✅ LOTE-03
                 total += t;
-                correct += correctCount;
+                correct += safeCorrect;
             }
             
             const accuracy = total > 0 ? correct / total : 0;
@@ -192,6 +195,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                 {!isActive && idx !== 0 && idx !== WEEKS.findIndex(ww => ww.offset === selectedWeekOffset) - 1 && <span className="mx-1.5 text-slate-600 font-bold opacity-60">•</span>}
                                 <button
                                     onClick={() => setSelectedWeekOffset(w.offset)}
+                                    aria-pressed={isActive}   // ✅ LOTE-03
                                     className={`
                                         relative px-3.5 py-1.5 text-[10px] sm:text-xs font-black tracking-widest rounded-full transition-all shrink-0
                                         ${isActive

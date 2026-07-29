@@ -177,3 +177,50 @@ export function formatValue(value) {
   }
   return String(parseFloat(num.toFixed(2)));
 }
+
+/** @typedef {number} ScorePoints  — pontos absolutos na escala [minScore, maxScore] */
+/** @typedef {number} ScorePct     — percentual normatizado [0, 100] */
+/** @typedef {number} ScoreRatio   — razão proporcional [0, 1] */
+
+/**
+ * Converte qualquer valor em pontos (ScorePoints) no domínio [minScore, maxScore].
+ */
+export function toPoints(val, maxScore = 100, minScore = 0) {
+  const v = Number(val);
+  if (!Number.isFinite(v)) return minScore;
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > minScore ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const range = safeMax - safeMin;
+
+  if (v >= 0 && v <= 1 && safeMax > 1) {
+    return Math.max(safeMin, Math.min(safeMax, safeMin + v * range));
+  }
+  if (safeMax !== 100 && v >= 0 && v <= 100) {
+    return Math.max(safeMin, Math.min(safeMax, safeMin + (v / 100) * range));
+  }
+  return Math.max(safeMin, Math.min(safeMax, v));
+}
+
+/**
+ * Converte pontos (ScorePoints) ou razão (ScoreRatio) em percentual (ScorePct) [0, 100].
+ */
+export function toPct(val, maxScore = 100, minScore = 0) {
+  const v = Number(val);
+  if (!Number.isFinite(v)) return 0;
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > minScore ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const range = safeMax - safeMin;
+
+  if (v >= 0 && v <= 1 && safeMax > 1) {
+    return Math.max(0, Math.min(100, v * 100));
+  }
+  return Math.max(0, Math.min(100, ((v - safeMin) / range) * 100));
+}
+
+/**
+ * Converte qualquer pontuação para razão proporcional (ScoreRatio) [0, 1].
+ */
+export function toRatio(val, maxScore = 100, minScore = 0) {
+  return Math.max(0, Math.min(1, toPct(val, maxScore, minScore) / 100));
+}
+

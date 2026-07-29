@@ -2,6 +2,7 @@ import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 
 export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100 }) {
+    const safeMax = Math.max(1, Number(maxScore) || 100);   // ✅ LOTE-03
     const val = level || 0;
     const ok = val >= target;
     const mid = val >= target * 0.75;
@@ -13,6 +14,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
     return (
         <button onClick={onClick}
+            aria-pressed={isFocused}
             className={`relative text-left w-full rounded-2xl border p-3 sm:p-4 transition-all duration-200 group min-h-[82px] sm:min-h-[105px] flex flex-col justify-between ${isFocused ? 'z-20 border-transparent bg-slate-900/80 shadow-sm' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-800/40'}`}
             style={{
                 backgroundColor: isFocused ? `${cat.color}10` : 'rgba(15,23,42,0.5)',
@@ -21,7 +23,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
             {/* Progress Bar (Bottom) */}
             <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-800/60 overflow-hidden">
-                <div className="h-full transition-all duration-700" style={{ width: `${(val / maxScore) * 100}%`, backgroundColor: statusColor }} />
+                <div className="h-full transition-all duration-700" style={{ width: `${(val / safeMax) * 100}%`, backgroundColor: statusColor }} />
             </div>
 
             <div className="relative z-10 flex items-center justify-end mb-2 w-full">
@@ -49,7 +51,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                             <span className="text-orange-400 font-mono">{rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-orange-400" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, (rawVal / maxScore) * 100)) : 0}%` }} />
+                            <div className="h-full bg-orange-400" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, (rawVal / safeMax) * 100)) : 0}%` }} />
                         </div>
                     </div>
                     <div className="flex flex-col gap-0.5">
@@ -58,7 +60,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                             <span className="text-blue-400 font-mono">{statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}{unit}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-400" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, (statsVal / maxScore) * 100)) : 0}%` }} />
+                            <div className="h-full bg-blue-400" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, (statsVal / safeMax) * 100)) : 0}%` }} />
                         </div>
                     </div>
                     <div className="flex flex-col gap-0.5">
@@ -67,7 +69,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                             <span className="text-emerald-400 font-mono">{bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}{unit}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-400" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, (bayVal / maxScore) * 100)) : 0}%` }} />
+                            <div className="h-full bg-emerald-400" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, (bayVal / safeMax) * 100)) : 0}%` }} />
                         </div>
                     </div>
                 </div>

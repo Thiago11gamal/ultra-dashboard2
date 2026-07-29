@@ -182,7 +182,7 @@ export function EvolutionLineChart({
 
         if (hasFocus && !isFocused) return null;
 
-        if (index === filteredChartData.length - 1 && value != null) {
+        if (index === enhancedChartData.length - 1 && value != null) {   // ✅ LOTE-03
             let offsetPx = 0;
             const adjustedY = yAdjustedMap[catId];
 

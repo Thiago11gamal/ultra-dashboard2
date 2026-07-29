@@ -599,7 +599,8 @@ export function monteCarloSimulation(
         const daysToNow = Math.max(1, (referenceNow - lastTs) / 86400000);
         baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1, daysToNow);
     }
-    baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * maxScore)));
+    const range = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;   // ✅ LOTE-03
+    baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * range)));
 
     // FEAT: Time Penalty (Simulação de Prova Real)
     let timePenaltyApplied = false;
@@ -659,7 +660,7 @@ export function monteCarloSimulation(
 
     const slopeStdError = regressionResult.slopeStdError;
     const maxDailyDriftPct = options.maxDailyDriftPct !== undefined ? options.maxDailyDriftPct : 0.015;
-    const driftLimit = maxDailyDriftPct * maxScore;
+    const driftLimit = maxDailyDriftPct * range;   // antes: * maxScore
     const drift = Math.max(-driftLimit, Math.min(driftLimit, effectiveDriftSlope));
     const simulationDays = days;
     const scaleFactor = scaleFactorFallback;
@@ -889,10 +890,10 @@ export function monteCarloSimulation(
                 shock = generateGaussian(rng) * adaptiveVol;
             }
             
-            // [FIX-GARCH-01] O choque que entra na equação de volatilidade DEVE ser referenciado à escala diária
-            // (dailyVolatility) em vez da escala macro (volatility). Um choque limite à escala macro injeta
-            // uma sobre-variância de 7x (para gaps semanais) achatando artificialmente a distribuição (Bug 2.1 Fix).
-            const clampedShock = Math.max(-dailyVolatility * 3, Math.min(dailyVolatility * 3, shock));
+            // ✅ LOTE-03 FIX: o clamp por dailyVolatility sufocava choques quando o GARCH
+            // já tinha elevado adaptiveVol — a trajetória não podia realizar a própria variância
+            const shockLimit = Math.max(dailyVolatility, adaptiveVol) * 3;
+            const clampedShock = Math.max(-shockLimit, Math.min(shockLimit, shock));
             
             // Evolução da Volatilidade GARCH(1,1): Var(t+1) = w + a*e^2 + b*Var(t)
             currentVolSq = omega + alphaG * Math.pow(clampedShock, 2) + betaG * currentVolSq;

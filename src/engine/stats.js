@@ -1081,7 +1081,7 @@ export function computeAgilityMetrics(history, targetSeconds = 120) {
     };
 }
 
-export function calculateTrend(history, maxScore = 100) {
+export function calculateSlopePerDay(history, maxScore = 100) {
     const safeHistory = toHistoryArray(history);
     if (safeHistory.length < 2) return 0;
 
@@ -1128,3 +1128,6 @@ export function calculateTrend(history, maxScore = 100) {
     // e fazia o clamp do calculateSlope saturar uma ordem de grandeza antes.
     return Number.isFinite(slopePerDay) ? slopePerDay : 0;
 }
+
+export const calculateTrend = calculateSlopePerDay;
+
