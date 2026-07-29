@@ -175,7 +175,7 @@ const Header = React.memo(function Header({
                     {/* ─── CENTRAL USER NAME (FLEX) ─── */}
                     <div className="flex flex-col items-center justify-center group pointer-events-auto z-20 flex-[0.8] max-w-[500px] px-2 relative">
                         {/* Premium Glow Effect */}
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[150%] bg-indigo-500/10 blur-[40px] rounded-[100%] pointer-events-none transition-opacity duration-500 opacity-50 group-hover:opacity-100" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[150%] bg-indigo-500/10 blur-[40px] rounded-[100%] pointer-events-none transition-opacity duration-500 opacity-50 group-hover:opacity-100" />
                         
                         <span className="relative z-10 text-[7px] text-slate-500 uppercase tracking-[0.4em] font-black opacity-40 group-hover:opacity-100 transition-all duration-300 mb-0.5 h-2 leading-none">
                             Foco Principal ✏️
