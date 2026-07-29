@@ -88,8 +88,9 @@ export const getLocalMidnight = (date = new Date()) => {
 
 export const formatDisplayDate = (dateStr) => {
   if (!dateStr) return '';
-  const parts = String(dateStr).split('-');
-  if (parts.length < 3) return dateStr;
+  const cleanStr = String(dateStr).split('T')[0];
+  const parts = cleanStr.split('-');
+  if (parts.length < 3) return cleanStr;
   return `${parts[2]}/${parts[1]}`;
 };
 
