@@ -14,6 +14,7 @@ import MonteCarloDebugger from '../components/MonteCarloDebugger';
 import ReliabilityCurveChart from '../components/charts/ReliabilityCurveChart';
 import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { useSubscription } from '../hooks/useSubscription';
+import { useAuth } from '../context/useAuth';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import {
   getSuggestedFocus, generateDailyGoals, clearMcCache,
@@ -127,9 +128,10 @@ export default function Coach() {
   const studyLogs = useMemo(() => normalizeToArray(rawStudyLogs), [rawStudyLogs]);
 
   const flashcardDue = useMemo(() => getFlashcardDueTodayCount(flashcardDecks), [flashcardDecks]);
+  const { currentUser } = useAuth();
   const userProfile = data?.user;
   const updateCoachScore = useAppStore(state => state.updateCoachScore);
-  const { isPremium } = useSubscription(userProfile);
+  const { isPremium } = useSubscription(currentUser || userProfile);
   const navigate = useNavigate();
 
   const isPremiumBool = Boolean(isPremium);

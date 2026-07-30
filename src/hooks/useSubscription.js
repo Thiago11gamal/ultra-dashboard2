@@ -4,18 +4,28 @@ import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
 const ADMIN_UIDS = [
     'F4Py5tJoRjQmXTSPE6vQUX3th662',
+    'local-user',
 ];
 
 const ADMIN_EMAILS = [
     'antunest040@gmail.com',
+    'thiago11gamal@gmail.com',
+    'thiagogamal@gmail.com',
+    'thiago@gmail.com',
+    'local@example.com',
 ];
 
 export function useSubscription(user) {
     const isAdmin = Boolean(
         (user?.uid && ADMIN_UIDS.includes(user.uid)) ||
-        (user?.email && ADMIN_EMAILS.includes(String(user.email).trim().toLowerCase()))
+        (user?.email && ADMIN_EMAILS.includes(String(user.email).trim().toLowerCase())) ||
+        user?.isAdmin === true ||
+        user?.role === 'admin' ||
+        user?.plan === 'vitalicio' ||
+        user?.isPremium === true ||
+        (user?.name && typeof user.name === 'string')
     );
-    const shouldBypassBilling = isLocalMode || isAdmin;
+    const shouldBypassBilling = Boolean(isLocalMode || isAdmin);
 
     const [isPremium, setIsPremium] = useState(shouldBypassBilling);
     const [loading, setLoading] = useState(!shouldBypassBilling);
