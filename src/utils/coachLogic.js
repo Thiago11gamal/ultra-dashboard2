@@ -2261,7 +2261,7 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
 
     Object.entries(rowsByDate).forEach(([dKey, stats]) => {
         if (stats.total > 0) {
-            const score = (stats.correct / stats.total) * 100;
+            const score = (stats.correct / stats.total) * maxScore;
             const key = `legacy-${dKey}|${dKey}|${score.toFixed(2)}`;
 
             if (!deduplicatedMap.has(key)) {

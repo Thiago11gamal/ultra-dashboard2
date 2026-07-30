@@ -273,8 +273,8 @@ export default function Coach() {
         const reliabilitySignatureChanged =
           toReliabilitySignature(lastEntry?.reliability) !== toReliabilitySignature(reliability);
         const shouldSkipPersist =
-          (brierDelta < 0.001 || (brierDelta / Math.max(0.001, lastEntry.avgBrier)) < 0.05) &&
-          (eceDelta < 0.001 || (eceDelta / Math.max(0.001, lastEntry.ece)) < 0.05) &&
+          (brierDelta < 0.001 && (brierDelta / Math.max(0.001, lastEntry.avgBrier)) < 0.05) &&
+          (eceDelta < 0.001 && (eceDelta / Math.max(0.001, lastEntry.ece)) < 0.05) &&
           penaltyDelta < 0.001 &&
           probabilityDelta < 0.01 &&
           !reliabilitySignatureChanged;
@@ -315,12 +315,16 @@ export default function Coach() {
       }]
         .filter(e => Number.isFinite(Number(e?.timestamp)) && Number(e.timestamp) >= auditCutoff)
         .slice(-500);
-      prev.calibrationHistoryByCategory = prev.calibrationHistoryByCategory || {};
-      prev.calibrationHistoryByCategory[normalizedCategoryId] = nextHistory;
-      prev.calibrationOps = calibrationOps;
-      prev.calibrationAuditLog = calibrationAuditLog;
       wasPersisted = true;
-      return;
+      // FIX-BUG-02: Retornar objeto explícito para Object.assign (consistente com contrato do store)
+      return {
+        calibrationHistoryByCategory: {
+          ...(prev.calibrationHistoryByCategory || {}),
+          [normalizedCategoryId]: nextHistory
+        },
+        calibrationOps,
+        calibrationAuditLog
+      };
     });
     if (!wasPersisted) return;
 
@@ -491,10 +495,9 @@ export default function Coach() {
       if (metricsTimer) clearTimeout(metricsTimer);
     };
   }, [
-    isHydrated, data?.categories, data?.simuladoRows, data?.studyLogs,
-    data?.user, data?.maxScore, data?.settings?.adaptiveCalibrationEnabled,
+    isHydrated, data?.user, data?.settings?.adaptiveCalibrationEnabled,
     userProfile?.targetProbability, flashcardDue, flashcardDecks,
-    persistCalibrationMetric, scheduleCalibrationPersist, targetScorePoints,
+    scheduleCalibrationPersist, targetScorePoints,
     currentMaxScore, targetScoreLabel, categories, history, studyLogs
   ]);
 
@@ -550,12 +553,11 @@ export default function Coach() {
         );
         // FIX: newTasks pode não ser array — valida antes de usar .length
         if (Array.isArray(newTasks) && newTasks.length) {
-          setData(prev => {
-            if (!prev) return prev;
-            prev.coachPlan = newTasks;
-            prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
-            return;
-          });
+          // FIX-BUG-02: Retornar objeto explícito para Object.assign
+          setData(() => ({
+            coachPlan: newTasks,
+            coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+          }));
           showToastRef.current('Sugestões geradas!', 'success');
         } else {
           showToastRef.current('Nenhuma sugestão necessária.', 'info');
@@ -577,12 +579,11 @@ export default function Coach() {
   ]);
 
   const handleClearHistory = useCallback(() => {
-    setData(prev => {
-      if (!prev) return prev;
-      prev.coachPlan = [];
-      prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
-      return;
-    });
+    // FIX-BUG-02: Retornar objeto explícito para Object.assign
+    setData(() => ({
+      coachPlan: [],
+      coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+    }));
   }, [setData]);
 
   // FIX (crítico): loading eterno quando data.categories era null/undefined.
@@ -714,9 +715,9 @@ export default function Coach() {
                       <div className="mb-3 flex items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 text-xs">
                         <span className="font-semibold text-emerald-300">Global MC:</span>
                         <span className="font-mono text-base font-bold text-emerald-200">
-                          {globalProjectedMean}%
+                          {Number(globalProjectedMean).toFixed(1)}{currentMaxScore === 100 ? '%' : ` de ${currentMaxScore}`}
                         </span>
-                        <span className="text-emerald-400/60">contexto global aplicado</span>
+                        <span className="text-emerald-400/60">projeção Monte Carlo global</span>
                       </div>
                     )}
                     <AICoachView
@@ -1037,11 +1038,11 @@ function RaioXDashboard({ data }) {
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-white/[0.05] mt-auto">
-                    <div className="group/tooltip relative flex items-center gap-1 cursor-help">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover/tooltip:text-slate-300 transition-colors border-b border-dashed border-slate-600">
+                    <div className="group/tooltip relative flex items-center gap-1 cursor-help" tabIndex={0} role="button" aria-label="Informação sobre Score de Brier">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover/tooltip:text-slate-300 group-focus-within/tooltip:text-slate-300 transition-colors border-b border-dashed border-slate-600">
                         Desvio (Brier)
                       </span>
-                      <div className="absolute bottom-full left-0 mb-2 w-48 p-2.5 bg-[#0a0c14] text-[10px] font-medium text-slate-300 rounded-lg shadow-2xl border border-white/10 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50">
+                      <div className="absolute bottom-full left-0 mb-2 w-48 p-2.5 bg-[#0a0c14] text-[10px] font-medium text-slate-300 rounded-lg shadow-2xl border border-white/10 opacity-0 group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100 pointer-events-none transition-opacity z-50">
                         <strong className="text-white font-black block mb-1">Score de Brier</strong>
                         Mede a precisão das projeções Monte Carlo. Quanto menor (verde), mais assertivo o motor.
                       </div>

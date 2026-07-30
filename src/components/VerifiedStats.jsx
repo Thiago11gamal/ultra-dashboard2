@@ -228,7 +228,7 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
     );
 });
 
-export default function VerifiedStats({ categories = [], user }) {
+export default function VerifiedStats({ categories = [], user, flashcardDecks: propFlashcardDecks }) {
     const safeCategories = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
 
     const maxScore = useMemo(() => {
@@ -236,16 +236,16 @@ export default function VerifiedStats({ categories = [], user }) {
         return scores.length > 0 ? Math.max(...scores) : 100;
     }, [safeCategories]);
 
-    const flashcardDecks = useAppStore(state => {
+    const storeFlashcardDecks = useAppStore(state => {
         const activeId = state.appState?.activeId;
         const contest = state.appState?.contests?.[activeId] || {};
         const rawDecks = contest.flashcardDecks || [];
         return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
     });
+    const flashcardDecks = propFlashcardDecks || storeFlashcardDecks;
 
     const flashcardIndicators = useMemo(() => {
         const decks = flashcardDecks || [];
-        // Centralized helpers (consistent TZ dates + mastery >=6)
         const totalCards = getFlashcardTotalCards(decks);
         return {
             totalDecks: getFlashcardDeckCount(decks),
@@ -574,7 +574,6 @@ export default function VerifiedStats({ categories = [], user }) {
             level: 'BAIXA',
             color: 'text-red-400',
             bgBorder: 'border-red-500',
-            icon: <AlertTriangle size={20} />,
             message: "Amostra muito pequena."
         };
 
@@ -583,7 +582,6 @@ export default function VerifiedStats({ categories = [], user }) {
                 level: 'ALTA',
                 color: 'text-green-400',
                 bgBorder: 'border-green-500',
-                icon: <ShieldCheck size={20} />,
                 message: "Dados estatisticamente relevantes."
             };
         } else if (totalQuestionsGlobal > 50 || nExams > 5) {
@@ -591,7 +589,6 @@ export default function VerifiedStats({ categories = [], user }) {
                 level: 'MÉDIA',
                 color: 'text-blue-400',
                 bgBorder: 'border-blue-500',
-                icon: <HelpCircle size={20} />,
                 message: "Margem de erro diminuindo."
             };
         }
@@ -601,7 +598,6 @@ export default function VerifiedStats({ categories = [], user }) {
             status: 'Dados Insuficientes',
             color: 'text-slate-400',
             bgBorder: 'border-slate-500',
-            icon: <Minus size={20} />,
             message: "Mínimo 2 simulados em cada matéria.",
             delta: 0,
             sd: 0
@@ -610,16 +606,16 @@ export default function VerifiedStats({ categories = [], user }) {
         const categoryBreakdown = [];
         const categoryAnalyses = [];
 
-        // State to UI mapping
+        // State to UI mapping (BUG-06 FIX: removidos elementos JSX desnecessários do useMemo)
         const stateMap = {
-            mastery: { status: 'DOMÍNIO', color: 'text-green-400', bgBorder: 'border-green-500/30', icon: <ShieldCheck size={20} /> },
-            stagnation_negative: { status: 'ESTAGNADO BAIXO', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <AlertTriangle size={20} /> },
-            stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-blue-400', bgBorder: 'border-blue-500/30', icon: <AlertCircle size={20} /> },
-            stagnation_positive: { status: 'EXCELENTE', color: 'text-violet-400', bgBorder: 'border-violet-500/30', icon: <ShieldCheck size={20} /> },
-            progression: { status: 'EM EVOLUÇÃO', color: 'text-blue-400', bgBorder: 'border-blue-500/30', icon: <TrendingUp size={20} /> },
-            regression: { status: 'EM QUEDA', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <TrendingDown size={20} /> },
-            unstable: { status: 'INSTÁVEL', color: 'text-orange-400', bgBorder: 'border-orange-500/30', icon: <Activity size={20} /> },
-            insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30', icon: <Minus size={20} /> }
+            mastery: { status: 'DOMÍNIO', color: 'text-green-400', bgBorder: 'border-green-500/30' },
+            stagnation_negative: { status: 'ESTAGNADO BAIXO', color: 'text-red-400', bgBorder: 'border-red-500/30' },
+            stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-blue-400', bgBorder: 'border-blue-500/30' },
+            stagnation_positive: { status: 'EXCELENTE', color: 'text-violet-400', bgBorder: 'border-violet-500/30' },
+            progression: { status: 'EM EVOLUÇÃO', color: 'text-blue-400', bgBorder: 'border-blue-500/30' },
+            regression: { status: 'EM QUEDA', color: 'text-red-400', bgBorder: 'border-red-500/30' },
+            unstable: { status: 'INSTÁVEL', color: 'text-orange-400', bgBorder: 'border-orange-500/30' },
+            insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30' }
         };
 
         sortedCategories.forEach(cat => {
@@ -730,7 +726,6 @@ export default function VerifiedStats({ categories = [], user }) {
                 status: uiState.status,
                 color: uiState.color,
                 bgBorder: uiState.bgBorder,
-                icon: uiState.icon,
                 message: medianCat.message,
                 delta: avgDelta.toFixed(2),
                 sd: avgSD.toFixed(2)

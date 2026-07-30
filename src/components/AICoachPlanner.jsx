@@ -34,7 +34,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
 
   const isPriority = parsed.priority === 'high' || isSrsCard || isSafeCard || isChaosCard;
 
-  let displayTopic = parsed.topic;
+  let topicLabel = parsed.topic;
   let secondaryText = parsed.action && parsed.action !== parsed.topic ? parsed.action : '';
 
   const cardBg = !isBacklog && dayTheme ? dayTheme.cardBg : 'bg-white/[0.02]';
@@ -89,7 +89,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
               </div>
               <div className="flex flex-col flex-1 justify-center gap-0.5">
                 <h4 className="text-[12px] sm:text-[13px] font-semibold leading-[1.35] tracking-tight text-slate-100 group-hover:text-white">
-                  {displayTopic}
+                  {topicLabel}
                 </h4>
                 {secondaryText && (
                   <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">{secondaryText}</p>

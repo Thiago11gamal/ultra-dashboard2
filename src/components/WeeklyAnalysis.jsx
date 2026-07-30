@@ -212,7 +212,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                 }`}>
                                 <div className="flex items-center gap-3 justify-start">
                                     <h3 className={`text-lg font-bold ${dayGroup.isToday ? 'text-purple-300' : 'text-slate-300'}`}>
-                                        {dayGroup.label} {dayGroup.isToday ? '' : `de ${dayGroup.dateObj.toLocaleString('pt-BR', { month: 'long' })}`}
+                                        {dayGroup.label} {dayGroup.isToday ? '' : `de ${new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, month: 'long' }).format(dayGroup.dateObj)}`}
                                     </h3>
                                     {dayGroup.isToday && (
                                         <span className="text-[10px] font-bold bg-purple-500 text-white px-2 py-0.5 rounded-full shadow-lg animate-pulse">
