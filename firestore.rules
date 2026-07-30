@@ -12,10 +12,19 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Leitura do histórico de pagamentos do próprio usuário (controle de paywall no cliente)
-    match /customers/{userId}/payments/{paymentId} {
+    // Regras da extensão Firebase Stripe Payments (clientes, sessões de checkout, pagamentos e assinaturas)
+    match /customers/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if false;
+
+      match /checkout_sessions/{id} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /subscriptions/{id} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+      }
+      match /payments/{id} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Permite que o sistema de sincronização salve os dados na nuvem
