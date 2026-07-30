@@ -22,8 +22,7 @@ export function useSubscription(user) {
         user?.isAdmin === true ||
         user?.role === 'admin' ||
         user?.plan === 'vitalicio' ||
-        user?.isPremium === true ||
-        (user?.name && typeof user.name === 'string')
+        user?.isPremium === true
     );
     const shouldBypassBilling = Boolean(isLocalMode || isAdmin);
 

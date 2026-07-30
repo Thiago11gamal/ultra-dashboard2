@@ -46,7 +46,7 @@ export default function Paywall({ user, onLogout }) {
             const docRef = await addDoc(checkoutRefs, {
                 line_items: [
                     {
-                        price: 'price_1T9ewlFOUB7khZQdnFYtD0g2',
+                        price: import.meta.env.VITE_STRIPE_PRICE_ID || 'price_1T9ewlFOUB7khZQdnFYtD0g2',
                         quantity: 1,
                     },
                 ],
