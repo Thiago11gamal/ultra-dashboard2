@@ -27,6 +27,7 @@ const CustomActiveDot = (props) => {
 export function CompareChart({ 
     filteredChartData, 
     targetScore,
+    // ✅ BUG-7 FIX: removida prop 'categories' que não era usada (causava re-renders desnecessários)
     minScore = 0,
     maxScore = 100,
     unit = '%'

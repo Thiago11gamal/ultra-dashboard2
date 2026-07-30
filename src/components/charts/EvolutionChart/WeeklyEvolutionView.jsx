@@ -89,7 +89,8 @@ const getMondayStr = (dateStr) => {
     const dt = typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr.trim())
       ? parseNoonLocal(dateStr)
         : new Date(dateStr);
-    if (isNaN(dt.getTime())) return null;
+    // ✅ BUG-3 FIX: parseNoonLocal pode retornar null → guard antes de getTime()
+    if (!dt || isNaN(dt.getTime())) return null;
     const day = dt.getDay();
     const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
     dt.setDate(diff);

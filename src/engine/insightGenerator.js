@@ -28,7 +28,8 @@ export function generateEvolutionInsights({
     activeEngine,
     categories,
     unit = '%',
-    maxScore = 100
+    maxScore = 100,
+    minScore = 0
 }) {
     const defaultTitle = "Análise do Sistema";
 
@@ -81,8 +82,11 @@ export function generateEvolutionInsights({
 
     const raw = getLastValid(`raw_${focusCategory.id}`);
     const bayesian = getLastValid(`bay_${focusCategory.id}`);
-    maxScore = safeFinite(maxScore, 100) > 0 ? safeFinite(maxScore, 100) : 100;
-    const scale = maxScore / 100;
+    // ✅ BUG-4 FIX: Não reatribuir o parâmetro; criar variável local sanitizada
+    const safeMaxScore = safeFinite(maxScore, 100) > 0 ? safeFinite(maxScore, 100) : 100;
+    const safeMinScore = safeFinite(minScore, 0);
+    // ✅ BUG-4 FIX: scale usa a amplitude real (maxScore - minScore) em vez de maxScore sozinho
+    const scale = (safeMaxScore - safeMinScore) / 100;
 
     // Lógica do Mapa de Calor (Raw Weekly)
     if (activeEngine === "raw_weekly") {

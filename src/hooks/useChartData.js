@@ -263,7 +263,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         const datesToUse = sortedDates.slice(-60);
         const dates = datesToUse.map(dateStr => {
             const d = normalizeDate(dateStr);
-            const [_y, m, day] = dateStr.split('-');
+            const [, m, day] = dateStr.split('-');
             return {
                 key: dateStr,
                 dayName: DAY_NAMES[d.getDay()],

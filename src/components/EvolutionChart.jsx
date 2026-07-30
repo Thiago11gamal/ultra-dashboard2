@@ -125,6 +125,11 @@ function buildPredictiveCompareData(
       return Math.max(minScore, Math.min(maxScore, n));
     };
 
+    // ✅ BUG-2 FIX: parse a data base UMA VEZ antes do loop (evita recálculo + mutação do Date)
+    const baseParsed = normalizeDate(pts[lastIdx].date);
+    if (!baseParsed || Number.isNaN(baseParsed.getTime())) return pts;
+    const baseMs = new Date(baseParsed.getFullYear(), baseParsed.getMonth(), baseParsed.getDate(), 12, 0, 0, 0).getTime();
+
     const futurePoints = [];
     const steps = 6;
 
@@ -135,11 +140,6 @@ function buildPredictiveCompareData(
       const val = bounded(currentLevel + (p50 - currentLevel) * t);
       const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
       const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
-
-      // ✅ LOTE-02 FIX: parse local normalizado (o "-04:00" fixo virava o dia em outros fusos)
-      const baseParsed = normalizeDate(pts[lastIdx].date);
-      if (!baseParsed || Number.isNaN(baseParsed.getTime())) return pts;
-      const baseMs = baseParsed.setHours(12, 0, 0, 0);
 
       const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
       const dt = new Date(baseMs + forwardDays * 24 * 60 * 60 * 1000);
@@ -507,7 +507,8 @@ export default React.memo(function EvolutionChart({
                 </div>
             </motion.div>
 
-            <motion.div variants={itemVariants} className="relative z-[50] rounded-2xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-md p-4 sm:p-6 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
+            {/* ✅ BUG-10 FIX: z-[50] → z-10 para não cortar tooltips de charts abaixo */}
+            <motion.div variants={itemVariants} className="relative z-10 rounded-2xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-md p-4 sm:p-6 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
                  style={{ boxShadow: `0 0 60px -15px ${engine.color}20` }}>
                  
                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/50">
@@ -685,7 +686,6 @@ export default React.memo(function EvolutionChart({
                             <CompareChart
                                 filteredChartData={filteredChartData}
                                 targetScore={targetScore}
-                                categories={categories}
                                 minScore={minScore}
                                 maxScore={maxScore}
                                 unit={unit}

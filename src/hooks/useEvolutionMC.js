@@ -65,25 +65,27 @@ export function useEvolutionMC({
 
     let cancelled = false;
     const workerDebounceTimeout = setTimeout(async () => {
+      // ✅ BUG-5 FIX: Mover cálculos de tempo para ANTES do try/catch
+      // para que fiquem acessíveis no fallback síncrono
+      let totalTimeSpent = 0;
+      let totalTimedQuestions = 0;
+      historyArray.forEach((rawH) => {
+        if (rawH && rawH.timeSpent != null && rawH.timedQuestoes != null) {
+          totalTimeSpent += Number(rawH.timeSpent);
+          totalTimedQuestions += Number(rawH.timedQuestoes);
+        }
+      });
+      const avgSeconds = totalTimedQuestions > 0 ? totalTimeSpent / totalTimedQuestions : 0;
+
+      const store = useAppStore.getState();
+      const activeId = store.appState?.activeId;
+      const contest = store.appState?.contests?.[activeId];
+      const defaultExamTotalQuestions = contest?.examTotalQuestions || 100;
+      const examDurationMinutes = contest?.examDurationMinutes || 240;
+      const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
+
       setMcLoading(true);
       try {
-        let totalTimeSpent = 0;
-        let totalTimedQuestions = 0;
-        historyArray.forEach((rawH) => {
-          if (rawH && rawH.timeSpent != null && rawH.timedQuestoes != null) {
-            totalTimeSpent += Number(rawH.timeSpent);
-            totalTimedQuestions += Number(rawH.timedQuestoes);
-          }
-        });
-        const avgSeconds = totalTimedQuestions > 0 ? totalTimeSpent / totalTimedQuestions : 0;
-
-        const store = useAppStore.getState();
-        const activeId = store.appState?.activeId;
-        const contest = store.appState?.contests?.[activeId];
-        const defaultExamTotalQuestions = contest?.examTotalQuestions || 100;
-        const examDurationMinutes = contest?.examDurationMinutes || 240;
-        const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
-
         const result = await runAnalysis({
           values: hist,
           dates: hist.map((h) => h.date),
@@ -127,7 +129,10 @@ export function useEvolutionMC({
               minScore,
               maxScore,
               currentMean: currentFocusLevel,
-              forcedBaseline: currentFocusLevel
+              forcedBaseline: currentFocusLevel,
+              // ✅ BUG-5 FIX: repassar parâmetros de Time Penalty ao fallback síncrono
+              projectedTotalTimeSeconds,
+              examDurationMinutes
             });
             if (fallback) setMcResult({ ...fallback, categoryId: focusCategory?.id });
           } catch (syncErr) {
