@@ -59,14 +59,14 @@ export default function Paywall({ user, onLogout }) {
 
             let isResolved = false;
 
-            // Timer de segurança: Se a extensão não funcionar em 12s, desarma a tela.
+            // Timer de segurança: Se a extensão não funcionar em 25s (tolerando Cold Start do Firebase), desarma a tela.
             timeoutRef.current = setTimeout(() => {
                 if (!isResolved) {
-                    logger.error("[Stripe] Timeout atingido. A extensão não respondeu.");
-                    setError("O servidor de pagamentos não respondeu. Verifique se a extensão 'Run Payments with Stripe' está instalada e configurada para observar a coleção 'customers'.");
+                    logger.error("[Stripe] Timeout atingido. A extensão não respondeu em 25s.");
+                    setError("O servidor de pagamentos demorou para responder (possível Cold Start na região). Tente clicar novamente ou verifique os logs de 'createCheckoutSession' no Firebase Console.");
                     setLoading(false);
                 }
-            }, 12000);
+            }, 25000);
 
             // Aguardar a extensão popular a sessão
             unsubRef.current = onSnapshot(docRef, async (snap) => {
