@@ -284,7 +284,7 @@ export default function Simulados() {
       }
     });
     return rows;
-  }, [categoriesArray, simuladoRowsArray, data?.categories]);
+  }, [categoriesArray, simuladoRowsArray]);
 
   /* ── FIX: Último simulado — lógica corrigida e robusta ── */
   const lastSimuladoData = useMemo(() => {
@@ -313,7 +313,7 @@ export default function Simulados() {
       ));
       resultRows = simuladoRowsArray.filter((r) => {
         // Não misturar IA com manual
-        if (r.batchId !== lastRef.batchId) return false;
+        if (!r.batchId && !lastRef.batchId) return false;
         const rowDateKey = getDateKey(normalizeDate(
           r.date || r.lastUpdated || r.createdAt || ''
         ));
@@ -360,9 +360,7 @@ export default function Simulados() {
 
       setData((current) => {
         const prev = current || {};
-        const newCategories = JSON.parse(JSON.stringify(
-          Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories || {})
-        ));
+        const newCategories = (Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories || {})).map(c => ({ ...c, simuladoStats: c.simuladoStats ? { ...c.simuladoStats, history: Array.isArray(c.simuladoStats.history) ? [...c.simuladoStats.history] : Object.values(c.simuladoStats.history || {}) } : undefined }));
         const prevSimuladoRowsArray = Array.isArray(prev.simuladoRows)
           ? prev.simuladoRows : Object.values(prev.simuladoRows || {});
 

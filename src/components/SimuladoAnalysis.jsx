@@ -407,7 +407,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             }
         }, viewMode === 'report' ? 0 : 800); // Remove delay when just viewing report
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categories, rows, viewMode, onAnalysisComplete]);
+    }, [categoriesArray, rows, viewMode, onAnalysisComplete]);
 
     React.useEffect(() => {
         if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading) {
@@ -675,7 +675,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             {/* Cards por disciplina */}
                             {analysisData.disciplines.map((disc, idx) => {
                                 const discPct = disc.percentage || 0;
-                                const category = categories.find(c => c.name === disc.name);
+                                const category = categoriesArray.find(c => c.name === disc.name);
                                 const subjectColor = category?.color || '#3b82f6';
 
                                 const discCfg =

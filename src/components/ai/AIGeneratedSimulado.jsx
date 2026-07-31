@@ -8,6 +8,7 @@ import { normalize } from '../../utils/normalization';
 import SimuladoSetup from './SimuladoSetup';
 import SimuladoPlayer from './SimuladoPlayer';
 import SimuladoResults from './SimuladoResults';
+import ConfirmModal from '../ConfirmModal';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
 import { safeGetJSON } from '../../utils/storageSafe';
 
@@ -67,6 +68,7 @@ export default function AIGeneratedSimulado() {
   const [showReview, setShowReview] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [timePerQuestion, setTimePerQuestion] = useState({});
+  const [showEscapeConfirm, setShowEscapeConfirm] = useState(false);
 
   const mountedRef = useRef(true);
   const didMountRestoreRef = useRef(false);
@@ -94,7 +96,6 @@ export default function AIGeneratedSimulado() {
   const latestQuestionsRef = useRef(questions);
   const latestFormRef = useRef(form);
   const isFinishingRef = useRef(false);
-  const finishCalledRef = useRef(false);
   const latestCurrentIndexRef = useRef(currentIndex);
   const latestTimePerQuestionRef = useRef(timePerQuestion);
   const latestTimeLeftRef = useRef(timeLeft);
@@ -699,7 +700,6 @@ export default function AIGeneratedSimulado() {
 
   const resetAll = useCallback(() => {
     isFinishingRef.current = false;
-    finishCalledRef.current = false;
     setStep('setup');
     setQuestions([]);
     setAnswers({});
@@ -714,7 +714,6 @@ export default function AIGeneratedSimulado() {
 
   const retrySameQuestions = () => {
     isFinishingRef.current = false;
-    finishCalledRef.current = false;
     setAnswers({});
     setTimePerQuestion({});
     setCurrentIndex(0);
@@ -742,7 +741,7 @@ export default function AIGeneratedSimulado() {
         if (curIdx < qLen - 1) goTo(curIdx + 1); else safeFinish();
       } else if (e.key.toLowerCase() === 'escape') {
         e.preventDefault();
-        resetAll();
+        setShowEscapeConfirm(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -775,11 +774,22 @@ export default function AIGeneratedSimulado() {
   }
   if (step === 'playing' && currentQuestion) {
     return (
-      <SimuladoPlayer
-        form={form} questions={questions} currentIndex={currentIndex} answers={answers}
-        timeLeft={timeLeft} DIFFICULTIES={DIFFICULTIES} goTo={goTo} selectAnswer={selectAnswer}
-        handleFinish={safeFinish} resetAll={resetAll}
-      />
+      <>
+        <SimuladoPlayer
+          form={form} questions={questions} currentIndex={currentIndex} answers={answers}
+          timeLeft={timeLeft} DIFFICULTIES={DIFFICULTIES} goTo={goTo} selectAnswer={selectAnswer}
+          handleFinish={safeFinish} resetAll={() => setShowEscapeConfirm(true)}
+        />
+        <ConfirmModal
+          isOpen={showEscapeConfirm}
+          onClose={() => setShowEscapeConfirm(false)}
+          onConfirm={() => { setShowEscapeConfirm(false); resetAll(); }}
+          title="Sair do Simulado"
+          message="Tem certeza que deseja sair? Todo o progresso deste simulado será perdido."
+          confirmText="Sair e Descartar"
+          type="danger"
+        />
+      </>
     );
   }
   if (step === 'finished' && results) {
