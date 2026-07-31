@@ -16,7 +16,7 @@ const AI_BACKEND_URL = import.meta.env.VITE_API_BACKEND_URL || '';
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 async function generateViaGeminiDirect({ materia, assunto, dificuldade, quantidade, contestName, apiKey }) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
   const prompt = `Você é uma banca examinadora especialista em concursos públicos (nível: ${contestName}).
 Elabore exatamente ${quantidade} questões inéditas e realistas de múltipla escolha sobre:
