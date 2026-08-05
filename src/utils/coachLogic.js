@@ -19,7 +19,7 @@ import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { computeAgilityMetrics } from '../engine/stats.js';
 import { cleanCoachTags } from './coachText.js';
-import { safeArray, getCalibrationKey } from './coachSafe.js';
+import { safeArray, getCalibrationKey, hashString } from './coachSafe.js';
 
 export {
     deriveAdaptiveRiskThresholds,
@@ -44,15 +44,8 @@ const clamp = (value, min, max) => {
     return Math.min(max, Math.max(min, n));
 };
 
-const simpleHash = (str) => {
-    let h = 0;
-    const s = String(str || '');
-    for (let i = 0; i < s.length; i++) {
-        h = (h << 5) - h + s.charCodeAt(i);
-        h |= 0;
-    }
-    return Math.abs(h).toString(36);
-};
+// simpleHash moved to coachSafe.js as hashString (canonical)
+const simpleHash = hashString;
 
 export const DEFAULT_CONFIG = {
     SCORE_MAX: 45,
@@ -93,7 +86,7 @@ export const DEFAULT_CONFIG = {
     MC_BOOST_DANGER_BASE: 10,
     MC_BOOST_DANGER_RANGE: 12,
     MC_BOOST_MODERATE_BASE: 10,
-    MC_BOOST_SAFE_PENALTY: -6,
+    MC_BOOST_SAFE_PENALTY: -10,
     MC_MODERATE_MIDPOINT: 55,
 };
 
@@ -160,9 +153,20 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
 
     const retention = forgettingData.retentionPct;
 
-    if (retention < 30) return { boost: cfg.SRS_BOOST * 2.0, label: "⚠️ Memória Crítica (Risco de Branco)" };
-    if (retention < 55) return { boost: cfg.SRS_BOOST * 1.4, label: "🧠 Revisão Necessária (Curva de Esquecimento)" };
-    if (retention < 75) return { boost: cfg.SRS_BOOST * 0.8, label: "🔄 Revisão de Reforço" };
+    // FIX: SRS boost contínuo em vez de discreto 3-níveis.
+    // Curva power-law inversamente proporcional à retenção.
+    // retention=0% → boost=32, retention=30% → boost=21.3, retention=55% → boost=10.5, retention=75% → boost=0
+    if (retention < 75) {
+        const intensity = Math.pow((75 - retention) / 75, 1.2);
+        const boost = cfg.SRS_BOOST * 2.0 * intensity;
+
+        let label;
+        if (retention < 30) label = "⚠️ Memória Crítica (Risco de Branco)";
+        else if (retention < 55) label = "🧠 Revisão Necessária (Curva de Esquecimento)";
+        else label = "🔄 Revisão de Reforço";
+
+        return { boost, label };
+    }
 
     return { boost: 0, label: null };
 }
@@ -682,9 +686,11 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const gapRange = Math.max(1e-6, targetScore - minScore);
     const gapRatio = clamp(performanceDeficit / gapRange, 0, 1);
 
+    // FIX: memoryRisk contínuo em vez de discreto 3-níveis.
+    // Elimina descontinuidades no componente de recência.
     const memoryRisk = !hasData
         ? 8
-        : (forgetting.risk === 'critical' ? 35 : forgetting.risk === 'high' ? 18 : 5);
+        : clamp(35 * Math.pow(1 - forgetting.retentionPct / 100, 1.5), 2, 35);
 
     const volatilityRiskPct = clamp((mssdVolatility / domain) * 100, 0, 35);
 
@@ -936,8 +942,10 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         : 48;
 
     let rotationPenalty = 0;
-    const performanceRatio = maxScore > 0 ? averageScore / maxScore : 0;
-    const fatigueRatio = 1 + performanceRatio;
+    // FIX: Removido fatigueRatio baseado em performance.
+    // Notas altas já recebem urgência menor via SCORE_MAX (gap da meta).
+    // Penalizar novamente aqui causava dupla penalização.
+    const fatigueRatio = 1.0;
 
     if (exactHoursSinceLast < 24) {
         const recentFatigue = Math.max(0.2, Math.exp(-exactHoursSinceLast / 12));
@@ -951,8 +959,6 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
 
     if (srsBoost > 0) rotationPenalty *= 0.1;
 
-    const efficiencyBridgeBoost = 0;
-
     const rawScore = Math.max(
         0,
         scoreComponent +
@@ -961,7 +967,6 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         currentPriorityBoost +
         currentSrsBoost +
         mcUrgencyBoostClamped +
-        efficiencyBridgeBoost +
         balanceBridgeBoost -
         rotationPenalty
     );
@@ -994,7 +999,6 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         priorityBoost: currentPriorityBoost,
         srsBoost: currentSrsBoost,
         mcUrgencyBoost: mcUrgencyBoostClamped,
-        efficiencyBridgeBoost,
         balanceBridgeBoost,
         rotationPenalty,
         weightMultiplier,
@@ -1052,7 +1056,6 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         priorityBoost,
         srsBoost,
         mcUrgencyBoost,
-        efficiencyBridgeBoost,
         balanceBridgeBoost,
         rotationPenalty,
         weightMultiplier,
@@ -1144,7 +1147,6 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             hasSimulados: relevantSimulados.length > 0,
             hasHighPriorityTasks,
             completionRate: Number((completionRate * 100).toFixed(1)),
-            efficiencyBridgeBoost: Number(efficiencyBridgeBoost.toFixed(2)),
             balanceBridgeBoost: Number(balanceBridgeBoost.toFixed(2)),
             weight,
             srsLabel,
@@ -1209,7 +1211,6 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 srsBoost: Number((srsBoost * weightMultiplier).toFixed(2)),
                 rotationPenalty: Number((rotationPenalty * weightMultiplier).toFixed(2)),
                 mcUrgencyBoost: Number((mcUrgencyBoost * weightMultiplier).toFixed(2)),
-                efficiencyBridgeBoost: Number((efficiencyBridgeBoost * weightMultiplier).toFixed(2)),
                 balanceBridgeBoost: Number((balanceBridgeBoost * weightMultiplier).toFixed(2)),
             }
         }

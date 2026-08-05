@@ -19,3 +19,13 @@ export function clampFinite(value, min, max, fallback = min) {
 export function getCalibrationKey(id) {
   return String(id ?? '').trim().toLowerCase();
 }
+
+export function hashString(str) {
+  let h = 0;
+  const s = String(str || '');
+  for (let i = 0; i < s.length; i++) {
+    h = (h << 5) - h + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h).toString(36);
+}

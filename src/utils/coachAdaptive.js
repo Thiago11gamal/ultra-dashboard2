@@ -5,17 +5,9 @@ import { getDateKey, safeDateParse } from './dateHelper.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { detectDataAnomalies } from '../engine/diagnostics.js';
 import { pruneHistoryForMemory } from '../engine/stats.js';
-import { safeArray, toFiniteNumber } from './coachSafe.js';
+import { safeArray, toFiniteNumber, hashString } from './coachSafe.js';
 
-function hashString(str) {
-  let h = 0;
-  const s = String(str || '');
-  for (let i = 0; i < s.length; i++) {
-    h = (h << 5) - h + s.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h).toString(36);
-}
+// hashString moved to coachSafe.js (canonical)
 
 /**
  * Deriva thresholds adaptativos de risco (danger/safe) para Monte Carlo.
@@ -132,12 +124,6 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
  * Calcula o boost contínuo de urgência baseado na probabilidade Monte Carlo.
  * 
  * ✅ CORREÇÃO BUG #1: Suavização C¹ contínua usando smoothstep.
-const toFiniteCfg = (value, fallback) => {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-};
-
-/**
  * Elimina descontinuidades na derivada que causavam "saltos visuais"
  * quando a probabilidade cruzava o limiar de perigo.
  */
