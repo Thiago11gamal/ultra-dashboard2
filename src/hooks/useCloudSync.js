@@ -410,15 +410,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       let cloudData = exists ? docSnap.data() : null;
 
       if (cloudData && cloudData.contestIds) {
-        try {
-          const contestsSnap = await getDocs(collection(db, 'backups', currentUser.uid, 'contests'));
-          if (snapId !== currentSnapshotId) return; // A newer snapshot arrived during fetch
-          cloudData.contests = {};
-          contestsSnap.forEach(cDoc => {
-            cloudData.contests[cDoc.id] = cDoc.data();
-          });
-        } catch (err) {
-          logger.error("[Sync] Erro ao buscar subcoleções no snapshot:", err);
+        if (!isParityValidatedRef.current) {
+          try {
+            const contestsSnap = await getDocs(collection(db, 'backups', currentUser.uid, 'contests'));
+            if (snapId !== currentSnapshotId) return; // A newer snapshot arrived during fetch
+            cloudData.contests = {};
+            contestsSnap.forEach(cDoc => {
+              cloudData.contests[cDoc.id] = cDoc.data();
+            });
+          } catch (err) {
+            logger.error("[Sync] Erro ao buscar subcoleções no snapshot:", err);
+          }
         }
       }
       
@@ -721,6 +723,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             transaction.set(docRef, coreState);
             for (const [cid, cData] of Object.entries(contests)) {
               transaction.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
+            }
+
+            if (cloudData && cloudData.contestIds) {
+              const currentIds = new Set(coreState.contestIds || []);
+              for (const oldId of cloudData.contestIds) {
+                if (!currentIds.has(oldId)) {
+                  transaction.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
+                }
+              }
             }
           })
           .then(() => {
