@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { db, isLocalMode } from '../services/firebase';
-import { doc, setDoc, onSnapshot, runTransaction, writeBatch, collection, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, runTransaction, writeBatch, collection, getDocs } from 'firebase/firestore';
 import { SYNC_LOG_CAP } from '../config';
 import { logger } from '../utils/logger';
 import { useAppStore } from '../store/useAppStore';
@@ -573,8 +573,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       stateToSave._syncTimestamp = Date.now();
 
       const emergencyState = { ...stateToSave };
-      emergencyState._syncVersion = currentVersion;
-      emergencyState._syncTimestamp = Date.now();
 
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;
@@ -588,6 +586,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       batch.set(doc(db, 'backups', currentUser.uid), coreEmergency);
       for (const [cid, cData] of Object.entries(emergencyContests)) {
         batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
+      }
+
+      // FIX: Deletar órfãos usando os IDs conhecidos da nuvem
+      const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
+      const currentLocalIds = new Set(Object.keys(emergencyContests));
+      for (const oldId of knownCloudIds) {
+        if (!currentLocalIds.has(oldId)) {
+          batch.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
+        }
       }
 
       batch.commit()
@@ -710,7 +717,18 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
               }
             }
 
+            // FIX Bug 1: Calcular IDs deletados ANTES do merge nonDestructive
+            const localContestIds = new Set(Object.keys(data.contests || {}));
+            const cloudContestIdsToDelete = (cloudData?.contestIds || []).filter(id => !localContestIds.has(id));
+
             let mergedState = cloudData ? mergeAppState(data, cloudData, { nonDestructive: true }) : { ...data };
+
+            // Remover do mergedState os editais que o usuário deletou localmente
+            if (mergedState.contests) {
+              for (const deletedId of cloudContestIdsToDelete) {
+                delete mergedState.contests[deletedId];
+              }
+            }
             
             mergedState._syncVersion = data._syncVersion || 0;
             mergedState._syncTimestamp = Date.now();
@@ -725,13 +743,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
               transaction.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
             }
 
-            if (cloudData && cloudData.contestIds) {
-              const currentIds = new Set(coreState.contestIds || []);
-              for (const oldId of cloudData.contestIds) {
-                if (!currentIds.has(oldId)) {
-                  transaction.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
-                }
-              }
+            // Deletar fisicamente os editais órfãos da subcoleção
+            for (const deletedId of cloudContestIdsToDelete) {
+              transaction.delete(doc(db, 'backups', currentUser.uid, 'contests', deletedId));
             }
           })
           .then(() => {
