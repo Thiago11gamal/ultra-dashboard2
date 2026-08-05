@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { db, isLocalMode } from '../services/firebase';
-import { doc, setDoc, onSnapshot, runTransaction } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, runTransaction, writeBatch, collection, getDocs } from 'firebase/firestore';
 import { SYNC_LOG_CAP } from '../config';
 import { logger } from '../utils/logger';
 import { useAppStore } from '../store/useAppStore';
@@ -387,7 +387,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       }
     }, 5000);
 
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    let currentSnapshotId = 0;
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+      const snapId = ++currentSnapshotId;
       if (docSnap.metadata.hasPendingWrites) {
         logger.debug("[Sync] Ignorando snapshot: Escrita local pendente.");
         return;
@@ -405,7 +407,21 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       }
 
       clearTimeout(safetyBootTimeout);
-      const cloudData = exists ? docSnap.data() : null;
+      let cloudData = exists ? docSnap.data() : null;
+
+      if (cloudData && cloudData.contestIds) {
+        try {
+          const contestsSnap = await getDocs(collection(db, 'backups', currentUser.uid, 'contests'));
+          if (snapId !== currentSnapshotId) return; // A newer snapshot arrived during fetch
+          cloudData.contests = {};
+          contestsSnap.forEach(cDoc => {
+            cloudData.contests[cDoc.id] = cDoc.data();
+          });
+        } catch (err) {
+          logger.error("[Sync] Erro ao buscar subcoleções no snapshot:", err);
+        }
+      }
+      
       latestCloudDataRef.current = cloudData;
 
       if (!cloudData) {
@@ -561,7 +577,18 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;
 
-      setDoc(doc(db, 'backups', currentUser.uid), emergencyState)
+      const batch = writeBatch(db);
+      const coreEmergency = { ...emergencyState };
+      const emergencyContests = coreEmergency.contests || {};
+      coreEmergency.contestIds = Object.keys(emergencyContests);
+      delete coreEmergency.contests;
+
+      batch.set(doc(db, 'backups', currentUser.uid), coreEmergency);
+      for (const [cid, cData] of Object.entries(emergencyContests)) {
+        batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
+      }
+
+      batch.commit()
         .then(() => {
           lastSyncedRef.current = currentStateString;
           try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
@@ -669,12 +696,32 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             const docSnap = await transaction.get(docRef);
             if (isTimeout) throw new Error('AbortTransaction');
             
-            const cloudData = docSnap.exists() ? docSnap.data() : null;
+            let cloudData = docSnap.exists() ? docSnap.data() : null;
+            
+            if (cloudData && cloudData.contestIds) {
+              cloudData.contests = {};
+              for (const cid of cloudData.contestIds) {
+                const cSnap = await transaction.get(doc(db, 'backups', currentUser.uid, 'contests', cid));
+                if (cSnap.exists()) {
+                  cloudData.contests[cid] = cSnap.data();
+                }
+              }
+            }
+
             let mergedState = cloudData ? mergeAppState(data, cloudData, { nonDestructive: true }) : { ...data };
             
             mergedState._syncVersion = data._syncVersion || 0;
             mergedState._syncTimestamp = Date.now();
-            transaction.set(docRef, mergedState);
+
+            const coreState = { ...mergedState };
+            const contests = coreState.contests || {};
+            coreState.contestIds = Object.keys(contests);
+            delete coreState.contests;
+
+            transaction.set(docRef, coreState);
+            for (const [cid, cData] of Object.entries(contests)) {
+              transaction.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
+            }
           })
           .then(() => {
             if (!isTimeout) { clearTimeout(timer); resolve(); }
