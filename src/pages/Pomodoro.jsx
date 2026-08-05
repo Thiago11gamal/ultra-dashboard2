@@ -10,6 +10,7 @@ import { useToast } from '../hooks/useToast';
 import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2, Target, AlertCircle, TrendingUp, Clock, Calendar, BarChart3, Medal, Trophy, Moon, Sun } from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
+import { cleanTaskTitle, parseTaskDisplay } from '../utils/taskTitleHelper';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
 const EMPTY_ARRAY = Object.freeze([]);
@@ -507,27 +508,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         };
     }, [activeSubject, categories]);
 
-    const cleanTaskText = (rawText, catName) => {
-        if (!rawText) return { displayTopic: '', secondaryText: '' };
-        const fullText = rawText.trim();
-        const parts = fullText.split(':');
-        let actionPart = parts.length > 1 ? parts.slice(1).join(':').trim() : fullText;
-        actionPart = actionPart
-            .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
-            .replace(/\[ALERTA MESTRE\]\s*/i, '')
-            .replace(/^\[(.*?)\]/i, '$1')
-            .trim();
-        let topicPart = parts[0] || '';
-        if (catName && actionPart.toLowerCase() === catName.toLowerCase()) {
-            actionPart = 'Revisão Geral';
-        }
-        const displayTopic = actionPart || topicPart || '';
-        let secondaryText = (topicPart && actionPart !== topicPart && actionPart !== 'Revisão Geral') ? topicPart : '';
-        if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
-            secondaryText = '';
-        }
-        return { displayTopic, secondaryText };
-    };
+    const cleanTaskText = (rawText, catName) => parseTaskDisplay(rawText, catName);
 
     return (
         <Motion.div
@@ -734,23 +715,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 }
 
 function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
-    const cleanText = (text) => {
-        if (!text) return '';
-        const firstColon = text.indexOf(':');
-        let targetText = firstColon > -1 ? text.substring(firstColon + 1) : text;
-        targetText = targetText
-            .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
-            .replace(/\[ALERTA MESTRE\]\s*/i, '')
-            .replace(/^\[(.*?)\]/i, '$1')
-            .trim();
-        let subtitle = targetText.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
-        if (subtitle.startsWith('-')) subtitle = subtitle.substring(1).trim();
-        if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(subtitle)) {
-            subtitle = '';
-        }
-        let cleaned = subtitle.replace(/\s{2,}/g, ' ').trim();
-        return cleaned || text;
-    };
+    const cleanText = (text) => cleanTaskTitle(text, activeSubject?.category);
 
     return (
         <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] mb-0 sm:mb-6 rounded-3xl sm:rounded-3xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-8 py-6 sm:py-10 shadow-2xl relative overflow-hidden group mx-auto">
@@ -816,6 +781,8 @@ export default function Pomodoro() {
     const activeSubject = pomodoroState.activeSubject;
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
     const completedCycles = pomodoroState.completedCycles ?? 0;
+    const accumulatedMinutes = pomodoroState.accumulatedMinutes ?? 0;
+    const unloggedCycles = accumulatedMinutes > 0 ? completedCycles : 0;
     const neuralMode = pomodoroState.neuralMode;
     const neuralQueue = pomodoroState.neuralQueue || EMPTY_ARRAY;
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
@@ -865,7 +832,7 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
     const userStats = useMemo(() => {
         if (!contest || contest === EMPTY_OBJECT) {
             return {
-                pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, completedCycles),
+                pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, unloggedCycles),
                 consecutiveMinutes: 0,
                 settings: null
             };
@@ -901,12 +868,12 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         }
 
         return {
-            pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, completedCycles),
+            pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, unloggedCycles),
             consecutiveMinutes: consecutiveStudyMinutes,
             settings: settings,
             user: user
         };
-    }, [completedCycles, contest, studyLogs, settings, user]);
+    }, [unloggedCycles, contest, studyLogs, settings, user]);
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
