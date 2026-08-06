@@ -798,7 +798,33 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           stateToSave._syncVersion = freshState?.version || 0;
           stateToSave._syncTimestamp = Date.now();
 
-          await setDocWithTimeout(doc(db, 'backups', currentUser.uid), stateToSave, 15000);
+          // 🚨 ARQUITETURA CRÍTICA: Separar editais em subcoleções para evitar o limite de 1MB do Firestore!
+          const batch = writeBatch(db);
+          const coreState = { ...stateToSave };
+          const contestsToSave = coreState.contests || {};
+          
+          coreState.contestIds = Object.keys(contestsToSave);
+          delete coreState.contests; // REMOVE DA RAIZ PARA NÃO BATER 1MB
+
+          batch.set(doc(db, 'backups', currentUser.uid), coreState);
+          for (const [cid, cData] of Object.entries(contestsToSave)) {
+            batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
+          }
+
+          const commitWithTimeout = (batchToCommit, timeoutMs) => {
+            return new Promise((resolve, reject) => {
+              const timer = setTimeout(() => reject(new Error('Firestore timeout')), timeoutMs);
+              batchToCommit.commit().then(() => {
+                clearTimeout(timer);
+                resolve();
+              }).catch(err => {
+                clearTimeout(timer);
+                reject(err);
+              });
+            });
+          };
+
+          await commitWithTimeout(batch, 15000);
           lastSyncedRef.current = currentStateString;
           try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
           lastError = null;
