@@ -67,6 +67,15 @@ const DEFAULT_COACH_FEATURES = Object.freeze({
   useOrchestratorHealth: false,
   useOrchestratorLLM: false,
   useOrchestratorAutoTuner: false,
+
+  // ==================== Lote 13 ====================
+  useCoachControlCenter: false,
+  useControlCenterFlagsPanel: false,
+  useControlCenterHealthPanel: false,
+  useControlCenterBacktestPanel: false,
+  useControlCenterAutoTunerPanel: false,
+  useControlCenterCausalPanel: false,
+  useControlCenterLLMPanel: false,
 });
 
 /**
