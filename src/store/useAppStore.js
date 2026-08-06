@@ -16,7 +16,7 @@ import { createSimuladoSlice } from './slices/createSimuladoSlice.js';
 import { createTrashSlice } from './slices/createTrashSlice.js';
 import { createSettingsSlice } from './slices/createSettingsSlice.js';
 import { createMonteCarloSlice } from './slices/createMonteCarloSlice.js';
-import { clearMcCache } from '../utils/coachAdaptive.js';
+import { clearCoachCaches } from '../utils/coachPipeline.js';
 
 // --- IndexedDB Adapter (Clean & Async) ---
 const saveTimeouts = {};
@@ -117,7 +117,7 @@ export const useAppStore = create(
                 resetStore: () => {
                     localStorage.removeItem('pomodoroState');
                     // MATH-03 / LEAK-01 FIX: Clear module-level MC cache on logout
-                    clearMcCache();
+                    clearCoachCaches();
                     // ✅ FIX: Notificar outras abas para encerrar Pomodoro
                     try {
                         const channel = new BroadcastChannel('pomodoro_sync');
@@ -268,6 +268,6 @@ useAppStore.subscribe((state) => {
     const currentActiveId = state.appState.activeId;
     if (currentActiveId !== previousActiveId) {
         previousActiveId = currentActiveId;
-        clearMcCache();
+        clearCoachCaches();
     }
 });
