@@ -54,7 +54,7 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         expect(res.recommendation).not.toContain('Sinais de estafa');
     });
 
-    it('🧠 Rotation Penalty deve escalar com a performance (fatigueRatio)', () => {
+    it('🧠 Rotation Penalty NÃO deve escalar com a performance (evitar dupla penalização)', () => {
         const studyLogs = [{ categoryId: 'test-cat', date: new Date().toISOString(), minutes: 60 }];
         
         // Caso A: Aluno com performance baixa (10%)
@@ -65,12 +65,13 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         // Caso B: Aluno com performance alta (90%)
         const resHigh = calculateUrgency(baseCategory, [{ subject: 'Matemática', score: 90, total: 100, date: '2026-01-01' }], studyLogs, { maxScore: 100 });
         
-        // Pelo fix, o rotationPenalty (penalidade negativa) deve ser maior no resHigh 
-        // porque fatigueRatio é maior.
+        // Com a nova regra, o fatigueRatio foi fixado em 1.0 para evitar penalizar 
+        // o aluno com nota alta duas vezes (pela meta do SCORE_MAX e pelo rotationPenalty).
+        // Portanto, a penalidade de rotação deve ser idêntica.
         
         expect(resLow.details.components.rotationPenalty).toBeDefined();
         expect(resHigh.details.components.rotationPenalty).toBeDefined();
-        expect(resHigh.details.components.rotationPenalty).toBeGreaterThan(resLow.details.components.rotationPenalty);
+        expect(resHigh.details.components.rotationPenalty).toBeCloseTo(resLow.details.components.rotationPenalty, 5);
     });
 
     it('💥 simuladosToHistory deve manter a ordem intra-dia por timestamp', () => {
