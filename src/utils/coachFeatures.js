@@ -55,6 +55,18 @@ const DEFAULT_COACH_FEATURES = Object.freeze({
   useAutoTuner: false,
   useAutoFlagApplication: false,
   useAutoRollback: false,
+
+  // ==================== Lote 11 ====================
+  useCausalUplift: false,
+  usePersonalizedPolicy: false,
+  useCausalTaskSelection: false,
+  useCausalBootstrap: false,
+
+  // ==================== Lote 12 ====================
+  useCoachOrchestrator: false,
+  useOrchestratorHealth: false,
+  useOrchestratorLLM: false,
+  useOrchestratorAutoTuner: false,
 });
 
 /**

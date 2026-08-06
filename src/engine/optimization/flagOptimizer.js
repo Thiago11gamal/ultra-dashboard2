@@ -39,6 +39,11 @@ export const EXPERIMENTAL_MATH_FLAGS = [
   'useAdvancedFsrs',
   'useFsrsForSrsBoost',
   'useFsrsTopicScheduling',
+
+  'useCausalUplift',
+  'usePersonalizedPolicy',
+  'useCausalTaskSelection',
+  'useCausalBootstrap',
 ];
 
 function clampFinite(value, min, max, fallback = min) {
@@ -226,6 +231,15 @@ export function getStrategySpace() {
       },
     },
     {
+      id: 'lot11-causal-policy',
+      label: 'Lote 11 — Causal Uplift & Policy',
+      features: {
+        useCausalUplift: true,
+        usePersonalizedPolicy: true,
+        useCausalTaskSelection: true,
+      },
+    },
+    {
       id: 'conservative',
       label: 'Conservador — Lotes 1 + 2',
       features: {
@@ -276,6 +290,10 @@ export function getStrategySpace() {
         useAdvancedFsrs: true,
         useFsrsForSrsBoost: true,
         useFsrsTopicScheduling: true,
+
+        useCausalUplift: true,
+        usePersonalizedPolicy: true,
+        useCausalTaskSelection: true,
       },
     },
   ];

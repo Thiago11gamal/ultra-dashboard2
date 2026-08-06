@@ -4,7 +4,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { temporal } from 'zundo';
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
-import { INITIAL_DATA } from '../data/initialData';
+import { INITIAL_DATA } from '../data/initialData.js';
 import { validateAppState } from './schemas';
 import { createPomodoroSlice } from './slices/createPomodoroSlice';
 import { createTaskSlice } from './slices/createTaskSlice';
