@@ -314,11 +314,15 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0 shadow-[0_0_8px_currentColor]`} />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <span className="text-sm font-bold text-slate-200 truncate">Motor de Produtividade</span>
-                            {suggestion.globalProjectedMean != null && Number.isFinite(Number(suggestion.globalProjectedMean)) && (
-                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">
-                                  GLOBAL {Number(suggestion.globalProjectedMean)}%
-                                </span>
-                            )}
+                            {/* BUG-04 FIX: globalProjectedMean nunca é populado — usar fallback globalMcContext */}
+                            {(() => {
+                                const gpm = suggestion.globalProjectedMean ?? suggestion.globalMcContext?.projectedMean;
+                                return gpm != null && Number.isFinite(Number(gpm)) ? (
+                                    <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">
+                                      GLOBAL {Number(gpm)}%
+                                    </span>
+                                ) : null;
+                            })()}
                         </div>
                     </div>
 

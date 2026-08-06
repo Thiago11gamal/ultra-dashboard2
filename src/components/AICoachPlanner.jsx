@@ -220,8 +220,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       });
       if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
       if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
-      prev.coachPlanner = freshPlanner;
-      prev.coachPlan = newCoachPlan;
+      return {
+        coachPlanner: freshPlanner,
+        coachPlan: newCoachPlan
+      };
     });
 
     setIsDragging(false);

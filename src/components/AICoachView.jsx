@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download,
   Loader2, Compass, Trash2, LayoutGrid, List, Target,
@@ -271,7 +271,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
   const [viewMode, setViewMode] = useState('planner');
 
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-  const categories = activeContest?.categories || [];
+  const rawCategories = activeContest?.categories || [];
+  // BUG-05 FIX: Normaliza categories que pode vir como objeto-map após migração
+  const categories = useMemo(() => Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {}), [rawCategories]);
   const safeMaxScore = Number(activeContest?.maxScore) > 0 ? Number(activeContest.maxScore) : 100;
 
   const coachPlanner = useMemo(() => {
@@ -316,7 +318,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
   const navigate = useNavigate();
   const showToast = useToast();
 
-  const handleStartNeural = (task) => {
+  // BUG-10 FIX: Memoizado para evitar re-render de todos os AICoachCard memoizados
+  const handleStartNeural = useCallback((task) => {
     let targetIndex = unallocatedCards.findIndex(t => {
       const idT = getSafeId(t);
       const idTask = getSafeId(task);
@@ -366,7 +369,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext }));
     startNeuralSession(sessionWithContext, targetIndex);
     navigate('/pomodoro');
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unallocatedCards, coachPlanner, coachPlan, startNeuralSession, navigate]);
 
   const handleExport = async () => {
     setIsExporting(true);

@@ -84,11 +84,14 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
             e.preventDefault();
             const currentIndex = tabs.findIndex(t => t.key === activeTab);
             let nextIndex = currentIndex;
+            // BUG-06 FIX: safety counter previne loop infinito se todas tabs estiverem desabilitadas
+            let attempts = 0;
             do {
                 nextIndex = e.key === 'ArrowRight' ? nextIndex + 1 : nextIndex - 1;
                 if (nextIndex >= tabs.length) nextIndex = 0;
                 if (nextIndex < 0) nextIndex = tabs.length - 1;
-            } while (nextIndex !== currentIndex && tabs[nextIndex].key === 'analytics' && !isPremiumBool);
+                attempts++;
+            } while (nextIndex !== currentIndex && tabs[nextIndex].key === 'analytics' && !isPremiumBool && attempts < tabs.length);
             
             const nextTab = tabs[nextIndex];
             if (nextTab && nextTab.key !== activeTab) {

@@ -140,6 +140,8 @@ export default function Coach() {
   useEffect(() => {
     if (activeTab && activeTab !== safeActiveTab) {
       console.warn(`[Coach.jsx] Estado de aba inválido: ${activeTab}, fallback ativado.`);
+      // BUG-09 FIX: Corrige o estado da aba em vez de apenas logar warning
+      setActiveTab(safeActiveTab);
     }
   }, [activeTab, safeActiveTab]);
 
@@ -196,7 +198,7 @@ export default function Coach() {
   const persistCalibrationMetric = useCallback((metric) => {
     if (!isMountedRef.current || !metric) return;
     // FIX: descarta métricas coletadas em outro concurso (agendadas antes da troca)
-    if (metric.contestId && metric.contestId !== activeIdRef.current) return;
+    if (metric.contestId != null && metric.contestId !== activeIdRef.current) return;
 
     const now = Date.now();
     const rawCategoryId = metric?.categoryId || metric?.categoryName;
@@ -852,6 +854,9 @@ const GovernanceBanner = React.memo(React.forwardRef(function GovernanceBanner({
 
 function RaioXDashboard({ data }) {
   const ops = data?.calibrationOps || {};
+  // BUG-11 FIX: Extrair categories para displaySubject resolver nomes customizados
+  const rawCategories = data?.categories || [];
+  const categories = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
   const [filter, setFilter] = useState('all');
   const toFiniteNumber = (value, fallback = 0) => {
     if (value === null || value === undefined || value === '') return fallback;
@@ -949,6 +954,13 @@ function RaioXDashboard({ data }) {
 
   const categoryNames = Object.keys(categorySeriesMap);
   const [seriesCategory, setSeriesCategory] = useState(() => categoryNames[0] || '');
+  // BUG-12 FIX: Reseta seriesCategory quando a lista de categorias muda para evitar seleção stale
+  useEffect(() => {
+    if (categoryNames.length > 0 && !categoryNames.includes(seriesCategory)) {
+      setSeriesCategory(categoryNames[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryNames.join(',')]);
   const effectiveCategory = categoryNames.includes(seriesCategory)
     ? seriesCategory : (categoryNames[0] || '');
   const temporalSeries = useMemo(() => {
@@ -1003,7 +1015,7 @@ function RaioXDashboard({ data }) {
                   <div className="flex justify-between items-start gap-4 mb-4">
                     <div className="flex flex-col min-w-0 flex-1">
                       <p className="text-sm sm:text-[15px] text-white font-black tracking-tight truncate mb-1.5">
-                        {displaySubject(row.label)}
+                        {displaySubject(row.label, categories)}
                       </p>
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-inner ${isDegraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
@@ -1123,7 +1135,7 @@ function RaioXDashboard({ data }) {
                       {toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}
                     </td>
                     <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
-                      {displaySubject(log.categoryName)}
+                      {displaySubject(log.categoryName, categories)}
                     </td>
                   <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${Number(log?.avgBrier || 0) > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>
                     {toFiniteNumber(log?.avgBrier, null) !== null ? Number(log?.avgBrier).toFixed(3) : '-'}
@@ -1191,12 +1203,12 @@ function RaioXDashboard({ data }) {
               className="text-[10px] font-black uppercase tracking-widest text-cyan-300 bg-slate-900/60 border border-white/10 rounded-xl px-4 py-2 outline-none cursor-pointer hover:bg-slate-800 transition-all backdrop-blur-md"
             >
               {categoryNames.map(cat => (
-                <option key={cat} value={cat}>{displaySubject(cat)}</option>
+                <option key={cat} value={cat}>{displaySubject(cat, categories)}</option>
               ))}
             </select>
           ) : (
             <span className="text-[10px] text-slate-400 font-bold">
-              {effectiveCategory ? displaySubject(effectiveCategory) : 'Sem categoria'}
+              {effectiveCategory ? displaySubject(effectiveCategory, categories) : 'Sem categoria'}
             </span>
           )}
         </div>

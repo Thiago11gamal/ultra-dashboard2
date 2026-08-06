@@ -21,7 +21,8 @@ const formatTaskName = (task) => {
     const rawName = task?.text || task?.title || '';
     const cat = extractCategoryFromTask(task);
 
-    return cleanTaskTitle(rawName, cat);
+    // BUG-07 FIX: Fallback para task sem nome — evita Pomodoro com timer sem contexto
+    return cleanTaskTitle(rawName, cat) || cat || 'Sessão de Estudo';
 };
 
 export const createPomodoroSlice = (set, get) => ({
