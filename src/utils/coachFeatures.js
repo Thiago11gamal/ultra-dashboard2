@@ -49,6 +49,12 @@ const DEFAULT_COACH_FEATURES = Object.freeze({
   useDriftGuard: false,
   useModelHealthTelemetry: false,
   useDriftAlerts: false,
+
+  // ==================== Lote 10 ====================
+  useMetaOptimizer: false,
+  useAutoTuner: false,
+  useAutoFlagApplication: false,
+  useAutoRollback: false,
 });
 
 /**
