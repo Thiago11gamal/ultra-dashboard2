@@ -35,6 +35,55 @@ const cleanUndefined = (obj, seen = new WeakSet()) => {
   return result;
 };
 
+const safeguardContest = (contest) => {
+  if (!contest) return contest;
+  
+  // Tratamento profundo para categorias (evitar arrays infinitos)
+  const safeCategories = (contest.categories || []).map(cat => {
+    if (!cat.simuladoStats) return cat;
+    return {
+      ...cat,
+      simuladoStats: {
+        ...cat.simuladoStats,
+        history: (cat.simuladoStats.history || []).slice(-100),
+        historyByMatter: cat.simuladoStats.historyByMatter 
+          ? Object.fromEntries(
+              Object.entries(cat.simuladoStats.historyByMatter).map(([mId, h]) => [
+                mId, Array.isArray(h) ? h.slice(-50) : h
+              ])
+            )
+          : cat.simuladoStats.historyByMatter
+      }
+    };
+  });
+
+  const safeFlashcards = (contest.flashcardDecks || []).map(deck => ({
+    ...deck,
+    cards: (deck.cards || []).slice(-300) // Máx 300 cards por deck na nuvem
+  }));
+
+  return {
+    ...contest,
+    categories: safeCategories,
+    flashcardDecks: safeFlashcards,
+    simulados: (contest.simulados || []).slice(-150),
+    historicalCutoffs: (contest.historicalCutoffs || []).slice(-150),
+    studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
+    studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
+    simuladoRows: (contest.simuladoRows || []).slice(-300),
+    calibrationAuditLog: (contest.calibrationAuditLog || []).slice(-150),
+    calibrationEvents: (contest.calibrationEvents || []).slice(-150),
+    coachPlan: (contest.coachPlan || []).slice(-100),
+    calibrationHistoryByCategory: contest.calibrationHistoryByCategory
+      ? Object.fromEntries(
+          Object.entries(contest.calibrationHistoryByCategory).map(([catId, history]) => [
+            catId, Array.isArray(history) ? history.slice(-50) : history
+          ])
+        )
+      : contest.calibrationHistoryByCategory,
+  };
+};
+
 export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const showToastRef = useRef(showToast);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
@@ -555,15 +604,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
     try {
       const syncState = useAppStore.getState().appState;
-      const safeguardContest = (contest) => {
-        if (!contest) return contest;
-        return {
-          ...contest,
-          studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
-          studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
-          simuladoRows: (contest.simuladoRows || []).slice(-300),
-        };
-      };
+
       const safeContests = syncState.contests
         ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
         : syncState.contests;
@@ -770,26 +811,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           const currentStateString = stateStringForSync(freshState);
           if (lastSyncedRef.current === currentStateString) break;
 
-          const safeguardContest = (contest) => {
-            if (!contest) return contest;
-            return {
-              ...contest,
-              studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
-              studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
-              simuladoRows: (contest.simuladoRows || []).slice(-300),
-              calibrationAuditLog: (contest.calibrationAuditLog || []).slice(-150),
-              calibrationEvents: (contest.calibrationEvents || []).slice(-150),
-              coachPlan: (contest.coachPlan || []).slice(-100),
-              calibrationHistoryByCategory: contest.calibrationHistoryByCategory
-                ? Object.fromEntries(
-                    Object.entries(contest.calibrationHistoryByCategory).map(([catId, history]) => [
-                      catId,
-                      Array.isArray(history) ? history.slice(-50) : history
-                    ])
-                  )
-                : contest.calibrationHistoryByCategory,
-            };
-          };
+
           const safeContests = freshState.contests
             ? Object.fromEntries(Object.entries(freshState.contests).map(([id, c]) => [id, safeguardContest(c)]))
             : freshState.contests;
