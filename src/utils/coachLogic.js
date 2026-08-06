@@ -16,6 +16,23 @@ import {
     simuladosToHistory
 } from './coachAdaptive.js';
 import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
+import { getCoachFeature } from './coachFeatures.js';
+import { kalmanAbilityTrend } from '../engine/probabilistic/stateSpace.js';
+import { estimateDynamicVolatility } from '../engine/probabilistic/volatility.js';
+import { estimatePosteriorPredictive } from '../engine/probabilistic/posteriorPredictive.js';
+import { estimateTopicProficiencies } from '../engine/probabilistic/bayesianTopics.js';
+import {
+  computeDecisionUtility,
+  rankDecisionCandidates,
+} from '../engine/probabilistic/decisionEngine.js';
+import {
+  getKnowledgeGraphForCategory,
+  computeTopicGraphMetrics,
+} from '../engine/probabilistic/knowledgeGraph.js';
+import {
+  estimateTopicFsrs,
+  estimateCategoryFsrsBoost,
+} from '../engine/probabilistic/fsrs.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { computeAgilityMetrics } from '../engine/stats.js';
 import { cleanCoachTags } from './coachText.js';
@@ -142,33 +159,53 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
 }
 
 function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null) {
-    const forgettingData = computeForgettingRisk(
-        history,
+  // Lote 7: FSRS avançado opcional
+  if (
+    getCoachFeature(null, 'useAdvancedFsrs', false) &&
+    getCoachFeature(null, 'useFsrsForSrsBoost', false)
+  ) {
+    try {
+      const fsrsData = estimateCategoryFsrsBoost(history, {
+        daysSince,
         maxScore,
-        null,
-        mssdVolatility,
-        effectiveN,
-        daysSince
-    );
+        cfg,
+        desiredRetention: 0.85,
+      });
 
-    const retention = forgettingData.retentionPct;
-
-    // FIX: SRS boost contínuo em vez de discreto 3-níveis.
-    // Curva power-law inversamente proporcional à retenção.
-    // retention=0% → boost=32, retention=30% → boost=21.3, retention=55% → boost=10.5, retention=75% → boost=0
-    if (retention < 75) {
-        const intensity = Math.pow((75 - retention) / 75, 1.2);
-        const boost = cfg.SRS_BOOST * 2.0 * intensity;
-
-        let label;
-        if (retention < 30) label = "⚠️ Memória Crítica (Risco de Branco)";
-        else if (retention < 55) label = "🧠 Revisão Necessária (Curva de Esquecimento)";
-        else label = "🔄 Revisão de Reforço";
-
-        return { boost, label };
+      if (fsrsData) {
+        return fsrsData;
+      }
+    } catch (err) {
+      console.warn('[CoachLogic] Advanced FSRS category boost failed:', err);
     }
+  }
 
-    return { boost: 0, label: null };
+  // Fallback legado
+  const forgettingData = computeForgettingRisk(
+    history,
+    maxScore,
+    null,
+    mssdVolatility,
+    effectiveN,
+    daysSince
+  );
+
+  const retention = forgettingData.retentionPct;
+
+  if (retention < 75) {
+    const intensity = Math.pow((75 - retention) / 75, 1.2);
+    const boost = cfg.SRS_BOOST * 2.0 * intensity;
+
+    let label;
+
+    if (retention < 30) label = "⚠️ Memória Crítica (Risco de Branco)";
+    else if (retention < 55) label = "🧠 Revisão Necessária (Curva de Esquecimento)";
+    else label = "🔄 Revisão de Reforço";
+
+    return { boost, label };
+  }
+
+  return { boost: 0, label: null };
 }
 
 /**
@@ -253,49 +290,95 @@ export const sanitizeNum = (val) => {
 };
 
 export const getCoachPriorities = (topicsData) => {
-    if (!Array.isArray(topicsData)) return [];
+  if (!Array.isArray(topicsData)) return [];
 
-    const globalCorrect = topicsData.reduce((acc, t) => {
-        const parsedAcertos = sanitizeNum(t.acertos);
-        const parsedCorrect = sanitizeNum(t.correct);
-        const c = Number.isFinite(parsedAcertos)
-            ? parsedAcertos
-            : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
-        return acc + c;
-    }, 0);
+  const useBayesian = getCoachFeature(null, 'useBayesianTopics', false);
 
-    const globalTotal = topicsData.reduce((acc, t) => {
-        const parsedTotal = sanitizeNum(t.total);
-        const tot = Number.isFinite(parsedTotal) ? parsedTotal : 0;
-        return acc + tot;
-    }, 0);
-
-    const mediaGlobal = globalTotal > 0 ? globalCorrect / globalTotal : 0.5;
-
-    return topicsData.map(topic => {
+  if (useBayesian) {
+    try {
+      const bayesianInput = topicsData.map(topic => {
         const parsedAcertos = sanitizeNum(topic.acertos);
         const parsedCorrect = sanitizeNum(topic.correct);
         const parsedTotal = sanitizeNum(topic.total);
 
-        const c = Number.isFinite(parsedAcertos)
-            ? parsedAcertos
-            : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
+        const correct = Number.isFinite(parsedAcertos)
+          ? parsedAcertos
+          : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
 
-        const tot = Number.isFinite(parsedTotal) ? parsedTotal : 0;
-
-        let realProficiency = computeBayesianProficiency(c, tot, mediaGlobal, globalTotal);
-        realProficiency = Number.isFinite(realProficiency) ? clamp(realProficiency, 0, 1) : 0;
+        const total = Number.isFinite(parsedTotal) ? parsedTotal : 0;
 
         return {
-            ...topic,
-            realProficiency
+          name: topic.name || topic.topic || topic.id || 'Tópico',
+          total,
+          correct,
+          original: topic
         };
-    })
-    .sort((a, b) => {
-        const valA = Number.isFinite(a.realProficiency) ? a.realProficiency : 1;
-        const valB = Number.isFinite(b.realProficiency) ? b.realProficiency : 1;
-        return valA - valB;
-    });
+      });
+
+      const bayesianResult = estimateTopicProficiencies(bayesianInput, {
+        untestedPriorMean: 0.25,
+        untestedPriorWeight: 0.45
+      });
+
+      return bayesianResult.topics
+        .map(topic => ({
+          ...(topic.original || {}),
+          name: topic.name,
+          realProficiency: clamp(topic.proficiencyMean, 0, 1),
+          bayesian: topic
+        }))
+        .sort((a, b) => {
+          const valA = Number.isFinite(a.realProficiency) ? a.realProficiency : 1;
+          const valB = Number.isFinite(b.realProficiency) ? b.realProficiency : 1;
+          return valA - valB;
+        });
+    } catch (err) {
+      console.warn('[CoachLogic] Bayesian getCoachPriorities failed:', err);
+    }
+  }
+
+  // fallback legado
+  const globalCorrect = topicsData.reduce((acc, t) => {
+    const parsedAcertos = sanitizeNum(t.acertos);
+    const parsedCorrect = sanitizeNum(t.correct);
+    const c = Number.isFinite(parsedAcertos)
+      ? parsedAcertos
+      : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
+    return acc + c;
+  }, 0);
+
+  const globalTotal = topicsData.reduce((acc, t) => {
+    const parsedTotal = sanitizeNum(t.total);
+    const tot = Number.isFinite(parsedTotal) ? parsedTotal : 0;
+    return acc + tot;
+  }, 0);
+
+  const mediaGlobal = globalTotal > 0 ? globalCorrect / globalTotal : 0.5;
+
+  return topicsData.map(topic => {
+    const parsedAcertos = sanitizeNum(topic.acertos);
+    const parsedCorrect = sanitizeNum(topic.correct);
+    const parsedTotal = sanitizeNum(topic.total);
+
+    const c = Number.isFinite(parsedAcertos)
+      ? parsedAcertos
+      : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
+
+    const tot = Number.isFinite(parsedTotal) ? parsedTotal : 0;
+
+    let realProficiency = computeBayesianProficiency(c, tot, mediaGlobal, globalTotal);
+    realProficiency = Number.isFinite(realProficiency) ? clamp(realProficiency, 0, 1) : 0;
+
+    return {
+      ...topic,
+      realProficiency
+    };
+  })
+  .sort((a, b) => {
+    const valA = Number.isFinite(a.realProficiency) ? a.realProficiency : 1;
+    const valB = Number.isFinite(b.realProficiency) ? b.realProficiency : 1;
+    return valA - valB;
+  });
 };
 
 // ==================== FUNÇÃO PRINCIPAL ====================
@@ -519,16 +602,83 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const lastNScores = trendHistory.map(t => t.score);
     const backtestWeights = deriveBacktestWeights(lastNScores, maxScore);
 
-    const rawTrend = calculateSlope(trendHistory, maxScore) * 30;
+    // ==================== LOTE 1: STATE-SPACE / KALMAN ====================
+    let stateSpace = null;
+
+    const useStateSpace = getCoachFeature(options, 'useStateSpace', false);
+
+    if (useStateSpace && trendHistory.length >= 3) {
+      try {
+        stateSpace = kalmanAbilityTrend(trendHistory, {
+          maxScore,
+          minScore,
+        });
+      } catch (err) {
+        console.warn('[CoachLogic] State-space/Kalman failed:', err);
+        stateSpace = null;
+      }
+    }
+
+    // Se autorizado, substitui a média exponencial pela habilidade latente do Kalman.
+    if (
+      stateSpace &&
+      getCoachFeature(options, 'useStateSpaceAverage', false)
+    ) {
+      averageScore = clamp(stateSpace.ability, minScore, maxScore);
+    }
+
+    // Se autorizado, substitui a tendência simples pela tendência do Kalman.
+    const rawTrend = stateSpace && getCoachFeature(options, 'useStateSpaceTrend', false)
+      ? stateSpace.trendPerMonth
+      : calculateSlope(trendHistory, maxScore) * 30;
+    // =====================================================================
     const limiteSuperior = maxScore - averageScore;
     const limiteInferior = -averageScore;
     const trend = Math.max(limiteInferior, Math.min(limiteSuperior, rawTrend));
 
     const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
 
-    const mssdVolatility = mcHistory.length >= 3
+    const baseMssdVolatility = mcHistory.length >= 3
         ? calculateMSSD(mcHistory, maxScore)
         : computeRobustVolatilityForCoach(mcHistory, maxScore);
+
+    // ==================== LOTE 2: VOLATILIDADE DINÂMICA ====================
+    let dynamicVolatility = null;
+    let mssdVolatility = baseMssdVolatility;
+
+    if (
+      getCoachFeature(options, 'useDynamicVolatility', false) &&
+      mcHistory.length >= 3
+    ) {
+      try {
+        dynamicVolatility = estimateDynamicVolatility(mcHistory, {
+          maxScore,
+          minScore,
+          useGarch: getCoachFeature(options, 'useGarchVolatility', false),
+          override: getCoachFeature(options, 'useDynamicVolatilityOverride', false),
+        });
+
+        if (dynamicVolatility && Number.isFinite(dynamicVolatility.volatility)) {
+          const dynamicVol = clamp(dynamicVolatility.volatility, 0, maxScore);
+
+          if (getCoachFeature(options, 'useDynamicVolatilityOverride', false)) {
+            mssdVolatility = dynamicVol;
+          } else {
+            // Blend conservador: mantém parte do comportamento antigo.
+            mssdVolatility = clamp(
+              (dynamicVol * 0.65) + (baseMssdVolatility * 0.35),
+              0,
+              maxScore
+            );
+          }
+        }
+      } catch (err) {
+        console.warn('[CoachLogic] Dynamic volatility failed:', err);
+        dynamicVolatility = null;
+        mssdVolatility = baseMssdVolatility;
+      }
+    }
+    // ======================================================================
 
     const mcAdaptive = {
         ...deriveCoachAdaptiveParams(mcHistory, maxScore, cfg),
@@ -594,8 +744,125 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         agilityPenalty
     );
 
-    const mcProbability = mcResult?.probability ?? null;
+    const baseMcProbability = mcResult?.probability ?? null;
     const mcHasData = mcResult != null;
+
+    // ==================== LOTE 3: POSTERIOR PREDICTIVE MONTE CARLO ====================
+    let posteriorMc = null;
+    let finalMcResult = mcResult;
+    let finalMcProbability = baseMcProbability;
+
+    if (
+      getCoachFeature(options, 'usePosteriorMonteCarlo', false) &&
+      mcResult
+    ) {
+      try {
+        const safeStateSpace = typeof stateSpace !== 'undefined' ? stateSpace : null;
+        const safeDynamicVolatility = typeof dynamicVolatility !== 'undefined' ? dynamicVolatility : null;
+
+        const domain = Math.max(1e-6, maxScore - minScore);
+
+        const fallbackAbilitySd = Math.max(
+          domain * 0.02,
+          (Number.isFinite(mssdVolatility) ? mssdVolatility : domain * 0.05) /
+            Math.sqrt(Math.max(2, (lastNScores || []).length))
+        );
+
+        const fallbackTrendPerDay = Number.isFinite(trend)
+          ? trend / 30
+          : 0;
+
+        const fallbackTrendSd = Math.max(
+          domain * 0.0015,
+          Math.abs(fallbackTrendPerDay) * 0.35
+        );
+
+        const medianGapDays = safeDynamicVolatility?.medianGapDays ?? 7;
+
+        const fallbackDailyVolatility = Number.isFinite(mssdVolatility)
+          ? mssdVolatility / Math.sqrt(Math.max(1, medianGapDays))
+          : domain * 0.02;
+
+        const posteriorInput = {
+          ability: safeStateSpace?.ability ?? averageScore,
+          abilitySd: safeStateSpace?.abilitySd ?? fallbackAbilitySd,
+          trendPerDay: safeStateSpace?.trendPerDay ?? fallbackTrendPerDay,
+          trendSd: safeStateSpace?.trendSd ?? fallbackTrendSd,
+          dailyVolatility: safeDynamicVolatility?.dailyVolatility ?? fallbackDailyVolatility,
+          horizonDays: effectiveMCDays,
+          targetScore: effectiveMCTarget,
+          minScore,
+          maxScore,
+          sampleSize: (lastNScores || []).length,
+          baseProbability: baseMcProbability,
+        };
+
+        const posteriorSimulations = Math.max(
+          300,
+          Math.min(
+            1500,
+            Math.round((adaptiveSimCount || cfg.MC_SIMULATIONS || 800) * 0.75)
+          )
+        );
+
+        const posteriorSeed = simpleHash(
+          [
+            categoryId || 'cat',
+            (lastNScores || []).length,
+            Math.round((Number.isFinite(averageScore) ? averageScore : 0) * 100),
+            Math.round((Number.isFinite(effectiveMCTarget) ? effectiveMCTarget : 0) * 100),
+            Math.round(Number.isFinite(effectiveMCDays) ? effectiveMCDays : 0),
+            Math.round((Number.isFinite(mssdVolatility) ? mssdVolatility : 0) * 100),
+            safeStateSpace ? 'ss1' : 'ss0',
+            safeDynamicVolatility ? 'dv1' : 'dv0',
+          ].join('|')
+        );
+
+        posteriorMc = estimatePosteriorPredictive(posteriorInput, {
+          simulations: posteriorSimulations,
+          seed: posteriorSeed,
+          blendWithBase: !getCoachFeature(
+            options,
+            'usePosteriorMonteCarloOverride',
+            false
+          ),
+        });
+
+        if (posteriorMc && Number.isFinite(posteriorMc.probability)) {
+          finalMcProbability = clamp(posteriorMc.probability, 0, 100);
+
+          finalMcResult = {
+            ...mcResult,
+            probability: finalMcProbability,
+            probabilityRaw: Number(
+              (posteriorMc.probabilityRaw ?? finalMcProbability).toFixed(4)
+            ),
+            mean: Number.isFinite(posteriorMc.mean)
+              ? posteriorMc.mean
+              : mcResult.mean,
+            ci95Low: Number.isFinite(posteriorMc.ciLow)
+              ? posteriorMc.ciLow
+              : mcResult.ci95Low,
+            ci95High: Number.isFinite(posteriorMc.ciHigh)
+              ? posteriorMc.ciHigh
+              : mcResult.ci95High,
+            volatility: Number.isFinite(safeDynamicVolatility?.volatility)
+              ? clamp(safeDynamicVolatility.volatility, 0, maxScore)
+              : mcResult.volatility,
+            posteriorPredictive: posteriorMc,
+            baseProbability: baseMcProbability,
+          };
+        }
+      } catch (err) {
+        console.warn('[CoachLogic] Posterior predictive Monte Carlo failed:', err);
+        posteriorMc = null;
+        finalMcResult = mcResult;
+        finalMcProbability = baseMcProbability;
+      }
+    }
+
+    const mcProbability = finalMcProbability;
+    // ==================================================================================
 
     return {
         cfg,
@@ -617,6 +884,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         rootActivityDate,
         simuladosWithMaxScore,
         averageScore,
+        stateSpace,
         daysSinceLastStudy,
         recencyUnknown,
         studyLogs: safeStudyLogs,
@@ -627,13 +895,18 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         backtestWeights,
         trend,
         mssdVolatility,
+        baseMssdVolatility,
+        dynamicVolatility,
         mcAdaptive,
         effectiveMCTarget,
         effectiveMCDays,
         globalBaselinePct,
         effectiveCfg,
-        mcResult,
-        mcProbability,
+        mcResult: finalMcResult,
+        mcProbability: finalMcProbability,
+        baseMcResult: mcResult,
+        baseMcProbability: baseMcProbability,
+        posteriorMc,
         mcHasData,
         globalProjectedMean,
         agilityPenalty,
@@ -1141,6 +1414,34 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             daysSinceLastStudy,
             standardDeviation: Number(mssdVolatility.toFixed(2)),
             mssdVolatility: Number(mssdVolatility.toFixed(2)),
+            posteriorMonteCarlo: metrics.posteriorMc
+              ? {
+                  model: metrics.posteriorMc.model,
+                  probability: Number(metrics.posteriorMc.probability.toFixed(2)),
+                  probabilityRaw: Number(metrics.posteriorMc.probabilityRaw.toFixed(2)),
+                  mean: Number(metrics.posteriorMc.mean.toFixed(2)),
+                  ciLow: Number(metrics.posteriorMc.ciLow.toFixed(2)),
+                  ciHigh: Number(metrics.posteriorMc.ciHigh.toFixed(2)),
+                  horizonDays: Number(metrics.posteriorMc.horizonDays.toFixed(2)),
+                  simulations: metrics.posteriorMc.simulations,
+                  sampleTrust: Number(metrics.posteriorMc.sampleTrust.toFixed(4)),
+                  diagnostics: metrics.posteriorMc.diagnostics || null,
+                  inputs: metrics.posteriorMc.inputs || null,
+                }
+              : null,
+            dynamicVolatility: metrics.dynamicVolatility && Number.isFinite(metrics.dynamicVolatility.volatility)
+              ? {
+                  model: metrics.dynamicVolatility.model,
+                  volatility: Number(metrics.dynamicVolatility.volatility.toFixed(2)),
+                  modelVolatility: Number(metrics.dynamicVolatility.modelVolatility.toFixed(2)),
+                  fallbackVolatility: Number(metrics.dynamicVolatility.fallbackVolatility.toFixed(2)),
+                  dailyVolatility: Number(metrics.dynamicVolatility.dailyVolatility.toFixed(2)),
+                  horizonDays: Number(metrics.dynamicVolatility.horizonDays.toFixed(2)),
+                  medianGapDays: Number(metrics.dynamicVolatility.medianGapDays.toFixed(2)),
+                  sampleSize: metrics.dynamicVolatility.sampleSize,
+                  parameters: metrics.dynamicVolatility.parameters || null
+                }
+              : null,
             trend: Number(trend.toFixed(2)),
             totalHours: Number(totalHours.toFixed(2)),
             hasData,
@@ -1296,7 +1597,37 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             ? `_gd${getDateKey(options.user.goalDate) || String(options.user.goalDate)}`
             : '';
 
-        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}`;
+        const featuresHash = simpleHash(
+  JSON.stringify({
+    uss: getCoachFeature(options, 'useStateSpace', false),
+    ussa: getCoachFeature(options, 'useStateSpaceAverage', false),
+    usst: getCoachFeature(options, 'useStateSpaceTrend', false),
+    udv: getCoachFeature(options, 'useDynamicVolatility', false),
+    ugv: getCoachFeature(options, 'useGarchVolatility', false),
+    udvo: getCoachFeature(options, 'useDynamicVolatilityOverride', false),
+    ppm: getCoachFeature(options, 'usePosteriorMonteCarlo', false),
+    ppmo: getCoachFeature(options, 'usePosteriorMonteCarloOverride', false),
+    bt: getCoachFeature(options, 'useBayesianTopics', false),
+    btu: getCoachFeature(options, 'useBayesianTopicsForUrgency', false),
+    du: getCoachFeature(options, 'useDecisionUtility', false),
+    dut: getCoachFeature(options, 'useDecisionUtilityForTopics', false),
+    dubt: getCoachFeature(options, 'useDecisionUtilityForBestTask', false),
+    bp: getCoachFeature(options, 'useBanditPlanner', false),
+    llm: getCoachFeature(options, 'useLLMExplanations', false),
+    kg: getCoachFeature(options, 'useKnowledgeGraph', false),
+    kgt: getCoachFeature(options, 'useKnowledgeGraphForTopics', false),
+    afsrs: getCoachFeature(options, 'useAdvancedFsrs', false),
+    fsrsb: getCoachFeature(options, 'useFsrsForSrsBoost', false),
+    fsrst: getCoachFeature(options, 'useFsrsTopicScheduling', false),
+    eval: getCoachFeature(options, 'useEvaluationTelemetry', false),
+    obs: getCoachFeature(options, 'useObservability', false),
+    drift: getCoachFeature(options, 'useDriftGuard', false),
+    health: getCoachFeature(options, 'useModelHealthTelemetry', false),
+    driftAlerts: getCoachFeature(options, 'useDriftAlerts', false),
+  })
+);
+
+        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}_f${featuresHash}`;
 
         if (_urgencyCache.has(cacheKey)) {
             const cached = _urgencyCache.get(cacheKey);
@@ -1308,6 +1639,62 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const metrics = extractMetrics(safeCat, safeSims, safeLogs, options);
         const scoreInfo = calculateUrgencyScore(metrics, options);
         const result = generateCoachStrings(scoreInfo.weightedRaw, scoreInfo.normalized, metrics, scoreInfo, options);
+
+// ==================== LOTE 8: EVALUATION SNAPSHOT ====================
+if (
+  getCoachFeature(options, 'useEvaluationTelemetry', false) &&
+  typeof options.onCoachEvaluationSnapshot === 'function'
+) {
+  try {
+    options.onCoachEvaluationSnapshot({
+      timestamp: Date.now(),
+      categoryId: metrics.categoryId || null,
+      categoryName: metrics.safeCategory?.name || null,
+      normalizedScore: result.normalizedScore,
+      probability: result.details?.monteCarlo?.probability ?? null,
+      predictedMean:
+        result.details?.monteCarlo?.meanProjected ??
+        result.details?.averageScore ??
+        null,
+      targetScore: metrics.targetScore,
+      maxScore: metrics.maxScore,
+      strategyId: options.strategyId || null,
+    });
+  } catch {
+    // ignore evaluation errors
+  }
+}
+// ======================================================================
+
+// ==================== LOTE 9: OBSERVABILITY SNAPSHOT ====================
+if (
+  getCoachFeature(options, 'useObservability', false) &&
+  typeof options.onCoachObservability === 'function'
+) {
+  try {
+    const mcDetails = result.details?.monteCarlo || null;
+
+    options.onCoachObservability({
+      timestamp: Date.now(),
+      categoryId: metrics.categoryId || null,
+      categoryName: metrics.safeCategory?.name || null,
+      normalizedScore: result.normalizedScore,
+      probability: mcDetails?.probability ?? null,
+      probabilityRaw: mcDetails?.probabilityRaw ?? null,
+      avgBrier: mcDetails?.avgBrier ?? null,
+      ece: mcDetails?.ece ?? null,
+      calibrationPenalty: mcDetails?.calibrationPenalty ?? null,
+      volatility: mcDetails?.volatility ?? result.details?.mssdVolatility ?? null,
+      sampleSize: mcDetails?.sampleSize ?? null,
+      reliability: Array.isArray(mcDetails?.reliability)
+        ? mcDetails.reliability
+        : [],
+    });
+  } catch {
+    // observability must never break the Coach
+  }
+}
+// ========================================================================
 
         if (typeof options.logger === 'function') {
             try {
@@ -1486,7 +1873,23 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const todayStr = getDateKey(new Date());
     const userId = safeCat?.userId || safeSims[0]?.userId || 'default';
 
-    const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}`;
+    const coachFeatureHash = simpleHash(
+      JSON.stringify({
+        bt: getCoachFeature(null, 'useBayesianTopics', false),
+        btu: getCoachFeature(null, 'useBayesianTopicsForUrgency', false),
+        du: getCoachFeature(null, 'useDecisionUtility', false),
+        dut: getCoachFeature(null, 'useDecisionUtilityForTopics', false),
+        dubt: getCoachFeature(null, 'useDecisionUtilityForBestTask', false),
+        bp: getCoachFeature(null, 'useBanditPlanner', false),
+        kg: getCoachFeature(null, 'useKnowledgeGraph', false),
+        kgt: getCoachFeature(null, 'useKnowledgeGraphForTopics', false),
+        afsrs: getCoachFeature(null, 'useAdvancedFsrs', false),
+        fsrsb: getCoachFeature(null, 'useFsrsForSrsBoost', false),
+        fsrst: getCoachFeature(null, 'useFsrsTopicScheduling', false),
+      })
+    );
+
+    const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}-${coachFeatureHash}`;
     const cacheKey = `isolate_${catId}_${hash}`;
 
     if (_topicsCache.has(cacheKey)) {
@@ -1692,28 +2095,299 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
             isUntested: data.total === 0,
             manualPriority: data.manualPriority || 0,
             completed: data.completed,
-            hasTasks: !!data.hasTasks
+            hasTasks: !!data.hasTasks,
+            scores: data.scores.slice(-8),
+            lastSeen: data.lastSeen
         };
     });
 
+    // ==================== LOTE 4: BAYESIAN TOPICS ====================
+    let bayesianTopicMap = null;
+
+    if (getCoachFeature(null, 'useBayesianTopics', false)) {
+      try {
+        const bayesianInput = topics.map(topic => ({
+          name: topic.name,
+          total: topic.total,
+          percentage: topic.percentage,
+          correct: topic.total > 0 ? (topic.percentage / 100) * topic.total : 0,
+          trend: topic.trend,
+          isUntested: topic.isUntested
+        }));
+
+        const bayesianResult = estimateTopicProficiencies(bayesianInput, {
+          untestedPriorMean: 0.25,
+          untestedPriorWeight: 0.45
+        });
+
+        bayesianTopicMap = new Map(
+          bayesianResult.topics.map(t => [t.name, t])
+        );
+
+        topics.forEach(topic => {
+          const bayes = bayesianTopicMap.get(topic.name);
+          if (!bayes) return;
+
+          topic.bayesian = bayes;
+          topic.bayesianProficiency = bayes.proficiencyMean * 100;
+          topic.bayesianEvidence = bayes.evidence;
+          topic.bayesianUncertainty = bayes.uncertainty;
+
+          if (getCoachFeature(null, 'useBayesianTopicsForUrgency', false)) {
+            const weakness = clamp(1 - bayes.proficiencyMean, 0, 1);
+            const uncertainty = clamp(bayes.uncertainty, 0, 1);
+            const evidence = clamp(bayes.evidence, 0, 1);
+
+            const bayesianBoost = (weakness * 0.65 + uncertainty * 0.35) * 70;
+
+            topic.urgencyScore =
+              topic.urgencyScore * (0.75 + 0.25 * evidence) +
+              bayesianBoost;
+
+            if (topic.isUntested) {
+              // Tópico não testado não deve dominar o ranking,
+              // mas incerteza alta pode justificar exploração.
+              const explorationFactor = 0.40 + 0.35 * uncertainty;
+              topic.urgencyScore *= explorationFactor;
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('[CoachLogic] Bayesian topics failed:', err);
+        bayesianTopicMap = null;
+      }
+    }
+    // ==================================================================
+
+    // ==================== LOTE 5: DECISION UTILITY ====================
+    let decisionTopicMap = null;
+
+    if (getCoachFeature(null, 'useDecisionUtility', false)) {
+      try {
+        const decisionCandidates = topics.map(topic => {
+          const bayesianProficiency = Number.isFinite(topic.bayesianProficiency)
+            ? topic.bayesianProficiency
+            : topic.percentage;
+
+          const weakness = clamp(1 - (bayesianProficiency / 100), 0, 1);
+
+          const uncertainty = Number.isFinite(topic.bayesianUncertainty)
+            ? topic.bayesianUncertainty
+            : (topic.total > 0
+                ? clamp(10 / (topic.total + 10), 0, 1)
+                : 0.85);
+
+          const evidence = Number.isFinite(topic.bayesianEvidence)
+            ? topic.bayesianEvidence
+            : clamp(topic.total / (topic.total + 10), 0, 1);
+
+          return {
+            id: `topic:${topic.name}`,
+            name: topic.name,
+            type: 'topic',
+            weakness,
+            uncertainty,
+            evidence,
+            recencyDays: topic.daysSince,
+            priority: topic.manualPriority >= 40
+              ? 'high'
+              : topic.manualPriority >= 20
+                ? 'medium'
+                : 'low',
+            priorityValue: clamp((topic.manualPriority || 0) / 40, 0, 1),
+            hasTasks: topic.hasTasks,
+            completed: topic.completed,
+            costMinutes: 35,
+            fatigue: 100,
+            weight: null
+          };
+        });
+
+        const rankedDecisionTopics = rankDecisionCandidates(decisionCandidates, {
+          useBandit: getCoachFeature(null, 'useBanditPlanner', false),
+          seed: `topics-${topics.length}-${getDateKey(new Date())}`,
+          explorationScale: 16
+        });
+
+        decisionTopicMap = new Map(
+          rankedDecisionTopics.map(item => [item.name, item])
+        );
+
+        topics.forEach(topic => {
+          const decisionItem = decisionTopicMap.get(topic.name);
+          if (!decisionItem) return;
+
+          topic.decisionUtility = decisionItem.decision?.utility ?? 0;
+          topic.decisionScore = decisionItem.decisionScore ?? 0;
+          topic.decisionExploration = decisionItem.explorationBonus ?? 0;
+          topic.decisionComponents = decisionItem.decision?.components ?? null;
+
+          if (getCoachFeature(null, 'useDecisionUtilityForTopics', false)) {
+            // Blend conservador: mantém a urgência antiga, mas incorpora utilidade.
+            topic.urgencyScore =
+              topic.urgencyScore * 0.75 +
+              topic.decisionUtility * 0.45;
+          }
+        });
+      } catch (err) {
+        console.warn('[CoachLogic] Decision utility topics failed:', err);
+        decisionTopicMap = null;
+      }
+    }
+    // ==================================================================
+
+    const useBayesianSort = getCoachFeature(null, 'useBayesianTopicsForUrgency', false);
+    const useDecisionSort = getCoachFeature(null, 'useDecisionUtilityForTopics', false);
+
+    // ==================== LOTE 7: FSRS + KNOWLEDGE GRAPH ====================
+    if (getCoachFeature(null, 'useAdvancedFsrs', false)) {
+      try {
+        topics.forEach(topic => {
+          topic.fsrs = estimateTopicFsrs(
+            {
+              name: topic.name,
+              scores: topic.scores || [],
+              lastSeen: topic.lastSeen,
+              daysSince: topic.daysSince,
+              total: topic.total,
+              percentage: topic.percentage,
+            },
+            {
+              maxScore,
+              desiredRetention: 0.85,
+            }
+          );
+
+          if (
+            getCoachFeature(null, 'useFsrsTopicScheduling', false) &&
+            topic.fsrs
+          ) {
+            const retentionRisk = clamp(
+              1 - (topic.fsrs.retentionPct / 100),
+              0,
+              1
+            );
+
+            const dueBoost = topic.fsrs.due ? 10 : 0;
+
+            topic.urgencyScore += retentionRisk * 18 + dueBoost;
+
+            if (topic.fsrs.due) {
+              topic.srsDue = true;
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('[CoachLogic] Advanced FSRS topics failed:', err);
+      }
+    }
+
+    if (getCoachFeature(null, 'useKnowledgeGraph', false)) {
+      try {
+        const graphConfig = getKnowledgeGraphForCategory(
+          category?.name || category?.id
+        );
+
+        if (graphConfig) {
+          const graphInput = topics.map(topic => ({
+            name: topic.name,
+            proficiency: Number.isFinite(topic.bayesianProficiency)
+              ? topic.bayesianProficiency / 100
+              : topic.percentage / 100,
+            evidence: Number.isFinite(topic.bayesianEvidence)
+              ? topic.bayesianEvidence
+              : clamp(topic.total / (topic.total + 10), 0, 1),
+            total: topic.total,
+          }));
+
+          const graphMetrics = computeTopicGraphMetrics(graphInput, graphConfig);
+
+          const graphMap = new Map(
+            graphMetrics.topics.map(metric => [metric.name, metric])
+          );
+
+          topics.forEach(topic => {
+            const metric = graphMap.get(topic.name);
+            if (!metric) return;
+
+            topic.graph = metric;
+
+            if (getCoachFeature(null, 'useKnowledgeGraphForTopics', false)) {
+              const importanceBoost = metric.graphImportance * 22;
+              const prereqPenalty = (1 - metric.prereqReadiness) * 16;
+
+              topic.urgencyScore =
+                topic.urgencyScore + importanceBoost - prereqPenalty;
+
+              if ((metric.blockedBy || []).length > 0) {
+                topic.urgencyScore *= 0.92;
+                topic.recommendedPrerequisites = metric.blockedBy;
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[CoachLogic] Knowledge graph topics failed:', err);
+      }
+    }
+    // ========================================================================
+
     topics.sort((a, b) => {
-        const aNeedsAction = !a.completed && a.hasTasks;
-        const bNeedsAction = !b.completed && b.hasTasks;
+      const aNeedsAction = !a.completed && a.hasTasks;
+      const bNeedsAction = !b.completed && b.hasTasks;
 
-        let aScore = a.urgencyScore + (aNeedsAction ? 50 : 0);
-        let bScore = b.urgencyScore + (bNeedsAction ? 50 : 0);
+      const aProf = useBayesianSort && Number.isFinite(a.bayesianProficiency)
+        ? a.bayesianProficiency
+        : a.percentage;
 
-        if (a.total > 0 && a.percentage < 40) aScore += 80;
-        else if (a.total > 0 && a.percentage < 60) aScore += 40;
+      const bProf = useBayesianSort && Number.isFinite(b.bayesianProficiency)
+        ? b.bayesianProficiency
+        : b.percentage;
 
-        if (b.total > 0 && b.percentage < 40) bScore += 80;
-        else if (b.total > 0 && b.percentage < 60) bScore += 40;
+      let aBase = a.urgencyScore;
+      let bBase = b.urgencyScore;
 
-        // FIX: evidência real passa na frente de incerteza pura
+      if (
+        useDecisionSort &&
+        Number.isFinite(a.decisionScore) &&
+        Number.isFinite(b.decisionScore)
+      ) {
+        aBase = (a.urgencyScore * 0.55) + (a.decisionScore * 0.45);
+        bBase = (b.urgencyScore * 0.55) + (b.decisionScore * 0.45);
+      }
+
+      let aScore = aBase + (aNeedsAction ? 50 : 0);
+      let bScore = bBase + (bNeedsAction ? 50 : 0);
+
+      if (a.total > 0 && aProf < 40) aScore += 80;
+      else if (a.total > 0 && aProf < 60) aScore += 40;
+
+      if (b.total > 0 && bProf < 40) bScore += 80;
+      else if (b.total > 0 && bProf < 60) bScore += 40;
+
+      if (useBayesianSort) {
+        const aEvidence = Number.isFinite(a.bayesianEvidence) ? a.bayesianEvidence : 0;
+        const bEvidence = Number.isFinite(b.bayesianEvidence) ? b.bayesianEvidence : 0;
+
+        if (a.total > 0) aScore += aEvidence * 15;
+        if (b.total > 0) bScore += bEvidence * 15;
+
+        if (a.total === 0) aScore -= 12;
+        if (b.total === 0) bScore -= 12;
+      } else {
         if (a.total === 0) aScore -= 25;
         if (b.total === 0) bScore -= 25;
+      }
 
-        return bScore - aScore;
+      if (useDecisionSort) {
+        const aDecision = Number.isFinite(a.decisionUtility) ? a.decisionUtility : 0;
+        const bDecision = Number.isFinite(b.decisionUtility) ? b.decisionUtility : 0;
+
+        aScore += aDecision * 0.20;
+        bScore += bDecision * 0.20;
+      }
+
+      return bScore - aScore;
     });
 
     return topics;
@@ -2117,62 +2791,109 @@ export function getCognitiveState(stats) {
 }
 
 export function getBestTask(categories, excludeTaskId = null) {
-    let bestTask = null;
-    let highestScore = -Infinity;
+  const useDecision = getCoachFeature(null, 'useDecisionUtility', false);
+  const useDecisionForBestTask = getCoachFeature(
+    null,
+    'useDecisionUtilityForBestTask',
+    false
+  );
 
-    (categories || []).filter(Boolean).forEach(cat => {
-        (cat.tasks || []).filter(Boolean).forEach(task => {
-            if (task.completed || (excludeTaskId && (task.id || task.text) === excludeTaskId)) return;
+  let bestTask = null;
+  let highestScore = -Infinity;
 
-            let score = 0;
+  (categories || []).filter(Boolean).forEach(cat => {
+    const rawCatWeight = Number(cat.weight);
+    const boundedCatWeight = Number.isFinite(rawCatWeight)
+      ? Math.min(10, Math.max(1, rawCatWeight))
+      : 5;
 
-            if (task.priority === 'high') score += 50;
-            else if (task.priority === 'medium') score += 20;
+    (cat.tasks || []).filter(Boolean).forEach(task => {
+      if (task.completed || (excludeTaskId && (task.id || task.text) === excludeTaskId)) {
+        return;
+      }
 
-            // FIX: pequeno ajuste pelo peso da categoria
-            const rawCatWeight = Number(cat.weight);
-            const boundedCatWeight = Number.isFinite(rawCatWeight)
-                ? Math.min(10, Math.max(1, rawCatWeight))
-                : 5;
+      let legacyScore = 0;
 
-            score += (boundedCatWeight - 5) * 2;
+      if (task.priority === 'high') legacyScore += 50;
+      else if (task.priority === 'medium') legacyScore += 20;
 
-            const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
-            const normalizedStudyDate = normalizeDate(studiedAt);
-            const parsedTime = normalizedStudyDate ? normalizedStudyDate.getTime() : NaN;
+      legacyScore += (boundedCatWeight - 5) * 2;
 
-            if (studiedAt && !isNaN(parsedTime) && parsedTime > 0) {
-                const days = Math.max(0, (Date.now() - parsedTime) / (1000 * 60 * 60 * 24));
-                const urgenciaPorEsquecimento = 40 * (1 - Math.exp(-0.05 * days));
-                score += urgenciaPorEsquecimento;
-            } else {
-                score += 45;
-            }
+      const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
+      const normalizedStudyDate = normalizeDate(studiedAt);
+      const parsedTime = normalizedStudyDate ? normalizedStudyDate.getTime() : NaN;
 
-            if (task.errorRate !== undefined && task.errorRate !== null) {
-                let rawError = String(task.errorRate || '0').replace('%', '').replace(',', '.').trim();
-                const validErrorRate = Number.isFinite(Number(rawError)) ? Number(rawError) : 0;
+      let recencyDays = 30;
 
-                let normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
-                score += normalizedErrorRate * 40;
-            }
+      if (studiedAt && !isNaN(parsedTime) && parsedTime > 0) {
+        recencyDays = Math.max(0, (Date.now() - parsedTime) / (1000 * 60 * 60 * 24));
+        const urgenciaPorEsquecimento = 40 * (1 - Math.exp(-0.05 * recencyDays));
+        legacyScore += urgenciaPorEsquecimento;
+      } else {
+        legacyScore += 45;
+      }
 
-            if (score > highestScore) {
-                highestScore = score;
+      let normalizedErrorRate = 0;
 
-                bestTask = {
-                    ...task,
-                    id: task.id || task.text,
-                    catName: cat.name,
-                    catColor: cat.color,
-                    catIcon: cat.icon,
-                    catId: cat.id
-                };
-            }
-        });
+      if (task.errorRate !== undefined && task.errorRate !== null) {
+        let rawError = String(task.errorRate || '0')
+          .replace('%', '')
+          .replace(',', '.')
+          .trim();
+
+        const validErrorRate = Number.isFinite(Number(rawError))
+          ? Number(rawError)
+          : 0;
+
+        normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
+        legacyScore += normalizedErrorRate * 40;
+      }
+
+      let finalScore = legacyScore;
+
+      if (useDecision) {
+        try {
+          const decision = computeDecisionUtility({
+            id: task.id || task.text,
+            type: 'task',
+            priority: task.priority,
+            weight: boundedCatWeight,
+            recencyDays,
+            errorRate: normalizedErrorRate,
+            costMinutes: Number(task.estimatedMinutes || task.minutes || 30),
+            fatigue: Number.isFinite(task.cognitiveFreshness)
+              ? task.cognitiveFreshness
+              : 100,
+          });
+
+          task.decisionUtility = decision.utility;
+          task.decisionComponents = decision.components;
+
+          if (useDecisionForBestTask) {
+            finalScore = (legacyScore * 0.45) + (decision.utility * 0.55);
+          }
+        } catch (err) {
+          console.warn('[CoachLogic] Decision utility best task failed:', err);
+        }
+      }
+
+      if (finalScore > highestScore) {
+        highestScore = finalScore;
+        bestTask = {
+          ...task,
+          id: task.id || task.text,
+          catName: cat.name,
+          catColor: cat.color,
+          catIcon: cat.icon,
+          catId: cat.id,
+          legacyScore,
+          finalScore
+        };
+      }
     });
+  });
 
-    return bestTask;
+  return bestTask;
 }
 
 export function getCoachInsight(activeSubject, stats) {
