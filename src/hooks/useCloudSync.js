@@ -410,17 +410,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       let cloudData = exists ? docSnap.data() : null;
 
       if (cloudData && cloudData.contestIds) {
-        if (!isParityValidatedRef.current) {
-          try {
-            const contestsSnap = await getDocs(collection(db, 'backups', currentUser.uid, 'contests'));
-            if (snapId !== currentSnapshotId) return; // A newer snapshot arrived during fetch
-            cloudData.contests = {};
-            contestsSnap.forEach(cDoc => {
-              cloudData.contests[cDoc.id] = cDoc.data();
-            });
-          } catch (err) {
-            logger.error("[Sync] Erro ao buscar subcoleções no snapshot:", err);
-          }
+        try {
+          const contestsSnap = await getDocs(collection(db, 'backups', currentUser.uid, 'contests'));
+          if (snapId !== currentSnapshotId) return; // A newer snapshot arrived during fetch
+          cloudData.contests = {};
+          contestsSnap.forEach(cDoc => {
+            cloudData.contests[cDoc.id] = cDoc.data();
+          });
+        } catch (err) {
+          logger.error("[Sync] Erro ao buscar subcoleções no snapshot:", err);
         }
       }
       
@@ -510,7 +508,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           setAppState(() => mergeAppState(useAppStore.getState().appState, null));
         }
         lastSyncedRef.current = stateStringForSync(appStateRef.current);
-        const hasRealDivergence = cloudUpdatedTime > 0 && localUpdatedTime > 0 && Math.abs(cloudUpdatedTime - localUpdatedTime) > 5000;
+        const isCloudSignificantlyAhead = cloudUpdatedTime > localUpdatedTime + 5000;
+        const isLocalSignificantlyAhead = localUpdatedTime > cloudUpdatedTime + 5000;
+        
+        // Conflito REAL: Cloud está na frente (outro aparelho editou) E localWasJustEdited (nós editamos aqui)
+        // Se a Cloud está na frente mas NÃO editamos localmente, deveria ter feito Pull automático.
+        // Se o local está na frente, é apenas um sync pendente, NÃO é conflito.
+        const hasRealDivergence = isCloudSignificantlyAhead && localWasJustEdited;
+        
         setHasConflict(!isBootSync && hasRealDivergence);
       }
     }, (err) => {
