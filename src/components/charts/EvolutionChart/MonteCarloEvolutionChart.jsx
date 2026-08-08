@@ -145,6 +145,18 @@ export const MonteCarloEvolutionChart = ({
         () => applyScenarioAdjustments(formattedData, scenario, maxScore, minScore),
         [formattedData, scenario, maxScore, minScore]
     );
+
+    const displayData = useMemo(() => {
+        if (scenarioAdjustedData.length === 1) {
+            const single = scenarioAdjustedData[0];
+            return [
+                { ...single, date: `${single.date} (Início)`, displayDate: 'Início', fullDate: `${single.fullDate} (Registro Inicial)` },
+                { ...single, date: `${single.date} (Atual)`, displayDate: 'Atual', fullDate: `${single.fullDate} (Registro Atual)` }
+            ];
+        }
+        return scenarioAdjustedData;
+    }, [scenarioAdjustedData]);
+
     const qualitySignal = useMemo(() => classifyScenarioSignal(scenarioAdjustedData, maxScore, minScore), [scenarioAdjustedData, maxScore, minScore]);
 
     const mcAssumptions = useMemo(() => {
@@ -248,24 +260,11 @@ export const MonteCarloEvolutionChart = ({
             )}
 
             <div className="w-full relative h-[360px] flex items-center justify-center">
-                {formattedData.length === 1 && (
-                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-md rounded-xl text-center p-6 border border-white/5">
-                        <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4">
-                            <TrendingUp size={32} className="text-blue-500/60" />
-                        </div>
-                        <p className="text-xs font-black text-slate-200 uppercase tracking-[0.2em]">Ponto Único Registrado</p>
-                        <p className="text-[10px] text-slate-500 mt-2 max-w-[200px] leading-relaxed">
-                            Aguardando o próximo registro para traçar a evolução.
-                            <br /><strong className="text-blue-400"> Nota Atual: {unit === 'horas' ? formatDuration(scenarioAdjustedData[0]?.mean ?? minScore) : unit === '%' ? formatValue(scenarioAdjustedData[0]?.mean ?? minScore) : scenarioAdjustedData[0]?.mean ?? minScore} {unit}</strong>
-                        </p>
-                    </div>
-                )}
-
-                {formattedData.length > 1 ? (
+                {displayData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={300}>
                         {/* 🎯 FIX: margin right de 10 -> 30 para evitar que a última data seja mastigada pelo limite do componente */}
                         <AreaChart
-                            data={scenarioAdjustedData}
+                            data={displayData}
                             margin={{ top: 20, right: 30, left: -15, bottom: 5 }}
                         >
                             <defs>

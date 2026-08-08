@@ -305,11 +305,14 @@ export function TodayVsGeneralChart({
                         <PieChart>
                             {temporalMetrics.map((metric) => {
                                 const isNull = metric.val == null;
-                                const val = isNull ? 0 : Math.max(0, Math.min(metric.val, maxScore));
+                                const safeMin = Number(minScore) || 0;
+                                const val = isNull ? 0 : Math.max(safeMin, Math.min(metric.val, maxScore));
                                 const arcColor = isNull ? 'transparent' : getColor(metric.val);
+                                const scaleRange = Math.max(1, maxScore - safeMin);
+                                const arcVal = val - safeMin;
                                 const arcData = [
-                                    { name: metric.label, value: val, trueValue: metric.val, baseColor: arcColor },
-                                    { name: `${metric.label} (Restante)`, value: maxScore - val, trueValue: metric.val, baseColor: arcColor }
+                                    { name: metric.label, value: arcVal, trueValue: metric.val, baseColor: arcColor },
+                                    { name: `${metric.label} (Restante)`, value: scaleRange - arcVal, trueValue: metric.val, baseColor: arcColor }
                                 ];
                                 return (
                                     <Pie
@@ -338,7 +341,7 @@ export function TodayVsGeneralChart({
                             {safeFix(focusAccuracy)}<span className="text-xl text-slate-400 ml-1">{unit}</span>
                         </div>
                         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">
-                            {isToday ? "Acertos(%) hoje" : "Acertos(%) no dia"}
+                            {isToday ? `Acertos(${unit}) hoje` : `Acertos(${unit}) no dia`}
                         </span>
                     </div>
                 </div>
@@ -418,7 +421,7 @@ export function TodayVsGeneralChart({
                                 fontWeight={600}
                             />
                             <YAxis 
-                                domain={[0, maxScore]} 
+                                domain={[minScore, maxScore]} 
                                 stroke="#64748b" 
                                 fontSize={10} 
                                 tickLine={false} 

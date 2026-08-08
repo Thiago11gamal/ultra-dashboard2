@@ -389,15 +389,28 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 allowDataOverflow={true}
                             />
 
-                            <YAxis
-                                type="category"
-                                dataKey="name"
-                                stroke="#ffffff"
-                                tick={{ fontSize: 11, fill: '#cbd5e1', fontWeight: 600 }}
-                                axisLine={false}
-                                tickLine={false}
-                                width={150}
-                            />
+                                <YAxis
+                                    type="category"
+                                    dataKey="name"
+                                    stroke="#ffffff"
+                                    tick={(props) => {
+                                        const { x, y, payload } = props;
+                                        const text = payload.value || "";
+                                        const maxLen = 22;
+                                        const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
+                                        return (
+                                            <g transform={`translate(${x},${y})`}>
+                                                <text x={0} y={0} dy={4} textAnchor="end" fill="#cbd5e1" fontSize={11} fontWeight={600}>
+                                                    <title>{text}</title>
+                                                    {truncated}
+                                                </text>
+                                            </g>
+                                        );
+                                    }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={150}
+                                />
 
                             <Tooltip
                                 offset={30}

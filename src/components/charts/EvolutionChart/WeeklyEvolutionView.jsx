@@ -534,7 +534,16 @@ export const WeeklyEvolutionView = ({
                                     }} 
                                 />
                                 <Tooltip offset={200} content={renderWeeklyTooltip} cursor={{ fill: '#ffffff11' }} />
-                                <Legend verticalAlign="bottom" height={40} iconType="square" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
+                                <Legend 
+                                    verticalAlign="bottom" 
+                                    height={keys.length > 4 ? Math.min(100, Math.ceil(keys.length / 2) * 20 + 20) : 40} 
+                                    iconType="square" 
+                                    formatter={renderLegendText} 
+                                    onClick={handleLegendClick} 
+                                    onMouseEnter={handleLegendHover} 
+                                    onMouseLeave={handleLegendLeave} 
+                                    wrapperStyle={{ paddingTop: '20px' }} 
+                                />
                                 <ReferenceLine y={0} stroke="#ffffff22" />
 
                                 {chartData.length > 8 && (

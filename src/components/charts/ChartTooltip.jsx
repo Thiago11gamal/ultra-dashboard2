@@ -2,13 +2,16 @@ import React from 'react';
 import { CHART_COLORS } from '../../utils/chartConfig';
 import { formatValue } from '../../utils/scoreHelper';
 
-export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%' }) => {
+export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%', maxScore = 100, minScore = 0 }) => {
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const scaleRange = Math.max(1, safeMax - safeMin);
     if (!active || !payload?.length) return null;
 
     const currentData = chartData.find(d => d.displayDate === label || d.date === label);
 
     return (
-        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-sm z-50 backdrop-blur-xl pointer-events-none transition-transform duration-200">
+        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-[calc(100vw-2rem)] sm:max-w-sm z-50 backdrop-blur-xl pointer-events-none transition-transform duration-200 overflow-hidden">
             <p className="text-slate-300 mb-3 font-bold border-b border-white/10 pb-2 flex items-center justify-between">
                 <span>📅 {label}</span>
             </p>
@@ -67,7 +70,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                         )}
                                     </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
-                                        <div className="h-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, rawVal)) : 0}%` }} />
+                                        <div className="h-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, ((rawVal - safeMin) / scaleRange) * 100)) : 0}%` }} />
                                     </div>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
@@ -78,7 +81,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                         </span>
                                     </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
-                                        <div className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, statsVal)) : 0}%` }} />
+                                        <div className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, ((statsVal - safeMin) / scaleRange) * 100)) : 0}%` }} />
                                     </div>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
@@ -89,7 +92,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                         </span>
                                     </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
-                                        <div className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, bayVal)) : 0}%` }} />
+                                        <div className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, ((bayVal - safeMin) / scaleRange) * 100)) : 0}%` }} />
                                     </div>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">

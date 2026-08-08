@@ -174,11 +174,15 @@ export function CompareChart({
         const xOff = isMc ? 12 : 10;
         const formatted = (Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2) + unit;
         const boxWidth = Math.max(42, formatted.length * 7 + 14);   // ✅ LOTE-02 (42px cortava "1200.00%")
+        
+        const rawY = y - 10 + offset;
+        const safeY = Math.max(2, Math.min((viewBox?.height || 360) - 22, rawY));
+        
         return (
             <g>
-                <rect x={x + xOff - 2} y={y - 10 + offset} width={boxWidth} height={20} rx={10}
+                <rect x={x + xOff - 2} y={safeY} width={boxWidth} height={20} rx={10}
                       fill={color} fillOpacity={0.15} stroke={color} strokeOpacity={0.4} />
-                <text x={x + xOff - 2 + boxWidth / 2} y={y + 4 + offset} fill={color} fontSize={11}
+                <text x={x + xOff - 2 + boxWidth / 2} y={safeY + 14} fill={color} fontSize={11}
                       fontWeight="black" textAnchor="middle"
                       style={{ textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}>
                     {formatted}

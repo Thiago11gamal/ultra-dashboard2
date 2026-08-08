@@ -54,7 +54,21 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             </filter>
                         </defs>
                         <PolarGrid stroke="rgba(255,255,255,0.08)" />
-                        <PolarAngleAxis dataKey="subject" tick={{ fill: '#cbd5e1', fontSize: 10, fontWeight: 500 }} />
+                        <PolarAngleAxis 
+                            dataKey="subject" 
+                            tick={(props) => {
+                                const { x, y, cx, cy, payload } = props;
+                                const text = payload.value || "";
+                                const maxLen = 12;
+                                const truncated = text.length > maxLen ? text.substring(0, maxLen - 2) + '..' : text;
+                                return (
+                                    <text x={x} y={y + (y > cy ? 5 : -5)} textAnchor={x > cx + 10 ? 'start' : x < cx - 10 ? 'end' : 'middle'} fill="#cbd5e1" fontSize={9} fontWeight={500}>
+                                        <title>{text}</title>
+                                        {truncated}
+                                    </text>
+                                );
+                            }} 
+                        />
                         
                         {/* FIX: Ocultar o tick do "0" central para manter o gráfico limpo */}
                         <PolarRadiusAxis 

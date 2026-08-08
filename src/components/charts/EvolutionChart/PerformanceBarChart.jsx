@@ -23,8 +23,9 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
         const questoes = sanitizeCount(d.questoes);
         const acertosBrutos = sanitizeCount(d.acertos);
         const acertos = Math.min(questoes, acertosBrutos);
-        const erros = Math.max(0, questoes - acertos);
-        return { ...d, questoes, acertos, erros };
+        const errosRaw = Math.max(0, questoes - acertos);
+        const erros = errosRaw === 0 ? null : errosRaw;
+        return { ...d, questoes, acertos, erros, errosRaw };
     });
     
     return (
@@ -119,7 +120,7 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                                                 <span className="w-2 h-2 rounded-sm bg-red-400 inline-block"></span>
                                                                 Erros
                                                             </span>
-                                                            <span className="text-[11px] font-black text-red-300">{d.erros}</span>
+                                                            <span className="text-[11px] font-black text-red-300">{d.errosRaw}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center gap-4 mb-2">
                                                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Rendimento</span>
@@ -138,8 +139,15 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                 <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[5, 5, 0, 0]} isAnimationActive={true}>
                                     <LabelList 
                                         dataKey="questoes" 
-                                        position="top" 
-                                        style={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} 
+                                        content={(props) => {
+                                            const { x, y, width, value } = props;
+                                            if (width < 15 || !value) return null;
+                                            return (
+                                                <text x={x + width / 2} y={y - 4} fill="#94a3b8" fontSize={9} fontWeight="bold" textAnchor="middle">
+                                                    {value}
+                                                </text>
+                                            );
+                                        }}
                                     />
                                 </Bar>
                             </BarChart>

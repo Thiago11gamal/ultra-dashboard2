@@ -353,7 +353,7 @@ export const GaussianPlot = ({
                 {!resolvedLabels.hideMean && (
                     <div className="absolute flex flex-col items-center transition-all duration-500"
                         style={{ left: `${Math.max(4, Math.min(meanPos, 96))}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
-                        <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-none border border-blue-500/30 shadow-lg">
+                        <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-blue-500/30 shadow-lg">
                             <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{unit === 'horas' ? formatDuration(projectedMean ?? mean ?? 0) : unit === '%' ? formatValue(projectedMean ?? mean ?? 0) : (projectedMean ?? mean ?? 0)}{unit}</span>
                             <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                         </div>
@@ -364,7 +364,7 @@ export const GaussianPlot = ({
                 {isTargetVisible && (
                     <div className="absolute flex flex-col items-center transition-all duration-500"
                         style={{ left: `${Math.max(4, Math.min(targetPos, 96))}%`, top: getLabelTop(targetY, resolvedLabels.target || 0), transform: 'translateX(-50%)', zIndex: 20 }}>
-                        <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-2 py-0.5 rounded-none border border-rose-500/30 shadow-lg">
+                        <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-rose-500/30 shadow-lg">
                              <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{unit === 'horas' ? formatDuration(targetVal) : unit === '%' ? formatValue(targetVal) : targetVal}{unit}</span>
                             <span className="text-[7px] font-black text-rose-300 uppercase tracking-widest opacity-80">Meta</span>
                         </div>
@@ -375,7 +375,7 @@ export const GaussianPlot = ({
                 {isCurrentVisible && (
                     <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-40"
                         style={{ left: `${Math.max(4, Math.min(currentPos, 96))}%`, top: getLabelTop(currentY, resolvedLabels.today || 0), transform: 'translateX(-50%)', zIndex: 40 }}>
-                        <div className="flex flex-col items-center px-2 py-1 rounded-none bg-slate-900/95 backdrop-blur-xl border border-white/20 shadow-xl">
+                        <div className="flex flex-col items-center px-2 py-1 rounded-xl bg-slate-900/95 backdrop-blur-xl border border-white/20 shadow-xl">
                             <span className="text-[11px] leading-none font-black text-white">{unit === 'horas' ? formatDuration(currentMean ?? 0) : unit === '%' ? formatValue(currentMean ?? 0) : (currentMean ?? 0)}{unit}</span>
                             {resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje/Projeção</span>}
                             {!resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje</span>}
@@ -391,7 +391,7 @@ export const GaussianPlot = ({
                     <div className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_12px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, curveY(hover.val))}%`, transform: 'translate(-50%, -50%)' }} />
                     
                     {/* 🎯 FIX: Topo Seguro para a Tooltip, protegendo-a de sumir no topo da tela (Math.max(30)) */}
-                    <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 text-white px-2.5 py-1.5 rounded-none shadow-2xl flex flex-col items-center min-w-[90px]" 
+                    <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 text-white px-2.5 py-1.5 rounded-xl shadow-2xl flex flex-col items-center min-w-[90px]" 
                         style={{ left: `${Math.max(12, Math.min(88, hover.x))}%`, top: `${Math.max(30, curveY(hover.val) - 5)}%`, transform: 'translate(-50%, -100%)' }}>
                         
                         <span className="text-[15px] font-black tracking-tight leading-none">{unit === 'horas' ? formatDuration(hover.val) : unit === '%' ? formatValue(hover.val) : hover.val}{unit}</span>

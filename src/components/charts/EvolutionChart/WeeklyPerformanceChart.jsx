@@ -192,7 +192,7 @@ const WeeklyPerformanceChart = ({
                             axisLine={false}
                             tickLine={false}
                             tick={{ fill: '#64748b', fontSize: 10 }}
-                            tickFormatter={(v) => formatDuration(v)}
+                            tickFormatter={(v) => v === 0 ? '0h' : formatDuration(v)}
                             domain={[0, 'auto']}
                             allowDecimals={true}
                         />
@@ -216,7 +216,7 @@ const WeeklyPerformanceChart = ({
                         <Bar
                             yAxisId="left"
                             dataKey="minutos"
-                            name="Tempo de Estudo"
+                            name="Horas"
                             fill={`url(#${barGradId})`}
                             radius={[6, 6, 0, 0]}
                             barSize={28}

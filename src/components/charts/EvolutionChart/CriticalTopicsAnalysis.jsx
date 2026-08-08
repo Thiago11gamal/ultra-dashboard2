@@ -181,6 +181,18 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         });
     }, [categories, startDate, endDate, maxScore, minScore]);
 
+    const hasData = useMemo(() => {
+        if (!categories) return false;
+        return categories.some(cat => {
+            const historyRaw = cat.simuladoStats?.history;
+            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
+            return history.some(h => {
+                const d = normalizeDate(h.date);
+                return d && d >= startDate && d <= endDate && (parseInt(h.total, 10) > 0 || h.score != null);
+            });
+        });
+    }, [categories, startDate, endDate]);
+
     const weekTitle = WEEKS.find(w => w.offset === selectedWeekOffset)?.label || "SEMANA";
 
     return (
@@ -246,8 +258,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             </ResponsiveContainer>
                         ) : (
                             <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
-                                <span className="text-4xl mb-3">🎉</span>
-                                Nenhum erro registrado neste período!
+                                <span className="text-4xl mb-3">{hasData ? '🎉' : '⏳'}</span>
+                                {hasData ? 'Nenhum erro registrado neste período!' : 'Nenhum dado registrado neste período.'}
                             </div>
                         )}
                     </div>
@@ -279,8 +291,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             </ResponsiveContainer>
                         ) : (
                             <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
-                                <span className="text-4xl mb-3">🎉</span>
-                                Nenhum erro registrado neste período!
+                                <span className="text-4xl mb-3">{hasData ? '🎉' : '⏳'}</span>
+                                {hasData ? 'Nenhum erro registrado neste período!' : 'Nenhum dado registrado neste período.'}
                             </div>
                         )}
                     </div>
