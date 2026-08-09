@@ -4,7 +4,7 @@ import {
     ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
 } from 'recharts';
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
-import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal, formatValue } from '../../../utils/scoreHelper';
 import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 import { normalize, aliases } from '../../../utils/normalization';
 import { Zap, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
