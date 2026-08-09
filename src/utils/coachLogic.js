@@ -2900,8 +2900,8 @@ export function getCoachInsight(activeSubject, stats) {
     if (!activeSubject) {
         return {
             type: 'info',
-            title: 'STATUS: STANDBY',
-            text: 'Aguardando inicialização do protocolo de foco. Selecione um vetor de estudo abaixo para ativar o rastreamento neural.',
+            title: 'Pronto para Foco',
+            text: 'Sua mente está pronta. Selecione um objetivo tático abaixo para iniciar.',
             color: 'indigo',
             iconType: 'Brain'
         };
@@ -2916,8 +2916,8 @@ export function getCoachInsight(activeSubject, stats) {
     if (fatigueScore < dangerThreshold) {
         return {
             type: 'danger',
-            title: 'ALERTA: ESGOTAMENTO NEURAL',
-            text: `Carga cognitiva em nível crítico (**${fatigueScore}%**). Taxa de retenção em declínio acentuado. Protocolo de resfriamento (pausa) recomendado.`,
+            title: 'Pausa Recomendada',
+            text: `Carga cognitiva elevada (**${fatigueScore}%**). Sua taxa de retenção pode começar a cair. É um bom momento para descansar a mente.`,
             color: 'red',
             iconType: 'Alert'
         };
@@ -2926,8 +2926,8 @@ export function getCoachInsight(activeSubject, stats) {
     if (fatigueScore >= flowThreshold && stats?.pomodorosCompleted >= 3) {
         return {
             type: 'success',
-            title: 'ESTADO: SINCRONIA TOTAL',
-            text: `Sincronia neural otimizada! Estabilidade cognitiva blindada em **${fatigueScore}%**. Fluxo de dados em alta fidelidade detectado.`,
+            title: 'Fluxo Profundo',
+            text: `Excelente ritmo! Você atingiu o estado de fluxo com **${fatigueScore}%** de energia mental. Aproveite o momento para avançar no conteúdo.`,
             color: 'emerald',
             iconType: 'Zap'
         };
@@ -2936,8 +2936,8 @@ export function getCoachInsight(activeSubject, stats) {
     if (stats?.pomodorosCompleted >= 3) {
         return {
             type: 'info',
-            title: 'SESSÃO: PROGRESSO ACUMULADO',
-            text: `${stats.pomodorosCompleted} sessões concluídas. Disposição operacional em **${fatigueScore}%**. Considere uma pausa curta para consolidação.`,
+            title: 'Belo Progresso',
+            text: `${stats.pomodorosCompleted} sessões concluídas. Você ainda tem **${fatigueScore}%** de energia. Continue assim, mas lembre-se de fazer breves pausas.`,
             color: 'indigo',
             iconType: 'Brain'
         };
@@ -2945,8 +2945,8 @@ export function getCoachInsight(activeSubject, stats) {
 
     return {
         type: 'info',
-        title: 'SESSÃO: OPERACIONAL',
-        text: `Frequência de foco sintonizada. Disposição operacional calculada em **${fatigueScore}%**. Escaneando vetor: **${activeSubject.task || 'ação'}**.`,
+        title: 'Foco Ativo',
+        text: `Energia mental em **${fatigueScore}%**. Mantenha a concentração na missão: **${activeSubject.task || 'ação'}**.`,
         color: 'indigo',
         iconType: 'Brain'
     };
