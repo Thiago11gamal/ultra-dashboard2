@@ -861,7 +861,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
       }
     }
 
-    const mcProbability = finalMcProbability;
     // ==================================================================================
 
     return {
