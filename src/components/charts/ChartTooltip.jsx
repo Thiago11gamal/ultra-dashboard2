@@ -18,6 +18,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
             <div className="space-y-3">
                 {payload
                     .filter(p => !p.name?.startsWith('_') && !['Bay CI High', 'Bay CI Low', 'Cenário Range', 'Banda Bayesiana', 'Ganho Estimado'].includes(p.name))
+                    .filter((p, index, self) => self.findIndex(t => t.name === p.name) === index)
                     .sort((a, b) => (Number(b.value) || -Infinity) - (Number(a.value) || -Infinity))
                     .map((p, i) => {
                     if (isCompare) {
