@@ -237,6 +237,15 @@ const ENGINES = [
 ];
 
 
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
+};
+const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+};
+
 export default React.memo(function EvolutionChart({
     targetScore = 80,
     goalDate,
@@ -274,10 +283,12 @@ export default React.memo(function EvolutionChart({
     const [selectedSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
     
     // Ensure focusSubjectId is valid when categories update (avoid stale/undefined focus)
-    const focusSubjectId = (categories && categories.some(c => c.id === selectedSubjectId)) 
-        ? selectedSubjectId 
-        : categories?.[0]?.id;
-    
+    const focusSubjectId = useMemo(() => {
+        if (categories && categories.some(c => c.id === selectedSubjectId)) {
+            return selectedSubjectId;
+        }
+        return categories?.[0]?.id;
+    }, [categories, selectedSubjectId]);
 
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
     const mcWeights = useAppStore(
@@ -319,6 +330,8 @@ export default React.memo(function EvolutionChart({
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
+    const [exportError, setExportError] = useState(false);
+    const [showEngineTooltip, setShowEngineTooltip] = useState(false);
 
     const focusCategory = useMemo(() => {
         if (!categories || categories.length === 0) return null;
@@ -381,14 +394,14 @@ export default React.memo(function EvolutionChart({
             activeEngine === "compare"
                 ? "Nível Bayesiano"
                 : activeEngine === "mc_density"
-                    ? `bay_${focusCategory?.id}`
+                    ? focusCategory?.id ? `bay_${focusCategory.id}` : null
                     : activeEngine === "raw"
-                        ? `raw_${focusCategory?.id}`
+                        ? focusCategory?.id ? `raw_${focusCategory.id}` : null
                         : activeEngine === "stats"
-                            ? `stats_${focusCategory?.id}`
-                            : `bay_${focusCategory?.id}`;
+                            ? focusCategory?.id ? `stats_${focusCategory.id}` : null
+                            : focusCategory?.id ? `bay_${focusCategory.id}` : null;
 
-        return downsampleLTTB(withFuture, 150, "date", primaryKey);
+        return downsampleLTTB(withFuture, 150, "date", primaryKey || "date");
     }, [chartData, timeWindow, activeEngine, focusCategory?.id]);
 
     const radarData = useMemo(() => {
@@ -419,11 +432,14 @@ export default React.memo(function EvolutionChart({
 
     const handleExport = async () => {
         setIsExporting(true);
+        setExportError(false);
 
         try {
             await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
         } catch (err) {
             console.error('[EvolutionChart] Falha ao exportar PDF:', err);
+            setExportError(true);
+            setTimeout(() => setExportError(false), 5000);
         } finally {
             setIsExporting(false);
         }
@@ -441,29 +457,28 @@ export default React.memo(function EvolutionChart({
         );
     }
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
-    };
 
-    const itemVariants = {
-        hidden: { opacity: 0, y: 30 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
-    };
 
     return (
         <motion.div id="evolution-chart-container" className="space-y-10 relative" variants={containerVariants} initial="hidden" animate="visible">
             <div className="flex justify-end mb-6 relative z-20 no-print pr-1">
-                <button
-                    type="button"
-                    onClick={handleExport}
-                    disabled={isExporting}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50 will-change-transform active:scale-[0.985]"
-                >
-                    {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                    <span className="hidden sm:inline">{isExporting ? 'Gerando PDF...' : 'Baixar PDF'}</span>
-                    <span className="sm:hidden">BAIXAR PDF</span>
-                </button>
+                <div className="flex flex-col items-end">
+                    <button
+                        type="button"
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50 will-change-transform active:scale-[0.985]"
+                    >
+                        {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                        <span className="hidden sm:inline">{isExporting ? 'Gerando PDF...' : 'Baixar PDF'}</span>
+                        <span className="sm:hidden">BAIXAR PDF</span>
+                    </button>
+                    {exportError && (
+                        <span className="text-[10px] text-rose-400 font-bold mt-1 animate-pulse">
+                            ❌ Falha ao gerar PDF. Tente novamente.
+                        </span>
+                    )}
+                </div>
             </div>
 
             <style>{`
@@ -519,11 +534,16 @@ export default React.memo(function EvolutionChart({
                              <h3 className="font-black text-lg sm:text-xl tracking-tight transition-colors duration-300" style={{ color: engine.color }}>
                                  {engine.explain.titulo}
                              </h3>
-                             <div className="relative flex items-center justify-center w-5 h-5 rounded-full border border-slate-600 text-slate-400 text-[10px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors">
+                             <button
+                                 type="button"
+                                 onClick={() => setShowEngineTooltip(!showEngineTooltip)}
+                                 className="relative flex items-center justify-center w-5 h-5 rounded-full border border-slate-600 text-slate-400 text-[10px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                                 aria-label="Informações sobre este modo de visualização"
+                             >
                                  ?
-                             </div>
+                             </button>
                          </div>
-                         <div className="absolute top-10 left-0 sm:left-12 w-[280px] max-w-[90vw] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+                         <div className={`absolute top-10 left-0 sm:left-12 w-[280px] max-w-[90vw] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-300 z-[100] ${showEngineTooltip ? 'opacity-100 visible' : 'opacity-0 invisible'} group-hover:opacity-100 group-hover:visible`}>
                              <p className="text-xs text-slate-200 mb-3 leading-relaxed">{engine.explain.simples}</p>
                              <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-700/50">
                                  <p className="text-[10px] text-amber-400 italic font-bold">💡 Dica Prática</p>

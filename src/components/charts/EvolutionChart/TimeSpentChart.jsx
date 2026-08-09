@@ -13,7 +13,7 @@ const formatTime = (s) => {
     return m === 0 ? `${sec}s` : sec === 0 ? `${m}m` : `${m}m ${String(sec).padStart(2, '0')}s`;
 };
 
-function HalfMoonGauge({ data }) {
+const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     const width = 200;
     const height = 110;
     const cx = width / 2;
@@ -136,7 +136,7 @@ function HalfMoonGauge({ data }) {
             </div>
         </div>
     );
-}
+});
 
 export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'

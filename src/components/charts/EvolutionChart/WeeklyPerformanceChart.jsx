@@ -51,7 +51,7 @@ const WeeklyPerformanceChart = ({
                 return true;
             });
             // 🎯 FIX: Calcular apenas os minutos puros para entregar ao Recharts
-            const minutos = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+            const totalMinutes = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
 
             let correctTotal = 0;
             let questionsTotal = 0;
@@ -88,7 +88,7 @@ const WeeklyPerformanceChart = ({
             days.push({
                 data: i === 0 ? "HOJE" : dow,
                 fullDate: dateKey,
-                minutos: minutos / 60, // 🎯 FIX: Convertemos para horas decimais para o formatDuration funcionar corretamente
+                minutos: totalMinutes / 60, // Horas decimais para o formatDuration funcionar corretamente
                 acertos
             });
         }

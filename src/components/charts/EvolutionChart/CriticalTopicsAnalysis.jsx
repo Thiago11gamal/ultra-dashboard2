@@ -15,6 +15,15 @@ const CustomTooltipStyle = {
     boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
 };
 
+// Mover para top-level (antes do componente)
+const WEEKS = [
+    { label: "SEMANA 4", offset: 4 },
+    { label: "SEMANA 3", offset: 3 },
+    { label: "SEMANA 2", offset: 2 },
+    { label: "SEMANA 1", offset: 1 },
+    { label: "SEMANA ATUAL", offset: 0 },
+];
+
 export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100, minScore = 0 }) => {
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
 
@@ -37,14 +46,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         };
     }, [selectedWeekOffset]);
 
-    const WEEKS = [
-        { label: "SEMANA 4", offset: 4 },
-        { label: "SEMANA 3", offset: 3 },
-        { label: "SEMANA 2", offset: 2 },
-        { label: "SEMANA 1", offset: 1 },
-        { label: "SEMANA ATUAL", offset: 0 },
-    ];
-
+    // const WEEKS = ... (removido daqui)
     const subtopicsData = useMemo(() => {
         if (!categories || !categories.length) return [];
         const topicMap = {};

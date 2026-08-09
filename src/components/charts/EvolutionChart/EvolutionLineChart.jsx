@@ -192,12 +192,15 @@ export function EvolutionLineChart({
                 offsetPx = (value - adjustedY) * pxPerPct;
             }
 
+            const formatted = `${formatValue(value)}${unit}`;
+            const boxWidth = Math.max(46, formatted.length * 7 + 14);
+
             return (
                 <g style={{ zIndex: 100, transition: 'all 0.3s ease' }}>
                     <rect
                         x={x + 8}
                         y={y - 11 + offsetPx}
-                        width={46}
+                        width={boxWidth}
                         height={22}
                         rx={6}
                         fill="#020617"
@@ -207,7 +210,7 @@ export function EvolutionLineChart({
                         strokeWidth={1.5}
                     />
                     <text 
-                        x={x + 31} 
+                        x={x + 8 + boxWidth / 2} 
                         y={y + 4 + offsetPx} 
                         fill="#ffffff" 
                         fontSize={11} 
@@ -215,7 +218,7 @@ export function EvolutionLineChart({
                         textAnchor="middle"
                         style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.8)' }}
                     >
-                        {formatValue(value)}{unit}
+                        {formatted}
                     </text>
                 </g>
             );

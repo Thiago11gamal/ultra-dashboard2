@@ -10,7 +10,7 @@ import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvo
 import { APP_TIMEZONE, parseNoonLocal } from '../../../utils/dateHelper';
 import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
 
-const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) => {
+const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit, stableThreshold = 2 }) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[280px] sm:max-w-none break-words whitespace-normal sm:whitespace-nowrap sm:break-normal">
@@ -31,7 +31,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
                         const meta = entry.payload[`meta_${baseKey}`];
 
                         if (isDelta) {
-                            const isStable = Math.abs(val) <= 2;
+                            const isStable = Math.abs(val) <= stableThreshold;
                             const color = entry.payload[`deltaColor_${baseKey}`] || (isStable ? '#eab308' : val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
                             const prefix = val > 0 ? '+' : '';
                             const currentPct = (meta?.currPct === null || meta?.currPct === undefined || meta?.currPct === '') ? entry.payload?.[baseKey] : (Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey]);
@@ -394,11 +394,18 @@ export const WeeklyEvolutionView = ({
         );
     }, [hiddenKeys, activeKeys]);
 
+    const stableThreshold = useMemo(() => {
+        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const safeMaxScore = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+        const scoreRange = Math.max(1e-9, Math.abs(safeMaxScore - safeMinScore));
+        return Math.max(0.5, scoreRange * 0.02);
+    }, [minScore, maxScore]);
+
     // M2 FIX: Tooltip extraído em useCallback para restaurar memoização do Recharts.
     // Arrow functions inline quebram a memoização porque criam nova referência a cada render.
     const renderWeeklyTooltip = useCallback(
-        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} />,
-        [hiddenKeys, unit]
+        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} stableThreshold={stableThreshold} />,
+        [hiddenKeys, unit, stableThreshold]
     );
 
 

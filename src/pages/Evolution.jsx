@@ -55,8 +55,9 @@ export default function Evolution() {
     // 1) Se existir targetScore explícito, ele é a meta em pontos
     if (user?.targetScore != null && Number.isFinite(Number(user.targetScore))) {
       let ts = Number(user.targetScore);
-      // Compatibilidade: se o valor parecer percentual (ex: 70) e estiver acima do maxScore
-      if (ts > safeMax && ts <= 100) {
+      // Compatibilidade: se o valor está na faixa 0-100 E a escala é > 100,
+      // provavelmente é um percentual que precisa ser convertido para pontos.
+      if (ts <= 100 && safeMax > 100) {
         ts = (ts / 100) * safeMax;
       }
       return clamp(ts);

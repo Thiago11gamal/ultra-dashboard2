@@ -265,7 +265,7 @@ export const MonteCarloEvolutionChart = ({
                         {/* 🎯 FIX: margin right de 10 -> 30 para evitar que a última data seja mastigada pelo limite do componente */}
                         <AreaChart
                             data={displayData}
-                            margin={{ top: 20, right: 30, left: -15, bottom: 5 }}
+                            margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
                         >
                             <defs>
                                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -402,7 +402,7 @@ export const MonteCarloEvolutionChart = ({
                         </div>
                     </div>
                 </div>
-                {qualitySignal && qualitySignal.color.includes('red') && (
+                {qualitySignal && (qualitySignal.color.includes('red') || qualitySignal.color.includes('rose')) && (
                     <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl mt-1 animate-pulse">
                         <p className="text-xs font-bold text-red-400 mb-1 flex items-center gap-2">
                             <AlertCircle size={14} /> Alerta de Tendência

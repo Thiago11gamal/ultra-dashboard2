@@ -160,6 +160,9 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                     let total = parseInt(t.total, 10) || 0;
                     // ✅ LOTE-02 FIX: entradas percentuais recebem volume sintético (antes eram descartadas)
+                    // ⚠️ NOTA: getSyntheticTotal retorna um valor fixo (ex: 10 questões simuladas).
+                    // Isso pode inflar o peso de entradas sem volume real. Considere ponderar
+                    // esses dados com menos influência se necessário no futuro.
                     if (total === 0 && t.score != null) total = getSyntheticTotal(maxScore);
                     if (total === 0) return;
                     
@@ -241,7 +244,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
                     
                     let total = parseInt(t.total, 10) || 0;
-                    // ✅ LOTE-02 FIX: entradas percentuais recebem volume sintético (antes eram descartadas)
+                    // ✅ LOTE-02 FIX: entradas percentuais recebem volume sintético (antes eram descartadas).
+                    // ⚠️ NOTA: getSyntheticTotal retorna um valor fixo (ex: 10 questões simuladas).
+                    // Isso pode inflar o peso de entradas sem volume real. Considere ponderar
+                    // esses dados com menos influência se necessário no futuro.
                     if (total === 0 && t.score != null) total = getSyntheticTotal(maxScore);
                     if (total === 0) return;
 

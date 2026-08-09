@@ -426,7 +426,7 @@ export function TodayVsGeneralChart({
                                 fontSize={10} 
                                 tickLine={false} 
                                 axisLine={false} 
-                                tickFormatter={(v) => `${v}${unit === '%' ? '' : unit}`} 
+                                tickFormatter={(v) => `${formatValue(v)}${unit}`} 
                             />
                             <Tooltip content={<CustomTooltipTimeline unit={unit} />} cursor={{ stroke: '#ffffff1a', strokeWidth: 2 }} />
                             <ReferenceLine 

@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { ChartFrame } from "../ChartFrame";
 
-export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit = '%' }) {
+export const PerformanceBarChart = React.memo(function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit = '%' }) {
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;
@@ -169,4 +169,4 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
             </div>
         </div>
     );
-}
+});

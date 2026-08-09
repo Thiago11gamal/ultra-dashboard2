@@ -16,8 +16,8 @@ const CustomActiveDot = (props) => {
         <g>
             {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}
             <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
-                <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
-                <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
+                <animate attributeName="r" values="6;16" dur="1.2s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1" />
+                <animate attributeName="opacity" values="0.6;0" dur="1.2s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1" />
             </circle>
             <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
         </g>
@@ -115,6 +115,11 @@ export function CompareChart({
             if (!moved) break;
         }
 
+        // Clamp final estrito para garantir que nenhum label saia dos limites
+        for (let i = 0; i < yPos.length; i++) {
+            yPos[i].yPos = Math.max(bottomLimit, Math.min(topLimit, yPos[i].yPos));
+        }
+
         return yPos;
     };
 
@@ -176,7 +181,8 @@ export function CompareChart({
         const boxWidth = Math.max(42, formatted.length * 7 + 14);   // ✅ LOTE-02 (42px cortava "1200.00%")
         
         const rawY = y - 10 + offset;
-        const safeY = Math.max(2, Math.min((viewBox?.height || 360) - 22, rawY));
+        const chartHeight = viewBox?.height ?? 360;
+        const safeY = Math.max(2, Math.min(chartHeight - 22, rawY));
         
         return (
             <g>

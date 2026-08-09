@@ -23,10 +23,10 @@ function getSharedWorker() {
 
 function releaseSharedWorker() {
   sharedWorkerRefCount--;
-  if (sharedWorkerRefCount <= 0 && sharedWorker) {
+  if (sharedWorkerRefCount < 0) sharedWorkerRefCount = 0;
+  if (sharedWorkerRefCount === 0 && sharedWorker) {
     sharedWorker.terminate();
     sharedWorker = null;
-    sharedWorkerRefCount = 0;
   }
 }
 
@@ -66,14 +66,17 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
     });
     const [isAggregating, setIsAggregating] = useState(false);
     const workerRef = useRef(null);
+    const didAcquireWorker = useRef(false);
 
     useEffect(() => {
         const worker = getSharedWorker();
         workerRef.current = worker;
+        didAcquireWorker.current = worker !== null;
         
         return () => {
-            releaseSharedWorker();
+            if (didAcquireWorker.current) releaseSharedWorker();
             workerRef.current = null;
+            didAcquireWorker.current = false;
         };
     }, []);
 

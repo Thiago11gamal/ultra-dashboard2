@@ -5,6 +5,7 @@ import { pointsToPct } from '../../../utils/scoreHelper.conversions';
 export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100, minScore = 0 }) {
     const safeMax = Math.max(1, Number(maxScore) || 100);   // ✅ LOTE-03
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeRange = Math.max(1e-9, safeMax - safeMin);
     const val = level || 0;
     const ok = val >= target;
     const midThreshold = safeMin + (target - safeMin) * 0.75;
@@ -56,7 +57,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                             <span className="text-orange-400 font-mono">{rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-orange-400" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, ((rawVal - safeMin) / (safeMax - safeMin)) * 100)) : 0}%` }} />
+                            <div className="h-full bg-orange-400" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, ((Number(rawVal) - safeMin) / safeRange) * 100)) : 0}%` }} />
                         </div>
                     </div>
                     <div className="flex flex-col gap-0.5">
@@ -65,7 +66,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                             <span className="text-blue-400 font-mono">{statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}{unit}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-400" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, ((statsVal - safeMin) / (safeMax - safeMin)) * 100)) : 0}%` }} />
+                            <div className="h-full bg-blue-400" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, ((Number(statsVal) - safeMin) / safeRange) * 100)) : 0}%` }} />
                         </div>
                     </div>
                     <div className="flex flex-col gap-0.5">
@@ -74,7 +75,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                             <span className="text-emerald-400 font-mono">{bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}{unit}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-400" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, ((bayVal - safeMin) / (safeMax - safeMin)) * 100)) : 0}%` }} />
+                            <div className="h-full bg-emerald-400" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, ((Number(bayVal) - safeMin) / safeRange) * 100)) : 0}%` }} />
                         </div>
                     </div>
                 </div>
