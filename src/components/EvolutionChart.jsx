@@ -693,7 +693,7 @@ export default React.memo(function EvolutionChart({
                         </div>
                     </div>
                 ) : activeEngine === "compare" ? (
-                    <div className="w-full overflow-x-auto overflow-y-hidden no-scrollbar pb-2">
+                    <div className="w-full overflow-x-auto no-scrollbar pb-2">
                         <div className="min-w-[700px] lg:min-w-full relative">
                             {mcLoading && (
                                 <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-2xl transition-all duration-300">
@@ -713,7 +713,7 @@ export default React.memo(function EvolutionChart({
                         </div>
                     </div>
                 ) : (
-                    <div className="w-full overflow-x-auto overflow-y-hidden no-scrollbar pb-2">
+                    <div className="w-full overflow-x-auto no-scrollbar pb-2">
                         <div className="min-w-[700px] lg:min-w-full relative">
                             <EvolutionLineChart
                                 filteredChartData={filteredChartData}

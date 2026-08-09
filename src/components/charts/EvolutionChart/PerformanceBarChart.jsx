@@ -76,6 +76,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                     axisLine={false}
                                     tickLine={false}
                                     tick={{ fill: '#94a3b8', fontSize: 10, width: 80 }}
+                                    tickFormatter={(val) => val.length > 12 ? val.substring(0, 10) + '..' : val}
                                     dy={8}
                                     angle={-35}
                                     textAnchor="end"

@@ -52,7 +52,7 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                             <div key={`item-${index}`} className="flex flex-col gap-1.5">
                                 <div className="flex justify-between items-end">
                                     <div className="flex flex-col gap-0.5">
-                                        <span style={{ color: entry.color }} className="font-bold flex items-center gap-2 truncate max-w-[200px]" title={entry.name}>
+                                        <span style={{ color: entry.color }} className="font-bold flex items-center gap-2 min-w-0 max-w-[200px]" title={entry.name}>
                                             <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: entry.color, boxShadow: `0 0 8px ${entry.color}88` }}></span>
                                             <span className="truncate">{entry.name}</span>
                                             {isTargetMet && <span title="Meta atingida" className="text-[10px] shrink-0 drop-shadow-md">🔥</span>}
