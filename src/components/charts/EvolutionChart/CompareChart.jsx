@@ -150,16 +150,7 @@ export function CompareChart({
     }
     const lastY = solveCollisions(lastPoints);
 
-    const getOffset = (name, value, index, viewBox) => {
-        const isFuture = isFuturePoint && index === futureIdx;
-        const pts = isFuture ? lastY : todayY;
-        if (!pts || !pts.length) return 0;
-        const pt = pts.find(p => p.name === name);
-        if (!pt) return 0;
-        const range = safeMaxScore - safeMinScore;
-        const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / (range || 1) : 4.6;
-        return (value - pt.yPos) * pxPerPct;
-    };
+
 
     const renderLabel = (props, type, color) => {
         const { x, y, index, value, viewBox } = props;
@@ -178,14 +169,26 @@ export function CompareChart({
 
         if (!isValid) return null;
 
-        const offset = getOffset(type, value, index, viewBox);
+        let ptPos = value;
+        const isFuture = isFuturePoint && index === futureIdx;
+        const pts = isFuture ? lastY : todayY;
+        if (pts && pts.length) {
+            const pt = pts.find(p => p.name === type);
+            if (pt && pt.yPos != null) ptPos = pt.yPos;
+        }
+
         const xOff = isMc ? 12 : 10;
         const formatted = (Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2) + unit;
-        const boxWidth = Math.max(42, formatted.length * 7 + 14);   // ✅ LOTE-02 (42px cortava "1200.00%")
-        
-        const rawY = y - 10 + offset;
+        const boxWidth = Math.max(42, formatted.length * 7 + 14);
+
         const chartHeight = viewBox?.height ?? 360;
-        const safeY = Math.max(2, Math.min(chartHeight - 22, rawY));
+        const chartY = viewBox?.y ?? 20;
+        const range = safeMaxScore - safeMinScore;
+        const pxPerPct = chartHeight / (range || 1);
+        
+        // Compute Y strictly via our internal coordinate map (bypassing Recharts' `y` which bugs out on isolated dots)
+        const rawY = chartY + chartHeight - (ptPos - safeMinScore) * pxPerPct - 10;
+        const safeY = Math.max(2, Math.min(chartY + chartHeight - 22, rawY));
         
         return (
             <g>
