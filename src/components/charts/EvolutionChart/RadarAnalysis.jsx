@@ -47,7 +47,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
             <div className="flex-1 min-h-[260px] sm:min-h-[300px] w-full relative">
                 <ChartFrame minHeight={260} label="Calibrando radar">
                     <ResponsiveContainer width="100%" height="100%" minHeight={260} minWidth={1}>
-                        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+                        <RadarChart cx="50%" cy="50%" outerRadius="50%" data={radarData} margin={{ top: 20, right: 35, bottom: 20, left: 35 }}>
                         <defs>
                             <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
                                 {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
