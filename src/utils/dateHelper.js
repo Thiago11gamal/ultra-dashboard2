@@ -11,18 +11,37 @@ export const safeDateParse = (dateInput) => {
   return isNaN(d.getTime()) ? new Date(0) : d;
 };
 
-export const parseGoalDateUnified = (rawDate) => {
-  if (!rawDate) return null;
-  try {
-    if (typeof rawDate === 'number') return new Date(rawDate);
-    if (typeof rawDate === 'object' && rawDate.seconds) return new Date(rawDate.seconds * 1000);
-    const rawStr = String(rawDate).trim().split('T')[0];
-    const [y, m, d] = rawStr.split('-');
-    return new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 12, 0, 0);
-  } catch {
-    return null;
-  }
-};
+export function parseGoalDateUnified(value) {
+    if (!value) return null;
+
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+
+    if (typeof value === 'string') {
+        // Formato yyyy-mm-dd
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [year, month, day] = value.split('-').map(Number);
+
+            const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        // Se for datetime sem T, tenta normalizar
+        const normalized = value.includes('T')
+            ? value
+            : `${value}T12:00:00`;
+
+        const date = new Date(normalized);
+
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const fallback = new Date(value);
+
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
 
 export const getDateKey = (rawDate) => {
   if (!rawDate) return null;
