@@ -1118,9 +1118,15 @@ function RaioXDashboard({ data }) {
               <tr className="border-b border-white/5">
                 <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
                 <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
-                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
-                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
-                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
+                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">
+                  <span title="Mede o erro da previsão. Quanto mais perto de zero, mais precisa foi a projeção do sistema em relação à sua nota real." className="cursor-help border-b border-dashed border-slate-600">Brier (erro)</span>
+                </th>
+                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">
+                  <span title="Mede se há otimismo/pessimismo (gap/viés). Mostra o descolamento entre a nota que o sistema achou que você tiraria e a nota real." className="cursor-help border-b border-dashed border-slate-600">ECE (calib.)</span>
+                </th>
+                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[110px]">
+                  <span title="Uma 'Pena' automática (redução na nota projetada) se o sistema detectar que estava sendo muito otimista, mantendo as estatísticas pé no chão." className="cursor-help border-b border-dashed border-slate-600">Ajuste</span>
+                </th>
                 <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Prob Final</th>
               </tr>
             </thead>
