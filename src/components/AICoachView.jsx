@@ -557,10 +557,8 @@ Intervenção Exigida
 <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
 {descPart}
 </span>
-</div>
-</div>
 {alertTask.analysis?.monteCarlo && (
-<div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
+<div className="flex flex-wrap items-center gap-2 mt-2 mb-1">
 <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
 <Target size={12} className={t.iconColor} />
 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
@@ -592,7 +590,7 @@ Penalidade: <span className="text-amber-400 ml-1">-{Math.round(alertTask.analysi
 </div>
 )}
 {alertTask.analysis?.verdict && (
-<div className="flex flex-col gap-2 mt-1">
+<div className="flex flex-col gap-2 mt-2">
 <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-[11px] font-bold ${t.verdictBg} ${t.border}`}>
 <BrainCircuit size={14} className="shrink-0 mt-0.5" />
 <span className="leading-relaxed">{alertTask.analysis.verdict}</span>
@@ -601,10 +599,12 @@ Penalidade: <span className="text-amber-400 ml-1">-{Math.round(alertTask.analysi
 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">
 Ação Sugerida
 </span>
-<p className={`text-xs font-bold ${t.titleColor} opacity-90`}>{actionDesc}</p>
+<p className={`text-xs font-bold ${t.titleColor} opacity-90 pl-0.5`}>{actionDesc}</p>
 </div>
 </div>
 )}
+</div>
+</div>
 </div>
 );
 })}
