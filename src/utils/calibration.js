@@ -236,9 +236,15 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
     // Compute Brier from probability and observed if available
     let brier = 0;
     if (Number.isFinite(h.probability) && (h.observed === 0 || h.observed === 1)) {
-      // BUG-FIX: Normalize probability to 0-1 scale if it was stored as 0-100 to prevent Brier Score explosion
-      const p = h.probability > 1 ? h.probability / 100 : h.probability;
-      brier = (p - h.observed) ** 2;
+    // BUG-FIX: Normalize probability to 0-1 scale. If any sample is > 1, assume 0-100 scale.
+    const isPercentageScale = recent.some(r => r.probability > 1);
+    let p = h.probability;
+    if (isPercentageScale) {
+      p = p / 100;
+    } else if (p > 1) {
+      p = p / 100;
+    }
+    brier = (p - h.observed) ** 2;
     }
     
     sumWeightedBrier += brier * w;
@@ -333,7 +339,8 @@ export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
     const isFirstBin = (i === 0);
     const isLastBin = (i === bins - 1);
     const lo = isFirstBin ? -0.01 : sorted[start].probability;
-    const hi = isLastBin ? 1.01 : sorted[end - 1].probability;
+    // FIX: Usar sorted[end].probability para o limite superior, cobrindo as lacunas
+    const hi = isLastBin ? 1.01 : sorted[end].probability;
 
     if (!(p >= lo && (p < hi || isLastBin))) continue;
     const succ = kahanSum(slice.map(p => p.observed));

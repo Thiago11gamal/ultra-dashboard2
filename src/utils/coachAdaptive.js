@@ -448,7 +448,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     if (enableAdaptiveCalibration && history.length >= 8) {
       const dynamicHorizon = Math.max(
         cfg.MC_BACKTEST_HORIZON || 3,
-        Math.min(Number(cfg.MC_BACKTEST_HORIZON_MAX) || 6, Math.floor(history.length / 3))
+        // FIX: Aumentado o horizonte máximo padrão de 6 para 12 para permitir ECE e Isotonic Calibration
+        Math.min(Number(cfg.MC_BACKTEST_HORIZON_MAX) || 12, Math.floor(history.length / 3))
       );
       
       const isLowPerformance = typeof navigator !== 'undefined' && (navigator.hardwareConcurrency <= 4 || /Mobi|Android/i.test(navigator.userAgent));
@@ -503,11 +504,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         calibrationPenalty = summary.calibrationPenalty;
         avgBrier = summary.avgBrier;
         
-        const adaptiveBins = predObsPairs.length >= 18
-          ? (Number(cfg.MC_ECE_BINS_MAX) || 8)
-          : predObsPairs.length >= 10
-          ? (Number(cfg.MC_ECE_BINS_MID) || 6)
-          : (Number(cfg.MC_ECE_BINS_MIN) || 4);
+        // FIX: Ajustados os limites de bins para fazer sentido com o horizonte dinâmico máximo de 12
+        const adaptiveBins = predObsPairs.length >= 10
+          ? (Number(cfg.MC_ECE_BINS_MAX) || 6)
+          : predObsPairs.length >= 6
+          ? (Number(cfg.MC_ECE_BINS_MID) || 4)
+          : (Number(cfg.MC_ECE_BINS_MIN) || 3);
         
         const diagnostics = computeCalibrationDiagnostics(predObsPairs, { bins: adaptiveBins });
         ece = diagnostics.ece;
@@ -529,7 +531,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     let isotonicModel = [];
     let stackingWeights = [0.34, 0.33, 0.33];
     
-    if (predObsPairs.length >= 6) {
+    // FIX: Diminuído o limite de ativação do Isotonic/BBQ de 6 para 4
+    if (predObsPairs.length >= 4) {
       isotonicModel = fitIsotonicCalibration(predObsPairs);
       const isotonicSeries = rawPreds.map(p => predictIsotonicProbability(p, isotonicModel));
       const bbqSeries = rawPreds.map(p => calibrateWithBBQ(p, predObsPairs));
@@ -538,8 +541,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     
     const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
     const rawProb01 = rawProb / 100;
-    const isoProb01 = predObsPairs.length >= 6 ? predictIsotonicProbability(rawProb01, isotonicModel) : rawProb01;
-    const bbqProb01 = predObsPairs.length >= 6 ? calibrateWithBBQ(rawProb01, predObsPairs) : rawProb01;
+    const isoProb01 = predObsPairs.length >= 4 ? predictIsotonicProbability(rawProb01, isotonicModel) : rawProb01;
+    const bbqProb01 = predObsPairs.length >= 4 ? calibrateWithBBQ(rawProb01, predObsPairs) : rawProb01;
     
     const stackedProb01 = Math.max(0, Math.min(1,
       (stackingWeights[0] || 0) * rawProb01 +
