@@ -199,7 +199,7 @@ export const MonteCarloEvolutionChart = ({
                         ]}>
                             <XAxis dataKey="date" hide />
                             <YAxis hide domain={[minScore, maxScore]} />
-                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={false} />
+                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="none" strokeWidth={3} isAnimationActive={false} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -275,8 +275,8 @@ export const MonteCarloEvolutionChart = ({
                                     <stop offset={1} stopColor="#60a5fa" stopOpacity={0.02} />
                                 </linearGradient>
                                 <linearGradient id={`targetGlow-${rawId}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset={0} stopColor="#10b981" stopOpacity={0.12} />
-                                    <stop offset={1} stopColor="#10b981" stopOpacity={0.0} />
+                                    <stop offset={0} stopColor="#10b981" stopOpacity={0.0} />
+                                    <stop offset={1} stopColor="#10b981" stopOpacity={0.12} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
@@ -291,15 +291,8 @@ export const MonteCarloEvolutionChart = ({
                                 label={{ value: `Meta`, fill: '#10b981', fontSize: 9, position: 'insideTopLeft', dy: 2 }}
                             />
                             <XAxis
-                                dataKey="date"
-                                tickFormatter={(val) => {
-                                    if (!val) return '';
-                                    const parts = val.split('-');
-                                    if (parts.length === 3) {
-                                        return `${parts[2]}/${parts[1]}`;
-                                    }
-                                    return val;
-                                }}
+                                dataKey="displayDate"
+                                tickFormatter={(val) => val}
                                 stroke="#475569"
                                 fontSize={9}
                                 fontWeight={500}
@@ -370,7 +363,7 @@ export const MonteCarloEvolutionChart = ({
                     <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={1}>
                         <AreaChart data={[{ mean: minScore }, { mean: scenarioAdjustedData[0]?.mean ?? minScore }, { mean: minScore }]}>
                             <YAxis hide domain={[minScore, maxScore]} />
-                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
+                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="none" strokeWidth={3} />
                         </AreaChart>
                     </ResponsiveContainer>
                     </div>

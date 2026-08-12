@@ -19,18 +19,18 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
         const rawCorrect = Number(h?.correct) || 0;
         const score = getSafeScore(h, maxScore);
         // ✅ AUDIT FIX: blindagem contra NaN vindo de getSafeScore
-        const safeScore = Number.isFinite(score) ? score : 0;
+        const safeScore = Number.isFinite(score) ? score : NaN;
 
         let compTotal = rawTotal;
-        let compCorrect = rawTotal > 0 ? Math.round((safeScore / maxScore) * rawTotal) : rawCorrect;
-        if (rawTotal === 0 && h?.score != null) {
+        let compCorrect = rawTotal > 0 && Number.isFinite(safeScore) ? Math.round((safeScore / maxScore) * rawTotal) : rawCorrect;
+        if (rawTotal === 0 && h?.score != null && Number.isFinite(safeScore)) {
             compTotal = getSyntheticTotal(maxScore);
             const pct = Math.min(1, Math.max(0, safeScore / maxScore));
             compCorrect = Math.round(pct * compTotal);
         }
         // ✅ AUDIT FIX: correct ∈ [0, total] e nunca NaN entra no acumulado
         compCorrect = Math.max(0, Math.min(compTotal, Number.isFinite(compCorrect) ? compCorrect : 0));
-        const safeRawCorrect = rawTotal > 0
+        const safeRawCorrect = rawTotal > 0 && Number.isFinite(safeScore)
             ? Math.max(0, Math.min(rawTotal, Math.round((safeScore / maxScore) * rawTotal)))
             : Math.max(0, Number.isFinite(rawCorrect) ? rawCorrect : 0);
 
@@ -40,7 +40,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
             existing.total += rawTotal;
             existing.correct += safeRawCorrect;
             // ✅ AUDIT FIX: divisão por zero → NaN
-            existing.score = existing.compTotal > 0 ? (existing.compCorrect / existing.compTotal) * maxScore : 0;
+            existing.score = existing.compTotal > 0 ? (existing.compCorrect / existing.compTotal) * maxScore : NaN;
         } else {
             aggregatedHistoryByDateMap.set(key, {
                 ...h,
