@@ -2,8 +2,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useCoachControlCenter } from '../../hooks/useCoachControlCenter.js';
 
-// LOTE 4: formatadores seguros (elimina blanks/"NaN" nos painÃƒÂ©is)
-const fmt = (v, d = 4) => (Number.isFinite(Number(v)) && v !== null && v !== undefined && v !== '' ? Number(v).toFixed(d) : 'Ã¢â‚¬â€');
+// LOTE 4: formatadores seguros (elimina blanks/"NaN" nos painéis)
+const fmt = (v, d = 4) => (Number.isFinite(Number(v)) && v !== null && v !== undefined && v !== '' ? Number(v).toFixed(d) : '—');
 const deltaColor = (v, goodWhenNegative = true) => {
   if (!Number.isFinite(Number(v)) || v === null || v === undefined) return 'text-slate-500';
   const n = Number(v);
@@ -35,9 +35,9 @@ function TabButton({ active, onClick, children, icon }) {
 
 function StatusBadge({ status }) {
   const config = {
-    healthy: { label: 'Ã¢Å“â€œ SaudÃƒÂ¡vel', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-    degraded: { label: 'Ã¢Å¡Â  Degradado', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-    critical: { label: 'Ã¢Å“â€“ CrÃƒÂ­tico', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
+    healthy: { label: '✓ Saudável', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+    degraded: { label: 'âš  Degradado', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+    critical: { label: '✖ Crítico', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
     unknown: { label: '? Desconhecido', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
   };
   const c = config[status] || config.unknown;
@@ -49,7 +49,7 @@ function StatusBadge({ status }) {
 }
 
 function MetricCard({ label, value, sub, goodDirection }) {
-  const formatted = value === null || value === undefined ? 'Ã¢â‚¬â€' : value;
+  const formatted = value === null || value === undefined ? '—' : value;
   return (
     <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
       <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">{label}</p>
@@ -71,7 +71,7 @@ function SectionTitle({ children, icon }) {
 function EmptyState({ message }) {
   return (
     <div className="text-center py-12 text-slate-500">
-      <p className="text-4xl mb-3">Ã°Å¸â€œÅ </p>
+      <p className="text-4xl mb-3">📊</p>
       <p>{message}</p>
     </div>
   );
@@ -101,11 +101,11 @@ function ErrorAlert({ message }) {
 }
 
 // ==========================================================
-// Painel: VisÃƒÂ£o Geral
+// Painel: Visão Geral
 // ==========================================================
 function OverviewPanel({ dashboard, orchestratorResult }) {
   if (!dashboard) {
-    return <EmptyState message="Execute o orquestrador para ver a visÃƒÂ£o geral." />;
+    return <EmptyState message="Execute o orquestrador para ver a visão geral." />;
   }
   return (
     <div className="space-y-6">
@@ -122,14 +122,14 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
       {/* Foco principal */}
       {dashboard.focus && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸Å½Â¯">Foco Principal</SectionTitle>
+          <SectionTitle icon="🎯">Foco Principal</SectionTitle>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <p className="text-lg font-bold text-white">{dashboard.focus.name || 'Ã¢â‚¬â€'}</p>
+              <p className="text-lg font-bold text-white">{dashboard.focus.name || '—'}</p>
               <p className="text-sm text-slate-400 mt-1">
-                UrgÃƒÂªncia: <span className="text-indigo-300 font-semibold">{dashboard.focus.normalizedScore ?? 'Ã¢â‚¬â€'}</span>
+                Urgência: <span className="text-indigo-300 font-semibold">{dashboard.focus.normalizedScore ?? '—'}</span>
               </p>
-              {/* LOTE 4 (FIX M6): undefined nÃƒÂ£o renderiza mais "%" solto */}
+              {/* LOTE 4 (FIX M6): undefined não renderiza mais "%" solto */}
               {dashboard.focus.probability != null && Number.isFinite(Number(dashboard.focus.probability)) && (
                 <p className="text-sm text-slate-400">
                   Probabilidade MC: <span className="text-cyan-300 font-semibold">{Number(dashboard.focus.probability)}%</span>
@@ -138,16 +138,16 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
             </div>
             {dashboard.focus.recommendation && (
               <div className="bg-slate-900/50 rounded-lg p-3">
-                <p className="text-xs text-slate-500 uppercase mb-1">RecomendaÃƒÂ§ÃƒÂ£o</p>
+                <p className="text-xs text-slate-500 uppercase mb-1">Recomendação</p>
                 <p className="text-sm text-slate-300">{dashboard.focus.recommendation}</p>
               </div>
             )}
           </div>
-          {/* ExplicaÃƒÂ§ÃƒÂ£o LLM */}
+          {/* Explicação LLM */}
           {dashboard.focus.llmExplanation && (
             <div className="mt-4 bg-indigo-500/5 border border-indigo-500/20 rounded-lg p-3">
               <p className="text-xs text-indigo-400 uppercase mb-1 flex items-center gap-1">
-                Ã°Å¸Â¤â€“ ExplicaÃƒÂ§ÃƒÂ£o IA
+                🤖 Explicação IA
               </p>
               <p className="text-sm text-indigo-200">{dashboard.focus.llmExplanation.headline}</p>
               {dashboard.focus.llmExplanation.recommendation && (
@@ -162,7 +162,7 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
       {/* Tarefas geradas */}
       {dashboard.tasks && dashboard.tasks.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸â€œâ€¹">Tarefas Geradas ({dashboard.tasks.length})</SectionTitle>
+          <SectionTitle icon="📋">Tarefas Geradas ({dashboard.tasks.length})</SectionTitle>
           <div className="space-y-2">
             {dashboard.tasks.map((task, idx) => (
               <div
@@ -176,7 +176,7 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-slate-200 truncate">{task.text}</p>
                   <p className="text-xs text-slate-500">
-                    {task.categoryName || 'Ã¢â‚¬â€'} Ã¢â‚¬Â¢ {task.topicName || 'Ã¢â‚¬â€'}
+                    {task.categoryName || '—'} • {task.topicName || '—'}
                   </p>
                 </div>
                 <span className={`
@@ -195,13 +195,13 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
           </div>
         </div>
       )}
-      {/* SaÃƒÂºde */}
+      {/* Saúde */}
       {dashboard.health && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸ÂÂ¥">SaÃƒÂºde do Modelo</SectionTitle>
+          <SectionTitle icon="🏥">Saúde do Modelo</SectionTitle>
           <div className="flex items-center gap-4">
             <div className="text-4xl font-bold text-white">
-              {dashboard.health.healthScore ?? 'Ã¢â‚¬â€'}
+              {dashboard.health.healthScore ?? '—'}
             </div>
             <div>
               <StatusBadge status={dashboard.health.status} />
@@ -217,17 +217,17 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
       {/* Causal */}
       {dashboard.causal && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸â€Â¬">Modelo Causal</SectionTitle>
+          <SectionTitle icon="🔬">Modelo Causal</SectionTitle>
           {dashboard.causal.available ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <MetricCard label="Uplift Global" value={fmt(dashboard.causal.model?.globalUplift, 2)} />
               <MetricCard label="Amostras" value={dashboard.causal.model?.sampleSize} />
-              <MetricCard label="AÃƒÂ§ÃƒÂµes" value={dashboard.causal.model?.actionCount} />
-              <MetricCard label="MÃƒÂ©todo" value={dashboard.causal.model?.method} />
+              <MetricCard label="Ações" value={dashboard.causal.model?.actionCount} />
+              <MetricCard label="Método" value={dashboard.causal.model?.method} />
             </div>
           ) : (
             <p className="text-slate-400 text-sm">
-              Modelo causal indisponÃƒÂ­vel. Ative as flags de causalidade e execute o orquestrador com treino.
+              Modelo causal indisponível. Ative as flags de causalidade e execute o orquestrador com treino.
             </p>
           )}
         </div>
@@ -240,26 +240,26 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
 // Painel: Flags
 // ==========================================================
 function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, strategySpace }) {
-  // LOTE 4: grupos derivados + auto-detect de flags nÃƒÂ£o catalogadas (anti-drift)
+  // LOTE 4: grupos derivados + auto-detect de flags não catalogadas (anti-drift)
   const groupedFlags = useMemo(() => {
     const groups = {
-      'Lote 1 Ã¢â‚¬â€ State-Space': ['useStateSpace', 'useStateSpaceAverage', 'useStateSpaceTrend'],
-      'Lote 2 Ã¢â‚¬â€ Volatilidade': ['useDynamicVolatility', 'useGarchVolatility', 'useDynamicVolatilityOverride'],
-      'Lote 3 Ã¢â‚¬â€ Posterior MC': ['usePosteriorMonteCarlo', 'usePosteriorMonteCarloOverride'],
-      'Lote 4 Ã¢â‚¬â€ Bayesian Topics': ['useBayesianTopics', 'useBayesianTopicsForUrgency'],
-      'Lote 5 Ã¢â‚¬â€ Decision Utility': ['useDecisionUtility', 'useDecisionUtilityForTopics', 'useDecisionUtilityForBestTask', 'useBanditPlanner'],
-      'Lote 6 Ã¢â‚¬â€ LLM': ['useLLMExplanations', 'useLLMInsights', 'useLLMTaskClassifier', 'useLLMStrictValidation'],
-      'Lote 7 Ã¢â‚¬â€ Graph + FSRS': ['useKnowledgeGraph', 'useKnowledgeGraphForTopics', 'useAdvancedFsrs', 'useFsrsForSrsBoost', 'useFsrsTopicScheduling'],
-      'Lote 8 Ã¢â‚¬â€ Evaluation': ['useEvaluationTelemetry', 'useStrategyBacktester', 'useTopicRankEvaluation'],
-      'Lote 9 Ã¢â‚¬â€ Observability': ['useObservability', 'useDriftGuard', 'useModelHealthTelemetry', 'useDriftAlerts'],
-      'Lote 10 Ã¢â‚¬â€ AutoTuner': ['useMetaOptimizer', 'useAutoTuner', 'useAutoFlagApplication', 'useAutoRollback'],
-      'Lote 11 Ã¢â‚¬â€ Causal': ['useCausalUplift', 'usePersonalizedPolicy', 'useCausalTaskSelection', 'useCausalBootstrap'],
-      'Lote 12 Ã¢â‚¬â€ Orchestrator': ['useCoachOrchestrator', 'useOrchestratorHealth', 'useOrchestratorLLM', 'useOrchestratorAutoTuner'],
-      'Lote 13 Ã¢â‚¬â€ Control Center': ['useCoachControlCenter', 'useControlCenterFlagsPanel', 'useControlCenterHealthPanel', 'useControlCenterBacktestPanel', 'useControlCenterAutoTunerPanel', 'useControlCenterCausalPanel', 'useControlCenterLLMPanel'],
+      'Lote 1 — State-Space': ['useStateSpace', 'useStateSpaceAverage', 'useStateSpaceTrend'],
+      'Lote 2 — Volatilidade': ['useDynamicVolatility', 'useGarchVolatility', 'useDynamicVolatilityOverride'],
+      'Lote 3 — Posterior MC': ['usePosteriorMonteCarlo', 'usePosteriorMonteCarloOverride'],
+      'Lote 4 — Bayesian Topics': ['useBayesianTopics', 'useBayesianTopicsForUrgency'],
+      'Lote 5 — Decision Utility': ['useDecisionUtility', 'useDecisionUtilityForTopics', 'useDecisionUtilityForBestTask', 'useBanditPlanner'],
+      'Lote 6 — LLM': ['useLLMExplanations', 'useLLMInsights', 'useLLMTaskClassifier', 'useLLMStrictValidation'],
+      'Lote 7 — Graph + FSRS': ['useKnowledgeGraph', 'useKnowledgeGraphForTopics', 'useAdvancedFsrs', 'useFsrsForSrsBoost', 'useFsrsTopicScheduling'],
+      'Lote 8 — Evaluation': ['useEvaluationTelemetry', 'useStrategyBacktester', 'useTopicRankEvaluation'],
+      'Lote 9 — Observability': ['useObservability', 'useDriftGuard', 'useModelHealthTelemetry', 'useDriftAlerts'],
+      'Lote 10 — AutoTuner': ['useMetaOptimizer', 'useAutoTuner', 'useAutoFlagApplication', 'useAutoRollback'],
+      'Lote 11 — Causal': ['useCausalUplift', 'usePersonalizedPolicy', 'useCausalTaskSelection', 'useCausalBootstrap'],
+      'Lote 12 — Orchestrator': ['useCoachOrchestrator', 'useOrchestratorHealth', 'useOrchestratorLLM', 'useOrchestratorAutoTuner'],
+      'Lote 13 — Control Center': ['useCoachControlCenter', 'useControlCenterFlagsPanel', 'useControlCenterHealthPanel', 'useControlCenterBacktestPanel', 'useControlCenterAutoTunerPanel', 'useControlCenterCausalPanel', 'useControlCenterLLMPanel'],
     };
     const grouped = new Set(Object.values(groups).flat());
     const extras = Object.keys(currentFlags || {}).filter(k => !grouped.has(k));
-    if (extras.length > 0) groups['Lote 14 Ã¢â‚¬â€ NÃƒÂ£o catalogadas'] = extras;
+    if (extras.length > 0) groups['Lote 14 — Não catalogadas'] = extras;
     return groups;
   }, [currentFlags]);
   const activeCount = Object.entries(currentFlags).filter(([, v]) => v === true).length;
@@ -281,10 +281,10 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
           </button>
         )}
       </div>
-      {/* EstratÃƒÂ©gias disponÃƒÂ­veis */}
+      {/* Estratégias disponíveis */}
       {strategySpace && strategySpace.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸Â§Â©">EstratÃƒÂ©gias de Flags</SectionTitle>
+          <SectionTitle icon="🧩">Estratégias de Flags</SectionTitle>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
             {strategySpace.map((strategy) => (
               <div key={strategy.id} className="bg-slate-900/40 rounded-lg p-3">
@@ -346,11 +346,11 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
 }
 
 // ==========================================================
-// Painel: SaÃƒÂºde do Modelo
+// Painel: Saúde do Modelo
 // ==========================================================
 function HealthPanel({ latestHealth, healthSnapshots }) {
   if (!latestHealth) {
-    return <EmptyState message="Nenhum snapshot de saÃƒÂºde encontrado. Execute o orquestrador com observabilidade ativa." />;
+    return <EmptyState message="Nenhum snapshot de saúde encontrado. Execute o orquestrador com observabilidade ativa." />;
   }
   const alerts = latestHealth.alerts || [];
   const metrics = latestHealth.metrics || {};
@@ -383,7 +383,7 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
       {/* Alertas */}
       {alerts.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸â€â€">Alertas ({alerts.length})</SectionTitle>
+          <SectionTitle icon="🔔">Alertas ({alerts.length})</SectionTitle>
           <div className="space-y-2">
             {alerts.map((alert, idx) => (
               <div
@@ -402,12 +402,12 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
                     alert.severity === 'medium' ? 'text-amber-400' : 'text-slate-400'
                   }
                 `}>
-                  {alert.severity === 'high' ? 'Ã°Å¸Å¡Â¨' : alert.severity === 'medium' ? 'Ã¢Å¡Â Ã¯Â¸Â' : 'Ã¢â€žÂ¹Ã¯Â¸Â'}
+                  {alert.severity === 'high' ? '🚨' : alert.severity === 'medium' ? '⚠️' : 'ℹ️'}
                 </span>
                 <div className="flex-1">
                   <p className="text-sm text-slate-200">{alert.message}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Tipo: {alert.type} Ã¢â‚¬Â¢ Severidade: {alert.severity}
+                    Tipo: {alert.type} • Severidade: {alert.severity}
                   </p>
                 </div>
               </div>
@@ -415,33 +415,33 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
           </div>
         </div>
       )}
-      {/* RecomendaÃƒÂ§ÃƒÂµes */}
+      {/* Recomendações */}
       {recommendations.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸â€™Â¡">RecomendaÃƒÂ§ÃƒÂµes</SectionTitle>
+          <SectionTitle icon="💡">Recomendações</SectionTitle>
           <ul className="space-y-2">
             {recommendations.map((rec, idx) => (
               <li key={idx} className="flex items-start gap-2 text-sm text-slate-300">
-                <span className="text-indigo-400 mt-0.5">Ã¢â‚¬Â¢</span>
+                <span className="text-indigo-400 mt-0.5">•</span>
                 {rec}
               </li>
             ))}
           </ul>
         </div>
       )}
-      {/* MÃƒÂ©tricas de drift */}
+      {/* Métricas de drift */}
       <div className="grid md:grid-cols-2 gap-4">
         {metrics.scoreDrift && (
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-            <SectionTitle icon="Ã°Å¸â€œâ€°">Drift de Nota</SectionTitle>
+            <SectionTitle icon="📉">Drift de Nota</SectionTitle>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <p className="text-slate-500">Severidade</p>
-                <p className="text-white font-medium">{metrics.scoreDrift.severity || 'Ã¢â‚¬â€'}</p>
+                <p className="text-white font-medium">{metrics.scoreDrift.severity || '—'}</p>
               </div>
               <div>
-                <p className="text-slate-500">DireÃƒÂ§ÃƒÂ£o</p>
-                <p className="text-white font-medium">{metrics.scoreDrift.direction || 'Ã¢â‚¬â€'}</p>
+                <p className="text-slate-500">Direção</p>
+                <p className="text-white font-medium">{metrics.scoreDrift.direction || '—'}</p>
               </div>
               <div>
                 <p className="text-slate-500">Baseline</p>
@@ -456,37 +456,37 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
         )}
         {metrics.volatilityDrift && (
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-            <SectionTitle icon="Ã°Å¸Å’Å ">Drift de Volatilidade</SectionTitle>
+            <SectionTitle icon="🌊">Drift de Volatilidade</SectionTitle>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <p className="text-slate-500">Severidade</p>
-                <p className="text-white font-medium">{metrics.volatilityDrift.severity || 'Ã¢â‚¬â€'}</p>
+                <p className="text-white font-medium">{metrics.volatilityDrift.severity || '—'}</p>
               </div>
               <div>
-                <p className="text-slate-500">DireÃƒÂ§ÃƒÂ£o</p>
-                <p className="text-white font-medium">{metrics.volatilityDrift.direction || 'Ã¢â‚¬â€'}</p>
+                <p className="text-slate-500">Direção</p>
+                <p className="text-white font-medium">{metrics.volatilityDrift.direction || '—'}</p>
               </div>
             </div>
           </div>
         )}
         {metrics.calibrationDrift && (
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-            <SectionTitle icon="Ã°Å¸Å½Â¯">Drift de CalibraÃƒÂ§ÃƒÂ£o</SectionTitle>
+            <SectionTitle icon="🎯">Drift de Calibração</SectionTitle>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <p className="text-slate-500">Tem Drift</p>
-                <p className="text-white font-medium">{metrics.calibrationDrift.hasDrift ? 'Sim' : 'NÃƒÂ£o'}</p>
+                <p className="text-white font-medium">{metrics.calibrationDrift.hasDrift ? 'Sim' : 'Não'}</p>
               </div>
               <div>
                 <p className="text-slate-500">Severidade</p>
-                <p className="text-white font-medium">{metrics.calibrationDrift.worstSeverity || 'Ã¢â‚¬â€'}</p>
+                <p className="text-white font-medium">{metrics.calibrationDrift.worstSeverity || '—'}</p>
               </div>
             </div>
           </div>
         )}
         {metrics.currentCalibration && (
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-            <SectionTitle icon="Ã°Å¸â€œÂ">CalibraÃƒÂ§ÃƒÂ£o Atual</SectionTitle>
+            <SectionTitle icon="📐">Calibração Atual</SectionTitle>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <p className="text-slate-500">ECE</p>
@@ -500,10 +500,10 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
           </div>
         )}
       </div>
-      {/* HistÃƒÂ³rico de snapshots */}
+      {/* Histórico de snapshots */}
       {healthSnapshots.length > 1 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸â€œÅ“">HistÃƒÂ³rico de Health ({healthSnapshots.length})</SectionTitle>
+          <SectionTitle icon="📜">Histórico de Health ({healthSnapshots.length})</SectionTitle>
           <div className="max-h-64 overflow-y-auto space-y-1">
             {[...healthSnapshots].reverse().map((snapshot, idx) => (
               <div key={idx} className="flex items-center gap-3 text-sm py-1.5 border-b border-slate-700/30 last:border-0">
@@ -528,28 +528,28 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
   const recommendation = tunerResult?.recommendation;
   return (
     <div className="space-y-6">
-      {/* AÃƒÂ§ÃƒÂµes */}
+      {/* Ações */}
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => runAutoTuner({ autoApply: false })}
           className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
         >
-          Ã°Å¸â€Â Analisar EstratÃƒÂ©gias
+          🔍 Analisar Estratégias
         </button>
         <button
           onClick={() => runAutoTuner({ autoApply: true, forceApply: true })}
           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors"
         >
-          Ã¢Å¡Â¡ Analisar e Aplicar
+          âš¡ Analisar e Aplicar
         </button>
         <button
           onClick={rollbackToBaseline}
           className="px-4 py-2 bg-red-600/80 hover:bg-red-500 text-white text-sm font-medium rounded-lg transition-colors"
         >
-          Ã¢ÂÂª Rollback para Baseline
+          ⏪ Rollback para Baseline
         </button>
       </div>
-      {/* RecomendaÃƒÂ§ÃƒÂ£o atual */}
+      {/* Recomendação atual */}
       {recommendation && (
         <div className={`
           border rounded-xl p-5
@@ -559,7 +559,7 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
             'bg-slate-800/50 border-slate-700/50'
           }
         `}>
-          <SectionTitle icon="Ã°Å¸Â¤â€“">RecomendaÃƒÂ§ÃƒÂ£o do AutoTuner</SectionTitle>
+          <SectionTitle icon="🤖">Recomendação do AutoTuner</SectionTitle>
           <div className="flex items-center gap-3 mb-3">
             <span className={`
               px-3 py-1 rounded-full text-sm font-medium
@@ -588,23 +588,23 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
               onClick={() => applyRecommendation(recommendation, { force: true })}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
             >
-              Aplicar RecomendaÃƒÂ§ÃƒÂ£o
+              Aplicar Recomendação
             </button>
           )}
         </div>
       )}
-      {/* Ranking de estratÃƒÂ©gias */}
+      {/* Ranking de estratégias */}
       {tunerResult?.ranked && tunerResult.ranked.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸Ââ€ ">Ranking de EstratÃƒÂ©gias</SectionTitle>
+          <SectionTitle icon="🏆">Ranking de Estratégias</SectionTitle>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-400 border-b border-slate-700/50">
                   <th className="pb-2 pr-4">#</th>
-                  <th className="pb-2 pr-4">EstratÃƒÂ©gia</th>
+                  <th className="pb-2 pr-4">Estratégia</th>
                   <th className="pb-2 pr-4">Score</th>
-                  <th className="pb-2 pr-4">EvidÃƒÂªncia</th>
+                  <th className="pb-2 pr-4">Evidência</th>
                   <th className="pb-2">Qualidade</th>
                 </tr>
               </thead>
@@ -619,9 +619,9 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                     <td className="py-2 pr-4 font-mono text-white">{fmt(strategy.score, 4)}</td>
                     <td className="py-2 pr-4">
                       {strategy.hasEvidence ? (
-                        <span className="text-emerald-400 text-xs">Ã¢Å“â€œ</span>
+                        <span className="text-emerald-400 text-xs">✓</span>
                       ) : (
-                        <span className="text-slate-600 text-xs">Ã¢â‚¬â€</span>
+                        <span className="text-slate-600 text-xs">—</span>
                       )}
                     </td>
                     <td className="py-2">
@@ -634,10 +634,10 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
           </div>
         </div>
       )}
-      {/* HistÃƒÂ³rico do tuner */}
+      {/* Histórico do tuner */}
       {tunerHistory.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸â€œÅ“">HistÃƒÂ³rico do AutoTuner ({tunerHistory.length})</SectionTitle>
+          <SectionTitle icon="📜">Histórico do AutoTuner ({tunerHistory.length})</SectionTitle>
           <div className="max-h-80 overflow-y-auto space-y-2">
             {[...tunerHistory].reverse().map((entry, idx) => (
               <div key={idx} className="bg-slate-900/40 rounded-lg p-3">
@@ -652,14 +652,14 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                       'bg-slate-500/15 text-slate-300'
                     }
                   `}>
-                    {entry.recommendation?.action || 'Ã¢â‚¬â€'}
+                    {entry.recommendation?.action || '—'}
                   </span>
                 </div>
                 <p className="text-sm text-slate-300">
-                  {entry.recommendation?.strategyId || 'Ã¢â‚¬â€'}
+                  {entry.recommendation?.strategyId || '—'}
                 </p>
                 {entry.applied && (
-                  <p className="text-xs text-emerald-400 mt-1">Ã¢Å“â€œ Aplicado automaticamente</p>
+                  <p className="text-xs text-emerald-400 mt-1">✓ Aplicado automaticamente</p>
                 )}
               </div>
             ))}
@@ -675,7 +675,7 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
 // ==========================================================
 function BacktestPanel({ backtestReport }) {
   if (!backtestReport) {
-    return <EmptyState message="Nenhum relatÃƒÂ³rio de backtest encontrado. Execute um backtest granular primeiro." />;
+    return <EmptyState message="Nenhum relatório de backtest encontrado. Execute um backtest granular primeiro." />;
   }
   const summaries = backtestReport.summaries || {};
   const comparisons = backtestReport.comparisons || {};
@@ -685,15 +685,15 @@ function BacktestPanel({ backtestReport }) {
       <div className="text-xs text-slate-500">
         Gerado em {new Date(backtestReport.generatedAt).toLocaleString('pt-BR')}
       </div>
-      {/* SumÃƒÂ¡rios por estratÃƒÂ©gia */}
+      {/* Sumários por estratégia */}
       {strategyIds.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸â€œÅ ">MÃƒÂ©tricas por EstratÃƒÂ©gia</SectionTitle>
+          <SectionTitle icon="📊">Métricas por Estratégia</SectionTitle>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-400 border-b border-slate-700/50">
-                  <th className="pb-2 pr-4">EstratÃƒÂ©gia</th>
+                  <th className="pb-2 pr-4">Estratégia</th>
                   <th className="pb-2 pr-4">Amostras</th>
                   <th className="pb-2 pr-4">Brier</th>
                   <th className="pb-2 pr-4">ECE</th>
@@ -722,30 +722,30 @@ function BacktestPanel({ backtestReport }) {
           </div>
         </div>
       )}
-      {/* ComparaÃƒÂ§ÃƒÂµes */}
+      {/* Comparações */}
       {Object.keys(comparisons).length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã¢Å¡â€“Ã¯Â¸Â">ComparaÃƒÂ§ÃƒÂµes</SectionTitle>
+          <SectionTitle icon="⚖️">Comparações</SectionTitle>
           <div className="grid md:grid-cols-2 gap-4">
             {Object.entries(comparisons).map(([key, comp]) => (
               <div key={key} className="bg-slate-900/40 rounded-lg p-4">
                 <p className="text-sm font-medium text-slate-200 font-mono mb-2">{key}</p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <p className="text-slate-500">ÃŽâ€ Brier</p>
+                    <p className="text-slate-500">Δ Brier</p>
                     {/* LOTE 4: deltas com fallback e cor coerente */}
                     <p className={`font-mono ${deltaColor(comp.delta?.brier, true)}`}>
                       {fmt(comp.delta?.brier, 4)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-slate-500">ÃŽâ€ NDCG</p>
+                    <p className="text-slate-500">Δ NDCG</p>
                     <p className={`font-mono ${deltaColor(comp.delta?.ndcg, false)}`}>
                       {fmt(comp.delta?.ndcg, 4)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-slate-500">HeurÃƒÂ­stica</p>
+                    <p className="text-slate-500">Heurística</p>
                     <p className="font-mono text-white">{fmt(comp.heuristicScore, 4)}</p>
                   </div>
                   <div>
@@ -777,10 +777,10 @@ function CausalPanel({ causalModel }) {
     <div className="space-y-6">
       {/* Global */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-        <SectionTitle icon="Ã°Å¸Å’Â">Uplift Global</SectionTitle>
+        <SectionTitle icon="🌐">Uplift Global</SectionTitle>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard label="Uplift" value={fmt(causalModel.global?.uplift, 3)} />
-          <MetricCard label="MÃƒÂ©todo" value={causalModel.global?.method} />
+          <MetricCard label="Método" value={causalModel.global?.method} />
           <MetricCard label="Amostras" value={causalModel.global?.sampleSize} />
           <MetricCard label="Tratados" value={causalModel.global?.treatedCount} />
         </div>
@@ -790,17 +790,17 @@ function CausalPanel({ causalModel }) {
           </p>
         )}
       </div>
-      {/* Por aÃƒÂ§ÃƒÂ£o */}
+      {/* Por ação */}
       {actionEntries.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸Å½Â¬">Uplift por Tipo de AÃƒÂ§ÃƒÂ£o ({actionEntries.length})</SectionTitle>
+          <SectionTitle icon="🎬">Uplift por Tipo de Ação ({actionEntries.length})</SectionTitle>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-400 border-b border-slate-700/50">
-                  <th className="pb-2 pr-4">AÃƒÂ§ÃƒÂ£o</th>
+                  <th className="pb-2 pr-4">Ação</th>
                   <th className="pb-2 pr-4">Uplift</th>
-                  <th className="pb-2 pr-4">MÃƒÂ©todo</th>
+                  <th className="pb-2 pr-4">Método</th>
                   <th className="pb-2 pr-4">Amostras</th>
                   <th className="pb-2">IC 95%</th>
                 </tr>
@@ -815,7 +815,7 @@ function CausalPanel({ causalModel }) {
                     <td className="py-2 pr-4 text-slate-300">{estimate.method}</td>
                     <td className="py-2 pr-4 text-white">{estimate.sampleSize}</td>
                     <td className="py-2 text-xs text-slate-400">
-                      {estimate.ci ? `[${fmt(estimate.ci.low, 2)}, ${fmt(estimate.ci.high, 2)}]` : 'Ã¢â‚¬â€'}
+                      {estimate.ci ? `[${fmt(estimate.ci.low, 2)}, ${fmt(estimate.ci.high, 2)}]` : '—'}
                     </td>
                   </tr>
                 ))}
@@ -824,10 +824,10 @@ function CausalPanel({ causalModel }) {
           </div>
         </div>
       )}
-      {/* Contagem de aÃƒÂ§ÃƒÂµes */}
+      {/* Contagem de ações */}
       {causalModel.actionCounts && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="Ã°Å¸â€Â¢">Contagem de Eventos por AÃƒÂ§ÃƒÂ£o</SectionTitle>
+          <SectionTitle icon="🔢">Contagem de Eventos por Ação</SectionTitle>
           <div className="flex flex-wrap gap-2">
             {Object.entries(causalModel.actionCounts).map(([action, count]) => (
               <span key={action} className="px-3 py-1.5 bg-slate-900/40 rounded-lg text-sm">
@@ -889,18 +889,18 @@ export default function CoachControlCenter({
   return (
     <div className="bg-slate-900 min-h-screen text-slate-200 p-6 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* CabeÃƒÂ§alho */}
+        {/* Cabeçalho */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">Coach Control Center</h1>
             <p className="text-sm text-slate-400 mt-1">
-              Centro de comando do ecossistema de prediÃƒÂ§ÃƒÂ£o e IA
+              Centro de comando do ecossistema de predição e IA
             </p>
           </div>
           <div className="flex items-center gap-3">
             {lastRunTimestamp && (
               <span className="text-xs text-slate-500">
-                ÃƒÅ¡ltima execuÃƒÂ§ÃƒÂ£o: {new Date(lastRunTimestamp).toLocaleTimeString('pt-BR')}
+                Última execução: {new Date(lastRunTimestamp).toLocaleTimeString('pt-BR')}
               </span>
             )}
             <button
@@ -911,26 +911,26 @@ export default function CoachControlCenter({
                 ${loading ? 'opacity-50 cursor-not-allowed' : ''}
               `}
             >
-              {loading ? 'Executando...' : 'Ã¢â€“Â¶ Executar Orquestrador'}
+              {loading ? 'Executando...' : 'â–¶ Executar Orquestrador'}
             </button>
           </div>
         </div>
         {/* Abas */}
         <div className="flex gap-2 p-1 bg-slate-800/40 rounded-xl overflow-x-auto hide-scrollbar">
-          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon="Ã°Å¸â€œÅ ">VisÃƒÂ£o Geral</TabButton>
-          <TabButton active={activeTab === 'flags'} onClick={() => setActiveTab('flags')} icon="Ã°Å¸Å½â€ºÃ¯Â¸Â">Feature Flags</TabButton>
-          <TabButton active={activeTab === 'health'} onClick={() => setActiveTab('health')} icon="Ã°Å¸ÂÂ¥">SaÃƒÂºde & Drift</TabButton>
-          <TabButton active={activeTab === 'causal'} onClick={() => setActiveTab('causal')} icon="Ã°Å¸â€Â¬">Causalidade</TabButton>
-          <TabButton active={activeTab === 'autotuner'} onClick={() => setActiveTab('autotuner')} icon="Ã°Å¸Â¤â€“">AutoTuner</TabButton>
-          <TabButton active={activeTab === 'backtest'} onClick={() => setActiveTab('backtest')} icon="Ã°Å¸â€œË†">Backtests</TabButton>
+          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon="📊">Visão Geral</TabButton>
+          <TabButton active={activeTab === 'flags'} onClick={() => setActiveTab('flags')} icon="🎛️">Feature Flags</TabButton>
+          <TabButton active={activeTab === 'health'} onClick={() => setActiveTab('health')} icon="🏥">Saúde & Drift</TabButton>
+          <TabButton active={activeTab === 'causal'} onClick={() => setActiveTab('causal')} icon="🔬">Causalidade</TabButton>
+          <TabButton active={activeTab === 'autotuner'} onClick={() => setActiveTab('autotuner')} icon="🤖">AutoTuner</TabButton>
+          <TabButton active={activeTab === 'backtest'} onClick={() => setActiveTab('backtest')} icon="📈">Backtests</TabButton>
         </div>
-        {/* Erro Ã¢â‚¬â€ LOTE 4: dispensÃƒÂ¡vel de verdade */}
+        {/* Erro — LOTE 4: dispensável de verdade */}
         {hasError && <ErrorAlert key={error} message={error} />}
         {/* Loading Global */}
         {loading && !dashboard && (
           <LoadingSpinner />
         )}
-        {/* ConteÃƒÂºdo da Aba */}
+        {/* Conteúdo da Aba */}
         <div className="min-h-[400px]">
           {activeTab === 'overview' && (
             <OverviewPanel dashboard={dashboard} orchestratorResult={orchestratorResult} />

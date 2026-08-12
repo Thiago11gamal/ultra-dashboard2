@@ -247,7 +247,7 @@ export default function Simulados() {
     [data]
   );
 
-  /* ── Rows do formulário manual (apenas matÃ©rias/assuntos cadastrados) ── */
+  /* ── Rows do formulário manual (apenas matérias/assuntos cadastrados) ── */
   const displayRows = useMemo(() => {
     if (!categoriesArray.length || !data?.categories) return [];
     const todayKey = getDateKey(normalizeDate(new Date()));

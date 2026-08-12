@@ -1,61 +1,16 @@
-const fs = require('fs');
-const transcriptPath = 'C:\\Users\\antun.BOOK-201QO8FPFE\\.gemini\\antigravity-ide\\brain\\b2842dac-dbdb-4741-a325-e5a46ac280a5\\.system_generated\\logs\\transcript_full.jsonl';
+﻿const fs = require('fs');
+const part1 = fs.readFileSync('d:/Downloads/ultra-patched/src/pages/Coach.jsx', 'utf8');
+const part2Raw = fs.readFileSync('d:/Downloads/ultra-patched/second_part.txt', 'utf8');
 
-const lines = fs.readFileSync(transcriptPath, 'utf8').split('\n').filter(Boolean);
-let part1 = '';
-let part2 = '';
+const splitMarker = '// BUG-12 FIX: Reseta seriesCategory quando a lista de categorias muda';
+const part1Trimmed = part1.split(splitMarker)[0];
 
-for (const line of lines) {
-    try {
-        const entry = JSON.parse(line);
-        if (entry.type === 'USER_INPUT') {
-            const text = entry.content || '';
-            if (text.includes('import { calculateMSSD')) {
-                part1 = text;
-            } else if (text.includes('inefficiencyPenaltyMultiplier,')) {
-                part2 = text;
-            }
-        }
-    } catch(e) {}
-}
+const part2Lines = part2Raw.split('\n');
+const startIndex = part2Lines.findIndex(line => line.includes(splitMarker));
+let endIndex = part2Lines.findIndex(line => line.includes('✅ **Check pós-aplicação'));
+if(endIndex === -1) endIndex = part2Lines.length;
 
-function extractContent(str) {
-    let result = str;
-    const startTag = '<USER_REQUEST>';
-    const endTag = '</USER_REQUEST>';
-    
-    if (result.startsWith(startTag)) {
-        result = result.substring(startTag.length).trim();
-    }
-    
-    const endIdx = result.lastIndexOf(endTag);
-    if (endIdx !== -1) {
-        result = result.substring(0, endIdx).trim();
-    }
-    
-    // Also remove the truncation note if present
-    const truncIdx = result.indexOf('<truncated');
-    if (truncIdx !== -1) {
-        result = result.substring(0, truncIdx).trim();
-    }
-    
-    return result;
-}
+const part2Clean = part2Lines.slice(startIndex, endIndex).join('\n').replace(/`(javascript|jsx)?\s*/g, '').trim();
 
-part1 = extractContent(part1);
-part2 = extractContent(part2);
-
-// Clean up first line of part1 (implemente , já mando o restante src/utils/coachLogic.js)
-part1 = part1.replace(/^implemente.*?src\/utils\/coachLogic\.js/i, '').trim();
-
-// Find overlap point
-const overlap = 'inefficiencyPenaltyMultiplier,';
-const cutIndex = part1.indexOf(overlap);
-
-if (cutIndex !== -1) {
-    const finalContent = part1.substring(0, cutIndex) + part2;
-    fs.writeFileSync('d:\\Downloads\\ultra-patched\\src\\utils\\coachLogic.js', finalContent, 'utf8');
-    console.log('Successfully stitched and wrote to coachLogic.js');
-} else {
-    console.log('Overlap not found!');
-}
+fs.writeFileSync('d:/Downloads/ultra-patched/src/pages/Coach.jsx', part1Trimmed + splitMarker + '\n' + part2Clean + '\n');
+console.log('Stitched successfully!');
