@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { AlertTriangle, X, Check, Info, Play } from 'lucide-react';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 const TYPE_CONFIG = {
     danger: {
@@ -48,16 +49,8 @@ export default function ConfirmModal({
     const config = TYPE_CONFIG[type] || TYPE_CONFIG.danger;
     const IconComponent = IconProp || config.DefaultIcon;
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                onClose?.();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    const modalRef = React.useRef(null);
+    useModalAccessibility(isOpen, onClose, modalRef);
 
     const handleConfirm = async () => {
         try {
@@ -91,11 +84,16 @@ export default function ConfirmModal({
 
                     {/* Modal Container */}
                     <Motion.div
+                        ref={modalRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={title}
+                        tabIndex={-1}
                         initial={{ scale: 0.9, opacity: 0, y: 30 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 30 }}
                         transition={{ type: 'spring', damping: 22, stiffness: 320 }}
-                        className="bg-slate-900/90 border border-white/10 backdrop-blur-2xl rounded-[2.5rem] w-full max-w-md shadow-[0_25px_60px_rgba(0,0,0,0.7)] relative overflow-hidden flex flex-col z-10"
+                        className="bg-slate-900/90 border border-white/10 backdrop-blur-2xl rounded-[2.5rem] w-full max-w-md shadow-[0_25px_60px_rgba(0,0,0,0.7)] relative overflow-hidden flex flex-col z-10 focus:outline-none"
                     >
                         {/* Interactive Background Glows */}
                         <div className={`absolute -top-24 -right-24 w-56 h-56 ${config.glow} rounded-full blur-[80px] pointer-events-none animate-pulse`} />
