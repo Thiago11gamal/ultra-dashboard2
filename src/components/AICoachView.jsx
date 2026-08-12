@@ -200,8 +200,8 @@ animate={{ height: 'auto', opacity: 1 }}
 exit={{ height: 0, opacity: 0 }}
 className="overflow-hidden"
 >
-<div className="pt-3 pb-2 space-y-3">
-<div className="text-[11px] sm:text-xs text-indigo-200/80 leading-relaxed bg-indigo-500/[0.04] p-5 rounded-xl border border-indigo-500/10 font-medium whitespace-pre-wrap shadow-[inset_0_0_20px_rgba(99,102,241,0.03)] font-mono tracking-tight">
+<div className="pt-3 pb-2 space-y-3 w-full">
+<div className="w-full text-[11px] sm:text-xs text-indigo-200/80 leading-relaxed bg-indigo-500/[0.04] p-3 sm:p-4 rounded-xl border border-indigo-500/10 font-medium whitespace-pre-wrap break-words shadow-[inset_0_0_20px_rgba(99,102,241,0.03)] font-mono tracking-tight overflow-hidden">
 {renderBoldText(task.analysis.reason)}
 </div>
 {task.analysis.metrics && (
