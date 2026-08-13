@@ -391,6 +391,41 @@ const Sidebar = React.memo(function Sidebar({
 
                                     <button
                                         type="button"
+                                        className="sidebar-item !py-1.5 hover:!bg-indigo-500/10 text-indigo-300"
+                                        onClick={() => {
+                                            useAppStore.getState().setHasSeenTour(false);
+                                            closeMobileSidebar();
+                                        }}
+                                        style={{ '--item-color': '#818cf8' }}
+                                        title="Reiniciar Tutorial"
+                                    >
+                                        <Sparkles size={13} />
+                                        <span className="text-[0.78rem]">Reiniciar Tutorial</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="sidebar-item !py-1.5 hover:!bg-red-500/20 text-red-400 font-bold"
+                                        onClick={async () => {
+                                            if (window.confirm('CUIDADO: Isso vai APAGAR TODOS os seus dados locais e na nuvem. Tem certeza absoluta?')) {
+                                                const { INITIAL_DATA } = await import('../data/initialData.js');
+                                                useAppStore.getState().setAppState({ 
+                                                    contests: { 'default': JSON.parse(JSON.stringify(INITIAL_DATA)) }, 
+                                                    activeId: 'default', 
+                                                    trash: [] 
+                                                });
+                                                alert('Conta zerada com sucesso!');
+                                            }
+                                        }}
+                                        style={{ '--item-color': '#ef4444' }}
+                                        title="Zerar a Conta Toda"
+                                    >
+                                        <Trash2 size={13} />
+                                        <span className="text-[0.78rem]">Zerar Conta (Perigo)</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
                                         className="sidebar-item logout-btn !py-1.5 hover:!bg-rose-500/10 text-rose-300"
                                         onClick={handleLogout}
                                         style={{ '--item-color': '#f43f5e' }}
