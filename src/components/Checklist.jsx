@@ -14,10 +14,8 @@ import {
     Download,
     X,
     Search,
-    Flame,
     Layers,
-    CheckCircle,
-    ListFilter
+    CheckCircle
 } from 'lucide-react';
 import PromptModal from './PromptModal';
 import CategoryEditor from './CategoryEditor';
@@ -387,10 +385,10 @@ const CategoryAccordion = React.memo(({
     const [taskToDelete, setTaskToDelete] = useState(null);
 
     useEffect(() => {
-        if (typeof forceOpen === 'boolean') {
-            setIsOpen(forceOpen);
+        if (forceOpen && typeof forceOpen.open === 'boolean') {
+            setIsOpen(forceOpen.open);
         }
-    }, [forceOpen]);
+    }, [forceOpen?.rev]);
 
     const originalTasks = useMemo(
         () => toArray(category.originalTasks ?? category.tasks),
@@ -628,7 +626,7 @@ function Checklist({
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importSourceContest, setImportSourceContest] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [allExpanded, setAllExpanded] = useState(null); // null, true, false
+    const [expandCommand, setExpandCommand] = useState({ open: true, rev: 0 });
 
     const bottomRef = useRef(null);
     const scrollTimerRef = useRef(null);
@@ -674,10 +672,10 @@ function Checklist({
 
                 const tasks = originalTasks.filter(task => {
                     // Search filtering
-                    if (normalizedSearch && !catNameMatches) {
+                    if (normalizedSearch) {
                         const titleMatch = (task.title || task.text || '').toLowerCase().includes(normalizedSearch);
                         const notesMatch = (task.notes || '').toLowerCase().includes(normalizedSearch);
-                        if (!titleMatch && !notesMatch) return false;
+                        if (!catNameMatches && !titleMatch && !notesMatch) return false;
                     }
 
                     // Status / Priority filtering
@@ -744,7 +742,7 @@ function Checklist({
     ];
 
     const toggleExpandAll = () => {
-        setAllExpanded(prev => !prev);
+        setExpandCommand(prev => ({ open: !prev.open, rev: prev.rev + 1 }));
     };
 
     return (
@@ -810,7 +808,7 @@ function Checklist({
                                 title="Expandir ou recolher todas as disciplinas"
                             >
                                 <Layers size={15} className="text-purple-400" />
-                                <span>{allExpanded ? 'Recolher Tudo' : 'Expandir Tudo'}</span>
+                                <span>{expandCommand.open ? 'Recolher Tudo' : 'Expandir Tudo'}</span>
                             </button>
 
                             {onAddCategory && (
@@ -866,7 +864,7 @@ function Checklist({
                         onPlayContext={handlePlayContext}
                         showSimuladoStats={showSimuladoStats}
                         filter={filter}
-                        forceOpen={allExpanded}
+                        forceOpen={expandCommand.rev > 0 ? expandCommand : undefined}
                     />
                 ))}
             </div>
@@ -1028,6 +1026,14 @@ function Checklist({
                                                 );
                                             })}
                                         </div>
+                                    </div>
+                                )}
+
+                                {importSourceContest && sourceCategories.length === 0 && (
+                                    <div className="text-center p-6 bg-slate-950/50 rounded-2xl border border-white/5">
+                                        <p className="text-slate-400 text-xs font-medium">
+                                            Nenhuma disciplina encontrada neste concurso.
+                                        </p>
                                     </div>
                                 )}
                             </div>
