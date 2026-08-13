@@ -236,15 +236,15 @@ export default function Simulados() {
 
   const categoriesArray = useMemo(
     () => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}),
-    [data]
+    [data?.categories]
   );
   const simuladoRowsArray = useMemo(
     () => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}),
-    [data]
+    [data?.simuladoRows]
   );
   const studySessionsArray = useMemo(
     () => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}),
-    [data]
+    [data?.studySessions]
   );
 
   /* ── Rows do formulário manual (apenas matérias/assuntos cadastrados) ── */
@@ -312,8 +312,8 @@ export default function Simulados() {
         lastRef.date || lastRef.lastUpdated || lastRef.createdAt || new Date()
       ));
       resultRows = simuladoRowsArray.filter((r) => {
-        // Não misturar IA com manual
-        if (!r.batchId && !lastRef.batchId) return false;
+        // Não misturar IA com manual — exclui rows de IA quando lastRef é manual
+        if (r.batchId) return false;
         const rowDateKey = getDateKey(normalizeDate(
           r.date || r.lastUpdated || r.createdAt || ''
         ));

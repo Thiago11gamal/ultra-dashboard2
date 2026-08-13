@@ -1104,7 +1104,10 @@ function PomodoroTimer({
     };
 
     const togglePlay = useCallback(() => {
-        if (!activeSubject) return;
+        if (!activeSubject) {
+            showToast('Selecione uma tarefa no painel ao lado para iniciar.', 'warning');
+            return;
+        }
 
         if (
             alarmAudioRef.current &&
@@ -1141,7 +1144,7 @@ function PomodoroTimer({
         } catch (error) {
             console.error('Failed to post session status message:', error);
         }
-    }, [activeSubject, isRunning, syncChannel]);
+    }, [activeSubject, isRunning, syncChannel, showToast]);
 
     const handleManualExit = () => {
         if (stateRefs.current.mode === 'work' && activeSubject) {
