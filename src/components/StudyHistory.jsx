@@ -458,9 +458,9 @@ const StudyHistory = React.memo(function StudyHistory({
 
                                 // Helpers for status and actions
                                 const getStatus = (pct) => {
-                                    if (pct >= 70) return { label: 'DOMINADO', color: 'emerald', icon: Trophy, wrapper: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
-                                    if (pct >= 50) return { label: 'ATENÇÃO', color: 'amber', icon: AlertCircle, wrapper: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
-                                    return { label: 'CRÍTICO', color: 'rose', icon: Siren, wrapper: 'bg-rose-500/20 text-rose-400 border-rose-500/30' };
+                                    if (pct >= 70) return { label: 'DOMINADO', color: 'emerald', dotBg: 'bg-emerald-500', icon: Trophy, wrapper: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
+                                    if (pct >= 50) return { label: 'ATENÇÃO', color: 'amber', dotBg: 'bg-amber-500', icon: AlertCircle, wrapper: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
+                                    return { label: 'CRÍTICO', color: 'rose', dotBg: 'bg-rose-500', icon: Siren, wrapper: 'bg-rose-500/20 text-rose-400 border-rose-500/30' };
                                 };
 
                                 const getAction = (pct) => {
@@ -534,7 +534,7 @@ const StudyHistory = React.memo(function StudyHistory({
                                                             <div className="px-5 py-4 bg-slate-800/80 border-b border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                                                 <div className="flex flex-col min-w-0">
                                                                     <div className="flex items-center gap-2 mb-1">
-                                                                        <div className={`w-2 h-2 rounded-full bg-${status.color}-500 shadow-[0_0_8px_currentColor]`}></div>
+                                                                        <div className={`w-2 h-2 rounded-full ${status.dotBg || 'bg-slate-500'} shadow-[0_0_8px_currentColor]`}></div>
                                                                         <h4 className="text-sm font-bold text-slate-100 truncate">{subj.name}</h4>
                                                                     </div>
                                                                     <span className="text-[10px] text-slate-400 font-medium">

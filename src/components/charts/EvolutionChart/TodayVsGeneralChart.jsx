@@ -54,7 +54,7 @@ const CustomTooltipPie = ({ active, payload, unit }) => {
             >
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.baseColor }}></span>
-                    <span className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">{data.name.replace(' (Restante)', '')}</span>
+                    <span className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">{String(data.name ?? '').replace(' (Restante)', '')}</span>
                 </div>
                 <p className="text-white text-sm font-black mt-1">
                     {safeFix(data.trueValue)}{unit}

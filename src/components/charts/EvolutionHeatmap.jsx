@@ -242,7 +242,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
                                         {cell && (
                                             <div className={`absolute ${ri === 0 ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 hidden group-hover:flex flex-col items-center bg-slate-950 border border-slate-500 rounded-xl p-4 min-w-[145px] shadow-[0_25px_60px_rgba(0,0,0,1)] whitespace-nowrap pointer-events-none text-center border-l-4 ${ci < 3 ? 'left-0' : ci > filteredDates.length - 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`} style={{ borderLeftColor: col.text }}>
                                                 <span className="text-[10px] text-slate-300 font-black uppercase tracking-[0.15em] mb-2.5 pb-2 border-b border-slate-800 w-full">
-                                                    {filteredDates[ci].dayName} • {filteredDates[ci].label}
+                                                    {filteredDates[ci] ? `${filteredDates[ci].dayName} • ${filteredDates[ci].label}` : ''}
                                                 </span>
                                                 {Number.isFinite(Number(filteredDates[ci]?.count)) && Number(filteredDates[ci].count) > 1 && (
                                                     <span className="text-[9px] text-cyan-400 font-bold mb-2">

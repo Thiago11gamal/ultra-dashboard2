@@ -260,7 +260,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                         {/* Task Details (Always Visible but subtle) */}
                                         <div className="px-5 pb-3 pt-0 space-y-1">
                                             {cat.logs.map((log, logIdx) => (
-                                                <div key={log.taskId || `log-${logIdx}`} className="flex items-center justify-between text-xs py-1.5 border-t border-white/5 text-slate-400 hover:text-slate-300 transition-colors">
+                                                <div key={`${log.taskId || 'log'}-${logIdx}`} className="flex items-center justify-between text-xs py-1.5 border-t border-white/5 text-slate-400 hover:text-slate-300 transition-colors">
                                                     <div className="flex items-center gap-2 pr-4 min-w-0">
                                                         <Zap size={10} className="text-slate-600" />
                                                         <span className="break-words line-clamp-2 text-xs sm:text-sm" title={log.taskTitle}>{log.taskTitle}</span>

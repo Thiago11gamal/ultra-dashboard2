@@ -167,13 +167,13 @@ export default function Login() {
                                     }}>
                                         <div style={{
                                             height: '100%',
-                                            width: password.length < 6 ? '30%' : (/[0-9]/.test(password) && /[a-z]/.test(password) ? '100%' : '60%'),
-                                            backgroundColor: password.length < 6 ? '#ef4444' : (/[0-9]/.test(password) && /[a-z]/.test(password) ? '#10b981' : '#f59e0b'),
+                                            width: password.length < 6 ? '30%' : (password.length >= 8 && /[0-9]/.test(password) && /[a-z]/.test(password) && /[A-Z]/.test(password) ? '100%' : '60%'),
+                                            backgroundColor: password.length < 6 ? '#ef4444' : (password.length >= 8 && /[0-9]/.test(password) && /[a-z]/.test(password) && /[A-Z]/.test(password) ? '#10b981' : '#f59e0b'),
                                             transition: 'width 0.3s ease'
                                         }} />
                                     </div>
                                     <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
-                                        {password.length < 6 ? 'Senha muito curta' : (/[0-9]/.test(password) && /[a-z]/.test(password) ? 'Senha forte' : 'Senha média')}
+                                        {password.length < 6 ? 'Senha muito curta' : (password.length >= 8 && /[0-9]/.test(password) && /[a-z]/.test(password) && /[A-Z]/.test(password) ? 'Senha forte' : 'Senha média')}
                                     </span>
                                 </div>
                             )}

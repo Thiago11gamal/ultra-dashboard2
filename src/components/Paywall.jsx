@@ -33,6 +33,10 @@ export default function Paywall({ user, onLogout }) {
     }, []);
 
     const handleSubscribe = async () => {
+        if (!user || !user.uid) {
+            setError("Faça login para assinar.");
+            return;
+        }
         setLoading(true);
         setError(null);
         // BUG-22 FIX: Limpar listener/timeout anteriores antes de criar novos

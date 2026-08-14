@@ -25,7 +25,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     const gaugeMax = localMax * 1.2;
 
     const getCoordinatesForValue = (val) => {
-        const safeVal = Math.max(0, Math.min(val, gaugeMax));
+        const safeVal = Math.max(0, Math.min(Number.isFinite(val) ? val : 0, gaugeMax));
         const angle = Math.PI - (safeVal / gaugeMax) * Math.PI;
         return {
             x: cx + r * Math.cos(angle),
@@ -269,7 +269,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 }
             }
 
-            const qstStr = `(${d.timedQuestoes} questões)`;
+            const qstStr = `(${d.timedQuestoes} ${d.timedQuestoes === 1 ? 'questão' : 'questões'})`;
             const latestStr = latestSeconds !== null ? `Média Dia: ${formatTime(latestSeconds)}` : "";
             const parts = [latestStr, deltaStr, qstStr].filter(Boolean);
 
@@ -323,10 +323,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
     }, [chartData]);
 
     const legendAvgSeconds = legendStats.avgCount > 0
-        ? Math.round(legendStats.avg / legendStats.avgCount) : 0;
+        ? Math.round(legendStats.avg / legendStats.avgCount) : null;
 
     const legendLatestSeconds = legendStats.latestCount > 0
-        ? Math.round(legendStats.latest / legendStats.latestCount) : 0;
+        ? Math.round(legendStats.latest / legendStats.latestCount) : null;
 
 
     if (chartData.length === 0) {
@@ -389,10 +389,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     </div>
                     <div className="mt-2 pt-2 border-t border-slate-800/50 flex flex-wrap items-center gap-3 sm:gap-5 text-[10px] uppercase tracking-[0.2em] text-slate-500">
                         <span className="inline-flex items-center gap-1.5" title="Média geral de tempo considerando todos os assuntos">
-                            MÉDIA GERAL: <span className="font-bold text-slate-300">{formatTime(legendAvgSeconds)}</span>
+                            MÉDIA GERAL: <span className="font-bold text-slate-300">{legendAvgSeconds == null ? 'N/A' : formatTime(legendAvgSeconds)}</span>
                         </span>
                         <span className="inline-flex items-center gap-1.5" title="Média geral de tempo no último dia de cada assunto">
-                            ÚLTIMO GERAL: <span className="font-bold text-slate-300">{formatTime(legendLatestSeconds)}</span>
+                            ÚLTIMO GERAL: <span className="font-bold text-slate-300">{legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}</span>
                         </span>
                         <span className="inline-flex items-center gap-1.5" title="Quantos assuntos você piorou no último dia">
                             ACIMA DA MÉDIA: <span className="font-bold text-rose-400">{legendStats.above}</span>

@@ -105,9 +105,10 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   return prev.stableId === next.stableId &&
     prev.index === next.index &&
     prev.isBacklog === next.isBacklog &&
-    prev.task?.text === next.task?.text &&
-    prev.task?.title === next.task?.title &&
+    prev.task?.id === next.task?.id &&
     prev.task?.completed === next.task?.completed &&
+    prev.task?.status === next.task?.status &&
+    prev.task?.priority === next.task?.priority &&
     prev.dayTheme?.id === next.dayTheme?.id &&
     prev.onStartPomodoro === next.onStartPomodoro &&
     prev.categories === next.categories;
@@ -156,12 +157,14 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       return !allAssignedIds.has(sid);
     });
 
+    const cleanCol = (arr) => (Array.isArray(arr) ? arr.filter(Boolean) : []);
+
     return {
-      backlog: activeBacklog,
-      mon: coachPlanner.mon || [], tue: coachPlanner.tue || [],
-      wed: coachPlanner.wed || [], thu: coachPlanner.thu || [],
-      fri: coachPlanner.fri || [], sat: coachPlanner.sat || [],
-      sun: coachPlanner.sun || []
+      backlog: cleanCol(activeBacklog),
+      mon: cleanCol(coachPlanner.mon), tue: cleanCol(coachPlanner.tue),
+      wed: cleanCol(coachPlanner.wed), thu: cleanCol(coachPlanner.thu),
+      fri: cleanCol(coachPlanner.fri), sat: cleanCol(coachPlanner.sat),
+      sun: cleanCol(coachPlanner.sun)
     };
   }, [coachPlan, coachPlanner]);
 

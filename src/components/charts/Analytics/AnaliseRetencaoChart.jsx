@@ -43,7 +43,8 @@ export function AnaliseRetencaoChart({ data }) {
                         tick={(props) => {
                             const { x, y, payload } = props;
                             const item = data[payload.index];
-                            let rawText = item?.isTask ? `• ${payload.value}` : payload.value;
+                            let rawText = String(payload.value ?? '');
+                            if (item?.isTask) rawText = `• ${rawText}`;
                             
                             // Truncar textos muito longos (máximo 40 caracteres) para não quebrar o layout
                             if (rawText.length > 40) {

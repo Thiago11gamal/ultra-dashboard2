@@ -55,8 +55,9 @@ const systemAlertMessage = isSystemAlert ? (parsed.action || parsed.topic) : nul
 const displayAssunto = parsed.topic;
 const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
 const col = CARD_COLORS[idx % CARD_COLORS.length];
-const safeProbRaw = String(task.analysis?.monteCarlo?.probability).replace(/[^\d.-]/g, '');
-const safeProb = Number(safeProbRaw) || 0;
+const safeProbRaw = String(task.analysis?.monteCarlo?.probability ?? '')
+  .match(/-?\d+(\.\d+)?/)?.[0] ?? '';
+const safeProb = Number.isFinite(Number(safeProbRaw)) ? Number(safeProbRaw) : 0;
 const safeVol = Number(task.analysis?.monteCarlo?.volatility) || 0;
 const safeMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
 const highVolThreshold = 8 * (safeMax / 100);
