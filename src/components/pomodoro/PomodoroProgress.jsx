@@ -90,7 +90,7 @@ export function PomodoroProgress({
                             <div className="flex-1 h-2 sm:h-2.5 bg-[#2d1a12]/15 rounded-full overflow-hidden border border-[#2d1a12]/15 shadow-inner">
                                 <div
                                     ref={el => workFillsRef.current[i] = el}
-                                    className="h-full bg-blue-600 rounded-full transition-all duration-300 shadow-sm"
+                                    className="h-full bg-blue-600 rounded-full shadow-sm"
                                     style={{
                                         width: (i < sessions - 1 || (i === sessions - 1 && (mode === 'break' || mode === 'long_break'))) ? '100%' :
                                             (i === sessions - 1 && mode === 'work') ? `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%` : '0%'
@@ -101,7 +101,7 @@ export function PomodoroProgress({
                                 <div className="relative w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-[#2d1a12]/15 border border-[#2d1a12]/30 overflow-hidden shrink-0 shadow-inner">
                                     <div
                                         ref={el => breakBallsRef.current[i] = el}
-                                        className="absolute bottom-0 w-full bg-emerald-500 transition-all duration-300"
+                                        className="absolute bottom-0 w-full bg-emerald-500"
                                         style={{
                                             height: (i < sessions - 1) ? '100%' :
                                                 (sessions === i + 1 && (mode === 'break' || mode === 'long_break')) ? `${Math.max(0, (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100)}%` : '0%'

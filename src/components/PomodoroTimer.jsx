@@ -590,6 +590,14 @@ function PomodoroTimer({
 
         const currentMode = mode;
         const currentSessions = sessions;
+        const currentTotalTime = currentMode === 'work'
+            ? (safeSettings.pomodoroWork || 25) * 60
+            : currentMode === 'long_break'
+                ? (safeSettings.pomodoroLongBreak || 15) * 60
+                : (safeSettings.pomodoroBreak || 5) * 60;
+
+        const fraction = Math.max(0, Math.min(1, stateRefs.current.timeLeft / (currentTotalTime || 1)));
+        const currentPercent = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
 
         workFillsRef.current.forEach((el, i) => {
             if (!el) return;
@@ -599,6 +607,8 @@ function PomodoroTimer({
                 (i === currentSessions - 1 && currentMode !== 'work')
             ) {
                 el.style.width = '100%';
+            } else if (i === currentSessions - 1 && currentMode === 'work') {
+                el.style.width = currentPercent;
             } else {
                 el.style.width = '0%';
             }
@@ -609,18 +619,14 @@ function PomodoroTimer({
 
             if (i < currentSessions - 1) {
                 el.style.height = '100%';
+            } else if (i === currentSessions - 1 && currentMode !== 'work') {
+                el.style.height = currentPercent;
             } else {
                 el.style.height = '0%';
             }
         });
 
         if (svgCircleRef.current) {
-            const currentTotalTime = currentMode === 'work'
-                ? (safeSettings.pomodoroWork || 25) * 60
-                : currentMode === 'long_break'
-                    ? (safeSettings.pomodoroLongBreak || 15) * 60
-                    : (safeSettings.pomodoroBreak || 5) * 60;
-            const fraction = Math.max(0, Math.min(1, stateRefs.current.timeLeft / (currentTotalTime || 1)));
             svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE * fraction;
         }
     }, [
