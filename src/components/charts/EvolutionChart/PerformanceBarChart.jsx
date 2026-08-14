@@ -23,9 +23,8 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
         const questoes = sanitizeCount(d.questoes);
         const acertosBrutos = sanitizeCount(d.acertos);
         const acertos = Math.min(questoes, acertosBrutos);
-        const errosRaw = Math.max(0, questoes - acertos);
-        const erros = errosRaw === 0 ? null : errosRaw;
-        return { ...d, questoes, acertos, erros, errosRaw };
+        const erros = Math.max(0, questoes - acertos);
+        return { ...d, questoes, acertos, erros, errosRaw: erros };
     });
     
     return (
@@ -135,7 +134,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                     }}
                                 />
                                 
-                                <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} isAnimationActive={true} />
+                                <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} radius={[5, 5, 0, 0]} isAnimationActive={true} />
                                 
                                 <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[5, 5, 0, 0]} isAnimationActive={true}>
                                     <LabelList 

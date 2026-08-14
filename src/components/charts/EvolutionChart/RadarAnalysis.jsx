@@ -114,9 +114,9 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             activeDot={{ r: 4, fill: '#fff' }} 
                         />
 
-                        {/* 🎯 FIX: Adição do formatValue no formatter do Tooltip */}
+                        {/* 🎯 FIX: Adição do formatValue e name dinâmico no formatter do Tooltip */}
                         <Tooltip 
-                            formatter={(v) => [`${formatValue(v)}${unit}`, 'Nível']} 
+                            formatter={(v, name) => [`${formatValue(v)}${unit}`, name || 'Nível']} 
                             contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#e2e8f0', fontSize: '11px' }} 
                         />
                         <Legend 

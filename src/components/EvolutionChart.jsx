@@ -405,12 +405,16 @@ export default React.memo(function EvolutionChart({
 
     const radarData = useMemo(() => {
         if (!categories || !categories.length) return [];
-        return categories.map(cat => ({
-            subject: String(cat.name || 'Sem nome').replace(/Direito /gi, 'D. ').substring(0, 15),
-            nivel: Math.round(categoryLevels[cat.id] || 0),
-            meta: targetScore
-        }));
-    }, [categories, targetScore, categoryLevels]);
+        return categories.map(cat => {
+            const lvl = categoryLevels?.[cat.id];
+            const val = Number.isFinite(Number(lvl)) ? Number(Number(lvl).toFixed(2)) : minScore;
+            return {
+                subject: String(cat.name || 'Sem nome').replace(/Direito /gi, 'D. ').substring(0, 15),
+                nivel: val,
+                meta: targetScore
+            };
+        });
+    }, [categories, targetScore, categoryLevels, minScore]);
 
     const insight = useMemo(() => {
         return generateEvolutionInsights({
@@ -623,6 +627,8 @@ export default React.memo(function EvolutionChart({
                         unit={unit} 
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
+                        maxScore={maxScore}
+                        minScore={minScore}
                     />
                 ) : activeEngine === "subtopics" ? (
                     <SubtopicsPerformanceChart
@@ -657,6 +663,7 @@ export default React.memo(function EvolutionChart({
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
                         maxScore={maxScore}
+                        minScore={minScore}
                         unit={unit}
                     />
                 ) : activeEngine === "today_vs_general" ? (

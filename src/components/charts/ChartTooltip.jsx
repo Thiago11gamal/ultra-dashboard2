@@ -8,7 +8,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
     const scaleRange = Math.max(1, safeMax - safeMin);
     if (!active || !payload?.length) return null;
 
-    const currentData = chartData.find(d => d.displayDate === label || d.date === label);
+    const currentData = payload?.[0]?.payload || (Array.isArray(chartData) ? chartData.find(d => d.displayDate === label || d.date === label) : null);
 
     return (
         <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-[calc(100vw-2rem)] sm:max-w-sm z-50 backdrop-blur-xl pointer-events-none transition-transform duration-200 overflow-hidden">

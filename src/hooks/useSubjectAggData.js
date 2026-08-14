@@ -47,11 +47,16 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
           history.reduce((s, h) => {
             let tot = Number(h.total) || 0;
             if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
+            const rawC = Number(h.correct);
+            if (!h.isPercentage && Number.isFinite(rawC)) {
+              return s + Math.max(0, Math.min(tot, rawC));
+            }
             const range = Math.max(1e-9, maxScore - minScore);
             const score = getSafeScore(h, maxScore);
             if (!Number.isFinite(score)) return s;
             const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
-            return s + ((normalizedScore - minScore) / range) * tot;
+            const derived = ((normalizedScore - minScore) / range) * tot;
+            return s + Math.max(0, Math.min(tot, Number.isFinite(derived) ? derived : 0));
           }, 0)
         );
 

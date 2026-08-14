@@ -30,9 +30,22 @@ function releaseSharedWorker() {
   }
 }
 
-export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', showOnlyFocus, focusSubjectId }) => {
+export const EvolutionHeatmap = ({ 
+    heatmapData, 
+    targetScore = 70, 
+    unit = '%', 
+    showOnlyFocus, 
+    focusSubjectId,
+    maxScore = 100,
+    minScore = 0 
+}) => {
     const { dates = [], rows = [] } = heatmapData || {};
     
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const range = Math.max(1e-9, safeMax - safeMin);
+    const targetScorePct = Math.max(0, Math.min(100, ((Number(targetScore) - safeMin) / range) * 100));
+
     // 🎯 FILTRO DE FOCO: Aplica o filtro de "Todas as Matérias" vs "Apenas Foco"
     const filteredRowsByFocus = useMemo(() => {
         if (!showOnlyFocus) return rows;
@@ -129,9 +142,9 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
     const cellColor = (pct, total = 0) => {
         if (pct == null) return { bg: 'rgba(255,255,255,0.02)', text: '#64748b', border: '#1e293b', density: 0 };
         const density = Math.min(1, (Number(total) || 0) / maxCellTotal);
-        if (pct >= targetScore) return { bg: 'rgba(34,197,94,0.45)', text: '#4ade80', border: 'rgba(34,197,94,0.6)', density };
-        if (pct >= targetScore * 0.8) return { bg: 'rgba(251,191,36,0.4)', text: '#fcd34d', border: 'rgba(251,191,36,0.6)', density };
-        if (pct >= targetScore * 0.6) return { bg: 'rgba(251,146,60,0.4)', text: '#fb923c', border: 'rgba(251,146,60,0.6)', density };
+        if (pct >= targetScorePct) return { bg: 'rgba(34,197,94,0.45)', text: '#4ade80', border: 'rgba(34,197,94,0.6)', density };
+        if (pct >= targetScorePct * 0.8) return { bg: 'rgba(251,191,36,0.4)', text: '#fcd34d', border: 'rgba(251,191,36,0.6)', density };
+        if (pct >= targetScorePct * 0.6) return { bg: 'rgba(251,146,60,0.4)', text: '#fb923c', border: 'rgba(251,146,60,0.6)', density };
         return { bg: 'rgba(239,68,68,0.4)', text: '#f87171', border: 'rgba(239,68,68,0.6)', density };
     };
 
@@ -151,6 +164,10 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
             ) : "Nenhum dado encontrado."}
         </div>
     );
+
+    const targetFmt = `${Math.round(targetScorePct)}%`;
+    const t60Fmt = `${Math.round(targetScorePct * 0.6)}%`;
+    const t80Fmt = `${Math.round(targetScorePct * 0.8)}%`;
 
     return (
         <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-4 pb-8 sm:pb-10 px-1 min-h-[240px] rounded-xl border border-slate-800/80 bg-gradient-to-b from-slate-950/95 to-slate-900/90 shadow-[0_18px_45px_rgba(2,6,23,0.5)]">
@@ -184,10 +201,10 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
                     ))}
                 </div>
                 {[
-                    { bg: 'rgba(239,68,68,0.3)', border: 'rgba(239,68,68,0.5)', label: `< ${Math.round(targetScore * 0.6)}${unit}` },
-                    { bg: 'rgba(251,146,60,0.3)', border: 'rgba(251,146,60,0.5)', label: `${Math.round(targetScore * 0.6)}–${Math.round(targetScore * 0.8)}${unit}` },
-                    { bg: 'rgba(251,191,36,0.3)', border: 'rgba(251,191,36,0.5)', label: `${Math.round(targetScore * 0.8)}–${targetScore}${unit}` },
-                    { bg: 'rgba(34,197,94,0.3)', border: 'rgba(34,197,94,0.5)', label: `≥ ${targetScore}${unit} ✓ meta` },
+                    { bg: 'rgba(239,68,68,0.3)', border: 'rgba(239,68,68,0.5)', label: `< ${t60Fmt}` },
+                    { bg: 'rgba(251,146,60,0.3)', border: 'rgba(251,146,60,0.5)', label: `${t60Fmt}–${t80Fmt}` },
+                    { bg: 'rgba(251,191,36,0.3)', border: 'rgba(251,191,36,0.5)', label: `${t80Fmt}–${targetFmt}` },
+                    { bg: 'rgba(34,197,94,0.3)', border: 'rgba(34,197,94,0.5)', label: `≥ ${targetFmt} ✓ meta` },
                 ].map(item => (
                     <span key={item.label} className="flex items-center gap-1.5">
                         <span className="w-3 h-3 rounded-sm inline-block shrink-0" style={{ background: item.bg, border: `1px solid ${item.border}` }} />

@@ -284,7 +284,7 @@ export function CompareChart({
                     <Tooltip 
                         offset={30}
                         cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
-                        content={(props) => <ChartTooltip {...props} chartData={filteredChartData} isCompare={true} unit={unit} maxScore={safeMaxScore} minScore={safeMinScore} />} />
+                        content={(props) => <ChartTooltip {...props} chartData={chartData} isCompare={true} unit={unit} maxScore={safeMaxScore} minScore={safeMinScore} />} />
                     
                     <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                     

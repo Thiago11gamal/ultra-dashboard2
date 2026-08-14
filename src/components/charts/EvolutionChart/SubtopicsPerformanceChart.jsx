@@ -167,29 +167,17 @@ export const SubtopicsPerformanceChart = React.memo(({
                     if (total === 0) return;
                     
                     const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-                    const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore - 1);
+                    const rawC = Number(t.correct);
+                    let correctCount = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
 
-                    const rawScore = getSafeScore(t, safeMaxScore);
-
-                    const score = Number.isFinite(rawScore)
-                      ? rawScore
-                      : safeMinScore;
-
-                    const normalizedScore = Math.max(
-                      safeMinScore,
-                      Math.min(safeMaxScore, score)
-                    );
-
-                    const range = Math.max(1e-9, safeMaxScore - safeMinScore);
-
-                    const rawCorrect =
-                      total > 0
-                        ? ((normalizedScore - safeMinScore) / range) * total
-                        : (Number(t.correct) || 0);
-
-                    const correctCount = Number.isFinite(rawCorrect)
-                      ? rawCorrect
-                      : 0;
+                    if (!Number.isFinite(correctCount)) {
+                        const rawScore = getSafeScore(t, safeMaxScore);
+                        const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
+                        const normalizedScore = Math.max(safeMinScore, Math.min(safeMaxScore, score));
+                        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
+                        correctCount = total > 0 ? ((normalizedScore - safeMinScore) / range) * total : 0;
+                    }
+                    correctCount = Math.max(0, Math.min(total, Number.isFinite(correctCount) ? correctCount : 0));
 
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
@@ -254,29 +242,17 @@ export const SubtopicsPerformanceChart = React.memo(({
                     topicVolumeMap[topicName] = (topicVolumeMap[topicName] || 0) + total;
 
                     const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-                    const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore - 1);
+                    const rawC = Number(t.correct);
+                    let correct = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
 
-                    const rawScore = getSafeScore(t, safeMaxScore);
-
-                    const score = Number.isFinite(rawScore)
-                      ? rawScore
-                      : safeMinScore;
-
-                    const normalizedScore = Math.max(
-                      safeMinScore,
-                      Math.min(safeMaxScore, score)
-                    );
-
-                    const range = Math.max(1e-9, safeMaxScore - safeMinScore);
-
-                    const rawCorrect =
-                      total > 0
-                        ? ((normalizedScore - safeMinScore) / range) * total
-                        : (Number(t.correct) || 0);
-
-                    const correct = Number.isFinite(rawCorrect)
-                      ? rawCorrect
-                      : 0;
+                    if (!Number.isFinite(correct)) {
+                        const rawScore = getSafeScore(t, safeMaxScore);
+                        const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
+                        const normalizedScore = Math.max(safeMinScore, Math.min(safeMaxScore, score));
+                        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
+                        correct = total > 0 ? ((normalizedScore - safeMinScore) / range) * total : 0;
+                    }
+                    correct = Math.max(0, Math.min(total, Number.isFinite(correct) ? correct : 0));
 
                     const totKey = `${topicName}_total`;
                     const corKey = `${topicName}_correct`;
