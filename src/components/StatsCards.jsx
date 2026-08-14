@@ -386,7 +386,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             <span>
                                 Precisão:{' '}
                                 <span className="font-bold">
-                                    {formatValue(fcStats.flashcardAccuracy || 0)}%
+                                    {parseFloat(Number(fcStats.flashcardAccuracy || 0).toFixed(1))}%
                                 </span>
                             </span>
                         </div>

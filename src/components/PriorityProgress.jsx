@@ -126,7 +126,7 @@ export default function PriorityProgress({ categories = [] }) {
                                 {pendingTasksGlobally > 0 && (
                                     <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-slate-400 font-medium">
                                         <CircleDashed size={12} className="text-amber-400" />
-                                        {pendingTasksGlobally} restantes
+                                        {pendingTasksGlobally} {pendingTasksGlobally === 1 ? 'restante' : 'restantes'}
                                     </span>
                                 )}
                             </div>
@@ -228,7 +228,7 @@ export default function PriorityProgress({ categories = [] }) {
 
                                 <div className="flex justify-between items-center text-xs">
                                     <span className="text-[11px] text-slate-400 font-medium">
-                                        {total - completed} pendentes
+                                        {total - completed} {(total - completed) === 1 ? 'pendente' : 'pendentes'}
                                     </span>
                                     <span className={`font-black ${conf.text}`}>
                                         {pct}% concluído

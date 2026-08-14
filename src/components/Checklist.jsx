@@ -288,7 +288,7 @@ const TaskItem = ({
 
                 <div className="flex-1 min-w-0 pr-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <p className={`text-sm font-bold tracking-tight ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
+                        <p className={`text-sm font-bold tracking-tight break-words ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
                             {taskTitle}
                         </p>
 
@@ -785,7 +785,7 @@ function Checklist({
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 placeholder="Buscar disciplina, assunto ou anotação..."
-                                className="w-full bg-slate-950/80 border border-white/10 rounded-2xl pl-11 pr-10 py-3 text-xs sm:text-sm font-medium text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                                className="w-full bg-slate-950/80 border border-white/10 rounded-2xl pl-12 pr-10 py-3 text-xs sm:text-sm font-medium text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all"
                             />
                             {searchTerm && (
                                 <button
