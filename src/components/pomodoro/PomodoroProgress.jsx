@@ -21,10 +21,19 @@ export function PomodoroProgress({
                     <h3 className="text-[9px] font-bold text-[#2d1a12]/70 uppercase tracking-[0.2em]">Progresso dos Ciclos</h3>
                     <div className="flex items-center gap-2 text-[#2d1a12]">
                         <button onClick={() => {
-                            const newTarget = Math.max(completedCycles < 1 ? 1 : completedCycles, targetCycles - 1);
+                            const minAllowed = Math.max(1, completedCycles);
+                            const newTarget = Math.max(minAllowed, targetCycles - 1);
                             setTargetCycles(newTarget);
-                            try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch { /* ignore */ }
-                        }} disabled={!activeSubject || targetCycles <= 1} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20 disabled:opacity-40">-</button>
+                            try {
+                                syncChannel?.postMessage({
+                                    type: 'TARGET_CYCLES_CHANGE',
+                                    targetCycles: newTarget,
+                                    tabId: STABLE_TAB_ID,
+                                    taskId: activeSubject?.taskId || null,
+                                    sessionInstanceId: activeSubject?.sessionInstanceId || null
+                                });
+                            } catch { /* ignore */ }
+                        }} disabled={!activeSubject || targetCycles <= Math.max(1, completedCycles)} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20 disabled:opacity-40">-</button>
                         <div className="flex items-baseline gap-0.5 text-sm font-black tabular-nums">
                             <span>{completedCycles}</span>
                             <span className="text-[#2d1a12]/50">/ {targetCycles}</span>
@@ -32,7 +41,15 @@ export function PomodoroProgress({
                         <button onClick={() => {
                             const newTarget = Math.min(20, targetCycles + 1);
                             setTargetCycles(newTarget);
-                            try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch { /* ignore */ }
+                            try {
+                                syncChannel?.postMessage({
+                                    type: 'TARGET_CYCLES_CHANGE',
+                                    targetCycles: newTarget,
+                                    tabId: STABLE_TAB_ID,
+                                    taskId: activeSubject?.taskId || null,
+                                    sessionInstanceId: activeSubject?.sessionInstanceId || null
+                                });
+                            } catch { /* ignore */ }
                         }} disabled={!activeSubject || targetCycles >= 20} className="w-5 h-5 rounded bg-[#2d1a12]/10 text-xs font-bold hover:bg-[#2d1a12]/20 disabled:opacity-40">+</button>
                     </div>
                 </div>

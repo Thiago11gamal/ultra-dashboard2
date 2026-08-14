@@ -217,24 +217,16 @@ export const createPomodoroSlice = (set, get) => ({
 
                 p.completedCycles = currentCycles;
 
-                if (targetCycles === 1) {
+                if (currentCycles >= targetCycles) {
                     p.sessions = 1;
                     p.mode = 'work';
                     p.completedCycles = 0;
-
-                    // CORREÇÃO CRÍTICA:
-                    // Antes o accumulatedMinutes continuava vivo aqui.
-                    // Isso causava double logging quando o activeSubject era limpo.
                     p.accumulatedMinutes = 0;
                 } else {
                     const longBreakAfter = settings.longBreakAfter || 4;
                     const isLongBreak = currentCycles % longBreakAfter === 0;
 
                     p.mode = isLongBreak ? 'long_break' : 'break';
-
-                    if (currentCycles >= targetCycles) {
-                        p.accumulatedMinutes = 0;
-                    }
                 }
             } else {
                 if (p.sessions >= targetCycles || p.completedCycles === 0) {
@@ -369,7 +361,7 @@ export const createPomodoroSlice = (set, get) => ({
             taskId: task.id || task.text,
             task: formatTaskName(task),
             category: extractCategoryFromTask(task),
-            categoryId: task.categoryId || 'default',
+            categoryId: task.categoryId || task.catId || 'default',
             priority: 'high',
             sessionInstanceId: Date.now().toString(),
             source: 'neural_core'
@@ -417,7 +409,7 @@ export const createPomodoroSlice = (set, get) => ({
             taskId: nextTask.id || nextTask.text,
             task: formatTaskName(nextTask),
             category: extractCategoryFromTask(nextTask),
-            categoryId: nextTask.categoryId || 'default',
+            categoryId: nextTask.categoryId || nextTask.catId || 'default',
             priority: 'high',
             sessionInstanceId: Date.now().toString(),
             source: 'neural_core'

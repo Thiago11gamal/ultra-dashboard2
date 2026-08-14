@@ -1,7 +1,7 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
-import { getLocalMidnight, getDateKey, parseNoonLocal } from '../utils/dateHelper';
+import { getLocalMidnight, getDateKey, parseNoonLocal, normalizeDate } from '../utils/dateHelper';
 import { motion as Motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useActiveContest, usePomodoroState } from '../store/useSelectors';
@@ -45,7 +45,8 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
 
         (simulados || []).forEach(s => {
             if (!s) return;
-            const sTime = s.date ? new Date(s.date).getTime() : NaN;
+            const sDate = s.date || s.createdAt;
+            const sTime = sDate ? normalizeDate(sDate)?.getTime() : NaN;
             if (!Number.isNaN(sTime) && sTime >= startOfMonth) recentSimulados++;
         });
 
@@ -57,7 +58,8 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
                 totalTasks++;
                 if (t.completed) {
                     completedTasks++;
-                    if (t.completedAt && new Date(t.completedAt).getTime() >= startOfWeek) weekTasks++;
+                    const completedTime = (t.completedAt || t.lastStudiedAt) ? new Date(t.completedAt || t.lastStudiedAt).getTime() : NaN;
+                    if (!Number.isNaN(completedTime) && completedTime >= startOfWeek) weekTasks++;
                 }
             });
         });
@@ -67,7 +69,9 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         let currentStreak = 0;
         let lastDate = null;
         sortedDays.forEach(dayStr => {
-            const current = parseNoonLocal(dayStr).getTime();
+            const parsed = parseNoonLocal(dayStr);
+            if (!parsed) return;
+            const current = parsed.getTime();
             currentStreak = lastDate && Math.round((current - lastDate) / 86400000) === 1 ? currentStreak + 1 : 1;
             if (currentStreak > maxStreak) maxStreak = currentStreak;
             lastDate = current;
@@ -607,7 +611,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative z-10">
                 <div className="flex items-center gap-6 min-w-0 flex-1">
                     <div className="w-16 h-16 rounded-2xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
-                        <div className="text-2xl font-black text-[#2d1a12]/80">{activeSubject ? 'F' : '⚡'}</div>
+                        {activeSubject ? <Target size={26} className="text-[#2d1a12]" /> : <Zap size={26} className="text-[#2d1a12]" />}
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -764,6 +768,8 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
             const cat = (categories || []).find(c => c && c.id === location.state.categoryId);
             const tsk = (cat?.tasks || []).find(t => t && t.id === location.state.taskId);
             if (cat && tsk) {
+                // Clear location.state to prevent restart loops
+                window.history.replaceState({}, document.title);
                 useAppStore.getState().startPomodoroSession({
                     categoryId: cat.id,
                     taskId: tsk.id,

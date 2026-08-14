@@ -31,6 +31,7 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 import { usePomodoroSync } from '../hooks/usePomodoroSync';
+import { playPomodoroAlarm } from '../utils/audioAlert';
 import { PomodoroProgress } from './pomodoro/PomodoroProgress';
 import { PomodoroControls } from './pomodoro/PomodoroControls';
 import { PomodoroHeader } from './pomodoro/PomodoroHeader';
@@ -237,21 +238,34 @@ function PomodoroTimer({
         };
     }, [syncChannel]);
 
+    const activeSubjectRef = useRef(activeSubject);
+
+    useEffect(() => {
+        activeSubjectRef.current = activeSubject;
+    }, [activeSubject]);
+
+    const postSync = useCallback((payload) => {
+        try {
+            syncChannel?.postMessage({
+                ...payload,
+                tabId: STABLE_TAB_ID,
+                taskId: activeSubjectRef.current?.taskId || null,
+                sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
+            });
+        } catch (error) {
+            console.error('[PomodoroSync] Failed to post message:', error);
+        }
+    }, [syncChannel]);
+
     const speedRef = useRef(speed);
 
     useEffect(() => {
         speedRef.current = speed;
-
-        try {
-            syncChannel?.postMessage({
-                type: 'SPEED_CHANGE',
-                speed,
-                tabId: STABLE_TAB_ID
-            });
-        } catch (error) {
-            console.error('Failed to post SPEED_CHANGE message:', error);
-        }
-    }, [speed, syncChannel]);
+        postSync({
+            type: 'SPEED_CHANGE',
+            speed
+        });
+    }, [speed, postSync]);
 
     const transitionTimeoutRef = useRef(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
@@ -259,7 +273,6 @@ function PomodoroTimer({
 
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
-    const alarmAudioRef = useRef(null);
     const workFillsRef = useRef([]);
     const breakBallsRef = useRef([]);
 
@@ -300,25 +313,6 @@ function PomodoroTimer({
         }
     }, [targetCycles]);
 
-    const activeSubjectRef = useRef(activeSubject);
-
-    useEffect(() => {
-        activeSubjectRef.current = activeSubject;
-    }, [activeSubject]);
-
-    const postSync = useCallback((payload) => {
-        try {
-            syncChannel?.postMessage({
-                ...payload,
-                tabId: STABLE_TAB_ID,
-                taskId: activeSubjectRef.current?.taskId || null,
-                sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
-            });
-        } catch (error) {
-            console.error('[PomodoroSync] Failed to post message:', error);
-        }
-    }, [syncChannel]);
-
     const toggleMute = () => {
         setIsMuted(prev => {
             const newVal = !prev;
@@ -327,10 +321,9 @@ function PomodoroTimer({
             try {
                 localStorage.setItem('pomodoro_muted', String(newVal));
 
-                syncChannel?.postMessage({
+                postSync({
                     type: 'TOGGLE_MUTE',
-                    isMuted: newVal,
-                    tabId: STABLE_TAB_ID
+                    isMuted: newVal
                 });
             } catch (error) {
                 console.error('Failed to set pomodoro_muted:', error);
@@ -622,7 +615,13 @@ function PomodoroTimer({
         });
 
         if (svgCircleRef.current) {
-            svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE;
+            const currentTotalTime = currentMode === 'work'
+                ? (safeSettings.pomodoroWork || 25) * 60
+                : currentMode === 'long_break'
+                    ? (safeSettings.pomodoroLongBreak || 15) * 60
+                    : (safeSettings.pomodoroBreak || 5) * 60;
+            const fraction = Math.max(0, Math.min(1, stateRefs.current.timeLeft / (currentTotalTime || 1)));
+            svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE * fraction;
         }
     }, [
         mode,
@@ -647,27 +646,6 @@ function PomodoroTimer({
         setIsMuted,
         isMutedRef
     });
-
-    useEffect(() => {
-        try {
-            alarmAudioRef.current = new Audio('/sounds/alarm.wav');
-        } catch (error) {
-            console.error('Failed to load alarm audio:', error);
-        }
-
-        return () => {
-            if (alarmAudioRef.current) {
-                try {
-                    alarmAudioRef.current.pause();
-                    alarmAudioRef.current.src = '';
-                } catch (error) {
-                    console.error('Failed to cleanup alarm audio:', error);
-                }
-
-                alarmAudioRef.current = null;
-            }
-        };
-    }, []);
 
     const savePomodoroState = useCallback((overrides = {}) => {
         if (!activeSubject?.taskId) return;
@@ -733,17 +711,7 @@ function PomodoroTimer({
             safeSettings.soundEnabled &&
             !isMutedRef.current
         ) {
-            try {
-                const playPromise = alarmAudioRef.current?.play();
-
-                if (playPromise !== undefined) {
-                    playPromise.catch((error) => {
-                        console.warn('[Audio] O navegador bloqueou o alarme:', error);
-                    });
-                }
-            } catch (error) {
-                console.error('Critical failure playing alarm:', error);
-            }
+            playPomodoroAlarm();
         }
 
         const currentSessions = stateRefs.current.sessions;
@@ -816,6 +784,9 @@ function PomodoroTimer({
             setTimeLeft(resetTime);
             stateRefs.current.timeLeft = resetTime;
             stateRefs.current.mode = newState.mode;
+            stateRefs.current.sessions = newState.sessions;
+            stateRefs.current.completedCycles = newState.completedCycles;
+            stateRefs.current.accumulatedMinutes = newState.accumulatedMinutes;
 
             if (clockRef.current) {
                 const mins = Math.floor(resetTime / 60);
@@ -832,18 +803,20 @@ function PomodoroTimer({
             savePomodoroState({
                 isRunning: false,
                 timeLeft: resetTime,
-                mode: newState.mode
+                mode: newState.mode,
+                sessions: newState.sessions,
+                completedCycles: newState.completedCycles,
+                accumulatedMinutes: newState.accumulatedMinutes
             });
 
-            try {
-                syncChannel?.postMessage({
-                    type: isManual ? 'PHASE_SKIP' : 'PHASE_COMPLETE',
-                    toMode: newState.mode,
-                    tabId: STABLE_TAB_ID
-                });
-            } catch (error) {
-                console.error('Failed to post PHASE message:', error);
-            }
+            postSync({
+                type: isManual ? 'PHASE_SKIP' : 'PHASE_COMPLETE',
+                toMode: newState.mode,
+                sessions: newState.sessions,
+                completedCycles: newState.completedCycles,
+                accumulatedMinutes: newState.accumulatedMinutes,
+                timeLeft: resetTime
+            });
 
             setIsTransitioning(false);
             isTransitioningRef.current = false;
@@ -862,7 +835,7 @@ function PomodoroTimer({
         safeOnUpdateStudyTime,
         safeOnFullCycleComplete,
         onSessionComplete,
-        syncChannel
+        postSync
     ]);
 
     useEffect(() => {
@@ -992,6 +965,9 @@ function PomodoroTimer({
 
             stateRefs.current.timeLeft = resetTime;
             stateRefs.current.mode = newState.mode;
+            stateRefs.current.sessions = newState.sessions;
+            stateRefs.current.completedCycles = newState.completedCycles;
+            stateRefs.current.accumulatedMinutes = newState.accumulatedMinutes;
             stateRefs.current.isRunning = false;
 
             setIsRunning(false);
@@ -1024,18 +1000,20 @@ function PomodoroTimer({
             savePomodoroState({
                 isRunning: false,
                 timeLeft: resetTime,
-                mode: newState.mode
+                mode: newState.mode,
+                sessions: newState.sessions,
+                completedCycles: newState.completedCycles,
+                accumulatedMinutes: newState.accumulatedMinutes
             });
 
-            try {
-                syncChannel?.postMessage({
-                    type: 'PHASE_REWIND',
-                    toMode: newState.mode,
-                    tabId: STABLE_TAB_ID
-                });
-            } catch (error) {
-                console.error('Failed to post PHASE_REWIND message:', error);
-            }
+            postSync({
+                type: 'PHASE_REWIND',
+                toMode: newState.mode,
+                sessions: newState.sessions,
+                completedCycles: newState.completedCycles,
+                accumulatedMinutes: newState.accumulatedMinutes,
+                timeLeft: resetTime
+            });
         } else {
             showToast('Cronômetro reiniciado', 'info');
 
@@ -1064,27 +1042,15 @@ function PomodoroTimer({
 
             savePomodoroState({ isRunning: false, timeLeft: currentTotalTime });
 
-            try {
-                syncChannel?.postMessage({
-                    type: 'TIMER_RESET',
-                    tabId: STABLE_TAB_ID
-                });
-            } catch (error) {
-                console.error('Failed to post TIMER_RESET message:', error);
-            }
+            postSync({
+                type: 'TIMER_RESET',
+                timeLeft: currentTotalTime
+            });
         }
     };
 
     const skip = () => {
         if (isTransitioningRef.current) return;
-        if (alarmAudioRef.current) {
-            try {
-                alarmAudioRef.current.pause();
-                alarmAudioRef.current.currentTime = 0;
-            } catch (error) {
-                console.error('Failed to reset alarm audio on skip:', error);
-            }
-        }
 
         const s = stateRefs.current.sessions;
         const currentMode = stateRefs.current.mode;
@@ -1109,24 +1075,6 @@ function PomodoroTimer({
             return;
         }
 
-        if (
-            alarmAudioRef.current &&
-            alarmAudioRef.current.paused &&
-            alarmAudioRef.current.currentTime === 0
-        ) {
-            alarmAudioRef.current.volume = 0;
-            alarmAudioRef.current
-                .play()
-                .then(() => {
-                    alarmAudioRef.current?.pause();
-                    if (alarmAudioRef.current) {
-                        alarmAudioRef.current.currentTime = 0;
-                        alarmAudioRef.current.volume = 1;
-                    }
-                })
-                .catch((err) => console.debug('Audio play skipped:', err));
-        }
-
         const next = !isRunning;
         stateRefs.current.isRunning = next;
         setIsRunning(next);
@@ -1135,19 +1083,14 @@ function PomodoroTimer({
             setTimeLeft(stateRefs.current.timeLeft);
         }
 
-        try {
-            syncChannel?.postMessage({
-                type: next ? 'START_SESSION' : 'PAUSE_SESSION',
-                timeLeft: stateRefs.current.timeLeft,
-                tabId: STABLE_TAB_ID
-            });
-        } catch (error) {
-            console.error('Failed to post session status message:', error);
-        }
-    }, [activeSubject, isRunning, syncChannel, showToast]);
+        postSync({
+            type: next ? 'START_SESSION' : 'PAUSE_SESSION',
+            timeLeft: stateRefs.current.timeLeft
+        });
+    }, [activeSubject, isRunning, postSync, showToast]);
 
     const handleManualExit = () => {
-        if (stateRefs.current.mode === 'work' && activeSubject) {
+        if (activeSubject) {
             flushPendingStudyTime();
         }
 

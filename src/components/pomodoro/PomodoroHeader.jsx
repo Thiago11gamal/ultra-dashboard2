@@ -17,11 +17,11 @@ export function PomodoroHeader({ mode, activeSubject, onManualExit }) {
                     </span>
                 </Motion.div>
             ) : !activeSubject ? (
-                <div onClick={onManualExit} className="w-full bg-red-950/20 border border-dashed border-red-500/30 rounded-2xl py-4 flex items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40 transition-all">
+                <div className="w-full bg-red-950/20 border border-dashed border-red-500/30 rounded-2xl py-4 flex items-center justify-center gap-4 transition-all">
                     <AlertCircle size={20} className="text-red-500" />
                     <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-red-500/70 uppercase tracking-widest">Protocolo Inativo</span>
-                        <span className="text-xs font-bold text-red-500">Selecione uma missão neural</span>
+                        <span className="text-xs font-bold text-red-500">Selecione uma missão no painel ao lado</span>
                     </div>
                 </div>
             ) : null}

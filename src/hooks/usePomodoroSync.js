@@ -155,12 +155,17 @@ export function usePomodoroSync({
                             saved.activeTaskId === activeSubjectRef.current.taskId;
 
                         if (targetMode !== undefined || savedTaskMatches) {
+                            const newSessions = data.sessions !== undefined ? data.sessions : saved.sessions;
+                            const newCompleted = data.completedCycles !== undefined ? data.completedCycles : saved.completedCycles;
+                            const newAccum = data.accumulatedMinutes !== undefined ? data.accumulatedMinutes : saved.accumulatedMinutes;
+                            const newTarget = data.targetCycles !== undefined ? data.targetCycles : saved.targetCycles;
+
                             syncPomodoroState({
                                 mode: targetMode,
-                                sessions: data.sessions !== undefined ? data.sessions : saved.sessions,
-                                completedCycles: data.completedCycles !== undefined ? data.completedCycles : saved.completedCycles,
-                                accumulatedMinutes: data.accumulatedMinutes !== undefined ? data.accumulatedMinutes : saved.accumulatedMinutes,
-                                targetCycles: data.targetCycles !== undefined ? data.targetCycles : saved.targetCycles
+                                sessions: newSessions,
+                                completedCycles: newCompleted,
+                                accumulatedMinutes: newAccum,
+                                targetCycles: newTarget
                             });
 
                             if (Number.isFinite(targetTime) && targetTime >= 0) {
@@ -170,6 +175,18 @@ export function usePomodoroSync({
 
                             if (targetMode !== undefined) {
                                 stateRefs.current.mode = targetMode;
+                            }
+                            if (newSessions !== undefined) {
+                                stateRefs.current.sessions = newSessions;
+                            }
+                            if (newCompleted !== undefined) {
+                                stateRefs.current.completedCycles = newCompleted;
+                            }
+                            if (newAccum !== undefined) {
+                                stateRefs.current.accumulatedMinutes = newAccum;
+                            }
+                            if (newTarget !== undefined) {
+                                stateRefs.current.targetCycles = newTarget;
                             }
 
                             if (clockRef.current && Number.isFinite(targetTime)) {
