@@ -167,24 +167,10 @@ export default function Dashboard() {
 
     return (
         <PageErrorBoundary pageName="Dashboard">
-            <div className="space-y-6 animate-fade-in pb-10">
-                {/* ── Feature Announcement Banner ─────────────────────── */}
-                <div className="hidden lg:flex items-center justify-between px-4 py-2.5 rounded-2xl bg-gradient-to-r from-teal-500/10 via-indigo-500/10 to-purple-500/10 border border-teal-500/20 backdrop-blur-md shadow-lg shadow-teal-500/5">
-                    <div className="flex items-center gap-3 text-xs text-slate-300 font-medium">
-                        <span className="px-2.5 py-0.5 rounded-full bg-teal-500/20 border border-teal-500/30 text-[10px] uppercase tracking-widest text-teal-300 font-black">
-                            Novo
-                        </span>
-                        <span>Flashcards com Repetição Espaçada (SRS) e Agenda Inteligente de Estudos disponíveis no menu lateral!</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => navigate('/flashcards')}
-                            className="text-[11px] font-bold text-teal-300 hover:text-white bg-teal-500/15 hover:bg-teal-500/30 border border-teal-500/30 px-3.5 py-1 rounded-xl transition-all duration-200 hover:scale-105"
-                        >
-                            Explorar Flashcards →
-                        </button>
-                    </div>
+            <div className="space-y-6 animate-fade-in">
+                <div className="hidden lg:flex items-center gap-2 text-[10px] text-teal-400/70 font-bold uppercase tracking-widest mb-1 px-1">
+                    <span className="inline-block w-2 h-px bg-teal-400/50"></span>
+                    NOVO: Flashcards e Agenda de Estudos disponíveis no menu
                 </div>
 
                 <div className="tour-step-4">
