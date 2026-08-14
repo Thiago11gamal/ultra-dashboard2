@@ -67,7 +67,7 @@ function getStorage() {
 export function evaluateProbabilityPrediction(
   predictedProbabilityPct,
   observedSuccess,
-  options = {}
+  _options = {}
 ) {
   const predictedPct = clampFinite(predictedProbabilityPct, 0, 100, 50);
   const predictedProbability01 = predictedPct / 100;
@@ -227,7 +227,7 @@ export function evaluateTopicRanking(
  *   { taskId, completed, preScore, postScore }
  * ]
  */
-export function evaluateTaskUplift(events = [], options = {}) {
+export function evaluateTaskUplift(events = [], _options = {}) {
   const safeEvents = (Array.isArray(events) ? events : []).filter(Boolean);
 
   const completedDeltas = [];

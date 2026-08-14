@@ -11,7 +11,6 @@
  */
 
 import {
-  getStrategySpace,
   rankStrategies,
   recommendFlagConfig,
   applyRecommendedFlags,
@@ -22,12 +21,6 @@ const TUNER_HISTORY_KEY = 'coach_auto_tuner_history_v1';
 const BACKTEST_REPORT_KEY = 'coach_strategy_backtest_v1';
 const EVALUATION_RESULTS_KEY = 'coach_evaluation_results_v1';
 const MODEL_HEALTH_KEY = 'coach_model_health_v1';
-
-function clampFinite(value, min, max, fallback = min) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
-}
 
 function getStorage() {
   try {

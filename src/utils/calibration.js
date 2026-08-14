@@ -175,10 +175,19 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   const windowDays = Number(cfg.windowDays) || 60;
   const cutoff = Date.now() - windowDays * 86400000;
   const maxSamples = Number(cfg.maxSamples) || 20;
+
+  const isSignalEvent = (h) => {
+    if (!h || !Number.isFinite(Number(h?.timestamp))) return false;
+    const hasObserved = Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1);
+    const hasBrier = Number.isFinite(Number(h.avgBrier));
+    return hasObserved || hasBrier;
+  };
+
   const recent = safeHistory
-    .filter(h => Number.isFinite(Number(h?.timestamp)) && Number(h.timestamp) >= cutoff)
+    .filter(h => isSignalEvent(h) && Number(h.timestamp) >= cutoff)
     .sort((a, b) => Number(a.timestamp) - Number(b.timestamp))
     .slice(-maxSamples);
+
   const minSamples = Number(cfg.minSamples) || 4;
   if (recent.length < minSamples) {
     return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3, confidenceFactor: 0 };
@@ -296,7 +305,11 @@ export function conformalizedCalibrationInterval(probability01, pairs = [], alph
     .map(x => ({ probability: clamp01(x?.probability), observed: clamp01(x?.observed) }))
     .filter(x => Number.isFinite(x.probability) && Number.isFinite(x.observed));
   if (clean.length < 8) {
-    return { low: Math.max(0, p - 0.15), high: Math.min(1, p + 0.15), qHat: 0.15 };
+    let low = p - 0.15;
+    let high = p + 0.15;
+    if (high > 1) { low -= (high - 1); high = 1; }
+    if (low < 0) { high += (0 - low); low = 0; }
+    return { low: Math.max(0, low), high: Math.min(1, high), qHat: 0.15 };
   }
   const n = clean.length;
   const residuals = clean.map(x => Math.abs(x.probability - x.observed)).sort((a, b) => a - b);
@@ -306,7 +319,11 @@ export function conformalizedCalibrationInterval(probability01, pairs = [], alph
   const standardError = Math.sqrt((smoothedP * (1 - smoothedP)) / n);
   const zScore = alpha <= 0.05 ? 1.96 : (alpha <= 0.1 ? 1.645 : 1.28);
   const qHat = Math.min(0.35, Math.max(qConformal, standardError * zScore));
-  return { low: Math.max(0, p - qHat), high: Math.min(1, p + qHat), qHat };
+  let low = p - qHat;
+  let high = p + qHat;
+  if (high > 1) { low -= (high - 1); high = 1; }
+  if (low < 0) { high += (0 - low); low = 0; }
+  return { low: Math.max(0, low), high: Math.min(1, high), qHat };
 }
 
 // FIX F3: Akaike weights + complexidade + shrink p/ uniforme
@@ -325,7 +342,9 @@ export function computeStackingWeights(candidateProbs = [], observed = [], compl
   const minAic = Math.min(...aic);
   const raw = aic.map(a => Math.exp(-0.5 * (a - minAic)));
   const z = kahanSum(raw) || 1;
-  const lambda = n / (n + 8);
+  const maxLoss = Math.max(...logLoss);
+  const isSeverePenalty = maxLoss > 2.0;
+  const lambda = Math.min(1, Math.max(0, n / (n + (isSeverePenalty ? 0.2 : 4))));
   return raw.map(w => lambda * (w / z) + (1 - lambda) / k);
 }
 

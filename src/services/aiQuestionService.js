@@ -15,7 +15,7 @@ export const AI_QUESTION_SCHEMA = {
 const AI_BACKEND_URL = import.meta.env.VITE_API_BACKEND_URL || '';
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
-async function generateViaGeminiDirect({ materia, assunto, dificuldade, quantidade, contestName, apiKey }) {
+async function generateViaGeminiDirect({ materia, assunto, dificuldade, quantidade, contestName, apiKey, signal }) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
   const prompt = `Você é uma banca examinadora especialista em concursos públicos (nível: ${contestName}).
@@ -45,6 +45,7 @@ Requisitos obrigatórios:
 
   const response = await fetch(endpoint, {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{
@@ -88,7 +89,7 @@ Requisitos obrigatórios:
       cleanText = cleanText.substring(firstBracket, lastBracket + 1);
     }
     questions = JSON.parse(cleanText);
-  } catch (e) {
+  } catch {
     throw new Error('Não foi possível interpretar a resposta JSON gerada pela IA.');
   }
 
@@ -99,7 +100,7 @@ Requisitos obrigatórios:
   return questions;
 }
 
-export async function generateAIQuestions({ materia, assunto, dificuldade, quantidade = 10, contestName = 'Concurso Público' }) {
+export async function generateAIQuestions({ materia, assunto, dificuldade, quantidade = 10, contestName = 'Concurso Público', signal }) {
   const hasCustomBackend = AI_BACKEND_URL && !AI_BACKEND_URL.includes('sua-cloud-function-url.com');
 
   if (hasCustomBackend) {
@@ -111,6 +112,7 @@ export async function generateAIQuestions({ materia, assunto, dificuldade, quant
     try {
       const response = await fetch(AI_BACKEND_URL, {
         method: 'POST',
+        signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -139,7 +141,8 @@ export async function generateAIQuestions({ materia, assunto, dificuldade, quant
         dificuldade,
         quantidade,
         contestName,
-        apiKey: GEMINI_API_KEY
+        apiKey: GEMINI_API_KEY,
+        signal
       });
     } catch (error) {
       logger.error('[AI Service Direct Gemini] Erro:', error);

@@ -3,7 +3,14 @@ import { generateId } from './idGenerator.js';
 import { normalize } from './normalization.js';
 import { computeCategoryStats } from '../engine/index.js';
 
+function safeArray(val) {
+    if (Array.isArray(val)) return val;
+    if (val && typeof val === 'object') return Object.values(val);
+    return [];
+}
+
 export function applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent) {
+    if (!draft || typeof draft !== 'object') return;
     const todayKey = getDateKey(normalizeDate(new Date()));
     const materia = (formData.materia || '').trim();
     const assunto = (formData.assunto || '').trim();
@@ -33,7 +40,9 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
       isPercentage: true,
     };
 
-    if (!draft.simuladoRows) draft.simuladoRows = [];
+    if (!draft.simuladoRows || !Array.isArray(draft.simuladoRows)) {
+      draft.simuladoRows = safeArray(draft.simuladoRows);
+    }
     let rowFound = false;
     for (const r of draft.simuladoRows) {
       if (!r.isAuto && r.source !== 'ai-generated') continue;
@@ -65,7 +74,9 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     }
 
     if (!preventGlobalEvent) {
-        if (!draft.simulados) draft.simulados = [];
+        if (!draft.simulados || !Array.isArray(draft.simulados)) {
+          draft.simulados = safeArray(draft.simulados);
+        }
         const newSimEvent = {
           id: generateId('ai-sim'),
           date: todayKey,
@@ -85,8 +96,9 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         }
     }
 
-    if (!draft.categories) draft.categories = [];
-    for (const cat of draft.categories) {
+    const categoriesList = safeArray(draft.categories);
+    for (const cat of categoriesList) {
+      if (!cat) continue;
       const idMatch = categoryId && cat.id === categoryId;
       const nameMatch = !categoryId && normalize(cat.name) === normalize(materia);
       

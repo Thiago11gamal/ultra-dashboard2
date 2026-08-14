@@ -404,6 +404,7 @@ export default function AIGeneratedSimulado() {
         const generated = await generateAIQuestions({
           materia: 'Simulado Personalizado', assunto: assuntoString,
           dificuldade: adaptiveDifficulty, quantidade: 10, contestName: activeContestName,
+          signal,
         });
 
         // ✅ FIX: Verificar se foi abortado antes de processar
@@ -487,6 +488,7 @@ export default function AIGeneratedSimulado() {
           materia: currentForm.materia.trim(), assunto: currentForm.assunto.trim(),
           dificuldade: currentForm.dificuldade, quantidade: currentForm.quantidade,
           contestName: activeContestName,
+          signal,
         });
 
         // ✅ FIX: Verificar se foi abortado antes de processar
@@ -734,7 +736,7 @@ export default function AIGeneratedSimulado() {
       const key = e.key.toUpperCase();
       const curIdx = latestCurrentIndexRef.current;
       const qLen = latestQuestionsRef.current.length || questions.length;
-      if (['A', 'B', 'C', 'D'].includes(key)) { e.preventDefault(); selectAnswer(key); }
+      if (['A', 'B', 'C', 'D', 'E'].includes(key)) { e.preventDefault(); selectAnswer(key); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(curIdx - 1); }
       else if (e.key === 'ArrowRight' || e.key === 'Enter') {
         e.preventDefault();

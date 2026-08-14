@@ -227,9 +227,14 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 const exact = exactByDate[date];
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
-                const rawDailyScore = exact && exact.compTotal >= 1
-                    ? (exact.compCorrect / exact.compTotal) * maxScore
-                    : (exact && snap?.last?.score != null ? getSafeScore(snap.last, maxScore) : null);
+                let rawDailyScore = null;
+                if (exact && exact.compTotal >= 1) {
+                    const calc = (exact.compCorrect / exact.compTotal) * maxScore;
+                    rawDailyScore = Number.isFinite(calc) ? calc : null;
+                } else if (exact && snap?.last) {
+                    const s = getSafeScore(snap.last, maxScore);
+                    rawDailyScore = Number.isFinite(s) ? s : null;
+                }
                 dataByDate[date] = {
                     ...dataByDate[date],
                     [`raw_correct_${cat.id}`]: correct,

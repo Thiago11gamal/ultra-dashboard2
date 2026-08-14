@@ -143,13 +143,6 @@ export default function Coach() {
 
   const [activeTab, setActiveTab] = useState('insights');
   const safeActiveTab = (activeTab === 'analytics' && isPremiumBool) ? 'analytics' : 'insights';
-  useEffect(() => {
-    if (activeTab && activeTab !== safeActiveTab) {
-      console.warn(`[Coach.jsx] Estado de aba inválido: ${activeTab}, fallback ativado.`);
-      // BUG-09 FIX: Corrige o estado da aba em vez de apenas logar warning
-      setActiveTab(safeActiveTab);
-    }
-  }, [activeTab, safeActiveTab]);
 
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [coachLoading, setCoachLoading] = useState(false);
@@ -579,8 +572,9 @@ export default function Coach() {
   }, [projectedScore, updateCoachScore]);
 
   const handleChangeTab = useCallback((tab) => {
-    setActiveTab(tab === 'analytics' ? 'analytics' : 'insights');
-  }, []);
+    const nextTab = (tab === 'analytics' && isPremiumBool) ? 'analytics' : 'insights';
+    setActiveTab(nextTab);
+  }, [isPremiumBool]);
 
   const userData = data?.user;
   const settingsData = data?.settings;
@@ -1063,13 +1057,6 @@ function RaioXDashboard({ data }) {
   }, [sortedLogs]);
   const categoryNames = Object.keys(categorySeriesMap);
   const [seriesCategory, setSeriesCategory] = useState(() => categoryNames[0] || '');
-// BUG-12 FIX: Reseta seriesCategory quando a lista de categorias muda
-  useEffect(() => {
-    if (categoryNames.length > 0 && !categoryNames.includes(seriesCategory)) {
-      setSeriesCategory(categoryNames[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryNames.join(',')]);
   const effectiveCategory = categoryNames.includes(seriesCategory)
     ? seriesCategory : (categoryNames[0] || '');
 
@@ -1080,9 +1067,11 @@ function RaioXDashboard({ data }) {
       .slice(-12);
   }, [categorySeriesMap, effectiveCategory]);
 
+  const calibrationEvents = data?.calibrationEvents;
+
   // LOTE 3/4: observabilidade do loop de aprendizagem (eventos + drift estatístico)
   const learningStats = useMemo(() => {
-    const events = Array.isArray(data?.calibrationEvents) ? data.calibrationEvents : [];
+    const events = Array.isArray(calibrationEvents) ? calibrationEvents : [];
     const observed = events.filter(e => e.observed === 0 || e.observed === 1).length;
     const rolling = computeRollingCalibrationParams(events, {});
     const series = buildCalibrationDashboardSeries(sortedLogs);
@@ -1095,7 +1084,7 @@ function RaioXDashboard({ data }) {
       confidence: Number.isFinite(rolling.confidenceFactor) ? rolling.confidenceFactor : 0,
       outOfControl
     };
-  }, [data?.calibrationEvents, sortedLogs]);
+  }, [calibrationEvents, sortedLogs]);
 
   // FIX: clamp de largura reutilizável (evita width negativo/inválido)
   const toBarWidth = (value) => {

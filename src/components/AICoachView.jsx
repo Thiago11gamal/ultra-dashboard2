@@ -243,9 +243,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 const [isExporting, setIsExporting] = useState(false);
 const [viewMode, setViewMode] = useState('planner');
 const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-const rawCategories = activeContest?.categories || [];
-// BUG-05 FIX: Normaliza categories que pode vir como objeto-map após migração
-const categories = useMemo(() => Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {}), [rawCategories]);
+const categories = useMemo(() => {
+  const rawCategories = activeContest?.categories;
+  return Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
+}, [activeContest?.categories]);
 const safeMaxScore = Number(activeContest?.maxScore) > 0 ? Number(activeContest.maxScore) : 100;
 const coachPlanner = useMemo(() => {
 const raw = activeContest?.coachPlanner || {};
@@ -328,7 +329,6 @@ return;
 const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext }));
 startNeuralSession(sessionWithContext, targetIndex);
 navigate('/pomodoro');
-// eslint-disable-next-line react-hooks/exhaustive-deps
 }, [unallocatedCards, coachPlanner, coachPlan, startNeuralSession, navigate]);
 const handleExport = async () => {
 setIsExporting(true);

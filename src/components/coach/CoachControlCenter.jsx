@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCoachControlCenter } from '../../hooks/useCoachControlCenter.js';
 
 // LOTE 4: formatadores seguros (elimina blanks/"NaN" nos painéis)
@@ -48,7 +48,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function MetricCard({ label, value, sub, goodDirection }) {
+function MetricCard({ label, value, sub }) {
   const formatted = value === null || value === undefined ? '—' : value;
   return (
     <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
@@ -103,7 +103,7 @@ function ErrorAlert({ message }) {
 // ==========================================================
 // Painel: Visão Geral
 // ==========================================================
-function OverviewPanel({ dashboard, orchestratorResult }) {
+function OverviewPanel({ dashboard }) {
   if (!dashboard) {
     return <EmptyState message="Execute o orquestrador para ver a visão geral." />;
   }
@@ -858,7 +858,6 @@ export default function CoachControlCenter({
     loading,
     error,
     hasError,
-    isReady,
     lastRunTimestamp,
     dashboard,
     orchestratorResult,
@@ -872,13 +871,11 @@ export default function CoachControlCenter({
     flagOverrides,
     strategySpace,
     runOrchestrator,
-    loadAuxiliaryData,
     runAutoTuner,
     applyRecommendation,
     rollbackToBaseline,
     toggleFlag,
     resetOverrides,
-    handleClearCaches,
   } = useCoachControlCenter({
     categories,
     simulados,
@@ -911,7 +908,7 @@ export default function CoachControlCenter({
                 ${loading ? 'opacity-50 cursor-not-allowed' : ''}
               `}
             >
-              {loading ? 'Executando...' : 'â–¶ Executar Orquestrador'}
+              {loading ? 'Executando...' : '▶ Executar Orquestrador'}
             </button>
           </div>
         </div>
