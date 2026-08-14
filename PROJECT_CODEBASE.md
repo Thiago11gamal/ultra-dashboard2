@@ -1,6 +1,6 @@
 # Código Completo do Projeto — Método Arraia / Ultra Dashboard
 
-> Gerado em: 2026-08-14T04:50:53.750Z
+> Gerado em: 2026-08-14T05:09:52.375Z
 > Total de arquivos fonte: 546
 
 ## 📑 Índice de Arquivos
@@ -4461,7 +4461,7 @@ const DAYS = [
 
 // FIX-CODE-09: Comparador custom para React.memo
 const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categories = [], onStartPomodoro }) => {
-  const sanitizeHtml = (str) => typeof str === 'string' ? str.replace(/<[^>]*>?/gm, '').trim() : '';
+  const sanitizeHtml = (str) => typeof str === 'string' ? str.replace(/<\/?[a-z][a-z0-9]*\b[^>]*>/gi, '').trim() : '';
   const rawText = task.text || task.title || '';
   const fullText = sanitizeHtml(rawText) || rawText;
 
@@ -4629,15 +4629,20 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       return;
     }
 
-    const startCol = columns[source.droppableId] || [];
-    const finishCol = columns[destination.droppableId] || [];
+    const currentCols = columnsRef.current;
+    const startCol = currentCols[source.droppableId] || [];
+    const finishCol = currentCols[destination.droppableId] || [];
     const startList = Array.from(startCol);
     const [removed] = startList.splice(source.index, 1);
+    if (!removed) {
+      setIsDragging(false);
+      return;
+    }
     const finishList = (source.droppableId === destination.droppableId)
       ? startList : Array.from(finishCol);
     finishList.splice(destination.index, 0, removed);
 
-    const newCols = { ...columns, [source.droppableId]: startList, [destination.droppableId]: finishList };
+    const newCols = { ...currentCols, [source.droppableId]: startList, [destination.droppableId]: finishList };
     setColumns(newCols);
 
     const systemAlerts = (coachPlan || []).filter(t => {
@@ -4654,7 +4659,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     ];
 
     setData(prev => {
-      if (!prev) return;
+      if (!prev) return prev;
       const freshPlanner = { ...(prev.coachPlanner || {}) };
       Object.keys(freshPlanner).forEach(day => {
         freshPlanner[day] = [...(freshPlanner[day] || [])];
@@ -6650,7 +6655,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                     const dataKey = p.dataKey;
                     if (typeof dataKey !== 'string') return null;
 
-                    const catId = dataKey.replace(/^(raw|bay|bay_ci_low|bay_ci_high|stats|trend|trend_status)_/, '');
+                    const catId = dataKey.replace(/^(bay_ci_low|bay_ci_high|trend_status|raw|bay|stats|trend)_/, '');
                     const subjName = p.name;
 
                     const rawCorrect = currentData ? currentData[`raw_correct_${catId}`] : null;
@@ -8019,8 +8024,8 @@ export function EvolutionLineChart({
     const handleLegendClick = (e) => {
         // Find the category ID from the clicked legend item (it usually passes payload)
         let catId = e?.payload?.id || e?.id;
-        if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(raw|bay|bay_ci_low|bay_ci_high)_/, '');
-        if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(raw|bay|bay_ci_low|bay_ci_high)_/, '');
+        if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay)_/, '');
+        if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay)_/, '');
         
         if (catId) {
             isLineClicked.current = true;
@@ -9753,7 +9758,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     const r = 80;
     const strokeWidth = 14;
 
-    const localMax = Math.max(30, data.displaySeconds || 0, data.visualLatestSeconds || data.latestSeconds || 0, data.visualAbsoluteSeconds || data.absoluteLatestSeconds || 0);
+    const localMax = Math.max(30, data.displaySeconds || 0, data.visualLatestSeconds ?? data.latestSeconds ?? 0, data.visualAbsoluteSeconds ?? data.absoluteLatestSeconds ?? 0);
     const gaugeMax = localMax * 1.2;
 
     const getCoordinatesForValue = (val) => {
@@ -9841,7 +9846,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
 
                 {/* Inner Text */}
                 <div className="absolute bottom-0 left-0 w-full text-center flex flex-col items-center justify-end pb-1">
-                    <span className="text-2xl font-black text-white">{formatTime(hasLatest ? data.latestSeconds : data.displaySeconds)}</span>
+                    <span className="text-2xl font-black text-white">{formatTime((hasLatest && data.latestSeconds > 0) ? data.latestSeconds : data.displaySeconds)}</span>
                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
                         Média: {formatTime(data.displaySeconds)}
                     </span>
@@ -17073,10 +17078,30 @@ import { Sparkles, X } from 'lucide-react';
 
 export default function LevelUpToast({ level, title, onClose }) {
     const [visible, setVisible] = useState(false);
-
     const timersRef = React.useRef([]);
+    const onCloseRef = React.useRef(onClose);
+    const isClosedRef = React.useRef(false);
+
     useEffect(() => {
-        // Entrance animation starting from initial false state
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
+    const handleClose = React.useCallback(() => {
+        if (isClosedRef.current) return;
+        isClosedRef.current = true;
+        setVisible(false);
+        timersRef.current.forEach(clearTimeout);
+        timersRef.current = [];
+        const timer = setTimeout(() => {
+            if (typeof onCloseRef.current === 'function') {
+                onCloseRef.current();
+            }
+        }, 300);
+        timersRef.current.push(timer);
+    }, []);
+
+    useEffect(() => {
+        isClosedRef.current = false;
         const addTimer = (fn, delay) => {
             const id = setTimeout(fn, delay);
             timersRef.current.push(id);
@@ -17088,15 +17113,14 @@ export default function LevelUpToast({ level, title, onClose }) {
 
         // Auto-close life cycle
         addTimer(() => {
-            setVisible(false);
-            addTimer(onClose, 800); 
+            handleClose();
         }, 5000);
 
         return () => {
             timersRef.current.forEach(clearTimeout);
             timersRef.current = [];
         };
-    }, [level, onClose]);
+    }, [level, handleClose]);
 
     if (!level) return null;
 
@@ -17109,7 +17133,7 @@ export default function LevelUpToast({ level, title, onClose }) {
             <div className={`relative pointer-events-auto bg-slate-900 border-2 border-yellow-500/50 p-8 rounded-2xl shadow-[0_0_50px_-10px_rgba(234,179,8,0.5)] transform transition-all duration-700 ${visible ? 'scale-100 translate-y-0' : 'scale-50 translate-y-10'} flex flex-col items-center gap-4 max-w-sm text-center overflow-hidden`}>
 
                 {/* Close Button */}
-                <button onClick={() => { setVisible(false); setTimeout(onClose, 300); }} className="absolute top-2 right-2 p-1 text-slate-500 hover:text-white transition-colors">
+                <button onClick={handleClose} className="absolute top-2 right-2 p-1 text-slate-500 hover:text-white transition-colors" aria-label="Fechar">
                     <X size={20} />
                 </button>
 
@@ -51761,8 +51785,9 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
     }, [studyLogs, simulados, categories]);
 
     const fmt = (mins) => {
-        const h = Math.floor(mins / 60);
-        const m = Math.round(mins % 60);
+        const total = Math.max(0, Math.round(Number(mins) || 0));
+        const h = Math.floor(total / 60);
+        const m = total % 60;
         if (h > 0 && m > 0) return `${h}h ${m}m`;
         if (h > 0) return `${h}h`;
         return `${m}m`;
@@ -65277,8 +65302,8 @@ export function getBestTask(categories, excludeTaskId = null) {
 
       if (task.errorRate !== undefined && task.errorRate !== null) {
         let rawError = String(task.errorRate || '0')
-          .replace('%', '')
-          .replace(',', '.')
+          .replace(/%/g, '')
+          .replace(/,/g, '.')
           .trim();
 
         const validErrorRate = Number.isFinite(Number(rawError))
@@ -65289,12 +65314,14 @@ export function getBestTask(categories, excludeTaskId = null) {
         legacyScore += normalizedErrorRate * 40;
       }
 
+      const taskId = String(task.id || task.text || task.title || `task-${Math.random().toString(36).slice(2, 7)}`);
+
       let finalScore = legacyScore;
 
       if (useDecision) {
         try {
           const decision = computeDecisionUtility({
-            id: task.id || task.text,
+            id: taskId,
             type: 'task',
             priority: task.priority,
             weight: boundedCatWeight,
@@ -65321,7 +65348,7 @@ export function getBestTask(categories, excludeTaskId = null) {
         highestScore = finalScore;
         bestTask = {
           ...task,
-          id: task.id || task.text,
+          id: taskId,
           catName: cat.name,
           catColor: cat.color,
           catIcon: cat.icon,
