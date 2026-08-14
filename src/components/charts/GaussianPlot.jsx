@@ -258,6 +258,12 @@ export const GaussianPlot = ({
         return `calc(${yPercent}% - ${32 + level * 30}px)`;
     };
 
+    const formatUnitValue = (val, u) => {
+        if (u === 'horas') return formatDuration(val);
+        if (u === '%') return `${formatValue(val)}%`;
+        return `${Number.isInteger(val) ? val : Number(val).toFixed(2)}${u || ''}`;
+    };
+
     return (
         <div className="relative w-full h-[220px] mt-28 mb-16 pb-6 cursor-crosshair group/chart"
             onMouseMove={(e) => {
@@ -354,7 +360,7 @@ export const GaussianPlot = ({
                     <div className="absolute flex flex-col items-center transition-all duration-500"
                         style={{ left: `${Math.max(4, Math.min(meanPos, 96))}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
                         <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-blue-500/30 shadow-lg">
-                            <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{unit === 'horas' ? formatDuration(projectedMean ?? mean ?? 0) : unit === '%' ? formatValue(projectedMean ?? mean ?? 0) : (projectedMean ?? mean ?? 0)}{unit}</span>
+                            <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(projectedMean ?? mean ?? 0, unit)}</span>
                             <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                         </div>
                         <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.mean || 0) * 30}px` }} />
@@ -365,7 +371,7 @@ export const GaussianPlot = ({
                     <div className="absolute flex flex-col items-center transition-all duration-500"
                         style={{ left: `${Math.max(4, Math.min(targetPos, 96))}%`, top: getLabelTop(targetY, resolvedLabels.target || 0), transform: 'translateX(-50%)', zIndex: 20 }}>
                         <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-rose-500/30 shadow-lg">
-                             <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{unit === 'horas' ? formatDuration(targetVal) : unit === '%' ? formatValue(targetVal) : targetVal}{unit}</span>
+                             <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(targetVal, unit)}</span>
                             <span className="text-[7px] font-black text-rose-300 uppercase tracking-widest opacity-80">Meta</span>
                         </div>
                         <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.target || 0) * 30}px` }} />
@@ -376,7 +382,7 @@ export const GaussianPlot = ({
                     <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-40"
                         style={{ left: `${Math.max(4, Math.min(currentPos, 96))}%`, top: getLabelTop(currentY, resolvedLabels.today || 0), transform: 'translateX(-50%)', zIndex: 40 }}>
                         <div className="flex flex-col items-center px-2 py-1 rounded-xl bg-slate-900/95 backdrop-blur-xl border border-white/20 shadow-xl">
-                            <span className="text-[11px] leading-none font-black text-white">{unit === 'horas' ? formatDuration(currentMean ?? 0) : unit === '%' ? formatValue(currentMean ?? 0) : (currentMean ?? 0)}{unit}</span>
+                            <span className="text-[11px] leading-none font-black text-white">{formatUnitValue(currentMean ?? 0, unit)}</span>
                             {resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje/Projeção</span>}
                             {!resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje</span>}
                         </div>
@@ -394,7 +400,7 @@ export const GaussianPlot = ({
                     <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 text-white px-2.5 py-1.5 rounded-xl shadow-2xl flex flex-col items-center min-w-[90px]" 
                         style={{ left: `${Math.max(12, Math.min(88, hover.x))}%`, top: `${Math.max(30, curveY(hover.val) - 5)}%`, transform: 'translate(-50%, -100%)' }}>
                         
-                        <span className="text-[15px] font-black tracking-tight leading-none">{unit === 'horas' ? formatDuration(hover.val) : unit === '%' ? formatValue(hover.val) : hover.val}{unit}</span>
+                        <span className="text-[15px] font-black tracking-tight leading-none">{formatUnitValue(hover.val, unit)}</span>
                         <div className="flex items-center gap-1 mt-1">
                             <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
                             <span className={`text-[7.5px] font-black uppercase tracking-widest ${hover.val >= targetVal ? 'text-emerald-400' : 'text-slate-500'}`}>{hover.val >= targetVal ? 'Zona de Sucesso' : 'Abaixo da Meta'}</span>
@@ -409,7 +415,7 @@ export const GaussianPlot = ({
                     const pct = 2 + f * 96;
                     return (
                         <span key={f} className="absolute text-[10px] font-black text-slate-400 uppercase tracking-tighter" style={{ left: `${pct}%`, transform: f === 0 ? 'translateX(0%)' : f === 1.0 ? 'translateX(-100%)' : 'translateX(-50%)' }}>
-                            {unit === '%' ? formatValue(tickVal) : Number.isInteger(tickVal) ? tickVal : tickVal.toFixed(2)}{unit}
+                            {formatUnitValue(tickVal, unit)}
                         </span>
                     );
                 })}

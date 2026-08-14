@@ -41,9 +41,12 @@ export default function MonteCarloGauge({
 
     const timelineDates = useMemo(() => {
         const dates = new Set();
-        categories.forEach(cat => {
+        const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+        safeCategories.forEach(cat => {
             if (cat.simuladoStats?.history) {
-                cat.simuladoStats.history.forEach(h => {
+                const safeHistory = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
+                safeHistory.forEach(h => {
+                    if (!h) return;
                     const normalized = normalizeDate(h.date);
                     const dk = normalized ? getDateKey(normalized) : null;
                     if (dk) dates.add(dk);

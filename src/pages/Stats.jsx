@@ -10,13 +10,14 @@ import { useShallow } from 'zustand/react/shallow';
 const EMPTY_ARRAY = [];
 
 export default function Stats() {
-    const { rawCategories, rawStudyLogs, user } = useAppStore(useShallow(state => {
+    const { rawCategories, rawStudyLogs, rawFlashcards, user } = useAppStore(useShallow(state => {
         const contests = state?.appState?.contests || {};
         const activeId = state?.appState?.activeId;
         const contest = contests[activeId] || {};
         return {
             rawCategories: contest.categories,
             rawStudyLogs: contest.studyLogs,
+            rawFlashcards: contest.flashcardDecks,
             user: contest.user || null
         };
     }));
@@ -29,16 +30,26 @@ export default function Stats() {
         return Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
     }, [rawCategories]);
 
+    const flashcardDecks = useMemo(() => {
+        return Array.isArray(rawFlashcards) ? rawFlashcards : Object.values(rawFlashcards || {});
+    }, [rawFlashcards]);
+
     const focusData = useMemo(() => mapFocusEvolutionData(studyLogs), [studyLogs]);
     const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories]);
 
-    // 🎯 FIX LÓGICO: Gráficos de analytics precisam ESTRITAMENTE de logs para serem montados
+    // 🎯 FIX LÓGICO: Gráficos de analytics precisam de logs, simulados ou flashcards para serem montados
     const hasStudyLogs = studyLogs.length > 0;
-    const hasSimuladoHistory = Array.isArray(categories) && categories.some(category => {
-        const h = category?.simuladoStats?.history;
-        return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
-    });
-    const hasData = hasStudyLogs || hasSimuladoHistory;
+    const hasSimuladoHistory = useMemo(() => {
+        return Array.isArray(categories) && categories.some(category => {
+            const h = category?.simuladoStats?.history;
+            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+        });
+    }, [categories]);
+    const hasFlashcards = useMemo(() => {
+        return Array.isArray(flashcardDecks) && flashcardDecks.some(d => (d.cards || []).length > 0);
+    }, [flashcardDecks]);
+
+    const hasData = hasStudyLogs || hasSimuladoHistory || hasFlashcards;
 
     return (
         <PageErrorBoundary pageName="Estatísticas">
@@ -63,13 +74,13 @@ export default function Stats() {
                                 Aguardando dados
                             </p>
                             <p className="text-xs text-slate-400 mb-0 leading-relaxed">
-                                Registe horas de estudo ou simulados para gerar relatórios e análises detalhadas.
+                                Registe horas de estudo, simulados ou flashcards para gerar relatórios e análises detalhadas.
                             </p>
                         </div>
                     </div>
                 ) : (
                     <>
-                        {hasSimuladoHistory && <VerifiedStats categories={categories} user={user} />}
+                        {(hasSimuladoHistory || hasFlashcards) && <VerifiedStats categories={categories} user={user} flashcardDecks={flashcardDecks} />}
 
                         {!hasStudyLogs ? (
                             <div className="glass p-6 rounded-2xl border border-white/5 bg-slate-900/30 text-center my-6">

@@ -20,12 +20,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         // Find top category
         const catCounts = {};
         logsArray.forEach(log => {
-            const catId = log.categoryId;
-            // Usa fallback minutes/duration para manter consistência com outros módulos.
-            catCounts[catId] = (catCounts[catId] || 0) + getLogMinutes(log);
+            const category = categoriesArray.find(c => String(c.id) === String(log.categoryId) || (log.subject && c.name === log.subject) || (log.categoryName && c.name === log.categoryName));
+            const catName = category ? category.name : (log.categoryName || log.subject || 'Outros');
+            catCounts[catName] = (catCounts[catName] || 0) + getLogMinutes(log);
         });
-        const topCatId = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0];
-        const topCategory = categoriesArray.find(c => String(c.id) === String(topCatId))?.name || '-';
+        const topCategory = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0] || '-';
 
         // 2. Group by Date then by Category
         // FIX: Usar normalizeDate para evitar shift de UTC midnight em datas YYYY-MM-DD
@@ -75,9 +74,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             };
 
             // Category Grouping
-            const category = categoriesArray.find(c => String(c.id) === String(log.categoryId));
-            const categoryId = log.categoryId;
-            const categoryName = category ? category.name : 'Desconhecido';
+            const category = categoriesArray.find(c => String(c.id) === String(log.categoryId) || (log.subject && c.name === log.subject) || (log.categoryName && c.name === log.categoryName));
+            const categoryId = category ? category.id : (log.categoryId || log.categoryName || log.subject || 'unknown');
+            const categoryName = category ? category.name : (log.categoryName || log.subject || 'Desconhecido');
             const categoryColor = category?.color || '#a855f7';
 
             if (!grouped[uniqueDayKey].categories[categoryId]) {
@@ -105,6 +104,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
             if (existingLogIndex >= 0) {
                 targetGroup.logs[existingLogIndex].minutes += getLogMinutes(log);
+                const prevTime = normalizeDate(targetGroup.logs[existingLogIndex].date)?.getTime() ?? 0;
+                const newTime = normalizeDate(log.date)?.getTime() ?? 0;
+                if (newTime > prevTime) {
+                    targetGroup.logs[existingLogIndex].date = log.date;
+                }
             } else {
                 targetGroup.logs.push({
                     id: log.id,
@@ -187,7 +191,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
             {/* Timeline Content */}
             <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[34px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
-                {groups.map((dayGroup, idx) => (
+                {groups.map((dayGroup, idx) => {
+                    const monthName = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, month: 'long' }).format(dayGroup.dateObj);
+                    const displayTitle = dayGroup.isToday ? "Hoje" : dayGroup.isYesterday ? "Ontem" : `${dayGroup.manausDayStr} de ${monthName}`;
+
+                    return (
                     <div key={dayGroup.dateObj?.toISOString?.() ?? `day-${idx}`} className="relative z-10">
                         {/* Day Marker */}
                         <div className="absolute -left-[47px] sm:-left-[73px] top-0 flex flex-col items-center w-7 sm:w-14">
@@ -212,7 +220,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                 }`}>
                                 <div className="flex items-center gap-3 justify-start">
                                     <h3 className={`text-lg font-bold ${dayGroup.isToday ? 'text-purple-300' : 'text-slate-300'}`}>
-                                        {dayGroup.label} {dayGroup.isToday ? '' : `de ${new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, month: 'long' }).format(dayGroup.dateObj)}`}
+                                        {displayTitle}
                                     </h3>
                                     {dayGroup.isToday && (
                                         <span className="text-[10px] font-bold bg-purple-500 text-white px-2 py-0.5 rounded-full shadow-lg animate-pulse">
@@ -274,7 +282,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                             </div>
                         </div>
                     </div>
-                ))}
+                );
+            })}
             </div>
         </div>
     );

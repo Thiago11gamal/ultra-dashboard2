@@ -46,7 +46,7 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
                 </div>
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
                     Previsão IA
-                    {trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
+                    {(trend === 'up' || trend === 'down') && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
                 </span>
             </div>
         </div>
@@ -134,7 +134,7 @@ const ConsistencyCard = React.memo(({ consistency }) => (
     </div>
 ));
 
-const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
+const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
     const safeMaxSdVal = Math.max(1e-6, Number(maxSdVal) || 0);
     const sdNum = Number.isFinite(parseFloat(cat.sd)) ? parseFloat(cat.sd) : 0;
     // BUG-26 FIX: Evitar NaN/Infinity quando maxSdVal é 0
@@ -146,6 +146,10 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const colorClasses = getColorClasses(safeColor);
     const sdBarColor = colorClasses.bar;
     const sdBarGlow = colorClasses.shadow;
+
+    // Marcadores escalonados por maxScore (5% e 15% do domínio)
+    const sd5Val = 0.05 * maxScore;
+    const sd15Val = 0.15 * maxScore;
 
     return (
         <div className={`grid grid-cols-[1fr_auto_100px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
@@ -161,8 +165,8 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
             <div className="flex items-center gap-2 md:col-span-4 min-w-0">
                 <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
                     <div className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }} />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (5 / safeMaxSdVal) * 100)}%` }} title="SD=5" />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (15 / safeMaxSdVal) * 100)}%` }} title="SD=15" />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (sd5Val / safeMaxSdVal) * 100)}%` }} title={`SD=${sd5Val}`} />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (sd15Val / safeMaxSdVal) * 100)}%` }} title={`SD=${sd15Val}`} />
                 </div>
                 <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? sdNum.toFixed(0) : '--'}</span>
             </div>
@@ -193,7 +197,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
 
 const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 }) => {
     if (categoryBreakdown.length === 0) return (
-        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 1 simulado em cada matéria para gerar o diagnóstico individual.</div>
+        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 2 simulados em cada matéria para gerar o diagnóstico individual.</div>
     );
 
     const maxSdVal = Math.max(0.25 * maxScore, ...categoryBreakdown.map(c => c.rawSd || 0));
@@ -208,15 +212,15 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
                 <div className="hidden md:block md:col-span-2 text-center">Vilões</div>
             </div>
             {categoryBreakdown.map((cat, idx) => (
-                <CategoryRow key={cat.name} cat={cat} idx={idx} maxSdVal={maxSdVal} />
+                <CategoryRow key={cat.name} cat={cat} idx={idx} maxSdVal={maxSdVal} maxScore={maxScore} />
             ))}
             <div className="flex flex-wrap items-center justify-center gap-y-2 gap-x-4 text-[9px] font-black uppercase tracking-widest text-slate-500 pt-4 border-t border-white/5 opacity-60">
                 {[
-                    { color: 'bg-purple-500', label: 'SD ≤ 5' },
-                    { color: 'bg-blue-500', label: 'SD ≤ 10' },
-                    { color: 'bg-orange-500', label: 'SD ≤ 15' },
-                    { color: 'bg-red-400', label: 'SD ≤ 25' },
-                    { color: 'bg-red-600', label: 'SD > 25' }
+                    { color: 'bg-purple-500', label: `SD ≤ ${(0.05 * maxScore).toFixed(0)}` },
+                    { color: 'bg-blue-500', label: `SD ≤ ${(0.10 * maxScore).toFixed(0)}` },
+                    { color: 'bg-orange-500', label: `SD ≤ ${(0.15 * maxScore).toFixed(0)}` },
+                    { color: 'bg-red-400', label: `SD ≤ ${(0.25 * maxScore).toFixed(0)}` },
+                    { color: 'bg-red-600', label: `SD > ${(0.25 * maxScore).toFixed(0)}` }
                 ].map(l => (
                     <div key={l.label} className="flex items-center gap-1.5">
                         <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />
@@ -434,8 +438,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         // Run on global daily average for consistent trend
         const globalAnalysis = analyzeProgressState(dailyHistory, {
             window_size: Math.min(5, dailyHistory.length),
-            stagnation_threshold: 0.04 * maxScore, // 4% do teto
-            low_level_limit: 0.60 * maxScore,      // 60% do teto
+            stagnation_threshold: 4, // 4% do teto
+            low_level_limit: 60,      // 60% do teto
             high_level_limit: statsTarget,
             mastery_limit: statsTarget,
             maxScore: maxScore
@@ -634,8 +638,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
                 const analysis = analyzeProgressState(analysisHistory, {
                     window_size: Math.min(5, analysisHistory.length),
-                    stagnation_threshold: 0.04 * maxScore, // 4% do teto
-                    low_level_limit: 0.60 * maxScore,      // 60% do teto
+                    stagnation_threshold: 4, // 4% do teto
+                    low_level_limit: 60,      // 60% do teto
                     high_level_limit: statsTarget,
                     mastery_limit: statsTarget,
                     maxScore: maxScore
@@ -648,10 +652,13 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
                 // --- TOPIC VARIATION ANALYSIS (Synchronized with recent window) ---
                 const topicMap = {};
-                const recentHistoryForTopics = sortedHistory.slice(-10); // Analyze recent stability
+                const safeSortedHistory = Array.isArray(sortedHistory) ? sortedHistory : Object.values(sortedHistory || {});
+                const recentHistoryForTopics = safeSortedHistory.slice(-10); // Analyze recent stability
                 recentHistoryForTopics.forEach(h => {
-                    if (h.topics) {
-                        h.topics.forEach(t => {
+                    if (h && h.topics) {
+                        const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
+                        safeTopics.forEach(t => {
+                            if (!t || !t.name) return;
                             let total = Number(t.total) || 0;
                             const isSynthetic = total === 0 && t.score != null;
                             if (isSynthetic) total = 100; // Synthetic total for percentage-only inputs

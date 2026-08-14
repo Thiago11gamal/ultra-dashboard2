@@ -147,11 +147,10 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     };
 
     const last14Days = [];
-    const today = new Date();
-    // FIX UX BUG 4: Robustez contra DST (Horário de Verão). 
-    // Setando as datas de forma isolada, mitigamos o bug do "setDate" iterativo
+    // ✅ FIX: Ancorar ao meio-dia de Manaus para o dia corrente para evitar shift de 1 dia em outros fusos
+    const todayMidday = normalizeDate(getDateKey(new Date())) || new Date();
     for (let i = 13; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i, 12, 0, 0, 0);
+        const d = new Date(todayMidday.getTime() - (i * MS_PER_DAY));
         last14Days.push({
             fullKey: getFullKey(d),
             data: getDisplayKey(d),
@@ -159,7 +158,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
         });
     }
 
-    const logsArray = Object.values(studyLogs || {});
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
     
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
@@ -195,8 +194,8 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
-        const cat = safeCategories.find(c => String(c.id) === String(log.categoryId));
-        const name = cat ? cat.name : 'Outros';
+        const cat = safeCategories.find(c => String(c.id) === String(log.categoryId) || (log.subject && c.name === log.subject) || (log.categoryName && c.name === log.categoryName));
+        const name = cat ? cat.name : (log.categoryName || log.subject || 'Outros');
         const actualMinutes = sanitizeMinutes(log.minutes ?? log.duration);
         if (actualMinutes <= 0) return;
         hoursMap[name] = (hoursMap[name] || 0) + actualMinutes;
