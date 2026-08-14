@@ -378,7 +378,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
                     <div className="text-2xl sm:text-3xl font-black text-white mt-1 mb-2">
                         {fcStats.flashcardReviews || 0}{' '}
-                        <span className="text-lg sm:text-xl text-slate-300 font-bold">revisões</span>
+                        <span className="text-lg sm:text-xl text-slate-300 font-bold">
+                            {(fcStats.flashcardReviews || 0) === 1 ? 'revisão' : 'revisões'}
+                        </span>
                     </div>
 
                     <div className="mt-auto pt-1 pb-1 flex flex-col gap-1 pl-2 min-w-0">

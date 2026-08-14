@@ -429,7 +429,7 @@ const CategoryAccordion = React.memo(({
                         </div>
 
                         <p className="text-[10px] sm:text-xs text-slate-500 font-medium">
-                            {completedCount} de {originalTasks.length} concluídas
+                            {completedCount} de {originalTasks.length} {originalTasks.length === 1 ? 'concluída' : 'concluídas'}
                         </p>
                     </div>
                 </button>

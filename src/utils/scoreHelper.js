@@ -171,6 +171,7 @@ export function formatValue(value) {
   if (value === null || value === undefined) return '0';
   let num;
   if (typeof value === 'number') {
+    if (Number.isNaN(value)) return '0';
     num = value;
   } else {
     num = parseLocaleNumber(value, 0);
