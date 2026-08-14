@@ -55,9 +55,9 @@ export default function Evolution() {
     // 1) Se existir targetScore explícito, ele é a meta em pontos
     if (user?.targetScore != null && Number.isFinite(Number(user.targetScore))) {
       let ts = Number(user.targetScore);
-      // Compatibilidade: se o valor está na faixa 0-100 E a escala é > 100,
+      // Compatibilidade: se o valor está na faixa 0-100 E a escala é > 100 com piso 0,
       // provavelmente é um percentual que precisa ser convertido para pontos.
-      if (ts <= 100 && safeMax > 100) {
+      if (ts <= 100 && safeMax > 100 && safeMin === 0) {
         ts = (ts / 100) * safeMax;
       }
       return clamp(ts);
@@ -65,11 +65,11 @@ export default function Evolution() {
     
     // 2) Fallback: targetProbability é percentual (0-100) e deve virar pontos
     if (user?.targetProbability != null && Number.isFinite(Number(user.targetProbability))) {
-      return clamp((Number(user.targetProbability) / 100) * safeMax);
+      return clamp(safeMin + (Number(user.targetProbability) / 100) * (safeMax - safeMin));
     }
     
     // 3) Default seguro: 80% da escala
-    return clamp(safeMax * 0.8);
+    return clamp(safeMin + (safeMax - safeMin) * 0.8);
   }, [user, minScore, maxScore]);
 
   return (

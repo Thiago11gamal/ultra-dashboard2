@@ -73,7 +73,7 @@ function renderInsightText(text, textColorClass) {
 }
 
 // Função pura fora do componente
-function buildPredictiveCompareData(
+export function buildPredictiveCompareData(
   timeline,
   focusCategory,
   categoryLevels,
@@ -141,7 +141,7 @@ function buildPredictiveCompareData(
       const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
       const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
 
-      const forwardDays = Math.max(i, Math.round((i / steps) * (projectDays || 30)));
+      const forwardDays = Math.max(1, Math.round((i / steps) * (projectDays || 30)));
       const dt = new Date(baseMs + forwardDays * 24 * 60 * 60 * 1000);
       const iso = getDateKey(dt);
 
@@ -339,7 +339,7 @@ export default React.memo(function EvolutionChart({
         return found || categories[0];
     }, [categories, focusSubjectId]);
 
-    const categoryLevels = useCategoryLevels(categories, timeline, activeEngine, maxScore);
+    const categoryLevels = useCategoryLevels(categories, timeline, activeEngine, maxScore, minScore);
 
     const subjectAggData = useSubjectAggData({
         categories, showOnlyFocus, focusCategory, timeWindow, maxScore, minScore
@@ -512,10 +512,11 @@ export default React.memo(function EvolutionChart({
                                 level={categoryLevels[cat.id] || 0}
                                 metrics={timeline.length > 0 ? timeline[timeline.length - 1] : null}
                                 target={targetScore}
-                                isFocused={showOnlyFocus ? focusCategory?.id === cat.id : false}
+                                isFocused={focusCategory?.id === cat.id}
                                 onClick={() => setFocusSubjectId(cat.id)}
                                 unit={unit}
                                 maxScore={maxScore}
+                                minScore={minScore}
                             />
                         </div>
                     ))}

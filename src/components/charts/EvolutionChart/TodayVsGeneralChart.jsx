@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal, formatValue } from '../../../utils/scoreHelper';
-import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
+import { ratioToPoints, pointsToRatio } from '../../../utils/scoreHelper.conversions';
 import { normalize, aliases } from '../../../utils/normalization';
 import { Zap, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
@@ -45,19 +45,14 @@ const CustomTooltipTimeline = ({ active, payload, unit }) => {
 const CustomTooltipPie = ({ active, payload, unit }) => {
     const safeFix = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0).toFixed(1);
     if (active && payload && payload.length) {
-        const data = payload[0].payload;
-        if (data.trueValue == null) return null;
+        const item = payload[0].payload;
+        if (item.trueValue == null) return null;
         return (
-            <div 
-                className="bg-slate-900 border border-slate-700 p-2 rounded-xl shadow-xl z-50 pointer-events-none"
-                style={{ transform: 'translate(-50%, -130%)', width: 'max-content' }}
-            >
-                <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.baseColor }}></span>
-                    <span className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">{String(data.name ?? '').replace(' (Restante)', '')}</span>
-                </div>
-                <p className="text-white text-sm font-black mt-1">
-                    {safeFix(data.trueValue)}{unit}
+            <div className="bg-slate-900/95 border border-slate-700/80 p-2.5 rounded-xl shadow-2xl backdrop-blur-md">
+                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-0.5">{String(item.name ?? '').replace(' (Restante)', '')}</p>
+                <p className="text-white text-xs font-black flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.baseColor }}></span>
+                    {safeFix(item.trueValue)}{unit}
                 </p>
             </div>
         );
@@ -70,23 +65,19 @@ export function TodayVsGeneralChart({
     globalMetrics = {}, 
     targetScore = 80,
     maxScore = 100, 
-    minScore = 0,          // ✅ AUDIT FIX: novo prop (piso da escala)
+    minScore = 0,
     unit = '%',
     simuladoRows = []
  }) {
-    // ✅ AUDIT FIX (CRÍTICO): globalAccuracy chega do useChartData como PERCENTUAL (0-100),
-    // mas este gráfico opera em PONTOS (domain [0,maxScore]; accuracy = correct/total*maxScore).
-    // Converter na fronteira para alinhar unidades ANTES de qualquer comparação/ReferenceLine.
     const generalAccuracy = useMemo(() => {
         const pct = Number(globalMetrics?.globalAccuracy);
         const safePct = Number.isFinite(pct) ? pct : 0;
         const safeMax = Math.max(1, Number(maxScore) || 100);
         const safeMin = Math.min(Number(minScore) || 0, safeMax);
-        return Math.max(safeMin, Math.min(safeMax, (safePct / 100) * safeMax));
+        return Math.max(safeMin, Math.min(safeMax, ratioToPoints(safePct / 100, safeMax, safeMin)));
     }, [globalMetrics?.globalAccuracy, maxScore, minScore]);
 
     const scale = Math.max(1, Number(maxScore) || 100) / 100;
-    // ✅ AUDIT FIX: margens de estabilidade proporcionais à escala (2 pts fixos só valiam em 0-100)
     const stabilityMargin = Math.max(1, ((Number(maxScore) || 100) - (Number(minScore) || 0)) * 0.02);
 
     const [nowMs] = useState(() => Date.now());
@@ -94,6 +85,8 @@ export function TodayVsGeneralChart({
 
     const { dailyData, lastActiveEntry, isToday } = useMemo(() => {
         const dayMap = {};
+        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+        const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore);
         activeCategories.forEach(cat => {
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
@@ -102,14 +95,13 @@ export function TodayVsGeneralChart({
                 if (!dayMap[dKey]) dayMap[dKey] = { correct: 0, total: 0 };
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
-                const safeMaxScore = Math.max(1, Number(maxScore) || 100);
                 const rawScore = getSafeScore(h, safeMaxScore);
-                const score = Number.isFinite(rawScore) ? rawScore : 0;
+                const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                 if (tot === 0 && h.score != null) {
                   tot = getSyntheticTotal(safeMaxScore);
-                  corr = Math.round((score / safeMaxScore) * tot);
+                  corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
                 } else if (tot > 0 && h.correct == null) {
-                  corr = Math.round((score / safeMaxScore) * tot);
+                  corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
                 }
                 dayMap[dKey].correct += corr;
                 dayMap[dKey].total += tot;
@@ -119,13 +111,13 @@ export function TodayVsGeneralChart({
         const result = sortedDates.slice(-14).map(date => {
             const [, m, d] = date.split('-');
             const entry = dayMap[date];
-            const acc = entry.total > 0 ? (entry.correct / entry.total) * maxScore : 0;
+            const acc = entry.total > 0 ? ratioToPoints(entry.correct / entry.total, maxScore, minScore) : minScore;
             return { date, displayDate: `${d}/${m}`, accuracy: acc, total: entry.total };
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
         const _isToday = lastEntry ? lastEntry.date === todayKey : false;
         return { dailyData: result, lastActiveEntry: lastEntry, isToday: _isToday };
-    }, [activeCategories, maxScore, todayKey]);
+    }, [activeCategories, maxScore, minScore, todayKey]);
 
     const temporalMetrics = useMemo(() => {
         const buckets = {
@@ -140,22 +132,24 @@ export function TodayVsGeneralChart({
         const ms1Month = 30 * 24 * 60 * 60 * 1000;
         const ms3Months = 90 * 24 * 60 * 60 * 1000;
         const ms6Months = 180 * 24 * 60 * 60 * 1000;
+        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+        const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore);
+
         activeCategories.forEach(cat => {
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const time = toDateMs(h.date || h.createdAt);
                 if (!time) return;
-                const safeMaxScore = Math.max(1, Number(maxScore) || 100);
                 const rawScore = getSafeScore(h, safeMaxScore);
-                const score = Number.isFinite(rawScore) ? rawScore : 0;
+                const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                 const hDateKey = getDateKey(h.date || h.createdAt);
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
                 if (tot === 0 && h.score != null) {
                     tot = getSyntheticTotal(safeMaxScore);
-                    corr = Math.round((score / safeMaxScore) * tot);
+                    corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
                 } else if (tot > 0 && h.correct == null) {
-                    corr = Math.round((score / safeMaxScore) * tot);
+                    corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
                 }
                 if (tot === 0) return;
                 if (hDateKey === todayKey) { buckets.today.correct += corr; buckets.today.total += tot; }

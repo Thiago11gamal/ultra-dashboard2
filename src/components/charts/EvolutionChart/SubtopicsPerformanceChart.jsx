@@ -402,12 +402,13 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     tick={(props) => {
                                         const { x, y, payload } = props;
                                         const text = payload.value || "";
+                                        const fullText = payload.payload?.fullName || text;
                                         const maxLen = 22;
                                         const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
                                         return (
                                             <g transform={`translate(${x},${y})`}>
                                                 <text x={0} y={0} dy={4} textAnchor="end" fill="#cbd5e1" fontSize={11} fontWeight={600}>
-                                                    <title>{text}</title>
+                                                    <title>{fullText}</title>
                                                     {truncated}
                                                 </text>
                                             </g>

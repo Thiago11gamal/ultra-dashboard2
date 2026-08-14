@@ -125,7 +125,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                                         </div>
                                                         <div className="flex justify-between items-center gap-4 mb-2">
                                                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Rendimento</span>
-                                                            <span className="text-[11px] font-black text-white">{rendPct}{unit}</span>
+                                                            <span className="text-[11px] font-black text-white">{rendPct}%</span>
                                                         </div>
                                                     </div>
                                                 </div>

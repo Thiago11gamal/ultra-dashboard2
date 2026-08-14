@@ -1,5 +1,6 @@
 import { normalizeDate, toDateMs } from "../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper";
+import { pointsToRatio } from "../utils/scoreHelper.conversions";
 
 const toHistoryArray = (history) => {
     if (Array.isArray(history)) return history.filter(Boolean);
@@ -107,7 +108,7 @@ export function generateEvolutionInsights({
                     const d = normalizeDate(h?.date);
                     return d && Number.isFinite(d.getTime()) && d.getTime() <= now.getTime();
                 })
-                .map(h => ({ ...h, score: getSafeScore(h, maxScore) }))
+                .map(h => ({ ...h, score: getSafeScore(h, safeMaxScore) }))
                 .filter(h => Number.isFinite(h.score));
 
             rawHistory.forEach(h => {
@@ -119,12 +120,12 @@ export function generateEvolutionInsights({
 
                 let tot = Number(h.total);
                 if (!Number.isFinite(tot) || tot <= 0) {
-                    tot = getSyntheticTotal(maxScore);
+                    tot = getSyntheticTotal(safeMaxScore);
                 }
 
                 if (!Number.isFinite(tot) || tot <= 0) return;
 
-                dayStats[dow].correct += (h.score / maxScore * tot);
+                dayStats[dow].correct += (pointsToRatio(h.score, safeMaxScore, safeMinScore) * tot);
                 dayStats[dow].total += tot;
             });
         });
