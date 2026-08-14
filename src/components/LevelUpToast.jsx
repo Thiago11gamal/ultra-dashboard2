@@ -3,10 +3,30 @@ import { Sparkles, X } from 'lucide-react';
 
 export default function LevelUpToast({ level, title, onClose }) {
     const [visible, setVisible] = useState(false);
-
     const timersRef = React.useRef([]);
+    const onCloseRef = React.useRef(onClose);
+    const isClosedRef = React.useRef(false);
+
     useEffect(() => {
-        // Entrance animation starting from initial false state
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
+    const handleClose = React.useCallback(() => {
+        if (isClosedRef.current) return;
+        isClosedRef.current = true;
+        setVisible(false);
+        timersRef.current.forEach(clearTimeout);
+        timersRef.current = [];
+        const timer = setTimeout(() => {
+            if (typeof onCloseRef.current === 'function') {
+                onCloseRef.current();
+            }
+        }, 300);
+        timersRef.current.push(timer);
+    }, []);
+
+    useEffect(() => {
+        isClosedRef.current = false;
         const addTimer = (fn, delay) => {
             const id = setTimeout(fn, delay);
             timersRef.current.push(id);
@@ -18,15 +38,14 @@ export default function LevelUpToast({ level, title, onClose }) {
 
         // Auto-close life cycle
         addTimer(() => {
-            setVisible(false);
-            addTimer(onClose, 800); 
+            handleClose();
         }, 5000);
 
         return () => {
             timersRef.current.forEach(clearTimeout);
             timersRef.current = [];
         };
-    }, [level, onClose]);
+    }, [level, handleClose]);
 
     if (!level) return null;
 
@@ -39,7 +58,7 @@ export default function LevelUpToast({ level, title, onClose }) {
             <div className={`relative pointer-events-auto bg-slate-900 border-2 border-yellow-500/50 p-8 rounded-2xl shadow-[0_0_50px_-10px_rgba(234,179,8,0.5)] transform transition-all duration-700 ${visible ? 'scale-100 translate-y-0' : 'scale-50 translate-y-10'} flex flex-col items-center gap-4 max-w-sm text-center overflow-hidden`}>
 
                 {/* Close Button */}
-                <button onClick={() => { setVisible(false); setTimeout(onClose, 300); }} className="absolute top-2 right-2 p-1 text-slate-500 hover:text-white transition-colors">
+                <button onClick={handleClose} className="absolute top-2 right-2 p-1 text-slate-500 hover:text-white transition-colors" aria-label="Fechar">
                     <X size={20} />
                 </button>
 

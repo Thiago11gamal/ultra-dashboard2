@@ -21,7 +21,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     const r = 80;
     const strokeWidth = 14;
 
-    const localMax = Math.max(30, data.displaySeconds || 0, data.visualLatestSeconds || data.latestSeconds || 0, data.visualAbsoluteSeconds || data.absoluteLatestSeconds || 0);
+    const localMax = Math.max(30, data.displaySeconds || 0, data.visualLatestSeconds ?? data.latestSeconds ?? 0, data.visualAbsoluteSeconds ?? data.absoluteLatestSeconds ?? 0);
     const gaugeMax = localMax * 1.2;
 
     const getCoordinatesForValue = (val) => {
@@ -109,7 +109,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
 
                 {/* Inner Text */}
                 <div className="absolute bottom-0 left-0 w-full text-center flex flex-col items-center justify-end pb-1">
-                    <span className="text-2xl font-black text-white">{formatTime(hasLatest ? data.latestSeconds : data.displaySeconds)}</span>
+                    <span className="text-2xl font-black text-white">{formatTime((hasLatest && data.latestSeconds > 0) ? data.latestSeconds : data.displaySeconds)}</span>
                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
                         Média: {formatTime(data.displaySeconds)}
                     </span>

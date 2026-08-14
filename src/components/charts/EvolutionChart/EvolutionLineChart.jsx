@@ -61,8 +61,8 @@ export function EvolutionLineChart({
     const handleLegendClick = (e) => {
         // Find the category ID from the clicked legend item (it usually passes payload)
         let catId = e?.payload?.id || e?.id;
-        if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(raw|bay|bay_ci_low|bay_ci_high)_/, '');
-        if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(raw|bay|bay_ci_low|bay_ci_high)_/, '');
+        if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay)_/, '');
+        if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay)_/, '');
         
         if (catId) {
             isLineClicked.current = true;

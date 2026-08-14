@@ -38,7 +38,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                     const dataKey = p.dataKey;
                     if (typeof dataKey !== 'string') return null;
 
-                    const catId = dataKey.replace(/^(raw|bay|bay_ci_low|bay_ci_high|stats|trend|trend_status)_/, '');
+                    const catId = dataKey.replace(/^(bay_ci_low|bay_ci_high|trend_status|raw|bay|stats|trend)_/, '');
                     const subjName = p.name;
 
                     const rawCorrect = currentData ? currentData[`raw_correct_${catId}`] : null;

@@ -2836,8 +2836,8 @@ export function getBestTask(categories, excludeTaskId = null) {
 
       if (task.errorRate !== undefined && task.errorRate !== null) {
         let rawError = String(task.errorRate || '0')
-          .replace('%', '')
-          .replace(',', '.')
+          .replace(/%/g, '')
+          .replace(/,/g, '.')
           .trim();
 
         const validErrorRate = Number.isFinite(Number(rawError))
@@ -2848,12 +2848,14 @@ export function getBestTask(categories, excludeTaskId = null) {
         legacyScore += normalizedErrorRate * 40;
       }
 
+      const taskId = String(task.id || task.text || task.title || `task-${Math.random().toString(36).slice(2, 7)}`);
+
       let finalScore = legacyScore;
 
       if (useDecision) {
         try {
           const decision = computeDecisionUtility({
-            id: task.id || task.text,
+            id: taskId,
             type: 'task',
             priority: task.priority,
             weight: boundedCatWeight,
@@ -2880,7 +2882,7 @@ export function getBestTask(categories, excludeTaskId = null) {
         highestScore = finalScore;
         bestTask = {
           ...task,
-          id: task.id || task.text,
+          id: taskId,
           catName: cat.name,
           catColor: cat.color,
           catIcon: cat.icon,

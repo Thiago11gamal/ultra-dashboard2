@@ -20,7 +20,7 @@ const DAYS = [
 
 // FIX-CODE-09: Comparador custom para React.memo
 const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categories = [], onStartPomodoro }) => {
-  const sanitizeHtml = (str) => typeof str === 'string' ? str.replace(/<[^>]*>?/gm, '').trim() : '';
+  const sanitizeHtml = (str) => typeof str === 'string' ? str.replace(/<\/?[a-z][a-z0-9]*\b[^>]*>/gi, '').trim() : '';
   const rawText = task.text || task.title || '';
   const fullText = sanitizeHtml(rawText) || rawText;
 
@@ -188,15 +188,20 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       return;
     }
 
-    const startCol = columns[source.droppableId] || [];
-    const finishCol = columns[destination.droppableId] || [];
+    const currentCols = columnsRef.current;
+    const startCol = currentCols[source.droppableId] || [];
+    const finishCol = currentCols[destination.droppableId] || [];
     const startList = Array.from(startCol);
     const [removed] = startList.splice(source.index, 1);
+    if (!removed) {
+      setIsDragging(false);
+      return;
+    }
     const finishList = (source.droppableId === destination.droppableId)
       ? startList : Array.from(finishCol);
     finishList.splice(destination.index, 0, removed);
 
-    const newCols = { ...columns, [source.droppableId]: startList, [destination.droppableId]: finishList };
+    const newCols = { ...currentCols, [source.droppableId]: startList, [destination.droppableId]: finishList };
     setColumns(newCols);
 
     const systemAlerts = (coachPlan || []).filter(t => {
@@ -213,7 +218,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     ];
 
     setData(prev => {
-      if (!prev) return;
+      if (!prev) return prev;
       const freshPlanner = { ...(prev.coachPlanner || {}) };
       Object.keys(freshPlanner).forEach(day => {
         freshPlanner[day] = [...(freshPlanner[day] || [])];

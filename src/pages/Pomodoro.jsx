@@ -85,8 +85,9 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
     }, [studyLogs, simulados, categories]);
 
     const fmt = (mins) => {
-        const h = Math.floor(mins / 60);
-        const m = Math.round(mins % 60);
+        const total = Math.max(0, Math.round(Number(mins) || 0));
+        const h = Math.floor(total / 60);
+        const m = total % 60;
         if (h > 0 && m > 0) return `${h}h ${m}m`;
         if (h > 0) return `${h}h`;
         return `${m}m`;
