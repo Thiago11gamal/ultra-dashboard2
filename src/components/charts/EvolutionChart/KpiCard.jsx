@@ -2,7 +2,8 @@ import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 
 export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, sub }) {
-    const safeSub = sub != null ? Number(sub) : Number.NaN;   // ✅ LOTE-03
+    const rawSub = sub != null ? Number(sub) : Number.NaN;
+    const safeSub = Number.isFinite(rawSub) ? Number(rawSub.toFixed(2)) : Number.NaN;
     return (
         <div className="flex flex-col justify-between rounded-2xl border border-slate-700/60 bg-slate-900/60 backdrop-blur-sm p-4 sm:p-5 group hover:border-slate-600 transition-all duration-300">
             <div className="flex items-center justify-between mb-3">

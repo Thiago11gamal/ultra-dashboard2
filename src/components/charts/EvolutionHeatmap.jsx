@@ -71,11 +71,7 @@ export const EvolutionHeatmap = ({
     }, [dates, filteredRowsByFocus, windowSize]);
 
     const [aggregated, setAggregated] = useState(() => {
-        // Renderização síncrona para testes (renderToStaticMarkup)
-        if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
-            return aggregateHeatmap(filtered, 'daily', targetScore);
-        }
-        return { dates: [], rows: [] };
+        return aggregateHeatmap(filtered, 'daily', targetScore);
     });
     const [isAggregating, setIsAggregating] = useState(false);
     const workerRef = useRef(null);
@@ -151,7 +147,7 @@ export const EvolutionHeatmap = ({
     const formatPct = (value) => {
         if (!Number.isFinite(value)) return '—';
         const rounded = Number(value.toFixed(2));
-        return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}${unit}`;
+        return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}%`;
     };
 
     if (!filteredDates.length) return (

@@ -162,7 +162,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                 )}
             </div>
 
-            <div className="mt-3 px-3 py-2 bg-white/3 rounded-xl border border-slate-800 text-center">
+            <div className="mt-3 px-3 py-2 bg-white/[0.03] rounded-xl border border-slate-800 text-center">
                 <p className="text-[10px] text-slate-500 italic">
                     📌 O tamanho total da barra representa o volume de questões. A parte <span className="text-emerald-500 font-bold">verde</span> indica seus acertos e a parte <span className="text-red-500 font-bold">vermelha</span> os erros.
                 </p>

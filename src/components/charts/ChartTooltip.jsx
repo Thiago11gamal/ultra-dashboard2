@@ -19,7 +19,11 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                 {payload
                     .filter(p => !p.name?.startsWith('_') && !['Bay CI High', 'Bay CI Low', 'Cenário Range', 'Banda Bayesiana', 'Ganho Estimado'].includes(p.name))
                     .filter((p, index, self) => self.findIndex(t => t.name === p.name) === index)
-                    .sort((a, b) => (Number(b.value) || -Infinity) - (Number(a.value) || -Infinity))
+                    .sort((a, b) => {
+                        const valA = Array.isArray(a?.value) ? a.value[0] : a?.value;
+                        const valB = Array.isArray(b?.value) ? b.value[0] : b?.value;
+                        return (Number(valB) || -Infinity) - (Number(valA) || -Infinity);
+                    })
                     .map((p, i) => {
                     if (isCompare) {
                         const val = Number(p.value);
@@ -114,7 +118,8 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                 </div>
                             </div>
                             {rawTotal > 0 && (() => {
-                                const errs = rawTotal - rawCorrect;
+                                const safeCorr = Math.max(0, Math.min(rawTotal, Number(rawCorrect) || 0));
+                                const errs = Math.max(0, rawTotal - safeCorr);
                                 const errPct = Math.round((errs / rawTotal) * 100);
                                 const correctPct = 100 - errPct;
                                 return (

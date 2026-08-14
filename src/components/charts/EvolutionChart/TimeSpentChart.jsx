@@ -210,11 +210,13 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
             if (cat) {
                 // BUG FIX: Garante que o histórico é ordenado cronologicamente antes de buscar o "último"
-                const sortedHistory = Object.values(cat.simuladoStats?.history || {}).sort((a, b) => {
-                    const da = toDateMs(a.date || a.createdAt) || 0;
-                    const db = toDateMs(b.date || b.createdAt) || 0;
-                    return da - db;
-                });
+                const sortedHistory = Object.values(cat.simuladoStats?.history || {})
+                    .filter(h => h && toDateMs(h.date || h.createdAt) != null)
+                    .sort((a, b) => {
+                        const da = toDateMs(a.date || a.createdAt) || 0;
+                        const db = toDateMs(b.date || b.createdAt) || 0;
+                        return da - db;
+                    });
 
                 const latestEntry = sortedHistory[sortedHistory.length - 1];
                 if (latestEntry) {

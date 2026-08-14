@@ -13,7 +13,7 @@ import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.convers
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit, stableThreshold = 2 }) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[280px] sm:max-w-none break-words whitespace-normal sm:whitespace-nowrap sm:break-normal">
+            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[320px] break-words whitespace-normal">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
                     Semana de {label}
                 </p>
@@ -143,6 +143,7 @@ export const WeeklyEvolutionView = ({
 
     const { chartData, activeKeys, rankedKeys } = useMemo(() => {
         let itemsMap = {};
+        const toSafeKey = (name) => `top_${String(name || '').replace(/[^a-zA-Z0-9_]/g, '_')}`;
 
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
@@ -158,7 +159,8 @@ export const WeeklyEvolutionView = ({
                 (cat.tasks || []).forEach(task => {
                     const tName = String(task?.text || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!tName) return;
-                    itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                    const key = toSafeKey(tName);
+                    itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                 });
 
                 const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
@@ -167,18 +169,20 @@ export const WeeklyEvolutionView = ({
                         h.topics.forEach(t => {
                             const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                             if (!tName) return;
-                            if (!itemsMap[tName.toLowerCase()]) {
-                                itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                            const key = toSafeKey(tName);
+                            if (!itemsMap[key]) {
+                                itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                             }
                         });
                     } else if (h.taskId) {
                         const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
-                        if (!itemsMap[tName.toLowerCase()]) {
-                            itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                        const key = toSafeKey(tName);
+                        if (!itemsMap[key]) {
+                            itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                         }
                     } else {
-                        if (!itemsMap['geral']) {
-                            itemsMap['geral'] = { name: 'Geral', color: cat.color || '#3b82f6', fullName: 'Geral' };
+                        if (!itemsMap['top_geral']) {
+                            itemsMap['top_geral'] = { name: 'Geral', color: cat.color || '#3b82f6', fullName: 'Geral' };
                         }
                     }
                 });
@@ -193,7 +197,6 @@ export const WeeklyEvolutionView = ({
         const lowerBound = Math.min(safeMinScore, safeMaxScore);
         const upperBound = Math.max(safeMinScore, safeMaxScore);
         const scoreRange = Math.max(1e-9, upperBound - lowerBound);
-        // ✅ LOTE-02 FIX: 2 pts de estabilidade só fazem sentido em 0–100
         const stableThreshold = Math.max(0.5, scoreRange * 0.02);
         const toRatio = (score) => pointsToRatio(score, upperBound, lowerBound);
         const fromRatio = (ratio) => ratioToPoints(ratio, upperBound, lowerBound);
@@ -208,12 +211,12 @@ export const WeeklyEvolutionView = ({
                 if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                 if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
 
-                let totalQ = Number(h.total) || 0;
+                let totalQ = Math.max(0, Number(h.total) || 0);
                 const score = getSafeScore(h, upperBound);
                 if (!Number.isFinite(score)) return;
 
                 if (totalQ === 0 && h.score != null) {
-                    totalQ = getSyntheticTotal(maxScore);
+                    totalQ = getSyntheticTotal(upperBound);
                 }
                 if (totalQ === 0) return;
 
@@ -234,28 +237,30 @@ export const WeeklyEvolutionView = ({
                 hArray2.forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
                         h.topics.forEach(t => {
-                            const tId = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').toLowerCase().trim();
+                            const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                            if (!tName) return;
+                            const tId = toSafeKey(tName);
                             const weekStr = getMondayStr(h.date);
                             if (!weekStr) return;
                             if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
 
-                            let totalQ = Number(t.total) || 0;
+                            let totalQ = Math.max(0, Number(t.total) || 0);
                             const topicScore = getSafeScore(t, upperBound);
                             if (!Number.isFinite(topicScore)) return;
                             if (totalQ === 0 && t.score != null) {
-                                totalQ = getSyntheticTotal(maxScore);
+                                totalQ = getSyntheticTotal(upperBound);
                             }
                             if (totalQ === 0) return;
                             weeksTemp[weekStr][tId].total += totalQ;
                             weeksTemp[weekStr][tId].correct += toRatio(topicScore) * totalQ;
                         });
                     } else if (h.taskId) {
-                        const tId = String(cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto').toLowerCase().trim();
+                        const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        const tId = toSafeKey(tName);
                         processHistory([h], tId);
                     } else {
-                        // BUG 2 FIX: Se não tem topics nem taskId, agrupar em "geral" para não perder os dados na visualização Foco
-                        processHistory([h], 'geral');
+                        processHistory([h], 'top_geral');
                     }
                 });
             }

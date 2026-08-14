@@ -148,6 +148,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 }
                 
                 const score = getSafeScore(h, maxScore);
+                if (!Number.isFinite(score)) continue;
                 const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                 
                 const correctCount = h.isPercentage

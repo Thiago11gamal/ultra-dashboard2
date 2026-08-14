@@ -86,8 +86,10 @@ export function TodayVsGeneralChart({
         return Math.max(safeMin, Math.min(safeMax, ratioToPoints(safePct / 100, safeMax, safeMin)));
     }, [globalMetrics?.globalAccuracy, maxScore, minScore]);
 
-    const scale = Math.max(1, Number(maxScore) || 100) / 100;
-    const stabilityMargin = Math.max(1, ((Number(maxScore) || 100) - (Number(minScore) || 0)) * 0.02);
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const scale = Math.max(1e-9, safeMax - safeMin) / 100;
+    const stabilityMargin = Math.max(1, (safeMax - safeMin) * 0.02);
 
     const [nowMs, setNowMs] = useState(() => Date.now());
     const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
@@ -162,7 +164,7 @@ export function TodayVsGeneralChart({
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const time = toDateMs(h.date || h.createdAt);
-                if (!time) return;
+                if (!time || time > now) return;
                 const rawScore = getSafeScore(h, safeMaxScore);
                 const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                 const hDateKey = getDateKey(h.date || h.createdAt);
@@ -180,10 +182,10 @@ export function TodayVsGeneralChart({
                 corr = Math.max(0, Math.min(tot, corr));
                 if (tot === 0) return;
                 if (hDateKey === todayKey) { buckets.today.correct += corr; buckets.today.total += tot; }
-                if (now - time <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
-                if (now - time <= ms1Month) { buckets.month.correct += corr; buckets.month.total += tot; }
-                if (now - time <= ms3Months) { buckets.month3.correct += corr; buckets.month3.total += tot; }
-                if (now - time <= ms6Months) { buckets.month6.correct += corr; buckets.month6.total += tot; }
+                if (time <= now && now - time <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
+                if (time <= now && now - time <= ms1Month) { buckets.month.correct += corr; buckets.month.total += tot; }
+                if (time <= now && now - time <= ms3Months) { buckets.month3.correct += corr; buckets.month3.total += tot; }
+                if (time <= now && now - time <= ms6Months) { buckets.month6.correct += corr; buckets.month6.total += tot; }
             });
         });
 
@@ -216,7 +218,8 @@ export function TodayVsGeneralChart({
                 });
             if (sortedRows.length > 0) {
                 const latestRow = sortedRows[0];
-                latestAcc = getSafeScore(latestRow, maxScore);
+                const rawLatest = getSafeScore(latestRow, maxScore);
+                latestAcc = Number.isFinite(rawLatest) ? rawLatest : null;
             }
         }
         const getAcc = (b) => b.total > 0 ? ratioToPoints(b.correct / b.total, maxScore, minScore) : null;
@@ -231,7 +234,7 @@ export function TodayVsGeneralChart({
     }, [activeCategories, maxScore, minScore, nowMs, todayKey, simuladoRows]);
 
     const lastMetric = temporalMetrics.find(t => t.id === 'last');
-    const latestAcc = lastMetric?.val ?? null;
+    const latestAcc = Number.isFinite(Number(lastMetric?.val)) ? Number(lastMetric.val) : null;
 
     const chartData = useMemo(() => {
         if (!dailyData || dailyData.length === 0) return [];

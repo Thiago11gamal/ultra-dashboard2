@@ -64,6 +64,10 @@ export function useMonteCarloWorker() {
     }, []);
 
     const runAnalysis = useCallback(async (...args) => {
+        if (!sharedWorker) {
+            initSharedWorker();
+        }
+
         // Fallback or initialization issue
         if (!sharedWorker) {
             // FIX APLICADO: Garantindo que o motor síncrono receba um objeto único

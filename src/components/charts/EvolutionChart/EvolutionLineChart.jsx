@@ -70,15 +70,13 @@ export function EvolutionLineChart({
 
         // Find the category ID from the clicked legend item (it usually passes payload)
         let catId = e?.payload?.id || e?.id;
-        if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay)_/, '');
-        if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay)_/, '');
+        if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay|stats|trend|band)_/, '');
+        if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay|stats|trend|band)_/, '');
         
         if (catId) {
             setHighlightedDataKey(prev => prev === catId ? null : catId);
         }
     };
-
-
 
     // Refined chart data with defensive sorting and date normalization
     const enhancedChartData = React.useMemo(() => {
@@ -96,8 +94,8 @@ export function EvolutionLineChart({
             safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
                 const low = d[`bay_ci_low_${cat.id}`];
                 const high = d[`bay_ci_high_${cat.id}`];
-                if (low != null && high != null) {
-                    copy[`band_${cat.id}`] = [low, high];
+                if (low != null && Number.isFinite(Number(low)) && high != null && Number.isFinite(Number(high))) {
+                    copy[`band_${cat.id}`] = [Number(low), Number(high)];
                 }
             });
             // Fallback defensivo para o eixo X (BUG-T1 Fix)
@@ -106,22 +104,28 @@ export function EvolutionLineChart({
         });
     }, [safeChartData, safeActiveCategories, showOnlyFocus, focusSubjectId]);
 
-    // Gather final points for label positioning
+    // Gather final points for label positioning (busca regressiva para pegar o último ponto com dado de cada matéria)
     const finalPoints = React.useMemo(() => {
         if (!enhancedChartData.length) return [];
         const pts = [];
-        const lastIndex = enhancedChartData.length - 1;
         
         safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
             const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
-            const lastVal = enhancedChartData[lastIndex]?.[dataKey];
-            if (lastVal != null && Number.isFinite(Number(lastVal))) {
-                pts.push({ id: cat.id, name: cat.name, value: Number(lastVal), color: cat.color });
+            let lastVal = null;
+            for (let i = enhancedChartData.length - 1; i >= 0; i--) {
+                const v = enhancedChartData[i]?.[dataKey];
+                if (v != null && Number.isFinite(Number(v))) {
+                    lastVal = Number(v);
+                    break;
+                }
+            }
+            if (lastVal != null) {
+                pts.push({ id: cat.id, name: cat.name, value: lastVal, color: cat.color });
             }
         });
         // Sort by value descending (highest values first)
         return pts.sort((a, b) => b.value - a.value);
-    }, [enhancedChartData, activeCategories, showOnlyFocus, focusSubjectId, engine]);
+    }, [enhancedChartData, safeActiveCategories, showOnlyFocus, focusSubjectId, engine]);
 
     // Adaptive label collision logic (Hardened for variable score scales)
     const yAdjustedMap = React.useMemo(() => {

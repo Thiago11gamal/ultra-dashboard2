@@ -49,7 +49,7 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
       // BUG-GLOBAL-02 FIX: pct deve ser percentual [0,100], não score em [0, maxScore].
       // Antes: (correct/total) * maxScore → para maxScore=120, 8/10 → 96 (errado).
       // Agora: (correct/total) * 100 → 8/10 → 80% (correto, invariante à escala).
-      const pct = total > 0 ? (correct / total) * 100 : null;
+      const pct = total > 0 ? Math.max(0, Math.min(100, (correct / total) * 100)) : null;
       return { total, correct, pct };
     })
   }));
@@ -74,8 +74,8 @@ export const calculateSubjectMastery = (subtopics) => {
 
     safeSubtopics.forEach(topic => {
         // Suporte polimórfico para diferentes chaves de dados
-        const hits = Number(topic.acertos ?? topic.hits ?? 0);
-        const total = Number(topic.total ?? topic.questoes ?? 0);
+        const hits = Math.max(0, Number(topic.acertos ?? topic.hits ?? 0));
+        const total = Math.max(0, Number(topic.total ?? topic.questoes ?? 0));
         
         totalAcertos += hits;
         totalQuestoes += total;

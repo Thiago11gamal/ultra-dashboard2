@@ -79,22 +79,28 @@ export function buildPredictiveCompareData(
   categoryLevels,
   activeMcProjectionSeries,
   projectDays,
-  minScore,
-  maxScore
+  minScore = 0,
+  maxScore = 100
 ) {
   if (!focusCategory) return timeline;
 
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
+
   // 1. Prepara os dados históricos mapeando as chaves para leitura no gráfico
-  let pts = timeline.map((d) => ({
-    ...d,
-    "Nota Bruta": d[`raw_${focusCategory.id}`],
-    "Nível Bayesiano": d[`bay_${focusCategory.id}`],
-    "Banda Bayesiana":
-      d[`bay_ci_low_${focusCategory.id}`] != null && Number.isFinite(d[`bay_ci_low_${focusCategory.id}`])
-        ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]]
-        : null,
-    "Média Histórica": d[`stats_${focusCategory.id}`]
-  }));
+  let pts = timeline.map((d) => {
+    const lowVal = d[`bay_ci_low_${focusCategory.id}`];
+    const highVal = d[`bay_ci_high_${focusCategory.id}`];
+    const hasValidBand = lowVal != null && Number.isFinite(Number(lowVal)) && highVal != null && Number.isFinite(Number(highVal));
+
+    return {
+      ...d,
+      "Nota Bruta": d[`raw_${focusCategory.id}`],
+      "Nível Bayesiano": d[`bay_${focusCategory.id}`],
+      "Banda Bayesiana": hasValidBand ? [Number(lowVal), Number(highVal)] : null,
+      "Média Histórica": d[`stats_${focusCategory.id}`]
+    };
+  });
 
   // 2. Acopla os pontos futuros do Monte Carlo com validação robusta
   if (activeMcProjectionSeries && pts.length > 0) {
@@ -102,12 +108,12 @@ export function buildPredictiveCompareData(
 
     const rawLevel =
       pts[lastIdx]["Nível Bayesiano"] ??
-      categoryLevels[focusCategory?.id] ??
+      categoryLevels?.[focusCategory?.id] ??
       activeMcProjectionSeries?.mc_p50 ??
-      0;
+      safeMin;
 
-    const currentLevel = safeFiniteNumber(rawLevel, 0);
-    const p50 = safeFiniteNumber(activeMcProjectionSeries.mc_p50, currentLevel);
+    const currentLevel = Math.max(safeMin, Math.min(safeMax, safeFiniteNumber(rawLevel, safeMin)));
+    const p50 = Math.max(safeMin, Math.min(safeMax, safeFiniteNumber(activeMcProjectionSeries.mc_p50, currentLevel)));
 
     const band =
       Array.isArray(activeMcProjectionSeries.mc_band) && activeMcProjectionSeries.mc_band.length >= 2
@@ -116,22 +122,24 @@ export function buildPredictiveCompareData(
 
     const band0 = safeFiniteNumber(band[0], currentLevel);
     const band1 = safeFiniteNumber(band[1], currentLevel);
-    const bandMin = Math.min(band0, band1);
-    const bandMax = Math.max(band0, band1);
+    const bandMin = Math.max(safeMin, Math.min(band0, band1));
+    const bandMax = Math.min(safeMax, Math.max(band0, band1));
 
     const bounded = (v) => {
       const n = Number(v);
       if (!Number.isFinite(n)) return currentLevel;
-      return Math.max(minScore, Math.min(maxScore, n));
+      return Math.max(safeMin, Math.min(safeMax, n));
     };
 
-    // ✅ BUG-2 FIX: parse a data base UMA VEZ antes do loop (evita recálculo + mutação do Date)
+    // Parse a data base UMA VEZ antes do loop
     const baseParsed = normalizeDate(pts[lastIdx].date);
     if (!baseParsed || Number.isNaN(baseParsed.getTime())) return pts;
     const baseMs = new Date(baseParsed.getFullYear(), baseParsed.getMonth(), baseParsed.getDate(), 12, 0, 0, 0).getTime();
 
     const futurePoints = [];
-    const steps = 6;
+    const totalDays = Math.max(1, projectDays || 30);
+    const steps = Math.min(6, Math.max(1, totalDays));
+    const seenDates = new Set([pts[lastIdx].date]);
 
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
@@ -141,17 +149,20 @@ export function buildPredictiveCompareData(
       const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
       const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
 
-      const forwardDays = Math.max(1, Math.round((i / steps) * (projectDays || 30)));
+      const forwardDays = Math.max(1, Math.round((i / steps) * totalDays));
       const dt = new Date(baseMs + forwardDays * 24 * 60 * 60 * 1000);
       const iso = getDateKey(dt);
 
-      futurePoints.push({
-        date: iso,
-        displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "",
-        "Futuro Provável": val,
-        "Cenário Range": [bandLow, bandHigh],
-        __future: true
-      });
+      if (!seenDates.has(iso)) {
+        seenDates.add(iso);
+        futurePoints.push({
+          date: iso,
+          displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "",
+          "Futuro Provável": val,
+          "Cenário Range": [bandLow, bandHigh],
+          __future: true
+        });
+      }
     }
 
     pts[lastIdx] = {
@@ -247,6 +258,7 @@ const itemVariants = {
 };
 
 export default React.memo(function EvolutionChart({
+    categories: propCategories = null,
     targetScore = 80,
     goalDate,
     monteCarloHistory = [],
@@ -268,7 +280,8 @@ export default React.memo(function EvolutionChart({
             "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
         ];
         let defaultColorCount = 0;
-        const safeCategories = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
+        const sourceList = (Array.isArray(propCategories) && propCategories.length > 0) ? propCategories : rawCategories;
+        const safeCategories = Array.isArray(sourceList) ? sourceList : Object.values(sourceList || {});
         return safeCategories.map((cat) => {
             let color = cat.color;
             if (!color) {
@@ -277,7 +290,7 @@ export default React.memo(function EvolutionChart({
             }
             return { ...cat, color };
         });
-    }, [rawCategories]);
+    }, [propCategories, rawCategories]);
 
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [selectedSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
@@ -294,7 +307,7 @@ export default React.memo(function EvolutionChart({
     const mcWeights = useAppStore(
         (state) => state.appState?.contests?.[state.appState?.activeId]?.mcWeights || EMPTY_OBJECT
     );
-    const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore);
+    const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore, minScore);
     const monteCarloHistoryArray = useMemo(
         () => (Array.isArray(monteCarloHistory) ? monteCarloHistory : Object.values(monteCarloHistory || {})),
         [monteCarloHistory]
@@ -547,7 +560,7 @@ export default React.memo(function EvolutionChart({
                                  ?
                              </button>
                          </div>
-                         <div className={`absolute top-10 left-0 sm:left-12 w-[280px] max-w-[90vw] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-300 z-[100] ${showEngineTooltip ? 'opacity-100 visible' : 'opacity-0 invisible'} group-hover:opacity-100 group-hover:visible`}>
+                         <div className={`absolute top-10 left-0 sm:left-12 w-[280px] max-w-[90vw] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-300 z-[100] ${showEngineTooltip ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto'}`}>
                              <p className="text-xs text-slate-200 mb-3 leading-relaxed">{engine.explain.simples}</p>
                              <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-700/50">
                                  <p className="text-[10px] text-amber-400 italic font-bold">💡 Dica Prática</p>
@@ -599,20 +612,30 @@ export default React.memo(function EvolutionChart({
                     className="relative w-full mb-8"
                     style={{ maskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)', WebkitMaskImage: '-webkit-linear-gradient(left, transparent, black 5%, black 95%, transparent)' }}
                 >
-                    <div className="flex overflow-x-auto pt-2 pb-4 px-4 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
-                        {ENGINES.map((eng) => {
+                    <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex overflow-x-auto pt-2 pb-4 px-4 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
+                        {ENGINES.map((eng, idx) => {
                             const active = activeEngine === eng.id;
                             return (
                                 <button
                                     type="button"
+                                    role="tab"
+                                    aria-selected={active}
                                     key={eng.id}
                                     onClick={() => setActiveEngine(eng.id)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'ArrowRight') {
+                                            e.preventDefault();
+                                            setActiveEngine(ENGINES[(idx + 1) % ENGINES.length].id);
+                                        } else if (e.key === 'ArrowLeft') {
+                                            e.preventDefault();
+                                            setActiveEngine(ENGINES[(idx - 1 + ENGINES.length) % ENGINES.length].id);
+                                        }
+                                    }}
                                     aria-pressed={active}
                                     className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[118px] h-[78px] rounded-2xl transition-all duration-150 border will-change-transform ${active ? 'shadow-md scale-[1.03] z-10' : 'bg-white/[0.015] border-white/[0.04] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300 hover:border-white/15 hover:scale-[1.015]'}`}
                                     style={active ? { backgroundColor: `${eng.color}12`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}20, 0 4px 12px -2px rgba(0,0,0,0.3)` } : {}}
                                 >
                                     <span className="text-[22px] group-hover:scale-105 transition-transform duration-150" style={{ filter: active ? `drop-shadow(0 0 4px ${eng.color})` : 'none' }}>{eng.emoji}</span>
-                                    {/* FIX: Padronização para text-[10px] e eliminação da mistura entre 9px, 10px e 12px */}
                                     <span className="text-[10px] uppercase tracking-[0.1em] font-bold text-center leading-none px-1">{eng.label}</span>
                                 </button>
                             );
@@ -765,14 +788,14 @@ export default React.memo(function EvolutionChart({
                                 </div>
                                 <div className="h-[280px] w-full mb-2">
                                     <GaussianPlot
-                                        mean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? 0}
-                                        projectedMean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? 0}
+                                        mean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? minScore}
+                                        projectedMean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? minScore}
                                         currentMean={categoryLevels[focusCategory?.id]}
                                         sd={activeMcResult?.sd ?? 0}
                                         sdLeft={activeMcResult?.sdLeft ?? activeMcResult?.sd ?? 0}
                                         sdRight={activeMcResult?.sdRight ?? activeMcResult?.sd ?? 0}
-                                        low95={activeMcResult?.ci95Low ?? 0}
-                                        high95={activeMcResult?.ci95High ?? 0}
+                                        low95={activeMcResult?.ci95Low ?? minScore}
+                                        high95={activeMcResult?.ci95High ?? maxScore}
                                         targetScore={targetScore}
                                         prob={activeMcResult?.probability ?? 0}
                                         kdeData={activeMcResult?.kdeData}

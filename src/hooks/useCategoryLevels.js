@@ -13,8 +13,8 @@ export function useCategoryLevels(categories, timeline, activeEngine, maxScore =
     categories.forEach(cat => {
       const prefix = activeEngine === 'raw' ? 'raw_' : activeEngine === 'stats' ? 'stats_' : 'bay_';
       const fromTimeline = lastPoint?.[`${prefix}${cat.id}`];
-      if (fromTimeline != null) {
-        map[cat.id] = fromTimeline;
+      if (fromTimeline != null && Number.isFinite(Number(fromTimeline))) {
+        map[cat.id] = Number(fromTimeline);
         return;
       }
       const historyRaw = cat.simuladoStats?.history;

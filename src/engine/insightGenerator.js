@@ -87,7 +87,7 @@ export function generateEvolutionInsights({
     const safeMaxScore = safeFinite(maxScore, 100) > 0 ? safeFinite(maxScore, 100) : 100;
     const safeMinScore = safeFinite(minScore, 0);
     // ✅ BUG-4 FIX: scale usa a amplitude real (maxScore - minScore) em vez de maxScore sozinho
-    const scale = (safeMaxScore - safeMinScore) / 100;
+    const scale = Math.max(0.01, (safeMaxScore - safeMinScore) / 100);
 
     // Lógica do Mapa de Calor (Raw Weekly)
     if (activeEngine === "raw_weekly") {
@@ -230,7 +230,7 @@ export function generateEvolutionInsights({
 
         const ciLow = safeFinite(lastPoint[`bay_ci_low_${focusCategory.id}`], NaN);
         const ciHigh = safeFinite(lastPoint[`bay_ci_high_${focusCategory.id}`], NaN);
-        const ciWidth = (Number.isFinite(ciHigh) && Number.isFinite(ciLow)) ? (ciHigh - ciLow) : null;
+        const ciWidth = (Number.isFinite(ciHigh) && Number.isFinite(ciLow)) ? Math.abs(ciHigh - ciLow) : null;
 
         if (ciWidth != null && ciWidth < 5 * scale) return { type: 'success', icon: "🎯", title: "++Alta Precisão Bayesiana++", text: `Seu nível real é ${safeBayesian.toFixed(1)}${unit}.`, advice: "++Convergência máxima++ do algoritmo." };
         if (ciWidth != null && ciWidth > 20 * scale) return { type: 'warning', icon: "🧠", title: "!!Incerteza Elevada!!", text: `Nível estimado: ${safeBayesian.toFixed(1)}${unit}.`, advice: "Faça mais simulados para estreitar a estimativa." };

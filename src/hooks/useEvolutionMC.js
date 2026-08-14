@@ -6,7 +6,7 @@ import { getSafeScore } from '../utils/scoreHelper';
 import { parseNoonLocal, addDaysNoon } from '../utils/parseNoonLocal';
 import { runMonteCarloAnalysis } from '../engine/monteCarlo';
 
-const EMPTY_ARRAY = [];
+const EMPTY_ARRAY = Object.freeze([]);
 
 /**
  * Orquestra o motor Monte Carlo do Menu Evolução.
@@ -50,13 +50,23 @@ export function useEvolutionMC({
       return;
     }
 
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
+
     const hist = [...historyArray]
-      .filter((h) => h && h.date)
+      .filter((h) => h && (h.date || h.createdAt))
       .map((h) => {
-        const dateKey = getDateKey(h.date);
-        const score = getSafeScore(h, maxScore);
+        const dateKey = getDateKey(h.date || h.createdAt);
+        const score = getSafeScore(h, safeMax);
         if (!dateKey || !Number.isFinite(score)) return null;
-        return { ...h, date: dateKey, score, correct: h.correct, total: h.total };
+        return {
+          date: dateKey,
+          score,
+          correct: Number.isFinite(Number(h.correct)) ? Number(h.correct) : undefined,
+          total: Number.isFinite(Number(h.total)) ? Number(h.total) : undefined,
+          timeSpent: Number.isFinite(Number(h.timeSpent)) ? Number(h.timeSpent) : undefined,
+          timedQuestoes: Number.isFinite(Number(h.timedQuestoes)) ? Number(h.timedQuestoes) : undefined
+        };
       })
       .filter(Boolean)
       .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
@@ -91,8 +101,8 @@ export function useEvolutionMC({
           dates: hist.map((h) => h.date),
           meta: targetScore,
           projectionDays: projectDays,
-          minScore,
-          maxScore,
+          minScore: safeMin,
+          maxScore: safeMax,
           currentMean: currentFocusLevel,
           forcedBaseline: currentFocusLevel,
           projectedTotalTimeSeconds,
@@ -106,9 +116,9 @@ export function useEvolutionMC({
         if (!lastDate) return;
         const nextDate = addDaysNoon(lastDate, projectDays || 30);
 
-        const p50 = result.projectedMean ?? result.mean ?? 0;
-        const lo = result.ci95Low ?? result.ci95StatLow ?? 0;
-        const hi = result.ci95High ?? result.ci95StatHigh ?? 100;
+        const p50 = result.projectedMean ?? result.mean ?? safeMin;
+        const lo = result.ci95Low ?? result.ci95StatLow ?? safeMin;
+        const hi = result.ci95High ?? result.ci95StatHigh ?? safeMax;
         setMcProjectionSeries({
           date: getDateKey(nextDate),
           mc_p50: p50,
@@ -126,8 +136,8 @@ export function useEvolutionMC({
               meta: targetScore,
               simulations: 1500,
               projectionDays: projectDays,
-              minScore,
-              maxScore,
+              minScore: safeMin,
+              maxScore: safeMax,
               currentMean: currentFocusLevel,
               forcedBaseline: currentFocusLevel,
               // ✅ BUG-5 FIX: repassar parâmetros de Time Penalty ao fallback síncrono

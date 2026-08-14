@@ -17,6 +17,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
         // Operador de coalescência nula garante falhas seguras e respeita o piso (minScore)
         const pointTarget = Math.max(minScore, Math.min(maxScore, (dataPoint.target === null || dataPoint.target === undefined || dataPoint.target === '') ? targetScore : (Number.isFinite(Number(dataPoint.target)) ? Number(dataPoint.target) : targetScore)));
         const pointMean = Math.max(minScore, Math.min(maxScore, (dataPoint.mean === null || dataPoint.mean === undefined || dataPoint.mean === '') ? minScore : (Number.isFinite(Number(dataPoint.mean)) ? Number(dataPoint.mean) : minScore)));
+        const projMean = dataPoint.projectedMean != null && Number.isFinite(Number(dataPoint.projectedMean)) ? Math.max(minScore, Math.min(maxScore, Number(dataPoint.projectedMean))) : pointMean;
         const pointProb = Math.max(0, Math.min(100, (dataPoint.probability === null || dataPoint.probability === undefined || dataPoint.probability === '') ? 0 : (Number.isFinite(Number(dataPoint.probability)) ? Number(dataPoint.probability) : 0)));
         const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
         const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
@@ -44,7 +45,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                         <div className="flex justify-between items-center mb-1">
                             <span className="text-[10px] font-bold text-indigo-400">Projeção:</span>
                             <span className="text-[10px] font-mono text-indigo-300">
-                                {unit === 'horas' ? formatDuration(dataPoint.projectedMean) : `${formatValue(dataPoint.projectedMean)}${unit}`}
+                                {unit === 'horas' ? formatDuration(projMean) : `${formatValue(projMean)}${unit}`}
                             </span>
                         </div>
                         <div className="flex justify-between items-center mb-1 border-t border-white/5 pt-1 mt-1">
@@ -91,7 +92,6 @@ export const MonteCarloEvolutionChart = ({
     const [scenario, setScenario] = useState('base');
     const scenarioLabels = useMemo(() => Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel])), []);
 
-    // ✅ LOTE-02 FIX: ReferenceArea com y1 > maxScore é inválido; meta deve viver no domínio
     const safeTargetScore = useMemo(() => {
         const t = Number(targetScore);
         return Math.max(minScore, Math.min(maxScore, Number.isFinite(t) ? t : minScore));
@@ -99,9 +99,9 @@ export const MonteCarloEvolutionChart = ({
 
     const targetOffset = useMemo(() => {
         const range = maxScore - minScore;
-        if (range <= 0) return 0;
+        if (range <= 0 || !Number.isFinite(range)) return 0;
         const pct = 1 - (safeTargetScore - minScore) / range;
-        return Math.max(0, Math.min(1, pct));
+        return Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
     }, [safeTargetScore, maxScore, minScore]);
 
     const formattedData = useMemo(() => {
@@ -128,13 +128,20 @@ export const MonteCarloEvolutionChart = ({
                 const low = Math.min(boundedLow, boundedHigh);
                 const high = Math.max(boundedLow, boundedHigh);
 
+                let probRaw = Number(d.probability);
+                let probability = 0;
+                if (Number.isFinite(probRaw)) {
+                    if (probRaw > 0 && probRaw <= 1) probRaw = probRaw * 100;
+                    probability = Math.max(0, Math.min(100, probRaw));
+                }
+
                 return {
                     ...d,
                     displayDate,
                     fullDate,
                     mean,
                     projectedMean: (d.projectedMean === null || d.projectedMean === undefined || d.projectedMean === '') ? mean : (Number.isFinite(Number(d.projectedMean)) ? Math.max(minScore, Math.min(maxScore, Number(d.projectedMean))) : mean),
-                    probability: Math.max(0, Math.min(100, (d.probability === null || d.probability === undefined || d.probability === '') ? 0 : (Number.isFinite(Number(d.probability)) ? Number(d.probability) : 0))),
+                    probability,
                     ciRange: [low, high]
                 };
             });

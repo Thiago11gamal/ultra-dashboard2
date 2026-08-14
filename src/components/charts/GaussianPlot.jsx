@@ -56,14 +56,17 @@ export const GaussianPlot = ({
         pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp,
         domainMin, domainMax, curveY
     } = useMemo(() => {
-        const meanVal = mean ?? 0;
+        const domainMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
         const rawTargetVal = targetScore ?? 70;
+        const rawMean = Number.isFinite(Number(mean)) ? Number(mean) : domainMin;
 
-        const domainMin = minScore;
         // Ajuste dinâmico do teto visual para comportar escalas ENEM ou maiores
-        let rawMax = unit === '%' ? maxScore : Math.max(maxScore, rawTargetVal * 1.05, meanVal * 1.05);
+        let rawMax = unit === '%' 
+            ? Math.max(domainMin + 1, Number(maxScore) || 100) 
+            : Math.max(Number(maxScore) || 100, rawTargetVal * 1.05, rawMean * 1.05);
 
-        const domainMax = rawMax;
+        const domainMax = Math.max(domainMin + 1e-9, rawMax);
+        const meanVal = Math.max(domainMin, Math.min(domainMax, rawMean));
         const xMin = domainMin;
         const range = domainMax - domainMin;
         const safeRange = Math.max(1e-9, range);
@@ -149,6 +152,21 @@ export const GaussianPlot = ({
             pointsForArea = pts;
         }
 
+        if (!pointsForArea || pointsForArea.length === 0) {
+            return {
+                pathData: '',
+                areaPathData: '',
+                failAreaPathData: '',
+                range: safeRange,
+                xMin,
+                targetVal,
+                xp,
+                domainMin,
+                domainMax,
+                curveY: () => 100
+            };
+        }
+
         const getYAtX = (pts, xTarget) => {
             let lo = null, hi = null;
             for (const p of pts) {
@@ -192,8 +210,9 @@ export const GaussianPlot = ({
         const failPath = failPoints.length > 2 ? `M ${failPoints.join(' L ')} Z` : '';
 
         const calculateCurveY = (x) => {
-            if (hasValidKDE) return getYAtX(pointsForArea, xp(x));
-            return yp(asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, baseHeightFactor));
+            const safeXVal = Math.max(domainMin, Math.min(domainMax, Number(x) || domainMin));
+            if (hasValidKDE) return getYAtX(pointsForArea, xp(safeXVal));
+            return yp(asymmetricGaussian(safeXVal, meanVal, vizSdLeft, vizSdRight, baseHeightFactor));
         };
 
         return {
@@ -211,8 +230,11 @@ export const GaussianPlot = ({
     const meanPos = xp(safeMean);
     const meanY = curveY(safeMean);
 
-    const currentPos = currentMean != null ? xp(currentMean) : 0;
-    const currentY = currentMean != null ? curveY(currentMean) : 100;
+    const boundedCurrent = currentMean != null && Number.isFinite(Number(currentMean))
+        ? Math.max(domainMin, Math.min(domainMax, Number(currentMean)))
+        : null;
+    const currentPos = boundedCurrent != null ? xp(boundedCurrent) : 0;
+    const currentY = boundedCurrent != null ? curveY(boundedCurrent) : 100;
 
     const safeLow95 = Number.isFinite(Number(low95)) ? Number(low95) : (mean ?? 0);
     const safeHigh95 = Number.isFinite(Number(high95)) ? Number(high95) : (mean ?? 0);
@@ -223,7 +245,7 @@ export const GaussianPlot = ({
 
     const isTargetVisible = targetPos >= 2 && targetPos <= 98;
     const isMeanVisible = meanPos >= 2 && meanPos <= 98;
-    const isCurrentVisible = currentMean != null && currentPos >= 2 && currentPos <= 98;
+    const isCurrentVisible = boundedCurrent != null && currentPos >= 2 && currentPos <= 98;
 
     const resolvedLabels = useMemo(() => {
         const items = [];
@@ -425,3 +447,5 @@ export const GaussianPlot = ({
         </div>
     );
 };
+
+export default GaussianPlot;

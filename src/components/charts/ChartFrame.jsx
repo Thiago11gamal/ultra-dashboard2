@@ -76,9 +76,11 @@ export default function ChartFrame({
           <span className="text-[11px] font-black uppercase tracking-[0.28em] text-slate-400">
             {label}
           </span>
-          <span className="text-[10px] font-medium tracking-wide text-slate-600 tabular-nums">
-            {size.w}×{size.h}
-          </span>
+          {size.w > 0 && size.h > 0 && (
+            <span className="text-[10px] font-medium tracking-wide text-slate-600 tabular-nums">
+              {size.w}×{size.h}
+            </span>
+          )}
         </div>
       </div>
 

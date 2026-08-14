@@ -9,38 +9,44 @@ const EMPTY_ARRAY = Object.freeze([]);
 const getHistoryArray = (cat) => Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT).filter(Boolean);
 const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
 
-function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
+function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minScore = 0) {
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeRange = Math.max(1e-9, safeMax - safeMin);
+
+    const toRatio = (score) => {
+        const n = Number(score);
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.min(1, (n - safeMin) / safeRange));
+    };
+
     const aggregatedHistoryByDateMap = new Map();
     for (const h of history) {
         const key = getDateKey(getHistoryDate(h));
         if (!key) continue;
         const existing = aggregatedHistoryByDateMap.get(key);
-        const rawTotal = Number(h?.total) || 0;
-        const rawCorrect = Number(h?.correct) || 0;
-        const score = getSafeScore(h, maxScore);
-        // ✅ AUDIT FIX: blindagem contra NaN vindo de getSafeScore
+        const rawTotal = Math.max(0, Number(h?.total) || 0);
+        const rawCorrect = Math.max(0, Math.min(rawTotal, Number(h?.correct) || 0));
+        const score = getSafeScore(h, safeMax);
         const safeScore = Number.isFinite(score) ? score : NaN;
 
         let compTotal = rawTotal;
-        let compCorrect = rawTotal > 0 && Number.isFinite(safeScore) ? Math.round((safeScore / maxScore) * rawTotal) : rawCorrect;
+        let compCorrect = rawTotal > 0 && Number.isFinite(safeScore) ? Math.round(toRatio(safeScore) * rawTotal) : rawCorrect;
         if (rawTotal === 0 && h?.score != null && Number.isFinite(safeScore)) {
-            compTotal = getSyntheticTotal(maxScore);
-            const pct = Math.min(1, Math.max(0, safeScore / maxScore));
-            compCorrect = Math.round(pct * compTotal);
+            compTotal = getSyntheticTotal(safeMax);
+            compCorrect = Math.round(toRatio(safeScore) * compTotal);
         }
-        // ✅ AUDIT FIX: correct ∈ [0, total] e nunca NaN entra no acumulado
         compCorrect = Math.max(0, Math.min(compTotal, Number.isFinite(compCorrect) ? compCorrect : 0));
         const safeRawCorrect = rawTotal > 0 && Number.isFinite(safeScore)
-            ? Math.max(0, Math.min(rawTotal, Math.round((safeScore / maxScore) * rawTotal)))
-            : Math.max(0, Number.isFinite(rawCorrect) ? rawCorrect : 0);
+            ? Math.max(0, Math.min(rawTotal, Math.round(toRatio(safeScore) * rawTotal)))
+            : rawCorrect;
 
         if (existing) {
             existing.compCorrect = (existing.compCorrect || 0) + compCorrect;
             existing.compTotal = (existing.compTotal || 0) + compTotal;
             existing.total += rawTotal;
             existing.correct += safeRawCorrect;
-            // ✅ AUDIT FIX: divisão por zero → NaN
-            existing.score = existing.compTotal > 0 ? (existing.compCorrect / existing.compTotal) * maxScore : NaN;
+            existing.score = existing.compTotal > 0 ? safeMin + (existing.compCorrect / existing.compTotal) * safeRange : NaN;
         } else {
             aggregatedHistoryByDateMap.set(key, {
                 ...h,
@@ -96,14 +102,12 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
                     }
                 }
 
-                let total = entry.compTotal !== undefined ? entry.compTotal : (Number(entry.total) || 0);
-                let correct = entry.compCorrect !== undefined ? entry.compCorrect : (Number(entry.correct) || 0);
+                let total = entry.compTotal !== undefined ? entry.compTotal : Math.max(0, Number(entry.total) || 0);
+                let correct = entry.compCorrect !== undefined ? entry.compCorrect : Math.max(0, Number(entry.correct) || 0);
                 if (total === 0 && entry.score != null) {
-                    const pct = Math.min(1, Math.max(0, Number(entry.score) / maxScore));
-                    total = getSyntheticTotal(maxScore);
-                    correct = Math.round(pct * total);
+                    total = getSyntheticTotal(safeMax);
+                    correct = Math.round(toRatio(entry.score) * total);
                 }
-                // ✅ AUDIT FIX: nunca deixar correct > total alimentar o Bayesiano
                 correct = Math.max(0, Math.min(total, Number(correct) || 0));
                 if (total >= 1) {
                     bayAlpha += Number(correct);
@@ -118,12 +122,12 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
         }
         if (accumulated.length > 0) {
             const lastEntry = accumulated.length > 0 ? accumulated[accumulated.length - 1] : null;
-            const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, maxScore, {
+            const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, safeMax, {
                 referenceDate: date,
                 lastEventDate: lastEntry ? lastEntry.date : null
             });
             dateToStats[date] = {
-                stats: computeCategoryStats(accumulated, 100, 60, maxScore),
+                stats: computeCategoryStats(accumulated, 100, 60, safeMax),
                 last: accumulated[accumulated.length - 1],
                 bayesian: {
                     mean: bayStats.mean,
@@ -138,7 +142,17 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
     return dateToStats;
 }
 
-export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, maxScore = 100) {
+export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, maxScore = 100, minScore = 0) {
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeRange = Math.max(1e-9, safeMax - safeMin);
+
+    const toRatio = (score) => {
+        const n = Number(score);
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.min(1, (n - safeMin) / safeRange));
+    };
+
     const categoriesVersion = useMemo(() => categories.map((cat) => {
         const history = getHistoryArray(cat);
         const tasks = Array.isArray(cat?.tasks) ? cat.tasks : EMPTY_ARRAY;
@@ -158,16 +172,22 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             const hist = c.simuladoStats?.history;
             return hist && Object.values(hist).length > 0;
         });
+        const getVol = (h) => {
+            const t = Math.max(0, Number(h?.total) || 0);
+            if (t > 0) return t;
+            if (h?.score != null) return getSyntheticTotal(safeMax);
+            return 0;
+        };
         valid.sort((a, b) => {
             const historyA = getHistoryArray(a);
             const historyB = getHistoryArray(b);
-            const volA = historyA.reduce((sum, h) => sum + (Number(h.total) || 0), 0);
-            const volB = historyB.reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            const volA = historyA.reduce((sum, h) => sum + getVol(h), 0);
+            const volB = historyB.reduce((sum, h) => sum + getVol(h), 0);
             return volB - volA;
         });
         return valid;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categories, categoriesVersion]);
+    }, [categories, categoriesVersion, safeMax]);
 
     const timeline = useMemo(() => {
         if (!activeCategories.length) return [];
@@ -193,26 +213,24 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 return (dA?.getTime() || 0) - (dB?.getTime() || 0);
             });
             if (!history.length) return;
-            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, maxScore);
+            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, safeMax, safeMin);
             const exactByDate = {};
             history.forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
                 if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
-                const rawTotal = Number(h.total) || 0;
-                const rawC = Number(h.correct) || 0;
-                const score = getSafeScore(h, maxScore);
-                // ✅ AUDIT FIX: score NaN não pode contaminar a timeline
+                const rawTotal = Math.max(0, Number(h.total) || 0);
+                const rawC = Math.max(0, Math.min(rawTotal, Number(h.correct) || 0));
+                const score = getSafeScore(h, safeMax);
                 if (!Number.isFinite(score)) return;
                 const corrNorm = rawTotal > 0
-                    ? Math.max(0, Math.min(rawTotal, Math.round((score / maxScore) * rawTotal)))
-                    : Math.max(0, Number.isFinite(rawC) ? rawC : 0);
+                    ? Math.max(0, Math.min(rawTotal, Math.round(toRatio(score) * rawTotal)))
+                    : rawC;
                 let compTotal = rawTotal;
                 let compCorrect = corrNorm;
                 if (rawTotal === 0 && h.score != null) {
-                    compTotal = getSyntheticTotal(maxScore);
-                    const pct = Math.min(1, Math.max(0, score / maxScore));
-                    compCorrect = Math.round(pct * compTotal);
+                    compTotal = getSyntheticTotal(safeMax);
+                    compCorrect = Math.round(toRatio(score) * compTotal);
                 }
                 exactByDate[key].correct += corrNorm;
                 exactByDate[key].total += rawTotal;
@@ -225,34 +243,34 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 if (!snap) return;
                 const { stats } = snap;
                 const exact = exactByDate[date];
-                const correct = exact ? exact.correct : 0;
-                const total = exact ? exact.total : 0;
+                const displayCorrect = exact ? (exact.compTotal > 0 ? exact.compCorrect : exact.correct) : 0;
+                const displayTotal = exact ? (exact.compTotal > 0 ? exact.compTotal : exact.total) : 0;
                 let rawDailyScore = null;
                 if (exact && exact.compTotal >= 1) {
-                    const calc = (exact.compCorrect / exact.compTotal) * maxScore;
+                    const calc = safeMin + (exact.compCorrect / exact.compTotal) * safeRange;
                     rawDailyScore = Number.isFinite(calc) ? calc : null;
                 } else if (exact && snap?.last) {
-                    const s = getSafeScore(snap.last, maxScore);
+                    const s = getSafeScore(snap.last, safeMax);
                     rawDailyScore = Number.isFinite(s) ? s : null;
                 }
                 dataByDate[date] = {
                     ...dataByDate[date],
-                    [`raw_correct_${cat.id}`]: correct,
-                    [`raw_total_${cat.id}`]: total,
+                    [`raw_correct_${cat.id}`]: displayCorrect,
+                    [`raw_total_${cat.id}`]: displayTotal,
                     [`raw_${cat.id}`]: rawDailyScore,
-                    [`bay_${cat.id}`]: snap.bayesian ? (Number(snap.bayesian.mean) || 0) : null,
-                    [`bay_ci_low_${cat.id}`]: snap.bayesian ? (Number(snap.bayesian.ciLow) || 0) : 0,
-                    [`bay_ci_high_${cat.id}`]: snap.bayesian ? (Number(snap.bayesian.ciHigh) || 0) : 0,
-                    [`stats_${cat.id}`]: stats ? (Number(stats.mean) || 0) : 0,
-                    [`trend_${cat.id}`]: stats ? (Number(stats.trendValue) || 0) : 0,
+                    [`bay_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.mean)) ? Number(snap.bayesian.mean) : safeMin) : null,
+                    [`bay_ci_low_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.ciLow)) ? Number(snap.bayesian.ciLow) : safeMin) : safeMin,
+                    [`bay_ci_high_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.ciHigh)) ? Number(snap.bayesian.ciHigh) : safeMax) : safeMax,
+                    [`stats_${cat.id}`]: stats ? (Number.isFinite(Number(stats.mean)) ? Number(stats.mean) : safeMin) : safeMin,
+                    [`trend_${cat.id}`]: stats ? (Number.isFinite(Number(stats.trendValue)) ? Number(stats.trendValue) : 0) : 0,
                     [`trend_status_${cat.id}`]: stats ? stats.trend : 'stable',
-                    global_total: (Number(dataByDate[date].global_total) || 0) + total
+                    global_total: (Number(dataByDate[date].global_total) || 0) + displayTotal
                 };
             });
         });
         return dates.map(d => dataByDate[d]);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeCategories, weights, maxScore, categoriesVersion]);
+    }, [activeCategories, weights, safeMax, safeMin, categoriesVersion]);
 
     const heatmapData = useMemo(() => {
         if (!activeCategories.length) return { dates: [], rows: [] };
@@ -283,17 +301,16 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
-                let tot = Number(h.total) || 0;
-                let raw = Number(h.correct) || 0;
+                let tot = Math.max(0, Number(h.total) || 0);
+                let raw = Math.max(0, Number(h.correct) || 0);
                 let corrNorm;
-                const score = getSafeScore(h, maxScore);
-                // ✅ AUDIT FIX: score NaN não pode sujar o heatmap
+                const score = getSafeScore(h, safeMax);
                 if (!Number.isFinite(score)) return;
                 if (h.score != null && tot === 0) {
-                    tot = 1;
-                    corrNorm = score / maxScore;
+                    tot = getSyntheticTotal(safeMax);
+                    corrNorm = Math.round(toRatio(score) * tot);
                 } else {
-                    corrNorm = tot > 0 ? Math.round((score / maxScore) * tot) : raw;
+                    corrNorm = tot > 0 ? Math.round(toRatio(score) * tot) : raw;
                 }
                 dayMap[key].correct += corrNorm;
                 dayMap[key].total += tot;
@@ -301,8 +318,9 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             const cells = datesToUse.map(dateStr => {
                 const entry = dayMap[dateStr];
                 if (!entry || entry.total === 0) return null;
+                const pct = (entry.correct / entry.total) * 100;
                 return {
-                    pct: (entry.correct / entry.total) * 100,
+                    pct: Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0)),
                     correct: entry.correct,
                     total: entry.total,
                 };
@@ -310,24 +328,23 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             return { cat, cells };
         });
         return { dates, rows };
-    }, [activeCategories, maxScore]);
+    }, [activeCategories, safeMax, safeMin]);
 
     const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
         let totalCorrect = 0;
         activeCategories.forEach(cat => {
             getHistoryArray(cat).forEach(h => {
-                let tot = Number(h.total) || 0;
-                const score = getSafeScore(h, maxScore);
-                // ✅ AUDIT FIX: score NaN não pode contaminar a Precisão Global
+                let tot = Math.max(0, Number(h.total) || 0);
+                const score = getSafeScore(h, safeMax);
                 if (!Number.isFinite(score)) return;
                 let corrNorm;
                 if (tot === 0 && h.score != null) {
-                    tot = 1;
-                    corrNorm = (score / maxScore) * tot;
+                    tot = getSyntheticTotal(safeMax);
+                    corrNorm = Math.round(toRatio(score) * tot);
                 } else {
-                    const raw = Number(h.correct) || 0;
-                    corrNorm = tot > 0 ? Math.round((score / maxScore) * tot) : raw;
+                    const raw = Math.max(0, Number(h.correct) || 0);
+                    corrNorm = tot > 0 ? Math.round(toRatio(score) * tot) : raw;
                 }
                 totalQuestions += tot;
                 totalCorrect += corrNorm;
@@ -335,7 +352,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
         return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
-    }, [activeCategories, maxScore]);
+    }, [activeCategories, safeMax, safeMin]);
 
     return { activeCategories, timeline, heatmapData, globalMetrics };
 }

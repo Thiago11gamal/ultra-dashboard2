@@ -135,6 +135,9 @@ export const SubtopicsPerformanceChart = React.memo(({
 
     const chartData = useMemo(() => {
         const topicMap = {};
+        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
 
         relevantCategories.forEach(cat => {
             const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
@@ -166,7 +169,6 @@ export const SubtopicsPerformanceChart = React.memo(({
                     if (total === 0 && t.score != null) total = getSyntheticTotal(maxScore);
                     if (total === 0) return;
                     
-                    const safeMaxScore = Math.max(1, Number(maxScore) || 100);
                     const rawC = Number(t.correct);
                     let correctCount = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
 
@@ -174,7 +176,6 @@ export const SubtopicsPerformanceChart = React.memo(({
                         const rawScore = getSafeScore(t, safeMaxScore);
                         const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                         const normalizedScore = Math.max(safeMinScore, Math.min(safeMaxScore, score));
-                        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
                         correctCount = total > 0 ? ((normalizedScore - safeMinScore) / range) * total : 0;
                     }
                     correctCount = Math.max(0, Math.min(total, Number.isFinite(correctCount) ? correctCount : 0));
@@ -205,6 +206,11 @@ export const SubtopicsPerformanceChart = React.memo(({
     const { timeSeriesData, uniqueTopics } = useMemo(() => {
         const dateMap = {}; 
         const topicVolumeMap = {}; 
+        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
+
+        const toTopicKey = (name) => `top_${String(name || '').replace(/[^a-zA-Z0-9_]/g, '_')}`;
 
         relevantCategories.forEach(cat => {
             const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
@@ -232,16 +238,11 @@ export const SubtopicsPerformanceChart = React.memo(({
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
                     
                     let total = parseInt(t.total, 10) || 0;
-                    // ✅ LOTE-02 FIX: entradas percentuais recebem volume sintético (antes eram descartadas).
-                    // ⚠️ NOTA: getSyntheticTotal retorna um valor fixo (ex: 10 questões simuladas).
-                    // Isso pode inflar o peso de entradas sem volume real. Considere ponderar
-                    // esses dados com menos influência se necessário no futuro.
                     if (total === 0 && t.score != null) total = getSyntheticTotal(maxScore);
                     if (total === 0) return;
 
                     topicVolumeMap[topicName] = (topicVolumeMap[topicName] || 0) + total;
 
-                    const safeMaxScore = Math.max(1, Number(maxScore) || 100);
                     const rawC = Number(t.correct);
                     let correct = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
 
@@ -249,13 +250,13 @@ export const SubtopicsPerformanceChart = React.memo(({
                         const rawScore = getSafeScore(t, safeMaxScore);
                         const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                         const normalizedScore = Math.max(safeMinScore, Math.min(safeMaxScore, score));
-                        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
                         correct = total > 0 ? ((normalizedScore - safeMinScore) / range) * total : 0;
                     }
                     correct = Math.max(0, Math.min(total, Number.isFinite(correct) ? correct : 0));
 
-                    const totKey = `${topicName}_total`;
-                    const corKey = `${topicName}_correct`;
+                    const sKey = toTopicKey(topicName);
+                    const totKey = `${sKey}_total`;
+                    const corKey = `${sKey}_correct`;
 
                     if (dateMap[dateKey][totKey] === undefined) {
                         dateMap[dateKey][totKey] = 0;
@@ -267,36 +268,41 @@ export const SubtopicsPerformanceChart = React.memo(({
             }
         });
 
-        const topTopics = Object.entries(topicVolumeMap)
+        const topTopicNames = Object.entries(topicVolumeMap)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 8)
             .map(entry => entry[0]);
+
+        const topTopics = topTopicNames.map(name => ({
+            name,
+            key: toTopicKey(name)
+        }));
 
         let series = Object.values(dateMap).sort((a, b) => a.originalDate - b.originalDate);
 
         let prevAccMap = {};
         series.forEach(entry => {
             topTopics.forEach(topic => {
-                const tot = entry[`${topic}_total`];
-                const cor = entry[`${topic}_correct`];
+                const tot = entry[`${topic.key}_total`];
+                const cor = entry[`${topic.key}_correct`];
                 if (tot !== undefined && tot > 0) {
                     const accRaw = (cor / tot) * 100;
                     const safeAccRaw = Number.isFinite(accRaw) ? accRaw : 0;
                     const acc = Number(Math.max(0, Math.min(100, safeAccRaw)).toFixed(2));
-                    entry[topic] = acc;
+                    entry[topic.key] = acc;
                     
-                    if (prevAccMap[topic] !== undefined) {
-                        entry[`${topic}_delta`] = Number((acc - prevAccMap[topic]).toFixed(2));
+                    if (prevAccMap[topic.key] !== undefined) {
+                        entry[`${topic.key}_delta`] = Number((acc - prevAccMap[topic.key]).toFixed(2));
                     } else {
-                        entry[`${topic}_delta`] = null;
+                        entry[`${topic.key}_delta`] = null;
                     }
-                    prevAccMap[topic] = acc;
+                    prevAccMap[topic.key] = acc;
                 }
             });
         });
 
         series = series.filter(entry => {
-            return topTopics.some(topic => entry[topic] !== undefined);
+            return topTopics.some(topic => entry[topic.key] !== undefined);
         });
 
         return { timeSeriesData: series, uniqueTopics: topTopics };
@@ -497,14 +503,14 @@ export const SubtopicsPerformanceChart = React.memo(({
                                             iconType="circle"
                                         />
 
-                                        {uniqueTopics.map((topicName, index) => {
+                                        {uniqueTopics.map((topic, index) => {
                                             const color = MEGA_PALETTE[index % MEGA_PALETTE.length];
                                             return (
                                                 <Line connectNulls
-                                                    key={topicName}
+                                                    key={topic.key || topic.name}
                                                     type="monotoneX"
-                                                    dataKey={topicName}
-                                                    name={topicName}
+                                                    dataKey={topic.key || topic.name}
+                                                    name={topic.name}
                                                     stroke={color}
                                                     strokeWidth={3}
                                                     dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}

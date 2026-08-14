@@ -35,27 +35,30 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
         const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
           .filter((h) => h && h.materia !== 'Simulado Personalizado');
 
+        const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
+        const range = Math.max(1e-9, safeMax - safeMin);
+
         const totalQ = history.reduce((s, h) => {
-          let tot = Number(h.total) || 0;
-          if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
-          const score = getSafeScore(h, maxScore);
+          let tot = Math.max(0, Number(h.total) || 0);
+          if (tot === 0 && h.score != null) tot = getSyntheticTotal(safeMax);
+          const score = getSafeScore(h, safeMax);
           if (!Number.isFinite(score)) return s;
           return s + tot;
         }, 0);
 
         const totalCorrect = Math.round(
           history.reduce((s, h) => {
-            let tot = Number(h.total) || 0;
-            if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
+            let tot = Math.max(0, Number(h.total) || 0);
+            if (tot === 0 && h.score != null) tot = getSyntheticTotal(safeMax);
             const rawC = Number(h.correct);
             if (!h.isPercentage && Number.isFinite(rawC)) {
               return s + Math.max(0, Math.min(tot, rawC));
             }
-            const range = Math.max(1e-9, maxScore - minScore);
-            const score = getSafeScore(h, maxScore);
+            const score = getSafeScore(h, safeMax);
             if (!Number.isFinite(score)) return s;
-            const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
-            const derived = ((normalizedScore - minScore) / range) * tot;
+            const normalizedScore = Math.max(safeMin, Math.min(safeMax, score));
+            const derived = ((normalizedScore - safeMin) / range) * tot;
             return s + Math.max(0, Math.min(tot, Number.isFinite(derived) ? derived : 0));
           }, 0)
         );

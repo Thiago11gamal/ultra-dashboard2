@@ -7,16 +7,6 @@ import {
 import { formatValue } from '../../../utils/scoreHelper';
 import { ChartFrame } from "../ChartFrame";
 
-const CustomTooltipStyle = {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)', 
-    border: '1px solid rgba(99,102,241,0.3)',
-    borderRadius: '12px',
-    padding: '12px 16px',
-    fontSize: '13px',
-    backdropFilter: 'blur(8px)',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-};
-
 /**
  * RadarAnalysis
  * 
@@ -26,6 +16,9 @@ const CustomTooltipStyle = {
 export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = '%' }) {
     const rawId = useId();
     const glowId = `ra_glow-${rawId.replace(/:/g, '')}`;
+
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 1;
 
     return (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6 shadow-lg hover:border-slate-700 transition-all group flex flex-col h-full">
@@ -73,9 +66,9 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                         {/* FIX: Ocultar o tick do "0" central para manter o gráfico limpo */}
                         <PolarRadiusAxis 
                             angle={30} 
-                            domain={[minScore, maxScore]} 
+                            domain={[safeMin, safeMax]} 
                             tick={{ fill: '#475569', fontSize: 9 }} 
-                            tickFormatter={(v) => v === minScore ? '' : v} 
+                            tickFormatter={(v) => v === safeMin ? '' : v} 
                             axisLine={false} 
                         />
 

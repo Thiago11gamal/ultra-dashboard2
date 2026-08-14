@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
-import { normalizeDate, formatDisplayDate } from '../../../utils/dateHelper';
+import { normalizeDate, formatDisplayDate, formatDuration } from '../../../utils/dateHelper';
 import { formatValue } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
@@ -194,7 +194,13 @@ export function CompareChart({
         }
 
         const xOff = isMc ? 12 : 10;
-        const formatted = (Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2) + unit;
+        let formatted;
+        if (unit === 'horas') {
+            formatted = formatDuration(Number.isFinite(Number(value)) ? Number(value) : 0);
+        } else {
+            const rounded = Number((Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2));
+            formatted = `${rounded}${unit}`;
+        }
         const boxWidth = Math.max(42, formatted.length * 7 + 14);
 
         const chartHeight = viewBox?.height ?? (containerHeight > 40 ? containerHeight - 40 : 360);
@@ -224,7 +230,7 @@ export function CompareChart({
         const todayPt = chartData[todayIdx];
         const baseCandidate = todayPt["Nível Bayesiano"] != null ? todayPt["Nível Bayesiano"] : todayPt["Nota Bruta"];
         if (Number.isFinite(Number(baseCandidate))) {
-            gainBase = Number(baseCandidate);
+            gainBase = Math.max(safeMinScore, Math.min(safeMaxScore, Number(baseCandidate)));
             // BUG-3 FIX: Não exibir área verde de "ganho" se a projeção final está ABAIXO do nível atual
             const lastPt = chartData[chartData.length - 1];
             const lastProjection = lastPt?.["Futuro Provável"];
