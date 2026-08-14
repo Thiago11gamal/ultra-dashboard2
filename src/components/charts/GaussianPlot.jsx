@@ -206,8 +206,10 @@ export const GaussianPlot = ({
     const targetPos = xp(targetVal);
     const targetY = curveY(targetVal);
 
-    const meanPos = xp(projectedMean ?? mean ?? 0);
-    const meanY = curveY(projectedMean ?? mean ?? 0);
+    const rawMeanVal = projectedMean ?? mean ?? 0;
+    const safeMean = Math.max(domainMin, Math.min(domainMax, rawMeanVal));
+    const meanPos = xp(safeMean);
+    const meanY = curveY(safeMean);
 
     const currentPos = currentMean != null ? xp(currentMean) : 0;
     const currentY = currentMean != null ? curveY(currentMean) : 100;
@@ -220,15 +222,15 @@ export const GaussianPlot = ({
     const ciLowPx = xp(ciLowBound);
 
     const isTargetVisible = targetPos >= 2 && targetPos <= 98;
+    const isMeanVisible = meanPos >= 2 && meanPos <= 98;
     const isCurrentVisible = currentMean != null && currentPos >= 2 && currentPos <= 98;
-
 
     const resolvedLabels = useMemo(() => {
         const items = [];
         if (isTargetVisible) items.push({ id: 'target', x: targetPos });
 
-        const hideMean = isCurrentVisible && Math.abs(currentPos - meanPos) < 2.5;
-        if (!hideMean) items.push({ id: 'mean', x: meanPos });
+        const hideMean = isCurrentVisible && isMeanVisible && Math.abs(currentPos - meanPos) < 2.5;
+        if (!hideMean && isMeanVisible) items.push({ id: 'mean', x: meanPos });
         if (isCurrentVisible) items.push({ id: 'today', x: currentPos });
 
         const sorted = [...items].sort((a, b) => a.x - b.x);
@@ -247,7 +249,7 @@ export const GaussianPlot = ({
         const res = { hideMean };
         sorted.forEach(item => res[item.id] = item.level);
         return res;
-    }, [targetPos, meanPos, currentPos, isTargetVisible, isCurrentVisible]);
+    }, [targetPos, meanPos, currentPos, isTargetVisible, isMeanVisible, isCurrentVisible]);
 
     // 🎯 FIX: Se a curva bater no teto do SVG (yPercent < 20), ele renderiza o label ABAIXO da linha 
     // em vez de forçar para cima e ser cortado pelo Box Model
@@ -336,7 +338,7 @@ export const GaussianPlot = ({
                 <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
 
                 {isTargetVisible && <line x1={targetPos} y1="100" x2={targetPos} y2={targetY} stroke="#ef4444" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
-                {!resolvedLabels.hideMean && <line x1={meanPos} y1="100" x2={meanPos} y2={meanY} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
+                {!resolvedLabels.hideMean && isMeanVisible && <line x1={meanPos} y1="100" x2={meanPos} y2={meanY} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
                 {isCurrentVisible && <line x1={currentPos} y1="100" x2={currentPos} y2={currentY} stroke="#ffffff" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
             </svg>
 
@@ -345,7 +347,7 @@ export const GaussianPlot = ({
                     <div className="absolute w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(244,63,94,0.8)] transition-all duration-500"
                         style={{ left: `${targetPos}%`, top: `${targetY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
                 )}
-                {!resolvedLabels.hideMean && (
+                {!resolvedLabels.hideMean && isMeanVisible && (
                     <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(59,130,246,0.8)] transition-all duration-500"
                         style={{ left: `${meanPos}%`, top: `${meanY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
                 )}
@@ -356,7 +358,7 @@ export const GaussianPlot = ({
             </div>
 
             <div className="absolute inset-0 pointer-events-none">
-                {!resolvedLabels.hideMean && (
+                {!resolvedLabels.hideMean && isMeanVisible && (
                     <div className="absolute flex flex-col items-center transition-all duration-500"
                         style={{ left: `${Math.max(4, Math.min(meanPos, 96))}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
                         <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-blue-500/30 shadow-lg">

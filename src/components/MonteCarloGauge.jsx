@@ -7,6 +7,8 @@ import { formatValue } from '../utils/scoreHelper';
 import { getDateKey, formatDatePtBR, normalizeDate } from '../utils/dateHelper';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 
+const EMPTY_ARRAY = Object.freeze([]);
+
 /**
  * MonteCarloGauge — Componente Principal de Projeção Estatística
  * 
@@ -71,6 +73,7 @@ export default function MonteCarloGauge({
     useEffect(() => {
         return () => {
             if (debounceTimeoutTime.current) clearTimeout(debounceTimeoutTime.current);
+            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
         };
     }, []);
 
@@ -82,7 +85,7 @@ export default function MonteCarloGauge({
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const activeUser = useAppStore(state => state.appState?.contests?.[activeId]?.user);
-    const historicalCutoffs = useAppStore(state => state.appState?.contests?.[activeId]?.historicalCutoffs) || [];
+    const historicalCutoffs = useAppStore(state => state.appState?.contests?.[activeId]?.historicalCutoffs) || EMPTY_ARRAY;
     const setHistoricalCutoffs = useAppStore(state => state.setHistoricalCutoffs);
 
     // Prioritize sync prop if provided
@@ -91,7 +94,7 @@ export default function MonteCarloGauge({
 
 
 
-    const clampedTimeIndex = timeIndex >= timelineDates.length ? -1 : timeIndex;
+    const clampedTimeIndex = (timeIndex < 0 || timeIndex >= timelineDates.length) ? -1 : timeIndex;
     const resolvedSimulateToday = typeof onSimulateTodayChange === 'function' ? Boolean(simulateToday) : localSimulateToday;
     const setSimulateToday = typeof onSimulateTodayChange === 'function' ? onSimulateTodayChange : setLocalSimulateToday;
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : resolvedSimulateToday;
@@ -365,7 +368,7 @@ export default function MonteCarloGauge({
                     <div className="flex justify-between items-center mb-4">
                         <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Máquina do Tempo</span>
                         <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
-                            {clampedTimeIndex === -1 ? 'Hoje' : formatDatePtBR(`${timelineDates[clampedTimeIndex]}T12:00:00`)}
+                            {clampedTimeIndex === -1 || !timelineDates[clampedTimeIndex] ? 'Hoje' : formatDatePtBR(`${timelineDates[clampedTimeIndex]}T12:00:00`)}
                         </span>
                     </div>
                     <input

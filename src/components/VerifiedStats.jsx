@@ -24,6 +24,8 @@ const getColorClasses = (textColor) => TAILWIND_COLOR_MAP[textColor] || TAILWIND
 // FIX 1.4: Mapa unificado de prioridade de estados (usado para sorting E para mediana)
 const STATE_PRIORITY = { regression: 0, stagnation_negative: 1, unstable: 2, stagnation_neutral: 3, progression: 4, stagnation_positive: 5, mastery: 6 };
 
+const EMPTY_ARRAY = Object.freeze([]);
+
 const InfoTooltip = React.memo(({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
         <HelpCircle size={14} className="text-slate-600 hover:text-purple-400 transition-colors cursor-help" />
@@ -249,14 +251,17 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const flashcardDecks = propFlashcardDecks || storeFlashcardDecks;
 
     const flashcardIndicators = useMemo(() => {
-        const decks = flashcardDecks || [];
+        const decks = Array.isArray(flashcardDecks) ? flashcardDecks : Object.values(flashcardDecks || {});
         const totalCards = getFlashcardTotalCards(decks);
         return {
             totalDecks: getFlashcardDeckCount(decks),
             totalCards,
             dueToday: getFlashcardDueTodayCount(decks),
             masteryPct: getFlashcardMasteryPct(decks),
-            totalReviews: decks.reduce((sum, d) => sum + (d.cards || []).reduce((r, c) => r + (c.reviews || 0), 0), 0)
+            totalReviews: decks.reduce((sum, d) => {
+                const cards = d?.cards ? (Array.isArray(d.cards) ? d.cards : Object.values(d.cards)) : [];
+                return sum + cards.reduce((r, c) => r + (Number(c?.reviews) || 0), 0);
+            }, 0)
         };
     }, [flashcardDecks]);
 
@@ -314,7 +319,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const equalWeightsMode = useAppStore(state => !!state.appState?.mcEqualWeights);
     const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
-    const historicalCutoffs = useAppStore(state => state.appState?.contests?.[activeId]?.historicalCutoffs) || [];
+    const historicalCutoffs = useAppStore(state => state.appState?.contests?.[activeId]?.historicalCutoffs) || EMPTY_ARRAY;
     const setHistoricalCutoffs = useAppStore(state => state.setHistoricalCutoffs);
 
     const getEqualWeights = React.useCallback(() => {
@@ -500,8 +505,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 predictionStatus = "excellence";
             } else {
                 const weeklyBaseSpeed = slope * 7;
+                const speedThreshold = 0.0001 * maxScore;
 
-                if (weeklyBaseSpeed <= 0.01) {
+                if (weeklyBaseSpeed <= speedThreshold) {
                     prediction = "Estagnado/Queda";
                     predictionSubtext = "Melhore sua tendência diária para gerar previsão.";
                     predictionStatus = "warning";
@@ -530,7 +536,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     const adjustedSpeed = safe(weeklyBaseSpeed * difficultyFactor * quality);
 
                     // DIV-01 FIX: Prevenir divisão por zero ou velocidade negativa absurda
-                    const weeksEstimated = adjustedSpeed > 0.001 ? (distance / adjustedSpeed) : 999;
+                    const minSpeed = 0.00001 * maxScore;
+                    const weeksEstimated = adjustedSpeed > minSpeed ? (distance / adjustedSpeed) : 999;
                     const daysEstimated = weeksEstimated * 7;
 
                     if (daysEstimated > 365 * 2) {
@@ -542,7 +549,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         // FIX Bug 2: Margin calculated via error propagation
                         // σ_days = σ_scores / pointsPerDay
                         const pointsPerDay = adjustedSpeed / 7;
-                        const sdDays = pointsPerDay > 0.001 ? (dailySD / pointsPerDay) : 0;
+                        const minPointsPerDay = 0.00001 * maxScore;
+                        const sdDays = pointsPerDay > minPointsPerDay ? (dailySD / pointsPerDay) : 0;
 
                         // Limit margin to 50% of total time to avoid explosive intervals
                         const sigmaLimit = daysEstimated * 0.5;

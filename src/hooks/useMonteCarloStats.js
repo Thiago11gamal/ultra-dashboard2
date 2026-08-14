@@ -1230,7 +1230,7 @@ function useMonteCarloHistoryRecorder({
     if (
       simulationData?.status === 'ready' &&
       Number.isFinite(prob) &&
-      prob > 0 &&
+      prob >= 0 &&
       !effectiveSimulateToday &&
       !isTimeTraveling &&
       activeId

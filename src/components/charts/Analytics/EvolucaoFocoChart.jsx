@@ -42,7 +42,10 @@ export function EvolucaoFocoChart({ data }) {
                     <YAxis
                         stroke="#94a3b8"
                         fontSize={11}
-                        domain={[0, dataMax => Math.max(1, Math.ceil(dataMax * 1.15))]}
+                        domain={[0, dataMax => {
+                            const safeMax = Number.isFinite(dataMax) ? dataMax : 0;
+                            return Math.max(1, Math.ceil(safeMax * 1.15));
+                        }]}
                         axisLine={false}
                         tickLine={false}
                         dx={-5}

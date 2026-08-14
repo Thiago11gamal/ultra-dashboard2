@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../chartDataMappers.js';
 import { analyzeProgressState } from '../ProgressStateEngine.js';
 import { getDateKey, normalizeDate, APP_TIMEZONE, formatDatePtBR } from '../dateHelper.js';
+import { computeFlashcardDueForecast, getFlashcardTotalCards, getFlashcardDueTodayCount } from '../analytics.js';
 
 describe('Stats Menu Audit & Regression Tests', () => {
     describe('mapFocusEvolutionData', () => {
@@ -48,6 +49,33 @@ describe('Stats Menu Audit & Regression Tests', () => {
 
             const infoItem = result.find(r => r.disciplina === 'Informática');
             expect(infoItem.horas).toBe(0.75); // 45 / 60
+        });
+    });
+
+    describe('Flashcards Indicators Resilience', () => {
+        it('deve processar decks e cards estruturados como arrays ou mapas de objetos sem crash', () => {
+            const decksAsMap = {
+                deck1: {
+                    id: 'deck1',
+                    cards: {
+                        c1: { id: 'c1', due: '2026-08-14', reviews: 4, interval: 10 },
+                        c2: { id: 'c2', due: '2026-08-15', reviews: 2, interval: 2 }
+                    }
+                },
+                deck2: {
+                    id: 'deck2',
+                    cards: [
+                        { id: 'c3', due: '2026-08-14', reviews: 5, interval: 25 }
+                    ]
+                }
+            };
+
+            const total = getFlashcardTotalCards(decksAsMap);
+            expect(total).toBe(3);
+
+            const forecast = computeFlashcardDueForecast(decksAsMap, 7);
+            expect(forecast.forecast).toHaveLength(7);
+            expect(forecast.totalDueInHorizon).toBeGreaterThanOrEqual(2);
         });
     });
 
