@@ -32,6 +32,18 @@ const clamp = (value, min, max) => {
     return Math.min(max, Math.max(min, n));
 };
 
+// T-011 FIX: clamp defensivo de acertos.
+// Impede que correct > total gere accuracy/projeção acima de 100%.
+const clampCorrectToTotal = (correct, total) => {
+    const t = Number(total);
+    if (!Number.isFinite(t) || t <= 0) return 0;
+
+    const c = Number(correct);
+    if (!Number.isFinite(c)) return 0;
+
+    return Math.max(0, Math.min(t, c));
+};
+
 // FIX: parseInt truncava pesos decimais ("2.5" -> 2).
 // Agora aceita decimais e arredonda de forma previsível.
 export const sanitizeWeightUnit = (value) => {
@@ -82,6 +94,11 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
     if (!Array.isArray(mcHistory) || mcHistory.length === 0 || !Array.isArray(globalHistory) || globalHistory.length === 0) {
         return 0;
     }
+
+    // T-017 FIX: maxScore seguro para evitar divisão por zero
+    const safeMaxScore = Number.isFinite(maxScore) && maxScore > 0
+        ? maxScore
+        : 100;
 
     const MS_PER_DAY = 24 * 60 * 60 * 1000;
     const LAMBDA = Math.log(2) / (CALIBRATION_LAMBDA_DAYS * MS_PER_DAY);
@@ -139,8 +156,8 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
         // O campo mean era "onde estou", projectedMean era "onde projetei chegar".
         const meanPrediction = Number(snapshot.projectedMean ?? snapshot.mean) || 0;
 
-        if (meanPrediction > 0 && maxScore > 0) {
-            const err = Math.abs(meanPrediction - actualScore) / maxScore;
+        if (meanPrediction > 0 && safeMaxScore > 0) {
+            const err = Math.abs(meanPrediction - actualScore) / safeMaxScore;
             residualSum += err * weight;
             residualWeightSum += weight;
         }
@@ -291,19 +308,38 @@ export function generateAnalyticsStats({
                         if (!scoresByDate[dk]) scoresByDate[dk] = {};
 
                         const existing = scoresByDate[dk][weightKey];
+
                         const currentTotal = Number(h.total) || 0;
-                        const currentCorrect = Number(h.correct) || 0;
+
+                        // T-011 FIX: clamp de correct por total antes de agregar
+                        const currentCorrect = currentTotal > 0
+                            ? clampCorrectToTotal(h.correct, currentTotal)
+                            : 0;
 
                         if (existing) {
                             const newTotal = existing.total + currentTotal;
                             const newCorrect = existing.correct + currentCorrect;
+
+                            // T-011 FIX: clamp também após soma agregada
+                            const safeNewCorrect = newTotal > 0
+                                ? Math.max(0, Math.min(newTotal, newCorrect))
+                                : newCorrect;
+
                             const newScore = newTotal > 0
-                                ? (newCorrect / newTotal) * catMaxScore
+                                ? (safeNewCorrect / newTotal) * catMaxScore
                                 : (existing.score + currentScore) / 2;
 
-                            scoresByDate[dk][weightKey] = { score: newScore, correct: newCorrect, total: newTotal };
+                            scoresByDate[dk][weightKey] = {
+                                score: newScore,
+                                correct: safeNewCorrect,
+                                total: newTotal
+                            };
                         } else {
-                            scoresByDate[dk][weightKey] = { score: currentScore, correct: currentCorrect, total: currentTotal };
+                            scoresByDate[dk][weightKey] = {
+                                score: currentScore,
+                                correct: currentCorrect,
+                                total: currentTotal
+                            };
                         }
                     }
                 });
@@ -328,7 +364,13 @@ export function generateAnalyticsStats({
 
     if (categoryStats.length === 0 || totalWeight === 0) return null;
 
-    const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
+    // T-025 FIX: evitar new Date('YYYY-MM-DD') diretamente.
+    // normalizeDate já é usado no projeto para ancorar datas com mais segurança.
+    const sortedDates = Object.keys(scoresByDate).sort((a, b) => {
+        const da = normalizeDate(a)?.getTime() ?? 0;
+        const db = normalizeDate(b)?.getTime() ?? 0;
+        return da - db;
+    });
     const subjectNames = categoryStats.map(cat => cat.key || cat.name);
 
     const estimatedRho = getAdaptiveInterSubjectCorrelation(
@@ -368,10 +410,21 @@ export function generateAnalyticsStats({
             const metrics = scoresByDate[date][name];
 
             if (w > 0 && metrics !== undefined) {
-                const total = metrics.total || getSyntheticTotal(catMaxScore);
-                const correct = (metrics.correct !== undefined && metrics.total > 0)
-                    ? metrics.correct
-                    : (metrics.score / catMaxScore) * total;
+                const rawTotal = Number(metrics.total) || getSyntheticTotal(catMaxScore);
+
+                const total = Number.isFinite(rawTotal) && rawTotal > 0
+                    ? rawTotal
+                    : getSyntheticTotal(catMaxScore);
+
+                const rawCorrect = (metrics.correct !== undefined && metrics.total > 0)
+                    ? Number(metrics.correct)
+                    : (Number(metrics.score) / catMaxScore) * total;
+
+                // T-011 FIX: clamp final antes de ponderar no histórico global
+                const correct = Math.max(
+                    0,
+                    Math.min(total, Number.isFinite(rawCorrect) ? rawCorrect : 0)
+                );
 
                 pooledCorrect += correct * w;
                 pooledTotal += total * w;
@@ -411,7 +464,18 @@ export function generateAnalyticsStats({
 
     const cutoffs = categoryStats.map(c => c.minCutoff || 0).join('-');
 
-    const statsHash = `${bayesianMean.toFixed(4)}-${pooledSD.toFixed(4)}-${safeMinScore}-${safeMaxScore}-${scoreFingerprint}-cutoffs[${cutoffs}]`;
+    // T-016 FIX: incluir pesos no hash.
+    // Sem isso, mudar pesos podia não disparar nova simulação se a média global
+    // e o fingerprint permanecessem parecidos.
+    const weightFingerprint = categoryStats
+      .map(c => `${c.key}:${Number(c.weight || 0).toFixed(2)}`)
+      .join('|');
+
+    const safeTotalWeight = Number.isFinite(totalWeight)
+      ? Number(totalWeight.toFixed(2))
+      : 0;
+
+    const statsHash = `${bayesianMean.toFixed(4)}-${pooledSD.toFixed(4)}-${safeMinScore}-${safeMaxScore}-${scoreFingerprint}-tw[${safeTotalWeight}]-w[${weightFingerprint}]-cutoffs[${cutoffs}]`;
 
     return {
         categoryStats,

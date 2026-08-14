@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { formatValue } from '../utils/scoreHelper';
-import { getDateKey, formatDatePtBR, normalizeDate } from '../utils/dateHelper';
+import { getDateKey, formatDatePtBR, normalizeDate, parseNoonLocal } from '../utils/dateHelper';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 
 const EMPTY_ARRAY = Object.freeze([]);
@@ -55,7 +55,12 @@ export default function MonteCarloGauge({
                 });
             }
         });
-        return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
+        // T-025 FIX: evitar new Date('YYYY-MM-DD') por causa de parsing UTC ambíguo.
+        return Array.from(dates).sort((a, b) => {
+            const da = parseNoonLocal?.(a) ?? normalizeDate(a)?.getTime() ?? 0;
+            const db = parseNoonLocal?.(b) ?? normalizeDate(b)?.getTime() ?? 0;
+            return da - db;
+        });
     }, [categories]);
 
     useEffect(() => {
@@ -180,7 +185,13 @@ export default function MonteCarloGauge({
 
     const getEqualWeights = useCallback(() => {
         const newWeights = {};
-        categories.filter(c => {
+
+        // T-018 FIX: normalizar categories
+        const safeCategories = Array.isArray(categories)
+            ? categories
+            : Object.values(categories || {});
+
+        safeCategories.filter(c => {
             const h = c.simuladoStats?.history;
             return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
         }).forEach(cat => {
@@ -198,9 +209,20 @@ export default function MonteCarloGauge({
                 </div>
             );
         }
+
+        // T-018 FIX: normalizar categories antes do some
+        const safeCategories = Array.isArray(categories)
+            ? categories
+            : Object.values(categories || {});
+
+        const hasHistory = safeCategories.some(cat => {
+            const h = cat.simuladoStats?.history;
+            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+        });
+
         return (
             <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-slate-900 w-full min-h-[400px]">
-                {hasAnyHistory ? <MonteCarloLoading /> : <EmptyPredictionState />}
+                {hasHistory ? <MonteCarloLoading /> : <EmptyPredictionState />}
             </div>
         );
     }

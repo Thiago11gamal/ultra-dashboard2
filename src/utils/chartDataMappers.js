@@ -2,6 +2,7 @@
  * Mapper functions to transform application state into chart-ready data
  */
 import { normalizeDate, getDateKey } from './dateHelper.js';
+import { toArray } from './normalize.js';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -12,6 +13,17 @@ const toFiniteNumber = (value, fallback = 0) => {
 };
 
 const sanitizeMinutes = (value) => Math.min(720, Math.max(0, toFiniteNumber(value, 0)));
+
+// T-010 FIX: Fórmula correta de meia-vida.
+// Antes: Math.exp(-days / halfLife)
+// Isso fazia a retenção cair para ~36.8% quando days === halfLife.
+// O correto para meia-vida é usar ln(2).
+const retentionFromHalfLife = (days, halfLife) => {
+    const safeDays = Math.max(0, Number(days) || 0);
+    const safeHalfLife = Math.max(1e-6, Number(halfLife) || 1);
+
+    return Math.round(100 * Math.exp(-Math.LN2 * safeDays / safeHalfLife));
+};
 
 const toSafeDate = (value) => {
     if (!value) return null;
@@ -35,7 +47,8 @@ const toSafeDate = (value) => {
 export const mapRetentionData = (categories = []) => {
     const data = [];
     const now = Date.now();
-    const safeCategories = Array.isArray(categories) ? categories : [];
+    // T-023 FIX: aceitar categories como array ou objeto Firebase
+    const safeCategories = toArray(categories);
     
     // Process top 10 most critical categories or items
     safeCategories.forEach(cat => {
@@ -66,8 +79,7 @@ export const mapRetentionData = (categories = []) => {
             const accNorm = Math.max(0, Math.min(1, (accuracy - 0.5) / 0.4));
             const masterySignal = (0.6 * qNorm) + (0.4 * accNorm);
             const halfLife = 7 + (23 * masterySignal);
-
-            const retention = Math.round(100 * Math.exp(-days / halfLife));
+            const retention = retentionFromHalfLife(days, halfLife);
             
             data.push({
                 nomeTopico: cat.name,
@@ -78,8 +90,11 @@ export const mapRetentionData = (categories = []) => {
         }
         
         // Add specific tasks if they have high impact
-        if (Array.isArray(cat.tasks)) {
-            cat.tasks.forEach(task => {
+        // T-023 FIX: normalizar tasks como array, mesmo quando armazenadas como objeto.
+        const taskArray = toArray(cat?.tasks);
+
+        if (taskArray.length > 0) {
+            taskArray.forEach(task => {
                 if (!task || typeof task !== 'object') return;
                 if (task.lastStudiedAt || task.completedAt) {
                     const lastTaskDate = toSafeDate(task.lastStudiedAt || task.completedAt);
@@ -97,8 +112,7 @@ export const mapRetentionData = (categories = []) => {
                     }, 0);
                     const qNorm = Math.max(0, Math.min(1, totalQ / 120));
                     const halfLife = 7 + (7 * qNorm);
-
-                    const retention = Math.round(100 * Math.exp(-days / halfLife));
+                    const retention = retentionFromHalfLife(days, halfLife);
                     
                     if (days >= 1) { // Only show items that have at least 1 day without revision
                         data.push({
@@ -149,8 +163,13 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     const last14Days = [];
     // ✅ FIX: Ancorar ao meio-dia de Manaus para o dia corrente para evitar shift de 1 dia em outros fusos
     const todayMidday = normalizeDate(getDateKey(new Date())) || new Date();
+
     for (let i = 13; i >= 0; i--) {
-        const d = new Date(todayMidday.getTime() - (i * MS_PER_DAY));
+        // T-024 FIX: usar setDate em vez de subtrair ms,
+        // reduzindo problemas de DST/edge cases.
+        const d = new Date(todayMidday);
+        d.setDate(d.getDate() - i);
+
         last14Days.push({
             fullKey: getFullKey(d),
             data: getDisplayKey(d),

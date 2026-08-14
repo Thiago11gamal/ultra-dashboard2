@@ -7,6 +7,14 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
     const logsArray = useMemo(() => Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}), [studyLogs]);
     const categoriesArray = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
 
+    // T-021 FIX: tasks podem ser arrays ou objetos no Firebase.
+    const getTasksArray = (category) => {
+        if (!category?.tasks) return [];
+        return Array.isArray(category.tasks)
+            ? category.tasks
+            : Object.values(category.tasks || {});
+    };
+
     const { groups, stats } = useMemo(() => {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
 
@@ -37,12 +45,17 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             if (!dateObj || Number.isNaN(dateObj.getTime())) return;
             const dateStr = formatDatePtBR(dateObj);
 
-            // Determine friendly day label
+            // T-024 FIX: usar chave de dia (getDateKey) em vez de comparar strings formatadas.
+            // Isso reduz divergência de timezone perto da meia-noite.
+            const uniqueDayKey = getDateKey(dateObj) || dateStr;
+
             const now = new Date();
-            const today = formatDatePtBR(now);
+            const todayKey = getDateKey(now);
+
             const y = new Date(now);
             y.setDate(y.getDate() - 1);
-            const yesterday = formatDatePtBR(y);
+            const yesterdayKey = getDateKey(y);
+
             let dayLabel = dateStr;
             const rawWeekday = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, weekday: 'long' }).format(dateObj);
             const weekDayName = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1).split('-')[0];
@@ -50,17 +63,15 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             let isToday = false;
             let isYesterday = false;
 
-            if (dateStr === today) {
+            if (uniqueDayKey === todayKey) {
                 dayLabel = "Hoje";
                 isToday = true;
-            } else if (dateStr === yesterday) {
+            } else if (uniqueDayKey === yesterdayKey) {
                 dayLabel = "Ontem";
                 isYesterday = true;
             } else {
                 dayLabel = dateStr;
             }
-
-            const uniqueDayKey = getDateKey(dateObj) || dateStr;
             const manausDayStr = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, day: 'numeric' }).format(dateObj);
 
             if (!grouped[uniqueDayKey]) grouped[uniqueDayKey] = {
@@ -91,7 +102,10 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
             let taskTitle = '-';
             if (category && log.taskId) {
-                const task = category.tasks?.find(t => String(t.id) === String(log.taskId));
+                // T-021 FIX: normalizar tasks antes do find
+                const tasksArray = getTasksArray(category);
+                const task = tasksArray.find(t => String(t?.id) === String(log.taskId));
+
                 // Bug fix: data model stores task.text, not task.title
                 if (task) taskTitle = task.text || task.title || '-';
             }

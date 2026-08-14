@@ -165,13 +165,20 @@ export function useMonteCarloStats({
   const recordMonteCarloSnapshot = useAppStore(state => state.recordMonteCarloSnapshot);
   const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
 
+  // T-018/T-024 FIX: normalizar categories antes de filter
+  const safeCategories = useMemo(() => {
+    return Array.isArray(categories)
+      ? categories
+      : Object.values(categories || {});
+  }, [categories]);
+
   const activeCategories = useMemo(() =>
-    categories.filter(c => {
+    safeCategories.filter(c => {
       const h = c.simuladoStats?.history;
       const hLen = h ? (Array.isArray(h) ? h.length : Object.values(h).length) : 0;
       return hLen > 0;
     }),
-    [categories]
+    [safeCategories]
   );
 
   const getEqualWeights = useCallback(() => {
@@ -224,7 +231,15 @@ export function useMonteCarloStats({
     currentDate.setHours(0, 0, 0, 0);
 
     if (timeIndex >= 0 && timeIndex < timelineDates.length) {
-      currentDate = new Date(timelineDates[timeIndex] + 'T12:00:00');
+      // T-025 FIX: evitar new Date('YYYY-MM-DD') diretamente.
+      // normalizeDate costuma ancorar melhor a data no helper do projeto.
+      const parsedTimelineDate = normalizeDate(timelineDates[timeIndex]) ||
+        new Date(timelineDates[timeIndex] + 'T12:00:00');
+
+      if (Number.isFinite(parsedTimelineDate?.getTime())) {
+        currentDate = parsedTimelineDate;
+        currentDate.setHours(0, 0, 0, 0);
+      }
     }
 
     let goal;
@@ -236,7 +251,13 @@ export function useMonteCarloStats({
 
     goal.setHours(0, 0, 0, 0);
 
-    if (isNaN(goal.getTime())) return 30;
+    if (!Number.isFinite(goal.getTime())) return 30;
+
+    // T-024/T-025 FIX: fallback para data corrente inválida
+    if (!Number.isFinite(currentDate.getTime())) {
+      currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+    }
 
     const diffTime = goal.getTime() - currentDate.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -247,7 +268,8 @@ export function useMonteCarloStats({
 
   const pureStatsData = useMemo(() => {
     return generateAnalyticsStats({
-      categories,
+      // T-018 FIX: usar categorias já normalizadas
+      categories: safeCategories,
       debouncedWeights,
       timeIndex,
       timelineDates,
@@ -255,7 +277,7 @@ export function useMonteCarloStats({
       maxScore,
       simuladoRows: rawSimuladoRows
     });
-  }, [categories, debouncedWeights, timeIndex, timelineDates, minScore, maxScore, rawSimuladoRows]);
+  }, [safeCategories, debouncedWeights, timeIndex, timelineDates, minScore, maxScore, rawSimuladoRows]);
 
   const calibrationPenalty = useMemo(() => {
     let pen = computeCalibrationPenalty(
@@ -303,6 +325,14 @@ export function useMonteCarloStats({
     pureStatsDataRef.current = pureStatsData;
   }, [pureStatsData]);
 
+  // T-012 FIX: Ref para usar statsData já calibrado dentro do efeito principal.
+  // Sem isso, o motor calculava pooledSD/dailySD calibrados mas continuava
+  // usando pureStatsData na simulação.
+  const statsDataRef = useRef(statsData);
+  useEffect(() => {
+    statsDataRef.current = statsData;
+  }, [statsData]);
+
   const { runAnalysis } = useMonteCarloWorker();
   const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
 
@@ -332,8 +362,16 @@ export function useMonteCarloStats({
   }, [rawSimuladoRows, maxScore, calibrationEvents, statsData?.categoryStats]);
 
   useEffect(() => {
-    const pureStatsData = pureStatsDataRef.current;
-    if (!pureStatsData) return;
+    const rawPureStatsData = pureStatsDataRef.current;
+
+    // T-012 FIX: usa statsData calibrado quando disponível.
+    // Mantemos o nome `pureStatsData` para não precisar reescrever o efeito inteiro.
+    const pureStatsData = statsDataRef.current || rawPureStatsData;
+
+    if (!pureStatsData) {
+      setSimulationData({ status: 'waiting', missing: 'data' });
+      return;
+    }
 
     let totalPoints = 0;
     pureStatsData.categoryStats.forEach(cat => totalPoints += cat.n || 1);
@@ -394,15 +432,28 @@ export function useMonteCarloStats({
           let totalGlobalTimeSpent = 0;
           let totalGlobalTimedQuestions = 0;
 
-          pureStatsData.categoryStats.forEach(c => {
-            const histArray = (c.simuladoStats && Array.isArray(c.simuladoStats.history))
-              ? c.simuladoStats.history
-              : [];
+          // T-018/T-024 FIX: usar categorias já normalizadas no hook
+          const safeTimeCategories = safeCategories;
+
+          safeTimeCategories.forEach(cat => {
+            const rawHistory = cat?.simuladoStats?.history;
+
+            const histArray = Array.isArray(rawHistory)
+              ? rawHistory
+              : Object.values(rawHistory || {});
 
             histArray.forEach(h => {
-              if (h.timeSpent && h.timedQuestoes) {
-                totalGlobalTimeSpent += Number(h.timeSpent);
-                totalGlobalTimedQuestions += Number(h.timedQuestoes);
+              const timeSpent = Number(h?.timeSpent);
+              const timedQuestoes = Number(h?.timedQuestoes);
+
+              if (
+                Number.isFinite(timeSpent) &&
+                Number.isFinite(timedQuestoes) &&
+                timeSpent > 0 &&
+                timedQuestoes > 0
+              ) {
+                totalGlobalTimeSpent += timeSpent;
+                totalGlobalTimedQuestions += timedQuestoes;
               }
             });
           });
@@ -427,7 +478,9 @@ export function useMonteCarloStats({
             subjects: subjectsOpts,
             projectedTotalTimeSeconds,
             examDurationMinutes,
-            flashcardImmunity: globalImmunityFactor
+            flashcardImmunity: globalImmunityFactor,
+            // T-014 FIX: cortes históricos também no caminho principal
+            historicalCutoffs
           });
         } else {
           const subjectsOpts = pureStatsData.categoryStats.map(c => {
@@ -456,7 +509,9 @@ export function useMonteCarloStats({
             minScore,
             maxScore,
             subjects: subjectsOpts,
-            flashcardImmunity: globalImmunityFactor
+            flashcardImmunity: globalImmunityFactor,
+            // T-014 FIX: cortes históricos também no modo normal
+            historicalCutoffs
           };
 
           // Compatibilidade dupla:
@@ -486,7 +541,9 @@ export function useMonteCarloStats({
           try {
             const setDataFn = useAppStore.getState().setData;
 
-            if (setDataFn && result?.probability != null) {
+            // T-015 FIX: só gravar eventos de calibração para previsões futuras.
+            // Eventos do modo "hoje" não devem alimentar calibração.
+            if (projectDays > 0 && setDataFn && result?.probability != null) {
               const hash = `${pureStatsHash}-${debouncedTarget}`;
 
               if (lastRecordedGlobalPredRef.current !== hash) {
@@ -559,7 +616,9 @@ export function useMonteCarloStats({
               subjects: subjectsOpts,
               simuladoRows: rawSimuladoRows,
               categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key),
-              flashcardImmunity: globalImmunityFactor
+              flashcardImmunity: globalImmunityFactor,
+              // T-014 FIX: cortes históricos também no fallback futuro
+              historicalCutoffs
             });
           } else {
             const subjectsOpts = pureStatsData.categoryStats.map(c => {
@@ -610,7 +669,8 @@ export function useMonteCarloStats({
           try {
             const setDataFn = useAppStore.getState().setData;
 
-            if (setDataFn && result?.probability != null) {
+            // T-015 FIX: também proteger o fallback síncrono
+            if (projectDays > 0 && setDataFn && result?.probability != null) {
               const hash = `${pureStatsHash}-${debouncedTarget}`;
 
               if (lastRecordedGlobalPredRef.current !== hash) {
@@ -659,7 +719,11 @@ export function useMonteCarloStats({
     statsData?.estimatedRho,
     examDurationMinutes,
     defaultExamTotalQuestions,
-    flashcardDecks
+    flashcardDecks,
+    // T-012 FIX: reagir quando a calibração alterar o pooledSD/dailySD
+    calibrationPenalty,
+    // T-013 FIX: usar categorias originais para timeSpent
+    categories
   ]);
 
   const probabilityData = useMemo(() => {
@@ -677,7 +741,10 @@ export function useMonteCarloStats({
       const confWidth = simulationData.data.ciConformalHigh - simulationData.data.ciConformalLow;
 
       if (confWidth > 0) {
-        confFactor = Math.min(0.2, confWidth / (maxScore * 1.2)) * (1 - modelWeight);
+        // T-017 FIX: proteger domínio inválido/zero antes de dividir
+        const confDomain = Math.max(1e-9, Number(maxScore) - Number(minScore));
+
+        confFactor = Math.min(0.2, confWidth / (confDomain * 1.2)) * (1 - modelWeight);
 
         // FIX: shrink simétrico (tanto >50 quanto <50)
         adjustedProb = shrinkToNeutral(adjustedProb, confFactor, 50);
@@ -971,6 +1038,9 @@ export function useMonteCarloStats({
   ]);
 
   useEffect(() => {
+    // T-015 FIX: não gravar calibração de subjects em modo "hoje"
+    if (projectDays <= 0) return;
+
     if (!perSubjectProbs || perSubjectProbs.length === 0 || simulationData?.status !== 'ready') return;
 
     try {
@@ -1012,7 +1082,14 @@ export function useMonteCarloStats({
     } catch {
       // ignore
     }
-  }, [perSubjectProbs, debouncedTarget, simulationData?.status, pureStatsHash]);
+  }, [
+    perSubjectProbs,
+    debouncedTarget,
+    simulationData?.status,
+    pureStatsHash,
+    // T-015 FIX: dependência explícita do modo futuro/hoje
+    projectDays
+  ]);
 
   const derivedMetrics = useMemo(() => {
     let sd = simulationData?.data?.sd ?? 0;
@@ -1041,7 +1118,8 @@ export function useMonteCarloStats({
       sdRight = sdRight * (1 + calibrationPenalty * 2.5);
     }
 
-    const domainWidth = maxScore - minScore;
+    // T-017 FIX: domínio seguro para evitar divisão por zero ou negativa
+    const domainWidth = Math.max(1e-9, Number(maxScore) - Number(minScore));
     const icWidth = ci95High - ci95Low;
 
     const saturation = Math.min(1, domainWidth > 0 ? icWidth / domainWidth : 1);
@@ -1050,9 +1128,10 @@ export function useMonteCarloStats({
     const pAdjusted = probability;
 
     // FIX: piso mínimo de volatilidade para evitar probabilidade degenerada
+    // T-017 FIX: usar domínio seguro em vez de maxScore bruto
     const safeSdForTrend = Math.max(
       Number.isFinite(sd) && sd > 0 ? sd : 1,
-      maxScore * 0.02
+      domainWidth * 0.02
     );
 
     const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / safeSdForTrend) * 100;

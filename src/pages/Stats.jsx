@@ -45,8 +45,15 @@ export default function Stats() {
             return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
         });
     }, [categories]);
+    // T-022 FIX: cards podem vir como objeto no Firebase.
     const hasFlashcards = useMemo(() => {
-        return Array.isArray(flashcardDecks) && flashcardDecks.some(d => (d.cards || []).length > 0);
+        return Array.isArray(flashcardDecks) && flashcardDecks.some(d => {
+            const cards = Array.isArray(d?.cards)
+                ? d.cards
+                : Object.values(d?.cards || {});
+
+            return cards.length > 0;
+        });
     }, [flashcardDecks]);
 
     const hasData = hasStudyLogs || hasSimuladoHistory || hasFlashcards;
