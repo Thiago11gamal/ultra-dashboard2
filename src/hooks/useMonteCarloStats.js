@@ -41,6 +41,19 @@ const clamp = (value, min, max) => {
   return Math.min(max, Math.max(min, n));
 };
 
+// T-005 FIX: clamp defensivo que NÃO empurra NaN para o mínimo.
+// Em projeções estatísticas, NaN deve cair para um valor neutro/seguro,
+// não para o pior caso silenciosamente.
+const safeClamp = (value, min, max, fallback = null) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return fallback !== null && fallback !== undefined
+      ? fallback
+      : (min + max) / 2;
+  }
+  return Math.min(max, Math.max(min, n));
+};
+
 // FIX: encolhimento simétrico de probabilidade extrema em direção ao neutro
 const shrinkToNeutral = (p, factor, neutral = 50) => {
   const safeP = Number.isFinite(p) ? p : neutral;
@@ -62,7 +75,7 @@ export function useMonteCarloStats({
   const activeId = useAppStore(state => state.appState?.activeId);
 
   const weights = useAppStore(useShallow(state => state.appState?.contests?.[activeId]?.mcWeights || {}));
-  const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
+  const equalWeightsMode = useAppStore(state => state.appState?.mcEqualWeights ?? true);
 
   const mcHistory = useAppStore(useShallow(state => {
     const arr = state.appState?.contests?.[activeId]?.monteCarloHistory;
@@ -809,7 +822,11 @@ export function useMonteCarloStats({
 
         const currentBaseline = cat.bayesianMean ?? cat.mean;
 
-        const trendPer30Days = cat.trendValue || cat.trend || 0;
+        // T-004 FIX: trend pode vir como string ('up'/'down'/'stable').
+        // Converter com segurança para número antes de qualquer aritmética.
+        const rawTrend = cat.trendValue ?? cat.trend ?? 0;
+        const trendPer30Days = Number.isFinite(Number(rawTrend)) ? Number(rawTrend) : 0;
+
         const projectedDaysAmortized = LOG_DAMPING_FACTOR * Math.log(1 + projectDays / LOG_DAMPING_FACTOR);
         const dailyTrend = trendPer30Days / 30;
 
@@ -839,15 +856,24 @@ export function useMonteCarloStats({
           totalTrendProjection *= 0.5;
         }
 
-        // FIX: limitar projeção de tendência a ±15% do domínio da disciplina
-        totalTrendProjection = clamp(
+        // T-005 FIX: limitar projeção de tendência a ±15% do domínio da disciplina.
+        // Se o cálculo produzir NaN, cai para 0 (sem projeção) em vez de -15%.
+        totalTrendProjection = safeClamp(
           totalTrendProjection,
           -0.15 * catMaxScore,
-          0.15 * catMaxScore
+          0.15 * catMaxScore,
+          0 // fallback neutro: nenhuma projeção de tendência
         );
 
+        // T-005 FIX: se a soma baseline + tendência produzir NaN,
+        // mantém o baseline atual em vez de despencar para catMinScore.
         const baseline = (!effectiveSimulateToday && projectDays > 0)
-          ? clamp(currentBaseline + totalTrendProjection, catMinScore, catMaxScore)
+          ? safeClamp(
+              currentBaseline + totalTrendProjection,
+              catMinScore,
+              catMaxScore,
+              currentBaseline // fallback: permanece onde está
+            )
           : currentBaseline;
 
         // ✅ LOTE-01 FIX: meta projetada no INTERVALO real, respeitando minScore

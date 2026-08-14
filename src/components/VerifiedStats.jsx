@@ -242,6 +242,13 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         return scores.length > 0 ? Math.max(...scores) : 100;
     }, [safeCategories]);
 
+    // T-007 FIX: Garantir que targetScore nunca saia de [0, maxScore].
+    const clampTarget = React.useCallback((value) => {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return 70;
+        return Math.max(0, Math.min(maxScore, n));
+    }, [maxScore]);
+
     const storeFlashcardDecks = useAppStore(state => {
         const activeId = state.appState?.activeId;
         const contest = state.appState?.contests?.[activeId] || {};
@@ -266,9 +273,18 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     }, [flashcardDecks]);
 
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
+    // T-007 FIX: Clamp já no valor inicial.
     const [targetScore, setTargetScore] = React.useState(() => {
         const userTarget = parseFloat(user?.targetProbability);
-        return !isNaN(userTarget) ? userTarget : 70;
+        const raw = !isNaN(userTarget) ? userTarget : 70;
+        return Math.max(0, Math.min(
+            // maxScore pode ainda não estar disponível no primeiro render,
+            // então usamos um teto seguro de fallback.
+            safeCategories.length > 0
+                ? Math.max(...safeCategories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0), 100)
+                : 100,
+            raw
+        ));
     });
 
     // B-06 FIX: Adicionar trava de round-trip para evitar resets durante sincronização assíncrona
@@ -276,10 +292,11 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
     // FIX: Wrapper para setTargetScore que trava a sincronização IMEDIATAMENTE ao interagir,
     // evitando que o useEffect de leitura atropele o estado local antes do debounce salvar.
+    // T-007 FIX: Clamp em toda atualização vinda da UI.
     const handleSetTargetScore = React.useCallback((newScore) => {
         pendingLocalSave.current = true;
-        setTargetScore(newScore);
-    }, []);
+        setTargetScore(clampTarget(newScore));
+    }, [clampTarget]);
 
     // B-06 FIX: Sincronização Robusta com Trava de Round-trip
     const storeTarget = user?.targetProbability;
@@ -317,9 +334,20 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || null);
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
-    const equalWeightsMode = useAppStore(state => !!state.appState?.mcEqualWeights);
+    const equalWeightsMode = useAppStore(state => state.appState?.mcEqualWeights ?? true);
     const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
-    const historicalCutoffs = useAppStore(state => state.appState?.contests?.[activeId]?.historicalCutoffs) || EMPTY_ARRAY;
+    // T-008 FIX: Normalizar para array. Se vier como objeto Firebase,
+    // convertemos com Object.values para evitar crash em .map().
+    const rawHistoricalCutoffs = useAppStore(
+        state => state.appState?.contests?.[activeId]?.historicalCutoffs
+    );
+    const historicalCutoffs = useMemo(() => {
+        if (Array.isArray(rawHistoricalCutoffs)) return rawHistoricalCutoffs;
+        if (rawHistoricalCutoffs && typeof rawHistoricalCutoffs === 'object') {
+            return Object.values(rawHistoricalCutoffs);
+        }
+        return EMPTY_ARRAY;
+    }, [rawHistoricalCutoffs]);
     const setHistoricalCutoffs = useAppStore(state => state.setHistoricalCutoffs);
 
     const getEqualWeights = React.useCallback(() => {

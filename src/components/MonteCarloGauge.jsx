@@ -85,7 +85,17 @@ export default function MonteCarloGauge({
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const activeUser = useAppStore(state => state.appState?.contests?.[activeId]?.user);
-    const historicalCutoffs = useAppStore(state => state.appState?.contests?.[activeId]?.historicalCutoffs) || EMPTY_ARRAY;
+    // T-008 FIX: Normalizar para array antes de passar ao MonteCarloConfig.
+    const rawHistoricalCutoffs = useAppStore(
+        state => state.appState?.contests?.[activeId]?.historicalCutoffs
+    );
+    const historicalCutoffs = useMemo(() => {
+        if (Array.isArray(rawHistoricalCutoffs)) return rawHistoricalCutoffs;
+        if (rawHistoricalCutoffs && typeof rawHistoricalCutoffs === 'object') {
+            return Object.values(rawHistoricalCutoffs);
+        }
+        return EMPTY_ARRAY;
+    }, [rawHistoricalCutoffs]);
     const setHistoricalCutoffs = useAppStore(state => state.setHistoricalCutoffs);
 
     // Prioritize sync prop if provided
@@ -129,6 +139,29 @@ export default function MonteCarloGauge({
         setWeights
     } = stats;
 
+    // T-006 FIX: Detectar se há histórico mas todos os pesos estão zerados.
+    // Sem isso, o gauge fica em loading infinito quando totalWeight === 0.
+    const hasAnyHistory = useMemo(() => {
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return safeCats.some(cat => {
+            const h = cat.simuladoStats?.history;
+            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+        });
+    }, [categories]);
+
+    const totalActiveWeight = useMemo(() => {
+        // No modo pesos iguais, sempre há peso ativo.
+        if (equalWeightsMode) return 1;
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return safeCats.reduce((sum, cat) => {
+            const h = cat.simuladoStats?.history;
+            const hasHist = h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+            if (!hasHist) return sum;
+            const w = weights?.[cat.id || cat.name];
+            return sum + Math.max(0, Number(w) || 0);
+        }, 0);
+    }, [categories, weights, equalWeightsMode]);
+
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
     const boundedScore = (v) => Math.max(minScore, Math.min(maxScore, safe(v)));
     const projectedSafe = boundedScore(projectedMean);
@@ -139,9 +172,11 @@ export default function MonteCarloGauge({
     const ciLowSafe = Math.min(ciLowSafeRaw, ciHighSafeRaw);
     const ciHighSafe = Math.max(ciLowSafeRaw, ciHighSafeRaw);
     const pAdjustedSafe = Math.max(0, Math.min(100, safe(pAdjusted)));
+    // T-009 FIX: setWeights da store pode não aceitar função updater.
+    // Usamos o valor atual de `weights` diretamente para evitar corrupção de estado.
     const stableUpdateWeight = useCallback((name, p) => {
-        setWeights((prevWeights) => ({ ...(prevWeights || {}), [name]: p }));
-    }, [setWeights]);
+        setWeights({ ...(weights || {}), [name]: p });
+    }, [setWeights, weights]);
 
     const getEqualWeights = useCallback(() => {
         const newWeights = {};
@@ -155,13 +190,17 @@ export default function MonteCarloGauge({
     }, [categories]);
 
     if (!simulationData || simulationData.status === 'waiting') {
-        const hasHistory = categories.some(cat => {
-            const h = cat.simuladoStats?.history;
-            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
-        });
+        // T-006 FIX: Estado específico para "pesos zerados" em vez de loading infinito.
+        if (hasAnyHistory && totalActiveWeight === 0) {
+            return (
+                <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-amber-600 bg-slate-900 w-full min-h-[400px]">
+                    <AllWeightsZeroState />
+                </div>
+            );
+        }
         return (
             <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-slate-900 w-full min-h-[400px]">
-                {hasHistory ? <MonteCarloLoading /> : <EmptyPredictionState />}
+                {hasAnyHistory ? <MonteCarloLoading /> : <EmptyPredictionState />}
             </div>
         );
     }
@@ -522,6 +561,25 @@ function EmptyPredictionState() {
             </p>
             <div className="mt-4 px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[9px] text-blue-400 font-bold uppercase tracking-wider">
                 Lance seu 1º simulado
+            </div>
+        </div>
+    );
+}
+
+// T-006 FIX: Estado educativo quando o usuário zera todos os pesos.
+function AllWeightsZeroState() {
+    return (
+        <div className="rounded-3xl p-6 border border-amber-500/20 bg-amber-950/10 flex flex-col items-center justify-center text-center h-full flex-1 w-full my-auto">
+            <div className="text-3xl mb-3">⚖️</div>
+            <h2 className="text-[12px] font-black text-amber-300 uppercase tracking-widest mb-3">
+                Todos os pesos estão zerados
+            </h2>
+            <p className="text-[10px] text-slate-400 leading-relaxed font-medium max-w-[260px]">
+                Há histórico de simulados, mas todas as matérias estão com peso P0.
+                Ajuste os pesos em Configuração para calcular a simulação Monte Carlo.
+            </p>
+            <div className="mt-4 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-400 font-bold uppercase tracking-wider">
+                Abra Configurar Classificações e Meta
             </div>
         </div>
     );
