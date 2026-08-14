@@ -36,7 +36,7 @@ function TabButton({ active, onClick, children, icon }) {
 function StatusBadge({ status }) {
   const config = {
     healthy: { label: '✓ Saudável', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-    degraded: { label: 'âš  Degradado', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+    degraded: { label: '⚠️ Degradado', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
     critical: { label: '✖ Crítico', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
     unknown: { label: '? Desconhecido', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
   };

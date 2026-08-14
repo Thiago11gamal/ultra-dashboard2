@@ -828,12 +828,42 @@ export default function Coach() {
 
 function CalibrationAuditPopover({ categoryId = null }) {
   const [isOpen, setIsOpen] = useState(false);
+  const popoverRef = useRef(null);
   const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside, true);
+    document.addEventListener('touchstart', handleClickOutside, true);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+      document.removeEventListener('touchstart', handleClickOutside, true);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
   if (!import.meta.env.DEV && summary.count === 0) return null;
   return (
-    <div className="relative font-mono text-[11px] select-none shrink-0">
+    <div ref={popoverRef} className="relative font-mono text-[11px] select-none shrink-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
         className="flex flex-col min-w-[70px] sm:min-w-[75px] text-left hover:opacity-85 transition-all active:scale-95 group focus:outline-none"
         title="Auditoria de Calibração Monte Carlo"
       >
@@ -850,7 +880,11 @@ function CalibrationAuditPopover({ categoryId = null }) {
         </div>
       </button>
       {isOpen && (
-        <div className="absolute top-full right-0 mt-4 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-64 space-y-2 z-[9999] animate-fade-in">
+        <div
+          role="dialog"
+          aria-label="Telemetria Monte Carlo"
+          className="absolute top-full right-0 mt-4 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-64 space-y-2 z-[9999] animate-fade-in"
+        >
           <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
             <span className="text-xs font-bold text-white">Telemetria MC</span>
             <button

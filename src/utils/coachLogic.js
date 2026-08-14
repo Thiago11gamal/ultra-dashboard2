@@ -1116,7 +1116,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const currentLambda = metrics.mcAdaptive?.decayK || 0.03;
     const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
 
-    const windowStart = (normalizeDate(metrics.referenceDate) || metrics.referenceDate).getTime() - (dynamicWindowDays * MS_PER_DAY);
+    const windowStart = (normalizeDate(metrics.referenceDate) || new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY);
 
     const safeGlobalLogsInput = options.studyLogs || studyLogs || [];
     const safeGlobalLogs = Array.isArray(safeGlobalLogsInput)
@@ -1345,7 +1345,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
 
     let recommendation = "";
 
-    const oneWeekAgo = (normalizeDate(metrics.referenceDate) || metrics.referenceDate).getTime() - (7 * 24 * 60 * 60 * 1000);
+    const oneWeekAgo = (normalizeDate(metrics.referenceDate) || new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
 
     const recentLogs = categoryStudyLogs.filter(log => {
         const d = normalizeDate(log.date) || new Date(0);
@@ -2628,7 +2628,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 : `${getPriorityLabel()}[Revisão Geral Complementar]`;
 
             const uniqueIdSuffix = weakTopic
-                ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total}-${i}`)
+                ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total || 0}-${i}`)
                 : `geral-${i}`;
 
             if (weakTopic) {
