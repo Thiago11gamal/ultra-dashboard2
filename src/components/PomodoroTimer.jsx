@@ -1109,7 +1109,7 @@ function PomodoroTimer({
     return (
         <div className="w-full relative min-h-[80vh] flex flex-col items-center">
             <div
-                className={`w-full max-w-none lg:max-w-[min(95vw,600px)] space-y-12 relative flex flex-col items-center mx-auto ${!isLayoutLocked ? 'z-[90]' : 'z-50'}`}
+                className={`w-full max-w-none lg:max-w-[min(95vw,600px)] space-y-6 sm:space-y-8 relative flex flex-col items-center mx-auto ${!isLayoutLocked ? 'z-[90]' : 'z-50'}`}
             >
                 <div className="relative flex items-center justify-center py-2 w-full px-4">
                     <PomodoroHeader
