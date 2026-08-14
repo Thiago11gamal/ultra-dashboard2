@@ -1,3 +1,5 @@
 export const toArray = (value) => {
-  return Array.isArray(value) ? value : Object.values(value ?? {});
+  if (Array.isArray(value)) return value;
+  if (value != null && typeof value === 'object') return Object.values(value);
+  return [];
 };

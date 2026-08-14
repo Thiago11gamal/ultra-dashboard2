@@ -7,6 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import { normalize } from '../utils/normalization';
 import { safeClone } from '../store/safeClone.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
+import { toArray } from '../utils/normalize.js';
 
 const cleanUndefined = (obj, seen = new WeakSet()) => {
   if (obj === null || typeof obj !== 'object') return obj;
@@ -38,18 +39,18 @@ const cleanUndefined = (obj, seen = new WeakSet()) => {
 const safeguardContest = (contest) => {
   if (!contest) return contest;
   
-  // Tratamento profundo para categorias (evitar arrays infinitos)
-  const safeCategories = (contest.categories || []).map(cat => {
+  // Tratamento profundo para categorias (evitar arrays infinitos e crashes com Objetos)
+  const safeCategories = toArray(contest.categories).map(cat => {
     if (!cat.simuladoStats) return cat;
     return {
       ...cat,
       simuladoStats: {
         ...cat.simuladoStats,
-        history: (cat.simuladoStats.history || []).slice(-100),
+        history: toArray(cat.simuladoStats.history).slice(-100),
         historyByMatter: cat.simuladoStats.historyByMatter 
           ? Object.fromEntries(
               Object.entries(cat.simuladoStats.historyByMatter).map(([mId, h]) => [
-                mId, Array.isArray(h) ? h.slice(-50) : h
+                mId, toArray(h).slice(-50)
               ])
             )
           : cat.simuladoStats.historyByMatter
@@ -57,23 +58,23 @@ const safeguardContest = (contest) => {
     };
   });
 
-  const safeFlashcards = (contest.flashcardDecks || []).map(deck => ({
+  const safeFlashcards = toArray(contest.flashcardDecks).map(deck => ({
     ...deck,
-    cards: (deck.cards || []).slice(-300) // Máx 300 cards por deck na nuvem
+    cards: toArray(deck.cards).slice(-300) // Máx 300 cards por deck na nuvem
   }));
 
   return {
     ...contest,
     categories: safeCategories,
     flashcardDecks: safeFlashcards,
-    simulados: (contest.simulados || []).slice(-150),
-    historicalCutoffs: (contest.historicalCutoffs || []).slice(-150),
-    studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
-    studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
-    simuladoRows: (contest.simuladoRows || []).slice(-300),
-    calibrationAuditLog: (contest.calibrationAuditLog || []).slice(-150),
-    calibrationEvents: (contest.calibrationEvents || []).slice(-150),
-    coachPlan: (contest.coachPlan || []).slice(-100),
+    simulados: toArray(contest.simulados).slice(-150),
+    historicalCutoffs: toArray(contest.historicalCutoffs).slice(-150),
+    studyLogs: toArray(contest.studyLogs).slice(-SYNC_LOG_CAP),
+    studySessions: toArray(contest.studySessions).slice(-SYNC_LOG_CAP),
+    simuladoRows: toArray(contest.simuladoRows).slice(-300),
+    calibrationAuditLog: toArray(contest.calibrationAuditLog).slice(-150),
+    calibrationEvents: toArray(contest.calibrationEvents).slice(-150),
+    coachPlan: toArray(contest.coachPlan).slice(-100),
     calibrationHistoryByCategory: contest.calibrationHistoryByCategory
       ? Object.fromEntries(
           Object.entries(contest.calibrationHistoryByCategory).map(([catId, history]) => [
@@ -127,9 +128,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
 
   const deduplicateCategoryNames = useCallback((contest) => {
-    if (!Array.isArray(contest?.categories)) return contest;
+    const rawCategories = toArray(contest?.categories);
+    if (rawCategories.length === 0) return contest;
     const nameMap = {};
-    contest.categories.forEach(cat => {
+    rawCategories.forEach(cat => {
       const key = normalize(cat.name);
       const richness = (c) => {
         const h = c.simuladoStats?.history;
@@ -701,10 +703,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       }
     };
 
-    window.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [currentUser?.uid, performEmergencySync]);

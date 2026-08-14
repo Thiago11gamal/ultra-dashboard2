@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Calendar, TrendingUp } from 'lucide-react';
 import { computeFlashcardDueForecast } from '../utils/analytics';
+import { toArray } from '../utils/normalize';
 import DueForecastChart from './charts/DueForecastChart';
 
 /**
@@ -9,14 +10,14 @@ import DueForecastChart from './charts/DueForecastChart';
  */
 export default function DueForecast({ decks = [], horizon = 14, compact = false }) {
     const safeHorizon = Math.max(1, Math.min(30, horizon));
-    const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+    const decksArray = toArray(decks);
 
     const { forecast, totalDueInHorizon, maxDaily, horizon: usedHorizon } = useMemo(
         () => computeFlashcardDueForecast(decksArray, safeHorizon),
         [decksArray, safeHorizon]
     );
 
-    const totalCards = decksArray.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
+    const totalCards = decksArray.reduce((sum, d) => sum + toArray(d?.cards).length, 0);
     const todayCount = forecast[0]?.count || 0;
     // Safe peakDay (never crash)
     const peakDay = forecast.length > 0

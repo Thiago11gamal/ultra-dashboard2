@@ -4,6 +4,7 @@ import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
 import { format } from 'date-fns';
 import { toFinite } from '../engine/math/safe.js';
 import { safeDate, getLocalMidnight as safeGetLocalMidnight, getLocalEndOfDay } from '../engine/math/date.js';
+import { toArray } from './normalize.js';
 
 /**
  * Distributes a rounding remainder across items based on their decimal parts.
@@ -817,9 +818,9 @@ export const getCompleteReport = (data) => {
 export function getFlashcardDueTodayCount(decks = []) {
   const todayKey = getFlashcardTodayKey();
   let due = 0;
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  const decksArray = toArray(decks);
   decksArray.forEach(deck => {
-    (deck.cards || []).forEach(card => {
+    toArray(deck?.cards).forEach(card => {
       if (!card?.due || card.due <= todayKey) due++;
     });
   });
@@ -828,9 +829,9 @@ export function getFlashcardDueTodayCount(decks = []) {
 
 export function getFlashcardMasteryPct(decks = []) {
   let total = 0, mastered = 0;
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  const decksArray = toArray(decks);
   decksArray.forEach(deck => {
-    (deck.cards || []).forEach(card => {
+    toArray(deck?.cards).forEach(card => {
       total++;
       if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 6) mastered++;
     });
@@ -843,12 +844,12 @@ export function getFlashcardImmunity(decks = []) {
   let globalTotal = 0;
   let globalMastered = 0;
 
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  const decksArray = toArray(decks);
   decksArray.forEach(deck => {
-    const subject = deck.subject ? String(deck.subject).toLowerCase().trim() : 'geral';
+    const subject = deck?.subject ? String(deck.subject).toLowerCase().trim() : 'geral';
     
     let total = 0, mastered = 0;
-    (deck.cards || []).forEach(card => {
+    toArray(deck?.cards).forEach(card => {
       total++;
       if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 21) mastered++;
     });
@@ -884,12 +885,12 @@ export function getFlashcardImmunity(decks = []) {
 }
 
 export function getFlashcardTotalCards(decks = []) {
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
-  return decksArray.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
+  const decksArray = toArray(decks);
+  return decksArray.reduce((sum, d) => sum + toArray(d?.cards).length, 0);
 }
 
 export function getFlashcardDeckCount(decks = []) {
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  const decksArray = toArray(decks);
   return decksArray.length;
 }
 
@@ -899,10 +900,10 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
     const todayKey = getFlashcardTodayKey();
     const counts = {};
 
-    const safeDecks = Array.isArray(decks) ? decks : Object.values(decks || {});
+    const safeDecks = toArray(decks);
 
     safeDecks.forEach(deck => {
-        (deck.cards || []).forEach(card => {
+        toArray(deck?.cards).forEach(card => {
             let dueKey = card && card.due ? String(card.due) : todayKey;
             if (!/^\d{4}-\d{2}-\d{2}$/.test(dueKey)) {
                 dueKey = todayKey;

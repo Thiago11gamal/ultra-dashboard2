@@ -199,9 +199,14 @@ export default function Login() {
                         </button>
                     </form>
 
-                    <div className="toggle-link" onClick={() => { setIsLogin(!isLogin); setError(''); }} suppressHydrationWarning>
+                    <button
+                        type="button"
+                        className="toggle-link w-full bg-transparent border-none cursor-pointer text-center"
+                        onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                        suppressHydrationWarning
+                    >
                         {isLogin ? 'Ainda não tem conta? Crie agora' : 'Já tem uma conta? Faça login'}
-                    </div>
+                    </button>
                 </div>
             </div>
         </div>

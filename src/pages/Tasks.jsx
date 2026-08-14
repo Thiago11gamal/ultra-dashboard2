@@ -12,14 +12,18 @@ import ConfirmModal from '../components/ConfirmModal';
 
 export default function Tasks() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const categories = useAppStore(useShallow(state => {
+  const rawCategories = useAppStore(useShallow(state => {
     const activeContest = state.appState?.contests?.[state.appState?.activeId];
-    const raw = activeContest?.categories || [];
-    return Array.isArray(raw) ? raw : Object.values(raw || {});
-  })).map(c => ({
-    ...c,
-    tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
+    return activeContest?.categories || [];
   }));
+
+  const categories = React.useMemo(() => {
+    const list = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
+    return list.map(c => ({
+      ...c,
+      tasks: Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {})
+    }));
+  }, [rawCategories]);
   
   const resetSimuladoStats = useAppStore(state => state.resetSimuladoStats);
   const showToast = useToast();

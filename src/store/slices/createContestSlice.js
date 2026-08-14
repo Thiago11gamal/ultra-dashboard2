@@ -95,4 +95,15 @@ export const createContestSlice = (set) => ({
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
     }),
+
+    renameContest: (contestId, newName) => set((state) => {
+        const id = contestId || state.appState.activeId;
+        const contest = state.appState.contests[id];
+        const trimmed = typeof newName === 'string' ? newName.trim() : '';
+        if (!contest || !trimmed) return;
+        contest.contestName = trimmed;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        localStorage.setItem('ultra-sync-dirty', 'true');
+    }),
 });

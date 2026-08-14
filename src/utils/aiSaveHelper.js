@@ -170,10 +170,11 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         }
 
         const statsResult = computeCategoryStats(history, cat.weight || 1, 60, catMaxScore);
+        const todayEntry = history.find(h => h.date === todayKey);
 
         cat.simuladoStats.average = statsResult ? Number((statsResult.mean || 0).toFixed(2)) : 0;
         cat.simuladoStats.trend = statsResult?.trend || 'stable';
-        cat.simuladoStats.lastAttempt = total > 0 ? (correct / total) * catMaxScore : 0;
+        cat.simuladoStats.lastAttempt = todayEntry ? Number(todayEntry.score || 0) : (total > 0 ? (correct / total) * catMaxScore : 0);
         cat.simuladoStats.level = statsResult?.level || 'BAIXO';
       }
     }

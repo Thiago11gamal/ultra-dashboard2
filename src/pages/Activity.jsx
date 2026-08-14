@@ -1,11 +1,12 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState } from 'react';
-import { CalendarDays, RotateCcw, X, Trophy, Target, BookOpen } from 'lucide-react';
+import { CalendarDays, RotateCcw, Trophy, Target, BookOpen } from 'lucide-react';
 import { StreakDisplay, XPHistory, AchievementsGrid } from '../components/GamificationComponents';
 import ActivityHeatmap from '../components/ActivityHeatmap';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 import { buildAchievementStats } from '../utils/analytics';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Activity() {
     const data = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
@@ -36,57 +37,16 @@ export default function Activity() {
 
     return (<PageErrorBoundary pageName="Heatmap">
         <div className="space-y-8 animate-fade-in pb-10">
-            {/* Modal de Reset Premium */}
-            {showResetModal && (
-                <div 
-                    className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="reset-modal-title"
-                >
-                    <div
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Fechar modal"
-                        className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity cursor-pointer"
-                        onClick={() => setShowResetModal(false)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowResetModal(false); }}
-                    />
-                    <div className="relative bg-slate-900 border border-red-500/20 rounded-3xl p-8 w-full max-w-md shadow-2xl shadow-red-900/20 animate-fade-in">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500 rounded-t-3xl" />
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 id="reset-modal-title" className="text-xl font-bold text-white flex items-center gap-2">
-                                <RotateCcw size={20} className="text-red-400" />
-                                Resetar Dados Gamificados
-                            </h3>
-                            <button
-                                onClick={() => setShowResetModal(false)}
-                                className="p-2 hover:bg-white/5 rounded-full transition-colors"
-                            >
-                                <X size={20} className="text-slate-400 hover:text-white" />
-                            </button>
-                        </div>
-                        <p className="text-slate-300 mb-8 leading-relaxed">
-                            Atenção: Isto vai apagar todo o seu <strong className="text-amber-400">XP e Nível atual</strong>.
-                            Suas tarefas e histórico de estudos continuarão intactos.
-                        </p>
-                        <div className="flex gap-4">
-                            <button
-                                className="flex-1 py-3 bg-transparent border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors rounded-xl font-semibold"
-                                onClick={() => setShowResetModal(false)}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                className="flex-1 py-3 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white transition-all rounded-xl font-bold shadow-lg shadow-red-500/10"
-                                onClick={handleResetXP}
-                            >
-                                Confirmar Reset
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmModal
+                isOpen={showResetModal}
+                onClose={() => setShowResetModal(false)}
+                onConfirm={handleResetXP}
+                title="Resetar Dados Gamificados"
+                message="Atenção: Isto vai apagar todo o seu XP e Nível atual. Suas tarefas e histórico de estudos continuarão intactos."
+                confirmText="Confirmar Reset"
+                type="danger"
+                icon={RotateCcw}
+            />
 
             {/* Cabeçalho Premium */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 bg-slate-900/30 p-6 rounded-3xl border border-white/5 backdrop-blur-sm">

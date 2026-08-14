@@ -45,7 +45,7 @@ const Header = React.memo(function Header({
     user = { name: 'Visitante', avatar: '👤', xp: 0, level: 1 },
     onUpdateName,
     onUndo,
-    cloudStatus = { connected: false, syncing: false },
+    cloudStatus = { status: 'idle', syncing: false },
     onToggleSidebar,
     sidebarCollapsed,
     setSidebarCollapsed

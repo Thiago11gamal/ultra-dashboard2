@@ -305,10 +305,8 @@ export default function OnboardingTour() {
     const lastSeenTourDate = useAppStore(state => state.appState.lastSeenTourDate);
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
 
-    const today = new Date().toDateString();
-    
-    // Mostra o tutorial se o usuario nunca tiver visto OU se viu em um dia diferente de hoje
-    const shouldShowTour = !hasSeenTour || lastSeenTourDate !== today;
+    // Mostra o tutorial se o usuário nunca tiver visto ou se resetar explicitamente
+    const shouldShowTour = !hasSeenTour;
 
     const handleJoyrideCallback = useCallback((data) => {
         const { status, type, action } = data;

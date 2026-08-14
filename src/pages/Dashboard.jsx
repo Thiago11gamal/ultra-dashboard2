@@ -198,6 +198,7 @@ export default function Dashboard() {
                         onAddTask={addTask}
                         onTogglePriority={togglePriority}
                         onPlayContext={handleStartStudying}
+                        showSimuladoStats
                         filter={filter}
                         setFilter={setDashboardFilter}
                         contests={contests}

@@ -16,10 +16,11 @@ import {
 } from 'lucide-react';
 import PromptModal from './PromptModal';
 import CategoryEditor from './CategoryEditor';
-import { formatDuration } from '../utils/dateHelper';
+import ConfirmModal from './ConfirmModal';
 import { formatMinutes } from '../utils/format';
 import { toArray } from '../utils/normalize';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
+import { getContestDisplayName } from './sidebarUtils';
 
 const priorityColors = {
     high: {
@@ -57,69 +58,7 @@ const getHistoryDateLabel = (h) => {
     }
 };
 
-const ConfirmModal = ({
-    isOpen,
-    onClose,
-    onConfirm,
-    title,
-    message,
-    confirmLabel = 'Excluir'
-}) => {
-    const modalRef = useRef(null);
-    useModalAccessibility(isOpen, onClose, modalRef);
 
-    if (!isOpen) return null;
-    if (typeof document === 'undefined') return null;
-
-    return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div
-                className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            <div
-                ref={modalRef}
-                role="dialog"
-                aria-modal="true"
-                aria-label={title}
-                className="bg-slate-900 border border-red-500/50 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 p-6 flex flex-col items-center text-center"
-            >
-                <Trash2 size={48} className="text-red-500 mb-4 p-2 bg-red-500/10 rounded-full" />
-
-                <h3 className="text-xl font-bold text-white mb-2">
-                    {title}
-                </h3>
-
-                <p className="text-sm text-slate-400 mb-6">
-                    {message}
-                </p>
-
-                <div className="flex gap-3 w-full">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-400 bg-slate-800 border border-slate-700 hover:text-white transition-colors"
-                    >
-                        Cancelar
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => {
-                            onConfirm();
-                            onClose();
-                        }}
-                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20"
-                    >
-                        {confirmLabel}
-                    </button>
-                </div>
-            </div>
-        </div>,
-        document.body
-    );
-};
 
 const PerformancePanel = ({ stats, color }) => {
     if (!stats) return null;
@@ -565,7 +504,7 @@ const CategoryAccordion = React.memo(({
                 onConfirm={() => onDeleteCategory(category.id)}
                 title="Excluir Disciplina?"
                 message={`Tem certeza que deseja excluir ${category.name || 'esta disciplina'} e todas as suas tarefas? Esta ação não pode ser desfeita.`}
-                confirmLabel="Excluir"
+                confirmText="Excluir"
             />
 
             <ConfirmModal
@@ -578,7 +517,7 @@ const CategoryAccordion = React.memo(({
                 }}
                 title="Excluir Assunto?"
                 message={`Tem certeza que deseja excluir ${taskToDelete?.title || taskToDelete?.text || 'este assunto'}? Esta ação não pode ser desfeita.`}
-                confirmLabel="Excluir"
+                confirmText="Excluir"
             />
 
             <CategoryEditor
@@ -857,7 +796,7 @@ function Checklist({
 
                                             return (
                                                 <option key={id} value={id}>
-                                                    {contest.contestName || contest.user?.name || 'Sem Nome'}
+                                                    {getContestDisplayName(contest, 'Concurso sem nome')}
                                                 </option>
                                             );
                                         })}

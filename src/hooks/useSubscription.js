@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db, isLocalMode } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
@@ -28,6 +28,7 @@ export function useSubscription(user) {
 
     const [isPremium, setIsPremium] = useState(shouldBypassBilling);
     const [loading, setLoading] = useState(!shouldBypassBilling);
+    const fallbackUnsubRef = useRef(null);
 
     useEffect(() => {
         if (shouldBypassBilling || !user?.uid || !db) return;
@@ -35,8 +36,10 @@ export function useSubscription(user) {
         const paymentsRef = collection(db, 'customers', user.uid, 'payments');
         const q = query(paymentsRef, where('status', '==', 'succeeded'));
 
-        let unsubscribeFallback = null;
+        let isMounted = true;
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            if (!isMounted) return;
             if (snapshot.empty) {
                 setIsPremium(false);
                 setLoading(false);
@@ -54,11 +57,13 @@ export function useSubscription(user) {
             setIsPremium(hasValidPayment);
             setLoading(false);
         }, (error) => {
+            if (!isMounted) return;
             console.error('[Stripe] Erro ao buscar pagamentos:', error);
 
             if (error?.code === 'permission-denied') {
                 const userRef = doc(db, 'users', user.uid);
-                unsubscribeFallback = onSnapshot(userRef, (userDoc) => {
+                fallbackUnsubRef.current = onSnapshot(userRef, (userDoc) => {
+                    if (!isMounted) return;
                     const profile = userDoc.exists() ? userDoc.data() : {};
                     const premiumFromProfile = Boolean(
                         profile?.isPremium
@@ -68,6 +73,7 @@ export function useSubscription(user) {
                     setIsPremium(premiumFromProfile);
                     setLoading(false);
                 }, (profileErr) => {
+                    if (!isMounted) return;
                     console.error('[Stripe] Falha no fallback de perfil:', profileErr);
                     setIsPremium(false);
                     setLoading(false);
@@ -80,8 +86,12 @@ export function useSubscription(user) {
         });
 
         return () => {
+            isMounted = false;
             unsubscribe();
-            if (unsubscribeFallback) unsubscribeFallback();
+            if (fallbackUnsubRef.current) {
+                fallbackUnsubRef.current();
+                fallbackUnsubRef.current = null;
+            }
         };
     }, [shouldBypassBilling, user?.uid]);
 

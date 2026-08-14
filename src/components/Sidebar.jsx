@@ -46,6 +46,7 @@ const SECTIONS = [
             { path: '/stats', label: 'Estatísticas', icon: BarChart3, color: '#818cf8' },
             { path: '/evolution', label: 'Evolução', icon: TrendingUp, color: '#f472b6' },
             { path: '/heatmap', label: 'Atividade', icon: CalendarDays, color: '#2dd4bf' },
+            { path: '/history', label: 'Histórico', icon: History, color: '#94a3b8' },
             { path: '/retention', label: 'Retenção', icon: Brain, color: '#a78bfa' },
             { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit, color: '#60a5fa' },
         ]
@@ -85,6 +86,7 @@ const Sidebar = React.memo(function Sidebar({
     const [contestsExpanded, setContestsExpanded] = React.useState(false);
     const [settingsExpanded, setSettingsExpanded] = React.useState(false);
     const [contestToDelete, setContestToDelete] = React.useState(null);
+    const [showResetConfirm, setShowResetConfirm] = React.useState(false);
     const contestEntries = React.useMemo(() => Object.entries(contests || {}), [contests]);
     const isSingleContest = contestEntries.length <= 1;
     const sidebarRef = React.useRef(null);
@@ -221,11 +223,13 @@ const Sidebar = React.memo(function Sidebar({
                             <span className={`text-xs transition-transform ${contestsExpanded ? 'rotate-180' : ''} text-slate-400`}>▼</span>
                         </button>
 
-                        <div id="sidebar-contests-panel" inert={(!contestsExpanded || collapsed) ? true : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div id="sidebar-contests-panel" inert={(!contestsExpanded || collapsed) ? "" : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="nested-container space-y-1">
                                 {contestEntries.map(([id, contestData]) => {
-                                    // FIX: Previne explicitamente que 'contestData.user.name' substitua o nome do próprio painel
-                                    const name = contestData?.contestName || contestData?.title || getContestDisplayName(contestData) || "Meu Painel";
+                                    // BUG-03 FIX: contestData is a string from contestsMetaSelector, use directly
+                                    const name = (typeof contestData === 'string' && contestData.trim())
+                                        ? contestData
+                                        : getContestDisplayName(contestData) || "Meu Painel";
                                     const isActive = id === activeContestId;
                                     return (
                                         <div
@@ -346,7 +350,7 @@ const Sidebar = React.memo(function Sidebar({
                                 <span className="font-semibold text-sm">Configurações</span>
                             </button>
 
-                            <div id="sidebar-settings-panel" inert={(!settingsExpanded || collapsed) ? true : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div id="sidebar-settings-panel" inert={(!settingsExpanded || collapsed) ? "" : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
                                     <button
                                         type="button"
@@ -391,31 +395,9 @@ const Sidebar = React.memo(function Sidebar({
 
                                     <button
                                         type="button"
-                                        className="sidebar-item !py-1.5 hover:!bg-indigo-500/10 text-indigo-300"
-                                        onClick={() => {
-                                            useAppStore.getState().setHasSeenTour(false);
-                                            closeMobileSidebar();
-                                        }}
-                                        style={{ '--item-color': '#818cf8' }}
-                                        title="Reiniciar Tutorial"
-                                    >
-                                        <Sparkles size={13} />
-                                        <span className="text-[0.78rem]">Reiniciar Tutorial</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
                                         className="sidebar-item !py-1.5 hover:!bg-red-500/20 text-red-400 font-bold"
-                                        onClick={async () => {
-                                            if (window.confirm('CUIDADO: Isso vai APAGAR TODOS os seus dados locais e na nuvem. Tem certeza absoluta?')) {
-                                                const { INITIAL_DATA } = await import('../data/initialData.js');
-                                                useAppStore.getState().setAppState({ 
-                                                    contests: { 'default': JSON.parse(JSON.stringify(INITIAL_DATA)) }, 
-                                                    activeId: 'default', 
-                                                    trash: [] 
-                                                });
-                                                alert('Conta zerada com sucesso!');
-                                            }
+                                        onClick={() => {
+                                            setShowResetConfirm(true);
                                         }}
                                         style={{ '--item-color': '#ef4444' }}
                                         title="Zerar a Conta Toda"
@@ -464,6 +446,29 @@ const Sidebar = React.memo(function Sidebar({
                 confirmText="Sair da Conta"
                 type="danger"
                 icon={LogOut}
+            />
+
+            <ConfirmModal
+                isOpen={showResetConfirm}
+                onClose={() => setShowResetConfirm(false)}
+                onConfirm={async () => {
+                    try {
+                        const { INITIAL_DATA } = await import('../data/initialData.js');
+                        useAppStore.getState().setAppState({
+                            contests: { 'default': JSON.parse(JSON.stringify(INITIAL_DATA)) },
+                            activeId: 'default',
+                            trash: []
+                        });
+                        setShowResetConfirm(false);
+                    } catch (err) {
+                        console.error('Erro ao zerar conta:', err);
+                    }
+                }}
+                title="Zerar Conta Completa"
+                message="CUIDADO: Isso vai APAGAR TODOS os seus dados locais e na nuvem. Tem certeza absoluta? Esta ação não pode ser desfeita."
+                confirmText="Zerar Tudo"
+                type="danger"
+                icon={Trash2}
             />
         </>
     );

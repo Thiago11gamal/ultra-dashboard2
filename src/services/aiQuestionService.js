@@ -77,7 +77,17 @@ Requisitos obrigatórios:
 
   let questions;
   try {
-    questions = JSON.parse(text);
+    let cleanText = text.trim();
+    // Remove markdown code blocks if present
+    if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    }
+    const firstBracket = cleanText.indexOf('[');
+    const lastBracket = cleanText.lastIndexOf(']');
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      cleanText = cleanText.substring(firstBracket, lastBracket + 1);
+    }
+    questions = JSON.parse(cleanText);
   } catch (e) {
     throw new Error('Não foi possível interpretar a resposta JSON gerada pela IA.');
   }

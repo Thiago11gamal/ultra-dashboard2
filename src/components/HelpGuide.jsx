@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { HelpCircle, X, ChevronDown, ChevronUp, Gauge, BarChart3, Target, Brain, Calendar, Clock, Zap, TrendingUp, Trophy, Flame } from 'lucide-react';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 const helpSections = [
     {
@@ -211,19 +213,23 @@ Level 1: Mestre Aprovado (9000+ XP)`,
 
 export default function HelpGuide({ isOpen, onClose }) {
     const [expandedSection, setExpandedSection] = useState(null);
+    const modalRef = useRef(null);
 
-    if (!isOpen) return null;
+    useModalAccessibility(isOpen, onClose, modalRef);
 
-    return (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+    if (!isOpen || typeof document === 'undefined') return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="help-guide-title">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm"
                 onClick={onClose}
+                aria-hidden="true"
             />
 
             {/* Modal */}
-            <div className="relative bg-slate-900 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl animate-fade-in">
+            <div ref={modalRef} tabIndex={-1} className="relative bg-slate-900 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl animate-fade-in outline-none">
                 {/* Header */}
                 <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm border-b border-white/10 p-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -231,13 +237,14 @@ export default function HelpGuide({ isOpen, onClose }) {
                             <HelpCircle size={24} className="text-purple-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-white">Guia do Dashboard</h2>
+                            <h2 id="help-guide-title" className="text-xl font-bold text-white">Guia do Dashboard</h2>
                             <p className="text-xs text-slate-400">Explicação detalhada de cada painel</p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
                         className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        aria-label="Fechar guia"
                     >
                         <X size={20} className="text-slate-400" />
                     </button>
@@ -316,6 +323,7 @@ export default function HelpGuide({ isOpen, onClose }) {
                     ))}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

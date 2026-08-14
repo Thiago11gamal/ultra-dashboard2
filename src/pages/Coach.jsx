@@ -70,7 +70,7 @@ function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
   // FIX: string vazia ('') não é mais interpretada como meta 0
   if (user?.targetScore != null && user.targetScore !== '' && Number.isFinite(Number(user.targetScore))) {
     let ts = Number(user.targetScore);
-    if (ts > safeMax && ts <= 100) {
+    if (ts <= 100 && safeMax !== 100) {
       ts = (ts / 100) * safeMax;
     }
     return clamp(ts);

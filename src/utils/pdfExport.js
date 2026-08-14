@@ -49,7 +49,6 @@ export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf'
         
     } catch (e) {
         console.error('Erro Crítico ao gerar PDF (pdfExport via html-to-image):', e);
-        alert('Falha interna ao gerar o PDF. Verifique o console (' + e.message + ')');
         return false;
     } finally {
         setTimeout(() => {
