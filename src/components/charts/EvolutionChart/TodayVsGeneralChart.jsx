@@ -61,7 +61,9 @@ const CustomTooltipPie = ({ active, payload, unit }) => {
 };
 
 export function TodayVsGeneralChart({ 
-    activeCategories = [], 
+    activeCategories: propActiveCategories, 
+    categories = [],
+    focusCategory = null,
     globalMetrics = {}, 
     targetScore = 80,
     maxScore = 100, 
@@ -69,6 +71,13 @@ export function TodayVsGeneralChart({
     unit = '%',
     simuladoRows = []
  }) {
+    const rawCategories = propActiveCategories || categories;
+    const activeCategories = useMemo(() => {
+        if (focusCategory) return [focusCategory];
+        if (Array.isArray(rawCategories)) return rawCategories.filter(Boolean);
+        if (rawCategories && typeof rawCategories === 'object') return Object.values(rawCategories).filter(Boolean);
+        return [];
+    }, [rawCategories, focusCategory]);
     const generalAccuracy = useMemo(() => {
         const pct = Number(globalMetrics?.globalAccuracy);
         const safePct = Number.isFinite(pct) ? pct : 0;
@@ -107,12 +116,16 @@ export function TodayVsGeneralChart({
                 let corr = Number(h.correct) || 0;
                 const rawScore = getSafeScore(h, safeMaxScore);
                 const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
-                if (tot === 0 && h.score != null) {
+                if (h.isPercentage) {
+                  if (tot === 0) tot = getSyntheticTotal(safeMaxScore);
+                  corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
+                } else if (tot === 0 && h.score != null) {
                   tot = getSyntheticTotal(safeMaxScore);
                   corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
                 } else if (tot > 0 && h.correct == null) {
                   corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
                 }
+                corr = Math.max(0, Math.min(tot, corr));
                 dayMap[dKey].correct += corr;
                 dayMap[dKey].total += tot;
             });
@@ -155,12 +168,16 @@ export function TodayVsGeneralChart({
                 const hDateKey = getDateKey(h.date || h.createdAt);
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
-                if (tot === 0 && h.score != null) {
+                if (h.isPercentage) {
+                    if (tot === 0) tot = getSyntheticTotal(safeMaxScore);
+                    corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
+                } else if (tot === 0 && h.score != null) {
                     tot = getSyntheticTotal(safeMaxScore);
                     corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
                 } else if (tot > 0 && h.correct == null) {
                     corr = Math.round(pointsToRatio(score, safeMaxScore, safeMinScore) * tot);
                 }
+                corr = Math.max(0, Math.min(tot, corr));
                 if (tot === 0) return;
                 if (hDateKey === todayKey) { buckets.today.correct += corr; buckets.today.total += tot; }
                 if (now - time <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
@@ -376,7 +393,7 @@ export function TodayVsGeneralChart({
                              <Minus size={14} />}
                             <div className="flex flex-col">
                                 <span className="text-xs font-black">
-                                    {deltaLastVsToday > 0 ? '+' : ''}{safeFix(Math.abs(deltaLastVsToday))}{unit}
+                                    {deltaLastVsToday > 0 ? '+' : deltaLastVsToday < 0 ? '−' : ''}{safeFix(Math.abs(deltaLastVsToday))}{unit}
                                 </span>
                                 <span className="text-[7px] uppercase tracking-wider opacity-70">Ritmo (Hoje)</span>
                             </div>

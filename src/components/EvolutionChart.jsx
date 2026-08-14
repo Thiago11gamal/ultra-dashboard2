@@ -388,8 +388,6 @@ export default React.memo(function EvolutionChart({
             }
         }
 
-        const withFuture = result.length > 0 ? [...result, ...future] : result;
-
         const primaryKey =
             activeEngine === "compare"
                 ? "Nível Bayesiano"
@@ -401,7 +399,8 @@ export default React.memo(function EvolutionChart({
                             ? focusCategory?.id ? `stats_${focusCategory.id}` : null
                             : focusCategory?.id ? `bay_${focusCategory.id}` : null;
 
-        return downsampleLTTB(withFuture, 150, "date", primaryKey || "date");
+        const sampledHistorical = downsampleLTTB(result, 150, "date", primaryKey || "date");
+        return future.length > 0 ? [...sampledHistorical, ...future] : sampledHistorical;
     }, [chartData, timeWindow, activeEngine, focusCategory?.id]);
 
     const radarData = useMemo(() => {
@@ -760,6 +759,8 @@ export default React.memo(function EvolutionChart({
                                 <div className="h-[280px] w-full mb-2">
                                     <GaussianPlot
                                         mean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? 0}
+                                        projectedMean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? 0}
+                                        currentMean={categoryLevels[focusCategory?.id]}
                                         sd={activeMcResult?.sd ?? 0}
                                         sdLeft={activeMcResult?.sdLeft ?? activeMcResult?.sd ?? 0}
                                         sdRight={activeMcResult?.sdRight ?? activeMcResult?.sd ?? 0}

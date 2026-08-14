@@ -49,8 +49,8 @@ export default function Evolution() {
   // ✅ FIX: Converter targetProbability (percentual) para pontos na escala da prova
   const targetScorePoints = React.useMemo(() => {
     const safeMax = Math.max(1, Number(maxScore) || 100);
-    const safeMin = Math.max(0, Math.min(Number(minScore) || 0, safeMax));
-    const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number(value) || 0));
+    const safeMin = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMax) : 0;
+    const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number.isFinite(Number(value)) ? Number(value) : safeMin));
     
     // 1) Se existir targetScore explícito, ele é a meta em pontos
     if (user?.targetScore != null && Number.isFinite(Number(user.targetScore))) {

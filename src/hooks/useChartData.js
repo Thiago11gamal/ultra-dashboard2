@@ -265,7 +265,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             });
         });
         const sortedDates = Array.from(allDatesSet).sort();
-        const datesToUse = sortedDates.slice(-60);
+        const datesToUse = sortedDates;
         const dates = datesToUse.map(dateStr => {
             const d = normalizeDate(dateStr);
             const [, m, day] = dateStr.split('-');

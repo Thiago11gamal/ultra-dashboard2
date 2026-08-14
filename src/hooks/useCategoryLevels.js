@@ -19,9 +19,9 @@ export function useCategoryLevels(categories, timeline, activeEngine, maxScore =
       }
       const historyRaw = cat.simuladoStats?.history;
       const history = historyRaw ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw)) : [];
-      if (!history.length) { map[cat.id] = safeMin; return; }
-      const stats = computeCategoryStats(history, 100, 60, maxScore);
-      map[cat.id] = stats?.mean ?? safeMin;
+      const weight = Number(cat.weight) > 0 ? Number(cat.weight) : 10;
+      const stats = computeCategoryStats(history, weight, 60, maxScore);
+      map[cat.id] = (stats?.mean != null && Number.isFinite(stats.mean)) ? stats.mean : safeMin;
     });
     return map;
   }, [categories, timeline, activeEngine, maxScore, minScore]);

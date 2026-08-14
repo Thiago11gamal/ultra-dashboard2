@@ -42,8 +42,8 @@ const CustomActiveDot = (props) => {
  * focus highlighting, and adaptive label anti-collision.
  */
 export function EvolutionLineChart({
-    filteredChartData,
-    activeCategories,
+    filteredChartData = [],
+    activeCategories = [],
     engine,
     targetScore,
     focusSubjectId,
@@ -56,6 +56,10 @@ export function EvolutionLineChart({
     const shadowId = `el_lineShadow_${instanceId}`;
 
     const [highlightedDataKey, setHighlightedDataKey] = useState(null);
+    const isLineClicked = useRef(false);
+
+    const safeActiveCategories = Array.isArray(activeCategories) ? activeCategories : [];
+    const safeChartData = Array.isArray(filteredChartData) ? filteredChartData : [];
 
     const handleLegendClick = (e) => {
         if (e?.domEvent?.stopPropagation) {
@@ -78,10 +82,10 @@ export function EvolutionLineChart({
 
     // Refined chart data with defensive sorting and date normalization
     const enhancedChartData = React.useMemo(() => {
-        if (!filteredChartData || !filteredChartData.length) return [];
+        if (!safeChartData || !safeChartData.length) return [];
         
         // BUG-Z1 FIX: Defensive sort to prevent zig-zag lines if data is unordered
-        const sortedData = [...filteredChartData].sort((a, b) => {
+        const sortedData = [...safeChartData].sort((a, b) => {
             const dateA = a.date ? (normalizeDate(a.date)?.getTime() ?? 0) : 0;
             const dateB = b.date ? (normalizeDate(b.date)?.getTime() ?? 0) : 0;
             return dateA - dateB;
@@ -89,7 +93,7 @@ export function EvolutionLineChart({
 
         return sortedData.map(d => {
             const copy = { ...d };
-            activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+            safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
                 const low = d[`bay_ci_low_${cat.id}`];
                 const high = d[`bay_ci_high_${cat.id}`];
                 if (low != null && high != null) {
@@ -100,7 +104,7 @@ export function EvolutionLineChart({
             copy.displayDate = copy.displayDate || copy.date;
             return copy;
         });
-    }, [filteredChartData, activeCategories, showOnlyFocus, focusSubjectId]);
+    }, [safeChartData, safeActiveCategories, showOnlyFocus, focusSubjectId]);
 
     // Gather final points for label positioning
     const finalPoints = React.useMemo(() => {
@@ -108,7 +112,7 @@ export function EvolutionLineChart({
         const pts = [];
         const lastIndex = enhancedChartData.length - 1;
         
-        activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+        safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
             const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
             const lastVal = enhancedChartData[lastIndex]?.[dataKey];
             if (lastVal != null && Number.isFinite(Number(lastVal))) {
@@ -255,7 +259,7 @@ export function EvolutionLineChart({
                     }}
                 >
                     <defs>
-                        {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
+                        {safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
                             const displayColor = cat.color || '#3b82f6';
                             return (
                             <React.Fragment key={`defs_${cat.id}`}>
@@ -329,7 +333,7 @@ export function EvolutionLineChart({
                         wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px', cursor: 'pointer' }} 
                     />
 
-                    {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
+                    {safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
                         const lineType = engine?.style || 'linear';
                         // Determine focus state based on category ID rather than dataKey to survive engine changes

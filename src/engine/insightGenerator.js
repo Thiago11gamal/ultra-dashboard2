@@ -152,6 +152,54 @@ export function generateEvolutionInsights({
         };
     }
 
+    // Lógica de Alertas de Burnout de Alta Prioridade
+    const safeRaw = safeFinite(raw, NaN);
+    const safeBayesianFallback = safeFinite(bayesian, NaN);
+
+    if (Number.isFinite(safeRaw) && Number.isFinite(safeBayesianFallback)) {
+        const nowMs = new Date().getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+        const history = toHistoryArray(focusCategory.simuladoStats?.history);
+
+        const recentVolumeAlert = history
+            .filter(h => {
+                const d = toDateMs(h?.date);
+                return Number.isFinite(d) && (nowMs - d) >= 0 && (nowMs - d) <= sevenDaysMs;
+            })
+            .reduce((sum, h) => {
+                const parsedTotal = parseInt(h?.total, 10);
+                const fallbackTotal = h?.score != null ? getSyntheticTotal(maxScore) : 0;
+                const safeTotal = Number.isFinite(parsedTotal) && parsedTotal > 0
+                    ? parsedTotal
+                    : fallbackTotal;
+
+                return sum + Math.max(0, safeFinite(safeTotal, 0));
+            }, 0);
+
+        if (recentVolumeAlert > 40 && safeRaw < safeBayesianFallback - 10 * scale) {
+            return {
+                type: 'danger',
+                icon: "🚨",
+                title: "!!Alerta de Burnout!!",
+                text: `Volume alto (${recentVolumeAlert}q em 7 dias), com nota em !!queda!!.`,
+                details: `Nota recente (${safeRaw.toFixed(1)}${unit}) está abaixo do seu nível bayesiano (${safeBayesianFallback.toFixed(1)}${unit}).`,
+                advice: "Dê um passo atrás, reduza o volume de simulados e recupere o foco."
+            };
+        }
+
+        if (safeRaw > safeBayesianFallback + 8 * scale) {
+            return {
+                type: 'success',
+                icon: "💡",
+                title: "++Conhecimento Consolidado++",
+                text: `Desempenho recente (${safeRaw.toFixed(1)}${unit}) ++muito acima da média++.`,
+                details: `Superando o nível bayesiano projetado (${safeBayesianFallback.toFixed(1)}${unit}).`,
+                advice: "O conhecimento assentou de vez. Pronto para aumentar a dificuldade."
+            };
+        }
+    }
+
     // Lógica da Realidade Bruta (Raw)
     if (activeEngine === "raw") {
         if (raw == null) return { type: 'info', icon: "📊", title: "Realidade Bruta", text: "Aguardando dados..." };
@@ -201,85 +249,93 @@ export function generateEvolutionInsights({
             type: 'info',
             icon: "📐",
             title: "Média Histórica Global",
-            text: `Sua média histórica é ${statsVal.toFixed(1)}${unit}.`,
+            text: `Sua média histórica acumulada é ${statsVal.toFixed(1)}${unit}.`,
             advice: "Lembre-se que a média demora a refletir seu conhecimento recente."
         };
     }
 
     // Lógica Raio-X + Monte Carlo (Compare)
     if (activeEngine === "compare") {
-        return { type: 'info', icon: "⚡", title: "Projeção Monte Carlo", text: "Visualizando simulações estatísticas futuras.", advice: "Use esta projeção para saber se está na rota da aprovação." };
+        const bayVal = safeFinite(bayesian, null);
+        const textMsg = bayVal != null 
+            ? `Nível Bayesiano: ${bayVal.toFixed(1)}${unit} com projeção estatística ativa.` 
+            : "Visualizando simulações estatísticas futuras.";
+        return { 
+            type: 'info', 
+            icon: "⚡", 
+            title: "Projeção Monte Carlo & Raio-X", 
+            text: textMsg, 
+            details: "O cone roxo projeta sua faixa provável de aprovação até a data do exame.",
+            advice: "Use esta projeção para saber se sua curva está no rumo da aprovação." 
+        };
     }
 
     // Lógica Raio-X de Assuntos (Subtopics)
     if (activeEngine === "subtopics") {
-        return { type: 'info', icon: "🔬", title: "Auditoria de Assuntos", text: "Navegando nos subtópicos da matéria.", advice: "Ataque os !!blocos vermelhos!! para subir seu percentual rapidamente." };
+        return { 
+            type: 'info', 
+            icon: "🔬", 
+            title: "Auditoria de Assuntos", 
+            text: `Navegando nos subtópicos de ${focusCategory.name}.`, 
+            details: "Identifique exatamente quais tópicos concentram a maior perda de pontos.",
+            advice: "Ataque os !!blocos vermelhos!! para subir seu percentual rapidamente." 
+        };
     }
 
     // Lógica Densidade MC (mc_density)
     if (activeEngine === "mc_density") {
-        return { type: 'info', icon: "📉", title: "Densidade de Convergência", text: "Histórico das suas projeções Monte Carlo.", advice: "Se a linha estiver ++subindo++, você está matematicamente mais próximo da aprovação." };
+        const ciLow = safeFinite(lastPoint[`bay_ci_low_${focusCategory.id}`], NaN);
+        const ciHigh = safeFinite(lastPoint[`bay_ci_high_${focusCategory.id}`], NaN);
+        const ciWidth = (Number.isFinite(ciHigh) && Number.isFinite(ciLow)) ? (ciHigh - ciLow) : null;
+        return { 
+            type: 'info', 
+            icon: "📉", 
+            title: "Densidade de Convergência", 
+            text: ciWidth != null ? `Faixa de incerteza atual: ±${(ciWidth / 2).toFixed(1)}${unit}.` : "Histórico das suas projeções Monte Carlo.", 
+            details: "Mostra como a margem de erro e a precisão do algoritmo evoluíram com seus simulados.",
+            advice: "Se a linha estiver ++subindo++, você está matematicamente mais próximo da aprovação." 
+        };
     }
 
     // Lógica Semanal (weekly_diff)
     if (activeEngine === "weekly_diff") {
-        return { type: 'info', icon: "📆", title: "Acelerômetro Semanal", text: "Tração do seu estudo na última semana.", advice: "Monitore semanas !!negativas!! para evitar a !!curva do esquecimento!!." };
+        return { 
+            type: 'info', 
+            icon: "📆", 
+            title: "Acelerômetro Semanal", 
+            text: `Tração do estudo em ${focusCategory.name}.`, 
+            details: "Compara os ganhos e perdas percentuais semana a semana.",
+            advice: "Monitore semanas !!negativas!! para evitar a !!curva do esquecimento!!." 
+        };
     }
 
     // Lógica Hoje vs Geral (today_vs_general)
     if (activeEngine === "today_vs_general") {
-        return { type: 'info', icon: "⚖️", title: "Desempenho Diário", text: "Seu foco de hoje contra sua média.", advice: "Use isso para calibrar o esforço de hoje." };
+        const statsVal = safeFinite(getLastValid(`stats_${focusCategory.id}`), NaN);
+        const diff = (Number.isFinite(safeRaw) && Number.isFinite(statsVal)) ? (safeRaw - statsVal) : null;
+        const diffText = diff != null 
+            ? `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}${unit} vs média histórica.` 
+            : "Seu foco de hoje contra sua média.";
+        return { 
+            type: diff != null && diff >= 0 ? 'success' : 'info', 
+            icon: "⚖️", 
+            title: "Desempenho Diário", 
+            text: diffText, 
+            details: `Último simulado: ${Number.isFinite(safeRaw) ? safeRaw.toFixed(1) + unit : '—'}.`,
+            advice: "Use o ritmo de hoje para calibrar o volume das próximas sessões." 
+        };
     }
 
     // Lógica Agilidade AI (time_spent)
     if (activeEngine === "time_spent") {
-        return { type: 'info', icon: "⏳", title: "Velocidade de Resolução", text: "Mapeando gargalos de tempo.", advice: "Cuidado com matérias !!lentas!!, elas roubam preciosos minutos da prova." };
-    }
-
-    // Lógica de Alertas de Burnout e Consolidação (Fallback)
-    const safeRaw = safeFinite(raw, NaN);
-    const safeBayesianFallback = safeFinite(bayesian, NaN);
-
-    if (Number.isFinite(safeRaw) && Number.isFinite(safeBayesianFallback)) {
-        const nowMs = new Date().getTime();
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-
-        const history = toHistoryArray(focusCategory.simuladoStats?.history);
-
-        const recentVolumeAlert = history
-            .filter(h => {
-                const d = toDateMs(h?.date);
-                return Number.isFinite(d) && (nowMs - d) >= 0 && (nowMs - d) <= sevenDaysMs;
-            })
-            .reduce((sum, h) => {
-                const parsedTotal = parseInt(h?.total, 10);
-                const fallbackTotal = h?.score != null ? getSyntheticTotal(maxScore) : 0;
-                const safeTotal = Number.isFinite(parsedTotal) && parsedTotal > 0
-                    ? parsedTotal
-                    : fallbackTotal;
-
-                return sum + Math.max(0, safeFinite(safeTotal, 0));
-            }, 0);
-
-        if (recentVolumeAlert > 40 && safeRaw < safeBayesianFallback - 10 * scale) {
-            return {
-                type: 'danger',
-                icon: "🚨",
-                title: "!!Alerta de Burnout!!",
-                text: `Volume alto, nota em !!queda!!.`,
-                advice: "Dê um passo atrás e descanse."
-            };
-        }
-
-        if (safeRaw > safeBayesianFallback + 8 * scale) {
-            return {
-                type: 'success',
-                icon: "💡",
-                title: "++Conhecimento Consolidado++",
-                text: `Desempenho ++muito acima da média++.`,
-                advice: "O conhecimento assentou de vez."
-            };
-        }
+        return { 
+            type: 'info', 
+            icon: "⏳", 
+            title: "Velocidade de Resolução", 
+            text: `Mapeando velocidade média em ${focusCategory.name}.`, 
+            details: "Compara o tempo gasto por questão contra seu histórico geral.",
+            advice: "Cuidado com matérias !!lentas!!, elas roubam preciosos minutos da prova." 
+        };
     }
 
     return { type: 'info', icon: "✅", title: "++Rendimento de Mestre++", text: `Operando na zona de ++máxima eficiência++.`, advice: "Mantenha o ritmo." };
