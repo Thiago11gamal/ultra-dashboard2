@@ -50,7 +50,7 @@ import useIdleLogout from './hooks/useIdleLogout';
 
 import './components/Loading.css';
 
-const EMPTY_OBJECT = {};
+const EMPTY_OBJECT = Object.freeze({});
 
 function MainLayout() {
   const location = useLocation();

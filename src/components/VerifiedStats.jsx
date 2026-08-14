@@ -6,7 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
-import { getDateKey, normalizeDate } from '../utils/dateHelper';
+import { getDateKey, normalizeDate, APP_TIMEZONE } from '../utils/dateHelper';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
 import DueForecast from './DueForecast';
 
@@ -352,8 +352,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         // Ativa a trava: "Não aceite valores da Store até que eu termine de salvar"
         pendingLocalSave.current = true;
-        // BUG-06 FIX: Fail-safe timeout para evitar deadlock permanente se a rede falhar ou houver imprecisão
-        setTimeout(() => {
+        // Fail-safe timeout para evitar deadlock permanente se a rede falhar ou houver imprecisão
+        const safetyTimer = setTimeout(() => {
             pendingLocalSave.current = false;
         }, 3000);
 
@@ -369,14 +369,11 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     lastUpdated: new Date().toISOString()
                 };
             }, false); // don't record history for every debounced keystroke
-            
-            // REMOVEMOS o 'pendingLocalSave.current = false' daqui!
-            // A trava agora só abre no useEffect lá de cima, quando o dado voltar.
         }, 800);
 
         return () => {
             clearTimeout(timer);
-            // Deixe o safetyTimeout prosseguir e abrir o cadeado em caso de falha de rede
+            clearTimeout(safetyTimer);
         };
     }, [targetScore, setUserData, storeTarget]);
 
@@ -409,8 +406,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         // 0. Aggregate by Day
         const dailyMap = {};
-        // FIX 1.3: Hoisted Intl.DateTimeFormat fora do loop para evitar centenas de instâncias por render
-        const dayFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit' });
+        const dayFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: APP_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
         allHistory.forEach(h => {
             const parts = dayFormatter.format(new Date(h.date)).split('/');
             const dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -564,7 +560,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
                         const fmt = (d) => {
                             if (isNaN(d.getTime())) return "--/--";
-                            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Manaus' });
+                            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: APP_TIMEZONE });
                         };
 
                         prediction = `${fmt(dateMin)} — ${fmt(dateMax)}`;

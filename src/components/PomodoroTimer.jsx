@@ -18,6 +18,7 @@ import React, {
     useMemo,
     useRef
 } from 'react';
+import { flushSync } from 'react-dom';
 
 import {
     Play,
@@ -938,14 +939,6 @@ function PomodoroTimer({
 
     const reset = () => {
         if (isTransitioningRef.current) return;
-        if (alarmAudioRef.current) {
-            try {
-                alarmAudioRef.current.pause();
-                alarmAudioRef.current.currentTime = 0;
-            } catch (error) {
-                console.error('Failed to reset alarm audio:', error);
-            }
-        }
 
         const currentMode = stateRefs.current.mode;
         const currentSessions = stateRefs.current.sessions;
@@ -1097,7 +1090,13 @@ function PomodoroTimer({
 
     const handleManualExit = () => {
         if (activeSubject) {
-            flushPendingStudyTime();
+            try {
+                flushSync(() => {
+                    flushPendingStudyTime();
+                });
+            } catch {
+                flushPendingStudyTime();
+            }
         }
 
         safeOnExit({ forceDashboard: true, source: 'dashboard' });

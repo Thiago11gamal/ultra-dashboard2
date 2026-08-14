@@ -33,6 +33,22 @@ export function CompareChart({
     unit = '%'
 }) {
     const baseId = useId().replace(/:/g, '');
+    const containerRef = React.useRef(null);
+    const [containerHeight, setContainerHeight] = React.useState(360);
+
+    React.useEffect(() => {
+        if (!containerRef.current) return;
+        const el = containerRef.current;
+        const obs = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const h = entry.contentRect.height;
+                if (h > 50) setContainerHeight(h);
+            }
+        });
+        obs.observe(el);
+        return () => obs.disconnect();
+    }, []);
+
     const CC = React.useMemo(() => ({
         projectionPurpleGradient: `cc_projPurple-${baseId}`,
         cloudGradient: `cc_cloud-${baseId}`,
@@ -181,7 +197,7 @@ export function CompareChart({
         const formatted = (Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2) + unit;
         const boxWidth = Math.max(42, formatted.length * 7 + 14);
 
-        const chartHeight = viewBox?.height ?? 360;
+        const chartHeight = viewBox?.height ?? (containerHeight > 40 ? containerHeight - 40 : 360);
         const chartY = viewBox?.y ?? 20;
         const range = safeMaxScore - safeMinScore;
         const pxPerPct = chartHeight / (range || 1);
@@ -221,7 +237,7 @@ export function CompareChart({
     const animateSeries = false;
 
     return (
-        <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
+        <div ref={containerRef} className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
             <ChartFrame minHeight={360} label="Comparando evolução">
                 <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
                 {/* 🎯 FIX: right: 85 impede que as Labels cortem a borda direita na renderização do MC */}

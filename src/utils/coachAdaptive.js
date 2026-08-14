@@ -313,9 +313,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       const defaultHorizon = Math.min(dynamicHorizon, history.length - (cfg.MC_MIN_DATA_POINTS || 5));
       const horizon = isLowPerformance ? Math.min(3, defaultHorizon) : defaultHorizon;
       const brierScores = [];
-      // FIX F5: stride = lookAhead → janelas futuras disjuntas
       const lookAhead = Math.max(1, Math.min(3, horizon));
-      for (let i = 1; i <= horizon; i += lookAhead) {
+      for (let i = 1; i <= horizon; i += 1) {
         const train = history.slice(0, history.length - i);
         const observedRecord = history[history.length - i];
         const windowLen = Math.min(lookAhead, horizon - i + 1);

@@ -63,10 +63,6 @@ export function usePomodoroSync({
                     return;
                 }
 
-                if (taskId && !currentTaskId) {
-                    return;
-                }
-
                 if (
                     sessionInstanceId &&
                     currentSessionId &&

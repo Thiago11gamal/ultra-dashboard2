@@ -14,6 +14,7 @@ import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { useToast } from '../hooks/useToast';
 import { isSystemAlertTask, parseCoachTask, RX_BOLD } from '../utils/coachText';
+import { toFiniteNumber } from '../utils/coachSafe';
 // FIX-BUG-02: Regex com escape correto para **bold**
 function renderBoldText(text) {
 const safeText = String(text || '');
@@ -55,10 +56,10 @@ const systemAlertMessage = isSystemAlert ? (parsed.action || parsed.topic) : nul
 const displayAssunto = parsed.topic;
 const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
 const col = CARD_COLORS[idx % CARD_COLORS.length];
-const safeProbRaw = String(task.analysis?.monteCarlo?.probability ?? '')
-  .match(/-?\d+(\.\d+)?/)?.[0] ?? '';
-const safeProb = Number.isFinite(Number(safeProbRaw)) ? Number(safeProbRaw) : 0;
-const safeVol = Number(task.analysis?.monteCarlo?.volatility) || 0;
+const probRaw = task.analysis?.monteCarlo?.probability;
+const hasProb = probRaw !== null && probRaw !== undefined && probRaw !== '';
+const safeProb = hasProb ? toFiniteNumber(String(probRaw).match(/-?\d+(\.\d+)?/)?.[0], null) : null;
+const safeVol = toFiniteNumber(task.analysis?.monteCarlo?.volatility, 0);
 const safeMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
 const highVolThreshold = 8 * (safeMax / 100);
 const isHighVol = safeVol > highVolThreshold;
@@ -151,8 +152,9 @@ isPriority
 </>
 )}
 </div>
-{(task.analysis?.monteCarlo?.probability != null || safeVol > 0) && (
-<div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
+{(safeProb !== null || safeVol > 0) && (
+<div className={`relative z-10 grid ${safeProb !== null && safeVol > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-5`}>
+{safeProb !== null && (
 <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
 <div className="flex items-center justify-between z-10 relative">
 <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
@@ -162,6 +164,8 @@ isPriority
 <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, Math.max(0, safeProb))}%` }} />
 </div>
 </div>
+)}
+{safeVol > 0 && (
 <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
 <div className="flex items-center justify-between z-10 relative">
 <span className={`text-[9px] font-black tracking-widest uppercase ${isHighVol ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
@@ -170,11 +174,10 @@ isPriority
 </span>
 </div>
 <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-{/* LOTE 4 (FIX): escala da barra relativa ao maxScore (era fixa em 20 pts —
-com maxScore≠100 a barra contradizia o threshold de alta volatilidade) */}
 <div className={`h-full rounded-full transition-all duration-1000 ${isHighVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (safeVol / (0.2 * safeMax)) * 100))}%` }} />
 </div>
 </div>
+)}
 </div>
 )}
 {task.analysis && (

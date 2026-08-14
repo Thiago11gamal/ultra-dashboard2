@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
     ResponsiveContainer, PieChart, Pie, Cell, 
     ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
@@ -80,8 +80,18 @@ export function TodayVsGeneralChart({
     const scale = Math.max(1, Number(maxScore) || 100) / 100;
     const stabilityMargin = Math.max(1, ((Number(maxScore) || 100) - (Number(minScore) || 0)) * 0.02);
 
-    const [nowMs] = useState(() => Date.now());
-    const [todayKey] = useState(() => getDateKey(new Date()));
+    const [nowMs, setNowMs] = useState(() => Date.now());
+    const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
+
+    useEffect(() => {
+        const updateTime = () => {
+            const now = Date.now();
+            setNowMs(now);
+            setTodayKey(getDateKey(new Date(now)));
+        };
+        const interval = setInterval(updateTime, 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     const { dailyData, lastActiveEntry, isToday } = useMemo(() => {
         const dayMap = {};

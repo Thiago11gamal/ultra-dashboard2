@@ -4,8 +4,8 @@ import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE
 
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
-    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    const categoriesArray = Array.isArray(categories) ? categories : Object.values(categories || {});
+    const logsArray = useMemo(() => Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}), [studyLogs]);
+    const categoriesArray = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
 
     const { groups, stats } = useMemo(() => {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
@@ -142,8 +142,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         });
 
         return { groups: finalGroups, stats: { totalMinutes, totalSessions, topCategory } };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [logsArray, categories]);
+    }, [logsArray, categoriesArray]);
 
     const formatTime = (minutes) => {
         return formatDuration(minutes / 60);

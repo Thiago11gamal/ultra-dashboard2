@@ -56,18 +56,21 @@ export function EvolutionLineChart({
     const shadowId = `el_lineShadow_${instanceId}`;
 
     const [highlightedDataKey, setHighlightedDataKey] = useState(null);
-    const isLineClicked = useRef(false);
 
     const handleLegendClick = (e) => {
+        if (e?.domEvent?.stopPropagation) {
+            e.domEvent.stopPropagation();
+        } else if (e?.stopPropagation) {
+            e.stopPropagation();
+        }
+
         // Find the category ID from the clicked legend item (it usually passes payload)
         let catId = e?.payload?.id || e?.id;
         if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay)_/, '');
         if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay)_/, '');
         
         if (catId) {
-            isLineClicked.current = true;
             setHighlightedDataKey(prev => prev === catId ? null : catId);
-            setTimeout(() => { isLineClicked.current = false; }, 50);
         }
     };
 

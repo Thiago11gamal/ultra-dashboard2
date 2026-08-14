@@ -30,8 +30,8 @@ import { TodayVsGeneralChart } from "./charts/EvolutionChart/TodayVsGeneralChart
 
 import { generateEvolutionInsights } from '../engine/insightGenerator';
 
-const EMPTY_ARRAY = [];
-const EMPTY_OBJECT = {};
+const EMPTY_ARRAY = Object.freeze([]);
+const EMPTY_OBJECT = Object.freeze({});
 
 function safeFiniteNumber(value, fallback = 0) {
   const n = Number(value);

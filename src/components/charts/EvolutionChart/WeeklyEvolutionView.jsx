@@ -141,26 +141,6 @@ export const WeeklyEvolutionView = ({
 
     const [hoveredLine, setHoveredLine] = useState(null);
 
-    const categoriesSignature = useMemo(() => categories.map((cat) => {
-        const history = Array.isArray(cat?.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat?.simuladoStats?.history || {});
-        const tasks = cat?.tasks || [];
-        const historyDigest = history.map((h) => [
-            getMondayStr(h?.date) || 'nodate',
-            Number(h?.score ?? 0),
-            Number(h?.correct ?? 0),
-            Number(h?.total ?? 0),
-            Array.isArray(h?.topics) ? h.topics.length : 0,
-            h?.taskId || ''
-        ].join(':')).join('|');
-        return [
-            cat?.id,
-            cat?.name || '',
-            tasks.length,
-            tasks.map((t) => `${t?.id || ''}:${t?.text || ''}`).join(','),
-            historyDigest
-        ].join('|');
-    }).join('||'), [categories]);
-
     const { chartData, activeKeys, rankedKeys } = useMemo(() => {
         let itemsMap = {};
 
@@ -341,8 +321,7 @@ export const WeeklyEvolutionView = ({
         const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
 
         return { chartData: finalData, activeKeys: itemsMap, rankedKeys };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categories, showOnlyFocus, focusSubjectId, maxScore, minScore, categoriesSignature]);
+    }, [categories, showOnlyFocus, focusSubjectId, maxScore, minScore]);
 
     const keys = Object.keys(activeKeys);
 

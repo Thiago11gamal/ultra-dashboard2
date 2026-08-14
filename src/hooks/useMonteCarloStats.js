@@ -31,7 +31,7 @@ import {
   generateAnalyticsStats
 } from '../engine/analyticsStats.js';
 
-const EMPTY_ARRAY = [];
+const EMPTY_ARRAY = Object.freeze([]);
 const BASE_SIMULATIONS = 5000;
 const LOG_DAMPING_FACTOR = 45;
 

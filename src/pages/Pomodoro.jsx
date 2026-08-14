@@ -22,7 +22,9 @@ const EMPTY_OBJECT = Object.freeze({});
 function DataTriviaPanel({ studyLogs, simulados, categories }) {
     const stats = useMemo(() => {
         const startOfToday = getLocalMidnight().getTime();
-        const startOfWeek = startOfToday - (86400000 * 7);
+        const todayDate = new Date();
+        const dayOfWeek = (todayDate.getDay() + 6) % 7; // 0 = Monday, 6 = Sunday
+        const startOfWeek = startOfToday - (86400000 * dayOfWeek);
         const startOfMonth = startOfToday - (86400000 * 30);
 
         let weekMins = 0;
@@ -769,7 +771,7 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
             const tsk = (cat?.tasks || []).find(t => t && t.id === location.state.taskId);
             if (cat && tsk) {
                 // Clear location.state to prevent restart loops
-                window.history.replaceState({}, document.title);
+                navigate(location.pathname, { replace: true, state: null });
                 useAppStore.getState().startPomodoroSession({
                     categoryId: cat.id,
                     taskId: tsk.id,

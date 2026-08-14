@@ -87,8 +87,12 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
             return;
         }
 
+        const msgId = `${Date.now()}_${Math.random()}`;
         setIsAggregating(true);
-        worker.onmessage = (e) => {
+
+        const handleMessage = (e) => {
+            if (e.data?.id !== msgId) return;
+
             if (e.data.type === 'success') {
                 setAggregated(e.data.result);
             } else {
@@ -96,12 +100,22 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
             }
             setIsAggregating(false);
         };
-        worker.onerror = () => {
+
+        const handleError = (err) => {
+            console.warn('[EvolutionHeatmap] Worker error, falling back:', err);
             setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
             setIsAggregating(false);
         };
 
-        worker.postMessage({ id: Date.now(), payload: { filtered, granularity, targetScore } });
+        worker.addEventListener('message', handleMessage);
+        worker.addEventListener('error', handleError);
+
+        worker.postMessage({ id: msgId, payload: { filtered, granularity, targetScore } });
+
+        return () => {
+            worker.removeEventListener('message', handleMessage);
+            worker.removeEventListener('error', handleError);
+        };
     }, [filtered, granularity, targetScore]);
 
     const filteredDates = aggregated.dates || [];

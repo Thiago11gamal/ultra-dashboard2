@@ -4,7 +4,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
-const EMPTY_ARRAY = [];
+const EMPTY_ARRAY = Object.freeze([]);
 
 export default function Evolution() {
   const { categories, rawStudyLogs, monteCarloHistory, user, unit, minScore, maxScore, simuladoRows } = useAppStore(
@@ -49,7 +49,7 @@ export default function Evolution() {
   // ✅ FIX: Converter targetProbability (percentual) para pontos na escala da prova
   const targetScorePoints = React.useMemo(() => {
     const safeMax = Math.max(1, Number(maxScore) || 100);
-    const safeMin = Math.min(Number(minScore) || 0, safeMax);
+    const safeMin = Math.max(0, Math.min(Number(minScore) || 0, safeMax));
     const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number(value) || 0));
     
     // 1) Se existir targetScore explícito, ele é a meta em pontos
