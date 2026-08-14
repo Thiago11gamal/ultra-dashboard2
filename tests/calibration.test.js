@@ -10,7 +10,7 @@ describe('Calibration Utilities', () => {
 
     it('summarizeCalibration returns neutral values for empty input', () => {
         const res = summarizeCalibration([]);
-        expect(res.avgBrier).toBe(0);
+        expect(res.avgBrier).toBe(null);
         expect(res.calibrationPenalty).toBe(0);
     });
 
