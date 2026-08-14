@@ -93,6 +93,13 @@ export const createCategorySlice = (set) => ({
 
         if (state.appState.pomodoro?.activeSubject?.categoryId === id) {
             state.appState.pomodoro.activeSubject = null;
+            state.appState.pomodoro.neuralMode = false;
+            state.appState.pomodoro.neuralQueue = [];
+            try {
+                localStorage.removeItem('pomodoroState');
+            } catch {
+                // ignore
+            }
         }
 
         if (activeData.coachPlanner) {
@@ -355,6 +362,31 @@ export const createCategorySlice = (set) => ({
         const newId = generateId('cat');
         const importedCat = safeClone(categoryToImport);
         importedCat.id = newId;
+
+        // Resetar histórico, tempo e estatísticas para o novo concurso
+        importedCat.totalMinutes = 0;
+        importedCat.lastStudiedAt = null;
+        importedCat.simuladoStats = {
+            history: [],
+            average: 0,
+            lastAttempt: 0,
+            trend: 'stable',
+            level: 'BAIXO'
+        };
+
+        // Regenerar IDs das tarefas e resetar progresso para o novo certame
+        const rawTasks = Array.isArray(importedCat.tasks) ? importedCat.tasks : Object.values(importedCat.tasks || {});
+        importedCat.tasks = rawTasks.map(t => {
+            const taskClone = safeClone(t);
+            return {
+                ...taskClone,
+                id: generateId('task'),
+                completed: false,
+                completedAt: null,
+                status: null,
+                awardedXP: undefined
+            };
+        });
 
         activeData.categories.push(importedCat);
 

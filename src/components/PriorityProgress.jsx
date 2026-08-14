@@ -101,7 +101,7 @@ export default function PriorityProgress({ categories = [] }) {
                             </span>
 
                             <p className="text-[10px] sm:text-xs text-slate-400 font-bold sm:mt-1">
-                                {totalCompletedGlobally} de {totalTasksGlobally} {totalTasksGlobally === 1 ? 'concluído' : 'concluídos'}
+                                {totalCompletedGlobally} de {totalTasksGlobally} {totalCompletedGlobally === 1 ? 'concluído' : 'concluídos'}
                             </p>
                         </div>
                     </div>

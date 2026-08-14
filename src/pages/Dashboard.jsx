@@ -38,7 +38,10 @@ export default function Dashboard() {
         simuladoRows,
         rawStudyLogs,
         user,
-        pomodorosCompleted
+        pomodorosCompleted,
+        flashcardDecks,
+        settings,
+        studySessions
     } = useAppStore(useShallow(state => {
         const contest = state.appState.contests?.[activeId] || {};
         return {
@@ -47,7 +50,10 @@ export default function Dashboard() {
             simuladoRows: contest.simuladoRows,
             rawStudyLogs: contest.studyLogs,
             user: contest.user,
-            pomodorosCompleted: contest.pomodorosCompleted
+            pomodorosCompleted: contest.pomodorosCompleted,
+            flashcardDecks: contest.flashcardDecks,
+            settings: contest.settings,
+            studySessions: contest.studySessions
         };
     }));
 
@@ -70,20 +76,34 @@ export default function Dashboard() {
         return toArray(simuladoRows);
     }, [simuladoRows]);
 
+    const safeFlashcardDecks = React.useMemo(() => {
+        return toArray(flashcardDecks);
+    }, [flashcardDecks]);
+
+    const safeStudySessions = React.useMemo(() => {
+        return toArray(studySessions);
+    }, [studySessions]);
+
     const data = React.useMemo(() => ({
         categories: safeCategories,
         simulados: safeSimulados,
         simuladoRows: safeSimuladoRows,
         studyLogs,
         user,
-        pomodorosCompleted
+        pomodorosCompleted,
+        flashcardDecks: safeFlashcardDecks,
+        settings: settings || {},
+        studySessions: safeStudySessions
     }), [
         safeCategories,
         safeSimulados,
         safeSimuladoRows,
         studyLogs,
         user,
-        pomodorosCompleted
+        pomodorosCompleted,
+        safeFlashcardDecks,
+        settings,
+        safeStudySessions
     ]);
 
     const setGoalDate = React.useCallback((d) => setData(contest => {
@@ -100,9 +120,19 @@ export default function Dashboard() {
 
     const handleStartStudying = React.useCallback((categoryId, taskId) => {
         const cat = data.categories?.find(c => c.id === categoryId);
-        const tsk = cat?.tasks?.find(t => t.id === taskId);
+        const tsk = cat?.tasks?.find(t => t.id === taskId || t.text === taskId);
 
         if (!cat || !tsk) return;
+
+        const currentActiveSubject = useAppStore.getState().appState.pomodoro?.activeSubject;
+        const isAlreadyActive = currentActiveSubject &&
+            (currentActiveSubject.taskId === tsk.id || currentActiveSubject.taskId === taskId) &&
+            tsk.status === 'studying';
+
+        if (isAlreadyActive) {
+            navigate('/pomodoro');
+            return;
+        }
 
         startPomodoroSession({
             categoryId: cat.id,
@@ -124,7 +154,7 @@ export default function Dashboard() {
                     return {
                         ...c,
                         tasks: toArray(c.tasks).map(t => {
-                            if (c.id === cat.id && t.id === tsk.id) {
+                            if (c.id === cat.id && (t.id === tsk.id || t.id === taskId)) {
                                 return { ...t, status: 'studying' };
                             }
 

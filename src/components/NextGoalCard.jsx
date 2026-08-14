@@ -15,8 +15,14 @@ function NextGoalCard({
             tasks: toArray(category?.tasks)
         }));
 
+        const categoriesWithPending = normalizedCategories.filter(category =>
+            toArray(category?.tasks).some(t => t && !t.completed)
+        );
+
+        if (categoriesWithPending.length === 0) return null;
+
         const suggestedCategory = getSuggestedFocus(
-            normalizedCategories,
+            categoriesWithPending,
             toArray(simulados),
             toArray(studyLogs)
         );

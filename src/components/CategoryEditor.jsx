@@ -42,8 +42,8 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             return;
         }
 
-        const parsedMax = Math.max(1, Number.parseInt(maxScore, 10) || 100);
-        const parsedMin = Math.max(0, Number.parseInt(minCutoff, 10) || 0);
+        const parsedMax = Math.max(0.1, Number(maxScore) || 100);
+        const parsedMin = Math.max(0, Number(minCutoff) || 0);
 
         const safeMin = Math.min(parsedMin, parsedMax);
         const safeColor = /^#[0-9a-fA-F]{6}$/.test(color)
@@ -53,8 +53,8 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
         updateCategoryFields(category.id, {
             name: name.trim(),
             color: safeColor,
-            minCutoff: safeMin,
-            maxScore: parsedMax
+            minCutoff: Number(safeMin.toFixed(2)),
+            maxScore: Number(parsedMax.toFixed(2))
         });
 
         onClose();
@@ -140,7 +140,8 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                             <input
                                 id={maxScoreInputId}
                                 type="number"
-                                min="1"
+                                min="0.1"
+                                step="any"
                                 value={maxScore}
                                 onChange={e => setMaxScore(e.target.value)}
                                 className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
@@ -161,6 +162,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                                 type="number"
                                 min="0"
                                 max={maxScore}
+                                step="any"
                                 value={minCutoff}
                                 onChange={e => setMinCutoff(e.target.value)}
                                 className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"

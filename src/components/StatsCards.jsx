@@ -100,9 +100,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     );
 
     const effTheme = useMemo(() => {
-        const hasLogs = data.studyLogs && data.studyLogs.length > 0;
+        const hasData = efficiency && efficiency.efficiency !== 'sem_dados' && efficiency.score !== undefined;
 
-        if (!hasLogs) {
+        if (!hasData) {
             return {
                 glow: 'bg-slate-500/10',
                 glowHover: 'group-hover:bg-slate-500/20',
@@ -113,7 +113,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         }
 
         return getEfficiencyTheme(efficiency?.score ?? 0);
-    }, [efficiency?.score, data.studyLogs]);
+    }, [efficiency]);
 
     const daysRemaining = useMemo(() => {
         if (!user.goalDate) return null;
@@ -325,10 +325,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     </div>
 
                     <div className="mt-1 mb-1 min-h-[2.5rem] flex flex-col justify-center">
-                        <div className={`capitalize leading-tight line-clamp-2 pb-0.5 ${balance?.status
+                        <div className={`capitalize leading-tight line-clamp-2 pb-0.5 ${balance?.status && balance?.status !== 'sem_dados'
                             ? 'text-xl sm:text-2xl font-black text-white'
                             : 'text-sm sm:text-base font-bold text-slate-500'}`}>
-                            {balance?.status?.replace(/_/g, ' ') || 'Sem Dados'}
+                            {balance?.status ? balance.status.replace(/_/g, ' ') : 'Sem Dados'}
                         </div>
                     </div>
 

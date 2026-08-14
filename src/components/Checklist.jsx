@@ -60,7 +60,9 @@ const getHistoryDateLabel = (h) => {
 
 
 
-const PerformancePanel = ({ stats, color }) => {
+import { normalize } from '../utils/normalization';
+
+const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
     if (!stats) return null;
 
     const {
@@ -71,6 +73,7 @@ const PerformancePanel = ({ stats, color }) => {
         history: rawHistory = []
     } = stats;
 
+    const safeMax = Math.max(1, Number(maxScore) || 100);
     const history = toArray(rawHistory);
 
     let trendIcon = (
@@ -103,30 +106,54 @@ const PerformancePanel = ({ stats, color }) => {
     if (level === 'MÉDIO') levelColor = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
     if (level === 'BAIXO') levelColor = 'text-red-400 bg-red-500/10 border-red-500/20';
 
+    const avgDisplay = safeMax === 100
+        ? `${average}%`
+        : `${average} / ${safeMax} pts`;
+    const avgPctSub = safeMax !== 100
+        ? `${Math.round((average / safeMax) * 100)}%`
+        : null;
+
+    const lastDisplay = safeMax === 100
+        ? `${lastAttempt}%`
+        : `${lastAttempt} / ${safeMax} pts`;
+    const lastPctSub = safeMax !== 100
+        ? `${Math.round((lastAttempt / safeMax) * 100)}%`
+        : null;
+
     return (
         <div className="relative p-4 mx-4 mb-4 bg-gradient-to-r from-slate-900 to-slate-800/50 rounded-xl border border-white/10 shadow-inner group">
             <div className="relative z-10 flex items-center gap-2 mb-4 text-slate-300 text-sm font-semibold uppercase tracking-wider leading-relaxed py-1">
-                <BarChart2 size={16} style={{ color }} />
+                <BarChart2 size={16} style={{ color: color || '#818cf8' }} />
                 <h3>Média de acerto (Simulados)</h3>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center">
+                <div className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center">
                     <span className="text-xs text-slate-500 uppercase font-bold mb-1">
                         Média Geral
                     </span>
-                    <span className="text-2xl font-bold" style={{ color }}>
-                        {average}%
+                    <span className="text-2xl font-bold" style={{ color: color || '#818cf8' }}>
+                        {avgDisplay}
                     </span>
+                    {avgPctSub && (
+                        <span className="text-[10px] text-slate-400 font-medium mt-0.5">
+                            {avgPctSub}
+                        </span>
+                    )}
                 </div>
 
-                <div className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center">
+                <div className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center">
                     <span className="text-xs text-slate-500 uppercase font-bold mb-1">
                         Última
                     </span>
                     <span className="text-xl font-mono text-slate-200">
-                        {lastAttempt}%
+                        {lastDisplay}
                     </span>
+                    {lastPctSub && (
+                        <span className="text-[10px] text-slate-400 font-medium mt-0.5">
+                            {lastPctSub}
+                        </span>
+                    )}
                 </div>
 
                 <div className={`p-3 rounded-lg border flex flex-col items-center justify-center ${levelColor}`}>
@@ -161,25 +188,32 @@ const PerformancePanel = ({ stats, color }) => {
                     <div className="flex items-end h-16 gap-1 w-full overflow-visible">
                         {history.slice(-10).map((h, i) => {
                             const dateLabel = getHistoryDateLabel(h);
+                            const hScore = Number(h.score || 0);
+                            const hPct = Math.round((hScore / safeMax) * 100);
+                            const barHeight = Math.min(100, Math.max(2, (hScore / safeMax) * 100));
+
+                            const labelTooltip = safeMax === 100
+                                ? `${h.score}% (${dateLabel})`
+                                : `${h.score} pts (${hPct}%) (${dateLabel})`;
 
                             return (
                                 <div
                                     key={`${h.date || h.createdAt || 'hist'}-${i}`}
                                     className="flex-1 flex flex-col items-center group/bar relative focus-visible:outline-none"
                                     tabIndex={0}
-                                    title={`${h.score}% (${dateLabel})`}
+                                    title={labelTooltip}
                                 >
                                     <div
                                         className="w-full bg-slate-700/50 hover:bg-white/20 transition-all rounded-t-sm"
                                         style={{
-                                            height: `${Math.min(100, Math.max(2, h.score || 0))}%`,
-                                            backgroundColor: i === history.slice(-10).length - 1 ? color : undefined,
+                                            height: `${barHeight}%`,
+                                            backgroundColor: i === history.slice(-10).length - 1 ? (color || '#818cf8') : undefined,
                                             opacity: i === history.slice(-10).length - 1 ? 1 : 0.3
                                         }}
                                     />
 
                                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover/bar:opacity-100 group-focus-within/bar:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                        {h.score}% ({dateLabel})
+                                        {labelTooltip}
                                     </div>
                                 </div>
                             );
@@ -442,6 +476,7 @@ const CategoryAccordion = React.memo(({
                             <PerformancePanel
                                 stats={category.simuladoStats}
                                 color={category.color}
+                                maxScore={category.maxScore || 100}
                             />
                         </div>
                     )}
@@ -503,16 +538,20 @@ const CategoryAccordion = React.memo(({
                 onClose={() => setIsConfirmDeleteOpen(false)}
                 onConfirm={() => onDeleteCategory(category.id)}
                 title="Excluir Disciplina?"
-                message={`Tem certeza que deseja excluir ${category.name || 'esta disciplina'} e todas as suas tarefas? Esta ação não pode ser desfeita.`}
+                message={`Tem certeza que deseja excluir ${category.name || 'esta disciplina'} e todas as suas tarefas? Esta disciplina e suas tarefas serão movidas para a lixeira.`}
                 confirmText="Excluir"
             />
 
             <ConfirmModal
                 isOpen={isConfirmDeleteTaskOpen}
-                onClose={() => setIsConfirmDeleteTaskOpen(false)}
+                onClose={() => {
+                    setIsConfirmDeleteTaskOpen(false);
+                    setTaskToDelete(null);
+                }}
                 onConfirm={() => {
                     if (taskToDelete) {
-                        onDeleteTask(category.id, taskToDelete.id);
+                        onDeleteTask(category.id, taskToDelete.id || taskToDelete.text);
+                        setTaskToDelete(null);
                     }
                 }}
                 title="Excluir Assunto?"
@@ -812,7 +851,7 @@ function Checklist({
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             {sourceCategories.map(cat => {
                                                 const exists = safeCategories.some(c => {
-                                                    return (c.name || '').toLowerCase() === (cat.name || '').toLowerCase();
+                                                    return normalize(c.name || '') === normalize(cat.name || '');
                                                 });
 
                                                 return (
