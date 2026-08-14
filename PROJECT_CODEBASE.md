@@ -1,6 +1,6 @@
 # Código Completo do Projeto — Método Arraia / Ultra Dashboard
 
-> Gerado em: 2026-08-14T05:09:52.375Z
+> Gerado em: 2026-08-14T05:19:57.962Z
 > Total de arquivos fonte: 546
 
 ## 📑 Índice de Arquivos
@@ -13779,7 +13779,7 @@ function TabButton({ active, onClick, children, icon }) {
 function StatusBadge({ status }) {
   const config = {
     healthy: { label: '✓ Saudável', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-    degraded: { label: 'âš  Degradado', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+    degraded: { label: '⚠️ Degradado', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
     critical: { label: '✖ Crítico', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
     unknown: { label: '? Desconhecido', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
   };
@@ -50094,12 +50094,42 @@ export default function Coach() {
 
 function CalibrationAuditPopover({ categoryId = null }) {
   const [isOpen, setIsOpen] = useState(false);
+  const popoverRef = useRef(null);
   const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside, true);
+    document.addEventListener('touchstart', handleClickOutside, true);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+      document.removeEventListener('touchstart', handleClickOutside, true);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
   if (!import.meta.env.DEV && summary.count === 0) return null;
   return (
-    <div className="relative font-mono text-[11px] select-none shrink-0">
+    <div ref={popoverRef} className="relative font-mono text-[11px] select-none shrink-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
         className="flex flex-col min-w-[70px] sm:min-w-[75px] text-left hover:opacity-85 transition-all active:scale-95 group focus:outline-none"
         title="Auditoria de Calibração Monte Carlo"
       >
@@ -50116,7 +50146,11 @@ function CalibrationAuditPopover({ categoryId = null }) {
         </div>
       </button>
       {isOpen && (
-        <div className="absolute top-full right-0 mt-4 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-64 space-y-2 z-[9999] animate-fade-in">
+        <div
+          role="dialog"
+          aria-label="Telemetria Monte Carlo"
+          className="absolute top-full right-0 mt-4 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-64 space-y-2 z-[9999] animate-fade-in"
+        >
           <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
             <span className="text-xs font-bold text-white">Telemetria MC</span>
             <button
@@ -63582,7 +63616,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const currentLambda = metrics.mcAdaptive?.decayK || 0.03;
     const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
 
-    const windowStart = (normalizeDate(metrics.referenceDate) || metrics.referenceDate).getTime() - (dynamicWindowDays * MS_PER_DAY);
+    const windowStart = (normalizeDate(metrics.referenceDate) || new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY);
 
     const safeGlobalLogsInput = options.studyLogs || studyLogs || [];
     const safeGlobalLogs = Array.isArray(safeGlobalLogsInput)
@@ -63811,7 +63845,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
 
     let recommendation = "";
 
-    const oneWeekAgo = (normalizeDate(metrics.referenceDate) || metrics.referenceDate).getTime() - (7 * 24 * 60 * 60 * 1000);
+    const oneWeekAgo = (normalizeDate(metrics.referenceDate) || new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
 
     const recentLogs = categoryStudyLogs.filter(log => {
         const d = normalizeDate(log.date) || new Date(0);
@@ -65094,7 +65128,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 : `${getPriorityLabel()}[Revisão Geral Complementar]`;
 
             const uniqueIdSuffix = weakTopic
-                ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total}-${i}`)
+                ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total || 0}-${i}`)
                 : `geral-${i}`;
 
             if (weakTopic) {
