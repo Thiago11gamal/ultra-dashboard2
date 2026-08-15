@@ -323,7 +323,7 @@ export const GaussianPlot = ({
 
     return (
         <div
-            className="relative w-full h-[220px] mt-28 mb-16 pb-6 cursor-crosshair group/chart"
+            className="relative w-full h-[200px] mt-20 mb-2 pb-6 cursor-crosshair group/chart"
             onMouseMove={(e) => updateHoverFromClientX(e.clientX, e.currentTarget)}
             onMouseLeave={clearHover}
             onTouchStart={(e) => {
