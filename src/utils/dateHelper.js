@@ -108,6 +108,14 @@ export const getLocalMidnight = (date = new Date()) => {
 
 export const formatDisplayDate = (dateStr) => {
   if (!dateStr) return '';
+  if (typeof dateStr === 'number' || (typeof dateStr === 'string' && /^\d{10,13}$/.test(dateStr.trim()))) {
+    const d = new Date(Number(dateStr));
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}/${month}`;
+    }
+  }
   const cleanStr = String(dateStr).split('T')[0];
   const parts = cleanStr.split('-');
   if (parts.length < 3) return cleanStr;
