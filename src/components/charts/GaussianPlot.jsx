@@ -251,18 +251,18 @@ export const GaussianPlot = ({
         const items = [];
         if (isTargetVisible) items.push({ id: 'target', x: targetPos });
 
-        const hideMean = isCurrentVisible && isMeanVisible && Math.abs(currentPos - meanPos) < 2.5;
+        const hideMean = isCurrentVisible && isMeanVisible && Math.abs(currentPos - meanPos) < 2.0;
         if (!hideMean && isMeanVisible) items.push({ id: 'mean', x: meanPos });
         if (isCurrentVisible) items.push({ id: 'today', x: currentPos });
 
         const sorted = [...items].sort((a, b) => a.x - b.x);
-        const THRESHOLD = 20;
+        const THRESHOLD = 14;
 
         sorted.forEach((item, i) => {
             item.level = 0;
             if (i > 0) {
                 const prev = sorted[i - 1];
-                if (item.x - prev.x < THRESHOLD) {
+                if (Math.abs(item.x - prev.x) < THRESHOLD) {
                     item.level = prev.level + 1;
                 }
             }
@@ -273,13 +273,16 @@ export const GaussianPlot = ({
         return res;
     }, [targetPos, meanPos, currentPos, isTargetVisible, isMeanVisible, isCurrentVisible]);
 
-    // 🎯 FIX: Se a curva bater no teto do SVG (yPercent < 20), ele renderiza o label ABAIXO da linha 
-    // em vez de forçar para cima e ser cortado pelo Box Model
     const getLabelTop = (yPercent, level) => {
-        if (yPercent < 20) {
-            return `calc(${yPercent}% + ${15 + level * 25}px)`;
+        return `calc(${Math.max(12, yPercent)}% - ${34 + level * 28}px)`;
+    };
+
+    const getLabelLeft = (pos, id) => {
+        if (isTargetVisible && isMeanVisible && !resolvedLabels.hideMean && Math.abs(targetPos - meanPos) < 6) {
+            if (id === 'target') return Math.max(4, Math.min(96, targetPos <= meanPos ? pos - 2.5 : pos + 2.5));
+            if (id === 'mean') return Math.max(4, Math.min(96, meanPos >= targetPos ? pos + 2.5 : pos - 2.5));
         }
-        return `calc(${yPercent}% - ${32 + level * 30}px)`;
+        return Math.max(4, Math.min(pos, 96));
     };
 
     const formatUnitValue = (val, u) => {
@@ -394,7 +397,7 @@ export const GaussianPlot = ({
                 )}
                 {!resolvedLabels.hideMean && isMeanVisible && (
                     <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(59,130,246,0.8)] transition-all duration-500"
-                        style={{ left: `${meanPos}%`, top: `${meanY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
+                        style={{ left: `${meanPos}%`, top: `${meanY}%`, transform: 'translate(-50%, -50%)', zIndex: 16 }} />
                 )}
                 {isCurrentVisible && (
                     <div className="absolute w-3 h-3 rounded-full bg-white border-2 border-slate-900 shadow-[0_0_12px_white] transition-all duration-500"
@@ -405,35 +408,35 @@ export const GaussianPlot = ({
             <div className="absolute inset-0 pointer-events-none">
                 {!resolvedLabels.hideMean && isMeanVisible && (
                     <div className="absolute flex flex-col items-center transition-all duration-500"
-                        style={{ left: `${Math.max(4, Math.min(meanPos, 96))}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
+                        style={{ left: `${getLabelLeft(meanPos, 'mean')}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
                         <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-blue-500/30 shadow-lg">
                             <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(projectedMean ?? mean ?? 0, unit)}</span>
                             <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                         </div>
-                        <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.mean || 0) * 30}px` }} />
+                        <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.mean || 0) * 28}px` }} />
                     </div>
                 )}
 
                 {isTargetVisible && (
                     <div className="absolute flex flex-col items-center transition-all duration-500"
-                        style={{ left: `${Math.max(4, Math.min(targetPos, 96))}%`, top: getLabelTop(targetY, resolvedLabels.target || 0), transform: 'translateX(-50%)', zIndex: 20 }}>
+                        style={{ left: `${getLabelLeft(targetPos, 'target')}%`, top: getLabelTop(targetY, resolvedLabels.target || 0), transform: 'translateX(-50%)', zIndex: 20 }}>
                         <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-rose-500/30 shadow-lg">
                              <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(targetVal, unit)}</span>
                             <span className="text-[7px] font-black text-rose-300 uppercase tracking-widest opacity-80">Meta</span>
                         </div>
-                        <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.target || 0) * 30}px` }} />
+                        <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.target || 0) * 28}px` }} />
                     </div>
                 )}
 
                 {isCurrentVisible && (
                     <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-40"
-                        style={{ left: `${Math.max(4, Math.min(currentPos, 96))}%`, top: getLabelTop(currentY, resolvedLabels.today || 0), transform: 'translateX(-50%)', zIndex: 40 }}>
+                        style={{ left: `${getLabelLeft(currentPos, 'today')}%`, top: getLabelTop(currentY, resolvedLabels.today || 0), transform: 'translateX(-50%)', zIndex: 40 }}>
                         <div className="flex flex-col items-center px-2 py-1 rounded-xl bg-slate-900/95 backdrop-blur-xl border border-white/20 shadow-xl">
                             <span className="text-[11px] leading-none font-black text-white">{formatUnitValue(currentMean ?? 0, unit)}</span>
                             {resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje/Projeção</span>}
                             {!resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje</span>}
                         </div>
-                        <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${10 + (resolvedLabels.today || 0) * 30}px` }} />
+                        <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${10 + (resolvedLabels.today || 0) * 28}px` }} />
                     </div>
                 )}
             </div>

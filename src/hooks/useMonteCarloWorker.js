@@ -72,6 +72,9 @@ export function useMonteCarloWorker() {
         if (!sharedWorker) {
             // FIX APLICADO: Garantindo que o motor síncrono receba um objeto único
             if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
+                if (args[0].mode === 'normal' || (args[0].mean !== undefined && !Array.isArray(args[0].values))) {
+                    return simulateNormalDistribution(args[0]);
+                }
                 return runMonteCarloAnalysis(args[0]);
             } else {
                 const options = args[3] || {};

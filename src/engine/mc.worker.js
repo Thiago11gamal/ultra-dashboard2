@@ -110,35 +110,58 @@ self.onmessage = function(e) {
             if (payload.isObjectCall) {
                 const input = payload.input || {};
 
-                const sanitizedInput = {
-                    ...input,
-                    // FIX: Mantém o objeto inteiro para não perder metadata (fatigueFlag, weight, difficulty)
-                    values: Array.isArray(input.values) ? input.values.map(v => {
-                        if (typeof v === 'object' && v !== null) {
-                            return { ...v, score: safeNum(v.score ?? v.value, NaN) };
-                        }
-                        return safeNum(v, NaN);
-                    }) : [],
-                    dates: Array.isArray(input.dates) ? input.dates.map(d => d == null ? '' : String(d)) : [],
-                    meta: safeNum(input.meta, 0),
-                    targetScore: input.targetScore !== undefined ? safeNum(input.targetScore, 0) : undefined,
-                    simulations: safeNum(input.simulations, 5000),
-                    projectionDays: safeNum(input.projectionDays, 90),
-                    forcedVolatility: input.forcedVolatility !== undefined ? safeNum(input.forcedVolatility, 0) : undefined,
-                    forcedBaseline: input.forcedBaseline !== undefined ? safeNum(input.forcedBaseline, 0) : undefined,
-                    currentMean: input.currentMean !== undefined ? safeNum(input.currentMean, 0) : undefined,
-                    minScore: input.minScore !== undefined ? safeNum(input.minScore, 0) : undefined,
-                    maxScore: input.maxScore !== undefined ? safeNum(input.maxScore, 100) : undefined,
-                    historicalCutoffs: input.historicalCutoffs !== undefined
-                        ? (Array.isArray(input.historicalCutoffs)
-                            ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
-                            : [])
-                        : undefined,
-                    flashcardImmunity: input.flashcardImmunity !== undefined ? safeNum(input.flashcardImmunity, 1.0) : undefined,
-                    subjects: input.subjects !== undefined ? sanitizeSubjects(input.subjects) : undefined
-                };
+                if (input.mode === 'normal' || (input.mean !== undefined && !Array.isArray(input.values))) {
+                    result = simulateNormalDistribution({
+                        mean: safeNum(input.mean, 0),
+                        sd: safeNum(input.sd, 0),
+                        targetScore: safeNum(input.targetScore, 0),
+                        simulations: safeNum(input.simulations, 5000),
+                        seed: input.seed,
+                        currentMean: input.currentMean !== undefined ? safeNum(input.currentMean, 0) : undefined,
+                        categoryName: input.categoryName,
+                        bayesianCI: sanitizeBayesianCI(input.bayesianCI),
+                        minScore: safeNum(input.minScore, 0),
+                        maxScore: safeNum(input.maxScore, 100),
+                        historyLength: safeNum(input.historyLength, 0),
+                        subjects: input.subjects !== undefined ? sanitizeSubjects(input.subjects) : undefined,
+                        historicalCutoffs: input.historicalCutoffs !== undefined
+                            ? (Array.isArray(input.historicalCutoffs)
+                                ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
+                                : [])
+                            : undefined,
+                        flashcardImmunity: input.flashcardImmunity !== undefined ? safeNum(input.flashcardImmunity, 1.0) : undefined,
+                    });
+                } else {
+                    const sanitizedInput = {
+                        ...input,
+                        // FIX: Mantém o objeto inteiro para não perder metadata (fatigueFlag, weight, difficulty)
+                        values: Array.isArray(input.values) ? input.values.map(v => {
+                            if (typeof v === 'object' && v !== null) {
+                                return { ...v, score: safeNum(v.score ?? v.value, NaN) };
+                            }
+                            return safeNum(v, NaN);
+                        }) : [],
+                        dates: Array.isArray(input.dates) ? input.dates.map(d => d == null ? '' : String(d)) : [],
+                        meta: safeNum(input.meta, 0),
+                        targetScore: input.targetScore !== undefined ? safeNum(input.targetScore, 0) : undefined,
+                        simulations: safeNum(input.simulations, 5000),
+                        projectionDays: safeNum(input.projectionDays, 90),
+                        forcedVolatility: input.forcedVolatility !== undefined ? safeNum(input.forcedVolatility, 0) : undefined,
+                        forcedBaseline: input.forcedBaseline !== undefined ? safeNum(input.forcedBaseline, 0) : undefined,
+                        currentMean: input.currentMean !== undefined ? safeNum(input.currentMean, 0) : undefined,
+                        minScore: input.minScore !== undefined ? safeNum(input.minScore, 0) : undefined,
+                        maxScore: input.maxScore !== undefined ? safeNum(input.maxScore, 100) : undefined,
+                        historicalCutoffs: input.historicalCutoffs !== undefined
+                            ? (Array.isArray(input.historicalCutoffs)
+                                ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
+                                : [])
+                            : undefined,
+                        flashcardImmunity: input.flashcardImmunity !== undefined ? safeNum(input.flashcardImmunity, 1.0) : undefined,
+                        subjects: input.subjects !== undefined ? sanitizeSubjects(input.subjects) : undefined
+                    };
 
-                result = runMonteCarloAnalysis(sanitizedInput);
+                    result = runMonteCarloAnalysis(sanitizedInput);
+                }
             } else if (Array.isArray(payload.inputOrMean)) {
                 const hist = sanitizeHistory(payload.inputOrMean);
                 const options = sanitizeOptions(payload.options);
