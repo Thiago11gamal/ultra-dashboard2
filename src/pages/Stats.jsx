@@ -7,7 +7,6 @@ import { HorasDisciplinaChart } from '../components/charts/Analytics/HorasDiscip
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../utils/chartDataMappers';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
-const EMPTY_ARRAY = Object.freeze([]);
 
 export default function Stats() {
     const { rawCategories, rawStudyLogs, rawFlashcards, user } = useAppStore(useShallow(state => {

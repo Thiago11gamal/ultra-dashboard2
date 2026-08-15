@@ -54,7 +54,14 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
                     <div className="text-xl font-black text-amber-300 tabular-nums">{nextN}</div>
                 </div>
                 <div className="ml-auto text-[10px] text-right text-slate-400">
-                    Pico: <span className="font-bold text-white">{maxDaily}</span> em {peakDay.label}
+                    {/* T-034 FIX: não mostrar pico falso quando tudo está zerado */}
+                    {maxDaily > 0 ? (
+                        <>
+                            Pico: <span className="font-bold text-white">{maxDaily}</span> em {peakDay.label}
+                        </>
+                    ) : (
+                        <span className="text-emerald-400">Sem vencimentos no período</span>
+                    )}
                 </div>
             </div>
         );
@@ -94,8 +101,17 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
                     <div className="text-[10px] text-slate-500">Pico diário</div>
-                    <div className="text-2xl font-black text-amber-400 tabular-nums">{maxDaily}</div>
-                    <div className="text-[10px] text-amber-400/70">{peakDay.label} ({peakDay.dateLabel})</div>
+
+                    {/* T-034 FIX: estado elegante quando não há vencimentos */}
+                    <div className={`text-2xl font-black tabular-nums ${maxDaily > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {maxDaily > 0 ? maxDaily : '—'}
+                    </div>
+
+                    <div className="text-[10px] text-amber-400/70">
+                        {maxDaily > 0
+                            ? `${peakDay.label} (${peakDay.dateLabel})`
+                            : 'Nenhum vencimento programado'}
+                    </div>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
                     <div className="text-[10px] text-slate-500">Total no horizonte</div>

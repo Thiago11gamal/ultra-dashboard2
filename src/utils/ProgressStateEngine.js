@@ -34,9 +34,23 @@ export function analyzeProgressState(scores, config = {}) {
     const trend_tolerance = raw_trend * scaleFactor * windowFactor;
 
     // FIX 3: Escalonar limites de nível (Mastery/Low) para suportar escalas diferentes de 100
-    const scaled_low = low_level_limit * scaleFactor;
-    const scaled_high = high_level_limit * scaleFactor;
-    const scaled_mastery = mastery_limit * scaleFactor;
+    let scaled_low = low_level_limit * scaleFactor;
+    let scaled_high = high_level_limit * scaleFactor;
+    let scaled_mastery = mastery_limit * scaleFactor;
+
+    // T-035 FIX: Blindagem contra configs inválidas ou meta menor que o limite baixo.
+    if (!Number.isFinite(scaled_low)) scaled_low = 60 * scaleFactor;
+    if (!Number.isFinite(scaled_high)) scaled_high = 75 * scaleFactor;
+    if (!Number.isFinite(scaled_mastery)) scaled_mastery = 80 * scaleFactor;
+
+    // Garantir ordem lógica: low <= high <= mastery
+    if (scaled_high < scaled_low) {
+        scaled_high = scaled_low;
+    }
+
+    if (scaled_mastery < scaled_high) {
+        scaled_mastery = scaled_high;
+    }
 
     // Safety: Window size must be at least 3 for meaningful variance and MAV calculation
     // (With only 2 points, variance = one single squared difference — not representative)

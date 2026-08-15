@@ -1,5 +1,14 @@
 import React, { useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Activity, AlertCircle, Settings2, Plus, RotateCcw, BookOpen } from 'lucide-react';
+import {
+    TrendingUp,
+    TrendingDown,
+    Minus,
+    Target,
+    HelpCircle,
+    Activity,
+    Settings2,
+    BookOpen
+} from 'lucide-react';
 import MonteCarloGauge from './MonteCarloGauge';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { useAppStore } from '../store/useAppStore';
@@ -21,8 +30,17 @@ const TAILWIND_COLOR_MAP = {
 };
 const getColorClasses = (textColor) => TAILWIND_COLOR_MAP[textColor] || TAILWIND_COLOR_MAP['text-slate-400'];
 
-// FIX 1.4: Mapa unificado de prioridade de estados (usado para sorting E para mediana)
-const STATE_PRIORITY = { regression: 0, stagnation_negative: 1, unstable: 2, stagnation_neutral: 3, progression: 4, stagnation_positive: 5, mastery: 6 };
+// T-030 FIX: incluir insufficient_data explicitamente
+const STATE_PRIORITY = {
+    regression: 0,
+    stagnation_negative: 1,
+    unstable: 2,
+    stagnation_neutral: 3,
+    progression: 4,
+    stagnation_positive: 5,
+    mastery: 6,
+    insufficient_data: 7
+};
 
 const EMPTY_ARRAY = Object.freeze([]);
 
@@ -35,7 +53,7 @@ const InfoTooltip = React.memo(({ text }) => (
     </div>
 ));
 
-const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, trend, hasEnoughData }) => (
+const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, trend, hasEnoughData, maxScore = 100 }) => (
     <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${status === 'excellence' || status === 'good' ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.15)] hover:shadow-[0_0_25px_rgba(168,85,247,0.3)]' :
         status === 'warning' ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.15)] hover:shadow-[0_0_25px_rgba(239,68,68,0.3)]' :
             'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
@@ -65,7 +83,13 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
                 <div className="flex items-baseline gap-0.5">
                     <span className="text-sm sm:text-base font-black text-slate-200">{targetScore ?? 70}</span>
-                    <span className="text-[10px] text-slate-500 font-bold">%</span>
+
+                    {/* T-026 FIX: unidade dinâmica */}
+                    {maxScore === 100 ? (
+                        <span className="text-[10px] text-slate-500 font-bold">%</span>
+                    ) : (
+                        <span className="text-[8px] text-slate-500 font-bold">/{maxScore}</span>
+                    )}
                 </div>
             </div>
             <div className="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
@@ -183,8 +207,11 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
             </div>
             <div className="hidden md:flex md:col-span-2 flex-col justify-center gap-0.5 min-w-0 pr-3">
                 {cat.villains && cat.villains.length > 0 ? (
-                    cat.villains.slice(0, 2).map((v) => (
-                        <div key={v.name} className="flex items-center justify-between gap-1 text-[12px] leading-tight min-h-[14px] w-full min-w-0 px-1">
+                    cat.villains.slice(0, 2).map((v, vIdx) => (
+                        <div
+                            key={`${cat.id || cat.name}-${v.name}-${vIdx}`}
+                            className="flex items-center justify-between gap-1 text-[12px] leading-tight min-h-[14px] w-full min-w-0 px-1"
+                        >
                             <span className="text-slate-400 truncate font-semibold min-w-0" title={v.name}>{v.name}</span>
                             <span className="text-red-400 font-mono font-black shrink-0">±{v.sd.toFixed(0)}</span>
                         </div>
@@ -214,7 +241,13 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
                 <div className="hidden md:block md:col-span-2 text-center">Vilões</div>
             </div>
             {categoryBreakdown.map((cat, idx) => (
-                <CategoryRow key={cat.name} cat={cat} idx={idx} maxSdVal={maxSdVal} maxScore={maxScore} />
+                <CategoryRow
+                    key={cat.id || cat.name}
+                    cat={cat}
+                    idx={idx}
+                    maxSdVal={maxSdVal}
+                    maxScore={maxScore}
+                />
             ))}
             <div className="flex flex-wrap items-center justify-center gap-y-2 gap-x-4 text-[9px] font-black uppercase tracking-widest text-slate-500 pt-4 border-t border-white/5 opacity-60">
                 {[
@@ -242,11 +275,31 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         return scores.length > 0 ? Math.max(...scores) : 100;
     }, [safeCategories]);
 
-    // T-007 FIX: Garantir que targetScore nunca saia de [0, maxScore].
-    const clampTarget = React.useCallback((value) => {
-        const n = Number(value);
-        if (!Number.isFinite(n)) return 70;
-        return Math.max(0, Math.min(maxScore, n));
+    // T-039 FIX: estabilizar a prop unit para ajudar na memoização do gauge
+    const gaugeUnit = useMemo(() => {
+        return maxScore === 100 ? '%' : ' pts';
+    }, [maxScore]);
+
+    // T-026 FIX: Normalizar a meta para a escala real.
+    // Se maxScore !== 100 e o valor salvo parecer percentual (0-100),
+    // convertemos para pontos absolutos da escala.
+    const normalizeTargetToScale = React.useCallback((raw) => {
+        const n = Number(raw);
+
+        const fallback = maxScore === 100
+            ? 70
+            : Math.round(maxScore * 0.7);
+
+        if (!Number.isFinite(n)) return fallback;
+
+        let value = n;
+
+        // Se a escala não é 100 e o valor parece porcentagem, converte para pontos.
+        if (maxScore !== 100 && value >= 0 && value <= 100) {
+            value = (value / 100) * maxScore;
+        }
+
+        return Math.max(0, Math.min(maxScore, value));
     }, [maxScore]);
 
     const storeFlashcardDecks = useAppStore(state => {
@@ -273,30 +326,19 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     }, [flashcardDecks]);
 
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
-    // T-007 FIX: Clamp já no valor inicial.
-    const [targetScore, setTargetScore] = React.useState(() => {
-        const userTarget = parseFloat(user?.targetProbability);
-        const raw = !isNaN(userTarget) ? userTarget : 70;
-        return Math.max(0, Math.min(
-            // maxScore pode ainda não estar disponível no primeiro render,
-            // então usamos um teto seguro de fallback.
-            safeCategories.length > 0
-                ? Math.max(...safeCategories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0), 100)
-                : 100,
-            raw
-        ));
-    });
+    const [targetScore, setTargetScore] = React.useState(() =>
+        normalizeTargetToScale(user?.targetProbability)
+    );
 
     // B-06 FIX: Adicionar trava de round-trip para evitar resets durante sincronização assíncrona
     const pendingLocalSave = React.useRef(false);
 
     // FIX: Wrapper para setTargetScore que trava a sincronização IMEDIATAMENTE ao interagir,
     // evitando que o useEffect de leitura atropele o estado local antes do debounce salvar.
-    // T-007 FIX: Clamp em toda atualização vinda da UI.
     const handleSetTargetScore = React.useCallback((newScore) => {
         pendingLocalSave.current = true;
-        setTargetScore(clampTarget(newScore));
-    }, [clampTarget]);
+        setTargetScore(normalizeTargetToScale(newScore));
+    }, [normalizeTargetToScale]);
 
     // B-06 FIX: Sincronização Robusta com Trava de Round-trip
     const storeTarget = user?.targetProbability;
@@ -305,10 +347,13 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         const parsedStore = parseFloat(storeTarget);
         if (isNaN(parsedStore)) return;
 
+        // T-026 FIX: normalizar o valor vindo da store para a escala atual
+        const normalizedStore = normalizeTargetToScale(parsedStore);
+
         // Se estamos aguardando um salvamento local
         if (pendingLocalSave.current) {
             // SÓ abrimos o cadeado quando a Store refletir o novo valor
-            if (Math.abs(parsedStore - targetScore) < 0.01) {
+            if (Math.abs(normalizedStore - targetScore) < 0.01) {
                 pendingLocalSave.current = false;
             }
             // Enquanto o cadeado estiver fechado, ignoramos o que vem da Store
@@ -316,13 +361,24 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         }
 
         // Se o cadeado está aberto e o valor da Store mudou (ex: vindo de outro dispositivo)
-        if (Math.abs(parsedStore - targetScore) > 0.01) {
+        if (Math.abs(normalizedStore - targetScore) > 0.01) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
-            setTargetScore(parsedStore);
+            setTargetScore(normalizedStore);
         }
-    }, [storeTarget, targetScore]);
+    }, [storeTarget, targetScore, normalizeTargetToScale]);
     const [showConfig, setShowConfig] = React.useState(false);
     const [showSubjects, setShowSubjects] = React.useState(false);
+
+    // T-039 FIX: adiar levemente a montagem do gauge futuro para reduzir o pico inicial de cálculo.
+    const [mountFutureGauge, setMountFutureGauge] = React.useState(false);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setMountFutureGauge(true);
+        }, 150);
+
+        return () => clearTimeout(timer);
+    }, []);
 
     // Performance Fix: Debounce targetScore for the heavy 'stats' calculation
     const [statsTarget, setStatsTarget] = React.useState(targetScore);
@@ -371,11 +427,13 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const setUserData = useAppStore(state => state.setData);
 
     React.useEffect(() => {
-        const parsed = Number(targetScore);
-        if (!Number.isFinite(parsed) || isNaN(parsed)) return;
+        const parsed = normalizeTargetToScale(targetScore);
+        if (!Number.isFinite(parsed)) return;
+
+        // T-026 FIX: comparar valores já normalizados para a escala atual
+        const currentStoreTarget = normalizeTargetToScale(parseFloat(storeTarget));
 
         // Se o valor local já é igual ao da Store, não fazemos nada
-        const currentStoreTarget = parseFloat(storeTarget);
         if (Number.isFinite(currentStoreTarget) && Math.abs(parsed - currentStoreTarget) <= 0.01) return;
 
         // Ativa a trava: "Não aceite valores da Store até que eu termine de salvar"
@@ -403,7 +461,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             clearTimeout(timer);
             clearTimeout(safetyTimer);
         };
-    }, [targetScore, setUserData, storeTarget]);
+    }, [targetScore, setUserData, storeTarget, normalizeTargetToScale]);
 
     const baseHistoryStats = useMemo(() => {
         let allHistory = [];
@@ -463,14 +521,21 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const stats = useMemo(() => {
         const { dailyHistory, allHistory, totalQuestionsGlobal, sortedCategories } = baseHistoryStats;
 
+        // T-035/T-026 FIX: O ProgressStateEngine espera limites em porcentagem da escala.
+        // statsTarget é absoluto (ex.: 700 numa escala 1000), então convertemos para %.
+        const targetPct = maxScore > 0
+            ? Math.max(0, Math.min(100, (statsTarget / maxScore) * 100))
+            : 70;
+
         // 1. Progress State Analysis (using ProgressStateEngine)
         // Run on global daily average for consistent trend
         const globalAnalysis = analyzeProgressState(dailyHistory, {
             window_size: Math.min(5, dailyHistory.length),
-            stagnation_threshold: 4, // 4% do teto
-            low_level_limit: 60,      // 60% do teto
-            high_level_limit: statsTarget,
-            mastery_limit: statsTarget,
+            stagnation_threshold: 4,
+            // T-035 FIX: evitar high < low quando a meta é baixa
+            low_level_limit: Math.min(60, targetPct),
+            high_level_limit: targetPct,
+            mastery_limit: targetPct,
             maxScore: maxScore
         });
 
@@ -670,10 +735,11 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
                 const analysis = analyzeProgressState(analysisHistory, {
                     window_size: Math.min(5, analysisHistory.length),
-                    stagnation_threshold: 4, // 4% do teto
-                    low_level_limit: 60,      // 60% do teto
-                    high_level_limit: statsTarget,
-                    mastery_limit: statsTarget,
+                    stagnation_threshold: 4,
+                    // T-035 FIX: evitar high < low quando a meta é baixa
+                    low_level_limit: Math.min(60, targetPct),
+                    high_level_limit: targetPct,
+                    mastery_limit: targetPct,
                     maxScore: maxScore
                 });
 
@@ -727,6 +793,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 const villains = unstableTopics.slice(0, 3);
 
                 categoryBreakdown.push({
+                    // T-031 FIX: chave estável para React
+                    id: cat.id || cat.name,
                     name: cat.name,
                     status: uiState.status,
                     color: uiState.color,
@@ -745,21 +813,33 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         // FIX 1.4: Usar mapa unificado STATE_PRIORITY (inclui mastery)
         categoryBreakdown.sort((a, b) => (STATE_PRIORITY[a.state] ?? 6) - (STATE_PRIORITY[b.state] ?? 6));
 
+        // T-030 FIX: Excluir estados insufficient_data da consolidação global.
+        // Eles não devem contaminar média, desvio padrão nem mediana de consistência.
+        const validCategoryAnalyses = categoryAnalyses.filter(a => a && a.state !== 'insufficient_data');
+        const eligibleCategories = categoryBreakdown.filter(c => c.state && c.state !== 'insufficient_data');
+
         // Consolidate for Global Card
-        if (categoryAnalyses.length > 0) {
-            const avgDelta = categoryAnalyses.reduce((a, b) => a + b.delta, 0) / categoryAnalyses.length;
-            const avgSD = Math.sqrt(Math.max(0, categoryAnalyses.reduce((a, b) => a + (Number(b.variance) || 0), 0) / categoryAnalyses.length));
+        if (validCategoryAnalyses.length > 0 && eligibleCategories.length > 0) {
+            const avgDelta = validCategoryAnalyses.reduce((a, b) => a + b.delta, 0) / validCategoryAnalyses.length;
+            const avgSD = Math.sqrt(
+                Math.max(
+                    0,
+                    validCategoryAnalyses.reduce((a, b) => a + (Number(b.variance) || 0), 0) / validCategoryAnalyses.length
+                )
+            );
 
             // D-03 FIX: Usar MEDIANA dos estados em vez da pior matéria.
-            // Antes, 1 matéria em queda deixava o card global vermelho mesmo com 4/5 indo bem.
-            // FIX 1.4: Usar STATE_PRIORITY unificado (constante extraída no topo do ficheiro)
-            const stateValues = categoryBreakdown.map(c => STATE_PRIORITY[c.state] ?? 3);
+            // FIX 1.4: Usar STATE_PRIORITY unificado.
+            // T-030 FIX: usar apenas categorias elegíveis.
+            const stateValues = eligibleCategories.map(c => STATE_PRIORITY[c.state] ?? 6);
             stateValues.sort((a, b) => a - b);
+
             const medIdx = Math.floor(stateValues.length / 2);
             const medianValue = stateValues[medIdx];
+
             const medianState = Object.entries(STATE_PRIORITY).find(([, v]) => v === medianValue)?.[0] || 'unstable';
             const uiState = stateMap[medianState] || stateMap.insufficient_data;
-            const medianCat = categoryBreakdown.find(c => c.state === medianState) ?? categoryBreakdown[0];
+            const medianCat = eligibleCategories.find(c => c.state === medianState) ?? eligibleCategories[0];
 
             consistency = {
                 status: uiState.status,
@@ -786,6 +866,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     targetScore={stats.targetScore}
                     trend={stats.trend}
                     hasEnoughData={stats.hasEnoughData}
+                    maxScore={maxScore}
                 />
                 <ConsistencyCard consistency={stats.consistency} />
             </div>
@@ -820,20 +901,30 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         forcedMode="today"
                         forcedTitle="Status Atual"
                         maxScore={maxScore}
+                        unit={gaugeUnit}
                         syncShowSubjects={showSubjects}
                         onSyncShowSubjects={setShowSubjects}
                     />
-                    <MonteCarloGauge
-                        categories={safeCategories}
-                        goalDate={user?.goalDate}
-                        targetScore={targetScore}
-                        onTargetScoreChange={handleSetTargetScore}
-                        forcedMode="future"
-                        forcedTitle="Projeção Futura"
-                        maxScore={maxScore}
-                        syncShowSubjects={showSubjects}
-                        onSyncShowSubjects={setShowSubjects}
-                    />
+                    {mountFutureGauge ? (
+                        <MonteCarloGauge
+                            categories={safeCategories}
+                            goalDate={user?.goalDate}
+                            targetScore={targetScore}
+                            onTargetScoreChange={handleSetTargetScore}
+                            forcedMode="future"
+                            forcedTitle="Projeção Futura"
+                            maxScore={maxScore}
+                            unit={gaugeUnit}
+                            syncShowSubjects={showSubjects}
+                            onSyncShowSubjects={setShowSubjects}
+                        />
+                    ) : (
+                        <div className="glass p-4 sm:p-5 rounded-2xl sm:rounded-[2rem] border-l-4 border-blue-500 bg-slate-900 w-full h-full min-h-[400px] flex items-center justify-center">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">
+                                Carregando projeção futura...
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
 

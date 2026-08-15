@@ -15,7 +15,8 @@ const EMPTY_ARRAY = Object.freeze([]);
  * Agora refatorado para usar o hook customizado useMonteCarloStats para 
  * desacoplar a lógica matemática da renderização de UI.
  */
-export default function MonteCarloGauge({
+// T-039 FIX: memoizar o gauge para reduzir re-renderizações desnecessárias.
+const MonteCarloGaugeBase = ({
     categories = [],
     goalDate,
     targetScore,
@@ -29,7 +30,7 @@ export default function MonteCarloGauge({
     onSyncShowSubjects,
     simulateToday = false,
     onSimulateTodayChange,
-}) {
+}) => {
     const [showConfig, setShowConfig] = useState(false);
     const [localShowPerSubject, setLocalShowPerSubject] = useState(false);
     const [timeIndex, setTimeIndex] = useState(-1);
@@ -124,7 +125,9 @@ export default function MonteCarloGauge({
         minScore,
         maxScore,
         forcedMode,
-        effectiveSimulateToday
+        effectiveSimulateToday,
+        // T-040 FIX: só calcular subjects quando o painel estiver visível
+        enablePerSubject: showPerSubject
     });
 
     const {
@@ -143,29 +146,6 @@ export default function MonteCarloGauge({
         setEqualWeightsMode,
         setWeights
     } = stats;
-
-    // T-006 FIX: Detectar se há histórico mas todos os pesos estão zerados.
-    // Sem isso, o gauge fica em loading infinito quando totalWeight === 0.
-    const hasAnyHistory = useMemo(() => {
-        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        return safeCats.some(cat => {
-            const h = cat.simuladoStats?.history;
-            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
-        });
-    }, [categories]);
-
-    const totalActiveWeight = useMemo(() => {
-        // No modo pesos iguais, sempre há peso ativo.
-        if (equalWeightsMode) return 1;
-        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        return safeCats.reduce((sum, cat) => {
-            const h = cat.simuladoStats?.history;
-            const hasHist = h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
-            if (!hasHist) return sum;
-            const w = weights?.[cat.id || cat.name];
-            return sum + Math.max(0, Number(w) || 0);
-        }, 0);
-    }, [categories, weights, equalWeightsMode]);
 
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
     const boundedScore = (v) => Math.max(minScore, Math.min(maxScore, safe(v)));
@@ -200,29 +180,67 @@ export default function MonteCarloGauge({
         return newWeights;
     }, [categories]);
 
-    if (!simulationData || simulationData.status === 'waiting') {
-        // T-006 FIX: Estado específico para "pesos zerados" em vez de loading infinito.
-        if (hasAnyHistory && totalActiveWeight === 0) {
-            return (
-                <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-amber-600 bg-slate-900 w-full min-h-[400px]">
-                    <AllWeightsZeroState />
-                </div>
-            );
+    // T-032 FIX: diagnóstico mais preciso do estado de espera.
+    const safeCategories = Array.isArray(categories)
+        ? categories
+        : Object.values(categories || {});
+
+    const hasHistory = safeCategories.some(cat => {
+        const h = cat.simuladoStats?.history;
+        return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+    });
+
+    const totalActiveWeight = (() => {
+        // No modo pesos iguais sempre existe peso ativo.
+        if (equalWeightsMode) return 1;
+
+        return safeCategories.reduce((sum, cat) => {
+            const h = cat.simuladoStats?.history;
+            const hLen = h
+                ? (Array.isArray(h) ? h.length : Object.keys(h).length)
+                : 0;
+
+            if (hLen === 0) return sum;
+
+            const rawW = weights?.[cat.id || cat.name];
+
+            // Se o peso não foi definido, o motor assume 1.
+            const w = (rawW === undefined || rawW === null)
+                ? 1
+                : Number(rawW);
+
+            return sum + Math.max(0, Number.isFinite(w) ? w : 0);
+        }, 0);
+    })();
+
+    // T-026 FIX: unidade dinâmica.
+    // Se o componente vier com unidade padrão '%' mas a escala não for 100,
+    // assumimos pontos absolutos.
+    const resolvedUnit = useMemo(() => {
+        if (typeof unit === 'string' && unit.trim() !== '' && unit !== '%') {
+            return unit;
         }
 
-        // T-018 FIX: normalizar categories antes do some
-        const safeCategories = Array.isArray(categories)
-            ? categories
-            : Object.values(categories || {});
+        return Number(maxScore) === 100 ? '%' : ' pts';
+    }, [unit, maxScore]);
 
-        const hasHistory = safeCategories.some(cat => {
-            const h = cat.simuladoStats?.history;
-            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
-        });
+    if (!simulationData || simulationData.status === 'waiting') {
+        let waitingKind = 'loading';
+
+        if (!hasHistory) {
+            waitingKind = 'empty';
+        } else if (totalActiveWeight === 0) {
+            waitingKind = 'zeroWeights';
+        } else if (simulationData?.missing === 'count') {
+            waitingKind = 'insufficient';
+        }
 
         return (
             <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-slate-900 w-full min-h-[400px]">
-                {hasHistory ? <MonteCarloLoading /> : <EmptyPredictionState />}
+                {waitingKind === 'empty' && <EmptyPredictionState />}
+                {waitingKind === 'zeroWeights' && <AllWeightsZeroState />}
+                {waitingKind === 'insufficient' && <InsufficientHistoryState />}
+                {waitingKind === 'loading' && <MonteCarloLoading />}
             </div>
         );
     }
@@ -248,9 +266,10 @@ export default function MonteCarloGauge({
     else if (prob > 20) baseMessage = "IMPROVISADOR";
 
     const message = baseMessage + (effectiveSimulateToday ? " (HOJE)" : " (FUTURO)");
+
     const projectionDelta = projectedSafe - currentSafe;
     const isProjectionNearCurrent = Math.abs(projectionDelta) < 0.5;
-    const projectionDeltaLabel = `${projectionDelta >= 0 ? '+' : ''}${formatValue(projectionDelta)}${unit}`;
+    const projectionDeltaLabel = `${projectionDelta >= 0 ? '+' : ''}${formatValue(projectionDelta)}${resolvedUnit}`;
 
     return (
         <div className={`glass p-4 sm:p-5 rounded-2xl sm:rounded-[2rem] relative flex flex-col border-l-4 border-blue-500 bg-slate-900 group transition-all duration-500 shadow-2xl w-full h-full flex-1 ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
@@ -380,14 +399,32 @@ export default function MonteCarloGauge({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-6">
-                    {[
-                        { label: "Sua Meta", val: `${formatValue(targetSafe)}${unit}`, color: "text-rose-500" },
-                        { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: `${formatValue(currentSafe)}${unit}`, color: "text-white" },
-                        { label: "Projeção", val: `${formatValue(projectedSafe)}${unit}`, color: "text-blue-400" },
-                        { label: "Δ Futuro vs Hoje", val: projectionDeltaLabel, color: isProjectionNearCurrent ? "text-amber-300" : "text-cyan-300" },
-                        { label: "Incerteza", val: `-${formatValue(safe(sdLeft))} / +${formatValue(safe(sdRight))}`, color: "text-amber-400", small: true },
-                        { label: "IC 95%", val: `${formatValue(ciLowSafe)}–${formatValue(ciHighSafe)}${unit}`, color: "text-green-500/80", small: true }
-                    ].map((m, i) => (
+                {[
+                    { label: "Sua Meta", val: `${formatValue(targetSafe)}${resolvedUnit}`, color: "text-rose-500" },
+                    { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: `${formatValue(currentSafe)}${resolvedUnit}`, color: "text-white" },
+                    { label: "Projeção", val: `${formatValue(projectedSafe)}${resolvedUnit}`, color: "text-blue-400" },
+
+                    // T-033 FIX: label correto no modo hoje/futuro
+                    {
+                        label: effectiveSimulateToday ? "Δ Projeção vs Hoje" : "Δ Futuro vs Hoje",
+                        val: projectionDeltaLabel,
+                        color: isProjectionNearCurrent ? "text-amber-300" : "text-cyan-300"
+                    },
+
+                    {
+                        label: "Incerteza",
+                        val: `-${formatValue(safe(sdLeft))} / +${formatValue(safe(sdRight))}${resolvedUnit}`,
+                        color: "text-amber-400",
+                        small: true
+                    },
+
+                    {
+                        label: "IC 95%",
+                        val: `${formatValue(ciLowSafe)}–${formatValue(ciHighSafe)}${resolvedUnit}`,
+                        color: "text-green-500/80",
+                        small: true
+                    }
+                ].map((m, i) => (
                     <div key={i} className="bg-black/30 p-2 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[56px]">
                         <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1 text-center">{m.label}</span>
                         <span className={`${m.small ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm'} font-black ${m.color} w-full text-center break-words leading-tight`}>{m.val}</span>
@@ -417,7 +454,7 @@ export default function MonteCarloGauge({
                         prob={safe(prob)}
                         kdeData={simulationData?.data?.kdeData}
                         projectedMean={projectedSafe}
-                        unit={unit}
+                        unit={resolvedUnit}
                         minScore={minScore}
                         maxScore={maxScore}
                     />
@@ -437,6 +474,7 @@ export default function MonteCarloGauge({
                         type="range"
                         min="0"
                         max={Math.max(1, timelineDates.length - 1)}
+                        aria-label="Máquina do tempo"
                         defaultValue={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
                         onChange={(e) => {
                             const val = Number(e.target.value);
@@ -491,10 +529,10 @@ export default function MonteCarloGauge({
 
                 {showPerSubject && perSubjectProbs.length > 0 && (
                     <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5">
-                        {perSubjectProbs.map(s => {
+                        {perSubjectProbs.map((s, idx) => {
                             const probColor = s.prob < 40 ? 'text-rose-400' : s.prob < 60 ? 'text-amber-400' : s.prob < 80 ? 'text-blue-400' : 'text-emerald-400';
                             return (
-                                <div key={s.name} className="flex flex-col gap-1.5 py-2 border-b border-white/5 last:border-0">
+                                <div key={`${s.name}-${idx}`} className="flex flex-col gap-1.5 py-2 border-b border-white/5 last:border-0">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2 truncate">
                                             {s.trend === 'up' && <TrendingUp size={10} className="text-emerald-400" />}
@@ -538,7 +576,10 @@ export default function MonteCarloGauge({
             )}
         </div>
     );
-}
+};
+
+// T-039 FIX: exportar versão memoizada
+export default React.memo(MonteCarloGaugeBase);
 
 // ==========================================
 // UX HELPERS & ATOMS
@@ -588,20 +629,45 @@ function EmptyPredictionState() {
     );
 }
 
-// T-006 FIX: Estado educativo quando o usuário zera todos os pesos.
+// T-032 FIX: Estado específico para pesos zerados.
 function AllWeightsZeroState() {
     return (
         <div className="rounded-3xl p-6 border border-amber-500/20 bg-amber-950/10 flex flex-col items-center justify-center text-center h-full flex-1 w-full my-auto">
             <div className="text-3xl mb-3">⚖️</div>
+
             <h2 className="text-[12px] font-black text-amber-300 uppercase tracking-widest mb-3">
                 Todos os pesos estão zerados
             </h2>
+
             <p className="text-[10px] text-slate-400 leading-relaxed font-medium max-w-[260px]">
-                Há histórico de simulados, mas todas as matérias estão com peso P0.
+                Há histórico de simulados, mas todas as matérias estão com peso zero.
                 Ajuste os pesos em Configuração para calcular a simulação Monte Carlo.
             </p>
+
             <div className="mt-4 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-400 font-bold uppercase tracking-wider">
                 Abra Configurar Classificações e Meta
+            </div>
+        </div>
+    );
+}
+
+// T-032 FIX: Estado específico para histórico insuficiente.
+function InsufficientHistoryState() {
+    return (
+        <div className="rounded-3xl p-6 border border-blue-500/20 bg-blue-950/10 flex flex-col items-center justify-center text-center h-full flex-1 w-full my-auto">
+            <div className="text-3xl mb-3">📉</div>
+
+            <h2 className="text-[12px] font-black text-blue-300 uppercase tracking-widest mb-3">
+                Histórico insuficiente
+            </h2>
+
+            <p className="text-[10px] text-slate-400 leading-relaxed font-medium max-w-[260px]">
+                Há alguns dados, mas ainda não há pontos válidos suficientes para gerar uma projeção confiável.
+                Lance mais simulados ou revise os filtros de data/pesos.
+            </p>
+
+            <div className="mt-4 px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[9px] text-blue-400 font-bold uppercase tracking-wider">
+                Mínimo recomendado: 3 simulados
             </div>
         </div>
     );

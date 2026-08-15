@@ -1,5 +1,13 @@
 import React, { useRef, useState, useEffect, useMemo, startTransition } from 'react';
-import { Settings2, Check, Minus, Plus, Activity, Clock, Hash, ChevronUp, ChevronDown } from 'lucide-react';
+import {
+    Check,
+    Minus,
+    Activity,
+    Clock,
+    Hash,
+    ChevronUp,
+    ChevronDown
+} from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatDuration } from '../../utils/dateHelper';
 
@@ -68,11 +76,20 @@ export const MonteCarloConfig = ({
 
     const updateExamTotalQuestions = (e) => {
         const q = parseInt(e.target.value, 10);
-        if (!isNaN(q) && q > 0 && setExamConfig) setExamConfig(examDurationMinutes, q);
+
+        if (!isNaN(q) && setExamConfig) {
+            // T-027 FIX: clamp defensivo, independente do input HTML
+            const safeQ = Math.max(10, Math.min(500, q));
+            setExamConfig(examDurationMinutes, safeQ);
+        }
     };
 
     const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore ? Number(maxScore) : Math.max(safeMinScore + 1, 100);
+
+    // T-026 FIX: unidade dinâmica para escalas diferentes de 100
+    const unitLabel = safeMaxScore === 100 ? '%' : ' pts';
+
     const sliderMin = Math.max(safeMinScore, Math.round(safeMaxScore * 0.1));
     const sliderRange = Math.max(1, safeMaxScore - sliderMin);
     const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number(targetScore) || sliderMin));
@@ -82,6 +99,10 @@ export const MonteCarloConfig = ({
     const debounceTimeout = useRef(null);
     const dragTimeout = useRef(null);
     const sliderRef = useRef(null);
+
+    // T-042/T-043 FIX: refs para acessibilidade e focus trap
+    const modalRef = useRef(null);
+    const closeButtonRef = useRef(null);
 
     // Otimização O(N) via useMemo para evitar loop no render do slider
     const manualTotal = useMemo(() => {
@@ -100,6 +121,15 @@ export const MonteCarloConfig = ({
             }
         }
     }, [clampedTarget]);
+
+    // T-043 FIX: foco inicial no modal ao abrir
+    useEffect(() => {
+        if (!show) return;
+
+        if (closeButtonRef.current) {
+            closeButtonRef.current.focus();
+        }
+    }, [show]);
 
     useEffect(() => {
         document.body.style.overflow = show ? 'hidden' : '';
@@ -134,13 +164,68 @@ export const MonteCarloConfig = ({
         }
     };
 
+    // T-028 FIX: helper para adicionar cortes sem duplicatas e com normalização defensiva
+    const safeCutoffs = Array.isArray(historicalCutoffs)
+        ? historicalCutoffs
+        : Object.values(historicalCutoffs || {});
+
+    const addHistoricalCutoff = () => {
+        const val = parseFloat(newCutoff);
+
+        if (!isNaN(val) && val >= safeMinScore && val <= safeMaxScore) {
+            if (typeof setHistoricalCutoffs === 'function') {
+                const next = Array.from(new Set([...safeCutoffs, val]));
+                setHistoricalCutoffs(next);
+            }
+
+            setNewCutoff('');
+        }
+    };
+
+    // T-043 FIX: Escape fecha e Tab mantém foco dentro do modal
+    const handleModalKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            e.stopPropagation();
+            onClose(false);
+            return;
+        }
+
+        if (e.key === 'Tab' && modalRef.current) {
+            const focusables = Array.from(
+                modalRef.current.querySelectorAll(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                )
+            ).filter(el => !el.disabled && el.getClientRects().length > 0);
+
+            if (focusables.length === 0) return;
+
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+    };
+
     if (!show) return null;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => onClose(false)} />
 
-            <div className="relative w-full max-w-2xl h-full max-h-[90vh] bg-slate-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div
+                ref={modalRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Configuração do Monte Carlo"
+                onKeyDown={handleModalKeyDown}
+                className="relative w-full max-w-2xl h-full max-h-[90vh] bg-slate-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            >
                 <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-white/5">
                     <div className="flex items-center gap-3 min-w-0">
                         <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 shadow-inner flex items-center justify-center">
@@ -152,10 +237,12 @@ export const MonteCarloConfig = ({
                         </div>
                     </div>
                     <button
+                        ref={closeButtonRef}
                         type="button"
                         onClick={() => onClose(false)}
                         className="shrink-0 flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 group/close focus:outline-none focus:ring-2 focus:ring-emerald-300/70"
                         title="Salvar e Fechar"
+                        aria-label="Salvar e fechar configuração"
                     >
                         <Check size={18} className="text-white group-hover/close:scale-110 transition-transform" />
                         <span className="hidden sm:inline text-[10px] font-black text-white uppercase tracking-wider">Salvar</span>
@@ -173,7 +260,7 @@ export const MonteCarloConfig = ({
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-1">Target Achievement</span>
                                 <span className="text-3xl font-black text-white tracking-tighter italic">
                                     <span>{localTarget}</span>
-                                    <span className="text-blue-500">%</span>
+                                    <span className="text-blue-500">{unitLabel}</span>
                                 </span>
                             </div>
                             <div className="text-right">
@@ -190,8 +277,10 @@ export const MonteCarloConfig = ({
                                 step="1"
                                 defaultValue={clampedTarget}
                                 onChange={handleSliderChange}
+                                aria-label="Meta de classificação"
                                 onPointerDown={() => { isDragging.current = true; }}
                                 onPointerUp={() => { isDragging.current = false; }}
+                                touchAction="none"
                                 onTouchStart={() => { isDragging.current = true; }}
                                 onTouchEnd={() => { isDragging.current = false; }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
@@ -233,16 +322,11 @@ export const MonteCarloConfig = ({
                                 placeholder="Nota de Corte (Ex: 82)"
                                 value={newCutoff}
                                 onChange={(e) => setNewCutoff(e.target.value)}
+                                aria-label="Nova nota de corte histórica"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         e.preventDefault();
-                                        const val = parseFloat(newCutoff);
-                                        if (!isNaN(val) && val >= safeMinScore && val <= safeMaxScore) {
-                                            if (typeof setHistoricalCutoffs === 'function') {
-                                                setHistoricalCutoffs([...historicalCutoffs, val]);
-                                            }
-                                            setNewCutoff('');
-                                        }
+                                        addHistoricalCutoff();
                                     }
                                 }}
                                 className="bg-slate-900 border border-white/10 rounded-md px-4 py-2.5 text-sm text-white font-bold w-full outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all placeholder:text-slate-600"
@@ -250,13 +334,7 @@ export const MonteCarloConfig = ({
                             <button
                                 type="button"
                                 onClick={() => {
-                                    const val = parseFloat(newCutoff);
-                                    if (!isNaN(val) && val >= safeMinScore && val <= safeMaxScore) {
-                                        if (typeof setHistoricalCutoffs === 'function') {
-                                            setHistoricalCutoffs([...historicalCutoffs, val]);
-                                        }
-                                        setNewCutoff('');
-                                    }
+                                    addHistoricalCutoff();
                                 }}
                                 className="bg-purple-600 hover:bg-purple-500 text-white font-black text-xs px-5 py-2.5 rounded-md shadow-lg shadow-purple-500/20 transition-all active:scale-95"
                             >
@@ -264,14 +342,14 @@ export const MonteCarloConfig = ({
                             </button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {historicalCutoffs.map((c, i) => (
+                            {safeCutoffs.map((c, i) => (
                                 <div key={i} className="flex items-center gap-1.5 bg-slate-900 border border-purple-500/30 px-3 py-1.5 rounded-full group">
                                     <span className="text-xs font-black text-purple-300">{c}</span>
                                     <button
                                         type="button"
                                         onClick={() => {
                                             if (typeof setHistoricalCutoffs === 'function') {
-                                                setHistoricalCutoffs(historicalCutoffs.filter((_, idx) => idx !== i));
+                                                setHistoricalCutoffs(safeCutoffs.filter((_, idx) => idx !== i));
                                             }
                                         }}
                                         className="text-slate-500 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all p-0.5"
@@ -281,7 +359,7 @@ export const MonteCarloConfig = ({
                                     </button>
                                 </div>
                             ))}
-                            {historicalCutoffs.length === 0 && (
+                            {safeCutoffs.length === 0 && (
                                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Nenhum corte cadastrado</span>
                             )}
                         </div>
@@ -327,6 +405,7 @@ export const MonteCarloConfig = ({
                                         max="500"
                                         value={examTotalQuestions}
                                         onChange={updateExamTotalQuestions}
+                                        aria-label="Total de questões da prova"
                                         className="bg-transparent text-white font-bold text-sm w-full outline-none py-2.5 pr-3 placeholder:text-slate-600"
                                     />
                                 </div>

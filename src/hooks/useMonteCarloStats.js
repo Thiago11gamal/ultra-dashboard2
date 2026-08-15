@@ -21,10 +21,7 @@ import {
 } from '../utils/explanationEngine.js';
 import { getFlashcardImmunity } from '../utils/analytics.js';
 import {
-  VOLATILITY_REGULARIZATION_FACTOR,
-  INFORMATIVE_PRIOR_MAX_STRENGTH,
   MAX_CALIBRATION_PENALTY,
-  CALIBRATION_LAMBDA_DAYS,
   sanitizeWeightUnit,
   regularizeVolatility,
   computeCalibrationPenalty,
@@ -70,7 +67,9 @@ export function useMonteCarloStats({
   minScore,
   maxScore,
   effectiveSimulateToday,
-  simuladoRows: propSimuladoRows
+  simuladoRows: propSimuladoRows,
+  // T-040 FIX: permite adiar o cálculo pesado de probabilidades por matéria
+  enablePerSubject = false
 }) {
   const activeId = useAppStore(state => state.appState?.activeId);
 
@@ -879,7 +878,9 @@ export function useMonteCarloStats({
   ]);
 
   const perSubjectProbs = useMemo(() => {
-    if (!statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
+    // T-040 FIX: só calcular probabilidades por matéria quando o painel estiver aberto.
+    // Isso evita simulações pesadas desnecessárias no primeiro render.
+    if (!enablePerSubject || !statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
 
     return statsData.categoryStats
       .filter(cat => cat.weight > 0)
@@ -1034,7 +1035,9 @@ export function useMonteCarloStats({
     rawSimuladoRows,
     calibrationSummary,
     dynamicSimulations,
-    calibrationPenalty
+    calibrationPenalty,
+    // T-040 FIX: reagir à abertura/fechamento do painel de matérias
+    enablePerSubject
   ]);
 
   useEffect(() => {

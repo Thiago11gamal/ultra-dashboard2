@@ -288,29 +288,52 @@ export const GaussianPlot = ({
         return `${Number.isInteger(val) ? val : Number(val).toFixed(2)}${u || ''}`;
     };
 
+    // T-041 FIX: suporte a touch para tooltip em mobile.
+    const updateHoverFromClientX = (clientX, el) => {
+        if (!el) return;
+
+        const rect = el.getBoundingClientRect();
+        const percentage = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+
+        const hoverRange = Math.max(1e-6, range);
+        const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * hoverRange));
+
+        pendingHoverRef.current = { x: xp(val), val };
+
+        if (hoverRafRef.current != null) return;
+
+        hoverRafRef.current = requestAnimationFrame(() => {
+            hoverRafRef.current = null;
+            setHover(pendingHoverRef.current);
+        });
+    };
+
+    const clearHover = () => {
+        if (hoverRafRef.current != null) {
+            cancelAnimationFrame(hoverRafRef.current);
+            hoverRafRef.current = null;
+        }
+
+        pendingHoverRef.current = null;
+        setHover(null);
+    };
+
     return (
-        <div className="relative w-full h-[220px] mt-28 mb-16 pb-6 cursor-crosshair group/chart"
-            onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const percentage = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-                // 🎯 FIX: Proteção contra Divisão por Zero em Arrays estáticos
-                const hoverRange = Math.max(1e-6, range);
-                const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * hoverRange));
-                pendingHoverRef.current = { x: xp(val), val };
-                if (hoverRafRef.current != null) return;
-                hoverRafRef.current = requestAnimationFrame(() => {
-                    hoverRafRef.current = null;
-                    setHover(pendingHoverRef.current);
-                });
-            }}
-            onMouseLeave={() => {
-                if (hoverRafRef.current != null) {
-                    cancelAnimationFrame(hoverRafRef.current);
-                    hoverRafRef.current = null;
+        <div
+            className="relative w-full h-[220px] mt-28 mb-16 pb-6 cursor-crosshair group/chart"
+            onMouseMove={(e) => updateHoverFromClientX(e.clientX, e.currentTarget)}
+            onMouseLeave={clearHover}
+            onTouchStart={(e) => {
+                if (e.touches && e.touches[0]) {
+                    updateHoverFromClientX(e.touches[0].clientX, e.currentTarget);
                 }
-                pendingHoverRef.current = null;
-                setHover(null);
             }}
+            onTouchMove={(e) => {
+                if (e.touches && e.touches[0]) {
+                    updateHoverFromClientX(e.touches[0].clientX, e.currentTarget);
+                }
+            }}
+            onTouchEnd={clearHover}
         >
             {/* ... Gradientes laterais e SVG defs continuam iguais ... */}
             <div style={{

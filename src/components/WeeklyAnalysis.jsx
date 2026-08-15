@@ -18,17 +18,49 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
     const { groups, stats } = useMemo(() => {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
 
-        // 1. Calculate Stats
-        // BUGFIX: Alguns logs antigos/sincronizados usam `duration` em vez de `minutes`.
-        // Sem fallback, cards e timeline subcontabilizam tempo no menu de Estatísticas.
-        const getLogMinutes = (log) => Number(log?.minutes ?? log?.duration) || 0;
+        // T-029 FIX: Se minutes vier 0, mas duration existir, usa duration.
+        const getLogMinutes = (log) => {
+            const minutes = Number(log?.minutes);
+            const duration = Number(log?.duration);
+
+            if (Number.isFinite(minutes) && minutes > 0) return minutes;
+            if (Number.isFinite(duration) && duration > 0) return duration;
+
+            return 0;
+        };
+
+        // T-037 FIX: Indexar categorias por ID para lookup O(1).
+        // Antes, cada log fazia .find() em categoriesArray, gerando O(logs * categories).
+        const categoriesById = new Map();
+
+        categoriesArray.forEach(c => {
+            if (c?.id != null) {
+                categoriesById.set(String(c.id), c);
+            }
+        });
+
+        const findCategoryForLog = (log) => {
+            if (!log) return undefined;
+
+            if (log.categoryId != null) {
+                const byId = categoriesById.get(String(log.categoryId));
+                if (byId) return byId;
+            }
+
+            return categoriesArray.find(c =>
+                (log.subject && c.name === log.subject) ||
+                (log.categoryName && c.name === log.categoryName)
+            );
+        };
+
         const totalMinutes = logsArray.reduce((acc, log) => acc + getLogMinutes(log), 0);
         const totalSessions = logsArray.length;
 
         // Find top category
         const catCounts = {};
         logsArray.forEach(log => {
-            const category = categoriesArray.find(c => String(c.id) === String(log.categoryId) || (log.subject && c.name === log.subject) || (log.categoryName && c.name === log.categoryName));
+            // T-037 FIX: lookup indexado
+            const category = findCategoryForLog(log);
             const catName = category ? category.name : (log.categoryName || log.subject || 'Outros');
             catCounts[catName] = (catCounts[catName] || 0) + getLogMinutes(log);
         });
@@ -85,7 +117,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             };
 
             // Category Grouping
-            const category = categoriesArray.find(c => String(c.id) === String(log.categoryId) || (log.subject && c.name === log.subject) || (log.categoryName && c.name === log.categoryName));
+            // T-037 FIX: lookup indexado
+            const category = findCategoryForLog(log);
             const categoryId = category ? category.id : (log.categoryId || log.categoryName || log.subject || 'unknown');
             const categoryName = category ? category.name : (log.categoryName || log.subject || 'Desconhecido');
             const categoryColor = category?.color || '#a855f7';
@@ -141,8 +174,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             // Sort categories by Last Activity Time (Chronological)
             const cats = Object.values(dayGroup.categories).map(cat => ({
                 ...cat,
-                // Find latest log time for this category on this day
-                lastLogTime: cat.logs.length > 0 ? Math.max(...cat.logs.map(l => normalizeDate(l.date)?.getTime() ?? 0)) : 0
+                // T-038 FIX: reduce evita estourar stack com arrays grandes
+                lastLogTime: cat.logs.reduce((max, l) => {
+                    const t = normalizeDate(l.date)?.getTime() ?? 0;
+                    return Math.max(max, t);
+                }, 0)
             })).sort((a, b) => b.lastLogTime - a.lastLogTime);
 
             const dayTotalMinutes = cats.reduce((acc, c) => acc + c.totalMinutes, 0);

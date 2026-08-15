@@ -76,7 +76,9 @@ export default function DueForecastChart({ data = [], height = 260 }) {
                         {chartData.map((entry, index) => (
                             <Cell
                                 key={`cell-${index}`}
-                                fill={entry.isToday ? '#f59e0b' : entry.isTomorrow ? '#fbbf24' : '#d97706'}
+                                // T-044 FIX: usar o gradiente nas barras comuns.
+                                // Antes, o Cell sobrescrevia o fill do Bar e o gradiente nunca aparecia.
+                                fill={entry.isToday ? '#f59e0b' : entry.isTomorrow ? '#fbbf24' : `url(#${barId})`}
                                 fillOpacity={entry.value === 0 ? 0.25 : 1}
                             />
                         ))}

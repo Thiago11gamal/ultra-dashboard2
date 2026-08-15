@@ -1,5 +1,5 @@
 import React, { useId } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDuration } from '../../../utils/dateHelper';
 
 export function EvolucaoFocoChart({ data }) {
