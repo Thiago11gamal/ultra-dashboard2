@@ -1,5 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import SimuladoAnalysis from '../components/SimuladoAnalysis';
 import AIGeneratedSimulado from '../components/ai/AIGeneratedSimulado';
 import { useAppStore } from '../store/useAppStore';
@@ -345,7 +345,7 @@ export default function Simulados() {
   }
 
   /* ── Handler de análise (salvamento) ── */
-  const handleSimuladoAnalysis = (payload) => {
+  const handleSimuladoAnalysis = useCallback((payload) => {
     try {
       const analysisResult = payload?.analysis || payload || {};
       const rawRows = Array.isArray(payload?.rawRows) ? payload.rawRows : [];
@@ -360,7 +360,19 @@ export default function Simulados() {
 
       setData((current) => {
         const prev = current || {};
-        const newCategories = (Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories || {})).map(c => ({ ...c, simuladoStats: c.simuladoStats ? { ...c.simuladoStats, history: Array.isArray(c.simuladoStats.history) ? [...c.simuladoStats.history] : Object.values(c.simuladoStats.history || {}) } : undefined }));
+        const newCategories = (Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories || {}))
+          .filter(Boolean)
+          .map(c => ({
+            ...c,
+            simuladoStats: c.simuladoStats
+              ? {
+                  ...c.simuladoStats,
+                  history: Array.isArray(c.simuladoStats.history)
+                    ? [...c.simuladoStats.history]
+                    : Object.values(c.simuladoStats.history || {})
+                }
+              : undefined
+          }));
         const prevSimuladoRowsArray = Array.isArray(prev.simuladoRows)
           ? prev.simuladoRows : Object.values(prev.simuladoRows || {});
 
@@ -509,7 +521,11 @@ export default function Simulados() {
 
       if (totalQForToast > 0) {
         showToast('Simulado processado com sucesso!', 'success');
-        useAppStore.getState().awardExperience?.(500);
+        try {
+          useAppStore.getState().awardExperience?.(500);
+        } catch (xpErr) {
+          console.warn('Falha não-bloqueante ao conceder XP do simulado:', xpErr);
+        }
       } else {
         showToast('Nenhuma questão válida encontrada.', 'warning');
       }
@@ -517,7 +533,7 @@ export default function Simulados() {
       console.error('FATAL ERROR IN handleSimuladoAnalysis:', err);
       showToast('Erro fatal ao salvar simulado. Verifique os logs.', 'error');
     }
-  };
+  }, [setData, showToast]);
 
   /* ── Configuração das tabs ── */
   const tabs = [

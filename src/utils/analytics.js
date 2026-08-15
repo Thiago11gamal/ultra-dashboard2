@@ -1,6 +1,7 @@
 import { getXPProgress } from './gamification.js';
 import { normalizeDate, getLocalMidnight, getDateKey, parseNoonLocal, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
+import { safeDate } from '../engine/math/date.js';
 import { format } from 'date-fns';
 import { toFinite } from '../engine/math/safe.js';
 import { toArray } from './normalize.js';
