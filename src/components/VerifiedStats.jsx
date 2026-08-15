@@ -18,7 +18,6 @@ import { calculateSlope } from '../engine';
 import { getDateKey, normalizeDate, APP_TIMEZONE } from '../utils/dateHelper';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
 import DueForecast from './DueForecast';
-import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 
 // FIX 1.1: Mapa estático de cores para evitar que o Tailwind purge elimine classes geradas dinamicamente via .replace()
 const TAILWIND_COLOR_MAP = {
@@ -387,18 +386,6 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         const timer = setTimeout(() => setStatsTarget(targetScore), 300);
         return () => clearTimeout(timer);
     }, [targetScore]);
-
-    // Extrair dados do Monte Carlo UMA vez no nível superior do componente
-    const mcStatsData = useMonteCarloStats({
-        categories: safeCategories,
-        goalDate: user?.goalDate,
-        targetScore: statsTarget,
-        timeIndex: -1,
-        timelineDates: EMPTY_ARRAY,
-        minScore: 0,
-        maxScore: maxScore,
-        enablePerSubject: false,
-    });
 
     const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || null);
@@ -865,8 +852,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         }
 
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [safeCategories, statsTarget, maxScore]);
+    }, [baseHistoryStats, statsTarget, maxScore]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">
@@ -907,6 +893,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
                     <MonteCarloGauge
+                        categories={safeCategories}
+                        goalDate={user?.goalDate}
                         forcedMode="today"
                         forcedTitle="Status Atual"
                         targetScore={statsTarget}
@@ -915,10 +903,11 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         unit={gaugeUnit}
                         syncShowSubjects={showSubjects}
                         onSyncShowSubjects={setShowSubjects}
-                        precomputedStats={mcStatsData}
                     />
                     {mountFutureGauge ? (
                         <MonteCarloGauge
+                            categories={safeCategories}
+                            goalDate={user?.goalDate}
                             forcedMode="future"
                             forcedTitle="Projeção Futura"
                             targetScore={statsTarget}
@@ -927,7 +916,6 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                             unit={gaugeUnit}
                             syncShowSubjects={showSubjects}
                             onSyncShowSubjects={setShowSubjects}
-                            precomputedStats={mcStatsData}
                         />
                     ) : (
                         <div className="glass p-4 sm:p-5 rounded-2xl sm:rounded-[2rem] border-l-4 border-blue-500 bg-slate-900 w-full h-full min-h-[400px] flex items-center justify-center">

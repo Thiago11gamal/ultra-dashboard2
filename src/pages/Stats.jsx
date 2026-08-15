@@ -9,7 +9,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
 export default function Stats() {
-    const { rawCategories, rawStudyLogs, rawFlashcards, user } = useAppStore(useShallow(state => {
+    const { rawCategories, rawStudyLogs, rawFlashcards, rawSimuladoRows, user } = useAppStore(useShallow(state => {
         const contests = state?.appState?.contests || {};
         const activeId = state?.appState?.activeId;
         const contest = contests[activeId] || {};
@@ -17,6 +17,7 @@ export default function Stats() {
             rawCategories: contest.categories,
             rawStudyLogs: contest.studyLogs,
             rawFlashcards: contest.flashcardDecks,
+            rawSimuladoRows: contest.simuladoRows,
             user: contest.user || null
         };
     }));
@@ -39,11 +40,13 @@ export default function Stats() {
     // 🎯 FIX LÓGICO: Gráficos de analytics precisam de logs, simulados ou flashcards para serem montados
     const hasStudyLogs = studyLogs.length > 0;
     const hasSimuladoHistory = useMemo(() => {
+        const hasRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows.length > 0 : Object.keys(rawSimuladoRows || {}).length > 0;
+        if (hasRows) return true;
         return Array.isArray(categories) && categories.some(category => {
             const h = category?.simuladoStats?.history;
             return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
         });
-    }, [categories]);
+    }, [rawSimuladoRows, categories]);
     // T-022 FIX: cards podem vir como objeto no Firebase.
     const hasFlashcards = useMemo(() => {
         return Array.isArray(flashcardDecks) && flashcardDecks.some(d => {
