@@ -152,7 +152,7 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
         finalVar *= effectiveTotalWeight;
     }
 
-    return finalVar;
+    return Math.max(0, Number.isFinite(finalVar) ? finalVar : 0);
 }
 
 /**

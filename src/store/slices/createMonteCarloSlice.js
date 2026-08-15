@@ -15,10 +15,6 @@ export const createMonteCarloSlice = (set) => ({
             const activeData = state.appState.contests?.[activeId];
             if (!activeData) return;
 
-            if (!Array.isArray(activeData.monteCarloHistory)) {
-                activeData.monteCarloHistory = [];
-            }
-            
             const rawProb = safeNumber(prob, null);
             if (rawProb === null) return; 
             
@@ -31,19 +27,24 @@ export const createMonteCarloSlice = (set) => ({
             const targetDateStr = snapshot.date;
             const targetCategoryId = snapshot.categoryId || null;
 
+            const existingHistory = Array.isArray(activeData.monteCarloHistory)
+                ? activeData.monteCarloHistory
+                : [];
+
             // ✅ FIX 1.3: buscar por data + categoria
-            const idx = activeData.monteCarloHistory.findIndex(h =>
+            const idx = existingHistory.findIndex(h =>
                 getDateKey(normalizeDate(h.date)) === targetDateStr &&
                 (h.categoryId || null) === targetCategoryId
             );
 
+            let newHistory;
             if (idx >= 0) {
-                activeData.monteCarloHistory[idx] = { ...activeData.monteCarloHistory[idx], ...snapshot };
+                newHistory = existingHistory.map((h, i) => i === idx ? { ...h, ...snapshot } : h);
             } else {
-                activeData.monteCarloHistory.push(snapshot);
+                newHistory = [...existingHistory, snapshot];
             }
 
-            activeData.monteCarloHistory.sort((a, b) => {
+            newHistory.sort((a, b) => {
                 const timeA = new Date(a.date).getTime() || 0;
                 const timeB = new Date(b.date).getTime() || 0;
                 return timeA - timeB;
@@ -51,33 +52,61 @@ export const createMonteCarloSlice = (set) => ({
             // ✅ FIX 1.3b: limite escala com nº de categorias
             const categoryCount = (activeData.categories || []).length || 1;
             const MAX_SNAPSHOTS = 30 * categoryCount;
-            if (activeData.monteCarloHistory.length > MAX_SNAPSHOTS) {
-                activeData.monteCarloHistory = activeData.monteCarloHistory.slice(-MAX_SNAPSHOTS);
+            if (newHistory.length > MAX_SNAPSHOTS) {
+                newHistory = newHistory.slice(-MAX_SNAPSHOTS);
             }
 
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
+            return {
+                appState: {
+                    ...state.appState,
+                    contests: {
+                        ...state.appState.contests,
+                        [activeId]: {
+                            ...activeData,
+                            monteCarloHistory: newHistory
+                        }
+                    },
+                    version: (state.appState.version || 0) + 1,
+                    lastUpdated: new Date().toISOString()
+                }
+            };
         } catch (e) {
             console.warn('Error saving MC snapshot:', e);
         }
     }),
 
     setMcEqualWeights: (enabled) => set((state) => {
-        state.appState.mcEqualWeights = Boolean(enabled);
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+        return {
+            appState: {
+                ...state.appState,
+                mcEqualWeights: Boolean(enabled),
+                version: (state.appState.version || 0) + 1,
+                lastUpdated: new Date().toISOString()
+            }
+        };
     }),
 
     setHistoricalCutoffs: (cutoffs) => set((state) => {
         const activeId = state.appState?.activeId;
         if (!activeId || !state.appState.contests?.[activeId]) return;
 
-        state.appState.contests[activeId].historicalCutoffs = safeClone(cutoffs);
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+        return {
+            appState: {
+                ...state.appState,
+                contests: {
+                    ...state.appState.contests,
+                    [activeId]: {
+                        ...state.appState.contests[activeId],
+                        historicalCutoffs: safeClone(cutoffs)
+                    }
+                },
+                version: (state.appState.version || 0) + 1,
+                lastUpdated: new Date().toISOString()
+            }
+        };
     }),
 
     updateCoachScore: (score) => set((state) => {
@@ -89,10 +118,21 @@ export const createMonteCarloSlice = (set) => ({
 
         if (Object.is(currentScore, newScore)) return;
 
-        state.appState.contests[activeId].coachScore = newScore;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+        return {
+            appState: {
+                ...state.appState,
+                contests: {
+                    ...state.appState.contests,
+                    [activeId]: {
+                        ...state.appState.contests[activeId],
+                        coachScore: newScore
+                    }
+                },
+                version: (state.appState.version || 0) + 1,
+                lastUpdated: new Date().toISOString()
+            }
+        };
     }),
 
     setExamConfig: (durationMinutes, totalQuestions) => set((state) => {
@@ -102,10 +142,21 @@ export const createMonteCarloSlice = (set) => ({
         const dMin = safeNumber(durationMinutes, 240);
         const tQ = safeNumber(totalQuestions, 100);
 
-        state.appState.contests[activeId].examDurationMinutes = dMin;
-        state.appState.contests[activeId].examTotalQuestions = tQ;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+        return {
+            appState: {
+                ...state.appState,
+                contests: {
+                    ...state.appState.contests,
+                    [activeId]: {
+                        ...state.appState.contests[activeId],
+                        examDurationMinutes: dMin,
+                        examTotalQuestions: tQ
+                    }
+                },
+                version: (state.appState.version || 0) + 1,
+                lastUpdated: new Date().toISOString()
+            }
+        };
     })
 });

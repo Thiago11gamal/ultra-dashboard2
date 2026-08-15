@@ -572,7 +572,7 @@ useEffect(() => {
               if (lastRecordedGlobalPredRef.current !== hash) {
                 lastRecordedGlobalPredRef.current = hash;
 
-                const ev = recordPredictionEvent(null, {
+                const ev = recordPredictionEvent({
                   timestamp: Date.now(),
                   probability: Number(result.probability) / 100,
                   targetScore: debouncedTarget,
@@ -699,7 +699,7 @@ useEffect(() => {
               if (lastRecordedGlobalPredRef.current !== hash) {
                 lastRecordedGlobalPredRef.current = hash;
 
-                const ev = recordPredictionEvent(null, {
+                const ev = recordPredictionEvent({
                   timestamp: Date.now(),
                   probability: Number(result.probability) / 100,
                   targetScore: debouncedTarget,
@@ -734,7 +734,9 @@ useEffect(() => {
     pureStatsHash,
     runAnalysis,
     debouncedTarget,
-    calibrationPenalty
+    calibrationPenalty,
+    projectDays,
+    effectiveSimulateToday
   ]);
 
   const probabilityData = useMemo(() => {
@@ -1070,7 +1072,7 @@ useEffect(() => {
       perSubjectProbs.forEach(subj => {
         if (subj.prob == null) return;
 
-        const ev = recordPredictionEvent(null, {
+        const ev = recordPredictionEvent({
           timestamp: Date.now(),
           probability: Number(subj.prob) / 100,
           targetScore: debouncedTarget,

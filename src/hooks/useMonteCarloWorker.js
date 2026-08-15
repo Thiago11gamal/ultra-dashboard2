@@ -122,31 +122,9 @@ export function useMonteCarloWorker() {
             const timeoutId = setTimeout(() => {
                 if (sharedPendingRequests.has(id)) {
                     sharedPendingRequests.delete(id);
-                    console.warn(`[MC Worker Singleton] Request ${id} timed out. Recycling worker thread.`);
-                    
-                    // Kill the zombie worker AND clean up ALL its pending requests.
-                    const dyingWorker = currentWorker;
-                    
-                    // Clean ALL pending requests from the dying worker
-                    for (const [pendingId, pending] of sharedPendingRequests) {
-                        if (pending.worker === dyingWorker) {
-                            clearTimeout(pending.timeoutId);
-                            pending.reject(new Error('Worker recycled due to timeout'));
-                            sharedPendingRequests.delete(pendingId);
-                        }
-                    }
-                    
-                    if (dyingWorker) {
-                         dyingWorker.terminate();
-                    }
-                    
-                    if (sharedWorker === dyingWorker) {
-                        sharedWorker = null;
-                        
-                        // Instantiate a fresh worker for subsequent requests.
-                        initSharedWorker();
-                    }
-                    
+                    console.warn(`[MC Worker Singleton] Request ${id} timed out.`);
+                    // CORRIGIDO: apenas rejeita ESTE request. Não mata o worker nem outros.
+                    // O worker será reciclado naturalmente quando ocioso.
                     reject(new Error("A análise demorou muito tempo e foi interrompida para proteger a performance do sistema."));
                 }
             }, timeoutMs);

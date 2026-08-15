@@ -1,5 +1,5 @@
 import { kahanSum } from '../engine/math/kahan.js';
-import { getDateKey } from './dateHelper.js';
+import { getDateKey, normalizeDate } from './dateHelper.js';
 import { getSafeScore } from './scoreHelper.js';
 import { isSubjectMatch } from './normalization.js';
 
@@ -151,7 +151,10 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
   if (!Array.isArray(calibrationEvents)) return [];
   if (!Array.isArray(simuladoRows) || simuladoRows.length === 0) return calibrationEvents;
   const timed = simuladoRows
-    .map(row => ({ row, ts: Date.parse(row?.date || row?.createdAt) }))
+    .map(row => {
+      const parsed = normalizeDate(row?.date || row?.createdAt);
+      return { row, ts: parsed ? parsed.getTime() : NaN };
+    })
     .filter(x => Number.isFinite(x.ts))
     .sort((a, b) => a.ts - b.ts);
   if (timed.length === 0) return calibrationEvents;

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown, AlertTriangle, Activity } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
@@ -117,7 +117,8 @@ const MonteCarloGaugeBase = ({
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : resolvedSimulateToday;
 
     // --- HOOK DE LÓGICA ESTATÍSTICA ---
-    const stats = precomputedStats ?? useMonteCarloStats({
+    // CORRIGIDO: hook sempre é chamado; escolhemos a fonte depois.
+    const hookStats = useMonteCarloStats({
         categories,
         goalDate,
         targetScore,
@@ -130,6 +131,8 @@ const MonteCarloGaugeBase = ({
         // T-040 FIX: só calcular subjects quando o painel estiver visível
         enablePerSubject: showPerSubject
     });
+
+    const stats = precomputedStats ?? hookStats;
 
     const {
         simulationData,
@@ -309,7 +312,7 @@ const MonteCarloGaugeBase = ({
         };
 
     return (
-        <div className={`glass p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col ${cardTheme.border} bg-slate-900/90 group transition-all duration-500 shadow-2xl ${cardTheme.glow} w-full h-full flex-1 ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
+        <div className={`glass p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col ${cardTheme.border} bg-slate-900/90 group transition-all duration-500 shadow-2xl ${cardTheme.glow} w-full h-full ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
             {isFlashing && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
                     <div className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent absolute top-0 left-0 animate-scan-fast" />
@@ -356,8 +359,9 @@ const MonteCarloGaugeBase = ({
             </div>
 
             <div className="w-full flex flex-col items-center justify-center mb-4">
-                <div className={`w-full bg-black/40 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-between transition-all duration-700 min-h-[460px] ${isFlashing ? 'blur-sm' : ''}`}>
-                    <div className="relative mb-2 w-full max-w-[280px] h-[140px] flex justify-center">
+                <div className={`w-full bg-slate-950/50 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col items-center gap-3.5 transition-all duration-700 shadow-xl relative overflow-hidden ${isFlashing ? 'blur-sm' : ''}`}>
+                    {/* Gauge Arc Graphic */}
+                    <div className="relative w-full max-w-[260px] h-[130px] flex justify-center mt-1">
                         <svg width="100%" height="100%" viewBox="0 -6 140 76" className="overflow-visible relative z-10">
                             <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
                             <path
@@ -375,59 +379,95 @@ const MonteCarloGaugeBase = ({
                                 <circle cx="4" cy="65" r="2.5" fill="#fff" opacity="0.9" />
                             </g>
                         </svg>
-                        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center z-20 translate-y-2">
-                            <span className="text-3xl sm:text-5xl font-black leading-none" style={{ color: getGradientColor(prob) }}>
+                        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center z-20 translate-y-1">
+                            <span className="text-3xl sm:text-4xl font-black leading-none tracking-tight" style={{ color: getGradientColor(prob) }}>
                                 <AnimatedProbability value={pAdjustedSafe} />
                             </span>
                         </div>
                     </div>
-                    <span className={`mt-2 mb-3 text-[10.5px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full bg-black/50 border border-white/10 transition-all duration-500 shadow-sm`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
+
+                    {/* Classification Status Pill */}
+                    <span 
+                        className="text-[10px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full bg-slate-900/90 border shadow-sm transition-all duration-500" 
+                        style={{ color: isFlashing ? '#60a5fa' : gradientColor, borderColor: `${gradientColor}40` }}
+                    >
                         {isFlashing ? "Simulando..." : message}
                     </span>
                     
-                    {/* CONFORMAL PREDICTION PANEL */}
-                    <div className="w-full flex flex-col items-center gap-3 flex-1 justify-between">
-                        <div className="w-full sm:w-11/12 flex flex-col items-center justify-center p-3 rounded-2xl border border-white/5 bg-black/50 shadow-inner">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
+                    {/* CONFORMAL PREDICTION HUD (Faixa Provável 95%) */}
+                    <div className="w-full bg-slate-900/80 rounded-xl p-3 border border-white/10 shadow-inner flex flex-col items-center justify-center">
+                        <div className="flex items-center justify-between w-full mb-1">
+                            <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                                 Faixa Provável (95%)
                             </span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-2xl font-black text-white">{formatValue(ciLowSafe)}</span>
-                                <span className="text-slate-600 font-black">—</span>
-                                <span className="text-2xl font-black text-white">{formatValue(ciHighSafe)}</span>
-                                <span className="text-xs font-bold text-slate-400">{resolvedUnit}</span>
-                            </div>
                             {stats.confidenceObj && (
-                                <div className={`mt-2 px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-lg ${stats.confidenceObj.glow}`} style={{ background: stats.confidenceObj.color }}>
-                                    {stats.confidenceObj.label}
+                                <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider border shadow-sm ${
+                                    stats.confidenceObj.tier === 'HIGH'
+                                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 shadow-emerald-500/10'
+                                        : stats.confidenceObj.tier === 'MEDIUM'
+                                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 shadow-amber-500/10'
+                                        : 'bg-rose-500/15 text-rose-300 border-rose-500/30 shadow-rose-500/10'
+                                }`}>
+                                    <span className={`w-1 h-1 rounded-full ${
+                                        stats.confidenceObj.tier === 'HIGH' ? 'bg-emerald-400 animate-pulse' :
+                                        stats.confidenceObj.tier === 'MEDIUM' ? 'bg-amber-400' : 'bg-rose-400'
+                                    }`} />
+                                    <span>{stats.confidenceObj.label}</span>
                                 </div>
                             )}
                         </div>
-                        
-                        {/* Human Explanations & Drift Alerts Container */}
-                        <div className="w-full sm:w-11/12 min-h-[60px] flex flex-col justify-start gap-1.5 px-1">
+
+                        <div className="flex items-baseline justify-center gap-2 mt-1">
+                            <span className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">{formatValue(ciLowSafe)}</span>
+                            <span className="text-slate-500 font-bold text-sm">—</span>
+                            <span className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">{formatValue(ciHighSafe)}</span>
+                            <span className="text-xs font-bold text-slate-400">{resolvedUnit}</span>
+                        </div>
+                    </div>
+                    
+                    {/* Insights & Drift Alerts Container - Balanced Height */}
+                    <div className="w-full bg-slate-900/50 rounded-xl p-3 border border-white/5 flex flex-col gap-1.5 min-h-[76px] justify-center">
+                        <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                            <Activity size={11} className="text-blue-400" />
+                            <span>Diagnóstico & Sinais</span>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
                             {stats.explanations && stats.explanations.map((msg, i) => (
-                                <div key={i} className="text-[10px] text-slate-300 font-medium leading-tight opacity-90 flex items-start gap-1.5">
-                                    <span className="text-blue-400 shrink-0">•</span>
+                                <div key={i} className="text-[10.5px] text-slate-300 font-medium leading-snug flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80 mt-1.5 shrink-0" />
                                     <span>{msg}</span>
                                 </div>
                             ))}
+                            {(!stats.explanations || stats.explanations.length === 0) && (
+                                <div className="text-[10.5px] text-slate-400 italic">
+                                    Desempenho estável conforme o modelo estatístico.
+                                </div>
+                            )}
                             {stats.driftAlerts && stats.driftAlerts.map((alert, i) => (
-                                <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${alert.severity === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-400'} mt-0.5`}>
-                                    <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                                    <span className="text-[10px] font-bold leading-tight">{alert.message}</span>
+                                <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${
+                                    alert.severity === 'high' 
+                                        ? 'bg-rose-500/10 border-rose-500/25 text-rose-300' 
+                                        : 'bg-amber-500/10 border-amber-500/25 text-amber-300'
+                                } mt-0.5`}>
+                                    <AlertTriangle size={13} className="shrink-0 mt-0.5 text-amber-400" />
+                                    <span className="text-[10.5px] font-bold leading-tight">{alert.message}</span>
                                 </div>
                             ))}
                         </div>
-
-                        <p className="mt-auto pt-2.5 text-[9px] text-slate-500 font-medium uppercase tracking-wider text-center max-w-[320px] leading-relaxed opacity-80 border-t border-white/5 w-full">
-                            Em previsões semelhantes, 95% dos resultados reais ficaram dentro desta faixa.
-                        </p>
                     </div>
+
+                    {/* Footer Guarantee Subtext */}
+                    <p className="pt-2 text-[9px] text-slate-500 font-medium uppercase tracking-wider text-center w-full leading-relaxed opacity-80 border-t border-white/5">
+                        Em previsões semelhantes, 95% dos resultados reais ficaram dentro desta faixa.
+                    </p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5 w-full">
+            {/* Lower Bound Group for perfect horizontal alignment */}
+            <div className="w-full flex flex-col mt-auto pt-2">
+                {/* Telemetry Metrics 6-Grid */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mb-4 w-full">
                 {[
                     { 
                         label: "Sua Meta", 
@@ -468,18 +508,18 @@ const MonteCarloGaugeBase = ({
                         color: "text-emerald-400"
                     }
                 ].map((m, i) => (
-                    <div key={i} className="bg-black/40 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[64px] transition-all hover:border-white/10 hover:bg-black/60 shadow-sm">
-                        <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 text-center w-auto max-w-full truncate ${m.badgeClass}`}>
+                    <div key={i} className="bg-slate-950/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[58px] transition-all hover:border-white/15 hover:bg-slate-900/60 shadow-sm">
+                        <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 text-center w-auto max-w-full truncate ${m.badgeClass}`}>
                             {m.label}
                         </span>
-                        <span className={`text-xs sm:text-sm font-black ${m.color} w-full text-center break-words leading-tight tracking-tight mt-0.5`}>
+                        <span className={`text-xs sm:text-sm font-black ${m.color} w-full text-center break-words leading-tight tracking-tight mt-0.5 font-mono`}>
                             {m.val}
                         </span>
                     </div>
                 ))}
             </div>
 
-            <div className="w-full bg-black/40 rounded-2xl p-4 sm:p-5 mb-4 border border-white/5 flex flex-col shrink-0">
+            <div className="w-full bg-slate-950/50 rounded-2xl p-4 sm:p-5 mb-4 border border-white/5 flex flex-col shrink-0">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
@@ -511,64 +551,64 @@ const MonteCarloGaugeBase = ({
                 </div>
             </div>
 
-            {timelineDates.length > 1 && (
-                <div className="w-full mt-2 mb-4 px-4 py-3.5 bg-black/40 rounded-xl border border-white/5 relative z-10 min-h-[72px]">
-                    <div className="flex justify-between items-center mb-3">
-                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Máquina do Tempo</span>
-                        <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
-                            {clampedTimeIndex === -1 || !timelineDates[clampedTimeIndex] ? 'Hoje' : formatDatePtBR(`${timelineDates[clampedTimeIndex]}T12:00:00`)}
-                        </span>
-                    </div>
-                    <input
-                        ref={timeSliderRef}
-                        type="range"
-                        min="0"
-                        max={Math.max(1, timelineDates.length - 1)}
-                        aria-label="Máquina do tempo"
-                        defaultValue={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
-                        onChange={(e) => {
-                            const val = Number(e.target.value);
-                            const newTimeIndex = val === timelineDates.length - 1 ? -1 : val;
-                            setLocalTimeIndex(newTimeIndex);
-                            
-                            isDraggingTime.current = true;
-                            // C5 FIX: dragDebounceRef (useRef) em vez de window.mcGaugeDragTimeout
-                            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
-                            dragDebounceRef.current = setTimeout(() => { isDraggingTime.current = false; }, 500);
+            <div className="w-full flex flex-col">
+                {timelineDates.length > 1 && (
+                    <div className="w-full mb-4 px-4 py-3.5 bg-black/40 rounded-xl border border-white/5 relative z-10 min-h-[72px]">
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Máquina do Tempo</span>
+                            <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
+                                {clampedTimeIndex === -1 || !timelineDates[clampedTimeIndex] ? 'Hoje' : formatDatePtBR(`${timelineDates[clampedTimeIndex]}T12:00:00`)}
+                            </span>
+                        </div>
+                        <input
+                            ref={timeSliderRef}
+                            type="range"
+                            min="0"
+                            max={Math.max(1, timelineDates.length - 1)}
+                            aria-label="Máquina do tempo"
+                            defaultValue={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                const newTimeIndex = val === timelineDates.length - 1 ? -1 : val;
+                                setLocalTimeIndex(newTimeIndex);
+                                
+                                isDraggingTime.current = true;
+                                if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
+                                dragDebounceRef.current = setTimeout(() => { isDraggingTime.current = false; }, 500);
 
-                            if (debounceTimeoutTime.current) clearTimeout(debounceTimeoutTime.current);
-                            debounceTimeoutTime.current = setTimeout(() => {
-                                if (React.startTransition) {
-                                    React.startTransition(() => {
+                                if (debounceTimeoutTime.current) clearTimeout(debounceTimeoutTime.current);
+                                debounceTimeoutTime.current = setTimeout(() => {
+                                    if (React.startTransition) {
+                                        React.startTransition(() => {
+                                            setTimeIndex(newTimeIndex);
+                                        });
+                                    } else {
                                         setTimeIndex(newTimeIndex);
-                                    });
-                                } else {
-                                    setTimeIndex(newTimeIndex);
-                                }
-                            }, 40);
-                        }}
-                        onPointerDown={() => {
-                            isDraggingTime.current = true;
-                        }}
-                        onPointerUp={() => {
-                            isDraggingTime.current = false;
-                            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
-                        }}
-                        onTouchStart={() => { isDraggingTime.current = true; }}
-                        onTouchEnd={() => {
-                            isDraggingTime.current = false;
-                            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
-                        }}
-                        className="custom-slider w-full h-1.5 rounded-full outline-none"
-                        style={{
-                            background: `linear-gradient(to right, #6366f1 ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
-                            touchAction: 'none'
-                        }}
-                    />
-                </div>
-            )}
+                                    }
+                                }, 40);
+                            }}
+                            onPointerDown={() => {
+                                isDraggingTime.current = true;
+                            }}
+                            onPointerUp={() => {
+                                isDraggingTime.current = false;
+                                if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
+                            }}
+                            onTouchStart={() => { isDraggingTime.current = true; }}
+                            onTouchEnd={() => {
+                                isDraggingTime.current = false;
+                                if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
+                            }}
+                            className="custom-slider w-full h-1.5 rounded-full outline-none"
+                            style={{
+                                background: `linear-gradient(to right, #6366f1 ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
+                                touchAction: 'none'
+                            }}
+                        />
+                    </div>
+                )}
 
-            <div className="w-full flex flex-col gap-2 mt-4">
+                <div className="w-full flex flex-col gap-2">
                 <button
                     onClick={() => setShowPerSubject(!showPerSubject)}
                     className="w-full flex items-center justify-between px-4 py-3 bg-slate-900/50 hover:bg-slate-800 border border-white/10 rounded-xl transition-all"
@@ -602,6 +642,8 @@ const MonteCarloGaugeBase = ({
                         })}
                     </div>
                 )}
+                </div>
+            </div>
             </div>
 
             {!forcedMode && (

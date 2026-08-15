@@ -3,12 +3,12 @@ import { addDays } from 'date-fns';
 export const APP_TIMEZONE = 'America/Manaus';
 
 export const safeDateParse = (dateInput) => {
-  if (!dateInput) return new Date(0);
+  if (!dateInput) return null;
   const normalizedString = typeof dateInput === 'string'
     ? dateInput.replace(' ', 'T')
     : dateInput;
   const d = new Date(normalizedString);
-  return isNaN(d.getTime()) ? new Date(0) : d;
+  return isNaN(d.getTime()) ? null : d;
 };
 
 export function parseGoalDateUnified(value) {

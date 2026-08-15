@@ -98,7 +98,8 @@ export function getSafeScore(historyRow, maxScore = 100, minScore = 0) {
   }
   
   if (total > 0) {
-    return Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + (correct / total) * (safeMaxScore - safeMinScore)));
+    const safeCorrect = Number.isFinite(correct) ? correct : 0;
+    return Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + (safeCorrect / total) * (safeMaxScore - safeMinScore)));
   }
   
   return 0;

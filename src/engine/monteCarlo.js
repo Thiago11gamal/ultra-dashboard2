@@ -18,6 +18,7 @@ import { kahanSum } from './math/kahan.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getDateKey } from '../utils/dateHelper.js';
+import { getCachedSimulation, setCachedSimulation, clearSimulationCache } from './simulationCache.js';
 
 export { getPercentile };
 
@@ -152,7 +153,11 @@ export function simulateNormalDistribution(
     historyLength = Math.max(0, Math.floor(toFiniteNumber(historyLength, 0)));
 
     if (!meanOrObj?.simulations && !simulations) {
-        const roughProb = Math.max(0.1, Math.min(0.9, (currentMean || mean || 70) / 100));
+        const refMean = Number.isFinite(currentMean) ? currentMean
+                      : Number.isFinite(mean) ? mean
+                      : (minScore + maxScore) / 2;
+        const domain = Math.max(1, maxScore - minScore);
+        const roughProb = Math.max(0.1, Math.min(0.9, (refMean - minScore) / domain));
         simulations = recommendSimulationCount(roughProb);
     }
 
@@ -654,8 +659,6 @@ export function simulateNormalDistribution(
     };
 }
 
-const mcCache = new Map();
-const MAX_CACHE_SIZE = 50;
 
 function hashObject(obj) {
     try {
@@ -672,13 +675,8 @@ export function runMonteCarloAnalysis(params = {}) {
     }
 
     const cacheKey = hashObject(params);
-    if (cacheKey && mcCache.has(cacheKey)) {
-        // Move to top (LRU)
-        const cached = mcCache.get(cacheKey);
-        mcCache.delete(cacheKey);
-        mcCache.set(cacheKey, cached);
-        return cached;
-    }
+    const cached = getCachedSimulation(cacheKey);
+    if (cached) return cached;
 
     const {
         values = [],
@@ -755,18 +753,14 @@ export function runMonteCarloAnalysis(params = {}) {
     const result = monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
     
     if (cacheKey) {
-        if (mcCache.size >= MAX_CACHE_SIZE) {
-            const firstKey = mcCache.keys().next().value;
-            mcCache.delete(firstKey);
-        }
-        mcCache.set(cacheKey, result);
+        setCachedSimulation(cacheKey, result);
     }
     
     return result;
 }
 
 export function clearEngineMcCache() {
-    mcCache.clear();
+    clearSimulationCache();
 }
 
 export default {

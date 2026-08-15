@@ -86,9 +86,10 @@ export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointE
   const a = Math.max(0.001, Math.min(0.5, Number(alpha) || 0.05));
 
   if (clean.length < 3) {
+    const fallbackMargin = Math.max(1, Math.abs(p) * 0.08 || 8);
     return {
-      lower: p - 8,
-      upper: p + 8,
+      lower: p - fallbackMargin,
+      upper: p + fallbackMargin,
       coverage: 1 - a,
       n: clean.length,
       method: 'fallback_insufficient_data',

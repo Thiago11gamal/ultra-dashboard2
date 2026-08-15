@@ -18,6 +18,21 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
     const { groups, stats } = useMemo(() => {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
 
+        // Criar formatadores UMA vez, fora do loop
+        const weekdayFormatter = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: APP_TIMEZONE,
+            weekday: 'long'
+        });
+        const dayFormatter = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: APP_TIMEZONE,
+            day: 'numeric'
+        });
+        const now = new Date();
+        const todayKey = getDateKey(now);
+        const y = new Date(now);
+        y.setDate(y.getDate() - 1);
+        const yesterdayKey = getDateKey(y);
+
         // T-029 FIX: Se minutes vier 0, mas duration existir, usa duration.
         const getLogMinutes = (log) => {
             const minutes = Number(log?.minutes);
@@ -81,15 +96,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             // Isso reduz divergência de timezone perto da meia-noite.
             const uniqueDayKey = getDateKey(dateObj) || dateStr;
 
-            const now = new Date();
-            const todayKey = getDateKey(now);
-
-            const y = new Date(now);
-            y.setDate(y.getDate() - 1);
-            const yesterdayKey = getDateKey(y);
-
             let dayLabel = dateStr;
-            const rawWeekday = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, weekday: 'long' }).format(dateObj);
+            const rawWeekday = weekdayFormatter.format(dateObj);
             const weekDayName = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1).split('-')[0];
 
             let isToday = false;
@@ -104,7 +112,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             } else {
                 dayLabel = dateStr;
             }
-            const manausDayStr = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, day: 'numeric' }).format(dateObj);
+            const manausDayStr = dayFormatter.format(dateObj);
 
             if (!grouped[uniqueDayKey]) grouped[uniqueDayKey] = {
                 uniqueDayKey,

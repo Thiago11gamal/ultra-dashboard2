@@ -239,7 +239,12 @@ export function generateAnalyticsStats({
 
         if (historyArray.length > 0) {
             const catMaxScore = Number(cat.maxScore) || safeMaxScore;
-            const catMinScore = Number.isFinite(Number(cat.minCutoff)) ? Number(cat.minCutoff) : safeMinScore;
+            const catMinScore = Number.isFinite(Number(cat.minScore))
+              ? Number(cat.minScore)
+              : safeMinScore;
+            const catMinCutoff = Number.isFinite(Number(cat.minCutoff))
+              ? Number(cat.minCutoff)
+              : 0;
             const catDomain = Math.max(1e-6, catMaxScore - catMinScore);
 
             const history = [...historyArray]
@@ -350,11 +355,11 @@ export function generateAnalyticsStats({
                     ...stats,
                     maxScore: catMaxScore,
                     minScore: catMinScore,
+                    minCutoff: catMinCutoff,
                     bayesianMean: baye.mean,
                     bayesianSd: baye.sd,
                     volatility: vol,
-                    weight,
-                    minCutoff: Number(cat.minCutoff) || 0
+                    weight
                 });
 
                 bayesianStats.push({ sd: baye.sd, weight, n: history.length });

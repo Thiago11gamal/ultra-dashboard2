@@ -1,0 +1,22 @@
+- [x] Prioridade 1
+  - [x] 1.1 `src/components/MonteCarloGauge.jsx`
+  - [x] 1.2 `src/hooks/useMonteCarloStats.js`
+  - [x] 1.3 `src/hooks/useMonteCarloStats.js` (junto com 1.2)
+  - [x] 1.4 `src/utils/dateHelper.js` & `src/engine/projection.js`
+  - [x] 1.5 `src/utils/scoreHelper.js`
+  - [x] 1.6 `src/engine/variance.js`
+  - [x] 1.7 `src/engine/analyticsStats.js`
+  - [x] 1.8 `src/store/slices/createMonteCarloSlice.js`
+- [x] Prioridade 2
+  - [x] 2.1 `src/components/VerifiedStats.jsx`
+  - [x] 2.2 `src/engine/monteCarlo.js`
+  - [x] 2.3 `src/engine/math/bootstrap.js`
+  - [x] 2.4 `src/utils/calibration.js`
+  - [x] 2.5 `src/utils/explanationEngine.js`
+  - [x] 2.6 `src/hooks/useMonteCarloWorker.js`
+- [x] Prioridade 3
+  - [x] 3.1 `src/components/WeeklyAnalysis.jsx`
+  - [x] 3.2 `src/utils/analytics.js`
+  - [x] 3.3 `src/components/VerifiedStats.jsx`
+  - [x] 3.4 `src/engine/simulationCache.js`
+  - [x] 3.5 `src/utils/scoreDomain.js` (refactor) e integrar nos motores

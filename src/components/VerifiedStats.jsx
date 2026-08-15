@@ -54,64 +54,67 @@ const InfoTooltip = React.memo(({ text }) => (
 ));
 
 const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, trend, hasEnoughData, maxScore = 100 }) => (
-    <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${status === 'excellence' || status === 'good' ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.15)] hover:shadow-[0_0_25px_rgba(168,85,247,0.3)]' :
-        status === 'warning' ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.15)] hover:shadow-[0_0_25px_rgba(239,68,68,0.3)]' :
-            'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
+    <div className={`glass h-full p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-950/90 group hover:border-white/20 transition-all shadow-2xl overflow-hidden ${status === 'excellence' || status === 'good' ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.12)]' :
+        status === 'warning' ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.12)]' :
+            'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.12)]'
         }`}>
-        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
-        <div className="flex justify-between items-start mb-4 relative z-10">
-            <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${status === 'excellence' || status === 'good' ? 'bg-purple-500/20 border-purple-500/30' : status === 'warning' ? 'bg-red-500/20 border-red-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
+        <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
+        <div className="flex justify-between items-start mb-3 relative z-10">
+            <div className="flex items-center gap-2.5">
+                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shadow-lg ${status === 'excellence' || status === 'good' ? 'bg-purple-500/20 border-purple-500/30' : status === 'warning' ? 'bg-red-500/20 border-red-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
                     <Target size={18} className={status === 'excellence' || status === 'good' ? "text-purple-400" : status === 'warning' ? "text-red-400" : "text-blue-400"} />
                 </div>
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-                    Previsão IA
-                    {(trend === 'up' || trend === 'down') && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
-                </span>
+                <div>
+                    <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5 leading-none">
+                        Previsão IA
+                        {(trend === 'up' || trend === 'down') && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-400 mt-0.5 block">Motor Preditivo</span>
+                </div>
             </div>
         </div>
-        <div className="text-center my-4 relative z-10 pb-1">
-            <h2 className={`text-base sm:text-lg md:text-[22px] font-black leading-tight whitespace-nowrap ${status === 'excellence' || status === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-purple-500' :
-                status === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-red-500' :
-                    'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500'
+        <div className="text-center my-3 relative z-10 pb-1">
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-black leading-tight tracking-tight ${status === 'excellence' || status === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-purple-400' :
+                status === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-red-400' :
+                    'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-400'
                 }`}>
                 {prediction}
             </h2>
         </div>
-        <div className="grid grid-cols-2 gap-2 w-full mb-3 relative z-10">
-            <div className="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
+        <div className="grid grid-cols-2 gap-2.5 w-full mb-3 relative z-10">
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-slate-900/70 transition-colors">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Meta</span>
                 <div className="flex items-baseline gap-0.5">
-                    <span className="text-sm sm:text-base font-black text-slate-200">{formatValue(targetScore ?? 70)}</span>
+                    <span className="text-base sm:text-lg font-black text-white font-mono">{formatValue(targetScore ?? 70)}</span>
 
                     {/* T-026 FIX: unidade dinâmica */}
                     {maxScore === 100 ? (
-                        <span className="text-[10px] text-slate-500 font-bold">%</span>
+                        <span className="text-[10px] text-slate-400 font-bold">%</span>
                     ) : (
-                        <span className="text-[8px] text-slate-500 font-bold">/{maxScore}</span>
+                        <span className="text-[8px] text-slate-400 font-bold">/{maxScore}</span>
                     )}
                 </div>
             </div>
-            <div className="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter md:tracking-wider mb-1">Tendência</span>
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-slate-900/70 transition-colors">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Tendência</span>
                 <div className="flex items-center gap-1.5">
                     {hasEnoughData ? (
                         <>
-                            {trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
-                            {trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
-                            {trend === 'stable' && <Minus size={14} className="text-slate-500" />}
-                            <span className="text-[11px] sm:text-xs font-black text-slate-200 uppercase">
+                            {trend === 'up' && <TrendingUp size={14} className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" />}
+                            {trend === 'down' && <TrendingDown size={14} className="text-rose-400 drop-shadow-[0_0_5px_rgba(244,63,94,0.5)]" />}
+                            {trend === 'stable' && <Minus size={14} className="text-slate-400" />}
+                            <span className="text-xs font-black text-white uppercase tracking-wider">
                                 {trend === 'up' ? 'Alta' : trend === 'down' ? 'Baixa' : 'Estável'}
                             </span>
                         </>
                     ) : (
-                        <span className="text-xs font-black text-slate-500 uppercase tracking-tighter">Pendente</span>
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Pendente</span>
                     )}
                 </div>
             </div>
         </div>
-        <div className="mt-auto pt-3 border-t border-white/10 relative z-10">
-            <p className="text-[10px] text-slate-400 text-center leading-relaxed font-semibold">
+        <div className="mt-auto pt-2.5 border-t border-white/10 relative z-10">
+            <p className="text-[10.5px] text-slate-400 text-center leading-relaxed font-medium">
                 {subtext}
             </p>
         </div>
@@ -122,38 +125,41 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
 ));
 
 const ConsistencyCard = React.memo(({ consistency }) => (
-    <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${consistency.bgBorder}`}>
-        <div className="flex justify-between items-start mb-4 relative z-10">
-            <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded-lg border bg-opacity-20 ${getColorClasses(consistency.color).bg20} ${consistency.bgBorder}`}>
+    <div className={`glass h-full p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-950/90 group hover:border-white/20 transition-all shadow-2xl ${consistency.bgBorder}`}>
+        <div className="flex justify-between items-start mb-3 relative z-10">
+            <div className="flex items-center gap-2.5">
+                <div className={`w-9 h-9 rounded-xl border ${getColorClasses(consistency.color).bg20} ${consistency.bgBorder} flex items-center justify-center shadow-lg`}>
                     <Activity size={18} className={consistency.color} />
                 </div>
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
+                <div>
+                    <span className="text-xs font-black text-white uppercase tracking-wider leading-none">Consistência</span>
+                    <span className="text-[10px] font-medium text-slate-400 mt-0.5 block">Estabilidade Global</span>
+                </div>
             </div>
         </div>
-        <div className="text-center my-4 relative z-10">
-            <h2 className={`text-lg md:text-xl font-black leading-tight ${consistency.color} drop-shadow-md`}>
+        <div className="text-center my-3 relative z-10">
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-black leading-tight tracking-tight ${consistency.color} drop-shadow-md`}>
                 {consistency.status}
             </h2>
         </div>
-        <div className="grid grid-cols-2 gap-2 w-full mb-3">
-            <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
-                <span className={`text-sm font-black ${consistency.status !== 'Dados Insuficientes' ? consistency.color : 'text-slate-500'}`}>
+        <div className="grid grid-cols-2 gap-2.5 w-full mb-3">
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Desvio Padrão</span>
+                <span className={`text-base sm:text-lg font-black font-mono ${consistency.status !== 'Dados Insuficientes' ? consistency.color : 'text-slate-500'}`}>
                     {consistency.status !== 'Dados Insuficientes' && !isNaN(parseFloat(consistency.sd)) ? `±${consistency.sd}` : '---'}
                 </span>
             </div>
-            <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
-                <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Diagnóstico</span>
+                <span className="text-xs font-black text-slate-200 text-center leading-tight line-clamp-2 px-1">
                     {consistency.status === 'Dados Insuficientes' ? 'Pendente' :
                         (['EXCELENTE', 'EM EVOLUÇÃO', 'DOMÍNIO'].includes(consistency.status) ? 'Alta Estabilidade' :
                             (['EM QUEDA', 'INSTÁVEL'].includes(consistency.status) ? 'Alta Variação' : 'Variação Média'))}
                 </span>
             </div>
         </div>
-        <div className="mt-auto pt-2 border-t border-white/10">
-            <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
+        <div className="mt-auto pt-2.5 border-t border-white/10">
+            <p className="text-[10.5px] text-slate-300 text-center leading-relaxed font-medium">
                 {consistency.message}
             </p>
         </div>
@@ -471,8 +477,12 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
                         if (tTs !== null && tTs <= 0 && safeScore === 0) return;
 
-                        // CORREÇÃO: Normaliza para a escala global universal para evitar envenenamento de escalas (Bug 1.1 Fix)
-                        const normalizedToGlobalScale = (safeScore / catMaxScore) * maxScore;
+                        // CORRIGIDO: normalizar pela proporção no intervalo útil, não por divisão direta
+                        const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+                        const catRange = Math.max(1e-9, catMaxScore - catMinScore);
+                        const globalRange = Math.max(1e-9, maxScore - 0); // ou safeMinScore se houver
+                        const ratio = (safeScore - catMinScore) / catRange;
+                        const normalizedToGlobalScale = 0 + ratio * globalRange;
 
                         allHistory.push({
                             date: parsedDate.getTime(),
@@ -501,9 +511,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         const dailyHistory = Object.values(dailyMap)
             .map(d => ({ 
-                // BUG-01 FIX: Converte a string YYYY-MM-DD de volta para ms local para o motor (calculateSlope)
-                // FIX 2.3: Usar normalizeDate para evitar shift de dia por ambiguidade UTC/local
-                date: normalizeDate(getDateKey(new Date(d.date)))?.getTime() ?? d.date, 
+                // FIX: A data já está em milissegundos corretos em `d.date` (foi extraída do h.date)
+                // Removido o ciclo desnecessário de normalização que podia reintroduzir bugs de offset.
+                date: d.date,
                 score: d.weightSum > 0 ? d.scoreSum / d.weightSum : 0,
                 weight: d.weightSum // BUG-01 FIX: Preservamos o volume para evitar Paradoxo de Simpson em médias posteriores
             }))

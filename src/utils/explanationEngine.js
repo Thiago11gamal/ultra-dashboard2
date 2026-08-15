@@ -9,22 +9,24 @@ export function buildHumanExplanation({
     trend,
     confidenceTier,
     intervalWidth,
+    maxScore = 100
 }) {
+    const scale = Math.max(1, maxScore / 100);
     const messages = [];
 
     if (confidenceTier === 'HIGH') {
         messages.push('Seu desempenho recente está consistente.');
     }
 
-    if (volatility > 15) {
+    if (volatility > 15 * scale) {
         messages.push('Suas notas recentes oscilaram bastante.');
     }
 
-    if (trend > 5) {
+    if (trend > 5 * scale) {
         messages.push('Seu desempenho mostrou melhora recente.');
     }
 
-    if (trend < -5) {
+    if (trend < -5 * scale) {
         messages.push('Seu desempenho recente apresentou queda.');
     }
 
@@ -32,7 +34,7 @@ export function buildHumanExplanation({
         messages.push('O sistema ampliou a margem de incerteza para evitar excesso de confiança.');
     }
 
-    if (intervalWidth > 40) {
+    if (intervalWidth > 40 * scale) {
         messages.push('A faixa provável ficou mais ampla devido à alta variabilidade recente.');
     }
 
@@ -43,7 +45,9 @@ export function getConfidenceTier({
     calibrationPenalty,
     volatility,
     sampleSize,
+    maxScore = 100
 }) {
+    const scale = Math.max(1, maxScore / 100);
     // Tolerância adaptativa: volatility is absolute standard deviation, max 100
     // calibrationPenalty is between 0 and 1. 0.1 means 10% penalty.
     const instability = (calibrationPenalty * 100) + (volatility * 0.2);
@@ -57,7 +61,7 @@ export function getConfidenceTier({
         };
     }
 
-    if (instability < 18) {
+    if (instability < 18 * scale) {
         return {
             tier: 'HIGH',
             label: 'Alta confiabilidade',
@@ -66,7 +70,7 @@ export function getConfidenceTier({
         };
     }
 
-    if (instability < 35) {
+    if (instability < 35 * scale) {
         return {
             tier: 'MEDIUM',
             label: 'Confiabilidade moderada',
@@ -149,10 +153,11 @@ export function smoothConfidenceTier({ previousTier, currentTier, stabilityCount
     return { tier: currentTier, stabilityCounter: 0 };
 }
 
-export function humanizeVolatility(sd) {
-    if (sd < 8) return 'Muito estável';
-    if (sd < 18) return 'Relativamente estável';
-    if (sd < 30) return 'Oscilação moderada';
+export function humanizeVolatility(sd, maxScore = 100) {
+    const scale = Math.max(1, maxScore / 100);
+    if (sd < 8 * scale) return 'Muito estável';
+    if (sd < 18 * scale) return 'Relativamente estável';
+    if (sd < 30 * scale) return 'Oscilação moderada';
     return 'Alta instabilidade';
 }
 
