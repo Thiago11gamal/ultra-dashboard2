@@ -131,12 +131,23 @@ const Sidebar = React.memo(function Sidebar({
             }
         };
 
-        // ✅ FIX: Usar 'click' em vez de 'mousedown' para evitar conflito com o toggle
-        document.addEventListener('click', handleClickOutside);
+        // FIX 5.2d: passive: true para melhor performance de scroll
+        document.addEventListener('click', handleClickOutside, { passive: true });
         return () => {
             document.removeEventListener('click', handleClickOutside);
         };
     }, [collapsed, setCollapsed]);
+
+    React.useEffect(() => {
+        if (isOpen && window.innerWidth < 1024) {
+            // FIX 5.2e: Mover foco para o primeiro item do menu ao abrir
+            const timer = setTimeout(() => {
+                const firstItem = sidebarRef.current?.querySelector('a, button');
+                if (firstItem) firstItem.focus();
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen]);
 
     const closeMobileSidebar = () => {
         if (typeof window === 'undefined') return;
@@ -175,7 +186,13 @@ const Sidebar = React.memo(function Sidebar({
                 />
             )}
 
-            <aside ref={sidebarRef} className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}>
+            <aside 
+                ref={sidebarRef} 
+                className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}
+                role="navigation"
+                aria-label="Menu principal de navegação"
+                aria-expanded={!collapsed} // FIX 5.2b: Estado expandido/recolhido
+            >
                 {/* Logo Area */}
                 <div className="flex items-center justify-between mb-3 px-1">
                     <div className="sidebar-logo">
@@ -293,8 +310,8 @@ const Sidebar = React.memo(function Sidebar({
 
                     {SECTIONS.map((section, sIdx) => (
                         <div key={sIdx} className={`mb-4 ${section.label === 'Dados & Análise' ? 'tour-step-2' : ''}`}>
-                            <h4 className="sidebar-nav-label">{section.label}</h4>
-                            <nav className="space-y-1">
+                            <h4 className="sidebar-nav-label" id={`section-${sIdx}`}>{section.label}</h4>
+                            <nav className="space-y-1" aria-labelledby={`section-${sIdx}`}>
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
                                     
@@ -316,7 +333,7 @@ const Sidebar = React.memo(function Sidebar({
                                                 closeMobileSidebar();
                                             }}
                                         >
-                                            <Icon />
+                                            <Icon aria-hidden="true" />
                                             <span>{item.label}</span>
                                         </Link>
                                     );

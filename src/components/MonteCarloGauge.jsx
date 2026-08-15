@@ -30,6 +30,7 @@ const MonteCarloGaugeBase = ({
     onSyncShowSubjects,
     simulateToday = false,
     onSimulateTodayChange,
+    precomputedStats = null, // ✅ NOVO
 }) => {
     const [showConfig, setShowConfig] = useState(false);
     const [localShowPerSubject, setLocalShowPerSubject] = useState(false);
@@ -116,7 +117,7 @@ const MonteCarloGaugeBase = ({
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : resolvedSimulateToday;
 
     // --- HOOK DE LÓGICA ESTATÍSTICA ---
-    const stats = useMonteCarloStats({
+    const stats = precomputedStats ?? useMonteCarloStats({
         categories,
         goalDate,
         targetScore,

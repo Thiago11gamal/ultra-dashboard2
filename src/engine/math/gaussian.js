@@ -320,6 +320,48 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng, options) {
     return Math.max(min, Math.min(max, rawScore));
 }
 
+export function truncatedNormalFromUniform(mean, sd, min, max, u) {
+    if (!Number.isFinite(mean) || !Number.isFinite(sd) || !Number.isFinite(min) || !Number.isFinite(max)) {
+        const lo = Number.isFinite(min) ? min : 0;
+        const hi = Number.isFinite(max) ? max : lo;
+        return Math.max(lo, Math.min(hi, (lo + hi) / 2));
+    }
+
+    if (min > max) {
+        const temp = min;
+        min = max;
+        max = temp;
+    }
+
+    if (sd <= MIN_SD_FLOOR) return Math.max(min, Math.min(max, mean));
+
+    const alpha = (min - mean) / sd;
+    const beta = (max - mean) / sd;
+    let diff;
+    let cdfMin;
+
+    if (alpha > 0 && beta > 0) {
+        const sAlpha = normalCDF_complement(alpha);
+        const sBeta = normalCDF_complement(beta);
+        diff = sAlpha - sBeta;
+        cdfMin = 1 - sAlpha;
+    } else {
+        cdfMin = 1 - normalCDF_complement(alpha);
+        const cdfMax = 1 - normalCDF_complement(beta);
+        diff = cdfMax - cdfMin;
+    }
+    if (diff < 1e-16) {
+        return Math.max(min, Math.min(max, mean));
+    }
+
+    const safeU = Number.isFinite(u) ? Math.max(0, Math.min(1, u)) : 0.5;
+    const p = cdfMin + safeU * diff;
+    const zScore = inverseNormalCDF(p);
+    const rawScore = mean + (zScore * sd);
+
+    return Math.max(min, Math.min(max, rawScore));
+}
+
 export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
     const n = matrix.length;
     const cloneBase = matrix.map(row => [...row]);
@@ -352,33 +394,53 @@ export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
 }
 
 export function choleskyDecomposition(matrix) {
+    if (!Array.isArray(matrix) || matrix.length === 0) return [];
     const n = matrix.length;
-    const lower = Array(n).fill(0).map(() => Array(n).fill(0));
+    if (matrix.some(row => !Array.isArray(row) || row.length !== n)) {
+        throw new Error('CHOLESKY_INVALID_MATRIX: matriz deve ser quadrada');
+    }
+
+    const lower = Array.from({ length: n }, () => Array(n).fill(0));
     const EPS = 1e-12;
+
+    // ✅ PERF FIX: buffer pré-alocado para soma de Kahan
+    // Evita alocação de new Array(j) a cada iteração
+    const sumBuffer = new Float64Array(n);
 
     for (let i = 0; i < n; i++) {
         for (let j = 0; j <= i; j++) {
-            if (j === i) {
-                const diagTerms = [];
-                for (let k = 0; k < j; k++) diagTerms.push(Math.pow(lower[j][k], 2));
-                const sum = kahanSum(diagTerms);
-                const diagVal = matrix[j][j] - sum;
-                lower[j][j] = Math.sqrt(Math.max(EPS, diagVal));
-            } else {
-                const offTerms = [];
-                for (let k = 0; k < j; k++) offTerms.push(lower[i][k] * lower[j][k]);
-                const sum = kahanSum(offTerms);
-                const denom = lower[j][j];
-                lower[i][j] = denom > EPS ? (matrix[i][j] - sum) / denom : 0;
-            }
-        }
-    }
+            let sum = 0;
+            let c = 0; // compensador Kahan
 
-    for (let i = 0; i < n; i++) {
-        if (!Number.isFinite(lower[i][i]) || lower[i][i] < EPS) {
-            lower[i][i] = EPS;
-            for (let k = 0; k < i; k++) {
-                lower[i][k] = 0;
+            if (j > 0) {
+                // Preencher buffer e somar com Kahan inline
+                for (let k = 0; k < j; k++) {
+                    sumBuffer[k] = lower[i][k] * lower[j][k];
+                }
+                for (let k = 0; k < j; k++) {
+                    const y = sumBuffer[k] - c;
+                    const t = sum + y;
+                    c = (t - sum) - y;
+                    sum = t;
+                }
+            }
+
+            if (j === i) {
+                const diag = Number(matrix[i][i]) - sum;
+                if (!Number.isFinite(diag) || diag <= EPS) {
+                    throw new Error(`CHOLESKY_NOT_POSITIVE_DEFINITE: pivot ${i} = ${diag}`);
+                }
+                lower[i][j] = Math.sqrt(diag);
+            } else {
+                const denom = lower[j][j];
+                if (!(denom > EPS)) {
+                    throw new Error(`CHOLESKY_ZERO_PIVOT: pivot ${j}`);
+                }
+                const value = (Number(matrix[i][j]) - sum) / denom;
+                if (!Number.isFinite(value)) {
+                    throw new Error(`CHOLESKY_NONFINITE: elemento ${i},${j}`);
+                }
+                lower[i][j] = value;
             }
         }
     }

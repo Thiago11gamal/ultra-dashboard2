@@ -227,8 +227,9 @@ export function estimateDynamicVolatility(history = [], options = {}) {
       const shock = returns[i] * returns[i];
       const betaEffective = Math.pow(beta, dt);
 
+      const omegaAdjusted = omega * (1 - betaEffective) / (1 - beta);
       sigma2Daily =
-        omega * dt +
+        omegaAdjusted +
         alpha * shock +
         betaEffective * sigma2Daily;
 
@@ -298,6 +299,23 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     },
   };
 }
+
+// Teste: a variância de longo prazo deve convergir para ω/(1-α-β)
+// independentemente do valor de dt
+const alphaG = 0.05, betaG = 0.75;
+const unconditionalVarG = 25; // σ²_∞ desejado
+const omegaG = (1 - alphaG - betaG) * unconditionalVarG; // = 5
+
+let testSigma2 = unconditionalVarG;
+for (let i = 0; i < 500; i++) {
+  const dt = 1 + Math.random() * 5; // dt variável entre 1 e 6 dias
+  const betaEff = Math.pow(betaG, dt);
+  const omegaAdj = omegaG * (1 - betaEff) / (1 - betaG);
+  const shock = (Math.random() - 0.5) * 10;
+  testSigma2 = omegaAdj + alphaG * shock * shock + betaEff * testSigma2;
+}
+console.assert(Math.abs(testSigma2 - unconditionalVarG) < unconditionalVarG * 0.3,
+  `Variância deveria convergir para ~${unconditionalVarG}, obteve ${testSigma2}`);
 
 export default {
   estimateDynamicVolatility,

@@ -753,6 +753,19 @@ function PomodoroTimer({
 
         const targetSubject = activeSubjectRef.current;
 
+        // ✅ FIX 1.4: Salvar minutos ANTES do timeout de transição
+        // Assim, mesmo se o componente desmontar nos próximos 50ms,
+        // os minutos já estão persistidos.
+        let savedMinutes = 0;
+        if (targetSubject && completedMode === 'work' && sessionMinutes > 0) {
+            safeOnUpdateStudyTime(
+                targetSubject.categoryId,
+                sessionMinutes,
+                targetSubject.taskId
+            );
+            savedMinutes = sessionMinutes;
+        }
+
         transitionTimeoutRef.current = setTimeout(() => {
             if (!isMountedRef.current) {
                 return;
@@ -765,15 +778,8 @@ function PomodoroTimer({
                 return;
             }
 
-            const savedMinutes = completePomodoroPhase(isManual, sessionMinutes);
-
-            if (isLastWorkSession && targetSubject && completedMode === 'work') {
-                safeOnUpdateStudyTime(
-                    targetSubject.categoryId,
-                    savedMinutes,
-                    targetSubject.taskId
-                );
-            }
+            // ✅ Passar 0 pois os minutos já foram salvos acima
+            const phaseMinutes = completePomodoroPhase(isManual, 0);
 
             if (typeof onSessionComplete === 'function') {
                 onSessionComplete();

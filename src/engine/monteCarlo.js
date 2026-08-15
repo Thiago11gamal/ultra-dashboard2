@@ -6,7 +6,9 @@ import {
     truncatedNormalMean,
     ensurePositiveSemiDefinite,
     choleskyDecomposition,
-    applyCovariance
+    applyCovariance,
+    inverseNormalCDF,
+    truncatedNormalFromUniform
 } from './math/gaussian.js';
 import { monteCarloSimulation } from './projection.js';
 export { monteCarloSimulation };
@@ -358,8 +360,22 @@ export function simulateNormalDistribution(
     }
 
     const choleskySize = subjectStats.length;
-    const zVecStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
-    const zCorrStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
+
+    // Buffers pré-alocados (reutilizados em todas as 5000 simulações)
+    const independentBuffer = choleskySize > 0 ? new Float64Array(choleskySize) : null;
+    const latentBuffer = choleskySize > 0 ? new Float64Array(choleskySize) : null;
+    const sampledSubjectsBuffer = choleskySize > 0 ? new Float64Array(choleskySize) : null;
+
+    // Pré-computar parâmetros das marginais (não mudam entre simulações)
+    const subjectParams = subjectStats.map(s => ({
+        mean: toFiniteNumber(s.mean, 0),
+        sd: Math.max(1e-6, toFiniteNumber(s.sd, 1)),
+        minScore: clamp(toFiniteNumber(s.minScore, minScore), minScore, maxScore),
+        maxScore: clamp(toFiniteNumber(s.maxScore, maxScore), minScore, maxScore),
+        minCutoff: toFiniteNumber(s.minCutoff, 0),
+        weight: Math.max(1e-6, toFiniteNumber(s.weight, 1)),
+        immunityFactor: toFiniteNumber(s.immunityFactor, 1.0)
+    }));
 
     for (let i = 0; i < safeSimulations; i++) {
         let currentTarget = effectiveTarget;
@@ -374,65 +390,54 @@ export function simulateNormalDistribution(
 
         let passedMins = true;
 
-        if (subjectStats.length > 0) {
-            // ✅ LOTE-01 FIX: clamp por disciplina + média ponderada
+        if (subjectParams.length > 0) {
             let subjectSum = 0;
             let weightSum = 0;
-            if (subjectCholesky) {
-                for (let k = 0; k < subjectStats.length; k++) {
-                    const s = subjectStats[k];
-                    const sMin = clamp(toFiniteNumber(s.minScore, minScore), minScore, maxScore);
-                    const sMax = clamp(toFiniteNumber(s.maxScore, maxScore), minScore, maxScore);
-                    const lower = Math.min(sMin, sMax);
-                    const upper = Math.max(sMin, sMax);
-                    const safeSubjectMean = toFiniteNumber(s.mean, 0);
-                    const safeSubjectSd = Math.max(1e-6, toFiniteNumber(s.sd, 1));
-                    let zMin = (lower - safeSubjectMean) / safeSubjectSd;
-                    let zMax = (upper - safeSubjectMean) / safeSubjectSd;
-                    let zLow = Math.min(zMin, zMax);
-                    let zHigh = Math.max(zMin, zMax);
-                    if (!Number.isFinite(zLow)) zLow = -6;
-                    if (!Number.isFinite(zHigh)) zHigh = 6;
-                    zVecStatic[k] = sampleTruncatedNormal(0, 1, zLow, zHigh, rng);
+
+            if (subjectCholesky && choleskySize > 1) {
+                // Preencher buffer de normais independentes
+                for (let k = 0; k < choleskySize; k++) {
+                    const rawU = rng();
+                    const u = Number.isFinite(rawU) ? Math.max(1e-12, Math.min(1 - 1e-12, rawU)) : 0.5;
+                    independentBuffer[k] = inverseNormalCDF(u);
                 }
-                applyCovariance(subjectCholesky, zVecStatic, zCorrStatic);
-                for (let j = 0; j < subjectStats.length; j++) {
-                    const s = subjectStats[j];
-                    const sMin = clamp(toFiniteNumber(s.minScore, minScore), minScore, maxScore);
-                    const sMax = clamp(toFiniteNumber(s.maxScore, maxScore), minScore, maxScore);
-                    const weight = Math.max(1e-6, toFiniteNumber(s.weight, 1));
-                    const raw = toFiniteNumber(s.mean, 0) + zCorrStatic[j];
-                    const subjScore = clamp(raw, Math.min(sMin, sMax), Math.max(sMin, sMax));  // ✅ FIX
-                    subjectSum += subjScore * weight;
-                    weightSum += weight;
-                    if (!Number.isFinite(subjScore) || subjScore < toFiniteNumber(s.minCutoff, 0)) {
+
+                // Aplicar correlação via Cholesky (reutilizando buffers)
+                applyCovariance(subjectCholesky, independentBuffer, latentBuffer);
+
+                // Transformar cada marginal para normal truncada (reutilizando buffer)
+                for (let j = 0; j < choleskySize; j++) {
+                    const sp = subjectParams[j];
+                    const u = 1 - normalCDF_complement(latentBuffer[j]);
+                    sampledSubjectsBuffer[j] = truncatedNormalFromUniform(
+                        sp.mean, sp.sd, sp.minScore, sp.maxScore, u
+                    );
+                }
+
+                // Calcular média ponderada e verificar mínimos
+                for (let j = 0; j < choleskySize; j++) {
+                    const sp = subjectParams[j];
+                    const subjScore = clamp(sampledSubjectsBuffer[j], sp.minScore, sp.maxScore);
+                    subjectSum += subjScore * sp.weight;
+                    weightSum += sp.weight;
+                    if (!Number.isFinite(subjScore) || subjScore < sp.minCutoff) {
                         passedMins = false;
                     }
                 }
             } else {
-                for (let j = 0; j < subjectStats.length; j++) {
-                    const s = subjectStats[j];
-                    const sMin = clamp(toFiniteNumber(s.minScore, minScore), minScore, maxScore);
-                    const sMax = clamp(toFiniteNumber(s.maxScore, maxScore), minScore, maxScore);
-                    const effSd = Math.max(
-                        1e-6,
-                        toFiniteNumber(s.sd, 1) * Math.max(0.80, toFiniteNumber(s.immunityFactor, 1.0))
-                    );
-                    const weight = Math.max(1e-6, toFiniteNumber(s.weight, 1));
-                    const sScore = sampleTruncatedNormal(
-                        toFiniteNumber(s.mean, 0),
-                        effSd,
-                        Math.min(sMin, sMax),
-                        Math.max(sMin, sMax),
-                        rng
-                    );
-                    subjectSum += sScore * weight;
-                    weightSum += weight;
-                    if (!Number.isFinite(sScore) || sScore < toFiniteNumber(s.minCutoff, 0)) {
+                // Caminho independente (sem correlação)
+                for (let j = 0; j < choleskySize; j++) {
+                    const sp = subjectParams[j];
+                    const effSd = Math.max(1e-6, sp.sd * Math.max(0.80, sp.immunityFactor));
+                    const sScore = sampleTruncatedNormal(sp.mean, effSd, sp.minScore, sp.maxScore, rng);
+                    subjectSum += sScore * sp.weight;
+                    weightSum += sp.weight;
+                    if (!Number.isFinite(sScore) || sScore < sp.minCutoff) {
                         passedMins = false;
                     }
                 }
             }
+
             score = weightSum > 0 ? subjectSum / weightSum : score;
         }
 

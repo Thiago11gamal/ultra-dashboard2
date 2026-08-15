@@ -376,22 +376,19 @@ export default React.memo(function EvolutionChart({
 
     const chartData = activeEngine === "compare" ? compareData : timeline;
 
-    const filteredChartData = useMemo(() => {
+    // 1. Calcular o resultado histórico sem downsampling
+    const historicalData = useMemo(() => {
         const historical = Array.isArray(chartData) ? chartData.filter((d) => !d?.__future) : [];
         const future = Array.isArray(chartData) ? chartData.filter((d) => d?.__future) : [];
-
         let result = historical;
-
         if (timeWindow !== "all") {
             const days = Number.parseInt(timeWindow, 10);
-
             if (Number.isFinite(days) && days > 0 && historical.length > 0) {
                 const getDateMs = (item) => {
                     if (!item?.date) return Number.NaN;
                     const ms = toDateMs(item.date);
                     return Number.isNaN(ms) ? Number.NaN : ms;
                 };
-
                 const referenceMs = toDateMs(getDateKey(new Date()));
                 const limit = referenceMs - days * 24 * 60 * 60 * 1000;
                 result = historical.filter((d) => {
@@ -400,21 +397,29 @@ export default React.memo(function EvolutionChart({
                 });
             }
         }
+        return { result, future };
+    }, [chartData, timeWindow]);
 
-        const primaryKey =
-            activeEngine === "compare"
-                ? "Nível Bayesiano"
-                : activeEngine === "mc_density"
-                    ? focusCategory?.id ? `bay_${focusCategory.id}` : null
-                    : activeEngine === "raw"
-                        ? focusCategory?.id ? `raw_${focusCategory.id}` : null
-                        : activeEngine === "stats"
-                            ? focusCategory?.id ? `stats_${focusCategory.id}` : null
-                            : focusCategory?.id ? `bay_${focusCategory.id}` : null;
+    // 2. Determinar a chave de downsampling (memoizada separadamente)
+    const primaryKey = useMemo(() => {
+        if (activeEngine === "compare") return "Nível Bayesiano";
+        if (activeEngine === "mc_density") return focusCategory?.id ? `bay_${focusCategory.id}` : null;
+        if (activeEngine === "raw") return focusCategory?.id ? `raw_${focusCategory.id}` : null;
+        if (activeEngine === "stats") return focusCategory?.id ? `stats_${focusCategory.id}` : null;
+        return focusCategory?.id ? `bay_${focusCategory.id}` : null;
+    }, [activeEngine, focusCategory?.id]);
 
-        const sampledHistorical = downsampleLTTB(result, 150, "date", primaryKey || "date");
-        return future.length > 0 ? [...sampledHistorical, ...future] : sampledHistorical;
-    }, [chartData, timeWindow, activeEngine, focusCategory?.id]);
+    // 3. Downsampling memoizado separadamente
+    const sampledHistorical = useMemo(() => {
+        return downsampleLTTB(historicalData.result, 150, "date", primaryKey || "date");
+    }, [historicalData.result, primaryKey]);
+
+    // 4. Combinar com dados futuros
+    const filteredChartData = useMemo(() => {
+        return historicalData.future.length > 0
+            ? [...sampledHistorical, ...historicalData.future]
+            : sampledHistorical;
+    }, [sampledHistorical, historicalData.future]);
 
     const radarData = useMemo(() => {
         if (!categories || !categories.length) return [];

@@ -1001,3 +1001,9 @@ input[type=range].custom-slider::-moz-range-thumb:active {
   border-radius: 18px;
   padding: 3rem 2rem;
 }
+
+/* LOTE 5 - Custom focus outline for keyboard navigation */
+:focus-visible {
+    outline: 2px solid theme('colors.indigo.400');
+    outline-offset: 2px;
+}

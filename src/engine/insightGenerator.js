@@ -165,7 +165,7 @@ export function generateEvolutionInsights({
         const recentVolumeAlert = history
             .filter(h => {
                 const d = toDateMs(h?.date);
-                return Number.isFinite(d) && (nowMs - d) >= 0 && (nowMs - d) <= sevenDaysMs;
+                return Number.isFinite(d) && (nowMs - d) >= -86400000 && (nowMs - d) <= sevenDaysMs;
             })
             .reduce((sum, h) => {
                 const parsedTotal = parseInt(h?.total, 10);

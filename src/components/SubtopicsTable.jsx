@@ -5,20 +5,35 @@ import { calculateSlope, getSortedHistory } from '../engine';
 
 const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
 
+    // 1. Normalizar e estabilizar categories
+    const stableCategories = useMemo(() => {
+        const raw = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return raw.map(cat => ({
+            ...cat,
+            tasks: Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {}),
+        }));
+    }, [categories]);
+
+    // 2. Criar fingerprint estável para evitar re-execução por referência
+    const categoriesFingerprint = useMemo(() => {
+        return stableCategories.map(c =>
+            `${c.id || c.name}:${(c.tasks || []).length}:${c.simuladoStats?.history?.length || 0}`
+        ).join('|');
+    }, [stableCategories]);
+
+    // 3. useMemo com fingerprint estável
     const subtopics = useMemo(() => {
         const topicMap = {};
-
-        categories.forEach(cat => {
+        stableCategories.forEach(cat => {
             const tasks = cat.tasks || [];
             tasks.forEach(tsk => {
-                const name = String(tsk.title || tsk.text || '').trim();
+                const name = String(tsk?.title || tsk?.text || '').trim();
                 if (!name) return;
-
                 const key = name.toLowerCase();
                 if (!topicMap[key]) {
                     topicMap[key] = {
                         id: key,
-                        name: name,
+                        name,
                         parentCategory: cat.name,
                         categoryColor: cat.color,
                         categoryIcon: cat.icon,
@@ -26,24 +41,25 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                         correct: 0,
                         wrong: 0,
                         total: 0,
-                        trendHistory: []
+                        trendHistory: [],
                     };
                 }
             });
 
             const historyRaw = cat.simuladoStats?.history;
-            const history = historyRaw ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw)) : [];
+            const history = historyRaw
+                ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw))
+                : [];
 
             history.forEach(h => {
                 (h.topics || []).forEach(t => {
                     const name = String(t.name || '').trim();
                     if (!name) return;
-
                     const key = name.toLowerCase();
                     if (!topicMap[key]) {
                         topicMap[key] = {
                             id: key,
-                            name: name,
+                            name,
                             parentCategory: cat.name,
                             categoryColor: cat.color,
                             categoryIcon: cat.icon,
@@ -51,19 +67,16 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                             correct: 0,
                             wrong: 0,
                             total: 0,
-                            trendHistory: []
+                            trendHistory: [],
                         };
                     }
-
                     const catMaxScore = cat.maxScore ?? maxScore;
                     const totalParsed = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 0;
                     const total = totalParsed > 0 ? totalParsed : Math.max(0, (Number(t.correct) || 0) + (Number(t.wrong) || 0));
                     const correctCount = total > 0
                         ? Math.round((getSafeScore(t, catMaxScore) / catMaxScore) * total)
                         : (Number(t.correct) || 0);
-
                     const wrongCount = Math.max(0, total - correctCount);
-
                     topicMap[key].correct += correctCount;
                     topicMap[key].wrong += wrongCount;
                     topicMap[key].total += total;
@@ -85,8 +98,8 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                 return { ...t, balance, percent, trendValue, trend };
             })
             .sort((a, b) => b.balance - a.balance);
-
-    }, [categories, maxScore]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categoriesFingerprint, maxScore]);
 
     return (
         <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8">

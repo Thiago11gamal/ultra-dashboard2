@@ -872,6 +872,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         if (showToastRef.current && lastError.code !== 'unavailable' && lastError.message !== 'timeout') {
           showToastRef.current(`Falha ao salvar: ${lastError.message || lastError.code || 'Erro desconhecido'}`, 'error');
         }
+        // ✅ LOTE-03: resetar o contador para permitir retries futuros
+        syncReentryCountRef.current = 0;
       }
 
       if (isMountedRef.current) {

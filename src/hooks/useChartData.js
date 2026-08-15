@@ -13,59 +13,63 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeRange = Math.max(1e-9, safeMax - safeMin);
-
     const toRatio = (score) => {
         const n = Number(score);
         if (!Number.isFinite(n)) return 0;
         return Math.max(0, Math.min(1, (n - safeMin) / safeRange));
     };
 
-    const aggregatedHistoryByDateMap = new Map();
+    // ── PASSO 1: agregar por data em UMA passagem ──────────────────
+    const aggregatedByDate = new Map();
     for (const h of history) {
         const key = getDateKey(getHistoryDate(h));
         if (!key) continue;
-        const existing = aggregatedHistoryByDateMap.get(key);
+        const entry = aggregatedByDate.get(key);
         const rawTotal = Math.max(0, Number(h?.total) || 0);
         const rawCorrect = Math.max(0, Math.min(rawTotal, Number(h?.correct) || 0));
         const score = getSafeScore(h, safeMax);
         const safeScore = Number.isFinite(score) ? score : NaN;
 
         let compTotal = rawTotal;
-        let compCorrect = rawTotal > 0 && Number.isFinite(safeScore) ? Math.round(toRatio(safeScore) * rawTotal) : rawCorrect;
+        let compCorrect = rawTotal > 0 && Number.isFinite(safeScore)
+            ? Math.round(toRatio(safeScore) * rawTotal)
+            : rawCorrect;
+
         if (rawTotal === 0 && h?.score != null && Number.isFinite(safeScore)) {
             compTotal = getSyntheticTotal(safeMax);
             compCorrect = Math.round(toRatio(safeScore) * compTotal);
         }
         compCorrect = Math.max(0, Math.min(compTotal, Number.isFinite(compCorrect) ? compCorrect : 0));
-        const safeRawCorrect = rawTotal > 0 && Number.isFinite(safeScore)
-            ? Math.max(0, Math.min(rawTotal, Math.round(toRatio(safeScore) * rawTotal)))
-            : rawCorrect;
 
-        if (existing) {
-            existing.compCorrect = (existing.compCorrect || 0) + compCorrect;
-            existing.compTotal = (existing.compTotal || 0) + compTotal;
-            existing.total += rawTotal;
-            existing.correct += safeRawCorrect;
-            existing.score = existing.compTotal > 0 ? safeMin + (existing.compCorrect / existing.compTotal) * safeRange : NaN;
+        if (entry) {
+            entry.compCorrect += compCorrect;
+            entry.compTotal += compTotal;
+            entry.total += rawTotal;
+            entry.correct += Math.max(0, Math.min(rawTotal, Math.max(0, Number(h?.correct) || 0)));
+            entry.score = entry.compTotal > 0
+                ? safeMin + (entry.compCorrect / entry.compTotal) * safeRange
+                : NaN;
         } else {
-            aggregatedHistoryByDateMap.set(key, {
-                ...h,
+            aggregatedByDate.set(key, {
                 date: key,
-                correct: safeRawCorrect,
-                total: rawTotal,
                 compCorrect,
                 compTotal,
-                score: safeScore
+                total: rawTotal,
+                correct: Math.max(0, Math.min(rawTotal, Math.max(0, Number(h?.correct) || 0))),
+                score: safeScore,
             });
         }
     }
 
-    const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => {
-        const dA = normalizeDate(a.date);
-        const dB = normalizeDate(b.date);
-        return (dA?.getTime() || 0) - (dB?.getTime() || 0);
+    // Ordenar as chaves uma única vez
+    const sortedKeys = [...aggregatedByDate.keys()].sort((a, b) => {
+        const da = normalizeDate(a)?.getTime() ?? 0;
+        const db = normalizeDate(b)?.getTime() ?? 0;
+        return da - db;
     });
 
+    // ── PASSO 2: varrer sortedDates com índice incremental ─────────
+    // Cada entrada do histórico agregado é consumida UMA ÚNICA VEZ.
     const dateToStats = {};
     let accumulated = [];
     let histIdx = 0;
@@ -76,55 +80,58 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
 
     for (let i = 0; i < sortedDates.length; i++) {
         const date = sortedDates[i];
-        while (histIdx < aggregatedHistory.length) {
-            const key = aggregatedHistory[histIdx].date;
-            if (key && key <= date) {
-                const entry = aggregatedHistory[histIdx];
-                const entryDate = normalizeDate(entry.date);
-                const prevDate = histIdx > 0 ? normalizeDate(aggregatedHistory[histIdx - 1].date) : entryDate;
-                const gapDays = Math.max(1, Math.floor((entryDate - prevDate) / (1000 * 60 * 60 * 24)));
-                if (histIdx > 0) {
-                    const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
-                    if (entryDecay < 1.0) {
-                        const currentN = bayAlpha + bayBeta;
-                        const currentP = bayAlpha / currentN;
-                        const newN = Math.max(2, currentN * entryDecay);
-                        bayAlpha = newN * currentP;
-                        bayBeta = newN * (1 - currentP);
-                    }
-                    const retentionFloor = maxAlphaEver * 0.3;
-                    if (bayAlpha < retentionFloor) {
-                        const currentN = bayAlpha + bayBeta;
-                        const currentP = (currentN > 0 && bayAlpha > 0) ? bayAlpha / currentN : 0.01;
-                        const safeP = Math.min(0.999999, Math.max(0.000001, currentP));
-                        bayAlpha = retentionFloor;
-                        bayBeta = bayAlpha * ((1 - safeP) / safeP);
-                    }
-                }
 
-                let total = entry.compTotal !== undefined ? entry.compTotal : Math.max(0, Number(entry.total) || 0);
-                let correct = entry.compCorrect !== undefined ? entry.compCorrect : Math.max(0, Number(entry.correct) || 0);
-                if (total === 0 && entry.score != null) {
-                    total = getSyntheticTotal(safeMax);
-                    correct = Math.round(toRatio(entry.score) * total);
+        // Consome entradas do histórico ordenado até a data atual
+        while (histIdx < sortedKeys.length && sortedKeys[histIdx] <= date) {
+            const key = sortedKeys[histIdx];
+            const entry = aggregatedByDate.get(key);
+            histIdx++;
+            if (!entry) continue;
+
+            const entryDate = normalizeDate(entry.date);
+            const prevDate = histIdx > 1 ? normalizeDate(sortedKeys[histIdx - 2]) : entryDate;
+            const gapDays = Math.max(
+                1,
+                Math.floor(((entryDate?.getTime() ?? 0) - (prevDate?.getTime() ?? 0)) / 86400000)
+            );
+
+            // Decaimento bayesiano entre eventos
+            if (histIdx > 1) {
+                const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
+                if (entryDecay < 1.0) {
+                    const currentN = bayAlpha + bayBeta;
+                    const currentP = bayAlpha / currentN;
+                    const newN = Math.max(2, currentN * entryDecay);
+                    bayAlpha = newN * currentP;
+                    bayBeta = newN * (1 - currentP);
                 }
-                correct = Math.max(0, Math.min(total, Number(correct) || 0));
-                if (total >= 1) {
-                    bayAlpha += Number(correct);
-                    bayBeta += (Number(total) - Number(correct));
-                    if (bayAlpha > maxAlphaEver) maxAlphaEver = bayAlpha;
+                const retentionFloor = maxAlphaEver * 0.3;
+                if (bayAlpha < retentionFloor) {
+                    const currentN = bayAlpha + bayBeta;
+                    const currentP = currentN > 0 && bayAlpha > 0 ? bayAlpha / currentN : 0.01;
+                    const safeP = Math.min(0.999999, Math.max(0.000001, currentP));
+                    bayAlpha = retentionFloor;
+                    bayBeta = bayAlpha * ((1 - safeP) / safeP);
                 }
-                accumulated.push(entry);
-                histIdx++;
-            } else {
-                break;
             }
+
+            const total = entry.compTotal > 0 ? entry.compTotal : 0;
+            const correct = entry.compCorrect > 0 ? entry.compCorrect : 0;
+
+            if (total >= 1) {
+                bayAlpha += Number(correct);
+                bayBeta += Number(total) - Number(correct);
+                if (bayAlpha > maxAlphaEver) maxAlphaEver = bayAlpha;
+            }
+
+            accumulated.push(entry);
         }
+
         if (accumulated.length > 0) {
-            const lastEntry = accumulated.length > 0 ? accumulated[accumulated.length - 1] : null;
+            const lastEntry = accumulated[accumulated.length - 1];
             const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, safeMax, {
                 referenceDate: date,
-                lastEventDate: lastEntry ? lastEntry.date : null
+                lastEventDate: lastEntry ? lastEntry.date : null,
             });
             dateToStats[date] = {
                 stats: computeCategoryStats(accumulated, 100, 60, safeMax),
@@ -139,6 +146,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
             };
         }
     }
+
     return dateToStats;
 }
 

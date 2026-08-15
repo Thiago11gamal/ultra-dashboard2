@@ -29,7 +29,13 @@ export const createMonteCarloSlice = (set) => ({
             };
             
             const targetDateStr = snapshot.date;
-            const idx = activeData.monteCarloHistory.findIndex(h => getDateKey(normalizeDate(h.date)) === targetDateStr);
+            const targetCategoryId = snapshot.categoryId || null;
+
+            // ✅ FIX 1.3: buscar por data + categoria
+            const idx = activeData.monteCarloHistory.findIndex(h =>
+                getDateKey(normalizeDate(h.date)) === targetDateStr &&
+                (h.categoryId || null) === targetCategoryId
+            );
 
             if (idx >= 0) {
                 activeData.monteCarloHistory[idx] = { ...activeData.monteCarloHistory[idx], ...snapshot };
@@ -42,8 +48,11 @@ export const createMonteCarloSlice = (set) => ({
                 const timeB = new Date(b.date).getTime() || 0;
                 return timeA - timeB;
             });
-            if (activeData.monteCarloHistory.length > 30) {
-                activeData.monteCarloHistory = activeData.monteCarloHistory.slice(-30);
+            // ✅ FIX 1.3b: limite escala com nº de categorias
+            const categoryCount = (activeData.categories || []).length || 1;
+            const MAX_SNAPSHOTS = 30 * categoryCount;
+            if (activeData.monteCarloHistory.length > MAX_SNAPSHOTS) {
+                activeData.monteCarloHistory = activeData.monteCarloHistory.slice(-MAX_SNAPSHOTS);
             }
 
             state.appState.version = (state.appState.version || 0) + 1;

@@ -35,7 +35,7 @@ const RetentionRing = ({ value, size = 48, strokeWidth = 3, color }) => {
 
     return (
         <div className="relative" style={{ width: size, height: size }}>
-            <svg className="w-full h-full -rotate-90">
+            <svg className="w-full h-full -rotate-90" aria-hidden="true">
                 <circle
                     cx={size / 2}
                     cy={size / 2}
@@ -68,7 +68,7 @@ const RetentionRing = ({ value, size = 48, strokeWidth = 3, color }) => {
 
 // Mini retention bar for topics
 const RetentionBar = ({ value, bg }) => (
-    <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+    <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow={value} aria-valuemin="0" aria-valuemax="100">
         <div
             className={`h-full rounded-full transition-all duration-500 ${bg}`}
             style={{ width: `${Math.max(0, Math.min(100, Number(value) || 0))}%` }}
@@ -245,7 +245,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
                         <div>
                             {/* Progress Bar */}
-                            <div className="h-1.5 bg-slate-950/50 rounded-full overflow-hidden mb-2 border border-white/5">
+                            <div className="h-1.5 bg-slate-950/50 rounded-full overflow-hidden mb-2 border border-white/5" role="progressbar" aria-valuenow={stats.avgRetention} aria-valuemin="0" aria-valuemax="100">
                                 <div className="h-full bg-gradient-to-r from-purple-600 to-purple-400 rounded-full shadow-[0_0_8px_rgba(168,85,247,0.4)]" style={{ width: `${stats.avgRetention}%` }} />
                             </div>
                             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{stats.totalTasks} assuntos</div>

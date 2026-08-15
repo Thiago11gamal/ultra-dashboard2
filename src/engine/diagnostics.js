@@ -7,6 +7,8 @@ import { getSafeScore } from '../utils/scoreHelper.js';
 import { kahanMean, kahanSum } from './math/kahan.js';
 import { pruneHistoryForMemory, getSortedHistory } from './stats.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
+// ✅ LOTE-03: importar do módulo probabilístico unificado
+import { fsrsRetrievability, fsrsIntervalForRetention } from './probabilistic/fsrs.js';
 
 function _getEntryDate(entry) {
   const raw = entry?.date || entry?.createdAt;
@@ -290,11 +292,11 @@ export function computeKLDivergenceNormal(mu1, sd1, mu2, sd2) {
   return { kl: Number(safekl.toFixed(4)), interpretation };
 }
 
+// ✅ LOTE-03: wrapper para compatibilidade com código existente.
+// Delega para fsrsRetrievability, que é a mesma fórmula (1+t/9S)^-1,
+// mas sem o clamp inferior de 0.1 que a versão antiga aplicava.
 export function computeEbbinghausRetention(daysSince, stabilityDays) {
-  const t = Math.max(0, Number(daysSince) || 0);
-  const S = Math.max(0.1, Number(stabilityDays) || 7);
-  const retention = 1.0 / (1.0 + (t / (9 * S)));
-  return Math.max(0.1, Math.min(1.0, retention));
+    return fsrsRetrievability(daysSince, stabilityDays);
 }
 
 export function estimateMemoryStability(history, maxScore = 100, baselineScore = null) {
@@ -314,7 +316,8 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
     let currentRetention = 1.0;
     if (i > 0) {
       const gap = (_getEntryDate(h).getTime() - _getEntryDate(sorted[i - 1]).getTime()) / 86400000;
-      currentRetention = computeEbbinghausRetention(gap, stability);
+      // ✅ LOTE-03: usar fsrsRetrievability em vez de computeEbbinghausRetention
+      currentRetention = fsrsRetrievability(gap, stability);
 
       if (gap > 0.1) {
         if (pct >= dynamicSuccessThreshold) {
@@ -368,12 +371,14 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
 
   const daysSinceLast = daysSinceOverride !== null ? daysSinceOverride : Math.max(0, (Date.now() - _getEntryDate(sorted[0]).getTime()) / 86400000);
   const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore);
-  const retention = computeEbbinghausRetention(daysSinceLast, stability);
+  // ✅ LOTE-03: usar fsrsRetrievability em vez de computeEbbinghausRetention
+  const retention = fsrsRetrievability(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));
 
   const currentMean = _mean(sorted.map(h => getSafeScore(h, maxScore)));
 
-  const optimalIntervalDays = computeOptimalReviewInterval(stability, 0.7, mssdVolatility, effectiveN, maxScore, currentMean, agilityPenalty);
+  // ✅ LOTE-03: usar fsrsIntervalForRetention em vez de computeOptimalReviewInterval
+  const optimalIntervalDays = fsrsIntervalForRetention(stability, 0.7);
 
   let risk;
   if (retentionPct < 30) risk = 'critical';

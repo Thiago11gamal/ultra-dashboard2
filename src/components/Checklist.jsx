@@ -340,14 +340,13 @@ const CategoryAccordion = React.memo(({
     onDeleteCategory,
     onPlayContext,
     showSimuladoStats,
-    filter
+    filter,
+    onOpenTaskModal,
+    onOpenDeleteCategoryModal,
+    onOpenDeleteTaskModal
 }) => {
     const [isOpen, setIsOpen] = useState(true);
-    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
-    const [isConfirmDeleteTaskOpen, setIsConfirmDeleteTaskOpen] = useState(false);
     const [isCategoryEditorOpen, setIsCategoryEditorOpen] = useState(false);
-    const [taskToDelete, setTaskToDelete] = useState(null);
 
     const originalTasks = useMemo(
         () => toArray(category.originalTasks ?? category.tasks),
@@ -425,7 +424,7 @@ const CategoryAccordion = React.memo(({
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
-                            setIsConfirmDeleteOpen(true);
+                            onOpenDeleteCategoryModal(category.id, category.name);
                         }}
                         className="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)] transition-all transform hover:scale-110 active:scale-95 flex-shrink-0"
                         title="Excluir Disciplina Permanente"
@@ -497,8 +496,7 @@ const CategoryAccordion = React.memo(({
                                     task={task}
                                     onToggle={(id) => onToggleTask(category.id, id)}
                                     onDelete={() => {
-                                        setTaskToDelete(task);
-                                        setIsConfirmDeleteTaskOpen(true);
+                                        onOpenDeleteTaskModal(category.id, task);
                                     }}
                                     onTogglePriority={(id) => onTogglePriority(category.id, id)}
                                     onTriggerPlay={() => onPlayContext(category.id, task.id)}
@@ -511,7 +509,7 @@ const CategoryAccordion = React.memo(({
                         <div className="p-4 pt-0">
                             <button
                                 type="button"
-                                onClick={() => setIsTaskModalOpen(true)}
+                                onClick={() => onOpenTaskModal(category.id)}
                                 className="w-full py-2 rounded-xl border border-dashed border-purple-500/30 bg-purple-900/20 text-purple-300 hover:bg-purple-800/40 hover:text-purple-100 hover:border-purple-500/50 transition-all flex items-center justify-center gap-2 group"
                             >
                                 <Plus size={18} className="group-hover:scale-110 transition-transform" />
@@ -522,42 +520,6 @@ const CategoryAccordion = React.memo(({
                 </div>
             )}
 
-            <PromptModal
-                isOpen={isTaskModalOpen}
-                onClose={() => setIsTaskModalOpen(false)}
-                onConfirm={(title) => {
-                    onAddTask(category.id, title);
-                    setIsTaskModalOpen(false);
-                }}
-                title="Novo Assunto"
-                placeholder="Nome do novo assunto..."
-            />
-
-            <ConfirmModal
-                isOpen={isConfirmDeleteOpen}
-                onClose={() => setIsConfirmDeleteOpen(false)}
-                onConfirm={() => onDeleteCategory(category.id)}
-                title="Excluir Disciplina?"
-                message={`Tem certeza que deseja excluir ${category.name || 'esta disciplina'} e todas as suas tarefas? Esta disciplina e suas tarefas serão movidas para a lixeira.`}
-                confirmText="Excluir"
-            />
-
-            <ConfirmModal
-                isOpen={isConfirmDeleteTaskOpen}
-                onClose={() => {
-                    setIsConfirmDeleteTaskOpen(false);
-                    setTaskToDelete(null);
-                }}
-                onConfirm={() => {
-                    if (taskToDelete) {
-                        onDeleteTask(category.id, taskToDelete.id || taskToDelete.text);
-                        setTaskToDelete(null);
-                    }
-                }}
-                title="Excluir Assunto?"
-                message={`Tem certeza que deseja excluir ${taskToDelete?.title || taskToDelete?.text || 'este assunto'}? Esta ação não pode ser desfeita.`}
-                confirmText="Excluir"
-            />
 
             <CategoryEditor
                 category={category}
@@ -589,6 +551,23 @@ function Checklist({
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importSourceContest, setImportSourceContest] = useState('');
+
+    // ✅ LOTE-03: estado dos modais centralizados
+    const [taskModalCatId, setTaskModalCatId] = useState(null);
+    const [deleteCatModal, setDeleteCatModal] = useState(null); // { id, name }
+    const [deleteTaskModal, setDeleteTaskModal] = useState(null); // { catId, task }
+
+    const handleOpenTaskModal = useCallback((catId) => {
+        setTaskModalCatId(catId);
+    }, []);
+
+    const handleOpenDeleteCategoryModal = useCallback((catId, catName) => {
+        setDeleteCatModal({ id: catId, name: catName });
+    }, []);
+
+    const handleOpenDeleteTaskModal = useCallback((catId, task) => {
+        setDeleteTaskModal({ catId, task });
+    }, []);
 
     const bottomRef = useRef(null);
     const scrollTimerRef = useRef(null);
@@ -728,6 +707,9 @@ function Checklist({
                         onPlayContext={handlePlayContext}
                         showSimuladoStats={showSimuladoStats}
                         filter={filter}
+                        onOpenTaskModal={handleOpenTaskModal}
+                        onOpenDeleteCategoryModal={handleOpenDeleteCategoryModal}
+                        onOpenDeleteTaskModal={handleOpenDeleteTaskModal}
                     />
                 ))}
             </div>
@@ -908,6 +890,48 @@ function Checklist({
                     </div>
                 </div>
             )}
+
+            {/* ✅ LOTE-03: Modais únicos centralizados */}
+            <PromptModal
+                isOpen={taskModalCatId !== null}
+                onClose={() => setTaskModalCatId(null)}
+                onConfirm={(title) => {
+                    if (taskModalCatId) {
+                        onAddTask(taskModalCatId, title);
+                    }
+                    setTaskModalCatId(null);
+                }}
+                title="Novo Assunto"
+                placeholder="Nome do novo assunto..."
+            />
+
+            <ConfirmModal
+                isOpen={deleteCatModal !== null}
+                onClose={() => setDeleteCatModal(null)}
+                onConfirm={() => {
+                    if (deleteCatModal) {
+                        onDeleteCategory(deleteCatModal.id);
+                    }
+                    setDeleteCatModal(null);
+                }}
+                title="Excluir Disciplina?"
+                message={`Tem certeza que deseja excluir ${deleteCatModal?.name || 'esta disciplina'} e todas as suas tarefas? Esta disciplina e suas tarefas serão movidas para a lixeira.`}
+                confirmText="Excluir"
+            />
+
+            <ConfirmModal
+                isOpen={deleteTaskModal !== null}
+                onClose={() => setDeleteTaskModal(null)}
+                onConfirm={() => {
+                    if (deleteTaskModal) {
+                        onDeleteTask(deleteTaskModal.catId, deleteTaskModal.task.id || deleteTaskModal.task.text);
+                    }
+                    setDeleteTaskModal(null);
+                }}
+                title="Excluir Assunto?"
+                message={`Tem certeza que deseja excluir ${deleteTaskModal?.task?.title || deleteTaskModal?.task?.text || 'este assunto'}? Esta ação não pode ser desfeita.`}
+                confirmText="Excluir"
+            />
 
             <div ref={bottomRef} className="h-px w-full" />
         </div>

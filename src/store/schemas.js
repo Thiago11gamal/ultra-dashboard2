@@ -78,13 +78,12 @@ const repairContestHistory = (data) => {
     );
 
     const dateCompressionBug = uniqueDaysInLogs > 1 && currentUniqueDays <= 1 && currentHistory.length > 0;
-    const repairThreshold = Math.ceil(currentHistory.length * 1.2);
-
+    // ✅ LOTE-03: REMOVER uniqueDaysInLogs > repairThreshold
+    // Reconstruir APENAS quando os dados estão corrompidos ou faltando.
     if (
       hasCorruptedHistory ||
       dateCompressionBug ||
-      currentHistory.length === 0 ||
-      uniqueDaysInLogs > repairThreshold
+      currentHistory.length === 0
     ) {
       hasRepaired = true;
 

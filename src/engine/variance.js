@@ -127,7 +127,7 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
     // FIX 2: Sincronização do piso com o estimateInterSubjectCorrelation.
     // Permite que o motor explore a variância de disciplinas com correlação inversa.
     // BUG 3.1 FIX: Floor ajustado de -0.15 para 0.0 para garantir Positive Semi-Definiteness (PSD)
-    const validRho = Math.max(0.0, Math.min(0.85, rho));
+    const validRho = Math.max(-0.85, Math.min(0.85, rho));
     const rawWeights = stats.map(cat => toFiniteNonNegative(cat?.weight));
     const adjustedSDs = stats.map(cat => toFiniteSd(cat?.sd));
 
@@ -167,7 +167,7 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
 export function computePooledSD(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
     // CORREÇÃO B2: Alinhado o clamp com computeWeightedVariance [0.0, 0.85]
     // O piso 0.0 previne matrizes de covariância não-PSD e falhas de Cholesky
-    const validRho = Number.isFinite(rho) ? Math.max(0.0, Math.min(0.85, rho)) : INTER_SUBJECT_CORRELATION;
+    const validRho = Number.isFinite(rho) ? Math.max(-0.85, Math.min(0.85, rho)) : INTER_SUBJECT_CORRELATION;
     const weightedVariance = computeWeightedVariance(stats, totalWeight, validRho);
     return Math.sqrt(weightedVariance);
 }
@@ -287,7 +287,7 @@ export function estimateInterSubjectCorrelation(
     // PATCH (Bug 3.1): Limite inferior blindado (0.0) para garantir estabilidade da Matriz PSD.
     // Impede falhas matemáticas no motor de Monte Carlo por autocorrelação não-definitiva
     // quando o sistema tentar realizar a decomposição de Cholesky N > 7.
-    return Math.max(0.0, Math.min(0.85, blended));
+    return Math.max(-0.85, Math.min(0.85, blended));
 }
 
 /**
@@ -422,12 +422,13 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
         for (let j = i + 1; j < n; j++) {
             const sdJ = Math.max(0, Number.isFinite(stats[j]?.sd) ? Number(stats[j].sd) : 0);
             
-            const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
+            const rawRhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
+            const rhoIJ = Math.max(-0.999, Math.min(0.999, Number.isFinite(Number(rawRhoIJ)) ? Number(rawRhoIJ) : effectiveDefaultRho));
             const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : effectiveDefaultRho;
             
             let currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
             if (!Number.isFinite(currentRho)) currentRho = effectiveDefaultRho;
-            currentRho = Math.max(-0.9, Math.min(0.9, currentRho));
+            currentRho = Math.max(-0.999, Math.min(0.999, currentRho));
 
             if (stats[i]?.simuladoStats?.history && stats[j]?.simuladoStats?.history) {
                 currentRho = calculateDynamicCorrelation(stats[i].simuladoStats.history, stats[j].simuladoStats.history, currentRho);

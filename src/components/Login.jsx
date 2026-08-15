@@ -1,9 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/useAuth';
 import { isLocalMode } from '../services/firebase';
-import { User, Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
+import { User, Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import logo from '../assets/logo.png';
 import './Login.css';
+
+// FIX 5.1a: Sanitização de entrada contra XSS
+const sanitizeInput = (value, maxLength = 200) => {
+    if (typeof value !== 'string') return '';
+    return value
+        .slice(0, maxLength)
+        .replace(/[<>]/g, '')        // Remove tags HTML
+        .replace(/javascript:/gi, '') // Remove protocolos perigosos
+        .replace(/on\w+=/gi, '');     // Remove event handlers inline
+};
+
+// FIX 5.1b: Validação de email no frontend
+const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+// FIX 5.1c: Validação de força de senha
+const getPasswordStrength = (password) => {
+    if (!password) return { level: 0, label: '', color: '' };
+    let score = 0;
+    if (password.length >= 6) score++;
+    if (password.length >= 10) score++;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+    if (/\d/.test(password)) score++;
+    if (/[^a-zA-Z\d]/.test(password)) score++;
+
+    if (score <= 1) return { level: 1, label: 'Fraca', color: '#ef4444' };
+    if (score <= 2) return { level: 2, label: 'Média', color: '#f59e0b' };
+    if (score <= 3) return { level: 3, label: 'Boa', color: '#22c55e' };
+    return { level: 4, label: 'Forte', color: '#10b981' };
+};
 
 export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
@@ -13,37 +44,71 @@ export default function Login() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-
+    const [emailError, setEmailError] = useState('');
+    const [nameError, setNameError] = useState('');
     const { login, signup } = useAuth();
-    // const canvasRef = useRef(null);
-
-    // Bug Fix: track mount status to prevent React warnings when closing modal during analysis
     const isMounted = React.useRef(true);
+    const errorRef = useRef(null); // FIX 5.1a: ref para anunciar erros
 
     React.useEffect(() => {
-        return () => {
-            isMounted.current = false;
-        };
+        return () => { isMounted.current = false; };
     }, []);
 
-    // Starfield Animation
+    // FIX 5.1a: Anunciar erro para leitores de tela
+    React.useEffect(() => {
+        if (error && errorRef.current) {
+            errorRef.current.setAttribute('aria-live', 'assertive');
+        }
+    }, [error]);
 
+    const handleEmailChange = (e) => {
+        const value = sanitizeInput(e.target.value, 254); // RFC 5321 max email length
+        setEmail(value);
+        setEmailError('');
+        setError('');
+    };
 
-    const handleRipple = (e) => {
-        const btn = e.currentTarget;
-        const rect = btn.getBoundingClientRect();
-        const r = document.createElement('span');
-        r.className = 'ripple';
-        r.style.width = r.style.height = `${btn.offsetWidth}px`;
-        r.style.left = `${e.clientX - rect.left - btn.offsetWidth / 2}px`;
-        r.style.top = `${e.clientY - rect.top - btn.offsetWidth / 2}px`;
-        btn.appendChild(r);
-        setTimeout(() => r.remove(), 600);
+    const handleNameChange = (e) => {
+        const value = sanitizeInput(e.target.value, 100);
+        setName(value);
+        setNameError('');
+    };
+
+    const handlePasswordChange = (e) => {
+        setPassword(e.target.value.slice(0, 128)); // Limite máximo de senha
+        setError('');
+    };
+
+    const validateForm = () => {
+        let hasError = false;
+
+        if (!isValidEmail(email)) {
+            setEmailError('Formato de email inválido');
+            hasError = true;
+        }
+
+        if (!isLogin) {
+            if (!name.trim()) {
+                setNameError('Nome é obrigatório');
+                hasError = true;
+            }
+            if (password.length < 6) {
+                setError('A senha deve ter pelo menos 6 caracteres.');
+                hasError = true;
+            }
+        }
+
+        return !hasError;
     };
 
     async function handleSubmit(e) {
         e.preventDefault();
+
+        if (!validateForm()) return;
+
         setError('');
+        setEmailError('');
+        setNameError('');
         setLoading(true);
 
         try {
@@ -52,14 +117,11 @@ export default function Login() {
             } else {
                 if (!name.trim()) throw new Error("Por favor, insira seu nome.");
                 if (password.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
-
-                // Basic entropy check
                 const hasMixed = /[a-z]/.test(password) && /[0-9]/.test(password);
                 if (!hasMixed) {
                     throw new Error("Sua senha deve conter letras e números para maior segurança.");
                 }
-
-                await signup(email.trim(), password, name);
+                await signup(email.trim(), password, sanitizeInput(name, 100));
             }
         } catch (err) {
             console.error(err);
@@ -80,8 +142,10 @@ export default function Login() {
         }
     }
 
+    const passwordStrength = getPasswordStrength(password);
+
     return (
-        <div suppressHydrationWarning={true} style={{
+        <div style={{
             fontFamily: "'Segoe UI', sans-serif",
             backgroundColor: "#0b1120",
             background: "radial-gradient(circle at 20% 20%,#1e3a8a,#0b1120 60%)",
@@ -93,103 +157,124 @@ export default function Login() {
             justifyContent: "center",
             position: "relative"
         }}>
-
-
-            {/* <canvas ref={canvasRef} /> */}
-
-            <div className="container">
+            <div className="container" role="main" aria-label="Autenticação Ultra Dashboard">
                 <div className="left">
-                    {/* New Manta Logo from PNG */}
-                    <img src={logo} alt="Manta Logo" className="manta-logo-img" style={{
+                    <img src={logo} alt="Ultra Dashboard" className="manta-logo-img" style={{
                         width: '320px',
-                        filter: 'drop-shadow(0 0 40px rgba(99, 102, 241, 0.4))',
+                        filter: 'drop-shadow(0 0 40px rgba(99,102,241,0.4))',
                         animation: 'float 6s ease-in-out infinite'
                     }} />
                     <h1 suppressHydrationWarning>MÉTODO ARRAIA</h1>
                 </div>
-
                 <div className="right">
                     <h2 suppressHydrationWarning>{isLocalMode ? 'Modo Local' : (isLogin ? 'Bem-vindo de volta' : 'Crie sua conta')}</h2>
                     <p suppressHydrationWarning>{isLocalMode ? 'O serviço de nuvem está indisponível. Você entrará no modo offline.' : (isLogin ? 'Acesse sua área exclusiva para continuar.' : 'Comece sua jornada de alta performance agora.')}</p>
 
-                    {error && (
-                        <div className="error-box">
-                            <AlertCircle size={18} />
-                            <span suppressHydrationWarning>{error}</span>
-                        </div>
-                    )}
+                    {/* FIX 5.1a: Região aria-live para anúncios de erro */}
+                    <div ref={errorRef} aria-live="assertive" aria-atomic="true">
+                        {error && (
+                            <div className="error-box" role="alert">
+                                <AlertCircle size={18} />
+                                <span suppressHydrationWarning>{error}</span>
+                            </div>
+                        )}
+                        {emailError && (
+                            <div className="error-box" role="alert" style={{ borderColor: 'rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.1)', color: '#fbbf24' }}>
+                                <AlertCircle size={18} />
+                                <span>{emailError}</span>
+                            </div>
+                        )}
+                        {nameError && (
+                            <div className="error-box" role="alert" style={{ borderColor: 'rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.1)', color: '#fbbf24' }}>
+                                <AlertCircle size={18} />
+                                <span>{nameError}</span>
+                            </div>
+                        )}
+                    </div>
 
-                    <form onSubmit={handleSubmit}>
+                    <form onSubmit={handleSubmit} noValidate>
                         {!isLogin && (
                             <div className="input-group">
-                                <label suppressHydrationWarning>Nome</label>
+                                <label suppressHydrationWarning htmlFor="user-name">Nome</label>
                                 <input
+                                    id="user-name"
                                     type="text"
                                     placeholder="Seu Nome"
                                     value={name}
-                                    onChange={(e) => setName(e.target.value)}
+                                    onChange={handleNameChange}
                                     required={!isLogin}
                                     suppressHydrationWarning
+                                    autoComplete="name"
+                                    maxLength={100}
+                                    aria-invalid={!!nameError}
+                                    aria-describedby={nameError ? "name-error" : undefined}
                                 />
+                                {nameError && <p id="name-error" className="field-error" role="alert">{nameError}</p>}
                             </div>
                         )}
-
                         <div className="input-group">
-                            <label suppressHydrationWarning>E-mail</label>
+                            <label suppressHydrationWarning htmlFor="user-email">E-mail</label>
                             <input
+                                id="user-email"
                                 type="email"
                                 placeholder="seu@email.com"
                                 value={email}
-                                onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                                onChange={handleEmailChange}
                                 required
                                 suppressHydrationWarning
+                                autoComplete="email"
+                                maxLength={254}
+                                aria-invalid={!!emailError}
+                                aria-describedby={emailError ? "email-error" : undefined}
                             />
+                            {emailError && <p id="email-error" className="field-error" role="alert">{emailError}</p>}
                         </div>
-
                         <div className="input-group">
-                            <label suppressHydrationWarning>Senha</label>
-                            <input
-                                type={showPassword ? 'text' : 'password'}
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                                required
-                                suppressHydrationWarning
-                            />
+                            <label suppressHydrationWarning htmlFor="user-password">Senha</label>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    id="user-password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={handlePasswordChange}
+                                    required
+                                    suppressHydrationWarning
+                                    autoComplete={isLogin ? 'current-password' : 'new-password'}
+                                    maxLength={128}
+                                    aria-describedby="password-hint"
+                                />
+                                {/* FIX 5.1d: Botão de mostrar/ocultar senha com acessibilidade */}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="eye-btn"
+                                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                                    aria-pressed={showPassword}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                            {/* FIX 5.1c: Indicador de força de senha */}
                             {!isLogin && password && (
-                                <div className="pw-strength-container" style={{ marginTop: '8px' }}>
-                                    <div style={{
-                                        height: '4px',
-                                        width: '100%',
-                                        backgroundColor: '#334155',
-                                        borderRadius: '2px',
-                                        overflow: 'hidden'
-                                    }}>
-                                        <div style={{
-                                            height: '100%',
-                                            width: password.length < 6 ? '30%' : (password.length >= 8 && /[0-9]/.test(password) && /[a-z]/.test(password) && /[A-Z]/.test(password) ? '100%' : '60%'),
-                                            backgroundColor: password.length < 6 ? '#ef4444' : (password.length >= 8 && /[0-9]/.test(password) && /[a-z]/.test(password) && /[A-Z]/.test(password) ? '#10b981' : '#f59e0b'),
-                                            transition: 'width 0.3s ease'
-                                        }} />
+                                <div style={{ marginTop: '8px' }} aria-describedby="password-hint">
+                                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                                        {[1, 2, 3, 4].map(i => (
+                                            <div key={i} style={{
+                                                height: '4px',
+                                                flex: 1,
+                                                borderRadius: '2px',
+                                                backgroundColor: i <= passwordStrength.level ? passwordStrength.color : '#334155',
+                                                transition: 'background-color 0.3s'
+                                            }} />
+                                        ))}
                                     </div>
-                                    <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
-                                        {password.length < 6 ? 'Senha muito curta' : (password.length >= 8 && /[0-9]/.test(password) && /[a-z]/.test(password) && /[A-Z]/.test(password) ? 'Senha forte' : 'Senha média')}
+                                    <span style={{ fontSize: '11px', color: passwordStrength.color }} id="password-hint">
+                                        Força: {passwordStrength.label}
                                     </span>
                                 </div>
                             )}
-                            <button
-                                type="button"
-                                className="eye-btn"
-                                onClick={() => setShowPassword(!showPassword)}
-                            >
-                                {showPassword ? (
-                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                                ) : (
-                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-                                )}
-                            </button>
                         </div>
-
                         <button type="submit" className="btn" disabled={loading} onClick={handleRipple}>
                             {loading ? (
                                 <Loader2 className="animate-spin mx-auto text-white" />
@@ -198,11 +283,10 @@ export default function Login() {
                             )}
                         </button>
                     </form>
-
                     <button
                         type="button"
                         className="toggle-link w-full bg-transparent border-none cursor-pointer text-center"
-                        onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                        onClick={() => { setIsLogin(!isLogin); setError(''); setEmailError(''); setNameError(''); }}
                         suppressHydrationWarning
                     >
                         {isLogin ? 'Ainda não tem conta? Crie agora' : 'Já tem uma conta? Faça login'}
@@ -211,4 +295,17 @@ export default function Login() {
             </div>
         </div>
     );
+}
+
+// FIX 5.1e: Função ripple movida para fora do componente para evitar recriação
+function handleRipple(e) {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    r.style.width = r.style.height = `${btn.offsetWidth}px`;
+    r.style.left = `${e.clientX - rect.left - btn.offsetWidth / 2}px`;
+    r.style.top = `${e.clientY - rect.top - btn.offsetWidth / 2}px`;
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 600);
 }

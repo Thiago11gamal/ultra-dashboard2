@@ -24,7 +24,7 @@ export const VOLATILITY_FLOOR_PCT = 0.03;
 
 // FIX: amostra efetiva mínima (soma dos pesos de decaimento) antes de
 // aplicar penalidade de calibração. Evita punir o modelo com 1-2 eventos ruidosos.
-export const CALIBRATION_MIN_EFFECTIVE_SAMPLES = 1.0;
+export const CALIBRATION_MIN_EFFECTIVE_SAMPLES = 5.0;
 
 const clamp = (value, min, max) => {
     const n = Number(value);
@@ -55,7 +55,7 @@ export const sanitizeWeightUnit = (value) => {
 
     if (Number.isNaN(numeric)) return 0;
 
-    return Math.max(0, Math.min(999, Math.round(numeric)));
+    return Math.max(0, Math.min(999, numeric));
 };
 
 export const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;

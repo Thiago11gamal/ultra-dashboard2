@@ -164,7 +164,7 @@ export function TodayVsGeneralChart({
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const time = toDateMs(h.date || h.createdAt);
-                if (!time || time > now) return;
+                if (!time || time > now + 86400000) return;
                 const rawScore = getSafeScore(h, safeMaxScore);
                 const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                 const hDateKey = getDateKey(h.date || h.createdAt);
@@ -181,11 +181,12 @@ export function TodayVsGeneralChart({
                 }
                 corr = Math.max(0, Math.min(tot, corr));
                 if (tot === 0) return;
-                if (hDateKey === todayKey) { buckets.today.correct += corr; buckets.today.total += tot; }
-                if (time <= now && now - time <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
-                if (time <= now && now - time <= ms1Month) { buckets.month.correct += corr; buckets.month.total += tot; }
-                if (time <= now && now - time <= ms3Months) { buckets.month3.correct += corr; buckets.month3.total += tot; }
-                if (time <= now && now - time <= ms6Months) { buckets.month6.correct += corr; buckets.month6.total += tot; }
+                const isTodayDate = hDateKey === todayKey || (Math.abs(now - time) <= 86400000 && (new Date(time).toISOString().slice(0, 10) === new Date(now).toISOString().slice(0, 10) || new Date(time).getDate() === new Date(now).getDate()));
+                if (isTodayDate) { buckets.today.correct += corr; buckets.today.total += tot; }
+                if (now - time <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
+                if (now - time <= ms1Month) { buckets.month.correct += corr; buckets.month.total += tot; }
+                if (now - time <= ms3Months) { buckets.month3.correct += corr; buckets.month3.total += tot; }
+                if (now - time <= ms6Months) { buckets.month6.correct += corr; buckets.month6.total += tot; }
             });
         });
 

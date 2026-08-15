@@ -1,7 +1,10 @@
 /**
  * fsrs.js
  *
- * Lote 7 — FSRS avançado para memória espaçada.
+ * Lote 7 — modelo simplificado de retrievability por estabilidade.
+ *
+ * IMPORTANTE: este módulo NÃO implementa o algoritmo FSRS oficial completo.
+ * É um modelo simplificado baseado na mesma função de retrievability.
  *
  * Modelo base:
  * R(t, S) = (1 + t / (9S))^-1
@@ -75,6 +78,8 @@ export function fsrsIntervalForRetention(stability, desiredRetention = 0.9) {
  */
 export function estimateTopicFsrs(topic = {}, options = {}) {
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
+  // ✅ ADICIONAR:
+  const minScore = clampFinite(options.minScore, 0, maxScore - 1e-9, 0);
 
   const successThreshold = clampFinite(
     options.successThreshold,
@@ -113,13 +118,15 @@ export function estimateTopicFsrs(topic = {}, options = {}) {
     baseScore =
       scores.reduce((acc, entry) => acc + entry.score, 0) / scores.length;
   } else if (Number.isFinite(topic.percentage)) {
-    baseScore = (Number(topic.percentage) / 100) * maxScore;
+    // ✅ CORREÇÃO: converter percentual no intervalo real
+    baseScore = minScore + (Number(topic.percentage) / 100) * (maxScore - minScore);
   } else {
     baseScore = maxScore * 0.5;
   }
 
-  const safeScore = clampFinite(baseScore, 0, maxScore, maxScore * 0.5);
-  const safePct = (safeScore / maxScore) * 100;
+  // ✅ CORREÇÃO: normalizar no intervalo real
+  const safeScore = clampFinite(baseScore, minScore, maxScore, minScore + (maxScore - minScore) * 0.5);
+  const safePct = ((safeScore - minScore) / Math.max(1e-9, maxScore - minScore)) * 100;
 
   const difficulty = clampFinite(1 - safePct / 100, 0.1, 1, 0.5);
 
@@ -255,7 +262,9 @@ export function estimateCategoryFsrsBoost(history = [], options = {}) {
   const meanScore =
     scores.reduce((acc, score) => acc + score, 0) / scores.length;
 
-  const meanPct = (meanScore / maxScore) * 100;
+  // ✅ CORREÇÃO: normalizar no intervalo real
+  const minScore = clampFinite(options.minScore, 0, maxScore - 1e-9, 0);
+  const meanPct = ((meanScore - minScore) / Math.max(1e-9, maxScore - minScore)) * 100;
 
   let medianGap = 7;
 

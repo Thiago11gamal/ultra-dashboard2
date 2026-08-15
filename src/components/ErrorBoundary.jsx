@@ -61,13 +61,13 @@ class ErrorBoundary extends React.Component {
                     <div className="flex gap-4 mt-8">
                         <button
                             onClick={this.handleReset}
-                            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold transition-colors"
+                            className="px-6 py-3 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-purple-500/50"
                         >
                             Tentar Recuperar ↩️
                         </button>
                         <button
                             onClick={() => window.location.reload()}
-                            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold transition-colors"
+                            className="px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-blue-500/50"
                         >
                             Recarregar Página
                         </button>
@@ -129,13 +129,13 @@ export function PageErrorBoundary({ children, pageName = 'esta página' }) {
                     <div className="flex gap-3 mt-2">
                         <button
                             onClick={reset}
-                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-bold transition-colors"
+                            className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-sm font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-purple-500/50"
                         >
                             Tentar Novamente
                         </button>
                         <button
                             onClick={() => window.location.reload()}
-                            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-bold transition-colors"
+                            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-slate-500/50"
                         >
                             Recarregar
                         </button>

@@ -1,5 +1,7 @@
+export const SYNTHETIC_EVIDENCE_TOTAL = 20;
+
 export function getSyntheticTotal(_maxScore = 100) {
-  return 20;
+  return SYNTHETIC_EVIDENCE_TOTAL;
 }
 
 export const normalizePercentInput = (value) => {
@@ -42,11 +44,12 @@ export function parseLocaleNumber(value, fallback = NaN) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-export function getSafeScore(historyRow, maxScore = 100) {
+export function getSafeScore(historyRow, maxScore = 100, minScore = 0) {
   const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const safeMinScore = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMaxScore) : 0;
   
   if (typeof historyRow === 'number') {
-    return Math.max(0, Math.min(safeMaxScore, historyRow));
+    return Math.max(safeMinScore, Math.min(safeMaxScore, historyRow));
   }
   
   if (!historyRow) return NaN;
@@ -67,14 +70,14 @@ export function getSafeScore(historyRow, maxScore = 100) {
       // ✅ FIX: Se o valor excede 100, provavelmente NÃO é percentual.
       // Trata como score absoluto para evitar inflação.
       if (Math.abs(pctValue) > 100.01) {
-        s = Math.max(0, Math.min(safeMaxScore, pctValue));
+        s = Math.max(safeMinScore, Math.min(safeMaxScore, pctValue));
       } else {
         const clampedPct = Math.max(0, Math.min(100, pctValue));
-        s = (clampedPct / 100) * safeMaxScore;
+        s = safeMinScore + (clampedPct / 100) * (safeMaxScore - safeMinScore);
       }
     }
     
-    return Number.isFinite(s) ? Math.max(0, Math.min(safeMaxScore, s)) : NaN;
+    return Number.isFinite(s) ? Math.max(safeMinScore, Math.min(safeMaxScore, s)) : NaN;
   }
   
   // ✅ FIX: Usa parseLocaleNumber para total e correct
@@ -87,15 +90,15 @@ export function getSafeScore(historyRow, maxScore = 100) {
     if (!Number.isFinite(pValue)) return NaN;
     // ✅ FIX: Mesmo tratamento para correct como percentual
     if (Math.abs(pValue) > 100.01) {
-      return Math.max(0, Math.min(safeMaxScore, pValue));
+      return Math.max(safeMinScore, Math.min(safeMaxScore, pValue));
     }
     const clampedPct = Math.max(0, Math.min(100, pValue));
-    const scoreFromPercentage = (clampedPct / 100) * safeMaxScore;
-    return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(safeMaxScore, scoreFromPercentage)) : NaN;
+    const scoreFromPercentage = safeMinScore + (clampedPct / 100) * (safeMaxScore - safeMinScore);
+    return Number.isFinite(scoreFromPercentage) ? Math.max(safeMinScore, Math.min(safeMaxScore, scoreFromPercentage)) : NaN;
   }
   
   if (total > 0) {
-    return Math.max(0, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
+    return Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + (correct / total) * (safeMaxScore - safeMinScore)));
   }
   
   return 0;
