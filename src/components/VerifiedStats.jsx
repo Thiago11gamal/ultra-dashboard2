@@ -281,23 +281,28 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         return scores.length > 0 ? Math.max(...scores) : 100;
     }, [safeCategories]);
 
+    const minScore = useMemo(() => {
+        const scores = safeCategories.map(c => Number(c.minScore)).filter(s => Number.isFinite(s));
+        return scores.length > 0 ? Math.min(...scores) : 0;
+    }, [safeCategories]);
+
     // T-039 FIX: estabilizar a prop unit para ajudar na memoização do gauge
     const gaugeUnit = useMemo(() => {
         return maxScore === 100 ? '%' : ' pts';
     }, [maxScore]);
 
-    // FIX LÓGICO: Clampar meta à escala [0, maxScore] sem loops multiplicativos
+    // FIX LÓGICO: Clampar meta à escala [minScore, maxScore] sem loops multiplicativos
     const normalizeTargetToScale = React.useCallback((raw) => {
         const n = Number(raw);
 
         const fallback = maxScore === 100
             ? 70
-            : Math.round(maxScore * 0.7);
+            : Math.round(minScore + (maxScore - minScore) * 0.7);
 
         if (!Number.isFinite(n) || n <= 0) return fallback;
 
-        return Math.max(0, Math.min(maxScore, n));
-    }, [maxScore]);
+        return Math.max(minScore, Math.min(maxScore, n));
+    }, [maxScore, minScore]);
 
     const storeFlashcardDecks = useAppStore(state => {
         const activeId = state.appState?.activeId;
@@ -477,12 +482,12 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
                         if (tTs !== null && tTs <= 0 && safeScore === 0) return;
 
-                        // CORRIGIDO: normalizar pela proporção no intervalo útil, não por divisão direta
+                        // CORRIGIDO: normalizar pela proporção no intervalo útil com piso
                         const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
                         const catRange = Math.max(1e-9, catMaxScore - catMinScore);
-                        const globalRange = Math.max(1e-9, maxScore - 0); // ou safeMinScore se houver
+                        const globalRange = Math.max(1e-9, maxScore - minScore);
                         const ratio = (safeScore - catMinScore) / catRange;
-                        const normalizedToGlobalScale = 0 + ratio * globalRange;
+                        const normalizedToGlobalScale = minScore + ratio * globalRange;
 
                         allHistory.push({
                             date: parsedDate.getTime(),
@@ -916,6 +921,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         forcedTitle="Status Atual"
                         targetScore={statsTarget}
                         onTargetScoreChange={handleSetTargetScore}
+                        minScore={minScore}
                         maxScore={maxScore}
                         unit={gaugeUnit}
                         syncShowSubjects={showSubjects}
@@ -929,6 +935,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                             forcedTitle="Projeção Futura"
                             targetScore={statsTarget}
                             onTargetScoreChange={handleSetTargetScore}
+                            minScore={minScore}
                             maxScore={maxScore}
                             unit={gaugeUnit}
                             syncShowSubjects={showSubjects}

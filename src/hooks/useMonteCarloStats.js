@@ -439,7 +439,7 @@ useEffect(() => {
 
           const subjectsOpts = pureStatsData.categoryStats.map(c => {
             const subjName = c.name || c.key || '';
-            const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+            const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
 
             return {
               name: subjName,
@@ -508,7 +508,7 @@ useEffect(() => {
         } else {
           const subjectsOpts = pureStatsData.categoryStats.map(c => {
             const subjName = c.name || c.key || '';
-            const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+            const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
 
             return {
               name: subjName,
@@ -612,7 +612,7 @@ useEffect(() => {
           if (isFuture && pureStatsData.globalHistory?.length > 0) {
             const subjectsOpts = pureStatsData.categoryStats.map(c => {
               const subjName = c.name || c.key || '';
-              const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+              const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
 
               return {
                 name: subjName,
@@ -646,7 +646,7 @@ useEffect(() => {
           } else {
             const subjectsOpts = pureStatsData.categoryStats.map(c => {
               const subjName = c.name || c.key || '';
-              const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+              const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
 
               return {
                 name: subjName,

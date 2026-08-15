@@ -90,7 +90,7 @@ export function regularizeVolatility(dailySD, projectionDays, historyLength, dom
     return Math.max(floorSD, regularizedSD);
 }
 
-export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, summary = null) {
+export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, summary = null, minScore = 0) {
     if (!Array.isArray(mcHistory) || mcHistory.length === 0 || !Array.isArray(globalHistory) || globalHistory.length === 0) {
         return 0;
     }
@@ -99,6 +99,8 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
     const safeMaxScore = Number.isFinite(maxScore) && maxScore > 0
         ? maxScore
         : 100;
+    const safeMinScore = Number.isFinite(minScore) ? Math.min(minScore, safeMaxScore) : 0;
+    const globalDomain = Math.max(1, safeMaxScore - safeMinScore);
 
     const MS_PER_DAY = 24 * 60 * 60 * 1000;
     const LAMBDA = Math.log(2) / (CALIBRATION_LAMBDA_DAYS * MS_PER_DAY);
@@ -157,7 +159,7 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
         const meanPrediction = Number(snapshot.projectedMean ?? snapshot.mean) || 0;
 
         if (meanPrediction > 0 && safeMaxScore > 0) {
-            const err = Math.abs(meanPrediction - actualScore) / safeMaxScore;
+            const err = Math.abs(meanPrediction - actualScore) / globalDomain;
             residualSum += err * weight;
             residualWeightSum += weight;
         }
@@ -331,7 +333,7 @@ export function generateAnalyticsStats({
                                 : newCorrect;
 
                             const newScore = newTotal > 0
-                                ? (safeNewCorrect / newTotal) * catMaxScore
+                                ? catMinScore + (safeNewCorrect / newTotal) * catDomain
                                 : (existing.score + currentScore) / 2;
 
                             scoresByDate[dk][weightKey] = {
@@ -416,6 +418,8 @@ export function generateAnalyticsStats({
 
             if (w > 0 && metrics !== undefined) {
                 const rawTotal = Number(metrics.total) || getSyntheticTotal(catMaxScore);
+                const catMinScore = Number.isFinite(Number(metrics.minScore)) ? Number(metrics.minScore) : 0;
+                const catDomain = Math.max(1e-9, catMaxScore - catMinScore);
 
                 const total = Number.isFinite(rawTotal) && rawTotal > 0
                     ? rawTotal
@@ -423,7 +427,7 @@ export function generateAnalyticsStats({
 
                 const rawCorrect = (metrics.correct !== undefined && metrics.total > 0)
                     ? Number(metrics.correct)
-                    : (Number(metrics.score) / catMaxScore) * total;
+                    : ((Number(metrics.score) - catMinScore) / catDomain) * total;
 
                 // T-011 FIX: clamp final antes de ponderar no histórico global
                 const correct = Math.max(
@@ -436,7 +440,7 @@ export function generateAnalyticsStats({
             }
         });
 
-        return { date, score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * safeMaxScore : -1 };
+        return { date, score: pooledTotal > 0 ? safeMinScore + (pooledCorrect / pooledTotal) * globalDomain : -1 };
     }).filter(item => item.score >= 0 && !isNaN(item.score));
 
     const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory);

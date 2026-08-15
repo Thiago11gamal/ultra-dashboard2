@@ -44,7 +44,8 @@ export function getSortedHistory(history) {
             }
 
             const dateValue = h?.date ?? h?.createdAt;
-            const t = dateValue != null ? safeDateParse(dateValue)?.getTime() ?? NaN : NaN;
+            const parsed = safeDateParse(dateValue);
+            const t = parsed ? parsed.getTime() : 0;
 
             return { original: h, time: t };
         })
