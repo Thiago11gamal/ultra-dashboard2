@@ -256,7 +256,7 @@ export function generateAnalyticsStats({
             if (history.length === 0) return;
 
             const weightKey = cat.id || cat.name;
-            const weight = sanitizeWeightUnit(debouncedWeights[weightKey] ?? 0);
+            const weight = sanitizeWeightUnit(debouncedWeights[weightKey] ?? 1);
 
             const baye = computeBayesianLevel(history, 1, 1, catMaxScore);
             const stats = computeCategoryStats(history, weight, 60, catMaxScore);

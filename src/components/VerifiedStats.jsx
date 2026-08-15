@@ -13,7 +13,7 @@ import MonteCarloGauge from './MonteCarloGauge';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { useAppStore } from '../store/useAppStore';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
-import { getSafeScore } from '../utils/scoreHelper';
+import { getSafeScore, formatValue } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
 import { getDateKey, normalizeDate, APP_TIMEZONE } from '../utils/dateHelper';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
@@ -82,7 +82,7 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
             <div className="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
                 <div className="flex items-baseline gap-0.5">
-                    <span className="text-sm sm:text-base font-black text-slate-200">{targetScore ?? 70}</span>
+                    <span className="text-sm sm:text-base font-black text-slate-200">{formatValue(targetScore ?? 70)}</span>
 
                     {/* T-026 FIX: unidade dinâmica */}
                     {maxScore === 100 ? (
@@ -164,7 +164,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
     const safeMaxSdVal = Math.max(1e-6, Number(maxSdVal) || 0);
     const sdNum = Number.isFinite(parseFloat(cat.sd)) ? parseFloat(cat.sd) : 0;
     // BUG-26 FIX: Evitar NaN/Infinity quando maxSdVal é 0
-    const barWidth = maxSdVal === 0 ? 100 : Math.max(0, 100 - (sdNum / safeMaxSdVal) * 100);
+    const barWidth = maxSdVal === 0 ? 100 : Math.min(100, Math.max(0, 100 - (sdNum / safeMaxSdVal) * 100));
     const deltaNum = Number.isFinite(parseFloat(cat.delta)) ? parseFloat(cat.delta) : 0;
     const safeColor = typeof cat.color === 'string' ? cat.color : 'text-slate-400';
     const safeBgBorder = typeof cat.bgBorder === 'string' ? cat.bgBorder : 'border-slate-500/30';
@@ -191,8 +191,8 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
             <div className="flex items-center gap-2 md:col-span-4 min-w-0">
                 <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
                     <div className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }} />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (sd5Val / safeMaxSdVal) * 100)}%` }} title={`SD=${sd5Val}`} />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (sd15Val / safeMaxSdVal) * 100)}%` }} title={`SD=${sd15Val}`} />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd5Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd5Val}`} />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd15Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd15Val}`} />
                 </div>
                 <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? sdNum.toFixed(0) : '--'}</span>
             </div>
@@ -226,7 +226,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
 
 const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 }) => {
     if (categoryBreakdown.length === 0) return (
-        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 2 simulados em cada matéria para gerar o diagnóstico individual.</div>
+        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 3 simulados em cada matéria para gerar o diagnóstico individual.</div>
     );
 
     const maxSdVal = Math.max(0.25 * maxScore, ...categoryBreakdown.map(c => c.rawSd || 0));
@@ -271,7 +271,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const safeCategories = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
 
     const maxScore = useMemo(() => {
-        const scores = safeCategories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
+        const scores = safeCategories.map(c => Number(c.maxScore)).filter(s => Number.isFinite(s) && s > 0);
         return scores.length > 0 ? Math.max(...scores) : 100;
     }, [safeCategories]);
 
@@ -280,9 +280,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         return maxScore === 100 ? '%' : ' pts';
     }, [maxScore]);
 
-    // T-026 FIX: Normalizar a meta para a escala real.
-    // Se maxScore !== 100 e o valor salvo parecer percentual (0-100),
-    // convertemos para pontos absolutos da escala.
+    // FIX LÓGICO: Clampar meta à escala [0, maxScore] sem loops multiplicativos
     const normalizeTargetToScale = React.useCallback((raw) => {
         const n = Number(raw);
 
@@ -290,16 +288,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             ? 70
             : Math.round(maxScore * 0.7);
 
-        if (!Number.isFinite(n)) return fallback;
+        if (!Number.isFinite(n) || n <= 0) return fallback;
 
-        let value = n;
-
-        // Se a escala não é 100 e o valor parece porcentagem, converte para pontos.
-        if (maxScore !== 100 && value >= 0 && value <= 100) {
-            value = (value / 100) * maxScore;
-        }
-
-        return Math.max(0, Math.min(maxScore, value));
+        return Math.max(0, Math.min(maxScore, n));
     }, [maxScore]);
 
     const storeFlashcardDecks = useAppStore(state => {
@@ -476,6 +467,10 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     const safeScore = getSafeScore(h, catMaxScore);
                     const parsedDate = normalizeDate(h.date);
                     if (parsedDate && safeScore >= 0) {
+                        // 0s Bug Filter: Proteção contra Corrupção de Dados
+                        const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
+                        if (tTs !== null && tTs <= 0 && safeScore === 0) return;
+
                         // CORREÇÃO: Normaliza para a escala global universal para evitar envenenamento de escalas (Bug 1.1 Fix)
                         const normalizedToGlobalScale = (safeScore / catMaxScore) * maxScore;
 
@@ -492,10 +487,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         // 0. Aggregate by Day
         const dailyMap = {};
-        const dayFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: APP_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
         allHistory.forEach(h => {
-            const parts = dayFormatter.format(new Date(h.date)).split('/');
-            const dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            const dateStr = getDateKey(new Date(h.date));
+            if (!dateStr) return;
             if (!dailyMap[dateStr]) {
                 dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: h.date };
             }
@@ -510,7 +504,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 // BUG-01 FIX: Converte a string YYYY-MM-DD de volta para ms local para o motor (calculateSlope)
                 // FIX 2.3: Usar normalizeDate para evitar shift de dia por ambiguidade UTC/local
                 date: normalizeDate(getDateKey(new Date(d.date)))?.getTime() ?? d.date, 
-                score: d.scoreSum / d.weightSum,
+                score: d.weightSum > 0 ? d.scoreSum / d.weightSum : 0,
                 weight: d.weightSum // BUG-01 FIX: Preservamos o volume para evitar Paradoxo de Simpson em médias posteriores
             }))
             .sort((a, b) => a.date - b.date);
@@ -617,7 +611,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     const dailyVar = dailyHistory.length > 1 && totalDailyW > 1
                         ? dailyHistory.reduce((acc, h) => acc + (h.weight || 1) * Math.pow(h.score - dailyMean, 2), 0) / (totalDailyW - 1)
                         : (dailyHistory.length > 1 ? dailyHistory.reduce((a, h) => a + Math.pow(h.score - dailyMean, 2), 0) / (dailyHistory.length - 1) : 0);
-                    const dailySD = Math.sqrt(dailyVar);
+                    const dailySD = Math.sqrt(Math.max(0, dailyVar));
 
                     quality = Math.max(0.5, 1 - (dailySD / (0.40 * maxScore)));
 
@@ -657,7 +651,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         };
 
                         prediction = `${fmt(dateMin)} — ${fmt(dateMax)}`;
-                        predictionSubtext = `Previsão de alcance (${target}${maxScore === 100 ? '%' : ` de ${maxScore}`})`;  // FIX 1.5: Unidade dinâmica
+                        predictionSubtext = `Previsão de alcance (${formatValue(target)}${maxScore === 100 ? '%' : ` de ${maxScore}`})`;  // FIX 1.5: Unidade dinâmica
                         predictionStatus = "good";
                     }
                 }
@@ -699,7 +693,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             status: 'Dados Insuficientes',
             color: 'text-slate-400',
             bgBorder: 'border-slate-500',
-            message: "Mínimo 2 simulados em cada matéria.",
+            message: "Mínimo 3 simulados em cada matéria para diagnóstico.",
             delta: 0,
             sd: 0
         };
@@ -721,7 +715,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         sortedCategories.forEach(cat => {
             const hArray = cat.simuladoStats?.history ? (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)) : [];
-            if (hArray.length >= 2) {
+            if (hArray.length >= 3) {
                 // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis
                 const sortedHistory = [...hArray]
                     .filter(h => h.date && normalizeDate(h.date) !== null)
@@ -761,11 +755,11 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                             const isSynthetic = total === 0 && t.score != null;
                             if (isSynthetic) total = 100; // Synthetic total for percentage-only inputs
 
-                            // CORREÇÃO: Usar getSafeScore para tratar percentuais e absolutos corretamente
-                            const safeScore = getSafeScore(t, maxScore);
+                            // CORREÇÃO: Usar catMaxScore da matéria específica para ler o score antes da normalização
+                            const safeScore = getSafeScore(t, catMaxScore);
 
                             const correct = (safeScore >= 0 && total > 0)
-                                ? Math.round((Math.min(maxScore, safeScore) / maxScore) * total)
+                                ? Math.round((Math.min(catMaxScore, safeScore) / catMaxScore) * total)
                                 : Math.min(total, (Number(t.correct) || 0)); // BUG-03 FIX: Limitar acertos ao total
 
                             if (total > 0) {
@@ -870,28 +864,41 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 <ConsistencyCard consistency={stats.consistency} />
             </div>
 
-            {/* Bottom Row: Monte Carlo Side-by-Side */}
-            <div className="mt-4 mb-2">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-6 sm:gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
-                            <Activity size={20} className="text-blue-400" />
+            {/* Bottom Row: Monte Carlo Side-by-Side - Enquadramento Premium */}
+            <div className="glass p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden bg-slate-900/50 mt-2 mb-2">
+                {/* Background Ambient Glow */}
+                <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-500/10 blur-[100px] rounded-full pointer-events-none -z-0" />
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/5 blur-[100px] rounded-full pointer-events-none -z-0" />
+
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 relative z-10">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center border border-blue-500/30 shadow-lg shadow-blue-500/10 shrink-0">
+                            <Activity size={22} className="text-blue-400" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-white tracking-tight leading-none mb-1.5">Simulação de Monte Carlo</h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">Análise de Probabilidade de Aprovação</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight leading-none">
+                                    Simulação de Monte Carlo
+                                </h2>
+                                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    PROJEÇÃO PROBABILÍSTICA
+                                </span>
+                            </div>
+                            <p className="text-xs text-slate-400 font-medium">
+                                Comparativo em tempo real entre o desempenho consolidado atual e o cenário simulado na data-alvo.
+                            </p>
                         </div>
                     </div>
                     <button
                         onClick={() => setShowConfig(true)}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-slate-800/50 hover:bg-slate-700/80 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-300 transition-all shadow-lg active:scale-95"
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700/90 border border-white/10 hover:border-blue-500/40 rounded-xl text-xs font-bold text-slate-200 transition-all shadow-lg active:scale-95 group shrink-0"
                     >
-                        <Settings2 size={14} />
-                        <span className="flex-1 text-center font-semibold tracking-wide">
-                        Configurar Classificações e Meta
-                    </span></button>
+                        <Settings2 size={15} className="text-slate-400 group-hover:text-blue-400 transition-colors" />
+                        <span>Configurar Classificações e Meta</span>
+                    </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch relative z-10">
                     <MonteCarloGauge
                         categories={safeCategories}
                         goalDate={user?.goalDate}
@@ -918,14 +925,14 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                             onSyncShowSubjects={setShowSubjects}
                         />
                     ) : (
-                        <div className="glass p-4 sm:p-5 rounded-2xl sm:rounded-[2rem] border-l-4 border-blue-500 bg-slate-900 w-full h-full min-h-[400px] flex items-center justify-center">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">
-                                Carregando projeção futura...
+                        <div className="glass p-5 sm:p-6 rounded-2xl border-l-4 border-indigo-500 bg-slate-900/80 w-full h-full min-h-[400px] flex flex-col items-center justify-center gap-3">
+                            <div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-400 rounded-full animate-spin" />
+                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 animate-pulse">
+                                Calculando projeção futura...
                             </span>
                         </div>
                     )}
                 </div>
-
             </div>
 
             {/* Flashcards como Medidas e Indicadores */}

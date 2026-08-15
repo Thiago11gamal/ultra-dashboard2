@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BookOpen, Zap, Activity } from 'lucide-react';
+import { BookOpen, Zap, Activity, Calendar, Clock, CheckCircle2 } from 'lucide-react';
 import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE } from '../utils/dateHelper';
 
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
@@ -107,6 +107,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             const manausDayStr = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, day: 'numeric' }).format(dateObj);
 
             if (!grouped[uniqueDayKey]) grouped[uniqueDayKey] = {
+                uniqueDayKey,
                 label: dayLabel,
                 subLabel: weekDayName,
                 manausDayStr,
@@ -170,7 +171,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         });
 
         // Convert Objects to Arrays for rendering
-        const finalGroups = Object.values(grouped).sort((a, b) => b.dateObj - a.dateObj).map((dayGroup) => {
+        const finalGroups = Object.values(grouped).sort((a, b) => (b.dateObj?.getTime?.() ?? 0) - (a.dateObj?.getTime?.() ?? 0)).map((dayGroup) => {
             // Sort categories by Last Activity Time (Chronological)
             const cats = Object.values(dayGroup.categories).map(cat => ({
                 ...cat,
@@ -183,6 +184,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
             const dayTotalMinutes = cats.reduce((acc, c) => acc + c.totalMinutes, 0);
             const dayTotalSessions = cats.reduce((acc, c) => acc + c.logs.length, 0);
+
             return {
                 ...dayGroup,
                 categories: cats,
@@ -191,7 +193,15 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             };
         });
 
-        return { groups: finalGroups, stats: { totalMinutes, totalSessions, topCategory } };
+        return {
+            groups: finalGroups,
+            stats: {
+                totalDays: finalGroups.length,
+                totalMinutes,
+                totalSessions,
+                topCategory
+            }
+        };
     }, [logsArray, categoriesArray]);
 
     const formatTime = (minutes) => {
@@ -209,34 +219,33 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
     }
 
     return (
-        <div className="space-y-8 animate-fade-in-up">
-            <div className="flex items-center gap-3 mb-2 px-2">
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-lg shadow-purple-500/20">
-                    <Activity className="text-white" size={20} />
+        <div className="glass rounded-3xl p-6 sm:p-8 space-y-8 relative overflow-hidden bg-gradient-to-br from-slate-900/80 via-slate-900/60 to-black/80 border border-white/5 shadow-2xl animate-fade-in-up">
+            {/* Header with Stats Summary */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 relative z-10">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                        <Calendar size={22} />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                            Linha do Tempo de Estudos
+                        </h3>
+                        <p className="text-xs text-slate-400">Histórico dia a dia de sessões e tarefas concluídas</p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">Timeline de Estudos</h2>
-                    <p className="text-sm text-slate-400">Diário detalhado das suas conquistas.</p>
+
+                {/* Micro KPIs */}
+                <div className="flex items-center gap-3 self-start sm:self-auto">
+                    <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2">
+                        <Clock size={14} className="text-slate-400" />
+                        <span className="text-xs font-bold text-slate-200">{formatTime(stats.totalMinutes)}</span>
+                    </div>
+                    <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2">
+                        <CheckCircle2 size={14} className="text-slate-400" />
+                        <span className="text-xs font-bold text-slate-200">{stats.totalSessions} blocos</span>
+                    </div>
                 </div>
             </div>
-
-            {/* OVERVIEW STATS */}
-            {stats && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
-                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Tempo de Foco</span>
-                        <span className="text-3xl font-black text-white leading-none">{formatTime(stats.totalMinutes)}</span>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
-                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Total de Sessões</span>
-                        <span className="text-3xl font-black text-purple-400 leading-none">{stats.totalSessions} <span className="text-sm text-slate-500 font-bold ml-1">blocos</span></span>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
-                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Matéria Favorita</span>
-                        <span className="text-base sm:text-lg font-black text-indigo-400 break-words line-clamp-3 leading-tight mt-1" title={stats.topCategory}>{stats.topCategory}</span>
-                    </div>
-                </div>
-            )}
 
             {/* Timeline Content */}
             <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[34px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
@@ -245,7 +254,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                     const displayTitle = dayGroup.isToday ? "Hoje" : dayGroup.isYesterday ? "Ontem" : `${dayGroup.manausDayStr} de ${monthName}`;
 
                     return (
-                    <div key={dayGroup.dateObj?.toISOString?.() ?? `day-${idx}`} className="relative z-10">
+                    <div key={dayGroup.uniqueDayKey || dayGroup.dateObj?.toISOString?.() || `day-${idx}`} className="relative z-10">
                         {/* Day Marker */}
                         <div className="absolute -left-[47px] sm:-left-[73px] top-0 flex flex-col items-center w-7 sm:w-14">
                             <div className={`w-7 h-7 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl flex flex-col items-center justify-center shadow-xl border-2 sm:border-4 ${dayGroup.isToday

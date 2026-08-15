@@ -59,8 +59,8 @@ const MonteCarloGaugeBase = ({
         });
         // T-025 FIX: evitar new Date('YYYY-MM-DD') por causa de parsing UTC ambíguo.
         return Array.from(dates).sort((a, b) => {
-            const da = parseNoonLocal?.(a) ?? normalizeDate(a)?.getTime() ?? 0;
-            const db = parseNoonLocal?.(b) ?? normalizeDate(b)?.getTime() ?? 0;
+            const da = parseNoonLocal?.(a)?.getTime() ?? normalizeDate(a)?.getTime() ?? 0;
+            const db = parseNoonLocal?.(b)?.getTime() ?? normalizeDate(b)?.getTime() ?? 0;
             return da - db;
         });
     }, [categories]);
@@ -272,38 +272,72 @@ const MonteCarloGaugeBase = ({
     const isProjectionNearCurrent = Math.abs(projectionDelta) < 0.5;
     const projectionDeltaLabel = `${projectionDelta >= 0 ? '+' : ''}${formatValue(projectionDelta)}${resolvedUnit}`;
 
+    const isTodayMode = forcedMode === 'today';
+    const isFutureMode = forcedMode === 'future';
+
+    const cardTheme = isTodayMode
+        ? {
+            border: 'border-l-4 border-emerald-500',
+            glow: 'hover:shadow-emerald-500/10',
+            iconBg: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 shadow-emerald-500/10',
+            iconColor: 'text-emerald-400',
+            title: forcedTitle || 'Status Atual',
+            subtitle: 'Dados Consolidados',
+            badgeBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+            badgeLabel: 'Empírico'
+        }
+        : isFutureMode
+        ? {
+            border: 'border-l-4 border-indigo-500',
+            glow: 'hover:shadow-indigo-500/10',
+            iconBg: 'from-indigo-500/20 to-purple-500/20 border-indigo-500/30 shadow-indigo-500/10',
+            iconColor: 'text-indigo-400',
+            title: forcedTitle || 'Projeção Futura',
+            subtitle: 'Estimativa na Data-Alvo',
+            badgeBg: 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300',
+            badgeLabel: 'Simulação'
+        }
+        : {
+            border: 'border-l-4 border-blue-500',
+            glow: 'hover:shadow-blue-500/10',
+            iconBg: 'from-blue-500/20 to-indigo-500/20 border-blue-500/30 shadow-blue-500/10',
+            iconColor: 'text-blue-400',
+            title: 'Monte Carlo',
+            subtitle: 'Simulação Probabilística',
+            badgeBg: 'bg-blue-500/15 border-blue-500/30 text-blue-300',
+            badgeLabel: resolvedSimulateToday ? 'Hoje' : 'Futuro'
+        };
+
     return (
-        <div className={`glass p-5 sm:p-6 rounded-2xl sm:rounded-[2rem] relative flex flex-col border-l-4 border-blue-500 bg-slate-900 group transition-all duration-500 shadow-2xl w-full h-full flex-1 ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
+        <div className={`glass p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col ${cardTheme.border} bg-slate-900/90 group transition-all duration-500 shadow-2xl ${cardTheme.glow} w-full h-full flex-1 ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
             {isFlashing && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
                     <div className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent absolute top-0 left-0 animate-scan-fast" />
                 </div>
             )}
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 relative z-10">
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                            <Gauge size={16} className="text-white" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-white/90 uppercase tracking-[0.2em] leading-none">Monte Carlo</span>
-                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Simulação Probabilística</span>
-                        </div>
+            <div className="flex items-center justify-between gap-4 mb-4 relative z-10">
+                <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${cardTheme.iconBg} border flex items-center justify-center shadow-lg shrink-0`}>
+                        <Gauge size={18} className={cardTheme.iconColor} />
                     </div>
-                    {forcedMode && (
-                        <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter border ${forcedMode === 'today' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}>
-                            {forcedTitle || (forcedMode === 'today' ? 'Modo: Hoje' : 'Modo: Futuro')}
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-white uppercase tracking-wider leading-none">{cardTheme.title}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider border ${cardTheme.badgeBg}`}>
+                                {cardTheme.badgeLabel}
+                            </span>
                         </div>
-                    )}
+                        <span className="text-[10px] font-medium text-slate-400 mt-1">{cardTheme.subtitle}</span>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2">
                     {!forcedMode && (
-                        <div className="flex items-center gap-1.5 p-1 bg-black/20 rounded-xl border border-white/5 w-full sm:w-auto">
+                        <div className="flex items-center gap-1.5 p-1 bg-black/20 rounded-xl border border-white/5">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setShowConfig(true); }}
-                                className="h-full w-full rounded-full transition-transform hover:scale-110"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
                                 title="Configurar Classificações"
                             >
                                 <Settings2 size={16} />
@@ -311,9 +345,9 @@ const MonteCarloGaugeBase = ({
                             <div className="w-px h-4 bg-white/10" />
                             <button
                                 onClick={(e) => { e.stopPropagation(); setSimulateToday(!resolvedSimulateToday); }}
-                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${resolvedSimulateToday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}
+                                className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${resolvedSimulateToday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}
                             >
-                                {resolvedSimulateToday ? 'Ver Projeção' : 'Ver Estatísticas'}
+                                <span>{resolvedSimulateToday ? 'Hoje' : 'Futuro'}</span>
                                 <ChevronDown size={12} className={`transition-transform duration-300 ${resolvedSimulateToday ? 'rotate-180' : ''}`} />
                             </button>
                         </div>
@@ -322,7 +356,7 @@ const MonteCarloGaugeBase = ({
             </div>
 
             <div className="w-full flex flex-col items-center justify-center mb-4">
-                <div className={`w-full bg-black/40 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-between min-h-[490px] transition-all duration-700 ${isFlashing ? 'blur-sm' : ''}`}>
+                <div className={`w-full bg-black/40 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-between transition-all duration-700 min-h-[460px] ${isFlashing ? 'blur-sm' : ''}`}>
                     <div className="relative mb-2 w-full max-w-[280px] h-[140px] flex justify-center">
                         <svg width="100%" height="100%" viewBox="0 -6 140 76" className="overflow-visible relative z-10">
                             <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
@@ -347,13 +381,13 @@ const MonteCarloGaugeBase = ({
                             </span>
                         </div>
                     </div>
-                    <span className={`mt-2 mb-3 text-[11px] font-black uppercase tracking-widest px-5 py-1.5 rounded-full bg-black/40 border border-white/10 transition-all duration-500`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
+                    <span className={`mt-2 mb-3 text-[10.5px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full bg-black/50 border border-white/10 transition-all duration-500 shadow-sm`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
                         {isFlashing ? "Simulando..." : message}
                     </span>
                     
                     {/* CONFORMAL PREDICTION PANEL */}
                     <div className="w-full flex flex-col items-center gap-3 flex-1 justify-between">
-                        <div className="w-full sm:w-4/5 md:w-3/4 flex flex-col items-center justify-center p-3 rounded-2xl border border-white/5 bg-black/50 shadow-inner">
+                        <div className="w-full sm:w-11/12 flex flex-col items-center justify-center p-3 rounded-2xl border border-white/5 bg-black/50 shadow-inner">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
                                 Faixa Provável (95%)
                             </span>
@@ -361,19 +395,21 @@ const MonteCarloGaugeBase = ({
                                 <span className="text-2xl font-black text-white">{formatValue(ciLowSafe)}</span>
                                 <span className="text-slate-600 font-black">—</span>
                                 <span className="text-2xl font-black text-white">{formatValue(ciHighSafe)}</span>
+                                <span className="text-xs font-bold text-slate-400">{resolvedUnit}</span>
                             </div>
                             {stats.confidenceObj && (
-                                <div className={`mt-2.5 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest text-white shadow-lg ${stats.confidenceObj.glow}`} style={{ background: stats.confidenceObj.color }}>
+                                <div className={`mt-2 px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-lg ${stats.confidenceObj.glow}`} style={{ background: stats.confidenceObj.color }}>
                                     {stats.confidenceObj.label}
                                 </div>
                             )}
                         </div>
                         
-                        {/* Human Explanations & Drift Alerts Container with fixed min-h for perfect vertical alignment */}
-                        <div className="w-full sm:w-4/5 md:w-3/4 min-h-[105px] flex flex-col justify-start gap-1.5 px-1">
+                        {/* Human Explanations & Drift Alerts Container */}
+                        <div className="w-full sm:w-11/12 min-h-[60px] flex flex-col justify-start gap-1.5 px-1">
                             {stats.explanations && stats.explanations.map((msg, i) => (
-                                <div key={i} className="text-[10px] text-slate-300 font-medium leading-tight opacity-90">
-                                    • {msg}
+                                <div key={i} className="text-[10px] text-slate-300 font-medium leading-tight opacity-90 flex items-start gap-1.5">
+                                    <span className="text-blue-400 shrink-0">•</span>
+                                    <span>{msg}</span>
                                 </div>
                             ))}
                             {stats.driftAlerts && stats.driftAlerts.map((alert, i) => (
@@ -384,14 +420,14 @@ const MonteCarloGaugeBase = ({
                             ))}
                         </div>
 
-                        <p className="mt-auto pt-2.5 text-[9px] text-slate-400 font-bold uppercase tracking-wider text-center max-w-[320px] leading-relaxed opacity-80 border-t border-white/5 w-full">
+                        <p className="mt-auto pt-2.5 text-[9px] text-slate-500 font-medium uppercase tracking-wider text-center max-w-[320px] leading-relaxed opacity-80 border-t border-white/5 w-full">
                             Em previsões semelhantes, 95% dos resultados reais ficaram dentro desta faixa.
                         </p>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5 w-full">
                 {[
                     { 
                         label: "Sua Meta", 
@@ -412,7 +448,7 @@ const MonteCarloGaugeBase = ({
                         color: "text-blue-400" 
                     },
                     {
-                        label: effectiveSimulateToday ? "Δ Projeção vs Hoje" : "Δ Futuro vs Hoje",
+                        label: effectiveSimulateToday ? "Δ vs Hoje" : "Δ Futuro vs Hoje",
                         badgeClass: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30",
                         val: projectionDeltaLabel,
                         color: isProjectionNearCurrent ? "text-amber-300" : "text-cyan-300"
@@ -423,38 +459,39 @@ const MonteCarloGaugeBase = ({
                         val: safe(sdLeft) === 0 && safe(sdRight) === 0 
                             ? `±0${resolvedUnit}` 
                             : `-${formatValue(safe(sdLeft))} / +${formatValue(safe(sdRight))}${resolvedUnit}`,
-                        color: "text-amber-400",
-                        small: true
+                        color: "text-amber-400"
                     },
                     {
                         label: "IC 95%",
                         badgeClass: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
                         val: `${formatValue(ciLowSafe)}–${formatValue(ciHighSafe)}${resolvedUnit}`,
-                        color: "text-emerald-400",
-                        small: true
+                        color: "text-emerald-400"
                     }
                 ].map((m, i) => (
-                    <div key={i} className="bg-black/40 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-between min-h-[62px] h-[62px] transition-all hover:border-white/10 shadow-sm">
-                        <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 text-center w-auto max-w-full truncate ${m.badgeClass}`}>
+                    <div key={i} className="bg-black/40 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[64px] transition-all hover:border-white/10 hover:bg-black/60 shadow-sm">
+                        <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 text-center w-auto max-w-full truncate ${m.badgeClass}`}>
                             {m.label}
                         </span>
-                        <span className={`${m.small ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm'} font-black ${m.color} w-full text-center break-words leading-tight tracking-tight`}>
+                        <span className={`text-xs sm:text-sm font-black ${m.color} w-full text-center break-words leading-tight tracking-tight mt-0.5`}>
                             {m.val}
                         </span>
                     </div>
                 ))}
             </div>
 
-            <div className="w-full bg-black/40 rounded-2xl p-5 sm:p-6 mb-4 border border-white/5 flex flex-col shrink-0 min-h-[340px]">
-                <div className="flex justify-between items-center mb-4">
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Projeção de Desempenho</span>
-                    <div className="flex gap-3">
-                        <span className="text-[9px] text-slate-400 flex items-center gap-1"><div className="w-2 h-0.5 bg-white/40"></div>Hoje</span>
-                        <span className="text-[9px] text-slate-400 flex items-center gap-1"><div className="w-2 h-0.5 bg-blue-500"></div>Projeção</span>
-                        <span className="text-[9px] text-slate-400 flex items-center gap-1"><div className="w-2 h-0.5 bg-red-500"></div>Meta</span>
+            <div className="w-full bg-black/40 rounded-2xl p-4 sm:p-5 mb-4 border border-white/5 flex flex-col shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider">Curva de Densidade Probabilística</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className="text-[9px] text-slate-400 flex items-center gap-1.5"><div className="w-2 h-0.5 bg-white rounded-full"></div>Hoje</span>
+                        <span className="text-[9px] text-slate-400 flex items-center gap-1.5"><div className="w-2 h-0.5 bg-blue-500 rounded-full"></div>Projeção</span>
+                        <span className="text-[9px] text-slate-400 flex items-center gap-1.5"><div className="w-2 h-0.5 bg-rose-500 rounded-full"></div>Meta</span>
                     </div>
                 </div>
-                <div className="w-full pb-4">
+                <div className="w-full">
                     <GaussianPlot
                         mean={projectedSafe}
                         sd={safe(sd)}

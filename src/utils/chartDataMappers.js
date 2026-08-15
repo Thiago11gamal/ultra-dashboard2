@@ -133,6 +133,15 @@ export const mapRetentionData = (categories = []) => {
         .slice(0, 8);
 };
 
+const getStudyLogMinutes = (log) => {
+    if (!log || typeof log !== 'object') return 0;
+    const minutes = Number(log.minutes);
+    const duration = Number(log.duration);
+    if (Number.isFinite(minutes) && minutes > 0) return sanitizeMinutes(minutes);
+    if (Number.isFinite(duration) && duration > 0) return sanitizeMinutes(duration);
+    return 0;
+};
+
 /**
  * Maps study logs to daily focus evolution data
  * @param {Array} studyLogs 
@@ -187,8 +196,8 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
         
         const dayMatch = last14Days.find(d => d.fullKey === logFullKey);
         if (dayMatch) {
-            // BUGFIX: Suporte a minutes ou duration (Sincronia com motor de eficiência)
-            const minutes = sanitizeMinutes(log.minutes ?? log.duration);
+            // BUGFIX: Suporte a minutes ou duration com fallback robusto quando minutes === 0
+            const minutes = getStudyLogMinutes(log);
             dayMatch.horasEstudadas += minutes / 60;
         }
     });
@@ -215,7 +224,7 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
         if (!log || typeof log !== 'object') return;
         const cat = safeCategories.find(c => String(c.id) === String(log.categoryId) || (log.subject && c.name === log.subject) || (log.categoryName && c.name === log.categoryName));
         const name = cat ? cat.name : (log.categoryName || log.subject || 'Outros');
-        const actualMinutes = sanitizeMinutes(log.minutes ?? log.duration);
+        const actualMinutes = getStudyLogMinutes(log);
         if (actualMinutes <= 0) return;
         hoursMap[name] = (hoursMap[name] || 0) + actualMinutes;
     });

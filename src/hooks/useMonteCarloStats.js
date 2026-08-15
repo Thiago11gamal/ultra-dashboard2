@@ -1164,7 +1164,7 @@ useEffect(() => {
     const explanations = buildHumanExplanation({
       calibrationPenalty,
       volatility: sd,
-      trend: (projectedMean - currentMean),
+          trend: (projectedMean - currentMean),
       confidenceTier: confidenceObj.tier,
       intervalWidth: ci95High - ci95Low
     });
@@ -1172,7 +1172,8 @@ useEffect(() => {
     const driftAlerts = detectPerformanceDrift({
       recentMean: currentMean,
       baselineMean: (statsData?.bayesianMean || currentMean),
-      recentVolatility: sdLeft
+      recentVolatility: sdLeft,
+      maxScore: Number(maxScore) || 100
     });
 
     const humanVol = humanizeVolatility(sdLeft);
