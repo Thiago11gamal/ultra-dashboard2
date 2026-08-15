@@ -427,13 +427,13 @@ const MonteCarloGaugeBase = ({
                     </div>
                     
                     {/* Insights & Drift Alerts Container - Balanced Height */}
-                    <div className="w-full bg-slate-900/50 rounded-xl p-3 border border-white/5 flex flex-col gap-1.5 min-h-[76px] justify-center">
+                    <div className="w-full bg-slate-900/50 rounded-xl p-3 border border-white/5 flex flex-col gap-1.5 h-[92px] justify-center overflow-hidden">
                         <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
                             <Activity size={11} className="text-blue-400" />
                             <span>Diagnóstico & Sinais</span>
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            {stats.explanations && stats.explanations.map((msg, i) => (
+                            {stats.explanations && stats.explanations.slice(0, 2).map((msg, i) => (
                                 <div key={i} className="text-[10.5px] text-slate-300 font-medium leading-snug flex items-start gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80 mt-1.5 shrink-0" />
                                     <span>{msg}</span>
@@ -444,7 +444,7 @@ const MonteCarloGaugeBase = ({
                                     Desempenho estável conforme o modelo estatístico.
                                 </div>
                             )}
-                            {stats.driftAlerts && stats.driftAlerts.map((alert, i) => (
+                            {stats.driftAlerts && stats.driftAlerts.slice(0, 1).map((alert, i) => (
                                 <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${
                                     alert.severity === 'high' 
                                         ? 'bg-rose-500/10 border-rose-500/25 text-rose-300' 
@@ -508,11 +508,11 @@ const MonteCarloGaugeBase = ({
                         color: "text-emerald-400"
                     }
                 ].map((m, i) => (
-                    <div key={i} className="bg-slate-950/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[58px] transition-all hover:border-white/15 hover:bg-slate-900/60 shadow-sm">
+                    <div key={i} className="bg-slate-950/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center h-[62px] overflow-hidden transition-all hover:border-white/15 hover:bg-slate-900/60 shadow-sm">
                         <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 text-center w-auto max-w-full truncate ${m.badgeClass}`}>
                             {m.label}
                         </span>
-                        <span className={`text-xs sm:text-sm font-black ${m.color} w-full text-center break-words leading-tight tracking-tight mt-0.5 font-mono`}>
+                        <span className={`text-xs sm:text-sm font-black ${m.color} w-full text-center truncate leading-tight tracking-tight mt-0.5 font-mono`}>
                             {m.val}
                         </span>
                     </div>

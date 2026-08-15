@@ -521,10 +521,17 @@ useEffect(() => {
             };
           });
 
+          const normalSD = regularizeVolatility(
+            pureStatsData.pooledSD,
+            0, // horizonte "hoje"
+            pureStatsData.globalHistory?.length || 1,
+            domain
+          );
+
           const normalPayload = {
             mode: 'normal',
             mean: pureStatsData.bayesianMean,
-            sd: pureStatsData.pooledSD,
+            sd: normalSD,
             targetScore: debouncedTarget,
             simulations: dynamicSimulationsRef.current,
             currentMean: pureStatsData.bayesianMean,
@@ -661,7 +668,7 @@ useEffect(() => {
 
             result = simulateNormalDistribution({
               mean: pureStatsData.bayesianMean,
-              sd: pureStatsData.pooledSD,
+              sd: regularizeVolatility(pureStatsData.pooledSD, 0, pureStatsData.globalHistory?.length || 1, domain),
               targetScore: debouncedTarget,
               simulations: Math.min(dynamicSimulationsRef.current, 2000),
               currentMean: pureStatsData.bayesianMean,
@@ -1034,8 +1041,7 @@ useEffect(() => {
             100
           )
         };
-      })
-      .sort((a, b) => a.prob - b.prob);
+      }); // ordem estável = ordem das categorias (idêntica nos dois gauges)
   }, [
     statsData,
     debouncedTarget,
