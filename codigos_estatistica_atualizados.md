@@ -1,6 +1,6 @@
 # 📦 CÓDIGOS DO MENU ESTATÍSTICA (ATUALIZADOS)
 
-> Este arquivo contém a versão final e validada de todos os arquivos do motor matemático e estatístico após a aplicação dos Lotes 1 ao 5.
+> Este arquivo contém a versão final e validada de todos os arquivos do motor matemático e estatístico após a aplicação dos Lotes 1 ao 6.
 
 > **Nota da Auditoria**: Adicionados os arquivos complementares (`monteCarlo.js`, `stats.js`, `variance.js`, etc.) para validação integral do pacote.
 
@@ -4782,9 +4782,12 @@ export function estimateTopicFsrs(topic, options = {}) {
     : 0;
   const sd = Math.sqrt(Math.max(0, variance));
 
-  // Estabilidade: quanto mais consistente e alto o score, maior a estabilidade
-  const consistencyFactor = Math.max(0.1, 1 - (sd / maxScore));
-  const performanceFactor = Math.max(0.1, mean / maxScore);
+  // ✅ LOTE-06 FIX (FSRS-1): scores são PERCENTUAIS [0-100], não pontos absolutos.
+  // Dividir por maxScore (que pode ser 1000 no ENEM) distorcia a estabilidade
+  // em 10x: consistencyFactor ia para ~1.0 e o Coach parava de gerar revisões.
+  const SCORE_SCALE = 100;
+  const consistencyFactor = Math.max(0.1, 1 - (sd / SCORE_SCALE));
+  const performanceFactor = Math.max(0.1, mean / SCORE_SCALE);
   const baseStability = 3 + (14 * consistencyFactor * performanceFactor * Math.min(1, scores.length / 5));
 
   const stability = Math.max(1, Math.min(180, baseStability));
@@ -9888,7 +9891,9 @@ export function monteCarloSimulation(
         baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1, daysToNow);
     }
     const range = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;   // ✅ LOTE-03
-    baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * range)));
+    // ✅ LOTE-06 FIX (SCENARIO-1): meanBiasFactor é percentual do maxScore, não do range.
+    // Com minScore > 0, usar range distorcia o bias (ex: 2.5% de 800 em vez de 2.5% de 1000).
+    baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * maxScore)));
 
     // FEAT: Time Penalty (Simulação de Prova Real)
     let timePenaltyApplied = false;
