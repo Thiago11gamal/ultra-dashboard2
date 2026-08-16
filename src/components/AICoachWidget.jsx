@@ -274,7 +274,7 @@ function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
         <div className="mt-2 text-[10px] text-slate-400">
           Meta operacional:{' '}
           <span className="font-bold text-slate-200">
-            {Math.round((Number(mc.effectiveMCTarget) / safeMax) * 100)}%
+            {Math.round((Number(mc.effectiveMCTarget) / domain.max) * 100)}%
           </span>
         </div>
       )}
