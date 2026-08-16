@@ -2,6 +2,7 @@ import { getDateKey, normalizeDate } from './dateHelper.js';
 import { generateId } from './idGenerator.js';
 import { normalize } from './normalization.js';
 import { computeCategoryStats } from '../engine/index.js';
+import { mergeQuestionResult, safeDomain } from './measurement.js';
 
 function safeArray(val) {
     if (Array.isArray(val)) return val;
@@ -56,15 +57,19 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
                          
       if (sameById || sameByName) {
         rowFound = true;
-        const newCorrect = (Number(r.correct) || 0) + correct;
-        const newTotal = (Number(r.total) || 0) + total;
-        const newTimeSpent = (Number(r.timeSpent) || 0) + timeSpentSecs;
-        
-        r.correct = newCorrect;
-        r.total = newTotal;
-        r.score = newTotal > 0 ? (newCorrect / newTotal) * 100 : 0;
-        r.isPercentage = true;
-        r.timeSpent = newTimeSpent;
+        const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
+        const updatedRow = mergeQuestionResult(
+          r,
+          {
+            correct,
+            total,
+            timeSpentSecs,
+          },
+          domain.max,
+          domain.min,
+        );
+
+        Object.assign(r, updatedRow);
         r.lastUpdated = new Date().toISOString();
       }
     }
@@ -77,10 +82,14 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         if (!draft.simulados || !Array.isArray(draft.simulados)) {
           draft.simulados = safeArray(draft.simulados);
         }
+        const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
+        const ratio = total > 0 ? correct / total : 0;
         const newSimEvent = {
           id: generateId('ai-sim'),
           date: todayKey,
-          score: total > 0 ? Math.round((correct / total) * 100) : 0,
+          scorePoints: domain.min + ratio * (domain.max - domain.min),
+          scorePct: ratio * 100,
+          score: domain.min + ratio * (domain.max - domain.min),
           total,
           correct,
           type: 'ai-simulado',
@@ -88,7 +97,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           categoryId,
           taskId,
           validated: true,
-          isPercentage: true,
+          scoreUnit: 'points',
+          isPercentage: false,
         };
         draft.simulados.push(newSimEvent);
         if (draft.simulados.length > 100) {

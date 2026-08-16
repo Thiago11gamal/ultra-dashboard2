@@ -129,31 +129,44 @@ function UrgencyBar({ score, cfg }) {
   );
 }
 
-function MonteCarloGauge({ mc, maxScore = 100 }) {
+function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
   if (!mc || mc.probability == null) return null;
-  const safeMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const clampPct = (value) => Math.min(100, Math.max(0, Number(value) || 0));
-  const prob = clampPct(mc.probability);
+
+  const domain = safeDomain(maxScore, minScore);
+  const clampPct = (value) => clampFinite(value, 0, 100, 0);
+  const prob = clampPct(toProbPct(mc.probabilityPct ?? mc.probabilityRaw ?? mc.probability));
   const toScorePct = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return null;
-    return clampPct((n / safeMax) * 100);
+    return pointsToPct(n, domain);
   };
-  let low = toScorePct(mc.ci95Low);
-  let high = toScorePct(mc.ci95High);
+
+  let low = Number.isFinite(Number(mc.ci95LowPct))
+    ? clampPct(mc.ci95LowPct)
+    : toScorePct(mc.ci95Low ?? mc.conformalLow);
+
+  let high = Number.isFinite(Number(mc.ci95HighPct))
+    ? clampPct(mc.ci95HighPct)
+    : toScorePct(mc.ci95High ?? mc.conformalHigh);
+
   if (low == null || high == null) {
     low = Math.max(0, prob - 5);
     high = Math.min(100, prob + 5);
   }
+
   if (low > high) {
     [low, high] = [high, low];
   }
+
   const volatility = Number.isFinite(Number(mc.volatility)) ? Number(mc.volatility) : 0;
-  const highVolThreshold = 8 * (safeMax / 100);
+  const highVolThreshold = 8 * ((domain.max - domain.min) / 100);
   const isHighVol = volatility > highVolThreshold;
-  // LOTE 2/4: thresholds adaptativos agora propagados pelo motor (fallback seguro)
-  const danger = Number(mc.thresholds?.danger) || 30;
-  const safe = Number(mc.thresholds?.safe) || 90;
+  const danger = Number.isFinite(mc?.thresholds?.danger)
+    ? clampFinite(mc.thresholds.danger, 0, 100, 30)
+    : 30;
+  const safe = Number.isFinite(mc?.thresholds?.safe)
+    ? clampFinite(mc.thresholds.safe, 0, 100, 90)
+    : 90;
   const isCritical = prob < danger;
   const isSafe = prob >= safe;
   const color = isCritical
@@ -408,7 +421,11 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
               <div className="space-y-6">
                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                 {monteCarloData && (
-                  <MonteCarloGauge mc={monteCarloData} maxScore={safeMaxScore} />
+                  <MonteCarloGauge
+                    mc={monteCarloData}
+                    maxScore={safeMaxScore}
+                    minScore={Number(activeContest?.minScore) || 0}
+                  />
                 )}
               </div>
             </div>

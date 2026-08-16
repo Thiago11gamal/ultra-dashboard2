@@ -15,6 +15,20 @@ import { displaySubject } from '../utils/displaySubject';
 import { useToast } from '../hooks/useToast';
 import { isSystemAlertTask, parseCoachTask, RX_BOLD } from '../utils/coachText';
 import { toFiniteNumber } from '../utils/coachSafe';
+import { toProbPct, clampFinite } from '../utils/measurement';
+
+const getMcProbPct = (task) => {
+  return clampFinite(
+    toProbPct(
+      task?.analysis?.monteCarlo?.probabilityPct ??
+      task?.analysis?.monteCarlo?.probabilityRaw ??
+      task?.analysis?.monteCarlo?.probability
+    ),
+    0,
+    100,
+    0
+  );
+};
 // FIX-BUG-02: Regex com escape correto para **bold**
 function renderBoldText(text) {
 const safeText = String(text || '');
@@ -568,9 +582,7 @@ Intervenção Exigida
 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
 Projeção Base:{' '}
 <span className="text-white ml-1">
-{Math.round(Number.isFinite(Number(alertTask.analysis.monteCarlo.probabilityRaw))
-? Number(alertTask.analysis.monteCarlo.probabilityRaw)
-: Number(String(alertTask.analysis.monteCarlo.probability || 0).replace(/[^\d.-]/g, '')) || 0)}%
+{Math.round(getMcProbPct(alertTask))}%
 </span>
 </span>
 </div>

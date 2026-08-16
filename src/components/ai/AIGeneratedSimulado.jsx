@@ -11,6 +11,7 @@ import SimuladoResults from './SimuladoResults';
 import ConfirmModal from '../ConfirmModal';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
 import { safeGetJSON } from '../../utils/storageSafe';
+import { safeDomain } from '../../utils/measurement';
 
 const DIFFICULTIES = [
   { value: 'facil', label: 'Fácil' },
@@ -633,12 +634,18 @@ export default function AIGeneratedSimulado() {
       // FIX: todayKey agora é definido corretamente
       const nowIso = new Date().toISOString();
       const todayKey = getDateKey(new Date()) || new Date().toISOString().slice(0, 10);
+      const mixedDomain = safeDomain(Number(f.maxScore) || 100, Number(f.minScore) || 0);
+      const mixedRatio = totalQuestionsInMixed > 0 ? correctCount / totalQuestionsInMixed : 0;
+      const mixedScorePoints = mixedDomain.min + mixedRatio * mixedDomain.range;
+      const mixedScorePct = mixedRatio * 100;
       const globalMixedEvent = {
         id: generateId('ai-sim'),
         date: todayKey,
         createdAt: nowIso,
         lastUpdated: nowIso,
-        score: totalQuestionsInMixed > 0 ? Math.round((correctCount / totalQuestionsInMixed) * 100) : 0,
+        scorePoints: mixedScorePoints,
+        scorePct: mixedScorePct,
+        score: mixedScorePoints,
         total: totalQuestionsInMixed,
         correct: correctCount,
         type: 'ai-simulado',
@@ -646,7 +653,8 @@ export default function AIGeneratedSimulado() {
         categoryId: 'mixed',
         taskId: null,
         validated: true,
-        isPercentage: true,
+        scoreUnit: 'points',
+        isPercentage: false,
       };
       setData(prev => {
         if (!prev) return prev;
