@@ -161,14 +161,46 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
   return calibrationEvents.map(ev => {
     if (!ev || ev.observed != null || !ev.category) return ev;
     if (ev.targetScore == null || !Number.isFinite(Number(ev.timestamp))) return ev;
-    const hit = timed.find(x =>
-      x.ts >= Number(ev.timestamp) &&
-      isSubjectMatch(ev.category, x.row.subject || x.row.categoryName)
-    );
-    if (!hit) return ev;
-    const score = getSafeScore(hit.row, maxScore);
-    if (!Number.isFinite(score)) return ev;
-    return { ...ev, observed: score >= Number(ev.targetScore) ? 1 : 0, backfilled: true, observedAt: hit.ts };
+    // ✅ LOTE-03 FIX (C6): eventos com category 'global' NUNCA casavam porque
+    // simuladoRows são registros POR MATÉRIA — o loop de aprendizagem global
+    // estava morto (observed ficava null para sempre).
+    let score = null;
+    let observedAt = null;
+    if (String(ev.category).toLowerCase() === 'global') {
+      // Agrega as rows do PRIMEIRO dia de simulado após o evento
+      // (média ponderada por total de questões quando disponível).
+      const candidates = timed.filter(x => x.ts >= Number(ev.timestamp));
+      if (candidates.length > 0) {
+        const firstDayKey = getDateKey(candidates[0].row.date || candidates[0].row.createdAt);
+        const sameDay = candidates.filter(x =>
+          getDateKey(x.row.date || x.row.createdAt) === firstDayKey
+        );
+        let sumScore = 0;
+        let sumWeight = 0;
+        sameDay.forEach(x => {
+          const s = getSafeScore(x.row, maxScore);
+          if (!Number.isFinite(s)) return;
+          const w = Math.max(1, Number(x.row.total) || 1);
+          sumScore += s * w;
+          sumWeight += w;
+        });
+        if (sumWeight > 0) {
+          score = sumScore / sumWeight;
+          observedAt = candidates[0].ts;
+        }
+      }
+    } else {
+      const hit = timed.find(x =>
+        x.ts >= Number(ev.timestamp) &&
+        isSubjectMatch(ev.category, x.row.subject || x.row.categoryName)
+      );
+      if (hit) {
+        score = getSafeScore(hit.row, maxScore);
+        observedAt = hit.ts;
+      }
+    }
+    if (score === null || !Number.isFinite(score)) return ev;
+    return { ...ev, observed: score >= Number(ev.targetScore) ? 1 : 0, backfilled: true, observedAt };
   });
 }
 

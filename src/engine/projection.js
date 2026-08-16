@@ -11,12 +11,15 @@ import { conformalPredictionInterval } from './math/bootstrap.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
 import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian } from './math/gaussian.js';
-import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
+// ✅ LOTE-04 FIX: Z_95 e MIN_SD_FLOOR removidos — não eram usados aqui
+// (Z_95 vive em stats.js; MIN_SD_FLOOR vive em gaussian.js)
 import { kahanSum, kahanMean } from './math/kahan.js';
 import { weightedRegression, calculateSlopeStdError, getSortedHistory, calculateSlopePerDay } from './stats.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
-export { weightedRegression, calculateSlopeStdError, getSortedHistory };
+// ✅ LOTE-04 FIX: re-export removido. Estes símbolos já são exportados por
+// stats.js; o engine/index.js faz `export *` dos dois, e a duplicidade criava
+// ambiguidade de star-export. O import interno acima continua intacto.
 
 // 1. Blindagem de Datas: Adicione este helper no topo do arquivo (após os imports)
 const getSafeTime = (dateInput) => {
@@ -792,6 +795,10 @@ export function monteCarloSimulation(
     // CORREÇÃO: Prevenir o GARCH Zero-Variance Trap
     const unconditionalVar = Math.max(1e-6, Math.pow(dailyVolatility, 2));
     const omega = (1 - alphaG - betaG) * unconditionalVar;
+    // ✅ LOTE-01 FIX (A7): clamp de sanidade do GARCH proporcional ao RANGE real,
+    // não ao teto absoluto (consistente com as correções LOTE-03 do arquivo).
+    const rangeVolClamp = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
+    const maxVolSqClamp = Math.pow(rangeVolClamp * 0.2, 2);
 
     // FIX #3: Prepare Cholesky for correlated subject minCutoffs (disciplines with minCutoff)
     const cutoffSubjects = (options.subjects || []).filter(s => s && Number(s.minCutoff) > 0);
@@ -902,7 +909,7 @@ export function monteCarloSimulation(
             currentVolSq = omega + alphaG * Math.pow(clampedShock, 2) + betaG * currentVolSq;
             
             // Clamp de sanidade para evitar divergência explosiva em projeções longas
-            currentVolSq = Math.min(currentVolSq, Math.pow(maxScore * 0.2, 2));
+            currentVolSq = Math.min(currentVolSq, maxVolSqClamp); // ✅ LOTE-01 FIX (A7)
             
             currentSimScore += driftEffect + meanReversion + clampedShock; // consistente com GARCH
             

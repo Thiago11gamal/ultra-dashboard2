@@ -8,6 +8,8 @@ import { getDateKey, formatDatePtBR, normalizeDate, parseNoonLocal } from '../ut
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 
 const EMPTY_ARRAY = Object.freeze([]);
+// ✅ LOTE-02 FIX (A1): referência estável para pesos vazios
+const EMPTY_WEIGHTS = Object.freeze({});
 
 /**
  * MonteCarloGauge — Componente Principal de Projeção Estatística
@@ -84,13 +86,16 @@ const MonteCarloGaugeBase = ({
         };
     }, []);
 
-    // C4 FIX: Estado-derivado-de-prop via useEffect eliminado.
-    // localSimulateToday era apenas um espelho de simulateToday, causando render extra.
-    // resolvedSimulateToday (linha abaixo) já resolve isso diretamente sem estado intermediário.
+    // ✅ LOTE-02 FIX (M7): o comentário anterior dizia que o estado tinha sido
+    // eliminado, mas ele continua aqui — e é NECESSÁRIO para o modo não-controlado
+    // (sem onSimulateTodayChange). No modo controlado, resolvedSimulateToday lê a
+    // prop diretamente e este estado é apenas fallback. Sem useEffect espelho.
     const [localSimulateToday, setLocalSimulateToday] = useState(Boolean(simulateToday));
 
     const activeId = useAppStore(state => state.appState?.activeId);
-    const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
+    // ✅ LOTE-02 FIX (A1): `|| {}` criava objeto NOVO a cada snapshot da store →
+    // Object.is sempre divergia → gauge re-renderizava em qualquer mudança global.
+    const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || EMPTY_WEIGHTS);
     const activeUser = useAppStore(state => state.appState?.contests?.[activeId]?.user);
     // T-008 FIX: Normalizar para array antes de passar ao MonteCarloConfig.
     const rawHistoricalCutoffs = useAppStore(

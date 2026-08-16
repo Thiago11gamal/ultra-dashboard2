@@ -368,32 +368,36 @@ export function computeBayesianLevel(
     arg4 = {}
 ) {
     let history, alpha, beta, safeMaxScore, options;
-
+    let singleScore = null;
+    let singleNEff = 1;
     if (Array.isArray(historyOrScore)) {
         history = toHistoryArray(historyOrScore);
-
         const safeAlphaArg = Number(arg1);
         const safeBetaArg = Number(arg2);
-
         alpha = Number.isFinite(safeAlphaArg) && safeAlphaArg >= 0 ? safeAlphaArg : 1;
         beta = Number.isFinite(safeBetaArg) && safeBetaArg >= 0 ? safeBetaArg : 1;
-
         safeMaxScore = safeMaxScoreValue(arg3, 100);
         options = arg4 || {};
     } else {
         history = [];
-
-        const score = Math.max(0, Number(historyOrScore) || 0);
-
+        singleScore = Math.max(0, Number(historyOrScore) || 0);
         const nEffArg = Number(arg1);
-        const n_eff = Number.isFinite(nEffArg) && nEffArg >= 0 ? nEffArg : 1;
-
+        singleNEff = Number.isFinite(nEffArg) && nEffArg >= 0 ? nEffArg : 1;
         safeMaxScore = safeMaxScoreValue(arg2, 100);
         options = arg3 || {};
-
-        const pct = Math.max(0, Math.min(1, score / safeMaxScore));
-        alpha = pct * n_eff;
-        beta = (1 - pct) * n_eff;
+    }
+    // ✅ LOTE-01 FIX (C3): normalização no INTERVALO ÚTIL [minScore, maxScore].
+    // Antes a proporção era score/maxScore — errado em escalas com piso != 0
+    // (ex.: 200–1000: nota 600 virava 60% quando deveria ser 50%).
+    const safeMinScore = Math.min(
+        Number.isFinite(Number(options.minScore)) ? Number(options.minScore) : 0,
+        safeMaxScore
+    );
+    const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
+    if (singleScore !== null) {
+        const pct = Math.max(0, Math.min(1, (singleScore - safeMinScore) / safeRange));
+        alpha = pct * singleNEff;
+        beta = (1 - pct) * singleNEff;
     }
 
     const alpha0 = alpha;
@@ -454,9 +458,9 @@ export function computeBayesianLevel(
     if (historyToProcess.length > 0) {
         let priorSum = 0, priorC = 0, priorCount = 0;
         for (let j = 0; j < historyToProcess.length; j++) {
-            const sScore = getSafeScore(historyToProcess[j], safeMaxScore);
+            const sScore = getSafeScore(historyToProcess[j], safeMaxScore, safeMinScore);
             if (Number.isFinite(sScore)) {
-                let rawPct = sScore / safeMaxScore;
+                let rawPct = (sScore - safeMinScore) / safeRange;
                 rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
                 const validPct = Math.min(1, rawPct);
                 const y = validPct - priorC;
@@ -489,12 +493,12 @@ export function computeBayesianLevel(
             const hasTotal = Number.isFinite(totalRaw) && totalRaw > 0;
             const total = hasTotal ? totalRaw : 0;
 
-            const normalizedScore = getSafeScore(h, safeMaxScore);
+            const normalizedScore = getSafeScore(h, safeMaxScore, safeMinScore);
             if (!Number.isFinite(normalizedScore)) continue;
 
             const isPurePercentage = !hasTotal;
 
-            let rawPct = normalizedScore / safeMaxScore;
+            let rawPct = (normalizedScore - safeMinScore) / safeRange;
             rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
             const pct = Math.min(1, rawPct);
 
@@ -697,22 +701,23 @@ export function computeBayesianLevel(
     const effectiveSd = Math.sqrt(Math.max(0, predictiveVariance));
 
     const tMultiplier = getConfidenceMultiplier(effectiveN, { allowFractional: true });
-    const marginOfError = tMultiplier * effectiveSd * safeMaxScore;
+    // ✅ LOTE-01 FIX (C3): margem/centro escalam pelo RANGE, não pelo teto
+    const marginOfError = tMultiplier * effectiveSd * safeRange;
     const adjustedMarginOfError = Number.isFinite(marginOfError) ? marginOfError : 0;
 
-    const centerForCI = p_tilde * safeMaxScore;
-    const trueMean = p * safeMaxScore;
+    const centerForCI = safeMinScore + p_tilde * safeRange;
+    const trueMean = safeMinScore + p * safeRange;
 
     let ciLow = centerForCI - adjustedMarginOfError;
     let ciHigh = centerForCI + adjustedMarginOfError;
 
-    if (!Number.isFinite(ciLow)) ciLow = Math.max(0, trueMean);
+    if (!Number.isFinite(ciLow)) ciLow = Math.max(safeMinScore, trueMean);
     if (!Number.isFinite(ciHigh)) ciHigh = Math.min(safeMaxScore, trueMean);
 
     if (trueMean < ciLow) ciLow = trueMean;
     if (trueMean > ciHigh) ciHigh = trueMean;
 
-    const strictLow = Number.isFinite(ciLow) ? Math.max(0, ciLow) : 0;
+    const strictLow = Number.isFinite(ciLow) ? Math.max(safeMinScore, ciLow) : safeMinScore;
     const strictHigh = Number.isFinite(ciHigh) ? Math.min(safeMaxScore, ciHigh) : safeMaxScore;
 
     let alphaOut = alpha;
@@ -726,7 +731,7 @@ export function computeBayesianLevel(
 
     return {
         mean: trueMean,
-        sd: effectiveSd * safeMaxScore,
+        sd: effectiveSd * safeRange, // ✅ LOTE-01 FIX (C3)
         ciLow: strictLow,
         ciHigh: strictHigh,
         unclampedLow: ciLow,

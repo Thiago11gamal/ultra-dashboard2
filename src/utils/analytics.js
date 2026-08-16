@@ -104,15 +104,20 @@ export const calculateStudyStreak = (studyLogs) => {
   }
 
   let streak = 0;
-  let dateCursor = parseNoonLocal(lastDayStr);
-  for (let i = 0; i < sortedDays.length * 2; i++) {
-    const dString = getDateKey(dateCursor);
-    if (daySet.has(dString)) {
-      streak++;
-      dateCursor.setDate(dateCursor.getDate() - 1);
-    } else {
-      break;
-    }
+  // ✅ LOTE-03 FIX (M1): cursor ancorado em America/Manaus (UTC-4) via chave de dia.
+  // ANTES: parseNoonLocal criava meio-dia no fuso LOCAL do browser e getDateKey
+  // reinterpretava em Manaus. Em fusos >= UTC+9 (ex.: Ásia), o meio-dia local
+  // caía no dia ANTERIOR de Manaus -> daySet.has() nunca casava -> streak sempre 0.
+  // Agora a iteração é feita por chave de data ancorada (Manaus não tem DST — seguro).
+  let cursorKey = lastDayStr;
+  const maxIterations = sortedDays.length + 2; // trava anti-loop
+  for (let i = 0; i < maxIterations; i++) {
+    if (!cursorKey || !daySet.has(cursorKey)) break;
+    streak++;
+    // eslint-disable-next-line no-restricted-syntax
+    const anchored = new Date(`${cursorKey}T12:00:00-04:00`);
+    anchored.setDate(anchored.getDate() - 1);
+    cursorKey = getDateKey(anchored);
   }
 
   const longest = calculateLongest(sortedDays);

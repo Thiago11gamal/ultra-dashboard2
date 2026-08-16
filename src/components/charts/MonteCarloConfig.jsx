@@ -90,7 +90,11 @@ export const MonteCarloConfig = ({
     // T-026 FIX: unidade dinâmica para escalas diferentes de 100
     const unitLabel = safeMaxScore === 100 ? '%' : ' pts';
 
-    const sliderMin = Math.max(safeMinScore, Math.round(safeMaxScore * 0.1));
+    // ✅ LOTE-02 FIX (M6): o piso antigo (10% do TETO) impedia metas baixas e
+    // ignorava minScore (10% de 1000 = 100, mesmo com piso 200 -> conflito).
+    // Agora: 5% do RANGE a partir do piso da escala.
+    const safeRange = Math.max(1, safeMaxScore - safeMinScore);
+    const sliderMin = Math.max(safeMinScore, Math.round(safeMinScore + safeRange * 0.05));
     const sliderRange = Math.max(1, safeMaxScore - sliderMin);
     const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number(targetScore) || sliderMin));
     
@@ -296,7 +300,8 @@ export const MonteCarloConfig = ({
                                 { ratio: 0.75, label: 'Optimized', color: 'text-blue-500/60' },
                                 { ratio: 0.9, label: 'Elite', color: 'text-slate-600' }
                             ].map(({ ratio, label, color }, i) => {
-                                const val = Math.round(safeMaxScore * ratio);
+                                // ✅ LOTE-02 FIX (C3): razão sobre o RANGE real, não sobre o teto
+                                const val = Math.round(safeMinScore + (safeMaxScore - safeMinScore) * ratio);
                                 const percent = Math.max(0, Math.min(100, ((val - sliderMin) / sliderRange) * 100));
                                 return (
                                     <div key={i} className="absolute flex flex-col items-center" style={{ left: `calc(${percent}% + ${8 - percent * 0.16}px)`, transform: 'translateX(-50%)' }}>
@@ -437,7 +442,17 @@ export const MonteCarloConfig = ({
                             type="button"
                             onClick={() => {
                                 if (equalWeightsMode && savedCustomWeights.current) {
-                                    setWeights(savedCustomWeights.current);
+                                    // ✅ LOTE-02 FIX (M10): restaurar apenas chaves que ainda
+                                    // existem nas categorias (pesos salvos podem estar obsoletos
+                                    // se matérias foram removidas/renomeadas durante o modo igual)
+                                    const validIds = new Set(
+                                        (Array.isArray(categories) ? categories : []).map(c => c.id || c.name)
+                                    );
+                                    const restored = {};
+                                    Object.entries(savedCustomWeights.current).forEach(([k, v]) => {
+                                        if (validIds.has(k)) restored[k] = v;
+                                    });
+                                    if (Object.keys(restored).length > 0) setWeights(restored);
                                 }
                                 setEqualWeightsMode(false);
                             }}

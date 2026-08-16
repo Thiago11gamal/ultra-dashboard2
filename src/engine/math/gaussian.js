@@ -59,7 +59,8 @@ export function truncatedNormalMean(mean, sd, a, b) {
     const truncMean = mean + sd * (pdfAlpha - pdfBeta) / denominator;
     return Math.max(a, Math.min(b, truncMean));
 }
-const rngCache = new WeakMap();
+// ✅ LOTE-04 FIX: `let` para permitir reset real (o worker chama a cada mensagem)
+let rngCache = new WeakMap();
 
 export const generateGaussian = (rng = Math.random) => {
     if (rngCache.has(rng)) {
@@ -92,7 +93,11 @@ export const generateGaussian = (rng = Math.random) => {
     return z0;
 };
 
-export function resetGaussianCache() {}
+// ✅ LOTE-04 FIX: antes era no-op. Agora descarta sobras de Box-Muller
+// (2º valor cacheado) entre execuções do worker, garantindo isolamento.
+export function resetGaussianCache() {
+    rngCache = new WeakMap();
+}
 
 export function asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor = 1) {
     const rawSd = x < mean ? sdLeft : sdRight;

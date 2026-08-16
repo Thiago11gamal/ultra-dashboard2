@@ -1,9 +1,9 @@
 # CÓDIGO UNIFICADO — MÓDULO DE ESTATÍSTICAS & SIMULAÇÃO DE MONTE CARLO
 
-> **Data de Geração:** 2026-08-15T19:43:04.177Z
-> **Total de Arquivos:** 40
-> **Total de Linhas de Código:** 14.926
-> **Tamanho Total:** 640.33 KB
+> **Data de Atualização:** 2026-08-16T00:08:17.680Z
+> **Total de Arquivos:** 48
+> **Total de Linhas de Código:** 15.633
+> **Tamanho Total:** 670.95 KB
 
 Este documento consolida integralmente todos os arquivos de código-fonte que compõem o **Menu Estatísticas** da aplicação, incluindo páginas, componentes visuais, gráficos interativos, hooks reativos, motores matemáticos/estatísticos, inferência de calibração, algoritmos Monte Carlo e gerenciamento de estado Zustand.
 
@@ -13,78 +13,86 @@ Este documento consolida integralmente todos os arquivos de código-fonte que co
 
 ### 1. Páginas e Visão Principal (Pages)
 
-| Arquivo | Linhas | Tamanho | Âncora |
-| :--- | :---: | :---: | :--- |
-| `src/pages/Stats.jsx` | 143 | 8.3 KB | [Acessar Código](#src-pages-stats-jsx) |
+| Arquivo | Descrição | Linhas | Tamanho | Âncora |
+| :--- | :--- | :---: | :---: | :--- |
+| `src/pages/Stats.jsx` | Página principal do menu Estatísticas | 143 | 8.3 KB | [Acessar Código](#src-pages-stats-jsx) |
 
 ### 2. Componentes de UI (Components)
 
-| Arquivo | Linhas | Tamanho | Âncora |
-| :--- | :---: | :---: | :--- |
-| `src/components/VerifiedStats.jsx` | 1.027 | 57.6 KB | [Acessar Código](#src-components-verifiedstats-jsx) |
-| `src/components/MonteCarloGauge.jsx` | 799 | 41.8 KB | [Acessar Código](#src-components-montecarlogauge-jsx) |
-| `src/components/WeeklyAnalysis.jsx` | 349 | 18.5 KB | [Acessar Código](#src-components-weeklyanalysis-jsx) |
-| `src/components/DueForecast.jsx` | 136 | 6.7 KB | [Acessar Código](#src-components-dueforecast-jsx) |
+| Arquivo | Descrição | Linhas | Tamanho | Âncora |
+| :--- | :--- | :---: | :---: | :--- |
+| `src/components/VerifiedStats.jsx` | Painel principal de estatísticas verificadas e KPIs | 1.038 | 58.2 KB | [Acessar Código](#src-components-verifiedstats-jsx) |
+| `src/components/MonteCarloGauge.jsx` | Velocímetro e visualização do motor de Monte Carlo | 806 | 42.3 KB | [Acessar Código](#src-components-montecarlogauge-jsx) |
+| `src/components/WeeklyAnalysis.jsx` | Card e detalhamento de análise semanal de estudos | 357 | 18.6 KB | [Acessar Código](#src-components-weeklyanalysis-jsx) |
+| `src/components/DueForecast.jsx` | Previsão e status de flashcards a vencer | 136 | 6.7 KB | [Acessar Código](#src-components-dueforecast-jsx) |
+| `src/components/MonteCarloDebugger.jsx` | Widget popover de auditoria e depuração de Monte Carlo | 99 | 5.2 KB | [Acessar Código](#src-components-montecarlodebugger-jsx) |
 
 ### 3. Gráficos e Visualizações (Charts)
 
-| Arquivo | Linhas | Tamanho | Âncora |
-| :--- | :---: | :---: | :--- |
-| `src/components/charts/GaussianPlot.jsx` | 478 | 24.9 KB | [Acessar Código](#src-components-charts-gaussianplot-jsx) |
-| `src/components/charts/MonteCarloConfig.jsx` | 487 | 28.2 KB | [Acessar Código](#src-components-charts-montecarloconfig-jsx) |
-| `src/components/charts/Analytics/EvolucaoFocoChart.jsx` | 76 | 3.4 KB | [Acessar Código](#src-components-charts-analytics-evolucaofocochart-jsx) |
-| `src/components/charts/Analytics/HorasDisciplinaChart.jsx` | 90 | 4.1 KB | [Acessar Código](#src-components-charts-analytics-horasdisciplinachart-jsx) |
-| `src/components/charts/DueForecastChart.jsx` | 97 | 4.1 KB | [Acessar Código](#src-components-charts-dueforecastchart-jsx) |
-| `src/components/charts/ChartFrame.jsx` | 106 | 3.6 KB | [Acessar Código](#src-components-charts-chartframe-jsx) |
-| `src/components/charts/ChartTooltip.jsx` | 147 | 11.6 KB | [Acessar Código](#src-components-charts-charttooltip-jsx) |
+| Arquivo | Descrição | Linhas | Tamanho | Âncora |
+| :--- | :--- | :---: | :---: | :--- |
+| `src/components/charts/GaussianPlot.jsx` | Gráfico de curva de distribuição gaussiana/normal | 478 | 24.9 KB | [Acessar Código](#src-components-charts-gaussianplot-jsx) |
+| `src/components/charts/MonteCarloConfig.jsx` | Modal/painel de parâmetros e configurações da simulação | 487 | 28.2 KB | [Acessar Código](#src-components-charts-montecarloconfig-jsx) |
+| `src/components/charts/ReliabilityCurveChart.jsx` | Gráfico de calibração e curva de confiabilidade | 143 | 6.5 KB | [Acessar Código](#src-components-charts-reliabilitycurvechart-jsx) |
+| `src/components/charts/Analytics/EvolucaoFocoChart.jsx` | Gráfico de área de evolução do foco diário | 76 | 3.4 KB | [Acessar Código](#src-components-charts-analytics-evolucaofocochart-jsx) |
+| `src/components/charts/Analytics/HorasDisciplinaChart.jsx` | Gráfico de barras horizontais de horas por matéria | 90 | 4.1 KB | [Acessar Código](#src-components-charts-analytics-horasdisciplinachart-jsx) |
+| `src/components/charts/Analytics/AnaliseRetencaoChart.jsx` | Gráfico de dispersão e retenção de flashcards | 180 | 8.6 KB | [Acessar Código](#src-components-charts-analytics-analiseretencaochart-jsx) |
+| `src/components/charts/DueForecastChart.jsx` | Gráfico de previsão de demanda de revisões | 97 | 4.1 KB | [Acessar Código](#src-components-charts-dueforecastchart-jsx) |
+| `src/components/charts/ChartFrame.jsx` | Container responsivo com skeleton loader e tratamento de erro para gráficos | 106 | 3.6 KB | [Acessar Código](#src-components-charts-chartframe-jsx) |
+| `src/components/charts/ChartTooltip.jsx` | Tooltip unificado e acessível com tema escuro | 147 | 11.6 KB | [Acessar Código](#src-components-charts-charttooltip-jsx) |
 
 ### 4. Hooks Reativos do React (Hooks)
 
-| Arquivo | Linhas | Tamanho | Âncora |
-| :--- | :---: | :---: | :--- |
-| `src/hooks/useMonteCarloStats.js` | 1.434 | 48.7 KB | [Acessar Código](#src-hooks-usemontecarlostats-js) |
-| `src/hooks/useMonteCarloWorker.js` | 179 | 7.2 KB | [Acessar Código](#src-hooks-usemontecarloworker-js) |
+| Arquivo | Descrição | Linhas | Tamanho | Âncora |
+| :--- | :--- | :---: | :---: | :--- |
+| `src/hooks/useMonteCarloStats.js` | Hook central de orquestração de estatísticas e simulação Monte Carlo | 1.442 | 49.1 KB | [Acessar Código](#src-hooks-usemontecarlostats-js) |
+| `src/hooks/useMonteCarloWorker.js` | Hook de comunicação assíncrona com Web Worker Monte Carlo | 157 | 6.2 KB | [Acessar Código](#src-hooks-usemontecarloworker-js) |
 
 ### 5. Motores Estatísticos e Probabilísticos (Engine)
 
-| Arquivo | Linhas | Tamanho | Âncora |
-| :--- | :---: | :---: | :--- |
-| `src/engine/monteCarlo.js` | 776 | 29.3 KB | [Acessar Código](#src-engine-montecarlo-js) |
-| `src/engine/projection.js` | 1.021 | 49.3 KB | [Acessar Código](#src-engine-projection-js) |
-| `src/engine/analyticsStats.js` | 493 | 19.7 KB | [Acessar Código](#src-engine-analyticsstats-js) |
-| `src/engine/stats.js` | 1.138 | 43.6 KB | [Acessar Código](#src-engine-stats-js) |
-| `src/engine/variance.js` | 477 | 19.3 KB | [Acessar Código](#src-engine-variance-js) |
-| `src/engine/diagnostics.js` | 722 | 27.7 KB | [Acessar Código](#src-engine-diagnostics-js) |
-| `src/engine/insightGenerator.js` | 343 | 17.7 KB | [Acessar Código](#src-engine-insightgenerator-js) |
-| `src/engine/mc.worker.js` | 273 | 13.2 KB | [Acessar Código](#src-engine-mc-worker-js) |
-| `src/engine/math/gaussian.js` | 482 | 16.6 KB | [Acessar Código](#src-engine-math-gaussian-js) |
-| `src/engine/math/bootstrap.js` | 116 | 3.4 KB | [Acessar Código](#src-engine-math-bootstrap-js) |
-| `src/engine/math/percentile.js` | 174 | 6.1 KB | [Acessar Código](#src-engine-math-percentile-js) |
-| `src/engine/math/kahan.js` | 65 | 2.2 KB | [Acessar Código](#src-engine-math-kahan-js) |
-| `src/engine/math/safe.js` | 138 | 3.2 KB | [Acessar Código](#src-engine-math-safe-js) |
+| Arquivo | Descrição | Linhas | Tamanho | Âncora |
+| :--- | :--- | :---: | :---: | :--- |
+| `src/engine/index.js` | Ponto de entrada e reexportação centralizada do motor Monte Carlo | 17 | 0.4 KB | [Acessar Código](#src-engine-index-js) |
+| `src/engine/monteCarlo.js` | Simulador Monte Carlo clássico com calibração e bootstrap | 775 | 29.9 KB | [Acessar Código](#src-engine-montecarlo-js) |
+| `src/engine/projection.js` | Motor de projeção bayesiana e convergência temporal | 1.025 | 49.6 KB | [Acessar Código](#src-engine-projection-js) |
+| `src/engine/analyticsStats.js` | Processador analítico para métricas do painel estatístico | 509 | 20.8 KB | [Acessar Código](#src-engine-analyticsstats-js) |
+| `src/engine/stats.js` | Cálculos estatísticos fundamentais (média ponderada, slope, variância, etc.) | 1.144 | 44.4 KB | [Acessar Código](#src-engine-stats-js) |
+| `src/engine/variance.js` | Decomposição de variância e desvio padrão agrupado | 477 | 19.3 KB | [Acessar Código](#src-engine-variance-js) |
+| `src/engine/diagnostics.js` | Diagnóstico de consistência, assimetria e detecção de anomalias | 738 | 28.4 KB | [Acessar Código](#src-engine-diagnostics-js) |
+| `src/engine/insightGenerator.js` | Gerador de insights e recomendações probabilísticas | 343 | 17.7 KB | [Acessar Código](#src-engine-insightgenerator-js) |
+| `src/engine/mc.worker.js` | Web Worker para execução não bloqueante da simulação Monte Carlo | 273 | 13.2 KB | [Acessar Código](#src-engine-mc-worker-js) |
+| `src/engine/random.js` | Gerador determinístico e de ruído para simulações | 46 | 1.4 KB | [Acessar Código](#src-engine-random-js) |
+| `src/engine/simulationCache.js` | Cache LRU de resultados da simulação para evitar recalcular | 19 | 0.5 KB | [Acessar Código](#src-engine-simulationcache-js) |
+| `src/engine/math/gaussian.js` | Funções de densidade e distribuição cumulativa normal / gaussiana | 482 | 16.6 KB | [Acessar Código](#src-engine-math-gaussian-js) |
+| `src/engine/math/bootstrap.js` | Reamostragem não-paramétrica com intervalos de confiança | 117 | 3.5 KB | [Acessar Código](#src-engine-math-bootstrap-js) |
+| `src/engine/math/percentile.js` | Cálculo linearmente interpolado de percentis (P10, P50, P90) | 174 | 6.1 KB | [Acessar Código](#src-engine-math-percentile-js) |
+| `src/engine/math/kahan.js` | Algoritmo de Kahan para soma e variância com precisão compensada | 65 | 2.2 KB | [Acessar Código](#src-engine-math-kahan-js) |
+| `src/engine/math/safe.js` | Operações numéricas à prova de NaN, divisão por zero e overflow | 138 | 3.2 KB | [Acessar Código](#src-engine-math-safe-js) |
+| `src/engine/math/date.js` | Utilitários matemáticos para tratamento de datas em séries temporais | 89 | 1.8 KB | [Acessar Código](#src-engine-math-date-js) |
+| `src/engine/math/constants.js` | Constantes matemáticas e hiperparâmetros estatísticos | 13 | 0.4 KB | [Acessar Código](#src-engine-math-constants-js) |
 
 ### 6. Utilitários, Calibração e Mapeadores (Utils)
 
-| Arquivo | Linhas | Tamanho | Âncora |
-| :--- | :---: | :---: | :--- |
-| `src/utils/chartDataMappers.js` | 237 | 10.0 KB | [Acessar Código](#src-utils-chartdatamappers-js) |
-| `src/utils/explanationEngine.js` | 171 | 4.5 KB | [Acessar Código](#src-utils-explanationengine-js) |
-| `src/utils/calibration.js` | 396 | 18.9 KB | [Acessar Código](#src-utils-calibration-js) |
-| `src/utils/calibrationTelemetry.js` | 89 | 3.2 KB | [Acessar Código](#src-utils-calibrationtelemetry-js) |
-| `src/utils/ProgressStateEngine.js` | 243 | 9.8 KB | [Acessar Código](#src-utils-progressstateengine-js) |
-| `src/utils/analytics.js` | 1.076 | 39.6 KB | [Acessar Código](#src-utils-analytics-js) |
-| `src/utils/scoreHelper.js` | 255 | 9.0 KB | [Acessar Código](#src-utils-scorehelper-js) |
-| `src/utils/scoreHelper.conversions.js` | 58 | 2.4 KB | [Acessar Código](#src-utils-scorehelper-conversions-js) |
-| `src/utils/scoreDomain.js` | 89 | 2.7 KB | [Acessar Código](#src-utils-scoredomain-js) |
-| `src/utils/monteCarloScenario.js` | 52 | 3.3 KB | [Acessar Código](#src-utils-montecarloscenario-js) |
-| `src/utils/weeklyEvolutionInsights.js` | 99 | 2.8 KB | [Acessar Código](#src-utils-weeklyevolutioninsights-js) |
-| `src/utils/dateHelper.js` | 283 | 9.6 KB | [Acessar Código](#src-utils-datehelper-js) |
+| Arquivo | Descrição | Linhas | Tamanho | Âncora |
+| :--- | :--- | :---: | :---: | :--- |
+| `src/utils/chartDataMappers.js` | Transformadores de dados para Recharts e gráficos de foco/horas | 237 | 10.0 KB | [Acessar Código](#src-utils-chartdatamappers-js) |
+| `src/utils/explanationEngine.js` | Motor de geração de explicações textuais em linguagem natural | 176 | 4.8 KB | [Acessar Código](#src-utils-explanationengine-js) |
+| `src/utils/calibration.js` | Cálculo de Brier Score e penalidades de calibração probabilística | 399 | 19.0 KB | [Acessar Código](#src-utils-calibration-js) |
+| `src/utils/calibrationTelemetry.js` | Telemetria de assertividade e viés de calibração | 89 | 3.2 KB | [Acessar Código](#src-utils-calibrationtelemetry-js) |
+| `src/utils/ProgressStateEngine.js` | Motor de inferência de estado do usuário (progressão, regressão, domínio, etc.) | 243 | 9.8 KB | [Acessar Código](#src-utils-progressstateengine-js) |
+| `src/utils/analytics.js` | Utilitários analíticos para flashcards, sessões e contagem de itens | 1.076 | 39.6 KB | [Acessar Código](#src-utils-analytics-js) |
+| `src/utils/scoreHelper.js` | Normalizador e protetor de notas e valores percentuais | 258 | 9.3 KB | [Acessar Código](#src-utils-scorehelper-js) |
+| `src/utils/scoreHelper.conversions.js` | Conversões e normalização de escalas de pontuação | 58 | 2.4 KB | [Acessar Código](#src-utils-scorehelper-conversions-js) |
+| `src/utils/scoreDomain.js` | Regras de validação de domínio de notas e limites | 74 | 2.4 KB | [Acessar Código](#src-utils-scoredomain-js) |
+| `src/utils/monteCarloScenario.js` | Gerenciador de cenários hipotéticos de Monte Carlo | 52 | 3.3 KB | [Acessar Código](#src-utils-montecarloscenario-js) |
+| `src/utils/weeklyEvolutionInsights.js` | Calculador de tendências e comparativos semanais | 99 | 2.8 KB | [Acessar Código](#src-utils-weeklyevolutioninsights-js) |
+| `src/utils/dateHelper.js` | Formatadores e normalizadores de fuso horário e datas | 283 | 9.6 KB | [Acessar Código](#src-utils-datehelper-js) |
 
 ### 7. Gerenciamento de Estado (Zustand Store)
 
-| Arquivo | Linhas | Tamanho | Âncora |
-| :--- | :---: | :---: | :--- |
-| `src/store/slices/createMonteCarloSlice.js` | 112 | 4.6 KB | [Acessar Código](#src-store-slices-createmontecarloslice-js) |
+| Arquivo | Descrição | Linhas | Tamanho | Âncora |
+| :--- | :--- | :---: | :---: | :--- |
+| `src/store/slices/createMonteCarloSlice.js` | Slice do Zustand para configurações e parâmetros de Monte Carlo | 163 | 5.7 KB | [Acessar Código](#src-store-slices-createmontecarloslice-js) |
 
 ---
 
@@ -95,6 +103,7 @@ Este documento consolida integralmente todos os arquivos de código-fonte que co
 ## `src/pages/Stats.jsx` <a id="src-pages-stats-jsx"></a>
 
 - **Localização:** `src/pages/Stats.jsx`
+- **Descrição:** Página principal do menu Estatísticas
 - **Linhas:** 143
 - **Tamanho:** 8.34 KB
 
@@ -250,8 +259,9 @@ export default function Stats() {
 ## `src/components/VerifiedStats.jsx` <a id="src-components-verifiedstats-jsx"></a>
 
 - **Localização:** `src/components/VerifiedStats.jsx`
-- **Linhas:** 1027
-- **Tamanho:** 57.60 KB
+- **Descrição:** Painel principal de estatísticas verificadas e KPIs
+- **Linhas:** 1.038
+- **Tamanho:** 58.21 KB
 
 ```javascript
 import React, { useMemo } from 'react';
@@ -537,23 +547,28 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         return scores.length > 0 ? Math.max(...scores) : 100;
     }, [safeCategories]);
 
+    const minScore = useMemo(() => {
+        const scores = safeCategories.map(c => Number(c.minScore)).filter(s => Number.isFinite(s));
+        return scores.length > 0 ? Math.min(...scores) : 0;
+    }, [safeCategories]);
+
     // T-039 FIX: estabilizar a prop unit para ajudar na memoização do gauge
     const gaugeUnit = useMemo(() => {
         return maxScore === 100 ? '%' : ' pts';
     }, [maxScore]);
 
-    // FIX LÓGICO: Clampar meta à escala [0, maxScore] sem loops multiplicativos
+    // FIX LÓGICO: Clampar meta à escala [minScore, maxScore] sem loops multiplicativos
     const normalizeTargetToScale = React.useCallback((raw) => {
         const n = Number(raw);
 
         const fallback = maxScore === 100
             ? 70
-            : Math.round(maxScore * 0.7);
+            : Math.round(minScore + (maxScore - minScore) * 0.7);
 
         if (!Number.isFinite(n) || n <= 0) return fallback;
 
-        return Math.max(0, Math.min(maxScore, n));
-    }, [maxScore]);
+        return Math.max(minScore, Math.min(maxScore, n));
+    }, [maxScore, minScore]);
 
     const storeFlashcardDecks = useAppStore(state => {
         const activeId = state.appState?.activeId;
@@ -733,8 +748,12 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
                         if (tTs !== null && tTs <= 0 && safeScore === 0) return;
 
-                        // CORREÇÃO: Normaliza para a escala global universal para evitar envenenamento de escalas (Bug 1.1 Fix)
-                        const normalizedToGlobalScale = (safeScore / catMaxScore) * maxScore;
+                        // CORRIGIDO: normalizar pela proporção no intervalo útil com piso
+                        const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+                        const catRange = Math.max(1e-9, catMaxScore - catMinScore);
+                        const globalRange = Math.max(1e-9, maxScore - minScore);
+                        const ratio = (safeScore - catMinScore) / catRange;
+                        const normalizedToGlobalScale = minScore + ratio * globalRange;
 
                         allHistory.push({
                             date: parsedDate.getTime(),
@@ -763,9 +782,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         const dailyHistory = Object.values(dailyMap)
             .map(d => ({ 
-                // BUG-01 FIX: Converte a string YYYY-MM-DD de volta para ms local para o motor (calculateSlope)
-                // FIX 2.3: Usar normalizeDate para evitar shift de dia por ambiguidade UTC/local
-                date: normalizeDate(getDateKey(new Date(d.date)))?.getTime() ?? d.date, 
+                // FIX: A data já está em milissegundos corretos em `d.date` (foi extraída do h.date)
+                // Removido o ciclo desnecessário de normalização que podia reintroduzir bugs de offset.
+                date: d.date,
                 score: d.weightSum > 0 ? d.scoreSum / d.weightSum : 0,
                 weight: d.weightSum // BUG-01 FIX: Preservamos o volume para evitar Paradoxo de Simpson em médias posteriores
             }))
@@ -1168,6 +1187,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         forcedTitle="Status Atual"
                         targetScore={statsTarget}
                         onTargetScoreChange={handleSetTargetScore}
+                        minScore={minScore}
                         maxScore={maxScore}
                         unit={gaugeUnit}
                         syncShowSubjects={showSubjects}
@@ -1181,6 +1201,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                             forcedTitle="Projeção Futura"
                             targetScore={statsTarget}
                             onTargetScoreChange={handleSetTargetScore}
+                            minScore={minScore}
                             maxScore={maxScore}
                             unit={gaugeUnit}
                             syncShowSubjects={showSubjects}
@@ -1287,8 +1308,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 ## `src/components/MonteCarloGauge.jsx` <a id="src-components-montecarlogauge-jsx"></a>
 
 - **Localização:** `src/components/MonteCarloGauge.jsx`
-- **Linhas:** 799
-- **Tamanho:** 41.84 KB
+- **Descrição:** Velocímetro e visualização do motor de Monte Carlo
+- **Linhas:** 806
+- **Tamanho:** 42.32 KB
 
 ```javascript
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
@@ -1410,7 +1432,8 @@ const MonteCarloGaugeBase = ({
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : resolvedSimulateToday;
 
     // --- HOOK DE LÓGICA ESTATÍSTICA ---
-    const stats = precomputedStats ?? useMonteCarloStats({
+    // CORRIGIDO: hook sempre é chamado; escolhemos a fonte depois.
+    const hookStats = useMonteCarloStats({
         categories,
         goalDate,
         targetScore,
@@ -1423,6 +1446,8 @@ const MonteCarloGaugeBase = ({
         // T-040 FIX: só calcular subjects quando o painel estiver visível
         enablePerSubject: showPerSubject
     });
+
+    const stats = precomputedStats ?? hookStats;
 
     const {
         simulationData,
@@ -1602,7 +1627,7 @@ const MonteCarloGaugeBase = ({
         };
 
     return (
-        <div className={`glass p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col ${cardTheme.border} bg-slate-900/90 group transition-all duration-500 shadow-2xl ${cardTheme.glow} w-full h-full flex-1 ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
+        <div className={`glass p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col ${cardTheme.border} bg-slate-900/90 group transition-all duration-500 shadow-2xl ${cardTheme.glow} w-full h-full ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
             {isFlashing && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
                     <div className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent absolute top-0 left-0 animate-scan-fast" />
@@ -1717,13 +1742,13 @@ const MonteCarloGaugeBase = ({
                     </div>
                     
                     {/* Insights & Drift Alerts Container - Balanced Height */}
-                    <div className="w-full bg-slate-900/50 rounded-xl p-3 border border-white/5 flex flex-col gap-1.5 min-h-[76px] justify-center">
+                    <div className="w-full bg-slate-900/50 rounded-xl p-3 border border-white/5 flex flex-col gap-1.5 h-[92px] justify-center overflow-hidden">
                         <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
                             <Activity size={11} className="text-blue-400" />
                             <span>Diagnóstico & Sinais</span>
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            {stats.explanations && stats.explanations.map((msg, i) => (
+                            {stats.explanations && stats.explanations.slice(0, 2).map((msg, i) => (
                                 <div key={i} className="text-[10.5px] text-slate-300 font-medium leading-snug flex items-start gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80 mt-1.5 shrink-0" />
                                     <span>{msg}</span>
@@ -1734,7 +1759,7 @@ const MonteCarloGaugeBase = ({
                                     Desempenho estável conforme o modelo estatístico.
                                 </div>
                             )}
-                            {stats.driftAlerts && stats.driftAlerts.map((alert, i) => (
+                            {stats.driftAlerts && stats.driftAlerts.slice(0, 1).map((alert, i) => (
                                 <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${
                                     alert.severity === 'high' 
                                         ? 'bg-rose-500/10 border-rose-500/25 text-rose-300' 
@@ -1754,8 +1779,10 @@ const MonteCarloGaugeBase = ({
                 </div>
             </div>
 
-            {/* Telemetry Metrics 6-Grid */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mb-4 w-full">
+            {/* Lower Bound Group for perfect horizontal alignment */}
+            <div className="w-full flex flex-col mt-auto pt-2">
+                {/* Telemetry Metrics 6-Grid */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mb-4 w-full">
                 {[
                     { 
                         label: "Sua Meta", 
@@ -1796,11 +1823,11 @@ const MonteCarloGaugeBase = ({
                         color: "text-emerald-400"
                     }
                 ].map((m, i) => (
-                    <div key={i} className="bg-slate-950/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[58px] transition-all hover:border-white/15 hover:bg-slate-900/60 shadow-sm">
+                    <div key={i} className="bg-slate-950/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center h-[62px] overflow-hidden transition-all hover:border-white/15 hover:bg-slate-900/60 shadow-sm">
                         <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 text-center w-auto max-w-full truncate ${m.badgeClass}`}>
                             {m.label}
                         </span>
-                        <span className={`text-xs sm:text-sm font-black ${m.color} w-full text-center break-words leading-tight tracking-tight mt-0.5 font-mono`}>
+                        <span className={`text-xs sm:text-sm font-black ${m.color} w-full text-center truncate leading-tight tracking-tight mt-0.5 font-mono`}>
                             {m.val}
                         </span>
                     </div>
@@ -1839,64 +1866,64 @@ const MonteCarloGaugeBase = ({
                 </div>
             </div>
 
-            {timelineDates.length > 1 && (
-                <div className="w-full mt-2 mb-4 px-4 py-3.5 bg-black/40 rounded-xl border border-white/5 relative z-10 min-h-[72px]">
-                    <div className="flex justify-between items-center mb-3">
-                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Máquina do Tempo</span>
-                        <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
-                            {clampedTimeIndex === -1 || !timelineDates[clampedTimeIndex] ? 'Hoje' : formatDatePtBR(`${timelineDates[clampedTimeIndex]}T12:00:00`)}
-                        </span>
-                    </div>
-                    <input
-                        ref={timeSliderRef}
-                        type="range"
-                        min="0"
-                        max={Math.max(1, timelineDates.length - 1)}
-                        aria-label="Máquina do tempo"
-                        defaultValue={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
-                        onChange={(e) => {
-                            const val = Number(e.target.value);
-                            const newTimeIndex = val === timelineDates.length - 1 ? -1 : val;
-                            setLocalTimeIndex(newTimeIndex);
-                            
-                            isDraggingTime.current = true;
-                            // C5 FIX: dragDebounceRef (useRef) em vez de window.mcGaugeDragTimeout
-                            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
-                            dragDebounceRef.current = setTimeout(() => { isDraggingTime.current = false; }, 500);
+            <div className="w-full flex flex-col">
+                {timelineDates.length > 1 && (
+                    <div className="w-full mb-4 px-4 py-3.5 bg-black/40 rounded-xl border border-white/5 relative z-10 min-h-[72px]">
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Máquina do Tempo</span>
+                            <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
+                                {clampedTimeIndex === -1 || !timelineDates[clampedTimeIndex] ? 'Hoje' : formatDatePtBR(`${timelineDates[clampedTimeIndex]}T12:00:00`)}
+                            </span>
+                        </div>
+                        <input
+                            ref={timeSliderRef}
+                            type="range"
+                            min="0"
+                            max={Math.max(1, timelineDates.length - 1)}
+                            aria-label="Máquina do tempo"
+                            defaultValue={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                const newTimeIndex = val === timelineDates.length - 1 ? -1 : val;
+                                setLocalTimeIndex(newTimeIndex);
+                                
+                                isDraggingTime.current = true;
+                                if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
+                                dragDebounceRef.current = setTimeout(() => { isDraggingTime.current = false; }, 500);
 
-                            if (debounceTimeoutTime.current) clearTimeout(debounceTimeoutTime.current);
-                            debounceTimeoutTime.current = setTimeout(() => {
-                                if (React.startTransition) {
-                                    React.startTransition(() => {
+                                if (debounceTimeoutTime.current) clearTimeout(debounceTimeoutTime.current);
+                                debounceTimeoutTime.current = setTimeout(() => {
+                                    if (React.startTransition) {
+                                        React.startTransition(() => {
+                                            setTimeIndex(newTimeIndex);
+                                        });
+                                    } else {
                                         setTimeIndex(newTimeIndex);
-                                    });
-                                } else {
-                                    setTimeIndex(newTimeIndex);
-                                }
-                            }, 40);
-                        }}
-                        onPointerDown={() => {
-                            isDraggingTime.current = true;
-                        }}
-                        onPointerUp={() => {
-                            isDraggingTime.current = false;
-                            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
-                        }}
-                        onTouchStart={() => { isDraggingTime.current = true; }}
-                        onTouchEnd={() => {
-                            isDraggingTime.current = false;
-                            if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
-                        }}
-                        className="custom-slider w-full h-1.5 rounded-full outline-none"
-                        style={{
-                            background: `linear-gradient(to right, #6366f1 ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
-                            touchAction: 'none'
-                        }}
-                    />
-                </div>
-            )}
+                                    }
+                                }, 40);
+                            }}
+                            onPointerDown={() => {
+                                isDraggingTime.current = true;
+                            }}
+                            onPointerUp={() => {
+                                isDraggingTime.current = false;
+                                if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
+                            }}
+                            onTouchStart={() => { isDraggingTime.current = true; }}
+                            onTouchEnd={() => {
+                                isDraggingTime.current = false;
+                                if (dragDebounceRef.current) clearTimeout(dragDebounceRef.current);
+                            }}
+                            className="custom-slider w-full h-1.5 rounded-full outline-none"
+                            style={{
+                                background: `linear-gradient(to right, #6366f1 ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
+                                touchAction: 'none'
+                            }}
+                        />
+                    </div>
+                )}
 
-            <div className="w-full flex flex-col gap-2 mt-4">
+                <div className="w-full flex flex-col gap-2">
                 <button
                     onClick={() => setShowPerSubject(!showPerSubject)}
                     className="w-full flex items-center justify-between px-4 py-3 bg-slate-900/50 hover:bg-slate-800 border border-white/10 rounded-xl transition-all"
@@ -1930,6 +1957,8 @@ const MonteCarloGaugeBase = ({
                         })}
                     </div>
                 )}
+                </div>
+            </div>
             </div>
 
             {!forcedMode && (
@@ -2096,8 +2125,9 @@ function AnimatedProbability({ value }) {
 ## `src/components/WeeklyAnalysis.jsx` <a id="src-components-weeklyanalysis-jsx"></a>
 
 - **Localização:** `src/components/WeeklyAnalysis.jsx`
-- **Linhas:** 349
-- **Tamanho:** 18.46 KB
+- **Descrição:** Card e detalhamento de análise semanal de estudos
+- **Linhas:** 357
+- **Tamanho:** 18.65 KB
 
 ```javascript
 import React, { useMemo } from 'react';
@@ -2119,6 +2149,21 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
     const { groups, stats } = useMemo(() => {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
+
+        // Criar formatadores UMA vez, fora do loop
+        const weekdayFormatter = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: APP_TIMEZONE,
+            weekday: 'long'
+        });
+        const dayFormatter = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: APP_TIMEZONE,
+            day: 'numeric'
+        });
+        const now = new Date();
+        const todayKey = getDateKey(now);
+        const y = new Date(now);
+        y.setDate(y.getDate() - 1);
+        const yesterdayKey = getDateKey(y);
 
         // T-029 FIX: Se minutes vier 0, mas duration existir, usa duration.
         const getLogMinutes = (log) => {
@@ -2183,15 +2228,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             // Isso reduz divergência de timezone perto da meia-noite.
             const uniqueDayKey = getDateKey(dateObj) || dateStr;
 
-            const now = new Date();
-            const todayKey = getDateKey(now);
-
-            const y = new Date(now);
-            y.setDate(y.getDate() - 1);
-            const yesterdayKey = getDateKey(y);
-
             let dayLabel = dateStr;
-            const rawWeekday = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, weekday: 'long' }).format(dateObj);
+            const rawWeekday = weekdayFormatter.format(dateObj);
             const weekDayName = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1).split('-')[0];
 
             let isToday = false;
@@ -2206,7 +2244,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             } else {
                 dayLabel = dateStr;
             }
-            const manausDayStr = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, day: 'numeric' }).format(dateObj);
+            const manausDayStr = dayFormatter.format(dateObj);
 
             if (!grouped[uniqueDayKey]) grouped[uniqueDayKey] = {
                 uniqueDayKey,
@@ -2455,6 +2493,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 ## `src/components/DueForecast.jsx` <a id="src-components-dueforecast-jsx"></a>
 
 - **Localização:** `src/components/DueForecast.jsx`
+- **Descrição:** Previsão e status de flashcards a vencer
 - **Linhas:** 136
 - **Tamanho:** 6.73 KB
 
@@ -2598,11 +2637,122 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
 
 ---
 
+## `src/components/MonteCarloDebugger.jsx` <a id="src-components-montecarlodebugger-jsx"></a>
+
+- **Localização:** `src/components/MonteCarloDebugger.jsx`
+- **Descrição:** Widget popover de auditoria e depuração de Monte Carlo
+- **Linhas:** 99
+- **Tamanho:** 5.16 KB
+
+```javascript
+import React, { useState, useRef, useEffect } from 'react';
+import { FlaskConical as BeakerIcon, ChevronDown as ChevronDownIcon, ChevronUp as ChevronUpIcon } from 'lucide-react';
+
+export default function MonteCarloDebugger({ stats }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+
+    // Auto-close when clicking outside the widget
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    if (!stats) return null;
+
+    const {
+        statsData,
+        probability,
+        calibrationPenalty,
+    } = stats;
+
+    const rawProbability = stats.simulationData?.data?.probability ?? 0;
+    const isOverconfident = (calibrationPenalty || 0) > 0.05;
+
+    return (
+        <div ref={containerRef} className="relative font-mono text-[11px] select-none shrink-0">
+            {/* QuickStat native layout, fully interactive */}
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex flex-col min-w-[78px] sm:min-w-[80px] text-left hover:opacity-85 transition-all active:scale-95 group focus:outline-none"
+            >
+                <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-emerald-400 opacity-80 group-hover:animate-pulse">
+                        <BeakerIcon size={14} />
+                    </span>
+                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">MC AUDIT</span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <span className="text-sm font-black text-emerald-400 tracking-tighter">
+                        {Number.isFinite(Number(probability)) ? Number(probability).toFixed(0) : '0'}%
+                    </span>
+                    {isOpen ? (
+                        <ChevronUpIcon size={12} className="text-slate-500" />
+                    ) : (
+                        <ChevronDownIcon size={12} className="text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                    )}
+                </div>
+            </button>
+            
+            {isOpen && (
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-64 space-y-2 z-[9999] animate-fade-in">
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-2 items-center text-[10px]">
+                        <span className="text-slate-500">Probabilidade Bruta</span>
+                        <span className="text-right font-medium text-emerald-400">
+                            {Number.isFinite(Number(rawProbability)) ? Number(rawProbability).toFixed(2) : '0.00'}%
+                        </span>
+                        
+                        <span className="text-slate-500">Probabilidade Calibrada</span>
+                        <span className="text-right font-medium text-amber-400">
+                            {Number.isFinite(Number(probability)) ? Number(probability).toFixed(2) : '0.00'}%
+                        </span>
+                        
+                        <span className="col-span-2 border-t border-white/5 my-1"></span>
+
+                        <span className="text-slate-500">Penalidade Calibração</span>
+                        <span className="text-right font-medium text-rose-400">
+                            {Number.isFinite(Number(calibrationPenalty)) ? (Number(calibrationPenalty) * 100).toFixed(1) : '0.0'}%
+                        </span>
+                        
+                        <span className="col-span-2 border-t border-white/5 my-1"></span>
+
+                        <span className="text-slate-500">Desvio Padrão Atual</span>
+                        <span className="text-right font-medium">
+                            {Number.isFinite(Number(statsData?.rawPooledSD)) ? Number(statsData.rawPooledSD).toFixed(2) : '0.00'}
+                        </span>
+                        
+                        <span className="text-slate-500">Desvio Padrão Inflado</span>
+                        <span className="text-right font-medium text-amber-400">
+                            {Number.isFinite(Number(statsData?.pooledSD)) ? Number(statsData.pooledSD).toFixed(2) : '0.00'}
+                        </span>
+                        
+                        <span className="col-span-2 border-t border-white/5 my-1"></span>
+
+                        <span className="text-slate-500 font-bold">Estado Confiabilidade</span>
+                        <span className={`text-right font-bold ${isOverconfident ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            {isOverconfident ? 'Superconfiante' : 'Estável'}
+                        </span>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+---
+
 # 3. GRÁFICOS E VISUALIZAÇÕES (CHARTS)
 
 ## `src/components/charts/GaussianPlot.jsx` <a id="src-components-charts-gaussianplot-jsx"></a>
 
 - **Localização:** `src/components/charts/GaussianPlot.jsx`
+- **Descrição:** Gráfico de curva de distribuição gaussiana/normal
 - **Linhas:** 478
 - **Tamanho:** 24.93 KB
 
@@ -3091,6 +3241,7 @@ export default GaussianPlot;
 ## `src/components/charts/MonteCarloConfig.jsx` <a id="src-components-charts-montecarloconfig-jsx"></a>
 
 - **Localização:** `src/components/charts/MonteCarloConfig.jsx`
+- **Descrição:** Modal/painel de parâmetros e configurações da simulação
 - **Linhas:** 487
 - **Tamanho:** 28.23 KB
 
@@ -3585,9 +3736,164 @@ export const MonteCarloConfig = ({
 
 ---
 
+## `src/components/charts/ReliabilityCurveChart.jsx` <a id="src-components-charts-reliabilitycurvechart-jsx"></a>
+
+- **Localização:** `src/components/charts/ReliabilityCurveChart.jsx`
+- **Descrição:** Gráfico de calibração e curva de confiabilidade
+- **Linhas:** 143
+- **Tamanho:** 6.52 KB
+
+```javascript
+import React, { useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { Target } from 'lucide-react';
+import { ChartFrame } from './ChartFrame';
+
+// FIX: conversão segura para percentual inteiro (nunca NaN)
+const toPercentInt = (value, fallback = 0) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n * 100) : fallback;
+};
+
+/**
+ * CustomTooltip for ReliabilityCurveChart
+ */
+const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+        const dataPoint = payload[0].payload;
+        const isOverconfident = dataPoint.pred > dataPoint.obs;
+        // FIX: gap inválido não vira "NaN%" no tooltip
+        const safeGap = Number.isFinite(dataPoint.gap) ? Math.abs(dataPoint.gap) : 0;
+        return (
+            <div className="bg-slate-900 border border-white/10 p-3 rounded-xl shadow-2xl min-w-[160px]">
+                <div className="flex items-center gap-2 mb-2 border-b border-white/10 pb-2">
+                    <Target size={14} className="text-cyan-400" />
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                        Confiança {toPercentInt(dataPoint.pred)}%
+                    </span>
+                </div>
+                <div className="space-y-1.5">
+                    <div className="flex justify-between items-center gap-4 text-[11px]">
+                        <span className="text-slate-500 font-bold">Previsão:</span>
+                        <span className="font-mono text-cyan-400 font-bold">{toPercentInt(dataPoint.pred)}%</span>
+                    </div>
+                    <div className="flex justify-between items-center gap-4 text-[11px]">
+                        <span className="text-slate-500 font-bold">Observado:</span>
+                        <span className="font-mono text-emerald-400 font-bold">{toPercentInt(dataPoint.obs)}%</span>
+                    </div>
+                    <div className="flex justify-between items-center gap-4 text-[11px] pt-1 mt-1 border-t border-white/5">
+                        <span className="text-slate-500 font-bold">Gap/Viés:</span>
+                        <span className={`font-mono font-black ${isOverconfident ? 'text-amber-400' : 'text-indigo-400'}`}>
+                            {isOverconfident ? '-' : '+'}{(safeGap * 100).toFixed(1)}%
+                        </span>
+                    </div>
+                    {/* FIX: n nulo/vazio protegido */}
+                    <div className="text-[9px] text-slate-600 font-mono mt-2 text-right">
+                        n={Number.isFinite(Number(dataPoint.count)) ? dataPoint.count : 0}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
+
+/**
+ * Gráfico de Confiabilidade (Reliability Diagram)
+ * Eixo X: Probabilidade Prevista
+ * Eixo Y: Taxa de Acerto Observada
+ */
+const ReliabilityCurveChart = ({ buckets }) => {
+    const chartData = useMemo(() => {
+        if (!buckets || !Array.isArray(buckets) || buckets.length === 0) return [];
+        return buckets.map(b => ({
+            pred: Number(b?.meanPred || 0),
+            obs: Number(b?.observedRate || 0),
+            gap: Number(b?.gap || 0),
+            count: Number(b?.count || 0)
+        })).sort((a, b) => a.pred - b.pred);
+    }, [buckets]);
+
+    if (chartData.length === 0) {
+        return (
+            <div className="w-full h-48 sm:h-56 flex items-center justify-center bg-slate-900/20 border border-white/5 rounded-2xl">
+                <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">
+                    Sem dados de calibração suficientes
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            role="img"
+            aria-label="Curva de confiabilidade comparando previsão do motor com taxa real de acerto"
+            className="w-full h-48 sm:h-56"
+        >
+            <ChartFrame minHeight={192} label="Curva de Confiabilidade">
+                <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                    data={chartData}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis
+                        dataKey="pred"
+                        type="number"
+                        domain={[0, 1]}
+                        tickFormatter={(val) => `${Math.round(val * 100)}%`}
+                        stroke="rgba(255,255,255,0.2)"
+                        tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 700 }}
+                        tickLine={false}
+                        axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                        minTickGap={20}
+                    />
+                    <YAxis
+                        type="number"
+                        domain={[0, 1]}
+                        tickFormatter={(val) => `${Math.round(val * 100)}%`}
+                        stroke="rgba(255,255,255,0.2)"
+                        tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 700, fontFamily: 'monospace' }}
+                        tickLine={false}
+                        axisLine={false}
+                    />
+                    <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    />
+                    {/* Linha de Calibração Perfeita (y = x) */}
+                    <ReferenceLine
+                        segment={[{ x: 0, y: 0 }, { x: 1, y: 1 }]}
+                        stroke="rgba(255,255,255,0.15)"
+                        strokeDasharray="4 4"
+                        strokeWidth={2}
+                    />
+                    {/* Curva de Calibração Real */}
+                    <Line
+                        type="monotone"
+                        dataKey="obs"
+                        stroke="#2dd4bf" /* cyan-400 */
+                        strokeWidth={3}
+                        dot={{ r: 4, fill: '#0a0c14', stroke: '#2dd4bf', strokeWidth: 2 }}
+                        activeDot={{ r: 6, fill: '#2dd4bf', stroke: '#fff', strokeWidth: 2 }}
+                        animationDuration={1000}
+                    />
+                </LineChart>
+                </ResponsiveContainer>
+            </ChartFrame>
+        </div>
+    );
+};
+
+export default React.memo(ReliabilityCurveChart);
+```
+
+---
+
 ## `src/components/charts/Analytics/EvolucaoFocoChart.jsx` <a id="src-components-charts-analytics-evolucaofocochart-jsx"></a>
 
 - **Localização:** `src/components/charts/Analytics/EvolucaoFocoChart.jsx`
+- **Descrição:** Gráfico de área de evolução do foco diário
 - **Linhas:** 76
 - **Tamanho:** 3.39 KB
 
@@ -3674,6 +3980,7 @@ export function EvolucaoFocoChart({ data }) {
 ## `src/components/charts/Analytics/HorasDisciplinaChart.jsx` <a id="src-components-charts-analytics-horasdisciplinachart-jsx"></a>
 
 - **Localização:** `src/components/charts/Analytics/HorasDisciplinaChart.jsx`
+- **Descrição:** Gráfico de barras horizontais de horas por matéria
 - **Linhas:** 90
 - **Tamanho:** 4.09 KB
 
@@ -3771,9 +4078,201 @@ export function HorasDisciplinaChart({ data }) {
 
 ---
 
+## `src/components/charts/Analytics/AnaliseRetencaoChart.jsx` <a id="src-components-charts-analytics-analiseretencaochart-jsx"></a>
+
+- **Localização:** `src/components/charts/Analytics/AnaliseRetencaoChart.jsx`
+- **Descrição:** Gráfico de dispersão e retenção de flashcards
+- **Linhas:** 180
+- **Tamanho:** 8.64 KB
+
+```javascript
+import React, { useId } from 'react';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
+export function AnaliseRetencaoChart({ data }) {
+    const instanceId = useId().replace(/:/g, "");
+    const barGradId = `ret_barGrad_${instanceId}`;
+    const glowId = `ret_glow_${instanceId}`;
+
+    if (!data || data.length === 0) {
+        return (
+            <div className="flex items-center justify-center h-[300px] border border-white/5 rounded-2xl bg-black/20">
+                <p className="text-slate-500 text-sm font-medium italic">Dados insuficientes para análise de retenção.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="h-[400px] w-full mt-4">
+            <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={1}>
+                {/* Margens ajustadas para dar respiro aos valores numéricos (left/right) e ao texto inclinado (bottom) */}
+                <ComposedChart data={data} margin={{ top: 20, right: 10, left: 10, bottom: 120 }}>
+                    <defs>
+                        <linearGradient id={barGradId} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0.2} />
+                        </linearGradient>
+                        <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
+                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
+                        </filter>
+                    </defs>
+
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+
+                    <XAxis
+                        dataKey="nomeTopico"
+                        stroke="#64748b"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        dy={10}
+                        interval={0}
+                        padding={{ left: 15, right: 15 }}
+                        tick={(props) => {
+                            const { x, y, payload } = props;
+                            const item = data[payload.index];
+                            let rawText = String(payload.value ?? '');
+                            if (item?.isTask) rawText = `• ${rawText}`;
+                            
+                            // Truncar textos muito longos (máximo 40 caracteres) para não quebrar o layout
+                            if (rawText.length > 40) {
+                                rawText = rawText.substring(0, 40).trim() + '...';
+                            }
+                            
+                            const words = String(rawText).split(' ');
+                            const lines = [];
+                            let currentLine = '';
+                            const maxCharsPerLine = 15; // Garante um bloco de texto com largura agradável
+                            
+                            for (const word of words) {
+                                if (!currentLine) {
+                                    currentLine = word;
+                                } else if (currentLine.length + 1 + word.length <= maxCharsPerLine) {
+                                    currentLine += ' ' + word;
+                                } else {
+                                    lines.push(currentLine);
+                                    currentLine = word;
+                                }
+                            }
+                            if (currentLine) {
+                                lines.push(currentLine);
+                            }
+
+                            const isRotated = data.length > 4;
+
+                            return (
+                                <g transform={`translate(${x},${y})`}>
+                                    <text
+                                        x={0}
+                                        y={0}
+                                        dy={16}
+                                        textAnchor={isRotated ? "end" : "middle"}
+                                        fill={item?.isTask ? "#94a3b8" : "#f1f5f9"}
+                                        fontSize={item?.isTask ? 9 : 10}
+                                        fontWeight={item?.isTask ? 400 : 700}
+                                        transform={isRotated ? "rotate(-45)" : undefined}
+                                    >
+                                        {lines.map((line, index) => (
+                                            <tspan x={0} dy={index === 0 ? 0 : 12} key={index}>
+                                                {line}
+                                            </tspan>
+                                        ))}
+                                    </text>
+                                </g>
+                            );
+                        }}
+                    />
+
+                    {/* CORREÇÃO 2: Labels removidos para evitar poluição visual (a legenda já faz este papel) */}
+                    <YAxis
+                        yAxisId="left"
+                        orientation="left"
+                        stroke="#94a3b8"
+                        fontSize={10}
+                        axisLine={false}
+                        tickLine={false}
+                        dx={-5} // Afasta os números levemente do gráfico
+                        domain={[0, dataMax => Math.max(1, dataMax)]}
+                    />
+
+                    <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        stroke="#f87171"
+                        fontSize={10}
+                        domain={[0, 100]}
+                        axisLine={false}
+                        tickLine={false}
+                        dx={5} // Afasta os números levemente do gráfico
+                    />
+
+                    <Tooltip
+                        contentStyle={{
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '16px',
+                            fontSize: '11px',
+                            backdropFilter: 'blur(8px)',
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                        }}
+                        itemStyle={{ padding: '2px 0' }}
+                        cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                        formatter={(value, name) => {
+                            if (name === "Risco de Esquecimento") return [`${value}% (Risco)`, name];
+                            return [value, name];
+                        }}
+                    />
+                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', paddingBottom: '20px' }} />
+
+                    <Bar
+                        yAxisId="left"
+                        dataKey="diasSemRevisao"
+                        fill={`url(#${barGradId})`}
+                        radius={[6, 6, 0, 0]}
+                        name="Dias sem Revisão"
+                        // CORREÇÃO 4: maxBarSize permite que o gráfico seja responsivo em telas menores
+                        maxBarSize={24}
+                    />
+
+                    {/* Bottom Layer: Glow effect */}
+                    <Line connectNulls
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="nivelCritico"
+                        name="Risco_glow"
+                        stroke="#ef4444"
+                        strokeWidth={8}
+                        strokeOpacity={0.3}
+                        dot={false}
+                        activeDot={false}
+                        animationDuration={1500}
+                        legendType="none"
+                    />
+                    {/* Top Layer: Main Line */}
+                    <Line connectNulls
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="nivelCritico"
+                        stroke="#ef4444"
+                        strokeWidth={4}
+                        dot={{ r: 5, fill: '#ef4444', stroke: '#0f172a', strokeWidth: 2 }}
+                        activeDot={{ r: 7, strokeWidth: 0 }}
+                        name="Risco de Esquecimento"
+                        animationDuration={1500}
+                    />
+                </ComposedChart>
+            </ResponsiveContainer>
+        </div>
+    );
+}
+```
+
+---
+
 ## `src/components/charts/DueForecastChart.jsx` <a id="src-components-charts-dueforecastchart-jsx"></a>
 
 - **Localização:** `src/components/charts/DueForecastChart.jsx`
+- **Descrição:** Gráfico de previsão de demanda de revisões
 - **Linhas:** 97
 - **Tamanho:** 4.14 KB
 
@@ -3881,6 +4380,7 @@ export default function DueForecastChart({ data = [], height = 260 }) {
 ## `src/components/charts/ChartFrame.jsx` <a id="src-components-charts-chartframe-jsx"></a>
 
 - **Localização:** `src/components/charts/ChartFrame.jsx`
+- **Descrição:** Container responsivo com skeleton loader e tratamento de erro para gráficos
 - **Linhas:** 106
 - **Tamanho:** 3.58 KB
 
@@ -3997,6 +4497,7 @@ export { ChartFrame };
 ## `src/components/charts/ChartTooltip.jsx` <a id="src-components-charts-charttooltip-jsx"></a>
 
 - **Localização:** `src/components/charts/ChartTooltip.jsx`
+- **Descrição:** Tooltip unificado e acessível com tema escuro
 - **Linhas:** 147
 - **Tamanho:** 11.58 KB
 
@@ -4156,8 +4657,9 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
 ## `src/hooks/useMonteCarloStats.js` <a id="src-hooks-usemontecarlostats-js"></a>
 
 - **Localização:** `src/hooks/useMonteCarloStats.js`
-- **Linhas:** 1434
-- **Tamanho:** 48.71 KB
+- **Descrição:** Hook central de orquestração de estatísticas e simulação Monte Carlo
+- **Linhas:** 1.442
+- **Tamanho:** 49.10 KB
 
 ```javascript
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
@@ -4601,7 +5103,7 @@ useEffect(() => {
 
           const subjectsOpts = pureStatsData.categoryStats.map(c => {
             const subjName = c.name || c.key || '';
-            const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+            const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
 
             return {
               name: subjName,
@@ -4670,7 +5172,7 @@ useEffect(() => {
         } else {
           const subjectsOpts = pureStatsData.categoryStats.map(c => {
             const subjName = c.name || c.key || '';
-            const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+            const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
 
             return {
               name: subjName,
@@ -4683,10 +5185,17 @@ useEffect(() => {
             };
           });
 
+          const normalSD = regularizeVolatility(
+            pureStatsData.pooledSD,
+            0, // horizonte "hoje"
+            pureStatsData.globalHistory?.length || 1,
+            domain
+          );
+
           const normalPayload = {
             mode: 'normal',
             mean: pureStatsData.bayesianMean,
-            sd: pureStatsData.pooledSD,
+            sd: normalSD,
             targetScore: debouncedTarget,
             simulations: dynamicSimulationsRef.current,
             currentMean: pureStatsData.bayesianMean,
@@ -4734,7 +5243,7 @@ useEffect(() => {
               if (lastRecordedGlobalPredRef.current !== hash) {
                 lastRecordedGlobalPredRef.current = hash;
 
-                const ev = recordPredictionEvent(null, {
+                const ev = recordPredictionEvent({
                   timestamp: Date.now(),
                   probability: Number(result.probability) / 100,
                   targetScore: debouncedTarget,
@@ -4774,7 +5283,7 @@ useEffect(() => {
           if (isFuture && pureStatsData.globalHistory?.length > 0) {
             const subjectsOpts = pureStatsData.categoryStats.map(c => {
               const subjName = c.name || c.key || '';
-              const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+              const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
 
               return {
                 name: subjName,
@@ -4808,7 +5317,7 @@ useEffect(() => {
           } else {
             const subjectsOpts = pureStatsData.categoryStats.map(c => {
               const subjName = c.name || c.key || '';
-              const immunity = subjectImmunityMap[subjName.toLowerCase().trim()] || 1.0;
+              const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
 
               return {
                 name: subjName,
@@ -4823,7 +5332,7 @@ useEffect(() => {
 
             result = simulateNormalDistribution({
               mean: pureStatsData.bayesianMean,
-              sd: pureStatsData.pooledSD,
+              sd: regularizeVolatility(pureStatsData.pooledSD, 0, pureStatsData.globalHistory?.length || 1, domain),
               targetScore: debouncedTarget,
               simulations: Math.min(dynamicSimulationsRef.current, 2000),
               currentMean: pureStatsData.bayesianMean,
@@ -4861,7 +5370,7 @@ useEffect(() => {
               if (lastRecordedGlobalPredRef.current !== hash) {
                 lastRecordedGlobalPredRef.current = hash;
 
-                const ev = recordPredictionEvent(null, {
+                const ev = recordPredictionEvent({
                   timestamp: Date.now(),
                   probability: Number(result.probability) / 100,
                   targetScore: debouncedTarget,
@@ -4896,7 +5405,9 @@ useEffect(() => {
     pureStatsHash,
     runAnalysis,
     debouncedTarget,
-    calibrationPenalty
+    calibrationPenalty,
+    projectDays,
+    effectiveSimulateToday
   ]);
 
   const probabilityData = useMemo(() => {
@@ -5194,8 +5705,7 @@ useEffect(() => {
             100
           )
         };
-      })
-      .sort((a, b) => a.prob - b.prob);
+      }); // ordem estável = ordem das categorias (idêntica nos dois gauges)
   }, [
     statsData,
     debouncedTarget,
@@ -5232,7 +5742,7 @@ useEffect(() => {
       perSubjectProbs.forEach(subj => {
         if (subj.prob == null) return;
 
-        const ev = recordPredictionEvent(null, {
+        const ev = recordPredictionEvent({
           timestamp: Date.now(),
           probability: Number(subj.prob) / 100,
           targetScore: debouncedTarget,
@@ -5600,8 +6110,9 @@ function useMonteCarloHistoryRecorder({
 ## `src/hooks/useMonteCarloWorker.js` <a id="src-hooks-usemontecarloworker-js"></a>
 
 - **Localização:** `src/hooks/useMonteCarloWorker.js`
-- **Linhas:** 179
-- **Tamanho:** 7.16 KB
+- **Descrição:** Hook de comunicação assíncrona com Web Worker Monte Carlo
+- **Linhas:** 157
+- **Tamanho:** 6.19 KB
 
 ```javascript
 /**
@@ -5728,31 +6239,9 @@ export function useMonteCarloWorker() {
             const timeoutId = setTimeout(() => {
                 if (sharedPendingRequests.has(id)) {
                     sharedPendingRequests.delete(id);
-                    console.warn(`[MC Worker Singleton] Request ${id} timed out. Recycling worker thread.`);
-                    
-                    // Kill the zombie worker AND clean up ALL its pending requests.
-                    const dyingWorker = currentWorker;
-                    
-                    // Clean ALL pending requests from the dying worker
-                    for (const [pendingId, pending] of sharedPendingRequests) {
-                        if (pending.worker === dyingWorker) {
-                            clearTimeout(pending.timeoutId);
-                            pending.reject(new Error('Worker recycled due to timeout'));
-                            sharedPendingRequests.delete(pendingId);
-                        }
-                    }
-                    
-                    if (dyingWorker) {
-                         dyingWorker.terminate();
-                    }
-                    
-                    if (sharedWorker === dyingWorker) {
-                        sharedWorker = null;
-                        
-                        // Instantiate a fresh worker for subsequent requests.
-                        initSharedWorker();
-                    }
-                    
+                    console.warn(`[MC Worker Singleton] Request ${id} timed out.`);
+                    // CORRIGIDO: apenas rejeita ESTE request. Não mata o worker nem outros.
+                    // O worker será reciclado naturalmente quando ocioso.
                     reject(new Error("A análise demorou muito tempo e foi interrompida para proteger a performance do sistema."));
                 }
             }, timeoutMs);
@@ -5788,11 +6277,40 @@ export function useMonteCarloWorker() {
 
 # 5. MOTORES ESTATÍSTICOS E PROBABILÍSTICOS (ENGINE)
 
+## `src/engine/index.js` <a id="src-engine-index-js"></a>
+
+- **Localização:** `src/engine/index.js`
+- **Descrição:** Ponto de entrada e reexportação centralizada do motor Monte Carlo
+- **Linhas:** 17
+- **Tamanho:** 0.40 KB
+
+```javascript
+/**
+ * Monte Carlo Engine - Unified Export
+ */
+
+export * from './stats.js';
+export * from './projection.js';
+export * from './variance.js';
+export * from './random.js';
+export * from './monteCarlo.js';
+export * from './diagnostics.js';
+export * from './math/gaussian.js';
+
+// BUG-M4: Centralized export
+export { getSafeScore } from '../utils/scoreHelper.js';
+
+export * from './math/bootstrap.js';
+```
+
+---
+
 ## `src/engine/monteCarlo.js` <a id="src-engine-montecarlo-js"></a>
 
 - **Localização:** `src/engine/monteCarlo.js`
-- **Linhas:** 776
-- **Tamanho:** 29.35 KB
+- **Descrição:** Simulador Monte Carlo clássico com calibração e bootstrap
+- **Linhas:** 775
+- **Tamanho:** 29.89 KB
 
 ```javascript
 import { mulberry32 } from './random.js';
@@ -5815,6 +6333,7 @@ import { kahanSum } from './math/kahan.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getDateKey } from '../utils/dateHelper.js';
+import { getCachedSimulation, setCachedSimulation, clearSimulationCache } from './simulationCache.js';
 
 export { getPercentile };
 
@@ -5949,7 +6468,11 @@ export function simulateNormalDistribution(
     historyLength = Math.max(0, Math.floor(toFiniteNumber(historyLength, 0)));
 
     if (!meanOrObj?.simulations && !simulations) {
-        const roughProb = Math.max(0.1, Math.min(0.9, (currentMean || mean || 70) / 100));
+        const refMean = Number.isFinite(currentMean) ? currentMean
+                      : Number.isFinite(mean) ? mean
+                      : (minScore + maxScore) / 2;
+        const domain = Math.max(1, maxScore - minScore);
+        const roughProb = Math.max(0.1, Math.min(0.9, (refMean - minScore) / domain));
         simulations = recommendSimulationCount(roughProb);
     }
 
@@ -6119,12 +6642,15 @@ export function simulateNormalDistribution(
         }
     }
 
-    const cutoffSubjects = sanitizeSubjects(subjects).filter(s => s.minCutoff > 0);
-
-    const subjectStats = cutoffSubjects.map(s => {
+    // ✅ LOTE-01 FIX (C1): o score composto deve amostrar TODAS as matérias.
+    // Antes, apenas matérias com minCutoff > 0 entravam aqui, e o score global
+    // era sobrescrito pela média SÓ delas — as demais eram descartadas da
+    // probabilidade silenciosamente. minCutoff agora só afeta a restrição de
+    // aprovação (passedMins), nunca a composição do score.
+    const allSubjects = sanitizeSubjects(subjects);
+    const subjectStats = allSubjects.map(s => {
         const safeSd = Math.max(1e-6, toFiniteNumber(s.sd, 1));
         const safeImmunity = toFiniteNumber(s.immunityFactor, 1.0);
-
         return {
             ...s,
             sd: safeSd * Math.max(0.80, safeImmunity)
@@ -6217,7 +6743,8 @@ export function simulateNormalDistribution(
                     const subjScore = clamp(sampledSubjectsBuffer[j], sp.minScore, sp.maxScore);
                     subjectSum += subjScore * sp.weight;
                     weightSum += sp.weight;
-                    if (!Number.isFinite(subjScore) || subjScore < sp.minCutoff) {
+                    // ✅ LOTE-01: corte só reprova quando existe (minCutoff > 0)
+                    if (!Number.isFinite(subjScore) || (sp.minCutoff > 0 && subjScore < sp.minCutoff)) {
                         passedMins = false;
                     }
                 }
@@ -6229,7 +6756,8 @@ export function simulateNormalDistribution(
                     const sScore = sampleTruncatedNormal(sp.mean, effSd, sp.minScore, sp.maxScore, rng);
                     subjectSum += sScore * sp.weight;
                     weightSum += sp.weight;
-                    if (!Number.isFinite(sScore) || sScore < sp.minCutoff) {
+                    // ✅ LOTE-01: corte só reprova quando existe (minCutoff > 0)
+                    if (!Number.isFinite(sScore) || (sp.minCutoff > 0 && sScore < sp.minCutoff)) {
                         passedMins = false;
                     }
                 }
@@ -6451,8 +6979,6 @@ export function simulateNormalDistribution(
     };
 }
 
-const mcCache = new Map();
-const MAX_CACHE_SIZE = 50;
 
 function hashObject(obj) {
     try {
@@ -6469,13 +6995,8 @@ export function runMonteCarloAnalysis(params = {}) {
     }
 
     const cacheKey = hashObject(params);
-    if (cacheKey && mcCache.has(cacheKey)) {
-        // Move to top (LRU)
-        const cached = mcCache.get(cacheKey);
-        mcCache.delete(cacheKey);
-        mcCache.set(cacheKey, cached);
-        return cached;
-    }
+    const cached = getCachedSimulation(cacheKey);
+    if (cached) return cached;
 
     const {
         values = [],
@@ -6552,18 +7073,14 @@ export function runMonteCarloAnalysis(params = {}) {
     const result = monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
     
     if (cacheKey) {
-        if (mcCache.size >= MAX_CACHE_SIZE) {
-            const firstKey = mcCache.keys().next().value;
-            mcCache.delete(firstKey);
-        }
-        mcCache.set(cacheKey, result);
+        setCachedSimulation(cacheKey, result);
     }
     
     return result;
 }
 
 export function clearEngineMcCache() {
-    mcCache.clear();
+    clearSimulationCache();
 }
 
 export default {
@@ -6577,8 +7094,9 @@ export default {
 ## `src/engine/projection.js` <a id="src-engine-projection-js"></a>
 
 - **Localização:** `src/engine/projection.js`
-- **Linhas:** 1021
-- **Tamanho:** 49.29 KB
+- **Descrição:** Motor de projeção bayesiana e convergência temporal
+- **Linhas:** 1.025
+- **Tamanho:** 49.61 KB
 
 ```javascript
 // ==========================================
@@ -7375,6 +7893,10 @@ export function monteCarloSimulation(
     // CORREÇÃO: Prevenir o GARCH Zero-Variance Trap
     const unconditionalVar = Math.max(1e-6, Math.pow(dailyVolatility, 2));
     const omega = (1 - alphaG - betaG) * unconditionalVar;
+    // ✅ LOTE-01 FIX (A7): clamp de sanidade do GARCH proporcional ao RANGE real,
+    // não ao teto absoluto (consistente com as correções LOTE-03 do arquivo).
+    const rangeVolClamp = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
+    const maxVolSqClamp = Math.pow(rangeVolClamp * 0.2, 2);
 
     // FIX #3: Prepare Cholesky for correlated subject minCutoffs (disciplines with minCutoff)
     const cutoffSubjects = (options.subjects || []).filter(s => s && Number(s.minCutoff) > 0);
@@ -7485,7 +8007,7 @@ export function monteCarloSimulation(
             currentVolSq = omega + alphaG * Math.pow(clampedShock, 2) + betaG * currentVolSq;
             
             // Clamp de sanidade para evitar divergência explosiva em projeções longas
-            currentVolSq = Math.min(currentVolSq, Math.pow(maxScore * 0.2, 2));
+            currentVolSq = Math.min(currentVolSq, maxVolSqClamp); // ✅ LOTE-01 FIX (A7)
             
             currentSimScore += driftEffect + meanReversion + clampedShock; // consistente com GARCH
             
@@ -7608,8 +8130,9 @@ export function monteCarloSimulation(
 ## `src/engine/analyticsStats.js` <a id="src-engine-analyticsstats-js"></a>
 
 - **Localização:** `src/engine/analyticsStats.js`
-- **Linhas:** 493
-- **Tamanho:** 19.69 KB
+- **Descrição:** Processador analítico para métricas do painel estatístico
+- **Linhas:** 509
+- **Tamanho:** 20.81 KB
 
 ```javascript
 import {
@@ -7704,7 +8227,7 @@ export function regularizeVolatility(dailySD, projectionDays, historyLength, dom
     return Math.max(floorSD, regularizedSD);
 }
 
-export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, summary = null) {
+export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, summary = null, minScore = 0) {
     if (!Array.isArray(mcHistory) || mcHistory.length === 0 || !Array.isArray(globalHistory) || globalHistory.length === 0) {
         return 0;
     }
@@ -7713,6 +8236,8 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
     const safeMaxScore = Number.isFinite(maxScore) && maxScore > 0
         ? maxScore
         : 100;
+    const safeMinScore = Number.isFinite(minScore) ? Math.min(minScore, safeMaxScore) : 0;
+    const globalDomain = Math.max(1, safeMaxScore - safeMinScore);
 
     const MS_PER_DAY = 24 * 60 * 60 * 1000;
     const LAMBDA = Math.log(2) / (CALIBRATION_LAMBDA_DAYS * MS_PER_DAY);
@@ -7771,7 +8296,7 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
         const meanPrediction = Number(snapshot.projectedMean ?? snapshot.mean) || 0;
 
         if (meanPrediction > 0 && safeMaxScore > 0) {
-            const err = Math.abs(meanPrediction - actualScore) / safeMaxScore;
+            const err = Math.abs(meanPrediction - actualScore) / globalDomain;
             residualSum += err * weight;
             residualWeightSum += weight;
         }
@@ -7853,7 +8378,12 @@ export function generateAnalyticsStats({
 
         if (historyArray.length > 0) {
             const catMaxScore = Number(cat.maxScore) || safeMaxScore;
-            const catMinScore = Number.isFinite(Number(cat.minCutoff)) ? Number(cat.minCutoff) : safeMinScore;
+            const catMinScore = Number.isFinite(Number(cat.minScore))
+              ? Number(cat.minScore)
+              : safeMinScore;
+            const catMinCutoff = Number.isFinite(Number(cat.minCutoff))
+              ? Number(cat.minCutoff)
+              : 0;
             const catDomain = Math.max(1e-6, catMaxScore - catMinScore);
 
             const history = [...historyArray]
@@ -7872,7 +8402,8 @@ export function generateAnalyticsStats({
             const weightKey = cat.id || cat.name;
             const weight = sanitizeWeightUnit(debouncedWeights[weightKey] ?? 1);
 
-            const baye = computeBayesianLevel(history, 1, 1, catMaxScore);
+            // ✅ LOTE-01 FIX (C3): propagar o piso da disciplina para o nível bayesiano
+            const baye = computeBayesianLevel(history, 1, 1, catMaxScore, { minScore: catMinScore });
             const stats = computeCategoryStats(history, weight, 60, catMaxScore);
             const vol = calculateVolatility(history, catMaxScore);
 
@@ -7940,19 +8471,23 @@ export function generateAnalyticsStats({
                                 : newCorrect;
 
                             const newScore = newTotal > 0
-                                ? (safeNewCorrect / newTotal) * catMaxScore
+                                ? catMinScore + (safeNewCorrect / newTotal) * catDomain
                                 : (existing.score + currentScore) / 2;
 
                             scoresByDate[dk][weightKey] = {
                                 score: newScore,
                                 correct: safeNewCorrect,
-                                total: newTotal
+                                total: newTotal,
+                                minScore: catMinScore, // ✅ LOTE-01 FIX (C4)
+                                maxScore: catMaxScore  // ✅ LOTE-01 FIX (C4)
                             };
                         } else {
                             scoresByDate[dk][weightKey] = {
                                 score: currentScore,
                                 correct: currentCorrect,
-                                total: currentTotal
+                                total: currentTotal,
+                                minScore: catMinScore, // ✅ LOTE-01 FIX (C4)
+                                maxScore: catMaxScore  // ✅ LOTE-01 FIX (C4)
                             };
                         }
                     }
@@ -7964,11 +8499,11 @@ export function generateAnalyticsStats({
                     ...stats,
                     maxScore: catMaxScore,
                     minScore: catMinScore,
+                    minCutoff: catMinCutoff,
                     bayesianMean: baye.mean,
                     bayesianSd: baye.sd,
                     volatility: vol,
-                    weight,
-                    minCutoff: Number(cat.minCutoff) || 0
+                    weight
                 });
 
                 bayesianStats.push({ sd: baye.sd, weight, n: history.length });
@@ -8025,6 +8560,10 @@ export function generateAnalyticsStats({
 
             if (w > 0 && metrics !== undefined) {
                 const rawTotal = Number(metrics.total) || getSyntheticTotal(catMaxScore);
+                // ✅ LOTE-01 FIX (C4): minScore agora é gravado no agregado diário.
+                // Fallback 0 mantido apenas para registros legados.
+                const catMinScore = Number.isFinite(Number(metrics.minScore)) ? Number(metrics.minScore) : 0;
+                const catDomain = Math.max(1e-9, catMaxScore - catMinScore);
 
                 const total = Number.isFinite(rawTotal) && rawTotal > 0
                     ? rawTotal
@@ -8032,7 +8571,7 @@ export function generateAnalyticsStats({
 
                 const rawCorrect = (metrics.correct !== undefined && metrics.total > 0)
                     ? Number(metrics.correct)
-                    : (Number(metrics.score) / catMaxScore) * total;
+                    : ((Number(metrics.score) - catMinScore) / catDomain) * total;
 
                 // T-011 FIX: clamp final antes de ponderar no histórico global
                 const correct = Math.max(
@@ -8045,7 +8584,7 @@ export function generateAnalyticsStats({
             }
         });
 
-        return { date, score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * safeMaxScore : -1 };
+        return { date, score: pooledTotal > 0 ? safeMinScore + (pooledCorrect / pooledTotal) * globalDomain : -1 };
     }).filter(item => item.score >= 0 && !isNaN(item.score));
 
     const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory);
@@ -8111,8 +8650,9 @@ export function generateAnalyticsStats({
 ## `src/engine/stats.js` <a id="src-engine-stats-js"></a>
 
 - **Localização:** `src/engine/stats.js`
-- **Linhas:** 1138
-- **Tamanho:** 43.64 KB
+- **Descrição:** Cálculos estatísticos fundamentais (média ponderada, slope, variância, etc.)
+- **Linhas:** 1.144
+- **Tamanho:** 44.41 KB
 
 ```javascript
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
@@ -8161,7 +8701,8 @@ export function getSortedHistory(history) {
             }
 
             const dateValue = h?.date ?? h?.createdAt;
-            const t = dateValue != null ? safeDateParse(dateValue)?.getTime() ?? NaN : NaN;
+            const parsed = safeDateParse(dateValue);
+            const t = parsed ? parsed.getTime() : 0;
 
             return { original: h, time: t };
         })
@@ -8484,32 +9025,36 @@ export function computeBayesianLevel(
     arg4 = {}
 ) {
     let history, alpha, beta, safeMaxScore, options;
-
+    let singleScore = null;
+    let singleNEff = 1;
     if (Array.isArray(historyOrScore)) {
         history = toHistoryArray(historyOrScore);
-
         const safeAlphaArg = Number(arg1);
         const safeBetaArg = Number(arg2);
-
         alpha = Number.isFinite(safeAlphaArg) && safeAlphaArg >= 0 ? safeAlphaArg : 1;
         beta = Number.isFinite(safeBetaArg) && safeBetaArg >= 0 ? safeBetaArg : 1;
-
         safeMaxScore = safeMaxScoreValue(arg3, 100);
         options = arg4 || {};
     } else {
         history = [];
-
-        const score = Math.max(0, Number(historyOrScore) || 0);
-
+        singleScore = Math.max(0, Number(historyOrScore) || 0);
         const nEffArg = Number(arg1);
-        const n_eff = Number.isFinite(nEffArg) && nEffArg >= 0 ? nEffArg : 1;
-
+        singleNEff = Number.isFinite(nEffArg) && nEffArg >= 0 ? nEffArg : 1;
         safeMaxScore = safeMaxScoreValue(arg2, 100);
         options = arg3 || {};
-
-        const pct = Math.max(0, Math.min(1, score / safeMaxScore));
-        alpha = pct * n_eff;
-        beta = (1 - pct) * n_eff;
+    }
+    // ✅ LOTE-01 FIX (C3): normalização no INTERVALO ÚTIL [minScore, maxScore].
+    // Antes a proporção era score/maxScore — errado em escalas com piso != 0
+    // (ex.: 200–1000: nota 600 virava 60% quando deveria ser 50%).
+    const safeMinScore = Math.min(
+        Number.isFinite(Number(options.minScore)) ? Number(options.minScore) : 0,
+        safeMaxScore
+    );
+    const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
+    if (singleScore !== null) {
+        const pct = Math.max(0, Math.min(1, (singleScore - safeMinScore) / safeRange));
+        alpha = pct * singleNEff;
+        beta = (1 - pct) * singleNEff;
     }
 
     const alpha0 = alpha;
@@ -8570,9 +9115,9 @@ export function computeBayesianLevel(
     if (historyToProcess.length > 0) {
         let priorSum = 0, priorC = 0, priorCount = 0;
         for (let j = 0; j < historyToProcess.length; j++) {
-            const sScore = getSafeScore(historyToProcess[j], safeMaxScore);
+            const sScore = getSafeScore(historyToProcess[j], safeMaxScore, safeMinScore);
             if (Number.isFinite(sScore)) {
-                let rawPct = sScore / safeMaxScore;
+                let rawPct = (sScore - safeMinScore) / safeRange;
                 rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
                 const validPct = Math.min(1, rawPct);
                 const y = validPct - priorC;
@@ -8605,12 +9150,12 @@ export function computeBayesianLevel(
             const hasTotal = Number.isFinite(totalRaw) && totalRaw > 0;
             const total = hasTotal ? totalRaw : 0;
 
-            const normalizedScore = getSafeScore(h, safeMaxScore);
+            const normalizedScore = getSafeScore(h, safeMaxScore, safeMinScore);
             if (!Number.isFinite(normalizedScore)) continue;
 
             const isPurePercentage = !hasTotal;
 
-            let rawPct = normalizedScore / safeMaxScore;
+            let rawPct = (normalizedScore - safeMinScore) / safeRange;
             rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
             const pct = Math.min(1, rawPct);
 
@@ -8813,22 +9358,23 @@ export function computeBayesianLevel(
     const effectiveSd = Math.sqrt(Math.max(0, predictiveVariance));
 
     const tMultiplier = getConfidenceMultiplier(effectiveN, { allowFractional: true });
-    const marginOfError = tMultiplier * effectiveSd * safeMaxScore;
+    // ✅ LOTE-01 FIX (C3): margem/centro escalam pelo RANGE, não pelo teto
+    const marginOfError = tMultiplier * effectiveSd * safeRange;
     const adjustedMarginOfError = Number.isFinite(marginOfError) ? marginOfError : 0;
 
-    const centerForCI = p_tilde * safeMaxScore;
-    const trueMean = p * safeMaxScore;
+    const centerForCI = safeMinScore + p_tilde * safeRange;
+    const trueMean = safeMinScore + p * safeRange;
 
     let ciLow = centerForCI - adjustedMarginOfError;
     let ciHigh = centerForCI + adjustedMarginOfError;
 
-    if (!Number.isFinite(ciLow)) ciLow = Math.max(0, trueMean);
+    if (!Number.isFinite(ciLow)) ciLow = Math.max(safeMinScore, trueMean);
     if (!Number.isFinite(ciHigh)) ciHigh = Math.min(safeMaxScore, trueMean);
 
     if (trueMean < ciLow) ciLow = trueMean;
     if (trueMean > ciHigh) ciHigh = trueMean;
 
-    const strictLow = Number.isFinite(ciLow) ? Math.max(0, ciLow) : 0;
+    const strictLow = Number.isFinite(ciLow) ? Math.max(safeMinScore, ciLow) : safeMinScore;
     const strictHigh = Number.isFinite(ciHigh) ? Math.min(safeMaxScore, ciHigh) : safeMaxScore;
 
     let alphaOut = alpha;
@@ -8842,7 +9388,7 @@ export function computeBayesianLevel(
 
     return {
         mean: trueMean,
-        sd: effectiveSd * safeMaxScore,
+        sd: effectiveSd * safeRange, // ✅ LOTE-01 FIX (C3)
         ciLow: strictLow,
         ciHigh: strictHigh,
         unclampedLow: ciLow,
@@ -9259,8 +9805,9 @@ export const calculateTrend = calculateSlopePerDay;
 ## `src/engine/variance.js` <a id="src-engine-variance-js"></a>
 
 - **Localização:** `src/engine/variance.js`
+- **Descrição:** Decomposição de variância e desvio padrão agrupado
 - **Linhas:** 477
-- **Tamanho:** 19.30 KB
+- **Tamanho:** 19.35 KB
 
 ```javascript
 /**
@@ -9417,7 +9964,7 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
         finalVar *= effectiveTotalWeight;
     }
 
-    return finalVar;
+    return Math.max(0, Number.isFinite(finalVar) ? finalVar : 0);
 }
 
 /**
@@ -9746,8 +10293,9 @@ export default {
 ## `src/engine/diagnostics.js` <a id="src-engine-diagnostics-js"></a>
 
 - **Localização:** `src/engine/diagnostics.js`
-- **Linhas:** 722
-- **Tamanho:** 27.70 KB
+- **Descrição:** Diagnóstico de consistência, assimetria e detecção de anomalias
+- **Linhas:** 738
+- **Tamanho:** 28.40 KB
 
 ```javascript
 /**
@@ -9761,6 +10309,8 @@ import { pruneHistoryForMemory, getSortedHistory } from './stats.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
 // ✅ LOTE-03: importar do módulo probabilístico unificado
 import { fsrsRetrievability, fsrsIntervalForRetention } from './probabilistic/fsrs.js';
+// ✅ LOTE-01 FIX (C5): MSSD real para o risco de esquecimento
+import { calculateMSSD } from './projection.js';
 
 function _getEntryDate(entry) {
   const raw = entry?.date || entry?.createdAt;
@@ -10128,9 +10678,18 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   const retentionPct = Number((retention * 100).toFixed(1));
 
   const currentMean = _mean(sorted.map(h => getSafeScore(h, maxScore)));
-
-  // ✅ LOTE-03: usar fsrsIntervalForRetention em vez de computeOptimalReviewInterval
-  const optimalIntervalDays = fsrsIntervalForRetention(stability, 0.7);
+  // ✅ LOTE-01 FIX (C5): computeOptimalReviewInterval usa a MESMA base FSRS
+  // (9 * S * (1/R - 1)) mas consome mssdVolatility/effectiveN/agilityPenalty,
+  // que antes eram recebidos e ignorados silenciosamente.
+  const optimalIntervalDays = computeOptimalReviewInterval(
+    stability,
+    0.7,
+    mssdVolatility,
+    effectiveN,
+    maxScore,
+    currentMean,
+    agilityPenalty
+  );
 
   let risk;
   if (retentionPct < 30) risk = 'critical';
@@ -10415,7 +10974,12 @@ export function computeCategoryDiagnostics({
 
   const diagnostic = generateMathDiagnostic(safeHistory, maxScore);
   const hurst = diagnostic.hurstData;
-  const forgetting = computeForgettingRisk(safeHistory, maxScore, null, diagnostic?.mssd, safeHistory.length);
+  // ✅ LOTE-01 FIX (C5): diagnostic.mssd não existia (generateMathDiagnostic
+  // não retorna esse campo) → mssdVolatility era sempre undefined.
+  // Calculamos o MSSD real; computeOptimalReviewInterval espera a VARIÂNCIA (sd²).
+  const mssdSD = calculateMSSD(safeHistory, maxScore);
+  const mssdVariance = Number.isFinite(mssdSD) ? mssdSD * mssdSD : null;
+  const forgetting = computeForgettingRisk(safeHistory, maxScore, null, mssdVariance, safeHistory.length);
   const consistency = computeConsistencyIndex(safeHistory, maxScore);
   const velocity = computeLearningVelocity(safeHistory, maxScore);
 
@@ -10479,6 +11043,7 @@ export function computeCategoryDiagnostics({
 ## `src/engine/insightGenerator.js` <a id="src-engine-insightgenerator-js"></a>
 
 - **Localização:** `src/engine/insightGenerator.js`
+- **Descrição:** Gerador de insights e recomendações probabilísticas
 - **Linhas:** 343
 - **Tamanho:** 17.68 KB
 
@@ -10832,6 +11397,7 @@ export function generateEvolutionInsights({
 ## `src/engine/mc.worker.js` <a id="src-engine-mc-worker-js"></a>
 
 - **Localização:** `src/engine/mc.worker.js`
+- **Descrição:** Web Worker para execução não bloqueante da simulação Monte Carlo
 - **Linhas:** 273
 - **Tamanho:** 13.19 KB
 
@@ -11112,9 +11678,97 @@ export const __workerTesting = {
 
 ---
 
+## `src/engine/random.js` <a id="src-engine-random-js"></a>
+
+- **Localização:** `src/engine/random.js`
+- **Descrição:** Gerador determinístico e de ruído para simulações
+- **Linhas:** 46
+- **Tamanho:** 1.43 KB
+
+```javascript
+export function mulberry32(seed) {
+    return function () {
+        seed = (seed + 0x6D2B79F5) | 0;
+        let t = seed;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+// BUGFIX H3: Box-Muller completo com cache do 2° valor.
+// Antes: sin() era calculado e descartado, dobrando as chamadas ao RNG.
+// Agora: o 2° valor é guardado em closure e retornado na próxima chamada.
+// ⚠️ ATENÇÃO: altera a sequência do RNG — seeds existentes produzirão valores diferentes.
+// Se reprodutibilidade de seeds históricas for crítica, manter o código antigo e comentar esta mudança.
+export function makeNormalRng(rng) {
+    let spare;
+    let hasSpare = false;
+    return () => {
+        if (hasSpare) {
+            hasSpare = false;
+            return spare;
+        }
+        let u = 0, v = 0;
+        let attempts = 0;
+        while (u === 0 && attempts < 100) {
+            u = rng();
+            attempts++;
+        }
+        if (u === 0) u = 1e-15;
+
+        attempts = 0;
+        while (v === 0 && attempts < 100) {
+            v = rng();
+            attempts++;
+        }
+        if (v === 0) v = 1e-15;
+
+        const mag = Math.sqrt(-2.0 * Math.log(u));
+        spare = mag * Math.sin(2.0 * Math.PI * v);
+        hasSpare = true;
+        return mag * Math.cos(2.0 * Math.PI * v);
+    };
+}
+
+```
+
+---
+
+## `src/engine/simulationCache.js` <a id="src-engine-simulationcache-js"></a>
+
+- **Localização:** `src/engine/simulationCache.js`
+- **Descrição:** Cache LRU de resultados da simulação para evitar recalcular
+- **Linhas:** 19
+- **Tamanho:** 0.45 KB
+
+```javascript
+export const simulationCache = new Map();
+const MAX_CACHE_SIZE = 1000;
+
+export function getCachedSimulation(seed) {
+  return simulationCache.get(seed);
+}
+
+export function setCachedSimulation(seed, result) {
+  if (simulationCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = simulationCache.keys().next().value;
+    simulationCache.delete(firstKey);
+  }
+  simulationCache.set(seed, result);
+}
+
+export function clearSimulationCache() {
+  simulationCache.clear();
+}
+```
+
+---
+
 ## `src/engine/math/gaussian.js` <a id="src-engine-math-gaussian-js"></a>
 
 - **Localização:** `src/engine/math/gaussian.js`
+- **Descrição:** Funções de densidade e distribuição cumulativa normal / gaussiana
 - **Linhas:** 482
 - **Tamanho:** 16.58 KB
 
@@ -11607,8 +12261,9 @@ export function applyCovariance(choleskyLower, zVector, targetVector) {
 ## `src/engine/math/bootstrap.js` <a id="src-engine-math-bootstrap-js"></a>
 
 - **Localização:** `src/engine/math/bootstrap.js`
-- **Linhas:** 116
-- **Tamanho:** 3.37 KB
+- **Descrição:** Reamostragem não-paramétrica com intervalos de confiança
+- **Linhas:** 117
+- **Tamanho:** 3.46 KB
 
 ```javascript
 import { makeNormalRng } from '../random.js';
@@ -11699,9 +12354,10 @@ export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointE
   const a = Math.max(0.001, Math.min(0.5, Number(alpha) || 0.05));
 
   if (clean.length < 3) {
+    const fallbackMargin = Math.max(1, Math.abs(p) * 0.08 || 8);
     return {
-      lower: p - 8,
-      upper: p + 8,
+      lower: p - fallbackMargin,
+      upper: p + fallbackMargin,
       coverage: 1 - a,
       n: clean.length,
       method: 'fallback_insufficient_data',
@@ -11733,6 +12389,7 @@ export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointE
 ## `src/engine/math/percentile.js` <a id="src-engine-math-percentile-js"></a>
 
 - **Localização:** `src/engine/math/percentile.js`
+- **Descrição:** Cálculo linearmente interpolado de percentis (P10, P50, P90)
 - **Linhas:** 174
 - **Tamanho:** 6.05 KB
 
@@ -11917,6 +12574,7 @@ export function findScoreForPercentile(targetPercentile, minScore, maxScore, cdf
 ## `src/engine/math/kahan.js` <a id="src-engine-math-kahan-js"></a>
 
 - **Localização:** `src/engine/math/kahan.js`
+- **Descrição:** Algoritmo de Kahan para soma e variância com precisão compensada
 - **Linhas:** 65
 - **Tamanho:** 2.22 KB
 
@@ -11992,6 +12650,7 @@ export function kahanMean(arr) {
 ## `src/engine/math/safe.js` <a id="src-engine-math-safe-js"></a>
 
 - **Localização:** `src/engine/math/safe.js`
+- **Descrição:** Operações numéricas à prova de NaN, divisão por zero e overflow
 - **Linhas:** 138
 - **Tamanho:** 3.16 KB
 
@@ -12137,11 +12796,136 @@ export const normalizePercent = (value, fallback = 0) => {
 
 ---
 
+## `src/engine/math/date.js` <a id="src-engine-math-date-js"></a>
+
+- **Localização:** `src/engine/math/date.js`
+- **Descrição:** Utilitários matemáticos para tratamento de datas em séries temporais
+- **Linhas:** 89
+- **Tamanho:** 1.81 KB
+
+```javascript
+export const safeDate = (value) => {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === 'number' || typeof value === 'string') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+};
+
+export const getLocalMidnight = (date = new Date()) => {
+  const d = safeDate(date) || new Date();
+
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    0,
+    0,
+    0,
+    0
+  );
+};
+
+export const getLocalEndOfDay = (date = new Date()) => {
+  const d = safeDate(date) || new Date();
+
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
+};
+
+export const isSameLocalDay = (a, b) => {
+  const da = safeDate(a);
+  const db = safeDate(b);
+
+  if (!da || !db) return false;
+
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
+};
+
+export const daysBetween = (a, b) => {
+  const da = safeDate(a);
+  const db = safeDate(b);
+
+  if (!da || !db) return NaN;
+
+  const ms = db.getTime() - da.getTime();
+
+  return ms / 86400000;
+};
+
+export const ageInDays = (date, reference = new Date()) => {
+  const d = safeDate(date);
+  const ref = safeDate(reference);
+
+  if (!d || !ref) return 0;
+
+  const days = (ref.getTime() - d.getTime()) / 86400000;
+
+  return Number.isFinite(days) && days > 0 ? days : 0;
+};
+
+export const ageInHours = (date, reference = new Date()) => {
+  const d = safeDate(date);
+  const ref = safeDate(reference);
+
+  if (!d || !ref) return 0;
+
+  const hours = (ref.getTime() - d.getTime()) / 3600000;
+
+  return Number.isFinite(hours) && hours > 0 ? hours : 0;
+};
+```
+
+---
+
+## `src/engine/math/constants.js` <a id="src-engine-math-constants-js"></a>
+
+- **Localização:** `src/engine/math/constants.js`
+- **Descrição:** Constantes matemáticas e hiperparâmetros estatísticos
+- **Linhas:** 13
+- **Tamanho:** 0.37 KB
+
+```javascript
+/**
+ * Monte Carlo Engine - Math Constants
+ * 
+ * Centralized statistical constants to avoid duplication and circular dependencies.
+ */
+
+// Z-Score for 95% Confidence Interval (two-tailed)
+// P(-1.96 <= Z <= 1.96) ≈ 0.95
+export const Z_95 = 1.959963984540054;
+
+// Minimal Standard Deviation to avoid division by zero in calculations
+export const MIN_SD_FLOOR = 0.0001;
+```
+
+---
+
 # 6. UTILITÁRIOS, CALIBRAÇÃO E MAPEADORES (UTILS)
 
 ## `src/utils/chartDataMappers.js` <a id="src-utils-chartdatamappers-js"></a>
 
 - **Localização:** `src/utils/chartDataMappers.js`
+- **Descrição:** Transformadores de dados para Recharts e gráficos de foco/horas
 - **Linhas:** 237
 - **Tamanho:** 10.00 KB
 
@@ -12389,8 +13173,9 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
 ## `src/utils/explanationEngine.js` <a id="src-utils-explanationengine-js"></a>
 
 - **Localização:** `src/utils/explanationEngine.js`
-- **Linhas:** 171
-- **Tamanho:** 4.50 KB
+- **Descrição:** Motor de geração de explicações textuais em linguagem natural
+- **Linhas:** 176
+- **Tamanho:** 4.77 KB
 
 ```javascript
 // ==========================================
@@ -12404,22 +13189,24 @@ export function buildHumanExplanation({
     trend,
     confidenceTier,
     intervalWidth,
+    maxScore = 100
 }) {
+    const scale = Math.max(1, maxScore / 100);
     const messages = [];
 
     if (confidenceTier === 'HIGH') {
         messages.push('Seu desempenho recente está consistente.');
     }
 
-    if (volatility > 15) {
+    if (volatility > 15 * scale) {
         messages.push('Suas notas recentes oscilaram bastante.');
     }
 
-    if (trend > 5) {
+    if (trend > 5 * scale) {
         messages.push('Seu desempenho mostrou melhora recente.');
     }
 
-    if (trend < -5) {
+    if (trend < -5 * scale) {
         messages.push('Seu desempenho recente apresentou queda.');
     }
 
@@ -12427,7 +13214,7 @@ export function buildHumanExplanation({
         messages.push('O sistema ampliou a margem de incerteza para evitar excesso de confiança.');
     }
 
-    if (intervalWidth > 40) {
+    if (intervalWidth > 40 * scale) {
         messages.push('A faixa provável ficou mais ampla devido à alta variabilidade recente.');
     }
 
@@ -12438,7 +13225,9 @@ export function getConfidenceTier({
     calibrationPenalty,
     volatility,
     sampleSize,
+    maxScore = 100
 }) {
+    const scale = Math.max(1, maxScore / 100);
     // Tolerância adaptativa: volatility is absolute standard deviation, max 100
     // calibrationPenalty is between 0 and 1. 0.1 means 10% penalty.
     const instability = (calibrationPenalty * 100) + (volatility * 0.2);
@@ -12452,7 +13241,7 @@ export function getConfidenceTier({
         };
     }
 
-    if (instability < 18) {
+    if (instability < 18 * scale) {
         return {
             tier: 'HIGH',
             label: 'Alta confiabilidade',
@@ -12461,7 +13250,7 @@ export function getConfidenceTier({
         };
     }
 
-    if (instability < 35) {
+    if (instability < 35 * scale) {
         return {
             tier: 'MEDIUM',
             label: 'Confiabilidade moderada',
@@ -12544,10 +13333,11 @@ export function smoothConfidenceTier({ previousTier, currentTier, stabilityCount
     return { tier: currentTier, stabilityCounter: 0 };
 }
 
-export function humanizeVolatility(sd) {
-    if (sd < 8) return 'Muito estável';
-    if (sd < 18) return 'Relativamente estável';
-    if (sd < 30) return 'Oscilação moderada';
+export function humanizeVolatility(sd, maxScore = 100) {
+    const scale = Math.max(1, maxScore / 100);
+    if (sd < 8 * scale) return 'Muito estável';
+    if (sd < 18 * scale) return 'Relativamente estável';
+    if (sd < 30 * scale) return 'Oscilação moderada';
     return 'Alta instabilidade';
 }
 
@@ -12570,12 +13360,13 @@ export function validatePrediction({ probability, interval, confidenceTier }) {
 ## `src/utils/calibration.js` <a id="src-utils-calibration-js"></a>
 
 - **Localização:** `src/utils/calibration.js`
-- **Linhas:** 396
-- **Tamanho:** 18.90 KB
+- **Descrição:** Cálculo de Brier Score e penalidades de calibração probabilística
+- **Linhas:** 399
+- **Tamanho:** 18.99 KB
 
 ```javascript
 import { kahanSum } from '../engine/math/kahan.js';
-import { getDateKey } from './dateHelper.js';
+import { getDateKey, normalizeDate } from './dateHelper.js';
 import { getSafeScore } from './scoreHelper.js';
 import { isSubjectMatch } from './normalization.js';
 
@@ -12727,7 +13518,10 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
   if (!Array.isArray(calibrationEvents)) return [];
   if (!Array.isArray(simuladoRows) || simuladoRows.length === 0) return calibrationEvents;
   const timed = simuladoRows
-    .map(row => ({ row, ts: Date.parse(row?.date || row?.createdAt) }))
+    .map(row => {
+      const parsed = normalizeDate(row?.date || row?.createdAt);
+      return { row, ts: parsed ? parsed.getTime() : NaN };
+    })
     .filter(x => Number.isFinite(x.ts))
     .sort((a, b) => a.ts - b.ts);
   if (timed.length === 0) return calibrationEvents;
@@ -12976,6 +13770,7 @@ export function buildCalibrationDashboardSeries(events = []) {
 ## `src/utils/calibrationTelemetry.js` <a id="src-utils-calibrationtelemetry-js"></a>
 
 - **Localização:** `src/utils/calibrationTelemetry.js`
+- **Descrição:** Telemetria de assertividade e viés de calibração
 - **Linhas:** 89
 - **Tamanho:** 3.19 KB
 
@@ -13075,6 +13870,7 @@ export function clearCalibrationTelemetry() {
 ## `src/utils/ProgressStateEngine.js` <a id="src-utils-progressstateengine-js"></a>
 
 - **Localização:** `src/utils/ProgressStateEngine.js`
+- **Descrição:** Motor de inferência de estado do usuário (progressão, regressão, domínio, etc.)
 - **Linhas:** 243
 - **Tamanho:** 9.84 KB
 
@@ -13328,7 +14124,8 @@ export default { analyzeProgressState, getUIHints };
 ## `src/utils/analytics.js` <a id="src-utils-analytics-js"></a>
 
 - **Localização:** `src/utils/analytics.js`
-- **Linhas:** 1076
+- **Descrição:** Utilitários analíticos para flashcards, sessões e contagem de itens
+- **Linhas:** 1.076
 - **Tamanho:** 39.62 KB
 
 ```javascript
@@ -14414,8 +15211,9 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
 ## `src/utils/scoreHelper.js` <a id="src-utils-scorehelper-js"></a>
 
 - **Localização:** `src/utils/scoreHelper.js`
-- **Linhas:** 255
-- **Tamanho:** 8.97 KB
+- **Descrição:** Normalizador e protetor de notas e valores percentuais
+- **Linhas:** 258
+- **Tamanho:** 9.27 KB
 
 ```javascript
 export const SYNTHETIC_EVIDENCE_TOTAL = 20;
@@ -14518,10 +15316,13 @@ export function getSafeScore(historyRow, maxScore = 100, minScore = 0) {
   }
   
   if (total > 0) {
-    return Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + (correct / total) * (safeMaxScore - safeMinScore)));
+    const safeCorrect = Number.isFinite(correct) ? correct : 0;
+    return Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + (safeCorrect / total) * (safeMaxScore - safeMinScore)));
   }
-  
-  return 0;
+  // ✅ LOTE-01 FIX (C2): registro sem score E sem total/correct é INVÁLIDO.
+  // O "return 0" anterior passava pelos filtros `safeScore >= 0` e injetava
+  // zeros falsos no histórico, corrompendo média, regressão e Monte Carlo.
+  return NaN;
 }
 
 export function getSafeQuestionStats(historyRow, maxScore = 100, options = {}) {
@@ -14679,6 +15480,7 @@ export {
 ## `src/utils/scoreHelper.conversions.js` <a id="src-utils-scorehelper-conversions-js"></a>
 
 - **Localização:** `src/utils/scoreHelper.conversions.js`
+- **Descrição:** Conversões e normalização de escalas de pontuação
 - **Linhas:** 58
 - **Tamanho:** 2.39 KB
 
@@ -14747,97 +15549,83 @@ export function ratioToCorrect(ratio, total) {
 ## `src/utils/scoreDomain.js` <a id="src-utils-scoredomain-js"></a>
 
 - **Localização:** `src/utils/scoreDomain.js`
-- **Linhas:** 89
-- **Tamanho:** 2.72 KB
+- **Descrição:** Regras de validação de domínio de notas e limites
+- **Linhas:** 74
+- **Tamanho:** 2.42 KB
 
 ```javascript
-/**
- * scoreDomain.js
- * 
- * Módulo centralizador de domínio para pontuações, normalização por amplitude,
- * clamping, conversão de escalas e formatação de unidades (%, pts, horas).
- */
-
-import { formatDuration } from './dateHelper.js';
-import { formatValue } from './scoreHelper.js';
-
-const toNum = (v, fallback = 0) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
-
-/**
- * Normaliza e extrai limites seguros de domínio.
- * Garante que max >= min e range > 0.
- */
 export function safeDomain(maxScore = 100, minScore = 0) {
-  const safeMax = Math.max(1, toNum(maxScore, 100));
-  const safeMin = Math.min(toNum(minScore, 0), safeMax);
-  const range = Math.max(1e-9, safeMax - safeMin);
-  return { min: safeMin, max: safeMax, range };
+  const max = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+  const min = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const range = Math.max(1e-9, max - min);
+  return { min, max, range };
 }
 
-/**
- * Clampa um valor numérico dentro do domínio [minScore, maxScore].
- */
-export function clampScore(value, { minScore = 0, maxScore = 100 } = {}) {
-  const { min, max } = safeDomain(maxScore, minScore);
-  const n = toNum(value, min);
-  return Math.max(min, Math.min(max, n));
+export function clampScore(val, options = {}) {
+  const min = options.minScore ?? 0;
+  const max = options.maxScore ?? 100;
+  const n = Number(val);
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, n));
 }
 
-/**
- * Converte pontuação no domínio [minScore, maxScore] para razão [0, 1].
- */
-export function scoreToRatio(score, { minScore = 0, maxScore = 100 } = {}) {
-  const { min, max, range } = safeDomain(maxScore, minScore);
-  const n = toNum(score, min);
-  const clamped = Math.max(min, Math.min(max, n));
-  return Math.max(0, Math.min(1, (clamped - min) / range));
+export function scoreToRatio(score, options = {}) {
+  const { min, range } = safeDomain(options.maxScore, options.minScore);
+  const s = Number(score);
+  if (!Number.isFinite(s)) return 0;
+  return (s - min) / range;
 }
 
-/**
- * Converte razão [0, 1] para pontuação no domínio [minScore, maxScore].
- */
-export function ratioToScore(ratio, { minScore = 0, maxScore = 100 } = {}) {
-  const { min, range } = safeDomain(maxScore, minScore);
-  const r = Math.max(0, Math.min(1, toNum(ratio, 0)));
+export function ratioToScore(ratio, options = {}) {
+  const { min, range } = safeDomain(options.maxScore, options.minScore);
+  const r = Number(ratio);
+  if (!Number.isFinite(r)) return min;
   return min + r * range;
 }
 
-/**
- * Converte pontuação no domínio [minScore, maxScore] para percentual [0, 100].
- */
-export function scoreToPct(score, { minScore = 0, maxScore = 100 } = {}) {
-  return scoreToRatio(score, { minScore, maxScore }) * 100;
+export function scoreToPct(score, options = {}) {
+  return scoreToRatio(score, options) * 100;
 }
 
-/**
- * Converte percentual [0, 100] para pontuação no domínio [minScore, maxScore].
- */
-export function pctToScore(pct, { minScore = 0, maxScore = 100 } = {}) {
-  return ratioToScore(toNum(pct, 0) / 100, { minScore, maxScore });
+export function pctToScore(pct, options = {}) {
+  const p = Number(pct);
+  const r = Number.isFinite(p) ? p / 100 : 0;
+  return ratioToScore(r, options);
 }
 
-/**
- * Formata um valor respeitando a unidade informada (%, pts, horas, etc.).
- */
-export function formatUnitValue(value, unit = '%') {
-  if (value === null || value === undefined || !Number.isFinite(Number(value))) {
-    return '—';
-  }
-  const n = Number(value);
+export function formatUnitValue(val, unit = '%') {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return `0${unit}`;
   if (unit === 'horas') {
-    return formatDuration(n);
+    const h = Math.floor(n);
+    const m = Math.round((n - h) * 60);
+    return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
   }
-  if (unit === '%') {
-    return `${formatValue(n)}%`;
-  }
-  return `${formatValue(n)}${unit}`;
+  return `${n}${unit}`;
 }
 
-/**
- * Verifica se um valor é pontuação finita e válida.
- */
-export function isValidScore(value) {
-  return value !== null && value !== undefined && Number.isFinite(Number(value));
+export function normalizeScoreToTargetScale(rawScore, currentMaxScore, targetMaxScore) {
+  const safeScore = Number.isFinite(Number(rawScore)) ? Number(rawScore) : 0;
+  const currentMax = Number.isFinite(Number(currentMaxScore)) && currentMaxScore > 0 ? Number(currentMaxScore) : 100;
+  const targetMax = Number.isFinite(Number(targetMaxScore)) && targetMaxScore > 0 ? Number(targetMaxScore) : 100;
+  
+  if (currentMax === targetMax) return safeScore;
+  return (safeScore / currentMax) * targetMax;
+}
+
+export function detectCommonScales(categories) {
+  const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+  const scales = new Set(
+    safeCategories
+      .map(c => Number(c.maxScore))
+      .filter(s => Number.isFinite(s) && s > 0)
+  );
+  
+  return {
+    isMixedScale: scales.size > 1,
+    scales: Array.from(scales).sort((a,b) => b - a),
+    globalScale: scales.size > 0 ? Math.max(...scales) : 100
+  };
 }
 ```
 
@@ -14846,6 +15634,7 @@ export function isValidScore(value) {
 ## `src/utils/monteCarloScenario.js` <a id="src-utils-montecarloscenario-js"></a>
 
 - **Localização:** `src/utils/monteCarloScenario.js`
+- **Descrição:** Gerenciador de cenários hipotéticos de Monte Carlo
 - **Linhas:** 52
 - **Tamanho:** 3.27 KB
 
@@ -14908,6 +15697,7 @@ export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) 
 ## `src/utils/weeklyEvolutionInsights.js` <a id="src-utils-weeklyevolutioninsights-js"></a>
 
 - **Localização:** `src/utils/weeklyEvolutionInsights.js`
+- **Descrição:** Calculador de tendências e comparativos semanais
 - **Linhas:** 99
 - **Tamanho:** 2.83 KB
 
@@ -15017,8 +15807,9 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
 ## `src/utils/dateHelper.js` <a id="src-utils-datehelper-js"></a>
 
 - **Localização:** `src/utils/dateHelper.js`
+- **Descrição:** Formatadores e normalizadores de fuso horário e datas
 - **Linhas:** 283
-- **Tamanho:** 9.58 KB
+- **Tamanho:** 9.57 KB
 
 ```javascript
 import { addDays } from 'date-fns';
@@ -15026,12 +15817,12 @@ import { addDays } from 'date-fns';
 export const APP_TIMEZONE = 'America/Manaus';
 
 export const safeDateParse = (dateInput) => {
-  if (!dateInput) return new Date(0);
+  if (!dateInput) return null;
   const normalizedString = typeof dateInput === 'string'
     ? dateInput.replace(' ', 'T')
     : dateInput;
   const d = new Date(normalizedString);
-  return isNaN(d.getTime()) ? new Date(0) : d;
+  return isNaN(d.getTime()) ? null : d;
 };
 
 export function parseGoalDateUnified(value) {
@@ -15312,8 +16103,9 @@ export const parseNoonLocal = (input) => {
 ## `src/store/slices/createMonteCarloSlice.js` <a id="src-store-slices-createmontecarloslice-js"></a>
 
 - **Localização:** `src/store/slices/createMonteCarloSlice.js`
-- **Linhas:** 112
-- **Tamanho:** 4.56 KB
+- **Descrição:** Slice do Zustand para configurações e parâmetros de Monte Carlo
+- **Linhas:** 163
+- **Tamanho:** 5.74 KB
 
 ```javascript
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
@@ -15333,10 +16125,6 @@ export const createMonteCarloSlice = (set) => ({
             const activeData = state.appState.contests?.[activeId];
             if (!activeData) return;
 
-            if (!Array.isArray(activeData.monteCarloHistory)) {
-                activeData.monteCarloHistory = [];
-            }
-            
             const rawProb = safeNumber(prob, null);
             if (rawProb === null) return; 
             
@@ -15349,19 +16137,24 @@ export const createMonteCarloSlice = (set) => ({
             const targetDateStr = snapshot.date;
             const targetCategoryId = snapshot.categoryId || null;
 
+            const existingHistory = Array.isArray(activeData.monteCarloHistory)
+                ? activeData.monteCarloHistory
+                : [];
+
             // ✅ FIX 1.3: buscar por data + categoria
-            const idx = activeData.monteCarloHistory.findIndex(h =>
+            const idx = existingHistory.findIndex(h =>
                 getDateKey(normalizeDate(h.date)) === targetDateStr &&
                 (h.categoryId || null) === targetCategoryId
             );
 
+            let newHistory;
             if (idx >= 0) {
-                activeData.monteCarloHistory[idx] = { ...activeData.monteCarloHistory[idx], ...snapshot };
+                newHistory = existingHistory.map((h, i) => i === idx ? { ...h, ...snapshot } : h);
             } else {
-                activeData.monteCarloHistory.push(snapshot);
+                newHistory = [...existingHistory, snapshot];
             }
 
-            activeData.monteCarloHistory.sort((a, b) => {
+            newHistory.sort((a, b) => {
                 const timeA = new Date(a.date).getTime() || 0;
                 const timeB = new Date(b.date).getTime() || 0;
                 return timeA - timeB;
@@ -15369,33 +16162,61 @@ export const createMonteCarloSlice = (set) => ({
             // ✅ FIX 1.3b: limite escala com nº de categorias
             const categoryCount = (activeData.categories || []).length || 1;
             const MAX_SNAPSHOTS = 30 * categoryCount;
-            if (activeData.monteCarloHistory.length > MAX_SNAPSHOTS) {
-                activeData.monteCarloHistory = activeData.monteCarloHistory.slice(-MAX_SNAPSHOTS);
+            if (newHistory.length > MAX_SNAPSHOTS) {
+                newHistory = newHistory.slice(-MAX_SNAPSHOTS);
             }
 
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
+            return {
+                appState: {
+                    ...state.appState,
+                    contests: {
+                        ...state.appState.contests,
+                        [activeId]: {
+                            ...activeData,
+                            monteCarloHistory: newHistory
+                        }
+                    },
+                    version: (state.appState.version || 0) + 1,
+                    lastUpdated: new Date().toISOString()
+                }
+            };
         } catch (e) {
             console.warn('Error saving MC snapshot:', e);
         }
     }),
 
     setMcEqualWeights: (enabled) => set((state) => {
-        state.appState.mcEqualWeights = Boolean(enabled);
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+        return {
+            appState: {
+                ...state.appState,
+                mcEqualWeights: Boolean(enabled),
+                version: (state.appState.version || 0) + 1,
+                lastUpdated: new Date().toISOString()
+            }
+        };
     }),
 
     setHistoricalCutoffs: (cutoffs) => set((state) => {
         const activeId = state.appState?.activeId;
         if (!activeId || !state.appState.contests?.[activeId]) return;
 
-        state.appState.contests[activeId].historicalCutoffs = safeClone(cutoffs);
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+        return {
+            appState: {
+                ...state.appState,
+                contests: {
+                    ...state.appState.contests,
+                    [activeId]: {
+                        ...state.appState.contests[activeId],
+                        historicalCutoffs: safeClone(cutoffs)
+                    }
+                },
+                version: (state.appState.version || 0) + 1,
+                lastUpdated: new Date().toISOString()
+            }
+        };
     }),
 
     updateCoachScore: (score) => set((state) => {
@@ -15407,10 +16228,21 @@ export const createMonteCarloSlice = (set) => ({
 
         if (Object.is(currentScore, newScore)) return;
 
-        state.appState.contests[activeId].coachScore = newScore;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+        return {
+            appState: {
+                ...state.appState,
+                contests: {
+                    ...state.appState.contests,
+                    [activeId]: {
+                        ...state.appState.contests[activeId],
+                        coachScore: newScore
+                    }
+                },
+                version: (state.appState.version || 0) + 1,
+                lastUpdated: new Date().toISOString()
+            }
+        };
     }),
 
     setExamConfig: (durationMinutes, totalQuestions) => set((state) => {
@@ -15420,11 +16252,22 @@ export const createMonteCarloSlice = (set) => ({
         const dMin = safeNumber(durationMinutes, 240);
         const tQ = safeNumber(totalQuestions, 100);
 
-        state.appState.contests[activeId].examDurationMinutes = dMin;
-        state.appState.contests[activeId].examTotalQuestions = tQ;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+        return {
+            appState: {
+                ...state.appState,
+                contests: {
+                    ...state.appState.contests,
+                    [activeId]: {
+                        ...state.appState.contests[activeId],
+                        examDurationMinutes: dMin,
+                        examTotalQuestions: tQ
+                    }
+                },
+                version: (state.appState.version || 0) + 1,
+                lastUpdated: new Date().toISOString()
+            }
+        };
     })
 });
 ```

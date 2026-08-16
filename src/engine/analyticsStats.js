@@ -265,7 +265,8 @@ export function generateAnalyticsStats({
             const weightKey = cat.id || cat.name;
             const weight = sanitizeWeightUnit(debouncedWeights[weightKey] ?? 1);
 
-            const baye = computeBayesianLevel(history, 1, 1, catMaxScore);
+            // ✅ LOTE-01 FIX (C3): propagar o piso da disciplina para o nível bayesiano
+            const baye = computeBayesianLevel(history, 1, 1, catMaxScore, { minScore: catMinScore });
             const stats = computeCategoryStats(history, weight, 60, catMaxScore);
             const vol = calculateVolatility(history, catMaxScore);
 
@@ -339,13 +340,17 @@ export function generateAnalyticsStats({
                             scoresByDate[dk][weightKey] = {
                                 score: newScore,
                                 correct: safeNewCorrect,
-                                total: newTotal
+                                total: newTotal,
+                                minScore: catMinScore, // ✅ LOTE-01 FIX (C4)
+                                maxScore: catMaxScore  // ✅ LOTE-01 FIX (C4)
                             };
                         } else {
                             scoresByDate[dk][weightKey] = {
                                 score: currentScore,
                                 correct: currentCorrect,
-                                total: currentTotal
+                                total: currentTotal,
+                                minScore: catMinScore, // ✅ LOTE-01 FIX (C4)
+                                maxScore: catMaxScore  // ✅ LOTE-01 FIX (C4)
                             };
                         }
                     }
@@ -418,6 +423,8 @@ export function generateAnalyticsStats({
 
             if (w > 0 && metrics !== undefined) {
                 const rawTotal = Number(metrics.total) || getSyntheticTotal(catMaxScore);
+                // ✅ LOTE-01 FIX (C4): minScore agora é gravado no agregado diário.
+                // Fallback 0 mantido apenas para registros legados.
                 const catMinScore = Number.isFinite(Number(metrics.minScore)) ? Number(metrics.minScore) : 0;
                 const catDomain = Math.max(1e-9, catMaxScore - catMinScore);
 

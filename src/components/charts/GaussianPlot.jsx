@@ -167,18 +167,34 @@ export const GaussianPlot = ({
             };
         }
 
+        // ✅ LOTE-04 FIX (M4): busca binária O(log N) em vez de varredura linear O(N).
+        // O hover chamava isto a cada mousemove com split() de ~200 strings.
         const getYAtX = (pts, xTarget) => {
-            let lo = null, hi = null;
-            for (const p of pts) {
-                const [px, py] = p.split(',').map(Number);
-                if (px <= xTarget) lo = { px, py };
-                else if (!hi) { hi = { px, py }; break; }
+            const n = pts.length;
+            if (n === 0) return 100;
+            const getX = (p) => Number(p.split(',')[0]);
+            const getY = (p) => Number(p.split(',')[1]);
+            // pts já está ordenado por x (KDE e generateGaussianPoints ordenam)
+            let loIdx = -1;
+            let lo = 0, hi = n - 1;
+            while (lo <= hi) {
+                const mid = (lo + hi) >> 1;
+                if (getX(pts[mid]) <= xTarget) {
+                    loIdx = mid;
+                    lo = mid + 1;
+                } else {
+                    hi = mid - 1;
+                }
             }
-            if (!lo) return hi?.py ?? 100;
-            if (!hi) return lo.py;
-            if (hi.px === lo.px) return lo.py;
-            const t = (xTarget - lo.px) / (hi.px - lo.px);
-            return lo.py + t * (hi.py - lo.py);
+            if (loIdx === -1) return getY(pts[0]);
+            if (loIdx === n - 1) return getY(pts[n - 1]);
+            const loP = pts[loIdx];
+            const hiP = pts[loIdx + 1];
+            const lx = getX(loP);
+            const hx = getX(hiP);
+            if (hx === lx) return getY(loP);
+            const t = (xTarget - lx) / (hx - lx);
+            return getY(loP) + t * (getY(hiP) - getY(loP));
         };
 
         const successStart = Math.max(xMin, targetVal);

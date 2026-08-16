@@ -327,12 +327,15 @@ export function simulateNormalDistribution(
         }
     }
 
-    const cutoffSubjects = sanitizeSubjects(subjects).filter(s => s.minCutoff > 0);
-
-    const subjectStats = cutoffSubjects.map(s => {
+    // ✅ LOTE-01 FIX (C1): o score composto deve amostrar TODAS as matérias.
+    // Antes, apenas matérias com minCutoff > 0 entravam aqui, e o score global
+    // era sobrescrito pela média SÓ delas — as demais eram descartadas da
+    // probabilidade silenciosamente. minCutoff agora só afeta a restrição de
+    // aprovação (passedMins), nunca a composição do score.
+    const allSubjects = sanitizeSubjects(subjects);
+    const subjectStats = allSubjects.map(s => {
         const safeSd = Math.max(1e-6, toFiniteNumber(s.sd, 1));
         const safeImmunity = toFiniteNumber(s.immunityFactor, 1.0);
-
         return {
             ...s,
             sd: safeSd * Math.max(0.80, safeImmunity)
@@ -425,7 +428,8 @@ export function simulateNormalDistribution(
                     const subjScore = clamp(sampledSubjectsBuffer[j], sp.minScore, sp.maxScore);
                     subjectSum += subjScore * sp.weight;
                     weightSum += sp.weight;
-                    if (!Number.isFinite(subjScore) || subjScore < sp.minCutoff) {
+                    // ✅ LOTE-01: corte só reprova quando existe (minCutoff > 0)
+                    if (!Number.isFinite(subjScore) || (sp.minCutoff > 0 && subjScore < sp.minCutoff)) {
                         passedMins = false;
                     }
                 }
@@ -437,7 +441,8 @@ export function simulateNormalDistribution(
                     const sScore = sampleTruncatedNormal(sp.mean, effSd, sp.minScore, sp.maxScore, rng);
                     subjectSum += sScore * sp.weight;
                     weightSum += sp.weight;
-                    if (!Number.isFinite(sScore) || sScore < sp.minCutoff) {
+                    // ✅ LOTE-01: corte só reprova quando existe (minCutoff > 0)
+                    if (!Number.isFinite(sScore) || (sp.minCutoff > 0 && sScore < sp.minCutoff)) {
                         passedMins = false;
                     }
                 }
@@ -674,7 +679,11 @@ export function runMonteCarloAnalysis(params = {}) {
         return monteCarloSimulation([], 85, 90, 5000, {});
     }
 
-    const cacheKey = hashObject(params);
+    // ✅ LOTE-04 FIX (A4): aceitar chave pré-computada (ex.: pureStatsHash do hook)
+    // para evitar JSON.stringify de payloads enormes a cada chamada.
+    const cacheKey = (typeof params.cacheKey === 'string' && params.cacheKey.length > 0)
+        ? params.cacheKey
+        : hashObject(params);
     const cached = getCachedSimulation(cacheKey);
     if (cached) return cached;
 
@@ -692,6 +701,7 @@ export function runMonteCarloAnalysis(params = {}) {
         maxScore: objMaxScore,
         subjects: objSubjects,
         historicalCutoffs: objHistoricalCutoffs,
+        cacheKey: _providedCacheKey, // ✅ LOTE-04: não vazar para mergedOptions
         ...options
     } = params;
 

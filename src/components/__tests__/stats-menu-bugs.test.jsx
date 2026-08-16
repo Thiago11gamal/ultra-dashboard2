@@ -7,7 +7,8 @@ import { getSafeScore } from '../../utils/scoreHelper';
 describe('Stats Menu - Bugs & Logic Regression Suite', () => {
     describe('Bug 1: Chart Data Mappers fallback with minutes: 0 and duration > 0', () => {
         it('mapFocusEvolutionData correctly maps study log when minutes is 0 but duration is present', () => {
-            const today = new Date().toISOString().split('T')[0];
+            const { getDateKey } = require('../../utils/dateHelper');
+            const today = getDateKey(new Date());
             const logs = [
                 { id: '1', date: today, minutes: 0, duration: 60, subject: 'Matemática' }
             ];

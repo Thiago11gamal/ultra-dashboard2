@@ -9,6 +9,8 @@ import { pruneHistoryForMemory, getSortedHistory } from './stats.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
 // ✅ LOTE-03: importar do módulo probabilístico unificado
 import { fsrsRetrievability, fsrsIntervalForRetention } from './probabilistic/fsrs.js';
+// ✅ LOTE-01 FIX (C5): MSSD real para o risco de esquecimento
+import { calculateMSSD } from './projection.js';
 
 function _getEntryDate(entry) {
   const raw = entry?.date || entry?.createdAt;
@@ -376,9 +378,18 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   const retentionPct = Number((retention * 100).toFixed(1));
 
   const currentMean = _mean(sorted.map(h => getSafeScore(h, maxScore)));
-
-  // ✅ LOTE-03: usar fsrsIntervalForRetention em vez de computeOptimalReviewInterval
-  const optimalIntervalDays = fsrsIntervalForRetention(stability, 0.7);
+  // ✅ LOTE-01 FIX (C5): computeOptimalReviewInterval usa a MESMA base FSRS
+  // (9 * S * (1/R - 1)) mas consome mssdVolatility/effectiveN/agilityPenalty,
+  // que antes eram recebidos e ignorados silenciosamente.
+  const optimalIntervalDays = computeOptimalReviewInterval(
+    stability,
+    0.7,
+    mssdVolatility,
+    effectiveN,
+    maxScore,
+    currentMean,
+    agilityPenalty
+  );
 
   let risk;
   if (retentionPct < 30) risk = 'critical';
@@ -663,7 +674,12 @@ export function computeCategoryDiagnostics({
 
   const diagnostic = generateMathDiagnostic(safeHistory, maxScore);
   const hurst = diagnostic.hurstData;
-  const forgetting = computeForgettingRisk(safeHistory, maxScore, null, diagnostic?.mssd, safeHistory.length);
+  // ✅ LOTE-01 FIX (C5): diagnostic.mssd não existia (generateMathDiagnostic
+  // não retorna esse campo) → mssdVolatility era sempre undefined.
+  // Calculamos o MSSD real; computeOptimalReviewInterval espera a VARIÂNCIA (sd²).
+  const mssdSD = calculateMSSD(safeHistory, maxScore);
+  const mssdVariance = Number.isFinite(mssdSD) ? mssdSD * mssdSD : null;
+  const forgetting = computeForgettingRisk(safeHistory, maxScore, null, mssdVariance, safeHistory.length);
   const consistency = computeConsistencyIndex(safeHistory, maxScore);
   const velocity = computeLearningVelocity(safeHistory, maxScore);
 

@@ -1,5 +1,6 @@
 import React from 'react';
-import { CHART_COLORS } from '../../utils/chartConfig';
+// ✅ LOTE-04 FIX: CHART_COLORS removido — nunca era usado e o módulo
+// utils/chartConfig não existe no pacote (risco de quebra de build).
 import { formatValue } from '../../utils/scoreHelper';
 
 export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%', maxScore = 100, minScore = 0 }) => {
@@ -42,7 +43,9 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                     const dataKey = p.dataKey;
                     if (typeof dataKey !== 'string') return null;
 
-                    const catId = dataKey.replace(/^(bay_ci_low|bay_ci_high|trend_status|raw|bay|stats|trend)_/, '');
+                    // ✅ LOTE-04 FIX (M9): raw_correct/raw_total ANTES de raw,
+                    // senão "raw_correct_x" virava catId "correct_x" (lookup errado)
+                    const catId = dataKey.replace(/^(bay_ci_low|bay_ci_high|trend_status|raw_correct|raw_total|raw|bay|stats|trend)_/, '');
                     const subjName = p.name;
 
                     const rawCorrect = currentData ? currentData[`raw_correct_${catId}`] : null;

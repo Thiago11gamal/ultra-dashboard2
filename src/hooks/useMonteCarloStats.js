@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+// ✅ LOTE-04 FIX: default import React removido (não há JSX neste hook)
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
@@ -91,7 +92,10 @@ export function useMonteCarloStats({
     return Array.isArray(arr) ? arr : Object.values(arr || {});
   }));
 
-  const contest = useAppStore(state => state.appState?.contests?.[activeId]);
+    // ✅ LOTE-03 FIX (A2): assinar APENAS simuladoRows em vez do concurso inteiro.
+    // Antes, qualquer campo do concurso (studyLogs, flashcards, tasks, sessões...)
+    // trocava a referência de `contest` e re-renderizava os DOIS gauges.
+    const contestSimuladoRows = useAppStore(state => state.appState?.contests?.[activeId]?.simuladoRows);
 
   const calibrationEvents = useAppStore(useShallow(state => {
     const evs = state.appState?.contests?.[activeId]?.calibrationEvents;
@@ -101,10 +105,13 @@ export function useMonteCarloStats({
   const examDurationMinutes = useAppStore(state => state.appState?.contests?.[activeId]?.examDurationMinutes || 240);
   const defaultExamTotalQuestions = useAppStore(state => state.appState?.contests?.[activeId]?.examTotalQuestions || 100);
 
-  const rawSimuladoRows = useMemo(() => {
-    if (propSimuladoRows) return propSimuladoRows;
-    return contest?.simuladoRows || [];
-  }, [propSimuladoRows, contest?.simuladoRows]);
+    const rawSimuladoRows = useMemo(() => {
+        const source = propSimuladoRows ?? contestSimuladoRows ?? [];
+        // ✅ LOTE-03 FIX (M8): simuladoRows podem vir como OBJETO no Firebase.
+        // O guard `rawSimuladoRows.length === 0` do efeito de backfill falhava
+        // silenciosamente com objetos (undefined !== 0) e .map() quebraria.
+        return Array.isArray(source) ? source : Object.values(source);
+    }, [propSimuladoRows, contestSimuladoRows]);
 
   const calibrationSummary = useMemo(() => {
     if (calibrationEvents.length < 3) return null;
@@ -278,20 +285,21 @@ export function useMonteCarloStats({
     });
   }, [safeCategories, debouncedWeights, timeIndex, timelineDates, minScore, maxScore, rawSimuladoRows]);
 
-  const calibrationPenalty = useMemo(() => {
-    let pen = computeCalibrationPenalty(
-      mcHistory,
-      pureStatsData?.globalHistory,
-      maxScore,
-      calibrationSummary
-    );
+    const calibrationPenalty = useMemo(() => {
+        let pen = computeCalibrationPenalty(
+            mcHistory,
+            pureStatsData?.globalHistory,
+            maxScore,
+            calibrationSummary,
+            minScore // ✅ LOTE-03 FIX (M9): resíduo normalizado pelo domínio real [min, max]
+        );
 
     if (modelHealth < 0.6) {
       pen = Math.min(MAX_CALIBRATION_PENALTY, pen * (1 + (0.6 - modelHealth)));
     }
 
     return pen;
-  }, [mcHistory, pureStatsData?.globalHistory, maxScore, calibrationSummary, modelHealth]);
+    }, [mcHistory, pureStatsData?.globalHistory, maxScore, minScore, calibrationSummary, modelHealth]);
 
   const statsData = useMemo(() => {
     if (!pureStatsData) return null;
@@ -503,7 +511,9 @@ useEffect(() => {
             examDurationMinutes: examDurationRef.current,
             flashcardImmunity: globalImmunityFactor,
             // T-014 FIX: cortes históricos também no caminho principal
-            historicalCutoffs: historicalCutoffsRef.current
+            historicalCutoffs: historicalCutoffsRef.current,
+            // ✅ LOTE-04 FIX (A4): chave estável evita re-serialização do payload
+            cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${dynamicSimulationsRef.current}`
           });
         } else {
           const subjectsOpts = pureStatsData.categoryStats.map(c => {
@@ -737,14 +747,19 @@ useEffect(() => {
       cancelled = true;
       clearTimeout(timerId);
     };
-  }, [
-    pureStatsHash,
-    runAnalysis,
-    debouncedTarget,
-    calibrationPenalty,
-    projectDays,
-    effectiveSimulateToday
-  ]);
+        // ✅ LOTE-03 FIX (A7): o efeito captura safeCategories no closure para o
+        // cálculo de agilidade (timeSpent/timedQuestoes). Antes, entrava apenas
+        // indiretamente via pureStatsHash — mudanças estruturais nas categorias
+        // que não alterassem o hash usavam dados stale.
+    }, [
+        pureStatsHash,
+        runAnalysis,
+        debouncedTarget,
+        calibrationPenalty,
+        projectDays,
+        effectiveSimulateToday,
+        safeCategories
+    ]);
 
   const probabilityData = useMemo(() => {
     const rawProbability = simulationData?.data?.probability ?? 0;

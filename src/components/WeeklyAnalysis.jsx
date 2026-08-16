@@ -1,19 +1,19 @@
 import React, { useMemo } from 'react';
-import { BookOpen, Zap, Activity, Calendar, Clock, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Zap, Calendar, Clock, CheckCircle2 } from 'lucide-react'; // ✅ LOTE-04: Activity removido (não usado)
 import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE } from '../utils/dateHelper';
 
-export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
+// ✅ LOTE-04 FIX: movido para o escopo do módulo — antes era recriado a cada render
+// T-021 FIX: tasks podem ser arrays ou objetos no Firebase.
+const getTasksArray = (category) => {
+    if (!category?.tasks) return [];
+    return Array.isArray(category.tasks)
+        ? category.tasks
+        : Object.values(category.tasks || {});
+};
 
+export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
     const logsArray = useMemo(() => Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}), [studyLogs]);
     const categoriesArray = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
-
-    // T-021 FIX: tasks podem ser arrays ou objetos no Firebase.
-    const getTasksArray = (category) => {
-        if (!category?.tasks) return [];
-        return Array.isArray(category.tasks)
-            ? category.tasks
-            : Object.values(category.tasks || {});
-    };
 
     const { groups, stats } = useMemo(() => {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };

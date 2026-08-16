@@ -51,26 +51,31 @@ function medianValues(values) {
 }
 
 /**
- * Retrievability FSRS.
+ * Retrievability FSRS: probabilidade de lembrança após `daysSince` dias.
+ * R(t, S) = (1 + t / (9 * S))^-1
+ * @param {number} daysSince - dias desde a última revisão/estudo
+ * @param {number} stabilityDays - estabilidade de memória (dias)
+ * @returns {number} retenção em [0, 1]
  */
-export function fsrsRetrievability(daysSince, stability) {
+export function fsrsRetrievability(daysSince, stabilityDays) {
+  const S = Math.max(0.1, Number(stabilityDays) || 1);
   const t = Math.max(0, Number(daysSince) || 0);
-  const S = Math.max(0.1, Number(stability) || 1);
-
-  return Math.pow(1 + t / (9 * S), -1);
+  const r = Math.pow(1 + t / (9 * S), -1);
+  return Number.isFinite(r) ? Math.max(0, Math.min(1, r)) : 0;
 }
 
 /**
- * Intervalo ótimo para uma retenção desejada.
- *
- * R = (1 + t/(9S))^-1
- * t = 9S * (1/R - 1)
+ * Intervalo que produz a retenção-alvo R.
+ * Derivado de R = (1 + t/(9S))^-1  =>  t = 9 * S * (1/R - 1)
+ * @param {number} stabilityDays - estabilidade de memória (dias)
+ * @param {number} targetRetention - retenção desejada (padrão 0.7)
+ * @returns {number} intervalo em dias (inteiro, mínimo 1)
  */
-export function fsrsIntervalForRetention(stability, desiredRetention = 0.9) {
-  const S = Math.max(0.1, Number(stability) || 1);
-  const R = clampFinite(desiredRetention, 0.05, 0.99, 0.9);
-
-  return Math.max(0, 9 * S * (1 / R - 1));
+export function fsrsIntervalForRetention(stabilityDays, targetRetention = 0.7) {
+  const S = Math.max(0.1, Number(stabilityDays) || 1);
+  const R = Math.max(0.05, Math.min(0.99, Number(targetRetention) || 0.7));
+  const interval = 9 * S * ((1 / R) - 1);
+  return Number.isFinite(interval) ? Math.max(1, Math.round(interval)) : 1;
 }
 
 /**

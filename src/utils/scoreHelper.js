@@ -101,8 +101,10 @@ export function getSafeScore(historyRow, maxScore = 100, minScore = 0) {
     const safeCorrect = Number.isFinite(correct) ? correct : 0;
     return Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + (safeCorrect / total) * (safeMaxScore - safeMinScore)));
   }
-  
-  return 0;
+  // ✅ LOTE-01 FIX (C2): registro sem score E sem total/correct é INVÁLIDO.
+  // O "return 0" anterior passava pelos filtros `safeScore >= 0` e injetava
+  // zeros falsos no histórico, corrompendo média, regressão e Monte Carlo.
+  return NaN;
 }
 
 export function getSafeQuestionStats(historyRow, maxScore = 100, options = {}) {
@@ -205,6 +207,9 @@ export function toPoints(val, maxScore = 100, minScore = 0, unit = 'points') {
     return Math.max(safeMin, Math.min(safeMax, safeMin + v * range));
   }
   if (unit === 'auto') {
+    // ⚠️ LOTE-04: DEPRECADO — conflita com a regra de ouro do
+    // scoreHelper.conversions.js. Migrar call sites para ratioToPoints/
+    // pctToPoints/pointsToRatio e remover este ramo.
     if (v >= 0 && v <= 1 && safeMax > 1) {
       return Math.max(safeMin, Math.min(safeMax, safeMin + v * range));
     }
@@ -229,6 +234,7 @@ export function toPct(val, maxScore = 100, minScore = 0, unit = 'points') {
   if (unit === 'ratio') {
     return Math.max(0, Math.min(100, v * 100));
   }
+  // ⚠️ LOTE-04: DEPRECADO — ver nota em toPoints
   if (unit === 'auto' && v >= 0 && v <= 1 && safeMax > 1) {
     return Math.max(0, Math.min(100, v * 100));
   }
