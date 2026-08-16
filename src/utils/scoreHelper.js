@@ -163,6 +163,44 @@ export function pointsToPct(points, maxScore = 100) {
   return toPct(points, maxScore);
 }
 
+/**
+ * Formata valores numéricos para exibição em UI.
+ * Mantém uma leitura legível em pontuação, percentuais e métricas em geral.
+ */
+export function formatValue(value, digits = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0';
+
+  const safeDigits = Number.isFinite(Number(digits)) ? Math.max(0, Number(digits)) : 1;
+
+  if (Math.abs(n) >= 1000) {
+    return n.toLocaleString('pt-BR', { maximumFractionDigits: safeDigits, minimumFractionDigits: 0 });
+  }
+
+  if (Math.abs(n) >= 10) {
+    return n.toFixed(Math.min(safeDigits, 1)).replace(/\.0$/, '').replace(/(\.\d*?)0+$/, '$1');
+  }
+
+  if (Math.abs(n) >= 1) {
+    return n.toFixed(Math.max(1, safeDigits)).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  }
+
+  if (Math.abs(n) > 0) {
+    return n.toFixed(Math.max(2, safeDigits + 1)).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  }
+
+  return '0';
+}
+
+/**
+ * Formata percentuais para exibição em UI.
+ */
+export function formatPercent(value, digits = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0%';
+  return `${formatValue(n, digits)}%`;
+}
+
 // ✅ LOTE-01 FIX (C2): registro sem score E sem total/correct é INVÁLIDO.
 // O "return 0" anterior passava pelos filtros `safeScore >= 0` e injetava
 // zeros falsos no histórico, corrompendo média, regressão e Monte Carlo.

@@ -159,3 +159,29 @@ export async function generateViaBackend({
     clearTimeout(timeoutId);
   }
 }
+
+/**
+ * API pública compatível com o restante do app.
+ * Tenta geração direta e cai para o backend quando necessário.
+ */
+export async function generateAIQuestions(params = {}) {
+  const payload = params || {};
+
+  try {
+    const direct = await generateViaGeminiDirect(payload);
+    if (Array.isArray(direct) && direct.length > 0) return direct;
+  } catch (error) {
+    // fallback explícito para backend
+  }
+
+  return generateViaBackend(payload);
+}
+
+export default {
+  AI_QUESTION_SCHEMA,
+  validateAIQuestion,
+  validateAIQuestions,
+  generateViaGeminiDirect,
+  generateViaBackend,
+  generateAIQuestions,
+};

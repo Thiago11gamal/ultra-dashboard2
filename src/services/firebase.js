@@ -9,9 +9,9 @@ import {
     clearIndexedDbPersistence,
 } from 'firebase/firestore';
 import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getAppAnalytics } from 'firebase/analytics';
+import { getAnalytics } from 'firebase/analytics';
 
-const firebaseConfig = {
+export const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -36,6 +36,11 @@ let app = null;
 let db = null;
 let auth = null;
 let analytics = null;
+
+export function getAppAnalytics(appInstance = app) {
+    if (!appInstance) return null;
+    return getAnalytics(appInstance);
+}
 
 if (!isLocalMode) {
     try {
