@@ -101,6 +101,10 @@ export function getSafeScore(historyRow, maxScore = 100, minScore = 0) {
     const safeCorrect = Number.isFinite(correct) ? correct : 0;
     return Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + (safeCorrect / total) * (safeMaxScore - safeMinScore)));
   }
+  // ✅ FIX: Tratar caso total=0 E correct=0 como score mínimo (não NaN)
+  if (total === 0 && Number.isFinite(correct) && correct === 0) {
+      return safeMinScore; // Zero acertos em zero questões = score mínimo
+  }
   // ✅ LOTE-01 FIX (C2): registro sem score E sem total/correct é INVÁLIDO.
   // O "return 0" anterior passava pelos filtros `safeScore >= 0` e injetava
   // zeros falsos no histórico, corrompendo média, regressão e Monte Carlo.

@@ -228,7 +228,16 @@ export function simulateNormalDistribution(
     const safeSimulations = sanitizeSimulations(simulations);
 
     if (safeSD < 1e-5) {
-        const prob = safeMean >= effectiveTarget ? 100 : 0;
+        // ✅ FIX: Na fronteira exata, probabilidade é 50% (distribuição degenerada simétrica)
+        const EPS = 1e-9;
+        let prob;
+        if (safeMean > effectiveTarget + EPS) {
+            prob = 100;
+        } else if (safeMean < effectiveTarget - EPS) {
+            prob = 0;
+        } else {
+            prob = 50; // Fronteira exata
+        }
 
         return {
             simulationCount: safeSimulations,

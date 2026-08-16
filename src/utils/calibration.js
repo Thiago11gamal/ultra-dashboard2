@@ -172,9 +172,11 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
       const candidates = timed.filter(x => x.ts >= Number(ev.timestamp));
       if (candidates.length > 0) {
         const firstDayKey = getDateKey(candidates[0].row.date || candidates[0].row.createdAt);
-        const sameDay = candidates.filter(x =>
-          getDateKey(x.row.date || x.row.createdAt) === firstDayKey
-        );
+        if (!firstDayKey) return ev; // ✅ FIX: data inválida → pular evento
+        const sameDay = candidates.filter(x => {
+          const key = getDateKey(x.row.date || x.row.createdAt);
+          return key !== null && key === firstDayKey; // ✅ FIX: excluir nulls
+        });
         let sumScore = 0;
         let sumWeight = 0;
         sameDay.forEach(x => {

@@ -217,9 +217,10 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
 export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, globalTotal = 0) => {
     const rawAcertos = Number(acertos) || 0;
     const rawTotal = Number(total) || 0;
-    const safeMedia = Number.isFinite(mediaGlobal) ? mediaGlobal : 0.5;
-
-    const K = Math.max(3, Math.min(15, Math.log10(Math.max(0, globalTotal) + 1) * 3));
+    // ✅ FIX: Blindar contra NaN propagado
+    const safeMedia = Number.isFinite(mediaGlobal) ? Math.max(0, Math.min(1, mediaGlobal)) : 0.5;
+    const safeGlobalTotal = Number.isFinite(globalTotal) ? Math.max(0, globalTotal) : 0;
+    const K = Math.max(3, Math.min(15, Math.log10(safeGlobalTotal + 1) * 3));
 
     const untestedPrior = 0.25;
     const dataTrust = Math.min(1, rawTotal / K);
@@ -354,7 +355,9 @@ export const getCoachPriorities = (topicsData) => {
     return acc + tot;
   }, 0);
 
-  const mediaGlobal = globalTotal > 0 ? globalCorrect / globalTotal : 0.5;
+  const mediaGlobal = (globalTotal > 0 && Number.isFinite(globalCorrect / globalTotal))
+    ? globalCorrect / globalTotal
+    : 0.5;
 
   return topicsData.map(topic => {
     const parsedAcertos = sanitizeNum(topic.acertos);
@@ -1993,7 +1996,9 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
                 topicMap[name].scores.push({
                     score: (topicCorrect / topicTotal) * 100,
                     total: topicTotal,
-                    date: entryDate.toISOString()
+                    date: entryDate.toISOString(),
+                    // ✅ FIX (BUG-H05): Preservar maxScore no payload para FSRS (necessário para re-escala de estabilidade)
+                    maxScore: maxScore 
                 });
             }
 

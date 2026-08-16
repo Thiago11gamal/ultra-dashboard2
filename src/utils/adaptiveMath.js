@@ -245,9 +245,11 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     let weightedMean;
 
     if (sumW < 1e-6) {
-      // Fallback: média simples (todos os pesos são efetivamente iguais)
+      // Fallback: pesos decaíram completamente → média simples com N real
       effectiveN = finiteScores.length;
       weightedMean = kahanMean(finiteScores);
+      // ✅ FIX: Marcar explicitamente que NÃO houve ponderação
+      // para que consumidores downstream saibam que é fallback
     } else {
       effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
       weightedMean = kahanSum(finiteScores.map((s, i) => s * weighted[i])) / sumW;
@@ -440,7 +442,7 @@ export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificulda
     
     // CORREÇÃO CIENTÍFICA (FSRS): A dificuldade afeta a construção da Estabilidade (S), 
     // não deve aplicar um corte instantâneo de penalização na hora t=0.
-    const difficultyFactor = 1 - (Math.max(0.1, Math.min(1.0, dificuldade)) * 0.15); 
+    const difficultyFactor = 1 - (Math.max(0.1, Math.min(1.0, dificuldade)) * 0.35); 
     
     // S = exp(forcaMemoria * fator_escala) modulado pela dificuldade do item.
     // Tópicos difíceis geram consolidações mais frágeis (menor Estabilidade).

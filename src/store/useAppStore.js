@@ -134,6 +134,10 @@ export const useAppStore = create(
                             version: 0,
                             dashboardFilter: 'all',
                             hasSeenTour: false,
+                            // ✅ FIX: Restaurar campos de data isolation global
+                            lastReviewSummary: null,
+                            lastReviewTime: null,
+                            activeWorkspace: 'default', // Para isolamento futuro
                             pomodoro: { 
                                 activeSubject: null, 
                                 sessions: 1, 

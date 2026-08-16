@@ -85,7 +85,10 @@ export const getDateKey = (rawDate) => {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const day = String(date.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const result = `${year}-${month}-${day}`;
+  // ✅ FIX: Rejeitar datas obviamente inválidas
+  if (year < 2000 || year > 2100) return null;
+  return result;
 };
 
 export const getLocalMidnight = (date = new Date()) => {

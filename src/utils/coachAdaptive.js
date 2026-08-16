@@ -64,7 +64,7 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
     return sorted[lo] * (1 - t) + sorted[hi] * t;
   };
   const median = q(0.5);
-  const isZeroVariance = cleanScores.every(s => s === median);
+  const isZeroVariance = cleanScores.every(s => Math.abs(s - median) < 1e-6);
   if (isZeroVariance) {
     const danger = Math.max(15, Math.min(70, median - 12.5));
     const safe = Math.min(95, Math.max(danger + 25, median + 12.5));

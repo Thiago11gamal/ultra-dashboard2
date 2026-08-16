@@ -513,7 +513,8 @@ useEffect(() => {
             // T-014 FIX: cortes históricos também no caminho principal
             historicalCutoffs: historicalCutoffsRef.current,
             // ✅ LOTE-04 FIX (A4): chave estável evita re-serialização do payload
-            cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${dynamicSimulationsRef.current}`
+            // ✅ LOTE-06 FIX (BUG-C05): cacheKey deve incluir debouncedTarget
+            cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${dynamicSimulationsRef.current}-tgt${debouncedTarget}`
           });
         } else {
           const subjectsOpts = pureStatsData.categoryStats.map(c => {
