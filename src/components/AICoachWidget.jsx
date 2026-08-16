@@ -9,6 +9,7 @@ import { useAppStore } from '../store/useAppStore';
 import { displaySubject, displayTopic } from '../utils/displaySubject';
 import { getCalibrationKey } from '../utils/coachSafe.js';
 import { RX_REC_MARKUP } from '../utils/coachText';
+import { safeDomain, clampFinite, toProbPct, pointsToPct } from '../utils/measurement';
 
 // FIX-BUG-02: Regex com escape correto para **, !!, ++
 function renderRecommendation(text, depth = 0) {
