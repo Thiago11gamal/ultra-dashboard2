@@ -8,13 +8,24 @@ const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 // [LOTE 5] PAV extraído para reuso com restrição de bloco mínimo
 function pavBlocks(blocks) {
   let i = 0;
-  while (i < blocks.length - 1) {
+  let iterations = 0;
+  const maxIterations = Math.max(100, blocks.length * 10); // ✅ FIX #3: Guard contra loop infinito
+  
+  while (i < blocks.length - 1 && iterations < maxIterations) {
+    iterations++;
     if (blocks[i].mean <= blocks[i + 1].mean) { i++; continue; }
     const a = blocks[i], b = blocks[i + 1];
-    const merged = { minX: a.minX, maxX: b.maxX, sumWY: a.sumWY + b.sumWY, sumW: a.sumW + b.sumW, mean: 0 };
-    merged.mean = merged.sumWY / merged.sumW;
+    // ✅ FIX #3: Check sumW > 0 para evitar divisão por zero
+    const sumW = a.sumW + b.sumW;
+    if (sumW <= 0) { i++; continue; }
+    const merged = { minX: a.minX, maxX: b.maxX, sumWY: a.sumWY + b.sumWY, sumW: sumW, mean: 0 };
+    merged.mean = merged.sumWY / sumW;
     blocks.splice(i, 2, merged);
     if (i > 0) i--;
+  }
+  
+  if (iterations >= maxIterations) {
+    console.warn('[calibration] pavBlocks atingiu limite de iterações, possível convergência lenta');
   }
   return blocks;
 }
@@ -271,7 +282,8 @@ export function fitIsotonicCalibration(pairs = [], options = {}) {
   let blocks = pavBlocks(clean.map(p => ({ minX: p.x, maxX: p.x, sumWY: p.y, sumW: 1, mean: p.y })));
   const minBlock = Math.max(2, Math.floor(clean.length / (Number(options.maxBlocks) || 6)));
   let guard = 0;
-  while (blocks.length > 1 && blocks.some(b => b.sumW < minBlock) && guard++ < 24) {
+  // ✅ FIX #6: Guard++ ANTES da condição para evitar iterações extras
+  while (++guard <= 24 && blocks.length > 1 && blocks.some(b => b.sumW < minBlock)) {
     const idx = blocks.findIndex(b => b.sumW < minBlock);
     const left = blocks[idx - 1];
     const right = blocks[idx + 1];

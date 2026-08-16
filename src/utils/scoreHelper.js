@@ -1,265 +1,169 @@
-export const SYNTHETIC_EVIDENCE_TOTAL = 20;
+/**
+ * Utilitários de sanitização de scores e linhas de simulado.
+ * Centraliza invariantes matemáticos para evitar dados impossíveis.
+ */
 
-export function getSyntheticTotal(_maxScore = 100) {
-  return SYNTHETIC_EVIDENCE_TOTAL;
+/**
+ * Volume sintético conservador para registros puramente percentuais.
+ * Reduzido de 20 para 5 para evitar inflação de volume.
+ */
+export const SYNTHETIC_PERCENT_ONLY_TRIALS = 5;
+
+/**
+ * Retorna o "peso sintético" (em número de questões) para registros
+ * que possuem APENAS percentual, sem total real.
+ *
+ * ⚠️ Consumidores devem tratar `synthetic: true` como baixa confiança.
+ */
+export function getSyntheticTotal(_maxScore = 100, options = {}) {
+  const trials = options?.syntheticTrials ?? SYNTHETIC_PERCENT_ONLY_TRIALS;
+  return trials;
 }
 
-export const normalizePercentInput = (value) => {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return NaN;
-  return n;
-};
-
-// ✅ FIX: Parser robusto para números com separadores BR (1.234,56)
-export function parseLocaleNumber(value, fallback = NaN) {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
-  if (value === null || value === undefined) return fallback;
-  
-  let raw = String(value).trim();
-  if (!raw) return fallback;
-  
-  raw = raw.replace(/\s/g, '');
-  
-  const lastComma = raw.lastIndexOf(',');
-  const lastDot = raw.lastIndexOf('.');
-  
-  if (lastComma > lastDot) {
-    // Formato BR: 1.234,56
-    raw = raw.replace(/\./g, '').replace(',', '.');
-  } else if (lastDot > lastComma) {
-    const parts = raw.split('.');
-    const lastPart = parts[parts.length - 1];
-    if (lastComma === -1 && parts.length === 2 && lastPart.length === 3) {
-      // Formato US: 1.234 (milhar)
-      raw = raw.replace(/\./g, '');
-    } else {
-      // Formato US: 1,234.56
-      raw = raw.replace(/,/g, '');
-    }
-  } else {
-    raw = raw.replace(/[,.]/g, '');
-  }
-  
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : fallback;
+/**
+ * Detecta se um registro deve ser tratado como "somente percentual"
+ * (baixa confiança estatística) — usado por engines de Pareto, tempo, etc.
+ */
+export function isPercentOnlyRecord(row) {
+  return (
+    row &&
+    Number.isFinite(Number(row.score)) &&
+    (!Number.isFinite(Number(row.total)) || Number(row.total) <= 0)
+  );
 }
 
-export function getSafeScore(historyRow, maxScore = 100, minScore = 0) {
-  const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const safeMinScore = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMaxScore) : 0;
-  
-  if (typeof historyRow === 'number') {
-    return Math.max(safeMinScore, Math.min(safeMaxScore, historyRow));
-  }
-  
-  if (!historyRow) return NaN;
-  
-  if (historyRow.score != null) {
-    let s;
-    if (typeof historyRow.score === 'number') {
-      s = historyRow.score;
-    } else {
-      // ✅ FIX: Usa parseLocaleNumber para tratar 1.234,56
-      s = parseLocaleNumber(historyRow.score, NaN);
-    }
-    
-    if (historyRow.isPercentage) {
-      const pctValue = normalizePercentInput(s);
-      if (!Number.isFinite(pctValue)) return NaN;
+/**
+ * Normaliza linha de simulado garantindo invariantes matemáticos:
+ *  - total >= 0
+ *  - 0 <= correct <= total
+ *  - score em [0, maxScore]
+ *  - pct em [0, 100]
+ *
+ * Retorna a linha sanitizada e um `_warnings` array.
+ */
+export function sanitizeSimuladoRow(row, maxScore = 100) {
+  const warnings = [];
+  const safeMax = Number.isFinite(maxScore) && maxScore > 0 ? maxScore : 100;
 
-      // ✅ FIX: Se o valor excede 100, provavelmente NÃO é percentual.
-      // Trata como score absoluto para evitar inflação.
-      if (Math.abs(pctValue) > 100.01) {
-        s = Math.max(safeMinScore, Math.min(safeMaxScore, pctValue));
-      } else {
-        const clampedPct = Math.max(0, Math.min(100, pctValue));
-        s = safeMinScore + (clampedPct / 100) * (safeMaxScore - safeMinScore);
-      }
-    }
-    
-    return Number.isFinite(s) ? Math.max(safeMinScore, Math.min(safeMaxScore, s)) : NaN;
-  }
-  
-  // ✅ FIX: Usa parseLocaleNumber para total e correct
-  const total = parseLocaleNumber(historyRow.total, NaN);
-  const correct = parseLocaleNumber(historyRow.correct, NaN);
-  
-  if (historyRow.isPercentage) {
-    if (!Number.isFinite(correct)) return NaN;
-    const pValue = normalizePercentInput(correct);
-    if (!Number.isFinite(pValue)) return NaN;
-    // ✅ FIX: Mesmo tratamento para correct como percentual
-    if (Math.abs(pValue) > 100.01) {
-      return Math.max(safeMinScore, Math.min(safeMaxScore, pValue));
-    }
-    const clampedPct = Math.max(0, Math.min(100, pValue));
-    const scoreFromPercentage = safeMinScore + (clampedPct / 100) * (safeMaxScore - safeMinScore);
-    return Number.isFinite(scoreFromPercentage) ? Math.max(safeMinScore, Math.min(safeMaxScore, scoreFromPercentage)) : NaN;
-  }
-  
-  if (total > 0) {
-    const safeCorrect = Number.isFinite(correct) ? correct : 0;
-    return Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + (safeCorrect / total) * (safeMaxScore - safeMinScore)));
-  }
-  // ✅ FIX: Tratar caso total=0 E correct=0 como score mínimo (não NaN)
-  if (total === 0 && Number.isFinite(correct) && correct === 0) {
-      return safeMinScore; // Zero acertos em zero questões = score mínimo
-  }
-  // ✅ LOTE-01 FIX (C2): registro sem score E sem total/correct é INVÁLIDO.
-  // O "return 0" anterior passava pelos filtros `safeScore >= 0` e injetava
-  // zeros falsos no histórico, corrompendo média, regressão e Monte Carlo.
-  return NaN;
-}
+  let total = Math.max(0, Math.trunc(Number(row?.total)) || 0);
+  let correct = Math.max(0, Math.trunc(Number(row?.correct)) || 0);
 
-export function getSafeQuestionStats(historyRow, maxScore = 100, options = {}) {
-  const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const syntheticTotal = Number.isFinite(Number(options.syntheticTotal))
-    ? Math.max(0, Number(options.syntheticTotal))
-    : getSyntheticTotal(safeMaxScore);
-  
-  if (!historyRow || typeof historyRow !== 'object') {
-    return { total: 0, correct: 0, wrong: 0, score: NaN, percentage: 0, hasData: false, isSynthetic: false };
+  if (correct > total && total > 0) {
+    warnings.push(`correct(${correct}) > total(${total}) → clampado para ${total}`);
+    correct = total;
   }
-  
-  const rawTotal = parseLocaleNumber(historyRow.total, NaN);
-  const rawCorrect = parseLocaleNumber(historyRow.correct, NaN);
-  const rawWrong = parseLocaleNumber(historyRow.wrong, NaN);
-  const safeScore = getSafeScore(historyRow, safeMaxScore);
-  
-  const hasExplicitTotal = Number.isFinite(rawTotal) && rawTotal > 0;
-  let total = hasExplicitTotal ? rawTotal : 0;
-  let correct = NaN;
-  let isSynthetic = false;
-  
-  if (total > 0) {
-    if (Number.isFinite(rawCorrect) && !historyRow.isPercentage) {
-      correct = rawCorrect;
-    } else if (Number.isFinite(safeScore)) {
-      correct = (safeScore / safeMaxScore) * total;
-    } else if (Number.isFinite(rawWrong)) {
-      correct = total - rawWrong;
-    }
-  } else if (Number.isFinite(rawCorrect) || Number.isFinite(rawWrong)) {
-    const c = Math.max(0, Number.isFinite(rawCorrect) ? rawCorrect : 0);
-    const w = Math.max(0, Number.isFinite(rawWrong) ? rawWrong : 0);
-    total = c + w;
-    correct = c;
-  } else if (Number.isFinite(safeScore) && syntheticTotal > 0) {
-    total = syntheticTotal;
-    correct = (safeScore / safeMaxScore) * total;
-    isSynthetic = true;
-  }
-  
-  if (!(total > 0)) {
-    return { total: 0, correct: 0, wrong: 0, score: NaN, percentage: 0, hasData: false, isSynthetic };
-  }
-  
-  const boundedCorrect = Math.max(0, Math.min(total, Number.isFinite(correct) ? correct : 0));
-  const wrong = Math.max(0, total - boundedCorrect);
-  const score = (boundedCorrect / total) * safeMaxScore;
-  
+
+  const pct = total > 0 ? (correct / total) * 100 : 0;
+  const score = total > 0 ? (correct / total) * safeMax : 0;
+
   return {
-    total, correct: boundedCorrect, wrong, score,
-    percentage: (boundedCorrect / total) * 100,
-    hasData: true, isSynthetic
+    ...row,
+    total,
+    correct,
+    pct: Math.max(0, Math.min(100, pct)),
+    score: Math.max(0, Math.min(safeMax, score)),
+    _warnings: warnings,
   };
 }
 
-export function formatPercent(value) {
-  if (value === null || value === undefined) return '0%';
-  let num;
-  if (typeof value === 'number') {
-    num = value;
-  } else {
-    num = parseLocaleNumber(value, 0);
-  }
-  const formatted = parseFloat(num.toFixed(2));
-  return `${formatted}%`;
-}
-
-export function formatValue(value) {
-  if (value === null || value === undefined) return '0';
-  let num;
-  if (typeof value === 'number') {
-    if (Number.isNaN(value)) return '0';
-    num = value;
-  } else {
-    num = parseLocaleNumber(value, 0);
-  }
-  return String(parseFloat(num.toFixed(2)));
-}
-
-/** @typedef {number} ScorePoints  — pontos absolutos na escala [minScore, maxScore] */
-/** @typedef {number} ScorePct     — percentual normatizado [0, 100] */
-/** @typedef {number} ScoreRatio   — razão proporcional [0, 1] */
-
 /**
- * Converte qualquer valor em pontos (ScorePoints) no domínio [minScore, maxScore].
- * Padrão (unit = 'points') assume que val já está em pontos e aplica clamp no intervalo.
+ * Sanitiza score individual garantindo que está dentro do range [minScore, maxScore].
  */
-export function toPoints(val, maxScore = 100, minScore = 0, unit = 'points') {
-  const v = Number(val);
-  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  if (!Number.isFinite(v)) return safeMin;
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMin ? Number(maxScore) : 100;
-  const range = safeMax - safeMin;
+export function getSafeScore(row, maxScore = 100, minScore = 0) {
+  const safeMax = Number.isFinite(maxScore) && maxScore > 0 ? maxScore : 100;
+  const safeMin = Number.isFinite(minScore) && minScore >= 0 ? minScore : 0;
 
-  if (unit === 'pct' || unit === '%') {
-    return Math.max(safeMin, Math.min(safeMax, safeMin + (v / 100) * range));
+  // Se tem total e correct, calcula score proporcional
+  if (Number.isFinite(row?.total) && row.total > 0 && Number.isFinite(row?.correct)) {
+    const clamped = Math.max(0, Math.min(row.total, row.correct));
+    return (clamped / row.total) * safeMax;
   }
-  if (unit === 'ratio') {
-    return Math.max(safeMin, Math.min(safeMax, safeMin + v * range));
+
+  // Se tem score direto, clamp
+  const score = Number(row?.score);
+  if (Number.isFinite(score)) {
+    return Math.max(safeMin, Math.min(safeMax, score));
   }
-  if (unit === 'auto') {
-    // ⚠️ LOTE-04: DEPRECADO — conflita com a regra de ouro do
-    // scoreHelper.conversions.js. Migrar call sites para ratioToPoints/
-    // pctToPoints/pointsToRatio e remover este ramo.
-    if (v >= 0 && v <= 1 && safeMax > 1) {
-      return Math.max(safeMin, Math.min(safeMax, safeMin + v * range));
-    }
-    if (safeMax !== 100 && v >= 0 && v <= 100) {
-      return Math.max(safeMin, Math.min(safeMax, safeMin + (v / 100) * range));
-    }
-  }
-  return Math.max(safeMin, Math.min(safeMax, v));
+
+  return null;
 }
 
 /**
- * Converte valor em percentual (ScorePct) [0, 100].
- * Padrão (unit = 'points') converte pontos na escala [minScore, maxScore] para % [0, 100].
+ * Clamp genérico para valores numéricos.
  */
-export function toPct(val, maxScore = 100, minScore = 0, unit = 'points') {
-  const v = Number(val);
-  if (!Number.isFinite(v)) return 0;
-  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMin ? Number(maxScore) : 100;
-  const range = safeMax - safeMin;
-
-  if (unit === 'ratio') {
-    return Math.max(0, Math.min(100, v * 100));
-  }
-  // ⚠️ LOTE-04: DEPRECADO — ver nota em toPoints
-  if (unit === 'auto' && v >= 0 && v <= 1 && safeMax > 1) {
-    return Math.max(0, Math.min(100, v * 100));
-  }
-  return Math.max(0, Math.min(100, ((v - safeMin) / range) * 100));
+export function clamp(value, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
 }
 
 /**
- * Converte qualquer pontuação para razão proporcional (ScoreRatio) [0, 1].
+ * Retorna um número finito ou fallback.
  */
-export function toRatio(val, maxScore = 100, minScore = 0, unit = 'points') {
-  return Math.max(0, Math.min(1, toPct(val, maxScore, minScore, unit) / 100));
+export function toFiniteNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
-export {
-  ratioToPoints,
-  pctToPoints,
-  pointsToRatio,
-  pointsToPct,
-  toAccuracyRatio,
-  ratioToCorrect
-} from './scoreHelper.conversions.js';
+/**
+ * Converte score bruto em pontos (preservando valor).
+ * Modo 'raw' (padrão): retorna score como está.
+ * Modo 'pct': interpreta score como percentagem e converte para pontos.
+ */
+export function toPoints(score, maxScore = 100, minScore = 0, mode = 'raw') {
+  // ✅ FIX #9: Validar e respeitar intervalo [minScore, maxScore]
+  const rawMax = Number(maxScore);
+  const rawMin = Number(minScore);
+  const safeMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
+  const safeMin = Number.isFinite(rawMin) && rawMin >= 0 ? rawMin : 0;
+  // Garantir que minScore <= maxScore
+  const finalMin = Math.min(safeMin, safeMax);
+  const finalMax = Math.max(safeMin, safeMax);
+  
+  const rawScore = Number(score);
+  if (!Number.isFinite(rawScore)) return finalMin;
+  
+  if (mode === 'pct') {
+    // Interpreta como percentagem: 80 => 80% de (maxScore - minScore) + minScore
+    const result = (rawScore / 100) * (finalMax - finalMin) + finalMin;
+    return Math.max(finalMin, Math.min(finalMax, result));
+  }
+  
+  // Modo 'raw': retorna score como está, clampado ao intervalo [minScore, maxScore]
+  return Math.max(finalMin, Math.min(finalMax, rawScore));
+}
 
+/**
+ * Converte percentagem em pontos.
+ * Ex: pctToPoints(80, 200) => 160 pontos
+ */
+export function pctToPoints(pct, maxScore = 100) {
+  const safeMax = Math.max(1, Number(maxScore) || 100);
+  const safePct = Math.max(0, Math.min(100, Number(pct) || 0));
+  return (safePct / 100) * safeMax;
+}
 
+/**
+ * Converte pontos em percentagem.
+ * Ex: toPct(80, 200) => 40% (80/200 = 0.4 = 40%)
+ */
+export function toPct(points, maxScore = 100) {
+  const rawMax = Number(maxScore);
+  const safeMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
+  const safePoints = Math.max(0, Math.min(safeMax, Number(points) || 0));
+  // ✅ FIX #4: Garantir que resultado está sempre no intervalo [0, 100]
+  const result = (safePoints / safeMax) * 100;
+  return Math.max(0, Math.min(100, result));
+}
+
+/**
+ * Alias: converte pontos brutos em percentagem.
+ */
+export function pointsToPct(points, maxScore = 100) {
+  return toPct(points, maxScore);
+}
+
+// ✅ LOTE-01 FIX (C2): registro sem score E sem total/correct é INVÁLIDO.
+// O "return 0" anterior passava pelos filtros `safeScore >= 0` e injetava
+// zeros falsos no histórico, corrompendo média, regressão e Monte Carlo.
 

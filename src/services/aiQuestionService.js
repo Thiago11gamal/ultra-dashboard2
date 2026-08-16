@@ -1,5 +1,20 @@
-import logger from '../utils/logger.js';
-import { getAuth } from 'firebase/auth';
+// 🔒 [SECURITY] Chave Gemini NUNCA deve ser usada no frontend.
+// Todas as chamadas passam por um backend proxy autenticado.
+// ROTA OBRIGATÓRIA: rotacione a chave Gemini atual imediatamente.
+
+const AI_BACKEND_URL = import.meta.env.VITE_AI_BACKEND_URL || '/api';
+const AI_TIMEOUT_MS = Number(import.meta.env.VITE_AI_TIMEOUT_MS) || 60_000;
+
+// ✅ FIX #1: Validação de URL para evitar requisições a endpoints inválidos
+function isValidUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export const AI_QUESTION_SCHEMA = {
   id: 'string',
@@ -9,146 +24,138 @@ export const AI_QUESTION_SCHEMA = {
   justificativa: 'string',
   materia: 'string',
   assunto: 'string',
-  dificuldade: 'facil | medio | dificil | expert'
+  dificuldade: 'facil| medio| dificil| expert',
 };
 
-const AI_BACKEND_URL = import.meta.env.VITE_API_BACKEND_URL || '';
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+/**
+ * Valida e sanitiza uma questão individual retornada pela IA.
+ */
+export function validateAIQuestion(question) {
+  const VALID_LETTERS = ['A', 'B', 'C', 'D'];
 
-async function generateViaGeminiDirect({ materia, assunto, dificuldade, quantidade, contestName, apiKey, signal }) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+  if (!question || typeof question !== 'object') return null;
 
-  const prompt = `Você é uma banca examinadora especialista em concursos públicos (nível: ${contestName}).
-Elabore exatamente ${quantidade} questões inéditas e realistas de múltipla escolha sobre:
-- Matéria: "${materia}"
-- Assunto: "${assunto}"
-- Nível de Dificuldade: "${dificuldade}"
+  if (!question.enunciado || typeof question.enunciado !== 'string') return null;
 
-Requisitos obrigatórios:
-1. Retorne estritamente um array JSON válido contendo exatamente ${quantidade} objetos de questão.
-2. Cada questão deve possuir o seguinte formato exato:
-{
-  "id": "q1",
-  "enunciado": "Texto claro do enunciado da questão...",
-  "alternativas": [
-    { "letra": "A", "texto": "Alternativa A..." },
-    { "letra": "B", "texto": "Alternativa B..." },
-    { "letra": "C", "texto": "Alternativa C..." },
-    { "letra": "D", "texto": "Alternativa D..." }
-  ],
-  "alternativa_correta": "A",
-  "justificativa": "Explicação completa e didática do porquê a alternativa correta está certa e as outras erradas.",
-  "materia": "${materia}",
-  "assunto": "${assunto}",
-  "dificuldade": "${dificuldade}"
-}`;
+  if (!Array.isArray(question.alternativas) || question.alternativas.length < 2) return null;
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    signal,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        role: 'user',
-        parts: [{ text: prompt }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        responseMimeType: 'application/json'
-      }
-    })
-  });
+  const alternativas = question.alternativas
+    .map((alt) => ({
+      letra: String(alt?.letra || '').toUpperCase(),
+      texto: String(alt?.texto || '').trim(),
+    }))
+    .filter((alt) => VALID_LETTERS.includes(alt.letra) && alt.texto.length > 0);
 
-  if (!response.ok) {
-    let errMsg = 'Erro na API do Gemini';
-    try {
-      const errJson = await response.json();
-      errMsg = errJson?.error?.message || errMsg;
-    } catch {
-      // ignore
-    }
-    throw new Error(`Erro na API do Gemini (${response.status}): ${errMsg}`);
-  }
+  const correta = String(question.alternativa_correta || '').toUpperCase();
 
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error('A IA não retornou conteúdo válido.');
-  }
+  if (!VALID_LETTERS.includes(correta)) return null;
+  if (!alternativas.some((alt) => alt.letra === correta)) return null;
 
-  let questions;
-  try {
-    let cleanText = text.trim();
-    // Remove markdown code blocks if present
-    if (cleanText.startsWith('```')) {
-      cleanText = cleanText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    }
-    const firstBracket = cleanText.indexOf('[');
-    const lastBracket = cleanText.lastIndexOf(']');
-    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-      cleanText = cleanText.substring(firstBracket, lastBracket + 1);
-    }
-    questions = JSON.parse(cleanText);
-  } catch {
-    throw new Error('Não foi possível interpretar a resposta JSON gerada pela IA.');
-  }
-
-  if (!Array.isArray(questions) || questions.length === 0) {
-    throw new Error('A IA não retornou uma lista de questões válida.');
-  }
-
-  return questions;
+  return {
+    id: String(question.id || crypto.randomUUID()),
+    enunciado: question.enunciado.trim(),
+    alternativas,
+    alternativa_correta: correta,
+    justificativa: typeof question.justificativa === 'string' ? question.justificativa.trim() : '',
+    materia: typeof question.materia === 'string' ? question.materia.trim() : '',
+    assunto: typeof question.assunto === 'string' ? question.assunto.trim() : '',
+    dificuldade: ['facil', 'medio', 'dificil', 'expert'].includes(question.dificuldade)
+      ? question.dificuldade
+      : 'medio',
+  };
 }
 
-export async function generateAIQuestions({ materia, assunto, dificuldade, quantidade = 10, contestName = 'Concurso Público', signal }) {
-  const hasCustomBackend = AI_BACKEND_URL && !AI_BACKEND_URL.includes('sua-cloud-function-url.com');
+/**
+ * Valida array de questões retornadas pela IA.
+ */
+export function validateAIQuestions(questions) {
+  if (!Array.isArray(questions)) return [];
+  return questions.map(validateAIQuestion).filter(Boolean);
+}
 
-  if (hasCustomBackend) {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuário não autenticado para gerar questões via servidor.');
-
-    const token = await user.getIdToken();
-    try {
-      const response = await fetch(AI_BACKEND_URL, {
-        method: 'POST',
-        signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName })
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || 'Erro ao gerar questões no servidor.');
-      }
-
-      const data = await response.json();
-      return data.questions;
-    } catch (error) {
-      logger.error('[AI Service] Erro:', error);
-      throw error;
-    }
+/**
+ * Gera questões via backend proxy (NUNCA usa chave Gemini no frontend).
+ * O backend é responsável por autenticar com Gemini.
+ */
+export async function generateViaGeminiDirect({
+  materia,
+  assunto,
+  dificuldade,
+  quantidade,
+  contestName,
+  signal,
+}) {
+  // ✅ FIX #1: Validar URL antes de fazer requisição
+  if (!isValidUrl(AI_BACKEND_URL)) {
+    throw new Error(`URL inválida do backend de IA: ${AI_BACKEND_URL}`);
   }
 
-  if (GEMINI_API_KEY) {
-    try {
-      return await generateViaGeminiDirect({
-        materia,
-        assunto,
-        dificuldade,
-        quantidade,
-        contestName,
-        apiKey: GEMINI_API_KEY,
-        signal
-      });
-    } catch (error) {
-      logger.error('[AI Service Direct Gemini] Erro:', error);
-      throw error;
-    }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+
+  if (signal) {
+    signal.addEventListener('abort', () => controller.abort(), { once: true });
   }
 
-  throw new Error('Configure sua chave de API (VITE_GEMINI_API_KEY) ou URL de backend (VITE_API_BACKEND_URL) no arquivo .env.');
+  try {
+    const response = await fetch(`${AI_BACKEND_URL}/ai/generate-questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      signal: controller.signal,
+      body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Backend AI retornou ${response.status}`);
+    }
+
+    const data = await response.json();
+    const questions = data.questions ?? [];
+    return validateAIQuestions(questions);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Gera questões via backend próprio (fallback quando Gemini não está disponível).
+ */
+export async function generateViaBackend({
+  materia,
+  assunto,
+  dificuldade,
+  quantidade,
+  contestName,
+  signal,
+}) {
+  if (!isValidUrl(AI_BACKEND_URL)) {
+    throw new Error(`URL inválida do backend: ${AI_BACKEND_URL}`);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+
+  if (signal) {
+    signal.addEventListener('abort', () => controller.abort(), { once: true });
+  }
+
+  try {
+    const response = await fetch(`${AI_BACKEND_URL}/ai/generate-questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      signal: controller.signal,
+      body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Backend retornou ${response.status}`);
+    }
+
+    const data = await response.json();
+    return validateAIQuestions(data.questions ?? []);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

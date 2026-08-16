@@ -1,126 +1,108 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
-import logger from '../utils/logger.js';
+// 🔒 [SECURITY] Sem fallback hardcoded para projeto real.
+// Se faltar config, entra em modo local estrito.
 
-// 1. Otimização da função clean
-const clean = (val) => {
-    if (!val || typeof val !== 'string') return null; // Retorna nulo se for vazio
-    const cleaned = val.trim().replace(/['";]/g, '');
-    if (cleaned === 'undefined' || cleaned === 'null' || cleaned === '') return null;
-    return cleaned;
-};
-
-// 2. Extração limpa via Regex (Substitui os múltiplos IFs)
-const deriveProjectId = (rawConfig) => {
-    let id = clean(rawConfig.projectId);
-    if (id) return id;
-
-    const sources = [rawConfig.authDomain, rawConfig.storageBucket];
-    for (let source of sources) {
-        const cleanedSource = clean(source);
-        if (cleanedSource) {
-            // Pega tudo antes do primeiro ponto caso pertença aos domínios do Firebase
-            const match = cleanedSource.match(/^([^.]+)\.(?:firebaseapp\.com|firebasestorage\.app|appspot\.com|web\.app)$/);
-            if (match && match[1]) return match[1];
-        }
-    }
-    return null;
-};
-
-const safeEnv = (key, fallback) => {
-    try {
-        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
-            return import.meta.env[key];
-        }
-    } catch {
-        // ambiente sem suporte a import.meta
-    }
-    return fallback;
-};
-
-const rawConfig = {
-    apiKey: safeEnv('VITE_FIREBASE_API_KEY', safeEnv('VITE_API_KEY', "AIzaSyBC_wZP2mlTNWtwKE5OYouoiPb7bDgxkXE")),
-    authDomain: safeEnv('VITE_FIREBASE_AUTH_DOMAIN', safeEnv('VITE_AUTH_DOMAIN', "liquita-67764.firebaseapp.com")),
-    projectId: safeEnv('VITE_FIREBASE_PROJECT_ID', safeEnv('VITE_PROJECT_ID', "liquita-67764")),
-    storageBucket: safeEnv('VITE_FIREBASE_STORAGE_BUCKET', safeEnv('VITE_STORAGE_BUCKET', "liquita-67764.firebasestorage.app")),
-    messagingSenderId: safeEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', safeEnv('VITE_MESSAGING_SENDER_ID', "709882079835")),
-    appId: safeEnv('VITE_FIREBASE_APP_ID', safeEnv('VITE_APP_ID', "1:709882079835:web:4742cf60ac1218607d6d7e")),
-    measurementId: safeEnv('VITE_FIREBASE_MEASUREMENT_ID', safeEnv('VITE_MEASUREMENT_ID', "G-D8NS2BNKD5"))
-};
-
-const derivedProjectId = deriveProjectId(rawConfig);
-if (!clean(rawConfig.projectId) && derivedProjectId) {
-    console.warn(`[Firebase] VITE_FIREBASE_PROJECT_ID missing. Derived: ${derivedProjectId}`);
-}
+import { initializeApp } from 'firebase/app';
+import {
+    initializeFirestore,
+    persistentLocalCache,
+    persistentMultipleTabManager,
+    clearIndexedDbPersistence,
+} from 'firebase/firestore';
+import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAppAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
-    apiKey: clean(rawConfig.apiKey),
-    authDomain: clean(rawConfig.authDomain),
-    projectId: derivedProjectId,
-    storageBucket: clean(rawConfig.storageBucket),
-    messagingSenderId: clean(rawConfig.messagingSenderId),
-    appId: clean(rawConfig.appId),
-    measurementId: clean(rawConfig.measurementId)
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+// 🛡️ [SECURITY] Sem fallback hardcoded. Se faltar config, modo local estrito.
+export const hasValidFirebaseConfig = Boolean(
+    firebaseConfig.apiKey &&
+    firebaseConfig.projectId &&
+    firebaseConfig.appId
+);
+
+export const isLocalMode =
+    import.meta.env.VITE_LOCAL_MODE === 'true' ||
+    !hasValidFirebaseConfig;
+
+// Só inicializa se config for válida
 let app = null;
 let db = null;
 let auth = null;
+let analytics = null;
 
-// 3. Blindagem contra ausência de variáveis e objetos "Nulos" vazando para a aplicação
-export const isLocalMode = safeEnv('VITE_LOCAL_MODE', 'false') === 'true' || !firebaseConfig.apiKey || !firebaseConfig.projectId;
-
-if (isLocalMode) {
-    console.warn(`%c[Firebase] Chaves ausentes. O Ultra Dashboard funcionará apenas em modo LOCAL (Offline).`, "color: #fbbf24; font-weight: bold;");
-    
-    // Evita crashes criando objetos ocos (Mocks)
-    // Se algum componente chamar db.collection("..."), ele não vai travar a tela inteira.
-    const createMock = (name) => new Proxy({}, {
-        get: (target, prop) => {
-            // Permite que o SDK modular acesse certas propriedades sem quebrar
-            if (prop === 'INTERNAL') return {};
-            if (prop === 'app') return { name: '[MOCK]' };
-            if (prop === 'then') return undefined;
-            // Devolve Array vazio para iteradores típicos do Firestore
-            if (prop === 'docs' || prop === 'map' || prop === 'forEach') return []; 
-            if (prop === 'data') return () => ({});
-            
-            console.debug(`[Local Mode] Chamada ignorada no serviço ${name}.${String(prop)}.`);
-            return () => createMock(name); // Retorna uma função que retorna outro mock
-        }
-    });
-    
-    db = createMock('Firestore');
-    auth = createMock('Auth');
-    
-} else {
+if (!isLocalMode) {
     try {
-        // 4. Prevenção de erro "duplicate-app" no Vite/React Strict Mode
-        app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-        
+        app = initializeApp(firebaseConfig);
+
         db = initializeFirestore(app, {
             localCache: persistentLocalCache({
-                tabManager: persistentMultipleTabManager()
-            })
+                tabManager: persistentMultipleTabManager(),
+            }),
         });
+
         auth = getAuth(app);
-        logger.styled(`[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
+
+        try {
+            analytics = getAppAnalytics(app);
+        } catch (err) {
+            // ✅ FIX #7: Log analytics failure para observabilidade
+            console.warn('[Firebase] Analytics inicialização falhou (opcional):', err.message);
+        }
     } catch (err) {
-        logger.error("[Firebase] Erro na inicialização:", err);
+        console.error('[Firebase] Falha ao inicializar. Entrando em modo local.', err);
     }
 }
 
-const getAppAnalytics = async () => {
-    if (typeof window === "undefined" || !app) return null;
-    try {
-        const supported = await isAnalyticsSupported();
-        if (supported) return getAnalytics(app);
-    } catch (err) {
-        console.error("[Firebase] Analytics não suportado no ambiente atual:", err);
-    }
-    return null;
-};
+/**
+ * Limpeza segura de persistência local do Firestore.
+ * Deve ser chamada no logout para evitar vazamento entre usuários.
+ */
+export async function clearFirestoreCache() {
+    if (!db) return;
 
-export { db, auth, getAppAnalytics, firebaseConfig };
+    try {
+        await clearIndexedDbPersistence(db);
+    } catch (err) {
+        console.warn('[Firebase] Não foi possível limpar IDB persistence:', err);
+    }
+}
+
+/**
+ * Logout seguro: signOut + limpeza de persistência + limpeza de storages.
+ */
+export async function secureLogout() {
+    try {
+        if (auth) {
+            await signOut(auth);
+        }
+
+        await clearFirestoreCache();
+    } catch (err) {
+        console.error('[Firebase] Erro durante logout:', err);
+    } finally {
+        // ✅ FIX #2: Limpar apenas chaves da aplicação, não localStorage completo
+        // Evita danificar dados em aplicações multi-tenant
+        const keysToRemove = [
+            'appState',
+            'contests',
+            'activeContest',
+            'pomodoro',
+            'gameState',
+            'userId',
+            'userPreferences'
+        ];
+        keysToRemove.forEach(key => {
+            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
+        });
+    }
+}
+
+export { app, db, auth, analytics };

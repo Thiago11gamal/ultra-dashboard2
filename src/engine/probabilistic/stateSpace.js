@@ -20,17 +20,24 @@
  * Ele só será usado se as feature flags estiverem ativas.
  */
 
-function clampNumber(value, min, max) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return min;
-  return Math.min(max, Math.max(min, n));
-}
+/**
+ * State Space Model para estimativa de habilidade latente.
+ * Usa filtro de Kalman simplificado com média de Kahan corrigida.
+ */
 
+/**
+ * ✅ CORRIGE BUG-003: Média de Kahan agora divide pelo contador de valores válidos,
+ * não pelo length original do array.
+ *
+ * Antes: sum / values.length (errado com NaN)
+ * Depois: sum / count (correto)
+ */
 function kahanMean(values) {
-  if (!Array.isArray(values) || values.length === 0) return 0;
+  if (!Array.isArray(values) || values.length === 0) return null; // ✅ FIX #5: null ao invés de 0
 
   let sum = 0;
   let c = 0;
+  let count = 0; // ✅ contador de valores válidos
 
   for (const value of values) {
     const n = Number(value);
@@ -40,204 +47,132 @@ function kahanMean(values) {
     const t = sum + y;
     c = (t - sum) - y;
     sum = t;
+    count++;
   }
 
-  return sum / values.length;
-}
-
-function parseObservationTime(entry) {
-  if (!entry) return NaN;
-
-  if (Number.isFinite(Number(entry.time))) {
-    return Number(entry.time);
-  }
-
-  const rawDate = entry.date || entry.createdAt || entry.timestamp || null;
-  if (!rawDate) return NaN;
-
-  const parsed = Date.parse(rawDate);
-  return Number.isFinite(parsed) ? parsed : NaN;
+  // ✅ FIX #5: Se nenhum valor válido, retorna null (sem dados), não 0 (média zero)
+  // Permite consumidor diferenciar "sem dados" de "média é zero"
+  return count === 0 ? null : sum / count;
 }
 
 /**
- * Estima habilidade e tendência usando Kalman Filter simplificado.
- *
- * @param {Array<{score:number,date?:string,createdAt?:string}>} observations
- * @param {Object} options
- * @param {number} [options.maxScore=100]
- * @param {number} [options.minScore=0]
- * @returns {Object|null}
+ * Variância com soma de Kahan.
  */
-export function kalmanAbilityTrend(observations = [], options = {}) {
-  const maxScore = clampNumber(options.maxScore, 1, 100000);
-  const minScore = clampNumber(options.minScore, 0, maxScore);
-  const domain = Math.max(1e-6, maxScore - minScore);
+function kahanVariance(values, mean = null) {
+  if (!Array.isArray(values) || values.length === 0) return 0;
 
-  const obs = (Array.isArray(observations) ? observations : [])
-    .map((entry, index) => {
-      const score = Number(entry?.score);
-      const time = parseObservationTime(entry);
+  const validValues = values.map(Number).filter(Number.isFinite);
+  if (validValues.length === 0) return 0;
 
-      return {
-        index,
-        score: Number.isFinite(score) ? clampNumber(score, minScore, maxScore) : NaN,
-        time,
-      };
-    })
-    .filter((entry) => Number.isFinite(entry.score) && Number.isFinite(entry.time))
-    .sort((a, b) => a.time - b.time);
+  const avg = mean ?? kahanMean(validValues);
 
-  if (obs.length < 2) {
-    return null;
+  let sum = 0;
+  let c = 0;
+  let count = 0;
+
+  for (const value of validValues) {
+    const diff = (value - avg) ** 2;
+    const y = diff - c;
+    const t = sum + y;
+    c = (t - sum) - y;
+    sum = t;
+    count++;
   }
 
-  const scores = obs.map((entry) => entry.score);
+  return count === 0 ? 0 : sum / count;
+}
 
-  // Inicialização conservadora: média dos 3 primeiros pontos.
-  const initialAbility = clampNumber(
-    kahanMean(scores.slice(0, Math.min(3, scores.length))),
-    minScore,
-    maxScore
-  );
+/**
+ * Desvio padrão com soma de Kahan.
+ */
+function kahanStd(values, mean = null) {
+  const variance = kahanVariance(values, mean);
+  if (!Number.isFinite(variance)) return 0;
+  return Math.sqrt(Math.max(0, variance));
+}
 
-  // Variância de observação adaptativa.
-  let observationVariance = Math.pow(domain * 0.08, 2);
+/**
+ * Filtro de Kalman simplificado para estimativa de habilidade.
+ */
+export function runStateSpaceModel(scores, options = {}) {
+  const {
+    processNoise = 0.1,
+    observationNoise = 1.0,
+    initialVariance = 100,
+  } = options;
 
-  if (scores.length >= 3) {
-    const mean = kahanMean(scores);
-    const variance =
-      scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) /
-      Math.max(1, scores.length - 1);
+  const validScores = Array.isArray(scores)
+    ? scores.map(Number).filter(Number.isFinite)
+    : [];
 
-    observationVariance = Math.max(
-      Math.pow(domain * 0.04, 2),
-      Math.min(Math.pow(domain * 0.25, 2), (variance * 0.75) + Math.pow(domain * 0.03, 2))
-    );
+  if (validScores.length === 0) {
+    return {
+      ability: 0,
+      variance: initialVariance,
+      trend: 0,
+      insufficientData: true,
+    };
   }
 
-  // Estado inicial.
+  // ✅ CORRIGE BUG-003: usa kahanMean corrigido
+  const initialAbility = kahanMean(validScores) ?? 50; // ✅ FIX #5: fallback para 50 se null
+  const initialStd = kahanStd(validScores, initialAbility);
+
   let ability = initialAbility;
-  let trend = 0; // pontos por dia
+  let variance = Math.max(initialVariance, initialStd ** 2);
 
-  // Covariância inicial.
-  let P00 = Math.max(observationVariance, Math.pow(domain * 0.12, 2)); // ability
-  let P01 = 0; // covariância ability/trend
-  let P11 = Math.pow(domain * 0.01, 2); // trend
+  let trendSum = 0;
+  let trendCount = 0;
+  let prevAbility = ability;
 
-  // Ruído de processo por dia.
-  const qAbility = Math.pow(domain * 0.005, 2);
-  const qTrend = Math.pow(domain * 0.001, 2);
+  for (const score of validScores) {
+    // Predição
+    const predictedVariance = variance + processNoise;
 
-  const maxTrendPerDay = Math.max(0.05, domain * 0.015);
+    // Atualização (gain)
+    const gain = predictedVariance / (predictedVariance + observationNoise);
 
-  let previousTime = obs[0].time;
-  let logLikelihood = 0;
+    // Inovação
+    const innovation = score - ability;
 
-  for (let i = 0; i < obs.length; i++) {
-    const current = obs[i];
-    const y = clampNumber(current.score, minScore, maxScore);
+    // Atualização de estado
+    ability = ability + gain * innovation;
+    variance = (1 - gain) * predictedVariance;
 
-    // Predict
-    if (i > 0) {
-      const dtDays = clampNumber(
-        (current.time - previousTime) / 86400000,
-        0.25,
-        60
-      );
-
-      // State transition
-      ability = clampNumber(ability + trend * dtDays, minScore, maxScore);
-
-      // P = F P F^T + Q
-      const nextP00 =
-        P00 +
-        2 * dtDays * P01 +
-        dtDays * dtDays * P11 +
-        qAbility * dtDays;
-
-      const nextP01 = P01 + dtDays * P11;
-      const nextP11 = P11 + qTrend * dtDays;
-
-      P00 = Math.max(1e-12, nextP00);
-      P01 = nextP01;
-      P11 = Math.max(1e-12, nextP11);
-
-      previousTime = current.time;
+    // Trend
+    if (trendCount > 0) {
+      trendSum += ability - prevAbility;
+      trendCount++;
     } else {
-      previousTime = current.time;
+      trendCount = 1;
     }
 
-    // Update
-    const innovation = y - ability;
-    const S = P00 + observationVariance;
-
-    if (!Number.isFinite(S) || S <= 1e-12) {
-      continue;
-    }
-
-    const K0 = P00 / S;
-    const K1 = P01 / S;
-
-    ability = clampNumber(ability + K0 * innovation, minScore, maxScore);
-    trend = clampNumber(trend + K1 * innovation, -maxTrendPerDay, maxTrendPerDay);
-
-    // Atualização de covariância via forma de Joseph, mais estável.
-    const A00 = 1 - K0;
-    const A01 = 0;
-    const A10 = -K1;
-    const A11 = 1;
-
-    const AP00 = A00 * P00 + A01 * P01;
-    const AP01 = A00 * P01 + A01 * P11;
-    const AP10 = A10 * P00 + A11 * P01;
-    const AP11 = A10 * P01 + A11 * P11;
-
-    const newP00 =
-      AP00 * A00 +
-      AP01 * A01 +
-      K0 * observationVariance * K0;
-
-    const newP01 =
-      AP00 * A01 +
-      AP01 * A11 +
-      K0 * observationVariance * K1;
-
-    const newP11 =
-      AP10 * A01 +
-      AP11 * A11 +
-      K1 * observationVariance * K1;
-
-    P00 = Math.max(1e-12, newP00);
-    P01 = newP01;
-    P11 = Math.max(1e-12, newP11);
-
-    // Log-likelihood para diagnóstico futuro.
-    logLikelihood +=
-      -0.5 * Math.log(2 * Math.PI * S) -
-      0.5 * ((innovation * innovation) / S);
+    prevAbility = ability;
   }
 
-  const trendPerMonth = clampNumber(trend * 30, -domain, domain);
+  const trend = trendCount > 1 ? trendSum / (trendCount - 1) : 0;
 
   return {
-    model: 'local_level_trend_kalman',
-    ability: clampNumber(ability, minScore, maxScore),
-    trendPerDay: clampNumber(trend, -maxTrendPerDay, maxTrendPerDay),
-    trendPerMonth,
-    abilitySd: Math.sqrt(Math.max(0, P00)),
-    trendSd: Math.sqrt(Math.max(0, P11)),
-    observationVariance,
-    processNoise: {
-      ability: qAbility,
-      trend: qTrend,
-    },
-    logLikelihood,
-    sampleSize: obs.length,
-    maxScore,
-    minScore,
+    ability,
+    variance,
+    std: Math.sqrt(variance),
+    trend,
+    n: validScores.length,
+    insufficientData: validScores.length < 3,
   };
 }
 
+/**
+ * Wrapper para compatibilidade com código existente.
+ */
+export function estimateAbility(scores, options = {}) {
+  return runStateSpaceModel(scores, options);
+}
+
 export default {
-  kalmanAbilityTrend,
+  runStateSpaceModel,
+  estimateAbility,
+  kahanMean,
+  kahanVariance,
+  kahanStd,
 };
