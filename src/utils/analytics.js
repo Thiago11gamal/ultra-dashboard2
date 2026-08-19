@@ -598,7 +598,13 @@ export const detectProcrastination = (categories, studyLogs) => {
     const now = new Date();
     // BUG-02 FIX: Usar âncora de 12:00:00 para comparação de dias, 
     // garantindo paridade com o resto do sistema de datas (dateHelper).
-    const normalizedNow = normalizeDate(now).getTime();
+    const normalizedNowDate = normalizeDate(now);
+
+    if (!normalizedNowDate || Number.isNaN(normalizedNowDate.getTime())) {
+      return { warnings: [] };
+    }
+
+    const normalizedNow = normalizedNowDate.getTime();
     const warnings = [];
 
     // Fix 3: Pre-index logs by taskId and categoryId to avoid O(logs) filter inside each loop

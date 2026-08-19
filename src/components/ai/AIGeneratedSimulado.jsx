@@ -13,6 +13,9 @@ import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
 import { safeGetJSON } from '../../utils/storageSafe';
 import { safeDomain } from '../../utils/measurement';
 
+const normalizeAlternative = (value) =>
+  String(value ?? '').trim().toUpperCase();
+
 const DIFFICULTIES = [
   { value: 'facil', label: 'Fácil' },
   { value: 'medio', label: 'Médio' },
@@ -116,6 +119,7 @@ export default function AIGeneratedSimulado() {
       if (draftTimeoutRef.current) clearTimeout(draftTimeoutRef.current);
       draftTimeoutRef.current = setTimeout(() => {
         const draft = {
+          version: 1,
           form, questions, answers, currentIndex, timeLeft,
           timePerQuestion, simStartMs: simStartMsRef.current, savedAt: Date.now()
         };
@@ -246,6 +250,9 @@ export default function AIGeneratedSimulado() {
     if (draft) {
       function isSimuladoDraftValid(d) {
         if (!d || typeof d !== 'object') return false;
+
+        const draftVersion = Number(d.version ?? 1);
+        if (!Number.isFinite(draftVersion) || draftVersion !== 1) return false;
         if (!Array.isArray(d.questions) || d.questions.length === 0) return false;
         const savedAt = Number(d.savedAt || 0);
         if (!Number.isFinite(savedAt) || savedAt <= 0) return false;
@@ -591,7 +598,9 @@ export default function AIGeneratedSimulado() {
     qList.forEach(q => {
       const selected = ansMap[q.id];
       const wasAnswered = selected !== undefined && selected !== null;
-      const isCorrect = wasAnswered && selected === q.alternativa_correta;
+      const isCorrect =
+        wasAnswered &&
+        normalizeAlternative(selected) === normalizeAlternative(q.alternativa_correta);
       if (isCorrect) correctCount++;
       answeredQuestions.push({ ...q, selected: selected || null, isCorrect, wasAnswered });
     });
@@ -616,10 +625,18 @@ export default function AIGeneratedSimulado() {
       const cats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
       const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
 
-      for (const g of Object.values(groups)) {
-        const cat = cats.find(c => normalize(c.name) === normalize(g.materia));
+      for (const [groupKey, g] of Object.entries(groups)) {
+        const [materia, assunto] = groupKey.split('|');
+
+        const cat = rawCats.find(c =>
+          String(c?.name || '').trim().toLowerCase() === String(materia || '').trim().toLowerCase()
+        );
+
         const catTasks = cat?.tasks ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks)) : [];
-        const tsk = catTasks.find(t => normalize(t.title || t.text || '') === normalize(g.assunto));
+        const tsk = catTasks.find(t =>
+          String(t?.title || t?.text || '').trim().toLowerCase() === String(assunto || '').trim().toLowerCase()
+        );
+
         const subForm = {
           ...f, materia: g.materia, assunto: g.assunto,
           categoryId: cat ? cat.id : null, taskId: tsk ? tsk.id : null,
@@ -692,6 +709,9 @@ export default function AIGeneratedSimulado() {
     }
   }, [handleFinish]);
 
+  const safeFinishRef = useRef(safeFinish);
+  useEffect(() => { safeFinishRef.current = safeFinish; }, [safeFinish]);
+
   useEffect(() => {
     if (!timerActive || step !== 'playing') return;
 
@@ -703,10 +723,13 @@ export default function AIGeneratedSimulado() {
   }, [timerActive, step]);
 
   useEffect(() => {
-    if (timerActive && step === 'playing' && timeLeft === 0) {
-      safeFinish();
-    }
-  }, [timerActive, step, timeLeft, safeFinish]);
+    if (step !== 'playing') return;
+    if (!timerActive) return;
+    if (timeLeft > 0) return;
+    if (isFinishingRef.current) return;
+
+    safeFinishRef.current();
+  }, [step, timerActive, timeLeft]);
 
   const resetAll = useCallback(() => {
     isFinishingRef.current = false;
@@ -748,7 +771,7 @@ export default function AIGeneratedSimulado() {
       else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(curIdx - 1); }
       else if (e.key === 'ArrowRight' || e.key === 'Enter') {
         e.preventDefault();
-        if (curIdx < qLen - 1) goTo(curIdx + 1); else safeFinish();
+        if (curIdx < qLen - 1) goTo(curIdx + 1); else safeFinishRef.current();
       } else if (e.key.toLowerCase() === 'escape') {
         e.preventDefault();
         setShowEscapeConfirm(true);
@@ -757,7 +780,7 @@ export default function AIGeneratedSimulado() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, currentQuestion, handleFinish, questions.length, goTo, selectAnswer, resetAll]);
+  }, [step, currentQuestion, questions.length, goTo, selectAnswer, resetAll]);
 
   useEffect(() => {
     let interval = null;

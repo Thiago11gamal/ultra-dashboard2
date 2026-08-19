@@ -75,7 +75,9 @@
       loaderText.style.animation = 'none';
     });
 
-    const BUILD_VERSION = "2026-07-21-FIX"; // ideal: injetar via build/env
+    const BUILD_VERSION = typeof __APP_VERSION__ !== 'undefined'
+      ? __APP_VERSION__
+      : 'dev';
     const buildVersion = typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : (window.__BUILD_VERSION__ || 'dev');
     console.log("[Build] Versão:", buildVersion);
 
@@ -126,8 +128,21 @@
             const dbs = await indexedDB.databases();
 
             if (Array.isArray(dbs)) {
+              const allowedPrefixes = [
+                'ultra-dashboard',
+                'firestore/',
+              ];
+
               dbs.forEach(db => {
-                if (db.name) indexedDB.deleteDatabase(db.name);
+                if (!db.name) return;
+
+                const canDelete = allowedPrefixes.some(prefix =>
+                  String(db.name).startsWith(prefix)
+                );
+
+                if (canDelete) {
+                  indexedDB.deleteDatabase(db.name);
+                }
               });
             }
           }

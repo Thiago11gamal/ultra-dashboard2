@@ -87,6 +87,7 @@ const safeguardContest = (contest) => {
 
 export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const showToastRef = useRef(showToast);
+  const applyingRemoteRef = useRef(false);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
 
   const lastSyncedRef = useRef(null);
@@ -549,6 +550,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (shouldPullCloud) {
         isCloudPullRef.current = true;
         if (isMountedRef.current) {
+          applyingRemoteRef.current = true;
           setAppState(() => {
             const freshState = useAppStore.getState().appState;
             return mergeAppState(freshState, cloudData, {
@@ -719,6 +721,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   }, [currentUser?.uid, performEmergencySync]);
 
   useEffect(() => {
+    if (applyingRemoteRef.current) {
+      applyingRemoteRef.current = false;
+      return;
+    }
+
     if (isLocalMode || !currentUser?.uid || !syncTrigger || !isParityValidatedRef.current || !db) return;
     const currentState = useAppStore.getState().appState;
     const currentStateString = stateStringForSync(currentState);

@@ -5,6 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || 'dev'),
+  },
   plugins: [
     react(), 
     tailwindcss(),
@@ -20,12 +23,12 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/1157/1157077.png',
+            src: '/icons/icon-192.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/1157/1157077.png',
+            src: '/icons/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
           }

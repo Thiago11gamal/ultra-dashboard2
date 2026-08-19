@@ -102,6 +102,9 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || 'dev'),
+  },
   plugins: [
     react(), 
     tailwindcss(),
@@ -117,12 +120,12 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/1157/1157077.png',
+            src: '/icons/icon-192.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/1157/1157077.png',
+            src: '/icons/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
           }
@@ -297,7 +300,9 @@ export default defineConfig([
       loaderText.style.animation = 'none';
     });
 
-    const BUILD_VERSION = "2026-07-21-FIX"; // ideal: injetar via build/env
+    const BUILD_VERSION = typeof __APP_VERSION__ !== 'undefined'
+      ? __APP_VERSION__
+      : 'dev';
     const buildVersion = typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : (window.__BUILD_VERSION__ || 'dev');
     console.log("[Build] Versão:", buildVersion);
 
@@ -348,8 +353,21 @@ export default defineConfig([
             const dbs = await indexedDB.databases();
 
             if (Array.isArray(dbs)) {
+              const allowedPrefixes = [
+                'ultra-dashboard',
+                'firestore/',
+              ];
+
               dbs.forEach(db => {
-                if (db.name) indexedDB.deleteDatabase(db.name);
+                if (!db.name) return;
+
+                const canDelete = allowedPrefixes.some(prefix =>
+                  String(db.name).startsWith(prefix)
+                );
+
+                if (canDelete) {
+                  indexedDB.deleteDatabase(db.name);
+                }
               });
             }
           }
@@ -405,13 +423,21 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Backup de sincronização em nuvem (cliente escreve em /backups/{uid})
-    match /backups/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
 
-      match /contests/{contestId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+    function withinSizeLimit() {
+      return request.resource.data.size() < 950000;
+    }
+
+    match /backups/{userId}/{document=**} {
+      allow read: if isOwner(userId);
+
+      allow create, update: if isOwner(userId)
+        && withinSizeLimit();
+
+      allow delete: if isOwner(userId);
     }
 
     // Regras oficiais da extensão Firebase Stripe Payments (clientes, sessões de checkout, pagamentos, assinaturas e produtos)
@@ -1247,6 +1273,9 @@ import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
 import { safeGetJSON } from '../../utils/storageSafe';
 import { safeDomain } from '../../utils/measurement';
 
+const normalizeAlternative = (value) =>
+  String(value ?? '').trim().toUpperCase();
+
 const DIFFICULTIES = [
   { value: 'facil', label: 'Fácil' },
   { value: 'medio', label: 'Médio' },
@@ -1350,6 +1379,7 @@ export default function AIGeneratedSimulado() {
       if (draftTimeoutRef.current) clearTimeout(draftTimeoutRef.current);
       draftTimeoutRef.current = setTimeout(() => {
         const draft = {
+          version: 1,
           form, questions, answers, currentIndex, timeLeft,
           timePerQuestion, simStartMs: simStartMsRef.current, savedAt: Date.now()
         };
@@ -1480,6 +1510,9 @@ export default function AIGeneratedSimulado() {
     if (draft) {
       function isSimuladoDraftValid(d) {
         if (!d || typeof d !== 'object') return false;
+
+        const draftVersion = Number(d.version ?? 1);
+        if (!Number.isFinite(draftVersion) || draftVersion !== 1) return false;
         if (!Array.isArray(d.questions) || d.questions.length === 0) return false;
         const savedAt = Number(d.savedAt || 0);
         if (!Number.isFinite(savedAt) || savedAt <= 0) return false;
@@ -1825,7 +1858,9 @@ export default function AIGeneratedSimulado() {
     qList.forEach(q => {
       const selected = ansMap[q.id];
       const wasAnswered = selected !== undefined && selected !== null;
-      const isCorrect = wasAnswered && selected === q.alternativa_correta;
+      const isCorrect =
+        wasAnswered &&
+        normalizeAlternative(selected) === normalizeAlternative(q.alternativa_correta);
       if (isCorrect) correctCount++;
       answeredQuestions.push({ ...q, selected: selected || null, isCorrect, wasAnswered });
     });
@@ -1850,10 +1885,18 @@ export default function AIGeneratedSimulado() {
       const cats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
       const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
 
-      for (const g of Object.values(groups)) {
-        const cat = cats.find(c => normalize(c.name) === normalize(g.materia));
+      for (const [groupKey, g] of Object.entries(groups)) {
+        const [materia, assunto] = groupKey.split('|');
+
+        const cat = rawCats.find(c =>
+          String(c?.name || '').trim().toLowerCase() === String(materia || '').trim().toLowerCase()
+        );
+
         const catTasks = cat?.tasks ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks)) : [];
-        const tsk = catTasks.find(t => normalize(t.title || t.text || '') === normalize(g.assunto));
+        const tsk = catTasks.find(t =>
+          String(t?.title || t?.text || '').trim().toLowerCase() === String(assunto || '').trim().toLowerCase()
+        );
+
         const subForm = {
           ...f, materia: g.materia, assunto: g.assunto,
           categoryId: cat ? cat.id : null, taskId: tsk ? tsk.id : null,
@@ -1926,6 +1969,9 @@ export default function AIGeneratedSimulado() {
     }
   }, [handleFinish]);
 
+  const safeFinishRef = useRef(safeFinish);
+  useEffect(() => { safeFinishRef.current = safeFinish; }, [safeFinish]);
+
   useEffect(() => {
     if (!timerActive || step !== 'playing') return;
 
@@ -1937,10 +1983,13 @@ export default function AIGeneratedSimulado() {
   }, [timerActive, step]);
 
   useEffect(() => {
-    if (timerActive && step === 'playing' && timeLeft === 0) {
-      safeFinish();
-    }
-  }, [timerActive, step, timeLeft, safeFinish]);
+    if (step !== 'playing') return;
+    if (!timerActive) return;
+    if (timeLeft > 0) return;
+    if (isFinishingRef.current) return;
+
+    safeFinishRef.current();
+  }, [step, timerActive, timeLeft]);
 
   const resetAll = useCallback(() => {
     isFinishingRef.current = false;
@@ -1982,7 +2031,7 @@ export default function AIGeneratedSimulado() {
       else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(curIdx - 1); }
       else if (e.key === 'ArrowRight' || e.key === 'Enter') {
         e.preventDefault();
-        if (curIdx < qLen - 1) goTo(curIdx + 1); else safeFinish();
+        if (curIdx < qLen - 1) goTo(curIdx + 1); else safeFinishRef.current();
       } else if (e.key.toLowerCase() === 'escape') {
         e.preventDefault();
         setShowEscapeConfirm(true);
@@ -1991,7 +2040,7 @@ export default function AIGeneratedSimulado() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, currentQuestion, handleFinish, questions.length, goTo, selectAnswer, resetAll]);
+  }, [step, currentQuestion, questions.length, goTo, selectAnswer, resetAll]);
 
   useEffect(() => {
     let interval = null;
@@ -2092,7 +2141,10 @@ export default function SimuladoPlayer({
 
   const handleTouchEnd = (e) => {
     if (!touchStartX.current) return;
-    const touchEndX = e.changedTouches[0].clientX;
+    const touch = e.changedTouches?.[0];
+    if (!touch || !touchStartX.current) return;
+
+    const touchEndX = touch.clientX;
     const diff = touchStartX.current - touchEndX;
 
     if (Math.abs(diff) > 50) { // Threshold de 50px
@@ -2937,6 +2989,17 @@ import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
 
+const ensureCoachTaskId = (task) => {
+  if (!task || typeof task !== 'object') return task;
+
+  if (task.id) return task;
+
+  return {
+    ...task,
+    id: getSafeId(task) || `coach-task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  };
+};
+
 // FIX-CODE-10: Removidos espaços extras nas classes Tailwind
 const DAYS = [
   { id: 'mon', label: 'SEG', full: 'Segunda', gradient: 'from-violet-600 to-indigo-600', bg: 'bg-violet-500/10', border: 'border-violet-500/25', text: 'text-violet-300', dot: 'bg-violet-500', over: 'bg-violet-500/10 border-violet-500/40', cardBg: 'bg-violet-500/[0.08]', cardBorder: 'border-violet-500/20', cardHover: 'hover:border-violet-500/40 hover:bg-violet-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(139,92,246,0.3)]' },
@@ -3080,7 +3143,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       if (sid) allAssignedIds.add(sid);
     }));
 
-    const activeBacklog = (coachPlan || []).filter(t => {
+    const activeBacklog = (coachPlan || [])
+    .map(ensureCoachTaskId)
+    .filter(t => {
       if (!t) return false;
       if (isSystemAlertTask(t)) return false;
       const sid = getSafeId(t);
@@ -5458,8 +5523,8 @@ export function CompareChart({
     }), [baseId]);
 
     const chartData = React.useMemo(() => {
-        const rawData = Array.isArray(filteredChartData) ? filteredChartData : [];
-        return [...rawData].sort((a, b) => {
+        if (!filteredChartData || !Array.isArray(filteredChartData)) return [];
+        return [...filteredChartData].sort((a, b) => {
             const dateA = a.date ? (normalizeDate(a.date)?.getTime() ?? 0) : 0;
             const dateB = b.date ? (normalizeDate(b.date)?.getTime() ?? 0) : 0;
             return dateA - dateB;
@@ -7300,7 +7365,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             dataKey="subject" 
                             tick={(props) => {
                                 const { x, y, cx, cy, payload } = props;
-                                const text = payload.value || "";
+                                const text = payload?.value || "";
                                 const maxLen = 12;
                                 const truncated = text.length > maxLen ? text.substring(0, maxLen - 2) + '..' : text;
                                 return (
@@ -7766,8 +7831,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     stroke="#ffffff"
                                     tick={(props) => {
                                         const { x, y, payload } = props;
-                                        const text = payload.value || "";
-                                        const fullText = payload.payload?.fullName || text;
+                                        const text = payload?.value || "";
+                                        const fullText = payload?.payload?.fullName || text;
                                         const maxLen = 22;
                                         const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
                                         return (
@@ -22594,7 +22659,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     }
 
                     const total = Math.max(0, parseInt(row.total, 10) || 0);
-                    const correct = Math.max(0, parseInt(row.correct, 10) || 0);
+                    let correct = Math.max(0, parseInt(row.correct, 10) || 0);
+
+                    if (total > 0) {
+                      correct = Math.min(correct, total);
+                    }
                     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
                     let status = 'ATENÇÃO';
@@ -41869,6 +41938,7 @@ const safeguardContest = (contest) => {
 
 export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const showToastRef = useRef(showToast);
+  const applyingRemoteRef = useRef(false);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
 
   const lastSyncedRef = useRef(null);
@@ -42331,6 +42401,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (shouldPullCloud) {
         isCloudPullRef.current = true;
         if (isMountedRef.current) {
+          applyingRemoteRef.current = true;
           setAppState(() => {
             const freshState = useAppStore.getState().appState;
             return mergeAppState(freshState, cloudData, {
@@ -42501,6 +42572,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   }, [currentUser?.uid, performEmergencySync]);
 
   useEffect(() => {
+    if (applyingRemoteRef.current) {
+      applyingRemoteRef.current = false;
+      return;
+    }
+
     if (isLocalMode || !currentUser?.uid || !syncTrigger || !isParityValidatedRef.current || !db) return;
     const currentState = useAppStore.getState().appState;
     const currentStateString = stateStringForSync(currentState);
@@ -45155,14 +45231,22 @@ export function usePomodoroSync({
             if (tabId === STABLE_TAB_ID) return;
 
             if (SESSION_SCOPED_TYPES.includes(type)) {
-                const currentTaskId = activeSubjectRef.current?.taskId || null;
-                const currentSessionId = activeSubjectRef.current?.sessionInstanceId || null;
-                
-                // ✅ PATCH-02: Rejeita se QUALQUER identificador existir E for diferente
-                if (taskId !== undefined && taskId !== null && currentTaskId !== null && taskId !== currentTaskId) {
+                const currentTaskId = activeSubjectRef.current?.taskId ?? null;
+                const currentSessionId = activeSubjectRef.current?.sessionInstanceId ?? null;
+
+                if (
+                    taskId != null &&
+                    currentTaskId != null &&
+                    taskId !== currentTaskId
+                ) {
                     return;
                 }
-                if (sessionInstanceId !== undefined && sessionInstanceId !== null && currentSessionId !== null && sessionInstanceId !== currentSessionId) {
+
+                if (
+                    sessionInstanceId != null &&
+                    currentSessionId != null &&
+                    sessionInstanceId !== currentSessionId
+                ) {
                     return;
                 }
             }
@@ -52827,17 +52911,26 @@ export async function generateViaBackend({
  * API pública compatível com o restante do app.
  * Tenta geração direta e cai para o backend quando necessário.
  */
+const allowDirectAI =
+  String(import.meta.env.VITE_ALLOW_DIRECT_AI || '').toLowerCase() === 'true';
+
 export async function generateAIQuestions(params = {}) {
   const payload = params || {};
 
-  try {
-    const direct = await generateViaGeminiDirect(payload);
-    if (Array.isArray(direct) && direct.length > 0) return direct;
-  } catch (error) {
-    // fallback explícito para backend
+  if (allowDirectAI) {
+    try {
+      const direct = await generateViaGeminiDirect(payload);
+
+      if (Array.isArray(direct) && direct.length > 0) {
+        return validateAIQuestions(direct);
+      }
+    } catch (error) {
+      console.warn('[AI] Geração direta falhou, usando backend.', error);
+    }
   }
 
-  return generateViaBackend(payload);
+  const backend = await generateViaBackend(payload);
+  return validateAIQuestions(backend || []);
 }
 
 export default {
@@ -57123,7 +57216,13 @@ export const detectProcrastination = (categories, studyLogs) => {
     const now = new Date();
     // BUG-02 FIX: Usar âncora de 12:00:00 para comparação de dias, 
     // garantindo paridade com o resto do sistema de datas (dateHelper).
-    const normalizedNow = normalizeDate(now).getTime();
+    const normalizedNowDate = normalizeDate(now);
+
+    if (!normalizedNowDate || Number.isNaN(normalizedNowDate.getTime())) {
+      return { warnings: [] };
+    }
+
+    const normalizedNow = normalizedNowDate.getTime();
     const warnings = [];
 
     // Fix 3: Pre-index logs by taskId and categoryId to avoid O(logs) filter inside each loop
@@ -65777,7 +65876,7 @@ export const SYNTHETIC_PERCENT_ONLY_TRIALS = 5;
 
 export function getSyntheticTotal(_maxScore = 100, options = {}) {
   const trials = options?.syntheticTrials ?? SYNTHETIC_PERCENT_ONLY_TRIALS;
-  return trials;
+  return Number.isFinite(Number(trials)) && Number(trials) > 0 ? Number(trials) : SYNTHETIC_PERCENT_ONLY_TRIALS;
 }
 
 export function isPercentOnlyRecord(row) {

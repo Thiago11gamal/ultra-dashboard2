@@ -28,7 +28,10 @@ export default function SimuladoPlayer({
 
   const handleTouchEnd = (e) => {
     if (!touchStartX.current) return;
-    const touchEndX = e.changedTouches[0].clientX;
+    const touch = e.changedTouches?.[0];
+    if (!touch || !touchStartX.current) return;
+
+    const touchEndX = touch.clientX;
     const diff = touchStartX.current - touchEndX;
 
     if (Math.abs(diff) > 50) { // Threshold de 50px

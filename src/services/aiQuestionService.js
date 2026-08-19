@@ -164,17 +164,26 @@ export async function generateViaBackend({
  * API pública compatível com o restante do app.
  * Tenta geração direta e cai para o backend quando necessário.
  */
+const allowDirectAI =
+  String(import.meta.env.VITE_ALLOW_DIRECT_AI || '').toLowerCase() === 'true';
+
 export async function generateAIQuestions(params = {}) {
   const payload = params || {};
 
-  try {
-    const direct = await generateViaGeminiDirect(payload);
-    if (Array.isArray(direct) && direct.length > 0) return direct;
-  } catch (error) {
-    // fallback explícito para backend
+  if (allowDirectAI) {
+    try {
+      const direct = await generateViaGeminiDirect(payload);
+
+      if (Array.isArray(direct) && direct.length > 0) {
+        return validateAIQuestions(direct);
+      }
+    } catch (error) {
+      console.warn('[AI] Geração direta falhou, usando backend.', error);
+    }
   }
 
-  return generateViaBackend(payload);
+  const backend = await generateViaBackend(payload);
+  return validateAIQuestions(backend || []);
 }
 
 export default {

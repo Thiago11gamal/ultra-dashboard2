@@ -7,6 +7,17 @@ import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
 
+const ensureCoachTaskId = (task) => {
+  if (!task || typeof task !== 'object') return task;
+
+  if (task.id) return task;
+
+  return {
+    ...task,
+    id: getSafeId(task) || `coach-task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  };
+};
+
 // FIX-CODE-10: Removidos espaços extras nas classes Tailwind
 const DAYS = [
   { id: 'mon', label: 'SEG', full: 'Segunda', gradient: 'from-violet-600 to-indigo-600', bg: 'bg-violet-500/10', border: 'border-violet-500/25', text: 'text-violet-300', dot: 'bg-violet-500', over: 'bg-violet-500/10 border-violet-500/40', cardBg: 'bg-violet-500/[0.08]', cardBorder: 'border-violet-500/20', cardHover: 'hover:border-violet-500/40 hover:bg-violet-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(139,92,246,0.3)]' },
@@ -150,7 +161,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       if (sid) allAssignedIds.add(sid);
     }));
 
-    const activeBacklog = (coachPlan || []).filter(t => {
+    const activeBacklog = (coachPlan || [])
+    .map(ensureCoachTaskId)
+    .filter(t => {
       if (!t) return false;
       if (isSystemAlertTask(t)) return false;
       const sid = getSafeId(t);

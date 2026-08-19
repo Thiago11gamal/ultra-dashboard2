@@ -59,8 +59,8 @@ export function CompareChart({
     }), [baseId]);
 
     const chartData = React.useMemo(() => {
-        const rawData = Array.isArray(filteredChartData) ? filteredChartData : [];
-        return [...rawData].sort((a, b) => {
+        if (!filteredChartData || !Array.isArray(filteredChartData)) return [];
+        return [...filteredChartData].sort((a, b) => {
             const dateA = a.date ? (normalizeDate(a.date)?.getTime() ?? 0) : 0;
             const dateB = b.date ? (normalizeDate(b.date)?.getTime() ?? 0) : 0;
             return dateA - dateB;

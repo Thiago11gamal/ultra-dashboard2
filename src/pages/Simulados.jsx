@@ -236,15 +236,15 @@ export default function Simulados() {
 
   const categoriesArray = useMemo(
     () => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}),
-    [data?.categories]
+    [data]
   );
   const simuladoRowsArray = useMemo(
     () => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}),
-    [data?.simuladoRows]
+    [data]
   );
   const studySessionsArray = useMemo(
     () => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}),
-    [data?.studySessions]
+    [data]
   );
 
   /* ── Rows do formulário manual (apenas matérias/assuntos cadastrados) ── */
@@ -330,19 +330,6 @@ export default function Simulados() {
 
   const [mode, setMode] = useState('ai-generator');
   const [subMode, setSubMode] = useState('ia');
-
-  // Guarda de segurança
-  if (!categoriesArray.length) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-8 text-center bg-slate-900/50 rounded-2xl border border-white/5 mx-4 mt-8">
-        <Brain className="w-16 h-16 text-slate-600 mb-4" />
-        <h2 className="text-xl font-black text-white">Nenhuma matéria encontrada</h2>
-        <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-          Você ainda não cadastrou matérias no seu concurso ativo. Para gerar ou analisar simulados, adicione matérias no seu plano de estudos.
-        </p>
-      </div>
-    );
-  }
 
   /* ── Handler de análise (salvamento) ── */
   const handleSimuladoAnalysis = useCallback((payload) => {
@@ -541,6 +528,20 @@ export default function Simulados() {
     { id: 'analyzer',     label: 'Último Simulado', icon: ListChecks },
     { id: 'history',      label: 'Histórico', icon: HistoryIcon },
   ];
+
+  // Guarda de segurança
+  if (!categoriesArray.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-8 text-center bg-slate-900/50 rounded-2xl border border-white/5 mx-4 mt-8">
+        <Brain className="w-16 h-16 text-slate-600 mb-4" />
+        <h2 className="text-xl font-black text-white">Nenhuma matéria encontrada</h2>
+        <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+          Você ainda não cadastrou matérias no seu concurso ativo. Para gerar ou analisar simulados, adicione matérias no seu plano de estudos.
+        </p>
+      </div>
+    );
+  }
+
 
   return (
     <PageErrorBoundary pageName="Simulados">

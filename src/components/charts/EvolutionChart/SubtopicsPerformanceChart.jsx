@@ -383,8 +383,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     stroke="#ffffff"
                                     tick={(props) => {
                                         const { x, y, payload } = props;
-                                        const text = payload.value || "";
-                                        const fullText = payload.payload?.fullName || text;
+                                        const text = payload?.value || "";
+                                        const fullText = payload?.payload?.fullName || text;
                                         const maxLen = 22;
                                         const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
                                         return (

@@ -292,7 +292,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     }
 
                     const total = Math.max(0, parseInt(row.total, 10) || 0);
-                    const correct = Math.max(0, parseInt(row.correct, 10) || 0);
+                    let correct = Math.max(0, parseInt(row.correct, 10) || 0);
+
+                    if (total > 0) {
+                      correct = Math.min(correct, total);
+                    }
                     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
                     let status = 'ATENÇÃO';

@@ -51,7 +51,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             dataKey="subject" 
                             tick={(props) => {
                                 const { x, y, cx, cy, payload } = props;
-                                const text = payload.value || "";
+                                const text = payload?.value || "";
                                 const maxLen = 12;
                                 const truncated = text.length > maxLen ? text.substring(0, maxLen - 2) + '..' : text;
                                 return (
