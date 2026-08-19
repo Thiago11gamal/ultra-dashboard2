@@ -102,6 +102,9 @@ export const EvolutionHeatmap = ({
         const handleMessage = (e) => {
             if (e.data?.id !== msgId) return;
 
+            worker.removeEventListener('message', handleMessage);
+            worker.removeEventListener('error', handleError);
+
             if (e.data.type === 'success') {
                 setAggregated(e.data.result);
             } else {
@@ -111,6 +114,8 @@ export const EvolutionHeatmap = ({
         };
 
         const handleError = (err) => {
+            worker.removeEventListener('message', handleMessage);
+            worker.removeEventListener('error', handleError);
             console.warn('[EvolutionHeatmap] Worker error, falling back:', err);
             setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
             setIsAggregating(false);

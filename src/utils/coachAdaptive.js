@@ -446,7 +446,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     finalResult.adaptiveBaseline = Number.isFinite(Number(adaptive?.calibrationBaseline))
       ? Number(adaptive.calibrationBaseline) : null;
     finalResult.explainability = buildCoachExplainability(finalResult);
-    if (mcCache.size >= MC_CACHE_MAX) mcCache.delete(mcCache.keys().next().value);
+    if (mcCache.size >= MC_CACHE_MAX) {
+      const firstKey = mcCache.keys().next().value;
+      if (firstKey !== undefined) mcCache.delete(firstKey);
+    }
     if (mcCache.has(hash)) mcCache.delete(hash);
     mcCache.set(hash, finalResult);
     return finalResult;

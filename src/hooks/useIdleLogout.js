@@ -32,7 +32,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         }
         timerRef.current = setTimeout(() => {
             logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
-            if (logoutRef.current) logoutRef.current();
+            logoutRef.current?.();
         }, timeoutMs);
     }, [timeoutMs]);
 
@@ -76,7 +76,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
                 const elapsed = Date.now() - lastAct;
                 if (elapsed >= timeoutMs) {
                     logger.log('[IdleLogout] Aba voltou ao foco e o tempo estava expirado. Deslogando...');
-                    if (logoutRef.current) logoutRef.current();
+                    logoutRef.current?.();
                 } else {
                     lastActivityRef.current = lastAct; // Sync ref with storage
                     resetTimer();

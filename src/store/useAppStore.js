@@ -196,7 +196,7 @@ export const useAppStore = create(
         ),
         {
             name: 'ultra-dashboard-storage',
-            version: 1,
+            version: 5, // Forçar bump de versão
             storage: createJSONStorage(() => idbStorage),
             // Don't persist the history/temporal state itself, just the app state
             partialize: (state) => ({ appState: state.appState }),

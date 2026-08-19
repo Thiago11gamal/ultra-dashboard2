@@ -228,8 +228,10 @@ export function simulateNormalDistribution(
     const safeSimulations = sanitizeSimulations(simulations);
 
     if (safeSD < 1e-5) {
-        // ✅ FIX: Na fronteira exata, probabilidade é 50% (distribuição degenerada simétrica)
-        const EPS = 1e-9;
+        // ✅ FIX: Com sd ≈ 0, a distribuição é degenerada.
+        // Usar comparação com tolerância relativa ao domínio.
+        const domainWidth = Math.max(1e-9, maxScore - minScore);
+        const EPS = domainWidth * 1e-6;
         let prob;
         if (safeMean > effectiveTarget + EPS) {
             prob = 100;

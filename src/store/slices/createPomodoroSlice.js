@@ -193,7 +193,7 @@ export const createPomodoroSlice = (set, get) => ({
             if (!p) return;
 
             const activeId = state.appState.activeId;
-            const settings = state.appState.contests[activeId]?.settings || {
+            const settings = state.appState?.contests?.[activeId]?.settings || {
                 pomodoroWork: 25,
                 pomodoroBreak: 5
             };
@@ -204,11 +204,11 @@ export const createPomodoroSlice = (set, get) => ({
             if (p.mode === 'work') {
                 if (!isManual) {
                     p.accumulatedMinutes = (p.accumulatedMinutes || 0) + workDuration;
+                    savedMinutes = p.accumulatedMinutes;
                 } else if (manualMinutes > 0) {
                     p.accumulatedMinutes = (p.accumulatedMinutes || 0) + manualMinutes;
+                    savedMinutes = p.accumulatedMinutes;
                 }
-
-                savedMinutes = p.accumulatedMinutes;
 
                 const currentCycles = Math.min(
                     targetCycles,

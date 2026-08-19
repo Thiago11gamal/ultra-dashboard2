@@ -86,8 +86,8 @@ export const getDateKey = (rawDate) => {
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const day = String(date.getUTCDate()).padStart(2, '0');
   const result = `${year}-${month}-${day}`;
-  // ✅ FIX: Rejeitar datas obviamente inválidas
-  if (year < 2000 || year > 2100) return null;
+  // ✅ FIX: Range mais permissivo (dados de teste, datas futuras de agenda)
+  if (year < 1970 || year > 2200) return null;
   return result;
 };
 

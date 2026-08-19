@@ -63,6 +63,20 @@ export function useMonteCarloWorker() {
         // The worker lives for the lifetime of the application.
     }, []);
 
+    // Adicionar cleanup periódico para requests órfãos
+    useEffect(() => {
+        const cleanupInterval = setInterval(() => {
+            const now = Date.now();
+            for (const [id, pending] of sharedPendingRequests) {
+                if (pending.createdAt && now - pending.createdAt > 60000) {
+                    clearTimeout(pending.timeoutId);
+                    sharedPendingRequests.delete(id);
+                }
+            }
+        }, 30000);
+        return () => clearInterval(cleanupInterval);
+    }, []);
+
     const runAnalysis = useCallback(async (...args) => {
         if (!sharedWorker) {
             initSharedWorker();
@@ -132,6 +146,7 @@ export function useMonteCarloWorker() {
             sharedPendingRequests.set(id, { 
                 worker: currentWorker, // Track request owner worker instance
                 timeoutId, // Guardar referência para limpeza
+                createdAt: Date.now(),
                 resolve: (data) => {
                     clearTimeout(timeoutId);
                     resolve(data);

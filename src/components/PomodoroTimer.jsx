@@ -752,12 +752,12 @@ function PomodoroTimer({
         }
 
         const targetSubject = activeSubjectRef.current;
-
-        // ✅ FIX 1.4: Salvar minutos ANTES do timeout de transição
-        // Assim, mesmo se o componente desmontar nos próximos 50ms,
-        // os minutos já estão persistidos.
         let savedMinutes = 0;
         if (targetSubject && completedMode === 'work' && sessionMinutes > 0) {
+            // ✅ FIX: Validar que sessionMinutes não é NaN/Infinity
+            if (!Number.isFinite(sessionMinutes) || sessionMinutes <= 0) {
+                sessionMinutes = 0;
+            }
             safeOnUpdateStudyTime(
                 targetSubject.categoryId,
                 sessionMinutes,
@@ -1096,13 +1096,9 @@ function PomodoroTimer({
 
     const handleManualExit = () => {
         if (activeSubject) {
-            try {
-                flushSync(() => {
-                    flushPendingStudyTime();
-                });
-            } catch {
-                flushPendingStudyTime();
-            }
+            // flushSync não deve ser usado fora do ciclo de render do React.
+            // Chamar diretamente é seguro e evita crash em contextos não-React.
+            flushPendingStudyTime();
         }
 
         safeOnExit({ forceDashboard: true, source: 'dashboard' });

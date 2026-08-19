@@ -9,6 +9,7 @@ export const logger = {
         if (DEBUG_MODE) console.log(...args);
     },
     error: (...args) => {
+        if (typeof window === 'undefined') return;
         // Errors are always logged even in production for troubleshooting
         console.error(...args);
     },

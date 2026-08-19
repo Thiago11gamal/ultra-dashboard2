@@ -872,6 +872,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           lastSyncedRef.current = currentStateString;
           try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
           lastError = null;
+          syncReentryCountRef.current = 0; // ✅ FIX: Resetar contador em sucesso
           break;
         } catch (e) {
           lastError = e;
@@ -913,6 +914,18 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [syncTrigger, parityTick, currentUser?.uid, mergeAppState]);
+
+  // ✅ FIX: Safety net — se isCloudPullRef ficar true por > 10s, resetar
+  useEffect(() => {
+    if (!isCloudPullRef.current) return;
+    const safetyTimer = setTimeout(() => {
+      if (isCloudPullRef.current) {
+        console.warn('[Sync] isCloudPullRef stuck, resetting.');
+        isCloudPullRef.current = false;
+      }
+    }, 10000);
+    return () => clearTimeout(safetyTimer);
+  }, [syncTrigger]);
 
   const forcePull = useCallback(() => {
     if (latestCloudDataRef.current && setAppState && isMountedRef.current) {

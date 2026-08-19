@@ -1,508 +1,8 @@
-# Todo o Código do Projeto (Sem Testes)
+# Código do Projeto (Sem Testes)
 
-## package.json
+## src/App.jsx
 
-```json
-{
-  "name": "ultra-dashboard",
-  "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "kill-port": "npx kill-port 5173 5174",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "test": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:math": "node scripts/test-math-engines.mjs",
-    "test:unit": "node scripts/test-unit-safe.mjs",
-    "test:all": "npm run test:math && npm run test:rigorous-math && npm run test:unit",
-    "test:math-rigor": "node scripts/test-math-rigorous.mjs",
-    "test:rigorous-math": "node scripts/test-math-rigorous.mjs",
-    "test:bootstrap": "node scripts/test-bootstrap-ci.mjs",
-    "test:integration-math": "node scripts/test-math-integration.mjs",
-    "test:math-stress": "node scripts/test-math-stress.mjs",
-    "test:coach-regression": "vitest run tests/coach-math-regressions.test.js",
-    "test:all-math": "npm run test:math-rigor && npm run test:math-stress && npm run test:coach-regression",
-    "audit:math": "node scripts/run-math-audit.mjs",
-    "test:mc-scenarios": "node scripts/test-mc-scenarios.mjs",
-    "mc:parallel": "node scripts/run-mc-parallel.mjs",
-    "test:heatmap-aggregation": "node scripts/test-heatmap-aggregation.mjs",
-    "test:weekly-insights": "node scripts/test-weekly-insights.mjs",
-    "test:evolution-suite": "node scripts/test-evolution-suite.mjs",
-    "test:projection-scenario": "node scripts/test-projection-scenario.mjs",
-    "test:evolution-all": "npm run test:unit && npm run test:evolution-suite",
-    "test:evolution-ui": "node scripts/test-evolution-ui-contracts.mjs",
-    "test:evolution-components": "vitest run src/components/charts/EvolutionChart/__tests__/evolutionComponents.test.jsx",
-    "test:evolution-e2e": "node scripts/test-evolution-e2e.mjs",
-    "test:unit:safe": "node scripts/test-unit-safe.mjs",
-    "lint:safe": "node scripts/lint-safe.mjs",
-    "build:safe": "node scripts/build-safe.mjs",
-    "verify:evolution": "node scripts/verify-evolution-stack.mjs",
-    "test:coach-unit": "vitest run tests/coach-math-regressions.test.js src/utils/__tests__/coachLogic.regression.test.js src/utils/__tests__/coachBacktest.test.js",
-    "test:coach-integration": "vitest run tests/coach-logic.integration.test.js",
-    "test:coach-suite": "node scripts/test-coach-suite.mjs"
-  },
-  "dependencies": {
-    "@hello-pangea/dnd": "^18.0.1",
-    "@stripe/stripe-js": "^8.9.0",
-    "date-fns": "^4.1.0",
-    "dompurify": "^3.4.12",
-    "firebase": "^12.6.0",
-    "framer-motion": "^12.23.25",
-    "html-to-image": "^1.11.13",
-    "idb-keyval": "^6.2.2",
-    "immer": "^11.1.4",
-    "jspdf": "^4.2.1",
-    "lucide-react": "^0.556.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-is": "^19.2.4",
-    "react-joyride": "^2.9.3",
-    "react-router-dom": "^7.13.0",
-    "recharts": "^3.5.1",
-    "zundo": "^2.3.0",
-    "zustand": "^5.0.11"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@playwright/test": "^1.58.1",
-    "@tailwindcss/vite": "^4.1.17",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/node": "^26.1.1",
-    "@types/react": "^19.2.5",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "@vitest/coverage-v8": "^4.1.6",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0",
-    "jsdom": "^29.1.1",
-    "tailwindcss": "^4.1.17",
-    "typescript": "^7.0.2",
-    "vite": "^7.2.4",
-    "vite-plugin-pwa": "^1.3.0",
-    "vitest": "^4.1.10"
-  }
-}
-
-```
-
-## vite.config.js
-
-```javascript
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-
-import { VitePWA } from 'vite-plugin-pwa'
-
-export default defineConfig({
-  define: {
-    __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || 'dev'),
-  },
-  plugins: [
-    react(), 
-    tailwindcss(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      devOptions: { enabled: false },
-      manifest: {
-        name: 'Ultra Dashboard 2',
-        short_name: 'Ultra',
-        description: 'Plataforma inteligente de estudos e simulados',
-        theme_color: '#0f172a',
-        background_color: '#020617',
-        display: 'standalone',
-        icons: [
-          {
-            src: '/icons/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: '/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          }
-        ]
-      }
-    })
-  ],
-  envPrefix: ['VITE_'],
-  server: {
-    port: 5173,
-    strictPort: true,
-  },
-  build: {
-    target: 'es2022',
-    minify: 'esbuild',
-    chunkSizeWarningLimit: 1000,
-    cssMinify: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
-          charts: ['recharts'],
-          pdf: ['html-to-image', 'jspdf'],
-          motion: ['framer-motion'],
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
-        },
-      },
-    },
-  },
-
-  // ─── VITEST ───────────────────────────────────────────────────────────────
-  test: {
-    // FIX 6: Transição para jsdom, libertando o acesso a APIs de browser (window, document)
-    // requeridas imperativamente por ficheiros 'src/**/*.test.jsx' que testam componentes React.
-    environment: 'jsdom',        
-    globals: true,              
-    include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'src/**/*.spec.js', 'tests/**/*.test.js'],
-    globalTeardown: './tests/teardown.js',
-    testTimeout: 20000,
-    coverage: {
-      provider: 'v8',
-      include: ['src/engine/**', 'src/utils/coachLogic.js'],
-    },
-  },
-  // ──────────────────────────────────────────────────────────────────────────
-})
-
-```
-
-## eslint.config.js
-
-```javascript
-import js from '@eslint/js'
-import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
-import { defineConfig, globalIgnores } from 'eslint/config'
-
-export default defineConfig([
-  globalIgnores(['dist', 'build', 'coverage', 'test-results', 'playwright-report', 'ultra-patched/**', '**/*.min.js', 'scripts/legacy_migrations/**', 'move*.js', 'move*.cjs', 'script.js']),
-  {
-    files: ['**/*.{js,jsx}'],
-    languageOptions: {
-      ecmaVersion: 2020,
-      globals: {
-        ...globals.browser,
-        ...globals.node, // RIGOR FIX: Suporte a process e require em scripts de config
-      },
-      parserOptions: {
-        ecmaVersion: 'latest',
-        ecmaFeatures: { jsx: true },
-        sourceType: 'module',
-      },
-    },
-    extends: [
-      js.configs.recommended,
-      reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite,
-    ],
-    rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }],
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: "NewExpression[callee.name='Date'][arguments.0.type='TemplateLiteral']",
-          message: 'Use parseNoonLocal()/normalizeDate() — nunca concatene timezone manualmente.',
-        },
-      ],
-    },
-  },
-])
-
-```
-
-## index.html
-
-```html
-<!doctype html>
-<html lang="pt-BR" translate="no">
-
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0f172a" />
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1157/1157077.png" />
-  <title>MÉTODO ARRAIA</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Outfit:wght@300;400;500;600;700&display=swap"
-    rel="stylesheet">
-  <style>
-    /* Loading Screen Styles - Shown while React loads */
-    body {
-      margin: 0;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    }
-
-    .initial-loader {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      font-family: system-ui, -apple-system, sans-serif;
-      color: white;
-    }
-
-    .loader-spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid rgba(139, 92, 246, 0.3);
-      border-top-color: #8b5cf6;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    .loader-text {
-      margin-top: 1rem;
-      font-size: 1.1rem;
-      color: #94a3b8;
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 0.6;
-      }
-
-      50% {
-        opacity: 1;
-      }
-    }
-  </style>
-  <script>
-    window.addEventListener('error', (event) => {
-      const loaderText = document.querySelector('.loader-text');
-
-      if (!loaderText) return;
-
-      loaderText.textContent = 'Erro de carregamento: ' + event.message;
-      loaderText.style.color = '#f87171';
-      loaderText.style.animation = 'none';
-    });
-
-    const BUILD_VERSION = typeof __APP_VERSION__ !== 'undefined'
-      ? __APP_VERSION__
-      : 'dev';
-    const buildVersion = typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : (window.__BUILD_VERSION__ || 'dev');
-    console.log("[Build] Versão:", buildVersion);
-
-    setTimeout(() => {
-      const loaderText = document.querySelector('.loader-text');
-      if (!loaderText) return;
-
-      const currentText = loaderText.textContent || "";
-      if (!currentText.includes("Carregando")) return;
-
-      loaderText.textContent = "";
-
-      const title = document.createElement("div");
-      title.textContent = "Carregamento lento detectado...";
-
-      const version = document.createElement("small");
-      version.style.opacity = "0.5";
-      version.textContent = `Versão: ${buildVersion} | Verifique o painel VITE_.`;
-
-      const btn = document.createElement("button");
-      btn.textContent = "Limpar dados e reiniciar";
-      btn.style.marginTop = "20px";
-      btn.style.background = "rgba(248, 113, 113, 0.2)";
-      btn.style.border = "1px solid #f87171";
-      btn.style.color = "#f87171";
-      btn.style.padding = "8px 16px";
-      btn.style.borderRadius = "8px";
-      btn.style.cursor = "pointer";
-      btn.style.fontSize = "12px";
-
-      async function clearAllLocalData() {
-        try {
-          localStorage.clear();
-          sessionStorage.clear();
-
-          if ('serviceWorker' in navigator) {
-            try {
-              const registrations = await navigator.serviceWorker.getRegistrations();
-              for (let registration of registrations) {
-                await registration.unregister();
-              }
-            } catch (swErr) {
-              console.error('Erro ao remover Service Worker:', swErr);
-            }
-          }
-
-          if ('indexedDB' in window && typeof indexedDB.databases === 'function') {
-            const dbs = await indexedDB.databases();
-
-            if (Array.isArray(dbs)) {
-              const allowedPrefixes = [
-                'ultra-dashboard',
-                'firestore/',
-              ];
-
-              dbs.forEach(db => {
-                if (!db.name) return;
-
-                const canDelete = allowedPrefixes.some(prefix =>
-                  String(db.name).startsWith(prefix)
-                );
-
-                if (canDelete) {
-                  indexedDB.deleteDatabase(db.name);
-                }
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Erro ao limpar dados locais:', error);
-        } finally {
-          location.reload();
-        }
-      }
-
-      btn.addEventListener("click", async () => {
-        const ok = window.confirm(
-          "Isso apagará os dados locais deste navegador. Deseja continuar?"
-        );
-
-        if (ok) {
-          await clearAllLocalData();
-        }
-      });
-
-      loaderText.appendChild(title);
-      loaderText.appendChild(document.createElement("br"));
-      loaderText.appendChild(version);
-      loaderText.appendChild(document.createElement("br"));
-      loaderText.appendChild(btn);
-    }, 8000);
-  </script>
-</head>
-
-<body>
-  <div id="root">
-    <!-- Initial loader - replaced by React when app loads -->
-    <div class="initial-loader">
-      <div class="loader-spinner"></div>
-      <p class="loader-text">Carregando...</p>
-    </div>
-  </div>
-  <script type="module" src="/src/main.jsx"></script>
-</body>
-
-</html>
-```
-
-## firestore.rules
-
-```typescript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // O utilizador só pode ler e escrever no SEU PRÓPRIO documento
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
-    function withinSizeLimit() {
-      return request.resource.data.size() < 950000;
-    }
-
-    match /backups/{userId}/{document=**} {
-      allow read: if isOwner(userId);
-
-      allow create, update: if isOwner(userId)
-        && withinSizeLimit();
-
-      allow delete: if isOwner(userId);
-    }
-
-    // Regras oficiais da extensão Firebase Stripe Payments (clientes, sessões de checkout, pagamentos, assinaturas e produtos)
-    match /customers/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-
-      match /checkout_sessions/{id} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-      match /subscriptions/{id} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-      }
-      match /payments/{id} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-
-    match /products/{id} {
-      allow read: if true;
-
-      match /prices/{id} {
-        allow read: if true;
-      }
-
-      match /tax_rates/{id} {
-        allow read: if true;
-      }
-    }
-
-    // Permite que o sistema de sincronização salve os dados na nuvem
-    
-    // Regra global: Proíbe acesso a qualquer outra coleção acidental
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-
-```
-
-## .env.example
-
-```env
-VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY
-VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT_ID.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID
-VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT_ID.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_MESSAGING_SENDER_ID
-VITE_FIREBASE_APP_ID=YOUR_APP_ID
-VITE_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID
-
-# Stripe Payments Configuration
-VITE_STRIPE_PUBLIC_KEY=pk_test_YOUR_STRIPE_PUBLIC_KEY
-
-# Local Mode (set to true to bypass Firebase/Stripe in offline/dev mode)
-VITE_LOCAL_MODE=false
-
-# Google Gemini AI Configuration
-VITE_GEMINI_API_KEY=AQ_YOUR_GEMINI_API_KEY
-
-```
-
-## src\App.jsx
-
-```javascript
+```jsx
 import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
@@ -926,9 +426,9 @@ export default App;
 
 ```
 
-## src\components\ActivityHeatmap.jsx
+## src/components/ActivityHeatmap.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1255,9 +755,9 @@ export default React.memo(ActivityHeatmap);
 
 ```
 
-## src\components\ai\AIGeneratedSimulado.jsx
+## src/components/ai/AIGeneratedSimulado.jsx
 
-```javascript
+```jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { generateAIQuestions } from '../../services/aiQuestionService';
 import { useAppStore } from '../../store/useAppStore';
@@ -2108,9 +1608,9 @@ export default function AIGeneratedSimulado() {
 
 ```
 
-## src\components\ai\SimuladoPlayer.jsx
+## src/components/ai/SimuladoPlayer.jsx
 
-```javascript
+```jsx
 import React, { useRef } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
@@ -2323,9 +1823,9 @@ return (
 
 ```
 
-## src\components\ai\SimuladoResults.jsx
+## src/components/ai/SimuladoResults.jsx
 
-```javascript
+```jsx
 import React from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
@@ -2595,9 +2095,9 @@ return (
 
 ```
 
-## src\components\ai\SimuladoSetup.jsx
+## src/components/ai/SimuladoSetup.jsx
 
-```javascript
+```jsx
 import React from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
@@ -2977,9 +2477,9 @@ return (
 
 ```
 
-## src\components\AICoachPlanner.jsx
+## src/components/AICoachPlanner.jsx
 
-```javascript
+```jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Play, BrainCircuit, Calendar } from 'lucide-react';
@@ -3366,9 +2866,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 }
 ```
 
-## src\components\AICoachView.jsx
+## src/components/AICoachView.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useState, useCallback } from 'react';
 import {
 Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download,
@@ -4008,9 +3508,9 @@ Ação Sugerida
 
 ```
 
-## src\components\AICoachWidget.jsx
+## src/components/AICoachWidget.jsx
 
-```javascript
+```jsx
 import React, { useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import {
@@ -4512,9 +4012,9 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
 ```
 
-## src\components\CategoryEditor.jsx
+## src/components/CategoryEditor.jsx
 
-```javascript
+```jsx
 import React, { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Settings, X } from 'lucide-react';
@@ -4730,9 +4230,9 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
 ```
 
-## src\components\charts\Analytics\AnaliseRetencaoChart.jsx
+## src/components/charts/Analytics/AnaliseRetencaoChart.jsx
 
-```javascript
+```jsx
 import React, { useId } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -4915,9 +4415,9 @@ export function AnaliseRetencaoChart({ data }) {
 
 ```
 
-## src\components\charts\Analytics\EvolucaoFocoChart.jsx
+## src/components/charts/Analytics/EvolucaoFocoChart.jsx
 
-```javascript
+```jsx
 import React, { useId } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDuration } from '../../../utils/dateHelper';
@@ -4996,9 +4496,9 @@ export function EvolucaoFocoChart({ data }) {
 
 ```
 
-## src\components\charts\Analytics\HorasDisciplinaChart.jsx
+## src/components/charts/Analytics/HorasDisciplinaChart.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatDuration } from '../../../utils/dateHelper';
@@ -5091,9 +4591,9 @@ export function HorasDisciplinaChart({ data }) {
 
 ```
 
-## src\components\charts\ChartFrame.jsx
+## src/components/charts/ChartFrame.jsx
 
-```javascript
+```jsx
 import React, { useLayoutEffect, useRef, useState } from 'react';
 
 /**
@@ -5202,9 +4702,9 @@ export { ChartFrame };
 
 ```
 
-## src\components\charts\ChartTooltip.jsx
+## src/components/charts/ChartTooltip.jsx
 
-```javascript
+```jsx
 import React from 'react';
 // ✅ LOTE-04 FIX: CHART_COLORS removido — nunca era usado e o módulo
 // utils/chartConfig não existe no pacote (risco de quebra de build).
@@ -5357,9 +4857,9 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
 
 ```
 
-## src\components\charts\DueForecastChart.jsx
+## src/components/charts/DueForecastChart.jsx
 
-```javascript
+```jsx
 import React, { useId } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -5459,9 +4959,9 @@ export default function DueForecastChart({ data = [], height = 260 }) {
 
 ```
 
-## src\components\charts\EvolutionChart\CompareChart.jsx
+## src/components/charts/EvolutionChart/CompareChart.jsx
 
-```javascript
+```jsx
 import React, { useId } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -5821,9 +5321,9 @@ export function CompareChart({
 
 ```
 
-## src\components\charts\EvolutionChart\CriticalTopicsAnalysis.jsx
+## src/components/charts/EvolutionChart/CriticalTopicsAnalysis.jsx
 
-```javascript
+```jsx
 import React, { useState, useMemo } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -6133,9 +5633,9 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
 ```
 
-## src\components\charts\EvolutionChart\DisciplinaCard.jsx
+## src/components/charts/EvolutionChart/DisciplinaCard.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 import { pointsToPct } from '../../../utils/scoreHelper.conversions';
@@ -6226,9 +5726,9 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
 ```
 
-## src\components\charts\EvolutionChart\EvolutionLineChart.jsx
+## src/components/charts/EvolutionChart/EvolutionLineChart.jsx
 
-```javascript
+```jsx
 import React, { useId, useState, useRef } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -6667,9 +6167,9 @@ export function EvolutionLineChart({
 
 ```
 
-## src\components\charts\EvolutionChart\KpiCard.jsx
+## src/components/charts/EvolutionChart/KpiCard.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 
@@ -6698,9 +6198,9 @@ export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, 
 
 ```
 
-## src\components\charts\EvolutionChart\MonteCarloEvolutionChart.jsx
+## src/components/charts/EvolutionChart/MonteCarloEvolutionChart.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useId, useState, useCallback } from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine
@@ -7131,9 +6631,9 @@ export const MonteCarloEvolutionChart = ({
 
 ```
 
-## src\components\charts\EvolutionChart\PerformanceBarChart.jsx
+## src/components/charts/EvolutionChart/PerformanceBarChart.jsx
 
-```javascript
+```jsx
 import React, { useId } from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 import {
@@ -7309,9 +6809,9 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
 
 ```
 
-## src\components\charts\EvolutionChart\RadarAnalysis.jsx
+## src/components/charts/EvolutionChart/RadarAnalysis.jsx
 
-```javascript
+```jsx
 import React, { useId } from 'react';
 import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -7443,9 +6943,9 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
 
 ```
 
-## src\components\charts\EvolutionChart\SubtopicsPerformanceChart.jsx
+## src/components/charts/EvolutionChart/SubtopicsPerformanceChart.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useState, useId, useCallback } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -7988,9 +7488,9 @@ export const SubtopicsPerformanceChart = React.memo(({
 
 ```
 
-## src\components\charts\EvolutionChart\TimeSpentChart.jsx
+## src/components/charts/EvolutionChart/TimeSpentChart.jsx
 
-```javascript
+```jsx
 import React, { useState, useMemo } from 'react';
 
 import { Clock } from 'lucide-react';
@@ -8436,9 +7936,9 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
 ```
 
-## src\components\charts\EvolutionChart\TodayVsGeneralChart.jsx
+## src/components/charts/EvolutionChart/TodayVsGeneralChart.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
     ResponsiveContainer, PieChart, Pie, Cell, 
@@ -8947,9 +8447,9 @@ export function TodayVsGeneralChart({
 
 ```
 
-## src\components\charts\EvolutionChart\WeeklyEvolutionView.jsx
+## src/components/charts/EvolutionChart/WeeklyEvolutionView.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useState, useCallback } from 'react';
 import {
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -9565,9 +9065,9 @@ export const WeeklyEvolutionView = ({
 
 ```
 
-## src\components\charts\EvolutionChart\WeeklyPerformanceChart.jsx
+## src/components/charts/EvolutionChart/WeeklyPerformanceChart.jsx
 
-```javascript
+```jsx
 import React, { useId, useCallback } from 'react';
 import {
     ComposedChart,
@@ -9848,9 +9348,9 @@ export default WeeklyPerformanceChart;
 
 ```
 
-## src\components\charts\EvolutionHeatmap.jsx
+## src/components/charts/EvolutionHeatmap.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
@@ -10158,9 +9658,9 @@ export const EvolutionHeatmap = ({
 
 ```
 
-## src\components\charts\GaussianPlot.jsx
+## src/components/charts/GaussianPlot.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useState, useId, useRef, useEffect } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian.js';
 import { formatDuration } from '../../utils/dateHelper';
@@ -10657,9 +10157,9 @@ export default GaussianPlot;
 
 ```
 
-## src\components\charts\MonteCarloConfig.jsx
+## src/components/charts/MonteCarloConfig.jsx
 
-```javascript
+```jsx
 import React, { useRef, useState, useEffect, useMemo, startTransition } from 'react';
 import {
     Check,
@@ -11164,9 +10664,9 @@ export const MonteCarloConfig = ({
 
 ```
 
-## src\components\charts\ReliabilityCurveChart.jsx
+## src/components/charts/ReliabilityCurveChart.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Target } from 'lucide-react';
@@ -11312,9 +10812,9 @@ export default React.memo(ReliabilityCurveChart);
 
 ```
 
-## src\components\Checklist.jsx
+## src/components/Checklist.jsx
 
-```javascript
+```jsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -12259,9 +11759,9 @@ export default React.memo(Checklist);
 
 ```
 
-## src\components\coach\CoachControlCenter.jsx
+## src/components/coach/CoachControlCenter.jsx
 
-```javascript
+```jsx
 
 import React, { useMemo, useState } from 'react';
 import { useCoachControlCenter } from '../../hooks/useCoachControlCenter.js';
@@ -13234,9 +12734,9 @@ export default function CoachControlCenter({
 
 ```
 
-## src\components\coach\CoachMenuNav.jsx
+## src/components/coach/CoachMenuNav.jsx
 
-```javascript
+```jsx
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 
@@ -13377,9 +12877,9 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
 
 ```
 
-## src\components\ConfirmModal.jsx
+## src/components/ConfirmModal.jsx
 
-```javascript
+```jsx
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
@@ -13540,9 +13040,9 @@ export default function ConfirmModal({
 
 ```
 
-## src\components\DueForecast.jsx
+## src/components/DueForecast.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import { Calendar, TrendingUp } from 'lucide-react';
 import { computeFlashcardDueForecast } from '../utils/analytics';
@@ -13681,9 +13181,9 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
 
 ```
 
-## src\components\ErrorBoundary.jsx
+## src/components/ErrorBoundary.jsx
 
-```javascript
+```jsx
 import React, { useState } from 'react';
 import ConfirmModal from './ConfirmModal';
 
@@ -13902,9 +13402,9 @@ export class FeatureErrorBoundary extends React.Component {
 
 ```
 
-## src\components\EvolutionChart.jsx
+## src/components/EvolutionChart.jsx
 
-```javascript
+```jsx
 import React, { useState, useMemo } from "react";
 import { useChartData } from "../hooks/useChartData";
 import { useEvolutionMC } from "../hooks/useEvolutionMC";
@@ -14909,9 +14409,9 @@ export default React.memo(function EvolutionChart({
 
 ```
 
-## src\components\GamificationComponents.jsx
+## src/components/GamificationComponents.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import { Flame, Trophy, Sparkles } from 'lucide-react';
 import { calculateStudyStreak } from '../utils/analytics';
@@ -15046,9 +14546,9 @@ export const XPHistory = ({ user }) => {
 
 ```
 
-## src\components\header\PageHeader.jsx
+## src/components/header/PageHeader.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import { motion as Motion } from 'framer-motion';
 
@@ -15076,9 +14576,9 @@ export default PageHeader;
 
 ```
 
-## src\components\Header.jsx
+## src/components/Header.jsx
 
-```javascript
+```jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { RotateCcw, CloudDownload, LayoutDashboard, Menu } from 'lucide-react';
 import { format } from 'date-fns';
@@ -15324,9 +14824,9 @@ export default Header;
 
 ```
 
-## src\components\HelpGuide.jsx
+## src/components/HelpGuide.jsx
 
-```javascript
+```jsx
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { HelpCircle, X, ChevronDown, ChevronUp, Gauge, BarChart3, Target, Brain, Calendar, Clock, Zap, TrendingUp, Trophy, Flame } from 'lucide-react';
@@ -15659,9 +15159,9 @@ export default function HelpGuide({ isOpen, onClose }) {
 
 ```
 
-## src\components\LevelUpToast.jsx
+## src/components/LevelUpToast.jsx
 
-```javascript
+```jsx
 import React, { useEffect, useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 
@@ -15760,7 +15260,7 @@ export default function LevelUpToast({ level, title, onClose }) {
 
 ```
 
-## src\components\Loading.css
+## src/components/Loading.css
 
 ```css
 @keyframes loading-bar {
@@ -15810,7 +15310,7 @@ export default function LevelUpToast({ level, title, onClose }) {
 }
 ```
 
-## src\components\Login.css
+## src/components/Login.css
 
 ```css
 canvas {
@@ -16104,9 +15604,9 @@ canvas {
 
 ```
 
-## src\components\Login.jsx
+## src/components/Login.jsx
 
-```javascript
+```jsx
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/useAuth';
 import { isLocalMode } from '../services/firebase';
@@ -16421,9 +15921,9 @@ function handleRipple(e) {
 
 ```
 
-## src\components\MonteCarloDebugger.jsx
+## src/components/MonteCarloDebugger.jsx
 
-```javascript
+```jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { FlaskConical as BeakerIcon, ChevronDown as ChevronDownIcon, ChevronUp as ChevronUpIcon } from 'lucide-react';
 
@@ -16525,9 +16025,9 @@ export default function MonteCarloDebugger({ stats }) {
 
 ```
 
-## src\components\MonteCarloGauge.jsx
+## src/components/MonteCarloGauge.jsx
 
-```javascript
+```jsx
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown, AlertTriangle, Activity } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -17341,9 +16841,9 @@ function AnimatedProbability({ value }) {
 
 ```
 
-## src\components\NextGoalCard.jsx
+## src/components/NextGoalCard.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import { Target, Play, Clock, Info } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
@@ -17633,9 +17133,9 @@ export default React.memo(NextGoalCard);
 
 ```
 
-## src\components\OnboardingTour.jsx
+## src/components/OnboardingTour.jsx
 
-```javascript
+```jsx
 import React, { useCallback } from 'react';
 import Joyride, { STATUS } from 'react-joyride';
 import { useAppStore } from '../store/useAppStore';
@@ -17997,9 +17497,9 @@ export default function OnboardingTour() {
 
 ```
 
-## src\components\ParetoAnalysis.jsx
+## src/components/ParetoAnalysis.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import { Target, CheckCircle2, Zap } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
@@ -18213,9 +17713,9 @@ export default function ParetoAnalysis({ categories = [] }) {
 
 ```
 
-## src\components\Paywall.jsx
+## src/components/Paywall.jsx
 
-```javascript
+```jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Lock, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
@@ -18411,9 +17911,9 @@ export default function Paywall({ user, onLogout }) {
 
 ```
 
-## src\components\PerformanceTable.jsx
+## src/components/PerformanceTable.jsx
 
-```javascript
+```jsx
 import React, { useState, useMemo, useRef } from 'react';
 import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
@@ -18709,9 +18209,9 @@ export default PerformanceTable;
 
 ```
 
-## src\components\PersonalRanking.jsx
+## src/components/PersonalRanking.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import { Trophy, Zap, Skull, ShieldAlert, Target, Star, Crown, TrendingUp } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
@@ -18914,9 +18414,9 @@ export default React.memo(PersonalRanking);
 
 ```
 
-## src\components\pomodoro\PomodoroClock.jsx
+## src/components/pomodoro/PomodoroClock.jsx
 
-```javascript
+```jsx
 import React from 'react';
 
 const formatTime = (seconds) => {
@@ -18995,9 +18495,9 @@ export function PomodoroClock({
 
 ```
 
-## src\components\pomodoro\PomodoroControls.jsx
+## src/components/pomodoro/PomodoroControls.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react';
 
@@ -19039,9 +18539,9 @@ export function PomodoroControls({
 
 ```
 
-## src\components\pomodoro\PomodoroHeader.jsx
+## src/components/pomodoro/PomodoroHeader.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import { motion as Motion } from 'framer-motion';
 import { Zap, AlertCircle } from 'lucide-react';
@@ -19075,9 +18575,9 @@ export function PomodoroHeader({ mode, activeSubject, onManualExit }) {
 
 ```
 
-## src\components\pomodoro\PomodoroProgress.jsx
+## src/components/pomodoro/PomodoroProgress.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import { Minus, Plus, Layers } from 'lucide-react';
 
@@ -19197,9 +18697,9 @@ export function PomodoroProgress({
 
 ```
 
-## src\components\PomodoroTimer.jsx
+## src/components/PomodoroTimer.jsx
 
-```javascript
+```jsx
 /**
  * ============================================================================
  * POMODORO TIMER - VERSÃO CORRIGIDA
@@ -20433,9 +19933,9 @@ export default function ProtectedPomodoro(props) {
 
 ```
 
-## src\components\PriorityProgress.jsx
+## src/components/PriorityProgress.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import { Info } from 'lucide-react';
 import { toArray } from '../utils/normalize';
@@ -20658,9 +20158,9 @@ export default function PriorityProgress({ categories = [] }) {
 
 ```
 
-## src\components\PromptModal.jsx
+## src/components/PromptModal.jsx
 
-```javascript
+```jsx
 import React, { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
@@ -20864,9 +20364,9 @@ export default function PromptModal({
 
 ```
 
-## src\components\RetentionPanel.jsx
+## src/components/RetentionPanel.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play, Info } from 'lucide-react';
 import { formatTimeAgo, toDateMs } from '../utils/dateHelper';
@@ -21395,7 +20895,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
 ```
 
-## src\components\Sidebar.css
+## src/components/Sidebar.css
 
 ```css
 /* Layout Base do Menu */
@@ -21816,9 +21316,9 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 }
 ```
 
-## src\components\Sidebar.jsx
+## src/components/Sidebar.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import {
     LayoutDashboard,
@@ -22316,7 +21816,7 @@ export default Sidebar;
 
 ```
 
-## src\components\sidebarUtils.js
+## src/components/sidebarUtils.js
 
 ```javascript
 export function handleMenuKeyDown(e, items, currentIndex, onSelect) {
@@ -22362,9 +21862,9 @@ export function isMenuItemActive(currentPath, itemPath) {
 
 ```
 
-## src\components\SimuladoAnalysis.jsx
+## src/components/SimuladoAnalysis.jsx
 
-```javascript
+```jsx
 import React, { useState } from 'react';
 import { normalize, aliases } from '../utils/normalization';
 import ConfirmModal from './ConfirmModal';
@@ -23154,9 +22654,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
 ```
 
-## src\components\StatsCards.jsx
+## src/components/StatsCards.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useRef, useCallback } from 'react';
 import {
     Activity,
@@ -23775,9 +23275,9 @@ export default React.memo(StatsCards);
 
 ```
 
-## src\components\StudyHistory.jsx
+## src/components/StudyHistory.jsx
 
-```javascript
+```jsx
 import React, { useMemo, useState } from 'react';
 import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
@@ -24454,9 +23954,9 @@ export default StudyHistory;
 
 ```
 
-## src\components\SubtopicsTable.jsx
+## src/components/SubtopicsTable.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import { Target, Hash, Wallet, Minus, TrendingUp, TrendingDown } from 'lucide-react';
 import { getSafeScore, formatValue, formatPercent } from '../utils/scoreHelper';
@@ -24682,9 +24182,9 @@ export default SubtopicsTable;
 
 ```
 
-## src\components\Toast.jsx
+## src/components/Toast.jsx
 
-```javascript
+```jsx
 import React, { useEffect } from 'react';
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 
@@ -24728,9 +24228,9 @@ export default function Toast({ toast, onClose }) {
 
 ```
 
-## src\components\TopicPerformance.jsx
+## src/components/TopicPerformance.jsx
 
-```javascript
+```jsx
 import React, { useState, useMemo } from 'react';
 import { getSafeScore, formatValue, formatPercent } from '../utils/scoreHelper';
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
@@ -24920,9 +24420,9 @@ export default function TopicPerformance({ categories = [] }) {
 
 ```
 
-## src\components\TrashModal.jsx
+## src/components/TrashModal.jsx
 
-```javascript
+```jsx
 import React, { useState } from 'react';
 import { X, RotateCcw, AlertTriangle, Trash2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -25059,9 +24559,9 @@ export default TrashModal;
 
 ```
 
-## src\components\VerifiedStats.jsx
+## src/components/VerifiedStats.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import {
     TrendingUp,
@@ -26129,9 +25629,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
 ```
 
-## src\components\VolumeRanking.jsx
+## src/components/VolumeRanking.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertCircle, Info } from 'lucide-react';
@@ -26310,9 +25810,9 @@ export default React.memo(VolumeRanking);
 
 ```
 
-## src\components\WeeklyAnalysis.jsx
+## src/components/WeeklyAnalysis.jsx
 
-```javascript
+```jsx
 import React, { useMemo } from 'react';
 import { BookOpen, Zap, Calendar, Clock, CheckCircle2 } from 'lucide-react'; // ✅ LOTE-04: Activity removido (não usado)
 import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE } from '../utils/dateHelper';
@@ -26672,9 +26172,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
 ```
 
-## src\components\WelcomeScreen.jsx
+## src/components/WelcomeScreen.jsx
 
-```javascript
+```jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26851,7 +26351,7 @@ export default function WelcomeScreen({ onDismiss }) {
 
 ```
 
-## src\config\gamification.js
+## src/config/gamification.js
 
 ```javascript
 export const XP_CONFIG = {
@@ -27002,7 +26502,7 @@ export const ACHIEVEMENTS = [
 
 ```
 
-## src\config.js
+## src/config.js
 
 ```javascript
 // Global application configuration and constants
@@ -27019,9 +26519,9 @@ export default {
 
 ```
 
-## src\context\AuthContext.jsx
+## src/context/AuthContext.jsx
 
-```javascript
+```jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
     createUserWithEmailAndPassword,
@@ -27185,18 +26685,18 @@ export function AuthProvider({ children }) {
 
 ```
 
-## src\context\AuthContextValue.jsx
+## src/context/AuthContextValue.jsx
 
-```javascript
+```jsx
 import { createContext } from 'react';
 
 export const AuthContext = createContext();
 
 ```
 
-## src\context\useAuth.jsx
+## src/context/useAuth.jsx
 
-```javascript
+```jsx
 import { useContext } from 'react';
 import { AuthContext } from './AuthContextValue';
 
@@ -27206,7 +26706,7 @@ export function useAuth() {
 
 ```
 
-## src\data\initialData.js
+## src/data/initialData.js
 
 ```javascript
 // Initial data structure for the dashboard
@@ -27305,7 +26805,7 @@ export const exportData = (state) => {
 
 ```
 
-## src\engine\analyticsStats.js
+## src/engine/analyticsStats.js
 
 ```javascript
 import {
@@ -27825,7 +27325,7 @@ export function generateAnalyticsStats({
 
 ```
 
-## src\engine\causal\policyEngine.js
+## src/engine/causal/policyEngine.js
 
 ```javascript
 /**
@@ -28182,7 +27682,7 @@ export default {
 
 ```
 
-## src\engine\causal\upliftModel.js
+## src/engine/causal/upliftModel.js
 
 ```javascript
 /**
@@ -29094,7 +28594,7 @@ export default {
 
 ```
 
-## src\engine\diagnostics.js
+## src/engine/diagnostics.js
 
 ```javascript
 /**
@@ -29837,7 +29337,7 @@ export function computeCategoryDiagnostics({
 }
 ```
 
-## src\engine\evaluation\coachEvaluator.js
+## src/engine/evaluation/coachEvaluator.js
 
 ```javascript
 /**
@@ -30543,7 +30043,7 @@ export default {
 
 ```
 
-## src\engine\evaluation\strategyBacktester.js
+## src/engine/evaluation/strategyBacktester.js
 
 ```javascript
 /**
@@ -30984,7 +30484,7 @@ export default {
 
 ```
 
-## src\engine\heatmap.worker.js
+## src/engine/heatmap.worker.js
 
 ```javascript
 import { aggregateHeatmap } from '../utils/heatmapAggregation.js';
@@ -31004,7 +30504,7 @@ self.onmessage = (e) => {
 
 ```
 
-## src\engine\index.js
+## src/engine/index.js
 
 ```javascript
 /**
@@ -31026,7 +30526,7 @@ export * from './math/bootstrap.js';
 
 ```
 
-## src\engine\insightGenerator.js
+## src/engine/insightGenerator.js
 
 ```javascript
 import { normalizeDate, toDateMs } from "../utils/dateHelper";
@@ -31374,7 +30874,7 @@ export function generateEvolutionInsights({
 
 ```
 
-## src\engine\math\bootstrap.js
+## src/engine/math/bootstrap.js
 
 ```javascript
 import { makeNormalRng } from '../random.js';
@@ -31496,7 +30996,7 @@ export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointE
 
 ```
 
-## src\engine\math\constants.js
+## src/engine/math/constants.js
 
 ```javascript
 /**
@@ -31514,7 +31014,7 @@ export const MIN_SD_FLOOR = 0.0001;
 
 ```
 
-## src\engine\math\date.js
+## src/engine/math/date.js
 
 ```javascript
 export const safeDate = (value) => {
@@ -31608,7 +31108,7 @@ export const ageInHours = (date, reference = new Date()) => {
 
 ```
 
-## src\engine\math\gaussian.js
+## src/engine/math/gaussian.js
 
 ```javascript
 // src/engine/math/gaussian.js
@@ -32100,7 +31600,7 @@ export function applyCovariance(choleskyLower, zVector, targetVector) {
 
 ```
 
-## src\engine\math\kahan.js
+## src/engine/math/kahan.js
 
 ```javascript
 /**
@@ -32170,7 +31670,7 @@ export function kahanMean(arr) {
 
 ```
 
-## src\engine\math\percentile.js
+## src/engine/math/percentile.js
 
 ```javascript
 // ==========================================
@@ -32349,7 +31849,7 @@ export function findScoreForPercentile(targetPercentile, minScore, maxScore, cdf
 
 ```
 
-## src\engine\math\safe.js
+## src/engine/math/safe.js
 
 ```javascript
 export const isFiniteNumber = (value) =>
@@ -32492,7 +31992,7 @@ export const normalizePercent = (value, fallback = 0) => {
 
 ```
 
-## src\engine\mc.worker.js
+## src/engine/mc.worker.js
 
 ```javascript
 import { monteCarloSimulation } from './projection.js';
@@ -32785,7 +32285,7 @@ export const __workerTesting = {
 
 ```
 
-## src\engine\monteCarlo.js
+## src/engine/monteCarlo.js
 
 ```javascript
 import { mulberry32 } from './random.js';
@@ -33579,7 +33079,7 @@ export default {
 
 ```
 
-## src\engine\observability\driftMonitor.js
+## src/engine/observability/driftMonitor.js
 
 ```javascript
 /**
@@ -34080,7 +33580,7 @@ export default {
 
 ```
 
-## src\engine\observability\modelHealth.js
+## src/engine/observability/modelHealth.js
 
 ```javascript
 /**
@@ -34650,7 +34150,7 @@ export default {
 
 ```
 
-## src\engine\optimization\autoTuner.js
+## src/engine/optimization/autoTuner.js
 
 ```javascript
 /**
@@ -35033,7 +34533,7 @@ export default {
 
 ```
 
-## src\engine\optimization\flagOptimizer.js
+## src/engine/optimization/flagOptimizer.js
 
 ```javascript
 /**
@@ -35718,7 +35218,7 @@ export default {
 
 ```
 
-## src\engine\orchestrator\coachOrchestrator.js
+## src/engine/orchestrator/coachOrchestrator.js
 
 ```javascript
 /**
@@ -36357,7 +35857,7 @@ export default {
 
 ```
 
-## src\engine\probabilistic\bayesianTopics.js
+## src/engine/probabilistic/bayesianTopics.js
 
 ```javascript
 /**
@@ -36706,7 +36206,7 @@ export default {
 
 ```
 
-## src\engine\probabilistic\decisionEngine.js
+## src/engine/probabilistic/decisionEngine.js
 
 ```javascript
 /**
@@ -37065,7 +36565,7 @@ export default {
 
 ```
 
-## src\engine\probabilistic\fsrs.js
+## src/engine/probabilistic/fsrs.js
 
 ```javascript
 // src/engine/probabilistic/fsrs.js
@@ -37243,7 +36743,7 @@ export default {
 
 ```
 
-## src\engine\probabilistic\knowledgeGraph.js
+## src/engine/probabilistic/knowledgeGraph.js
 
 ```javascript
 /**
@@ -37538,7 +37038,7 @@ export default {
 
 ```
 
-## src\engine\probabilistic\posteriorPredictive.js
+## src/engine/probabilistic/posteriorPredictive.js
 
 ```javascript
 /**
@@ -37890,7 +37390,7 @@ export default {
 
 ```
 
-## src\engine\probabilistic\stateSpace.js
+## src/engine/probabilistic/stateSpace.js
 
 ```javascript
 /**
@@ -38246,7 +37746,7 @@ export default {
 
 ```
 
-## src\engine\probabilistic\volatility.js
+## src/engine/probabilistic/volatility.js
 
 ```javascript
 /**
@@ -38574,7 +38074,7 @@ export default {
 
 ```
 
-## src\engine\projection.js
+## src/engine/projection.js
 
 ```javascript
 // ==========================================
@@ -39606,7 +39106,7 @@ export function monteCarloSimulation(
 
 ```
 
-## src\engine\random.js
+## src/engine/random.js
 
 ```javascript
 export function mulberry32(seed) {
@@ -39657,7 +39157,7 @@ export function makeNormalRng(rng) {
 
 ```
 
-## src\engine\simulationCache.js
+## src/engine/simulationCache.js
 
 ```javascript
 export const simulationCache = new Map();
@@ -39681,7 +39181,7 @@ export function clearSimulationCache() {
 
 ```
 
-## src\engine\stats.js
+## src/engine/stats.js
 
 ```javascript
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
@@ -40830,9 +40330,9 @@ export const calculateTrend = calculateSlopePerDay;
 
 ```
 
-## src\engine\UNITS.md
+## src/engine/UNITS.md
 
-```md
+```
 # Sistema de Unidades do Motor
 
 Todo valor do sistema é exatamente um destes três tipos:
@@ -40864,7 +40364,7 @@ derivada sem converter.
 
 ```
 
-## src\engine\variance.js
+## src/engine/variance.js
 
 ```javascript
 /**
@@ -41345,7 +40845,7 @@ export default {
 
 ```
 
-## src\hooks\useCategoryLevels.js
+## src/hooks/useCategoryLevels.js
 
 ```javascript
 import { useMemo } from 'react';
@@ -41379,7 +40879,7 @@ export function useCategoryLevels(categories, timeline, activeEngine, maxScore =
 
 ```
 
-## src\hooks\useChartData.js
+## src/hooks/useChartData.js
 
 ```javascript
 import { useMemo } from 'react';
@@ -41751,7 +41251,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
 
 ```
 
-## src\hooks\useClock.js
+## src/hooks/useClock.js
 
 ```javascript
 import { useEffect, useState } from 'react';
@@ -41846,7 +41346,7 @@ export default useClock;
 
 ```
 
-## src\hooks\useCloudSync.js
+## src/hooks/useCloudSync.js
 
 ```javascript
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -42786,7 +42286,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
 ```
 
-## src\hooks\useCoachControlCenter.js
+## src/hooks/useCoachControlCenter.js
 
 ```javascript
 import { useState, useCallback, useMemo, useEffect } from 'react';
@@ -43122,7 +42622,7 @@ export default useCoachControlCenter;
 
 ```
 
-## src\hooks\useEvolutionMC.js
+## src/hooks/useEvolutionMC.js
 
 ```javascript
 import { useState, useMemo, useEffect } from 'react';
@@ -43296,7 +42796,7 @@ export function useEvolutionMC({
 
 ```
 
-## src\hooks\useGlobalToasts.js
+## src/hooks/useGlobalToasts.js
 
 ```javascript
 import { useState, useEffect } from 'react';
@@ -43333,7 +42833,7 @@ export function useGlobalToasts() {
 
 ```
 
-## src\hooks\useIdleLogout.js
+## src/hooks/useIdleLogout.js
 
 ```javascript
 import { useEffect, useRef, useCallback } from 'react';
@@ -43438,7 +42938,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
 
 ```
 
-## src\hooks\useLevelUp.js
+## src/hooks/useLevelUp.js
 
 ```javascript
 import { useState, useEffect } from 'react';
@@ -43469,7 +42969,7 @@ export function useLevelUp() {
 
 ```
 
-## src\hooks\useModalAccessibility.js
+## src/hooks/useModalAccessibility.js
 
 ```javascript
 import { useEffect } from 'react';
@@ -43544,7 +43044,7 @@ export function useModalAccessibility(isOpen, onClose, modalRef) {
 
 ```
 
-## src\hooks\useMonteCarloStats.js
+## src/hooks/useMonteCarloStats.js
 
 ```javascript
 // ✅ LOTE-04 FIX: default import React removido (não há JSX neste hook)
@@ -45008,7 +44508,7 @@ function useMonteCarloHistoryRecorder({
 
 ```
 
-## src\hooks\useMonteCarloWorker.js
+## src/hooks/useMonteCarloWorker.js
 
 ```javascript
 /**
@@ -45170,7 +44670,7 @@ export function useMonteCarloWorker() {
 
 ```
 
-## src\hooks\usePomodoroSync.js
+## src/hooks/usePomodoroSync.js
 
 ```javascript
 import { useEffect } from 'react';
@@ -45412,7 +44912,7 @@ export function usePomodoroSync({
 
 ```
 
-## src\hooks\useSubjectAggData.js
+## src/hooks/useSubjectAggData.js
 
 ```javascript
 import { useMemo } from 'react';
@@ -45525,7 +45025,7 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
 
 ```
 
-## src\hooks\useSubscription.js
+## src/hooks/useSubscription.js
 
 ```javascript
 import { useState, useEffect, useRef } from 'react';
@@ -45637,7 +45137,7 @@ export function useSubscription(user) {
 
 ```
 
-## src\hooks\useThemeSync.js
+## src/hooks/useThemeSync.js
 
 ```javascript
 import { useEffect } from 'react';
@@ -45692,7 +45192,7 @@ export function useThemeSync(darkModeSetting) {
 
 ```
 
-## src\hooks\useToast.js
+## src/hooks/useToast.js
 
 ```javascript
 import { useCallback } from 'react';
@@ -45716,7 +45216,7 @@ export function useToast() {
 
 ```
 
-## src\index.css
+## src/index.css
 
 ```css
 @import "tailwindcss";
@@ -46731,7 +46231,7 @@ input[type=range].custom-slider::-moz-range-thumb:active {
 
 ```
 
-## src\llm\coachLLMIntegration.js
+## src/llm/coachLLMIntegration.js
 
 ```javascript
 /**
@@ -46790,7 +46290,7 @@ export default {
 
 ```
 
-## src\llm\explanationAgent.js
+## src/llm/explanationAgent.js
 
 ```javascript
 /**
@@ -47201,7 +46701,7 @@ export default {
 
 ```
 
-## src\llm\llmClient.js
+## src/llm/llmClient.js
 
 ```javascript
 /**
@@ -47347,7 +46847,7 @@ export default {
 
 ```
 
-## src\llm\llmPrompts.js
+## src/llm/llmPrompts.js
 
 ```javascript
 /**
@@ -47427,7 +46927,7 @@ export default {
 
 ```
 
-## src\llm\llmSchema.js
+## src/llm/llmSchema.js
 
 ```javascript
 /**
@@ -47535,9 +47035,9 @@ export default {
 
 ```
 
-## src\main.jsx
+## src/main.jsx
 
-```javascript
+```jsx
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -47562,9 +47062,9 @@ createRoot(rootElement).render(
 
 ```
 
-## src\pages\Activity.jsx
+## src/pages/Activity.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState } from 'react';
 import { CalendarDays, RotateCcw, Trophy, Target, BookOpen } from 'lucide-react';
@@ -47748,9 +47248,9 @@ export default function Activity() {
 
 ```
 
-## src\pages\Agenda.jsx
+## src/pages/Agenda.jsx
 
-```javascript
+```jsx
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
@@ -48094,9 +47594,9 @@ export default function Agenda() {
 
 ```
 
-## src\pages\Coach.jsx
+## src/pages/Coach.jsx
 
-```javascript
+```jsx
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Brain, Zap, AlertCircle, ArrowUpRight, ShieldCheck, Dna, List, BookOpen, Database
@@ -49514,9 +49014,9 @@ function RaioXDashboard({ data }) {
 
 ```
 
-## src\pages\Dashboard.jsx
+## src/pages/Dashboard.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
 import StatsCards from '../components/StatsCards';
@@ -49762,9 +49262,9 @@ export default function Dashboard() {
 
 ```
 
-## src\pages\Evolution.jsx
+## src/pages/Evolution.jsx
 
-```javascript
+```jsx
 import React from 'react';
 import EvolutionChart from '../components/EvolutionChart';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -49874,9 +49374,9 @@ export default function Evolution() {
 
 ```
 
-## src\pages\Flashcards.jsx
+## src/pages/Flashcards.jsx
 
-```javascript
+```jsx
 import React, { useState, useMemo } from 'react';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
@@ -50406,9 +49906,9 @@ export default function Flashcards() {
 
 ```
 
-## src\pages\History.jsx
+## src/pages/History.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
 import StudyHistory from '../components/StudyHistory';
@@ -50441,9 +49941,9 @@ export default function History() {
 
 ```
 
-## src\pages\Notes.jsx
+## src/pages/Notes.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { safeClone } from '../store/safeClone.js';
 import React, { useMemo } from 'react';
@@ -50575,9 +50075,9 @@ export default function Notes() {
 
 ```
 
-## src\pages\Pomodoro.jsx
+## src/pages/Pomodoro.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
@@ -51570,9 +51070,9 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
 
 ```
 
-## src\pages\Retention.jsx
+## src/pages/Retention.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import RetentionPanel from '../components/RetentionPanel';
@@ -51756,9 +51256,9 @@ export default function Retention() {
 
 ```
 
-## src\pages\Sessions.jsx
+## src/pages/Sessions.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
 import StudyHistory from '../components/StudyHistory';
@@ -51805,9 +51305,9 @@ export default function Sessions() {
 
 ```
 
-## src\pages\Simulados.jsx
+## src/pages/Simulados.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useMemo, useCallback } from 'react';
 import SimuladoAnalysis from '../components/SimuladoAnalysis';
@@ -52046,15 +51546,15 @@ export default function Simulados() {
 
   const categoriesArray = useMemo(
     () => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}),
-    [data?.categories]
+    [data]
   );
   const simuladoRowsArray = useMemo(
     () => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}),
-    [data?.simuladoRows]
+    [data]
   );
   const studySessionsArray = useMemo(
     () => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}),
-    [data?.studySessions]
+    [data]
   );
 
   /* ── Rows do formulário manual (apenas matérias/assuntos cadastrados) ── */
@@ -52140,19 +51640,6 @@ export default function Simulados() {
 
   const [mode, setMode] = useState('ai-generator');
   const [subMode, setSubMode] = useState('ia');
-
-  // Guarda de segurança
-  if (!categoriesArray.length) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-8 text-center bg-slate-900/50 rounded-2xl border border-white/5 mx-4 mt-8">
-        <Brain className="w-16 h-16 text-slate-600 mb-4" />
-        <h2 className="text-xl font-black text-white">Nenhuma matéria encontrada</h2>
-        <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-          Você ainda não cadastrou matérias no seu concurso ativo. Para gerar ou analisar simulados, adicione matérias no seu plano de estudos.
-        </p>
-      </div>
-    );
-  }
 
   /* ── Handler de análise (salvamento) ── */
   const handleSimuladoAnalysis = useCallback((payload) => {
@@ -52352,6 +51839,20 @@ export default function Simulados() {
     { id: 'history',      label: 'Histórico', icon: HistoryIcon },
   ];
 
+  // Guarda de segurança
+  if (!categoriesArray.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-8 text-center bg-slate-900/50 rounded-2xl border border-white/5 mx-4 mt-8">
+        <Brain className="w-16 h-16 text-slate-600 mb-4" />
+        <h2 className="text-xl font-black text-white">Nenhuma matéria encontrada</h2>
+        <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+          Você ainda não cadastrou matérias no seu concurso ativo. Para gerar ou analisar simulados, adicione matérias no seu plano de estudos.
+        </p>
+      </div>
+    );
+  }
+
+
   return (
     <PageErrorBoundary pageName="Simulados">
       {/* ── Header + Tabs ── */}
@@ -52477,9 +51978,9 @@ export default function Simulados() {
 
 ```
 
-## src\pages\Stats.jsx
+## src/pages/Stats.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useMemo } from 'react';
 import VerifiedStats from '../components/VerifiedStats';
@@ -52639,9 +52140,9 @@ export default function Stats() {
 
 ```
 
-## src\pages\Tasks.jsx
+## src/pages/Tasks.jsx
 
-```javascript
+```jsx
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState } from 'react';
 import PersonalRanking from '../components/PersonalRanking';
@@ -52742,7 +52243,7 @@ export default function Tasks() {
 
 ```
 
-## src\services\aiQuestionService.js
+## src/services/aiQuestionService.js
 
 ```javascript
 // 🔒 [SECURITY] Chave Gemini NUNCA deve ser usada no frontend.
@@ -52944,7 +52445,7 @@ export default {
 
 ```
 
-## src\services\firebase.js
+## src/services/firebase.js
 
 ```javascript
 // 🔒 [SECURITY] Sem fallback hardcoded para projeto real.
@@ -53063,9 +52564,9 @@ export { app, db, auth, analytics };
 
 ```
 
-## src\store\CONTRATO.md
+## src/store/CONTRATO.md
 
-```md
+```
 # Contrato do `useAppStore`
 
 ## `setData(updater)`
@@ -53089,7 +52590,7 @@ isso preserva a portabilidade e evita o bug silencioso de "estado não atualiza"
 
 ```
 
-## src\store\safeClone.js
+## src/store/safeClone.js
 
 ```javascript
 /**
@@ -53167,7 +52668,7 @@ export function safeClone(value, fallback = null) {
 
 ```
 
-## src\store\schemas.js
+## src/store/schemas.js
 
 ```javascript
 import { safeClone } from './safeClone.js';
@@ -53522,7 +53023,7 @@ export const validateAppState = (data) => {
 
 ```
 
-## src\store\slices\createCategorySlice.js
+## src/store/slices/createCategorySlice.js
 
 ```javascript
 import { generateId } from '../../utils/idGenerator';
@@ -53925,7 +53426,7 @@ export const createCategorySlice = (set) => ({
 
 ```
 
-## src\store\slices\createContestSlice.js
+## src/store/slices/createContestSlice.js
 
 ```javascript
 import { generateId } from '../../utils/idGenerator';
@@ -54040,7 +53541,7 @@ export const createContestSlice = (set) => ({
 
 ```
 
-## src\store\slices\createGamificationSlice.js
+## src/store/slices/createGamificationSlice.js
 
 ```javascript
 import { calculateLevel } from '../../utils/gamification';
@@ -54126,7 +53627,7 @@ export const createGamificationSlice = (set, get) => ({
 
 ```
 
-## src\store\slices\createMonteCarloSlice.js
+## src/store/slices/createMonteCarloSlice.js
 
 ```javascript
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
@@ -54294,7 +53795,7 @@ export const createMonteCarloSlice = (set) => ({
 
 ```
 
-## src\store\slices\createPomodoroSlice.js
+## src/store/slices/createPomodoroSlice.js
 
 ```javascript
 import { cleanTaskTitle } from '../../utils/taskTitleHelper.js';
@@ -54732,7 +54233,7 @@ export const createPomodoroSlice = (set, get) => ({
 
 ```
 
-## src\store\slices\createSettingsSlice.js
+## src/store/slices/createSettingsSlice.js
 
 ```javascript
 import { validateAppState } from '../schemas';
@@ -54838,7 +54339,7 @@ export const createSettingsSlice = (set) => ({
 
 ```
 
-## src\store\slices\createSimuladoSlice.js
+## src/store/slices/createSimuladoSlice.js
 
 ```javascript
 import { computeCategoryStats } from '../../engine/stats.js';
@@ -54959,7 +54460,7 @@ export const createSimuladoSlice = (set) => ({
 
 ```
 
-## src\store\slices\createStudySlice.js
+## src/store/slices/createStudySlice.js
 
 ```javascript
 import { generateId } from '../../utils/idGenerator';
@@ -55182,7 +54683,7 @@ export const createStudySlice = (set, get) => ({
 
 ```
 
-## src\store\slices\createTaskSlice.js
+## src/store/slices/createTaskSlice.js
 
 ```javascript
 import { generateId } from '../../utils/idGenerator';
@@ -55344,7 +54845,7 @@ export const createTaskSlice = (set, get) => ({
 
 ```
 
-## src\store\slices\createTrashSlice.js
+## src/store/slices/createTrashSlice.js
 
 ```javascript
 import { generateId } from '../../utils/idGenerator';
@@ -55423,7 +54924,7 @@ export const createTrashSlice = (set) => ({
 
 ```
 
-## src\store\useAppStore.js
+## src/store/useAppStore.js
 
 ```javascript
 import { safeClone } from './safeClone.js';
@@ -55700,7 +55201,7 @@ useAppStore.subscribe((state) => {
 
 ```
 
-## src\store\useSelectors.js
+## src/store/useSelectors.js
 
 ```javascript
 import { useAppStore } from './useAppStore';
@@ -55762,7 +55263,7 @@ export const useUIState = () => {
 
 ```
 
-## src\utils\adaptiveEngine.js
+## src/utils/adaptiveEngine.js
 
 ```javascript
 /**
@@ -55938,7 +55439,7 @@ export default { detectRegimeTransition };
 
 ```
 
-## src\utils\adaptiveMath.js
+## src/utils/adaptiveMath.js
 
 ```javascript
 /**
@@ -56402,7 +55903,7 @@ export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificulda
 
 ```
 
-## src\utils\aiSaveHelper.js
+## src/utils/aiSaveHelper.js
 
 ```javascript
 import { getDateKey, normalizeDate } from './dateHelper.js';
@@ -56613,7 +56114,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
 
 ```
 
-## src\utils\analytics.js
+## src/utils/analytics.js
 
 ```javascript
 import { getXPProgress } from './gamification.js';
@@ -57705,7 +57206,7 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
 
 ```
 
-## src\utils\audioAlert.js
+## src/utils/audioAlert.js
 
 ```javascript
 /**
@@ -57772,7 +57273,7 @@ export function playPomodoroAlarm(options = {}) {
 
 ```
 
-## src\utils\autoTunerGate.js
+## src/utils/autoTunerGate.js
 
 ```javascript
 /**
@@ -57808,7 +57309,7 @@ export function bootstrapPromotionGate(pairedDeltas, {
 
 ```
 
-## src\utils\backupManager.js
+## src/utils/backupManager.js
 
 ```javascript
 import { generateId } from './idGenerator';
@@ -57943,7 +57444,7 @@ export const parseImportedData = (content, currentAppState) => {
 
 ```
 
-## src\utils\calibration.js
+## src/utils/calibration.js
 
 ```javascript
 import { kahanSum } from '../engine/math/kahan.js';
@@ -58393,7 +57894,7 @@ export function buildCalibrationDashboardSeries(events = []) {
 
 ```
 
-## src\utils\calibrationTelemetry.js
+## src/utils/calibrationTelemetry.js
 
 ```javascript
 const TELEMETRY_KEY = 'coach_calibration_events_v1';
@@ -58487,7 +57988,7 @@ export function clearCalibrationTelemetry() {
 
 ```
 
-## src\utils\chartConfig.js
+## src/utils/chartConfig.js
 
 ```javascript
 /**
@@ -58551,7 +58052,7 @@ export const CHART_DEFAULTS = {
 
 ```
 
-## src\utils\chartDataMappers.js
+## src/utils/chartDataMappers.js
 
 ```javascript
 /**
@@ -58796,7 +58297,7 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
 
 ```
 
-## src\utils\coachAdaptive.js
+## src/utils/coachAdaptive.js
 
 ```javascript
 import { monteCarloSimulation, clearEngineMcCache } from '../engine/monteCarlo.js';
@@ -59261,7 +58762,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
 ```
 
-## src\utils\coachBacktest.js
+## src/utils/coachBacktest.js
 
 ```javascript
 export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
@@ -59313,7 +58814,7 @@ export function compareStrategyRuns(runA = {}, runB = {}, metrics = ['ndcg']) {
 
 ```
 
-## src\utils\coachCausal.js
+## src/utils/coachCausal.js
 
 ```javascript
 /**
@@ -59775,7 +59276,7 @@ export default {
 
 ```
 
-## src\utils\coachEvaluation.js
+## src/utils/coachEvaluation.js
 
 ```javascript
 /**
@@ -59868,7 +59369,7 @@ export default {
 
 ```
 
-## src\utils\coachFeatures.js
+## src/utils/coachFeatures.js
 
 ```javascript
 // ==================== COACH FEATURE FLAGS ====================
@@ -59991,7 +59492,7 @@ export default {
 
 ```
 
-## src\utils\coachLogic.js
+## src/utils/coachLogic.js
 
 ```javascript
 // ==================== CONSTANTES ====================
@@ -63020,7 +62521,7 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
 }
 ```
 
-## src\utils\coachObservability.js
+## src/utils/coachObservability.js
 
 ```javascript
 /**
@@ -63223,7 +62724,7 @@ export default {
 
 ```
 
-## src\utils\coachOptimizer.js
+## src/utils/coachOptimizer.js
 
 ```javascript
 /**
@@ -63300,7 +62801,7 @@ export default {
 
 ```
 
-## src\utils\coachPipeline.js
+## src/utils/coachPipeline.js
 
 ```javascript
 /**
@@ -63346,7 +62847,7 @@ export default {
 
 ```
 
-## src\utils\coachSafe.js
+## src/utils/coachSafe.js
 
 ```javascript
 export function safeArray(value) {
@@ -63383,7 +62884,7 @@ export function hashString(str) {
 
 ```
 
-## src\utils\coachText.js
+## src/utils/coachText.js
 
 ```javascript
 import { displaySubject, displayTopic } from './displaySubject';
@@ -63507,7 +63008,7 @@ export function parseCoachTask(task, categories = []) {
 
 ```
 
-## src\utils\dateHelper.js
+## src/utils/dateHelper.js
 
 ```javascript
 import { addDays } from 'date-fns';
@@ -63798,7 +63299,7 @@ export const parseNoonLocal = (input) => {
 
 ```
 
-## src\utils\displaySubject.js
+## src/utils/displaySubject.js
 
 ```javascript
 import { normalize } from './normalization';
@@ -63904,7 +63405,7 @@ export const displayTopic = (name) => {
 
 ```
 
-## src\utils\downsample.js
+## src/utils/downsample.js
 
 ```javascript
 import { toDateMs } from './dateHelper.js';
@@ -63988,7 +63489,7 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
 
 ```
 
-## src\utils\explanationEngine.js
+## src/utils/explanationEngine.js
 
 ```javascript
 // ==========================================
@@ -64181,7 +63682,7 @@ export function validatePrediction({ probability, interval, confidenceTier }) {
 
 ```
 
-## src\utils\format.js
+## src/utils/format.js
 
 ```javascript
 export const formatMinutes = (totalMinutes = 0) => {
@@ -64207,7 +63708,7 @@ export const formatMinutes = (totalMinutes = 0) => {
 
 ```
 
-## src\utils\gamification.js
+## src/utils/gamification.js
 
 ```javascript
 import { XP_CONFIG } from '../config/gamification';
@@ -64296,7 +63797,7 @@ export const getLevelTitle = (level) => {
 
 ```
 
-## src\utils\heatmapAggregation.js
+## src/utils/heatmapAggregation.js
 
 ```javascript
 import { normalizeDate } from './dateHelper.js';
@@ -64391,7 +63892,7 @@ export const calculateSubjectMastery = (subtopics) => {
 
 ```
 
-## src\utils\idGenerator.js
+## src/utils/idGenerator.js
 
 ```javascript
 /**
@@ -64448,7 +63949,7 @@ export const getSafeId = (task) => {
 
 ```
 
-## src\utils\lazyRetry.js
+## src/utils/lazyRetry.js
 
 ```javascript
 import { lazy } from 'react';
@@ -64484,7 +63985,7 @@ export const lazyWithRetry = (componentImport) =>
 
 ```
 
-## src\utils\logger.js
+## src/utils/logger.js
 
 ```javascript
 import { DEBUG_MODE } from '../config.js';
@@ -64520,7 +64021,7 @@ export default logger;
 
 ```
 
-## src\utils\measurement.js
+## src/utils/measurement.js
 
 ```javascript
 const safeArray = (value) => {
@@ -65140,7 +64641,7 @@ export function migrateContestData(contest) {
 
 ```
 
-## src\utils\monteCarloScenario.js
+## src/utils/monteCarloScenario.js
 
 ```javascript
 export const SCENARIO_CONFIG = {
@@ -65198,7 +64699,7 @@ export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) 
 
 ```
 
-## src\utils\normalization.js
+## src/utils/normalization.js
 
 ```javascript
 /**
@@ -65293,7 +64794,7 @@ export const safeDivide = (numerator, denominator, fallback = 0) => {
 
 ```
 
-## src\utils\normalize.js
+## src/utils/normalize.js
 
 ```javascript
 // src/utils/normalize.js
@@ -65335,7 +64836,7 @@ export function toSafeString(value, fallback = '') {
 
 ```
 
-## src\utils\parseNoonLocal.js
+## src/utils/parseNoonLocal.js
 
 ```javascript
 import { normalizeDate } from './dateHelper';
@@ -65374,7 +64875,7 @@ export function addDaysNoon(date, days) {
 
 ```
 
-## src\utils\pdfExport.js
+## src/utils/pdfExport.js
 
 ```javascript
 import { toPng } from 'html-to-image';
@@ -65438,7 +64939,7 @@ export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf'
 
 ```
 
-## src\utils\pomodoroHelpers.js
+## src/utils/pomodoroHelpers.js
 
 ```javascript
 export const asArray = (value) =>
@@ -65474,7 +64975,7 @@ export function formatTime(seconds) {
 
 ```
 
-## src\utils\ProgressStateEngine.js
+## src/utils/ProgressStateEngine.js
 
 ```javascript
 /**
@@ -65722,7 +65223,7 @@ export default { analyzeProgressState, getUIHints };
 
 ```
 
-## src\utils\scoreDomain.js
+## src/utils/scoreDomain.js
 
 ```javascript
 export function safeDomain(maxScore = 100, minScore = 0) {
@@ -65801,7 +65302,7 @@ export function detectCommonScales(categories) {
 
 ```
 
-## src\utils\scoreHelper.conversions.js
+## src/utils/scoreHelper.conversions.js
 
 ```javascript
 // ============================================================================
@@ -65864,7 +65365,7 @@ export function ratioToCorrect(ratio, total) {
 
 ```
 
-## src\utils\scoreHelper.js
+## src/utils/scoreHelper.js
 
 ```javascript
 /**
@@ -65992,7 +65493,7 @@ export {
 
 ```
 
-## src\utils\storageSafe.js
+## src/utils/storageSafe.js
 
 ```javascript
 const QUARANTINE_PREFIX = 'quarantine:';
@@ -66050,7 +65551,7 @@ export function safeSetJSON(key, value) {
 
 ```
 
-## src\utils\taskTitleHelper.js
+## src/utils/taskTitleHelper.js
 
 ```javascript
 /**
@@ -66126,7 +65627,7 @@ export function parseTaskDisplay(rawText, categoryName = '') {
 
 ```
 
-## src\utils\weeklyEvolutionInsights.js
+## src/utils/weeklyEvolutionInsights.js
 
 ```javascript
 import { toDateMs } from './dateHelper.js';
@@ -66226,6 +65727,439 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
     recentN: recentWindow.length,
     previousN: previousWindow.length,
   };
+}
+
+```
+
+## index.html
+
+```html
+<!doctype html>
+<html lang="pt-BR" translate="no">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1157/1157077.png" />
+  <title>MÉTODO ARRAIA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    /* Loading Screen Styles - Shown while React loads */
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+
+    .initial-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: white;
+    }
+
+    .loader-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(139, 92, 246, 0.3);
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loader-text {
+      margin-top: 1rem;
+      font-size: 1.1rem;
+      color: #94a3b8;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.6;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+  </style>
+  <script>
+    window.addEventListener('error', (event) => {
+      const loaderText = document.querySelector('.loader-text');
+
+      if (!loaderText) return;
+
+      loaderText.textContent = 'Erro de carregamento: ' + event.message;
+      loaderText.style.color = '#f87171';
+      loaderText.style.animation = 'none';
+    });
+
+    const BUILD_VERSION = typeof __APP_VERSION__ !== 'undefined'
+      ? __APP_VERSION__
+      : 'dev';
+    const buildVersion = typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : (window.__BUILD_VERSION__ || 'dev');
+    console.log("[Build] Versão:", buildVersion);
+
+    setTimeout(() => {
+      const loaderText = document.querySelector('.loader-text');
+      if (!loaderText) return;
+
+      const currentText = loaderText.textContent || "";
+      if (!currentText.includes("Carregando")) return;
+
+      loaderText.textContent = "";
+
+      const title = document.createElement("div");
+      title.textContent = "Carregamento lento detectado...";
+
+      const version = document.createElement("small");
+      version.style.opacity = "0.5";
+      version.textContent = `Versão: ${buildVersion} | Verifique o painel VITE_.`;
+
+      const btn = document.createElement("button");
+      btn.textContent = "Limpar dados e reiniciar";
+      btn.style.marginTop = "20px";
+      btn.style.background = "rgba(248, 113, 113, 0.2)";
+      btn.style.border = "1px solid #f87171";
+      btn.style.color = "#f87171";
+      btn.style.padding = "8px 16px";
+      btn.style.borderRadius = "8px";
+      btn.style.cursor = "pointer";
+      btn.style.fontSize = "12px";
+
+      async function clearAllLocalData() {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+
+          if ('serviceWorker' in navigator) {
+            try {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (let registration of registrations) {
+                await registration.unregister();
+              }
+            } catch (swErr) {
+              console.error('Erro ao remover Service Worker:', swErr);
+            }
+          }
+
+          if ('indexedDB' in window && typeof indexedDB.databases === 'function') {
+            const dbs = await indexedDB.databases();
+
+            if (Array.isArray(dbs)) {
+              const allowedPrefixes = [
+                'ultra-dashboard',
+                'firestore/',
+              ];
+
+              dbs.forEach(db => {
+                if (!db.name) return;
+
+                const canDelete = allowedPrefixes.some(prefix =>
+                  String(db.name).startsWith(prefix)
+                );
+
+                if (canDelete) {
+                  indexedDB.deleteDatabase(db.name);
+                }
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Erro ao limpar dados locais:', error);
+        } finally {
+          location.reload();
+        }
+      }
+
+      btn.addEventListener("click", async () => {
+        const ok = window.confirm(
+          "Isso apagará os dados locais deste navegador. Deseja continuar?"
+        );
+
+        if (ok) {
+          await clearAllLocalData();
+        }
+      });
+
+      loaderText.appendChild(title);
+      loaderText.appendChild(document.createElement("br"));
+      loaderText.appendChild(version);
+      loaderText.appendChild(document.createElement("br"));
+      loaderText.appendChild(btn);
+    }, 8000);
+  </script>
+</head>
+
+<body>
+  <div id="root">
+    <!-- Initial loader - replaced by React when app loads -->
+    <div class="initial-loader">
+      <div class="loader-spinner"></div>
+      <p class="loader-text">Carregando...</p>
+    </div>
+  </div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>
+```
+
+## package.json
+
+```json
+{
+  "name": "ultra-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "kill-port": "npx kill-port 5173 5174",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:math": "node scripts/test-math-engines.mjs",
+    "test:unit": "node scripts/test-unit-safe.mjs",
+    "test:all": "npm run test:math && npm run test:rigorous-math && npm run test:unit",
+    "test:math-rigor": "node scripts/test-math-rigorous.mjs",
+    "test:rigorous-math": "node scripts/test-math-rigorous.mjs",
+    "test:bootstrap": "node scripts/test-bootstrap-ci.mjs",
+    "test:integration-math": "node scripts/test-math-integration.mjs",
+    "test:math-stress": "node scripts/test-math-stress.mjs",
+    "test:coach-regression": "vitest run tests/coach-math-regressions.test.js",
+    "test:all-math": "npm run test:math-rigor && npm run test:math-stress && npm run test:coach-regression",
+    "audit:math": "node scripts/run-math-audit.mjs",
+    "test:mc-scenarios": "node scripts/test-mc-scenarios.mjs",
+    "mc:parallel": "node scripts/run-mc-parallel.mjs",
+    "test:heatmap-aggregation": "node scripts/test-heatmap-aggregation.mjs",
+    "test:weekly-insights": "node scripts/test-weekly-insights.mjs",
+    "test:evolution-suite": "node scripts/test-evolution-suite.mjs",
+    "test:projection-scenario": "node scripts/test-projection-scenario.mjs",
+    "test:evolution-all": "npm run test:unit && npm run test:evolution-suite",
+    "test:evolution-ui": "node scripts/test-evolution-ui-contracts.mjs",
+    "test:evolution-components": "vitest run src/components/charts/EvolutionChart/__tests__/evolutionComponents.test.jsx",
+    "test:evolution-e2e": "node scripts/test-evolution-e2e.mjs",
+    "test:unit:safe": "node scripts/test-unit-safe.mjs",
+    "lint:safe": "node scripts/lint-safe.mjs",
+    "build:safe": "node scripts/build-safe.mjs",
+    "verify:evolution": "node scripts/verify-evolution-stack.mjs",
+    "test:coach-unit": "vitest run tests/coach-math-regressions.test.js src/utils/__tests__/coachLogic.regression.test.js src/utils/__tests__/coachBacktest.test.js",
+    "test:coach-integration": "vitest run tests/coach-logic.integration.test.js",
+    "test:coach-suite": "node scripts/test-coach-suite.mjs"
+  },
+  "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
+    "@stripe/stripe-js": "^8.9.0",
+    "date-fns": "^4.1.0",
+    "dompurify": "^3.4.12",
+    "firebase": "^12.6.0",
+    "framer-motion": "^12.23.25",
+    "html-to-image": "^1.11.13",
+    "idb-keyval": "^6.2.2",
+    "immer": "^11.1.4",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^0.556.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-is": "^19.2.4",
+    "react-joyride": "^2.9.3",
+    "react-router-dom": "^7.13.0",
+    "recharts": "^3.5.1",
+    "zundo": "^2.3.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.58.1",
+    "@tailwindcss/vite": "^4.1.17",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-v8": "^4.1.6",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^7.0.2",
+    "vite": "^7.2.4",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10"
+  }
+}
+
+```
+
+## vite.config.js
+
+```javascript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+import { VitePWA } from 'vite-plugin-pwa'
+
+export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || 'dev'),
+  },
+  plugins: [
+    react(), 
+    tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      devOptions: { enabled: false },
+      manifest: {
+        name: 'Ultra Dashboard 2',
+        short_name: 'Ultra',
+        description: 'Plataforma inteligente de estudos e simulados',
+        theme_color: '#0f172a',
+        background_color: '#020617',
+        display: 'standalone',
+        icons: [
+          {
+            src: '/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          }
+        ]
+      }
+    })
+  ],
+  envPrefix: ['VITE_'],
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
+  build: {
+    target: 'es2022',
+    minify: 'esbuild',
+    chunkSizeWarningLimit: 1000,
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
+          charts: ['recharts'],
+          pdf: ['html-to-image', 'jspdf'],
+          motion: ['framer-motion'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
+        },
+      },
+    },
+  },
+
+  // ─── VITEST ───────────────────────────────────────────────────────────────
+  test: {
+    // FIX 6: Transição para jsdom, libertando o acesso a APIs de browser (window, document)
+    // requeridas imperativamente por ficheiros 'src/**/*.test.jsx' que testam componentes React.
+    environment: 'jsdom',        
+    globals: true,              
+    include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'src/**/*.spec.js', 'tests/**/*.test.js'],
+    globalTeardown: './tests/teardown.js',
+    testTimeout: 20000,
+    coverage: {
+      provider: 'v8',
+      include: ['src/engine/**', 'src/utils/coachLogic.js'],
+    },
+  },
+  // ──────────────────────────────────────────────────────────────────────────
+})
+
+```
+
+## firestore.rules
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // O utilizador só pode ler e escrever no SEU PRÓPRIO documento
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function withinSizeLimit() {
+      return request.resource.data.size() < 950000;
+    }
+
+    match /backups/{userId}/{document=**} {
+      allow read: if isOwner(userId);
+
+      allow create, update: if isOwner(userId)
+        && withinSizeLimit();
+
+      allow delete: if isOwner(userId);
+    }
+
+    // Regras oficiais da extensão Firebase Stripe Payments (clientes, sessões de checkout, pagamentos, assinaturas e produtos)
+    match /customers/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      match /checkout_sessions/{id} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /subscriptions/{id} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+      }
+      match /payments/{id} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    match /products/{id} {
+      allow read: if true;
+
+      match /prices/{id} {
+        allow read: if true;
+      }
+
+      match /tax_rates/{id} {
+        allow read: if true;
+      }
+    }
+
+    // Permite que o sistema de sincronização salve os dados na nuvem
+    
+    // Regra global: Proíbe acesso a qualquer outra coleção acidental
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
 }
 
 ```
