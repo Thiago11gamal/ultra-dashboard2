@@ -92,11 +92,23 @@ export function detectPerformanceDrift({
     baselineMean,
     recentVolatility,
     maxScore = 100,
+    margin = 2 // % do domínio
 }) {
     const alerts = [];
     const scale = maxScore / 100;
+    const diff = recentMean - baselineMean;
 
-    if (recentMean < baselineMean - (12 * scale)) {
+    // ✅ PATCH-12: Se estiver em platô/estagnado, retorna sem gerar alertas falsos de "queda"
+    if (Math.abs(diff) <= (margin * scale)) {
+       alerts.push({
+          type: 'plateau',
+          severity: 'low',
+          message: 'Desempenho estável, em fase de consolidação.'
+       });
+       return alerts; // Interrompe para não gerar falsos positivos
+    }
+
+    if (diff < -(12 * scale)) {
         alerts.push({
             type: 'performance_drop',
             severity: 'high',

@@ -325,7 +325,8 @@ export function useMonteCarloStats({
     };
   }, [pureStatsData, calibrationPenalty, maxScore]);
 
-  const pureStatsHash = pureStatsData?.statsHash || 'null';
+  // ✅ PATCH-04: Hash deve incluir o timeIndex para forçar re-cálculo quando muda o range de datas
+  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}`;
 
   const pureStatsDataRef = useRef(pureStatsData);
   useEffect(() => {

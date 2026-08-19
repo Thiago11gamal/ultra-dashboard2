@@ -177,12 +177,18 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
 
     let calibrationPenalty = 0;
 
-    // FIX: guarda de amostra efetiva mínima.
-    // Sem isso, um único evento azarado (ex.: dia de prova ruim) gerava
-    // penalidade máxima e o sistema ficava "desconfiado" sem evidência estatística.
+    // ✅ PATCH-05: Penalidade com amostra insuficiente
+    // Conta eventos REAIS (não apenas peso de decaimento)
+    const actualEventCount = mcHistory.filter(snapshot => {
+        if (!snapshot) return false;
+        const snapTime = normalizeDate(snapshot.date || snapshot.timestamp)?.getTime();
+        return Number.isFinite(snapTime);
+    }).length;
+    
     const hasEffectiveSample =
-        brierWeightSum >= CALIBRATION_MIN_EFFECTIVE_SAMPLES ||
-        residualWeightSum >= CALIBRATION_MIN_EFFECTIVE_SAMPLES;
+        actualEventCount >= 3 && // Mínimo de eventos reais
+        (brierWeightSum >= CALIBRATION_MIN_EFFECTIVE_SAMPLES ||
+         residualWeightSum >= CALIBRATION_MIN_EFFECTIVE_SAMPLES);
 
     if (hasEffectiveSample && (brierWeightSum > 0 || residualWeightSum > 0)) {
         const avgBrier = brierWeightSum > 0 ? brierSum / brierWeightSum : 0;

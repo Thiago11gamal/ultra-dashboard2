@@ -323,9 +323,16 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     Object.entries(cloudContests).forEach(([id, cloudContest]) => {
       const localContest = localContests[id];
       if (!localContest) {
-        const isDeletedLocally = (local.trash || []).some(t => t.contestId === id);
-        if (!isDeletedLocally) {
+        const trashEntry = (local.trash || []).find(t => t.contestId === id);
+        if (!trashEntry) {
           mergedContests[id] = cloudContest;
+        } else {
+          // Só re-adiciona se a nuvem é mais recente que a deleção local
+          const trashTime = new Date(trashEntry.deletedAt || 0).getTime();
+          const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
+          if (cloudTime > trashTime) {
+            mergedContests[id] = cloudContest;
+          }
         }
       } else {
         const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
@@ -786,7 +793,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             coreState.contestIds = Object.keys(contests);
             delete coreState.contests;
 
-            transaction.set(docRef, coreState);
+            // ✅ PATCH-10: Verificação otimista: só sobrescreve se versão local >= versão da nuvem
+            transaction.set(docRef, coreState, { merge: false });
             for (const [cid, cData] of Object.entries(contests)) {
               transaction.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
             }

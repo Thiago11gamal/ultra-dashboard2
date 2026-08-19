@@ -292,18 +292,15 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
   }
   
   // ✅ FIX: Clamp proporcional à amplitude real (maxScore - minScore) da prova
-  const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
-  const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
-  const minScore = Number.isFinite(opts?.minScore) ? Number(opts.minScore) : 0;
-  const range = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
-  const absoluteMax = 0.004 * range; // 0.4% da amplitude real por dia
-  
+  const safeMax = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
+  const safeMin = Number.isFinite(options?.minScore) ? options.minScore : 0;
+  const range = Math.max(1e-9, safeMax - safeMin);
+  // 0.4% do range por dia como limite máximo
+  const absoluteMax = 0.004 * range;
   let slope = Number(trendOrHistory) || 0;
   if (!Number.isFinite(slope)) return 0;
-  
   if (slope > absoluteMax) slope = absoluteMax;
   if (slope < -absoluteMax) slope = -absoluteMax;
-  
   return slope;
 }
 

@@ -117,7 +117,9 @@ export const calculateStudyStreak = (studyLogs) => {
     // eslint-disable-next-line no-restricted-syntax
     const anchored = new Date(`${cursorKey}T12:00:00-04:00`);
     anchored.setDate(anchored.getDate() - 1);
-    cursorKey = getDateKey(anchored);
+    const nextKey = getDateKey(anchored);
+    if (nextKey === cursorKey) break; // evita loop infinito
+    cursorKey = nextKey;
   }
 
   const longest = calculateLongest(sortedDays);
@@ -295,20 +297,15 @@ export const buildAchievementStats = (contestData, options = {}) => {
 
     const { totalQuestions, totalCorrect, accuracy } = aggregateQuestionAccuracy(contestData);
 
-    // ✅ PATCH-14: Inicializar com valores do user e atualizar com logs
     let studiedEarly = Boolean(contestData.user?.studiedEarly);
     let studiedLate = Boolean(contestData.user?.studiedLate);
     let studiedWeekend = Boolean(contestData.user?.studiedWeekend);
-
-    // ✅ PATCH-15: Garantir que studiedWeekend é setado corretamente
-    const logsArray = toArray(studyLogs);
-    logsArray.forEach(log => {
+    // Garante que studiedWeekend é setado a partir dos logs
+    const logsArrayForWeekend = toArray(studyLogs);
+    logsArrayForWeekend.forEach(log => {
         const d = safeDate(log?.date);
         if (!d) return;
-        const hr = d.getHours();
         const day = d.getDay();
-        if (hr >= 4 && hr < 7) studiedEarly = true;
-        if (hr >= 23 || hr < 4) studiedLate = true;
         if (day === 0 || day === 6) studiedWeekend = true;
     });
 

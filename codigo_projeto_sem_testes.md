@@ -27418,12 +27418,18 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
 
     let calibrationPenalty = 0;
 
-    // FIX: guarda de amostra efetiva mínima.
-    // Sem isso, um único evento azarado (ex.: dia de prova ruim) gerava
-    // penalidade máxima e o sistema ficava "desconfiado" sem evidência estatística.
+    // ✅ PATCH-05: Penalidade com amostra insuficiente
+    // Conta eventos REAIS (não apenas peso de decaimento)
+    const actualEventCount = mcHistory.filter(snapshot => {
+        if (!snapshot) return false;
+        const snapTime = normalizeDate(snapshot.date || snapshot.timestamp)?.getTime();
+        return Number.isFinite(snapTime);
+    }).length;
+    
     const hasEffectiveSample =
-        brierWeightSum >= CALIBRATION_MIN_EFFECTIVE_SAMPLES ||
-        residualWeightSum >= CALIBRATION_MIN_EFFECTIVE_SAMPLES;
+        actualEventCount >= 3 && // Mínimo de eventos reais
+        (brierWeightSum >= CALIBRATION_MIN_EFFECTIVE_SAMPLES ||
+         residualWeightSum >= CALIBRATION_MIN_EFFECTIVE_SAMPLES);
 
     if (hasEffectiveSample && (brierWeightSum > 0 || residualWeightSum > 0)) {
         const avgBrier = brierWeightSum > 0 ? brierSum / brierWeightSum : 0;
@@ -38791,18 +38797,15 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
   }
   
   // ✅ FIX: Clamp proporcional à amplitude real (maxScore - minScore) da prova
-  const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
-  const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
-  const minScore = Number.isFinite(opts?.minScore) ? Number(opts.minScore) : 0;
-  const range = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
-  const absoluteMax = 0.004 * range; // 0.4% da amplitude real por dia
-  
+  const safeMax = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
+  const safeMin = Number.isFinite(options?.minScore) ? options.minScore : 0;
+  const range = Math.max(1e-9, safeMax - safeMin);
+  // 0.4% do range por dia como limite máximo
+  const absoluteMax = 0.004 * range;
   let slope = Number(trendOrHistory) || 0;
   if (!Number.isFinite(slope)) return 0;
-  
   if (slope > absoluteMax) slope = absoluteMax;
   if (slope < -absoluteMax) slope = -absoluteMax;
-  
   return slope;
 }
 
@@ -42097,9 +42100,16 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     Object.entries(cloudContests).forEach(([id, cloudContest]) => {
       const localContest = localContests[id];
       if (!localContest) {
-        const isDeletedLocally = (local.trash || []).some(t => t.contestId === id);
-        if (!isDeletedLocally) {
+        const trashEntry = (local.trash || []).find(t => t.contestId === id);
+        if (!trashEntry) {
           mergedContests[id] = cloudContest;
+        } else {
+          // Só re-adiciona se a nuvem é mais recente que a deleção local
+          const trashTime = new Date(trashEntry.deletedAt || 0).getTime();
+          const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
+          if (cloudTime > trashTime) {
+            mergedContests[id] = cloudContest;
+          }
         }
       } else {
         const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
@@ -42560,7 +42570,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             coreState.contestIds = Object.keys(contests);
             delete coreState.contests;
 
-            transaction.set(docRef, coreState);
+            // ✅ PATCH-10: Verificação otimista: só sobrescreve se versão local >= versão da nuvem
+            transaction.set(docRef, coreState, { merge: false });
             for (const [cid, cData] of Object.entries(contests)) {
               transaction.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
             }
@@ -43780,7 +43791,8 @@ export function useMonteCarloStats({
     };
   }, [pureStatsData, calibrationPenalty, maxScore]);
 
-  const pureStatsHash = pureStatsData?.statsHash || 'null';
+  // ✅ PATCH-04: Hash deve incluir o timeIndex para forçar re-cálculo quando muda o range de datas
+  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}`;
 
   const pureStatsDataRef = useRef(pureStatsData);
   useEffect(() => {
@@ -45138,16 +45150,12 @@ export function usePomodoroSync({
             if (SESSION_SCOPED_TYPES.includes(type)) {
                 const currentTaskId = activeSubjectRef.current?.taskId || null;
                 const currentSessionId = activeSubjectRef.current?.sessionInstanceId || null;
-
-                if (taskId && currentTaskId && taskId !== currentTaskId) {
+                
+                // ✅ PATCH-02: Rejeita se QUALQUER identificador existir E for diferente
+                if (taskId !== undefined && taskId !== null && currentTaskId !== null && taskId !== currentTaskId) {
                     return;
                 }
-
-                if (
-                    sessionInstanceId &&
-                    currentSessionId &&
-                    sessionInstanceId !== currentSessionId
-                ) {
+                if (sessionInstanceId !== undefined && sessionInstanceId !== null && currentSessionId !== null && sessionInstanceId !== currentSessionId) {
                     return;
                 }
             }
@@ -56627,7 +56635,9 @@ export const calculateStudyStreak = (studyLogs) => {
     // eslint-disable-next-line no-restricted-syntax
     const anchored = new Date(`${cursorKey}T12:00:00-04:00`);
     anchored.setDate(anchored.getDate() - 1);
-    cursorKey = getDateKey(anchored);
+    const nextKey = getDateKey(anchored);
+    if (nextKey === cursorKey) break; // evita loop infinito
+    cursorKey = nextKey;
   }
 
   const longest = calculateLongest(sortedDays);
@@ -56805,20 +56815,15 @@ export const buildAchievementStats = (contestData, options = {}) => {
 
     const { totalQuestions, totalCorrect, accuracy } = aggregateQuestionAccuracy(contestData);
 
-    // ✅ PATCH-14: Inicializar com valores do user e atualizar com logs
     let studiedEarly = Boolean(contestData.user?.studiedEarly);
     let studiedLate = Boolean(contestData.user?.studiedLate);
     let studiedWeekend = Boolean(contestData.user?.studiedWeekend);
-
-    // ✅ PATCH-15: Garantir que studiedWeekend é setado corretamente
-    const logsArray = toArray(studyLogs);
-    logsArray.forEach(log => {
+    // Garante que studiedWeekend é setado a partir dos logs
+    const logsArrayForWeekend = toArray(studyLogs);
+    logsArrayForWeekend.forEach(log => {
         const d = safeDate(log?.date);
         if (!d) return;
-        const hr = d.getHours();
         const day = d.getDay();
-        if (hr >= 4 && hr < 7) studiedEarly = true;
-        if (hr >= 23 || hr < 4) studiedLate = true;
         if (day === 0 || day === 6) studiedWeekend = true;
     });
 
@@ -63620,13 +63625,11 @@ export const formatWeekdayShortPtBR = (date) => {
 export const getFlashcardTodayKey = () => getDateKey(new Date());
 
 export const getFlashcardNextDueKey = (intervalDays = 1) => {
-  // ✅ FIX: Validar e clamp intervalDays para prevenir datas absurdas
-  const raw = Number(intervalDays);
-  const safeDays = Math.max(1, Math.min(3650, Math.floor(Number.isFinite(raw) ? raw : 1)));
-  if (!Number.isFinite(safeDays)) return getFlashcardTodayKey();
-  const future = addDays(new Date(), safeDays);
-  const key = getDateKey(future);
-  return key || getFlashcardTodayKey();
+   const raw = Number(intervalDays);
+   const safeDays = Number.isFinite(raw) ? Math.max(1, Math.min(3650, Math.floor(raw))) : 1;
+   const future = addDays(new Date(), safeDays);
+   const key = getDateKey(future);
+   return key || getFlashcardTodayKey();
 };
 
 export const isFlashcardDue = (cardDue, referenceKey = null) => {
@@ -63948,11 +63951,23 @@ export function detectPerformanceDrift({
     baselineMean,
     recentVolatility,
     maxScore = 100,
+    margin = 2 // % do domínio
 }) {
     const alerts = [];
     const scale = maxScore / 100;
+    const diff = recentMean - baselineMean;
 
-    if (recentMean < baselineMean - (12 * scale)) {
+    // ✅ PATCH-12: Se estiver em platô/estagnado, retorna sem gerar alertas falsos de "queda"
+    if (Math.abs(diff) <= (margin * scale)) {
+       alerts.push({
+          type: 'plateau',
+          severity: 'low',
+          message: 'Desempenho estável, em fase de consolidação.'
+       });
+       return alerts; // Interrompe para não gerar falsos positivos
+    }
+
+    if (diff < -(12 * scale)) {
         alerts.push({
             type: 'performance_drop',
             severity: 'high',

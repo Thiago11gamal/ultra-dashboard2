@@ -58,16 +58,12 @@ export function usePomodoroSync({
             if (SESSION_SCOPED_TYPES.includes(type)) {
                 const currentTaskId = activeSubjectRef.current?.taskId || null;
                 const currentSessionId = activeSubjectRef.current?.sessionInstanceId || null;
-
-                if (taskId && currentTaskId && taskId !== currentTaskId) {
+                
+                // ✅ PATCH-02: Rejeita se QUALQUER identificador existir E for diferente
+                if (taskId !== undefined && taskId !== null && currentTaskId !== null && taskId !== currentTaskId) {
                     return;
                 }
-
-                if (
-                    sessionInstanceId &&
-                    currentSessionId &&
-                    sessionInstanceId !== currentSessionId
-                ) {
+                if (sessionInstanceId !== undefined && sessionInstanceId !== null && currentSessionId !== null && sessionInstanceId !== currentSessionId) {
                     return;
                 }
             }
