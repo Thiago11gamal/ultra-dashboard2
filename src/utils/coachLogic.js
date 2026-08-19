@@ -149,6 +149,8 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
         if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
 
         const journeyDays = Math.max(0, refTime - firstTime) / 86400000;
+        // ✅ FIX: Validar journeyDays antes de calcular totalJourneyDays
+        if (!Number.isFinite(journeyDays) || journeyDays <= 0) return 1.0;
         const totalJourneyDays = Math.max(1, journeyDays) + Math.max(0, daysToExam);
 
         criticalHorizon = Math.max(14, Math.min(35, totalJourneyDays * 0.08));
@@ -191,7 +193,10 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
     daysSince
   );
 
-  const retention = forgettingData.retentionPct;
+  // ✅ FIX: Validar retention antes de calcular boost
+  const retention = Number.isFinite(forgettingData.retentionPct) 
+    ? forgettingData.retentionPct 
+    : 100;
 
   if (retention < 75) {
     const intensity = Math.pow((75 - retention) / 75, 1.2);
@@ -217,21 +222,17 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
 export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, globalTotal = 0) => {
     const rawAcertos = Number(acertos) || 0;
     const rawTotal = Number(total) || 0;
-    // ✅ FIX: Blindar contra NaN propagado
     const safeMedia = Number.isFinite(mediaGlobal) ? Math.max(0, Math.min(1, mediaGlobal)) : 0.5;
     const safeGlobalTotal = Number.isFinite(globalTotal) ? Math.max(0, globalTotal) : 0;
     const K = Math.max(3, Math.min(15, Math.log10(safeGlobalTotal + 1) * 3));
-
     const untestedPrior = 0.25;
+    // ✅ FIX: Tópico não testado usa prior conservador, não herda média global
     const dataTrust = Math.min(1, rawTotal / K);
-
     const prior = rawTotal === 0
-        ? untestedPrior
+        ? untestedPrior // ← Não herda safeMedia
         : (untestedPrior * (1 - dataTrust)) + (safeMedia * dataTrust);
-
     const smoothedAcertos = rawAcertos + (prior * K);
     const smoothedTotal = rawTotal + K;
-
     const proficiency = smoothedTotal > 0 ? smoothedAcertos / smoothedTotal : untestedPrior;
     return clamp(proficiency, 0, 1);
 };
@@ -962,13 +963,17 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const gapRange = Math.max(1e-6, targetScore - minScore);
     const gapRatio = clamp(performanceDeficit / gapRange, 0, 1);
 
-    // FIX: memoryRisk contínuo em vez de discreto 3-níveis.
-    // Elimina descontinuidades no componente de recência.
+    // ✅ FIX: Adicionar validação de retention
+    const safeRetention = Number.isFinite(forgetting.retentionPct) 
+        ? forgetting.retentionPct 
+        : 100;
     const memoryRisk = !hasData
         ? 8
-        : clamp(35 * Math.pow(1 - forgetting.retentionPct / 100, 1.5), 2, 35);
-
-    const volatilityRiskPct = clamp((mssdVolatility / domain) * 100, 0, 35);
+        : clamp(35 * Math.pow(1 - safeRetention / 100, 1.5), 2, 35);
+    const safeMssdVolatility = Number.isFinite(mssdVolatility) 
+        ? mssdVolatility 
+        : 0;
+    const volatilityRiskPct = clamp((safeMssdVolatility / domain) * 100, 0, 35);
 
     const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.40;
 
@@ -1630,7 +1635,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
   })
 );
 
-        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}_f${featuresHash}`;
+        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}_f${featuresHash}_ms${options.maxScore ?? 100}_ts${options.targetScore ?? 0}`;
 
         if (_urgencyCache.has(cacheKey)) {
             const cached = _urgencyCache.get(cacheKey);
@@ -1789,8 +1794,10 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 
     const maxScore = options.maxScore ?? 100;
 
+    // ✅ FIX: Deep clone do urgency para evitar mutação do cache
     const result = {
         ...top,
+        urgency: top.urgency ? JSON.parse(JSON.stringify(top.urgency)) : null,
         weakestTopic: getWeakestTopic(top, simulados, maxScore)
     };
 
@@ -2447,7 +2454,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
         const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
 
-        const normalizedScore = averageScore !== undefined ? (averageScore / maxScore) * 100 : 100;
+        // ✅ FIX: Validar averageScore antes de calcular normalizedScore
+        const safeAverageScore = Number.isFinite(averageScore) ? averageScore : 0;
+        const normalizedScore = (safeAverageScore / maxScore) * 100;
         const isFormingBase = normalizedScore < 45;
 
         if (totalHours > 5 && questionsPerHour < dynamicThreshold && !isFormingBase) {
@@ -2883,8 +2892,8 @@ export function getBestTask(categories, excludeTaskId = null) {
           console.warn('[CoachLogic] Decision utility best task failed:', err);
         }
       }
-
-      if (finalScore > highestScore) {
+      // ✅ FIX: Validar finalScore antes de comparar
+      if (Number.isFinite(finalScore) && finalScore > highestScore) {
         highestScore = finalScore;
         bestTask = {
           ...task,
@@ -2915,26 +2924,29 @@ export function getCoachInsight(activeSubject, stats) {
     }
 
     const fatigueScore = getCognitiveState(stats);
+    // ✅ FIX: Validar fatigueScore antes de usar
+    const safeFatigueScore = Number.isFinite(fatigueScore) ? fatigueScore : 100;
+
     const userResilience = stats?.user?.level || 1;
 
     const dangerThreshold = Math.max(45, 75 - (userResilience * 2));
     const flowThreshold = Math.min(90, 80 + (userResilience * 0.5));
 
-    if (fatigueScore < dangerThreshold) {
+    if (safeFatigueScore < dangerThreshold) {
         return {
             type: 'danger',
             title: 'Pausa Recomendada',
-            text: `Carga cognitiva elevada (**${fatigueScore}%**). Sua taxa de retenção pode começar a cair. É um bom momento para descansar a mente.`,
+            text: `Carga cognitiva elevada (**${safeFatigueScore}%**). Sua taxa de retenção pode começar a cair. É um bom momento para descansar a mente.`,
             color: 'red',
             iconType: 'Alert'
         };
     }
 
-    if (fatigueScore >= flowThreshold && stats?.pomodorosCompleted >= 3) {
+    if (safeFatigueScore >= flowThreshold && stats?.pomodorosCompleted >= 3) {
         return {
             type: 'success',
             title: 'Fluxo Profundo',
-            text: `Excelente ritmo! Você atingiu o estado de fluxo com **${fatigueScore}%** de energia mental. Aproveite o momento para avançar no conteúdo.`,
+            text: `Excelente ritmo! Você atingiu o estado de fluxo com **${safeFatigueScore}%** de energia mental. Aproveite o momento para avançar no conteúdo.`,
             color: 'emerald',
             iconType: 'Zap'
         };
@@ -2944,7 +2956,7 @@ export function getCoachInsight(activeSubject, stats) {
         return {
             type: 'info',
             title: 'Belo Progresso',
-            text: `${stats.pomodorosCompleted} sessões concluídas. Você ainda tem **${fatigueScore}%** de energia. Continue assim, mas lembre-se de fazer breves pausas.`,
+            text: `${stats.pomodorosCompleted} sessões concluídas. Você ainda tem **${safeFatigueScore}%** de energia. Continue assim, mas lembre-se de fazer breves pausas.`,
             color: 'indigo',
             iconType: 'Brain'
         };
@@ -2965,7 +2977,9 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
 
     allSimulados.forEach((s, idx) => {
         const safeScore = getSafeScore(s, maxScore);
-        const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${Number.isFinite(safeScore) ? safeScore.toFixed(2) : '0.00'}`;
+        // ✅ FIX: Validar safeScore antes de usar
+        const safeScoreStr = Number.isFinite(safeScore) ? safeScore.toFixed(2) : '0.00';
+        const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${safeScoreStr}`;
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
 
@@ -2991,13 +3005,15 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
     Object.entries(rowsByDate).forEach(([dKey, stats]) => {
         if (stats.total > 0) {
             const score = (stats.correct / stats.total) * maxScore;
-            const key = `legacy-${dKey}|${dKey}|${score.toFixed(2)}`;
+            // ✅ FIX: Validar score antes de usar
+            const safeScoreStr = Number.isFinite(score) ? score.toFixed(2) : '0.00';
+            const key = `legacy-${dKey}|${dKey}|${safeScoreStr}`;
 
             if (!deduplicatedMap.has(key)) {
                 deduplicatedMap.set(key, {
                     id: `legacy-${dKey}`,
                     date: dKey,
-                    score,
+                    score: Number.isFinite(score) ? score : 0,
                     type: 'simulado'
                 });
             }

@@ -139,9 +139,12 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     flags: {},
   };
 
-  const categories = safeArray(input.categories);
-  const simulados = safeArray(input.simulados);
-  const studyLogs = safeArray(input.studyLogs);
+  // ✅ FIX: Validar input antes de processar
+  const safeInput = input && typeof input === 'object' ? input : {};
+
+  const categories = safeArray(safeInput.categories);
+  const simulados = safeArray(safeInput.simulados);
+  const studyLogs = safeArray(safeInput.studyLogs);
 
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
 
@@ -498,19 +501,21 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
  * Constrói um dashboard simples a partir do resultado do orquestrador.
  */
 export function buildCoachOrchestratorDashboard(result = {}) {
+  // ✅ FIX: Validar result antes de processar
   if (!result || typeof result !== 'object') return null;
+  const safeResult = result && typeof result === 'object' ? result : {};
 
-  const focus = result.focus || null;
-  const health = result.health || null;
-  const causal = result.causal || null;
-  const llm = result.llmExplanation || null;
-  const tuner = result.tuner || null;
-  const meta = result.meta || {};
+  const focus = safeResult.focus || null;
+  const health = safeResult.health || null;
+  const causal = safeResult.causal || null;
+  const llm = safeResult.llmExplanation || null;
+  const tuner = safeResult.tuner || null;
+  const meta = safeResult.meta || {};
 
   return {
-    generatedAt: result.generatedAt || Date.now(),
-    durationMs: result.durationMs ?? null,
-    version: result.version || ORCHESTRATOR_VERSION,
+    generatedAt: safeResult.generatedAt || Date.now(),
+    durationMs: safeResult.durationMs ?? null,
+    version: safeResult.version || ORCHESTRATOR_VERSION,
 
     cards: [
       {

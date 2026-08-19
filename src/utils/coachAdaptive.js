@@ -293,7 +293,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const requestedSims = adaptive?.mcSimulations || cfg.MC_SIMULATIONS || 800;
     const simulationCap = getCpuAwareSimulationCap(2500, cfg);
     const qualityBoost = dataQuality < 0.7 ? 1.3 : 1.0;
-    const safeSimulations = Math.max(300, Math.min(simulationCap, Math.round(Number(requestedSims) || 800) * qualityBoost));
+    // ✅ FIX: Validar requestedSims antes de calcular safeSimulations
+    const safeRequestedSims = Number.isFinite(requestedSims) ? requestedSims : 800;
+    const safeSimulations = Math.max(300, Math.min(simulationCap, Math.round(safeRequestedSims * qualityBoost)));
     const result = monteCarloSimulation(history, safeTargetScore, days, safeSimulations,
       { maxScore, agilityPenalty, globalBaselinePct: neutralPct });
     const enableAdaptiveCalibration = cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false;
@@ -360,11 +362,14 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
           ? rawPreds.reduce((acc, p, idx) => acc + computeLogLoss(p, observedSeq[idx]), 0) / rawPreds.length
           : 0;
         const llScaled = Math.max(0, Math.min(1, meanLL / 0.693));
-        calibrationPenalty = Math.min(penaltyCap,
-          (calibrationPenalty * 0.65) +
+        // ✅ FIX: Adicionar validação de calibrationPenalty
+        const rawCalibrationPenalty = Number.isFinite(calibrationPenalty) ? calibrationPenalty : 0;
+        const safeCalibrationPenalty = Math.min(penaltyCap,
+          (rawCalibrationPenalty * 0.65) +
           (eceScaled * 0.20 * penaltyCap) +
           (mceScaled * 0.10 * penaltyCap) +
           (llScaled * 0.05 * penaltyCap));
+        calibrationPenalty = safeCalibrationPenalty;
       }
     }
     let isotonicModel = [];

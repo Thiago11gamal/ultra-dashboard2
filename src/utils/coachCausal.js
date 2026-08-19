@@ -283,7 +283,10 @@ export function buildCausalEventsFromHistory(
     categoryId: options.categoryId || null,
   });
 
-  const combined = [...taskEvents, ...volumeEvents];
+  // ✅ FIX: Validar eventos antes de combinar
+  const safeTaskEvents = Array.isArray(taskEvents) ? taskEvents : [];
+  const safeVolumeEvents = Array.isArray(volumeEvents) ? volumeEvents : [];
+  const combined = [...safeTaskEvents, ...safeVolumeEvents];
 
   return prepareCausalEvents(combined, options);
 }
@@ -409,10 +412,14 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
     causalWeight: options.causalWeight ?? 0.35,
   });
 
+  // ✅ FIX: Validar ranked antes de criar orderMap
+  const safeRanked = Array.isArray(ranked) ? ranked : [];
   const orderMap = new Map();
 
-  ranked.forEach((candidate, index) => {
-    orderMap.set(candidate.id, index);
+  safeRanked.forEach((candidate, index) => {
+    if (candidate && candidate.id) {
+      orderMap.set(candidate.id, index);
+    }
   });
 
   return [...safeTasks].sort((a, b) => {

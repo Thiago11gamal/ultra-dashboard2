@@ -116,10 +116,12 @@ export function useCoachControlCenter({
         }
       );
 
-      setOrchestratorResult(result);
-
-      const dash = buildCoachOrchestratorDashboard(result);
-      setDashboard(dash);
+      // ✅ FIX: Validar result e dash
+      if (result) {
+        setOrchestratorResult(result);
+        const dash = buildCoachOrchestratorDashboard(result);
+        if (dash) setDashboard(dash);
+      }
 
       setLastRunTimestamp(Date.now());
 
