@@ -16,6 +16,8 @@ export function parseNoonLocal(input) {
   if (!base || Number.isNaN(base.getTime())) return null;
   const d = new Date(base.getTime());
   d.setHours(12, 0, 0, 0);
+  // ✅ FIX: Validar que a data resultante é válida
+  if (Number.isNaN(d.getTime())) return null;
   return d;
 }
 

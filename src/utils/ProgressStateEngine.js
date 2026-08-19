@@ -38,10 +38,10 @@ export function analyzeProgressState(scores, config = {}) {
     let scaled_high = high_level_limit * scaleFactor;
     let scaled_mastery = mastery_limit * scaleFactor;
 
-    // T-035 FIX: Blindagem contra configs inválidas ou meta menor que o limite baixo.
+    // ✅ FIX: Blindagem contra configs inválidas ou meta menor que o limite baixo.
     if (!Number.isFinite(scaled_low)) scaled_low = 60 * scaleFactor;
-    if (!Number.isFinite(scaled_high)) scaled_high = 75 * scaleFactor;
-    if (!Number.isFinite(scaled_mastery)) scaled_mastery = 80 * scaleFactor;
+    if (!Number.isFinite(scaled_high)) scaled_high = Math.max(scaled_low, 75 * scaleFactor);
+    if (!Number.isFinite(scaled_mastery)) scaled_mastery = Math.max(scaled_high, 80 * scaleFactor);
 
     // Garantir ordem lógica: low <= high <= mastery
     if (scaled_high < scaled_low) {

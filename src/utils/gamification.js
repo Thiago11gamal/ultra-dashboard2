@@ -41,17 +41,16 @@ export const getXPProgress = (xpInput) => {
     const nextLevelXP = Math.pow(level, 2) * 100;
     const range = nextLevelXP - currentLevelXP;
 
-    // FIX: Se o progresso for 0 logo após subir de nível, 
-    // retornamos 0.5% para melhor feedback visual na UI.
+    // ✅ FIX: Proteção contra range zero e feedback visual mínimo
     const safeXP = Math.max(currentLevelXP, xp);
-    const rawPercentage = range > 0 ? ((safeXP - currentLevelXP) / range) * 100 : 0;
+    const safeRange = Math.max(1, range);
+    const rawPercentage = ((safeXP - currentLevelXP) / safeRange) * 100;
     const percentage = Math.round(Math.max(0, Math.min(100, rawPercentage)));
-
     return {
         level,
         current: Math.max(0, xp - currentLevelXP),
-        needed: Math.max(0, range),
-        percentage: (percentage === 0 && xp > 0) ? 0.5 : percentage, // FIX visual
+        needed: Math.max(1, range),
+        percentage: (percentage === 0 && xp > 0) ? 0.5 : percentage,
         total: xp,
     };
 };

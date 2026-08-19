@@ -78,7 +78,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                         return;
                     }
                     
-                    const score = getSafeScore(t, maxScore);
+                    const score = getSafeScore(t, maxScore, minScore);
                     // ✅ FIX: Se score é NaN (t.score null E total 0), pular esta entrada
                     if (!Number.isFinite(score)) return;
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
@@ -147,7 +147,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     continue;
                 }
                 
-                const score = getSafeScore(h, maxScore);
+                const score = getSafeScore(h, maxScore, minScore);
                 if (!Number.isFinite(score)) continue;
                 const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                 

@@ -328,26 +328,29 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
       };
     }
 
-    const looksPercent =
+    // ✅ FIX: Auto-detecção removida. Tratar sempre como pontos quando não
+    // há indicação explícita de unidade. A auto-detecção causava conversão
+    // incorreta de notas brutas (ex: 85/1000 virava 85% = 850 pts).
+    const looksPercentAmbiguous =
       domain.max > 100 &&
       scoreRaw >= 0 &&
       scoreRaw <= 100 &&
       r.isPercentage !== false;
 
-    if (looksPercent) {
-      const pct = clampFinite(scoreRaw, 0, 100, 0);
-      const points = pctToPoints(pct, domain);
-
+    if (looksPercentAmbiguous) {
+      // Marcar como ambíguo mas tratar como PONTOS (mais seguro)
+      const points = clampFinite(scoreRaw, domain.min, domain.max, domain.min);
+      const pct = pointsToPct(points, domain);
       return {
         points,
         pct,
-        ratio: clampFinite(pct / 100, 0, 1, 0),
+        ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
         total,
         correct,
         totalValid: false,
         domain,
         ambiguous: true,
-        source: "score-auto-percent-like"
+        source: "score-ambiguous-treated-as-points"
       };
     }
 
@@ -440,7 +443,7 @@ export function sanitizeSimuladoRow(row, maxScore = 100, minScore = 0) {
 
   return {
     ...r,
-    date: Number.isFinite(t) ? rawDate : null,
+    date: Number.isFinite(t) && t > 0 ? rawDate : null,
     total: norm.total,
     correct: norm.correct,
     scorePoints: norm.points,

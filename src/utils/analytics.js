@@ -295,11 +295,14 @@ export const buildAchievementStats = (contestData, options = {}) => {
 
     const { totalQuestions, totalCorrect, accuracy } = aggregateQuestionAccuracy(contestData);
 
+    // ✅ PATCH-14: Inicializar com valores do user e atualizar com logs
     let studiedEarly = Boolean(contestData.user?.studiedEarly);
     let studiedLate = Boolean(contestData.user?.studiedLate);
-    let studiedWeekend = false;
+    let studiedWeekend = Boolean(contestData.user?.studiedWeekend);
 
-    studyLogs.forEach(log => {
+    // ✅ PATCH-15: Garantir que studiedWeekend é setado corretamente
+    const logsArray = toArray(studyLogs);
+    logsArray.forEach(log => {
         const d = safeDate(log?.date);
         if (!d) return;
         const hr = d.getHours();

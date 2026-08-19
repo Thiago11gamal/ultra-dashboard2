@@ -18,7 +18,7 @@ export function HorasDisciplinaChart({ data }) {
 
     // FIX: Altura base de 300px (para o eixo X ficar sempre no fundo alinhado ao outro gráfico), 
     // mas se tiver muitas matérias, cresce proporcionalmente para não amassar as barras.
-    const minChartHeight = Math.max(300, sortedData.length * 45);
+    const minChartHeight = Math.min(800, Math.max(300, sortedData.length * 45));
 
     return (
         <div className="h-full w-full mt-2 pb-2 transition-all duration-300" style={{ minHeight: `${minChartHeight}px` }}>

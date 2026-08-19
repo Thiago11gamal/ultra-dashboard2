@@ -13,8 +13,9 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
   const lowerBound = Math.min(safeMinScore, safeMaxScore);
   const upperBound = Math.max(safeMinScore, safeMaxScore);
   
-  // CORREÇÃO B3b: Bias proporcional à amplitude real (Range) e não ao Teto absoluto.
-  const meanBias = (cfg.meanBiasFactor || 0) * (upperBound - lowerBound);
+  // ✅ FIX: Bias proporcional à escala (maxScore), não ao range.
+  // Com minScore > 0, usar range distorcia o bias.
+  const meanBias = (cfg.meanBiasFactor || 0) * safeMaxScore;
   // BUG-GLOBAL-09 FIX: Ajuste de probabilidade deve ser baseado em 100 (%), não no maxScore.
   // Antes: 0.045 * 200 = 9pp (errado). Agora: 0.045 * 100 = 4.5pp (correto).
   const probMult = (cfg.probMultFactor || 0) * 100;
@@ -33,7 +34,7 @@ export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) 
   if (!data.length) return null;
   const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
   const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  const range = Math.max(1, safeMaxScore - safeMinScore); // Prevenção de divisão por zero
+  const range = Math.max(1e-9, safeMaxScore - safeMinScore);
   
   const latest = data[data.length - 1];
   const high = Number(latest?.ciRange?.[1]);

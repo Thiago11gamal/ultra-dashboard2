@@ -8,7 +8,11 @@ import { toDateMs } from './dateHelper.js';
  * @param {String} yKey - Key for the Y axis to calculate triangle areas
  */
 export function downsampleLTTB(data, threshold, xKey, yKey) {
-    if (!data || data.length <= threshold || threshold <= 2) {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        return data || [];
+    }
+    const safeThreshold = Math.max(3, Math.floor(Number(threshold) || data.length));
+    if (data.length <= safeThreshold) {
         return data;
     }
 
@@ -23,12 +27,12 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
     const getY = (item) => Number(item[yKey]) || 0;
 
     const dataLength = data.length;
-    const bucketSize = (dataLength - 2) / (threshold - 2);
+    const bucketSize = (dataLength - 2) / (safeThreshold - 2);
     
     let a = 0;
     const sampledData = [data[0]];
 
-    for (let i = 0; i < threshold - 2; i++) {
+    for (let i = 0; i < safeThreshold - 2; i++) {
         let avgX = 0;
         let avgY = 0;
         let avgRangeStart = Math.floor((i + 1) * bucketSize) + 1;

@@ -39,22 +39,36 @@ export default function Stats() {
 
     // 🎯 FIX LÓGICO: Gráficos de analytics precisam de logs, simulados ou flashcards para serem montados
     const hasStudyLogs = studyLogs.length > 0;
+    // ✅ PATCH-10: Validar que existem rows com dados reais
     const hasSimuladoHistory = useMemo(() => {
-        const hasRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows.length > 0 : Object.keys(rawSimuladoRows || {}).length > 0;
-        if (hasRows) return true;
-        return Array.isArray(categories) && categories.some(category => {
+        const rowsArray = Array.isArray(rawSimuladoRows)
+            ? rawSimuladoRows
+            : Object.values(rawSimuladoRows || {});
+        // Só conta rows com total > 0 ou score definido
+        const hasValidRows = rowsArray.some(r =>
+            r && (Number(r.total) > 0 || Number(r.correct) > 0 || r.score != null)
+        );
+        if (hasValidRows) return true;
+        const catsArray = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return catsArray.some(category => {
             const h = category?.simuladoStats?.history;
-            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+            const hArray = Array.isArray(h) ? h : Object.values(h || {});
+            return hArray.some(entry =>
+                entry && (Number(entry.total) > 0 || entry.score != null)
+            );
         });
     }, [rawSimuladoRows, categories]);
     // T-022 FIX: cards podem vir como objeto no Firebase.
+    // ✅ PATCH-11: Validar cards com conteúdo real
     const hasFlashcards = useMemo(() => {
-        return Array.isArray(flashcardDecks) && flashcardDecks.some(d => {
+        const decksArray = Array.isArray(flashcardDecks)
+            ? flashcardDecks
+            : Object.values(flashcardDecks || {});
+        return decksArray.some(d => {
             const cards = Array.isArray(d?.cards)
                 ? d.cards
                 : Object.values(d?.cards || {});
-
-            return cards.length > 0;
+            return cards.some(c => c && (c.front || c.back));
         });
     }, [flashcardDecks]);
 

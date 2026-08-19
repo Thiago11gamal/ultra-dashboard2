@@ -116,7 +116,7 @@ export function TodayVsGeneralChart({
                 if (!dayMap[dKey]) dayMap[dKey] = { correct: 0, total: 0 };
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
-                const rawScore = getSafeScore(h, safeMaxScore);
+                const rawScore = getSafeScore(h, safeMaxScore, safeMinScore);
                 const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                 if (h.isPercentage) {
                   if (tot === 0) tot = getSyntheticTotal(safeMaxScore);
@@ -165,7 +165,7 @@ export function TodayVsGeneralChart({
             history.forEach(h => {
                 const time = toDateMs(h.date || h.createdAt);
                 if (!time || time > now + 86400000) return;
-                const rawScore = getSafeScore(h, safeMaxScore);
+                const rawScore = getSafeScore(h, safeMaxScore, safeMinScore);
                 const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                 const hDateKey = getDateKey(h.date || h.createdAt);
                 let tot = Number(h.total) || 0;
@@ -219,7 +219,7 @@ export function TodayVsGeneralChart({
                 });
             if (sortedRows.length > 0) {
                 const latestRow = sortedRows[0];
-                const rawLatest = getSafeScore(latestRow, maxScore);
+                const rawLatest = getSafeScore(latestRow, maxScore, safeMinScore);
                 latestAcc = Number.isFinite(rawLatest) ? rawLatest : null;
             }
         }

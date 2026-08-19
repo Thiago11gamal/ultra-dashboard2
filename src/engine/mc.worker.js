@@ -99,6 +99,12 @@ function sanitizeOptions(options) {
 self.onmessage = function(e) {
     const { type, payload, id } = e.data;
 
+    // ✅ PATCH-21: Validação defensiva
+    if (!type || !payload) {
+        self.postMessage({ id, type: 'error', error: 'Payload inválido' });
+        return;
+    }
+
     if (typeof resetGaussianCache === 'function') {
         resetGaussianCache();
     }
@@ -245,6 +251,15 @@ self.onmessage = function(e) {
             return;
         }
 
+        // ✅ PATCH-21: Validar resultado antes de enviar
+        if (result && typeof result === 'object') {
+            if (Number.isFinite(result.probability)) {
+                result.probability = Math.max(0, Math.min(100, result.probability));
+            }
+            if (Number.isFinite(result.mean)) {
+                result.mean = Math.max(0, Math.min(100, result.mean));
+            }
+        }
         self.postMessage({ id, type: 'result', result: sanitizePayloadForWorker(result) });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

@@ -69,7 +69,7 @@ const WeeklyPerformanceChart = ({
                         }
                         if (q < 1) return; 
 
-                        const score = getSafeScore(h, safeMaxScore);
+                        const score = getSafeScore(h, safeMaxScore, safeMinScore);
                         const ratio = pointsToRatio(score, safeMaxScore, safeMinScore);
                         const weightedCorrect = ratio * q;
                         if (!Number.isFinite(weightedCorrect)) return;

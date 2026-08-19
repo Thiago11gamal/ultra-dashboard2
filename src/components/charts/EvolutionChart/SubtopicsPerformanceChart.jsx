@@ -173,7 +173,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     let correctCount = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
 
                     if (!Number.isFinite(correctCount)) {
-                        const rawScore = getSafeScore(t, safeMaxScore);
+                        const rawScore = getSafeScore(t, safeMaxScore, safeMinScore);
                         const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                         const normalizedScore = Math.max(safeMinScore, Math.min(safeMaxScore, score));
                         correctCount = total > 0 ? ((normalizedScore - safeMinScore) / range) * total : 0;
@@ -247,7 +247,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     let correct = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
 
                     if (!Number.isFinite(correct)) {
-                        const rawScore = getSafeScore(t, safeMaxScore);
+                        const rawScore = getSafeScore(t, safeMaxScore, safeMinScore);
                         const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                         const normalizedScore = Math.max(safeMinScore, Math.min(safeMaxScore, score));
                         correct = total > 0 ? ((normalizedScore - safeMinScore) / range) * total : 0;

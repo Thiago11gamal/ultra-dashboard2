@@ -15,7 +15,7 @@ const calculateRetention = (lastStudiedAt, halfLife = 7) => {
     const diffHours = (Date.now() - last) / (1000 * 60 * 60);
     const days = diffHours / 24;
     // FIX: Use dynamic halfLife based on mastery, synchronized with chartDataMappers
-    const val = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-days / halfLife))));
+    const val = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-Math.LN2 * days / halfLife))));
 
     if (val >= 80) return { val, status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
     if (val >= 60) return { val, status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
@@ -121,7 +121,9 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 const totalQ = Number(cat.simuladoStats?.totalQuestions) || 0;
                 const maxScore = Math.max(1, Number(cat.maxScore) || 100);
                 const accuracyData = cat.bayesianStats?.mean || cat.simuladoStats?.average;
-                const accuracy = accuracyData ? (Number(accuracyData) / maxScore) : 0;
+                const accuracy = accuracyData != null
+                    ? Math.max(0, Math.min(1, Number(accuracyData) / maxScore))
+                    : 0;
                 const qNorm = Math.max(0, Math.min(1, totalQ / 120));
                 const accNorm = Math.max(0, Math.min(1, (accuracy - 0.5) / 0.4));
                 const masterySignal = (0.6 * qNorm) + (0.4 * accNorm);

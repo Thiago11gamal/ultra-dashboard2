@@ -212,7 +212,7 @@ export const WeeklyEvolutionView = ({
                 if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
 
                 let totalQ = Math.max(0, Number(h.total) || 0);
-                const score = getSafeScore(h, upperBound);
+                const score = getSafeScore(h, upperBound, lowerBound);
                 if (!Number.isFinite(score)) return;
 
                 if (totalQ === 0 && h.score != null) {
@@ -246,7 +246,7 @@ export const WeeklyEvolutionView = ({
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
 
                             let totalQ = Math.max(0, Number(t.total) || 0);
-                            const topicScore = getSafeScore(t, upperBound);
+                            const topicScore = getSafeScore(t, upperBound, lowerBound);
                             if (!Number.isFinite(topicScore)) return;
                             if (totalQ === 0 && t.score != null) {
                                 totalQ = getSyntheticTotal(upperBound);

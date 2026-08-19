@@ -250,8 +250,10 @@ export const getFlashcardNextDueKey = (intervalDays = 1) => {
   // ✅ FIX: Validar e clamp intervalDays para prevenir datas absurdas
   const raw = Number(intervalDays);
   const safeDays = Math.max(1, Math.min(3650, Math.floor(Number.isFinite(raw) ? raw : 1)));
+  if (!Number.isFinite(safeDays)) return getFlashcardTodayKey();
   const future = addDays(new Date(), safeDays);
-  return getDateKey(future);
+  const key = getDateKey(future);
+  return key || getFlashcardTodayKey();
 };
 
 export const isFlashcardDue = (cardDue, referenceKey = null) => {
