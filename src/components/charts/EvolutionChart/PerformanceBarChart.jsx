@@ -98,7 +98,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                             const rendPctRaw = d.questoes > 0 ? ((d.acertos / d.questoes) * 100) : 0;
                                             const rendPct = formatValue(rendPctRaw);
                                             return (
-                                                <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px]">
+                                                <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px] max-w-[90vw]">
                                                     <p className="font-black text-slate-200 mb-2 border-b border-white/5 pb-1.5 text-xs">{d.fullName}</p>
                                                     <div className="space-y-1.5">
                                                         <div className="flex justify-between items-center gap-4">

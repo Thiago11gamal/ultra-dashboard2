@@ -64,7 +64,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     {subjName}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-4 gap-2 text-center">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                                 <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
                                     <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Bruta</span>
                                     <div className="flex flex-col items-center justify-center min-h-[28px] z-10">

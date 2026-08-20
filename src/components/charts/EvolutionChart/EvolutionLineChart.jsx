@@ -314,7 +314,7 @@ export function EvolutionLineChart({
                         strokeWidth={1.5}
                         strokeDasharray="4 2"
                         label={{ 
-                            value: `Meta ${targetScore}${unit}`, 
+                            value: `Meta ${formatValue(targetScore)}${unit}`, 
                             fill: '#22c55e', 
                             fontSize: 10, 
                             position: 'insideBottomLeft', 
@@ -324,7 +324,7 @@ export function EvolutionLineChart({
                     />
 
                     <Tooltip 
-                        offset={150}
+                        offset={20}
                         cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '2 2' }}
                         content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} maxScore={maxScore} minScore={minScore} />} 
                     />

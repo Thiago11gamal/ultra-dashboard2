@@ -302,7 +302,7 @@ export function TodayVsGeneralChart({
                         {isToday ? "Sessão de Hoje" : "Última Sessão"}
                     </span>
                 </div>
-                <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+                <div className="absolute top-4 right-4 flex flex-col items-end gap-0.5 max-h-[calc(100%-6rem)] overflow-y-auto no-scrollbar">
                     {temporalMetrics.slice().reverse().map(metric => {
                         if (metric.val == null) {
                             return (
@@ -428,7 +428,7 @@ export function TodayVsGeneralChart({
                 </div>
                 <div className="flex-1 w-full min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: -20, bottom: 10 }}>
+                        <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
                             <defs>
                                 <linearGradient id="neonGradient" x1="0" y1="0" x2="1" y2="0">
                                     <stop offset="0%" stopColor={COLORS.neonLine} stopOpacity={0.4} />

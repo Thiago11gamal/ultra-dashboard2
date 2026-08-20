@@ -212,11 +212,15 @@ export function CompareChart({
         const rawY = chartY + chartHeight - (ptPos - safeMinScore) * pxPerPct - 10;
         const safeY = Math.max(2, Math.min(chartY + chartHeight - 22, rawY));
         
+        // BUG-5 FIX: Clamp label X to prevent overflow past chart right edge
+        const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0);
+        const labelX = Math.min(x + xOff - 2, maxX - boxWidth - 4);
+        
         return (
             <g>
-                <rect x={x + xOff - 2} y={safeY} width={boxWidth} height={20} rx={10}
+                <rect x={labelX} y={safeY} width={boxWidth} height={20} rx={10}
                       fill={color} fillOpacity={0.15} stroke={color} strokeOpacity={0.4} />
-                <text x={x + xOff - 2 + boxWidth / 2} y={safeY + 14} fill={color} fontSize={11}
+                <text x={labelX + boxWidth / 2} y={safeY + 14} fill={color} fontSize={11}
                       fontWeight="black" textAnchor="middle"
                       style={{ textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}>
                     {formatted}

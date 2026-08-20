@@ -322,7 +322,7 @@ export const MonteCarloEvolutionChart = ({
                                 tickFormatter={(v) => unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit}`}
                             />
                             <Tooltip
-                                offset={200}
+                                offset={20}
                                 content={renderTooltip}
                                 cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
                             />
