@@ -88,7 +88,7 @@ function varianceValues(values) {
 // Necessário para a função beta regularizada incompleta.
 // ============================================================
 function logGamma(z) {
-  // eslint-disable-next-line no-loss-of-precision
+  /* eslint-disable no-loss-of-precision */
   const cof = [
     57.15623566586292, -59.59796035547549, 14.136097974741747,
     -0.4919138160976202, 0.3399464998481189e-4, 0.4652362892704858e-4,
@@ -97,6 +97,7 @@ function logGamma(z) {
     -0.1643181065367639e-3, 0.8441822398385274e-4,
     -0.2619083840158141e-4, 0.3689918265953162e-5,
   ];
+  /* eslint-enable no-loss-of-precision */
   if (z <= 0) return NaN;
   let x = z;
   let y = x;
