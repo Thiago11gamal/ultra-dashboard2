@@ -26,6 +26,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
     useEffect(() => {
         if (effectiveOpen && category) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setMinCutoff(category.minCutoff ?? 0);
             setMaxScore(category.maxScore ?? 100);
             setName(category.name || '');

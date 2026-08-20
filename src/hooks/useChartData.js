@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
@@ -155,11 +155,11 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeRange = Math.max(1e-9, safeMax - safeMin);
 
-    const toRatio = (score) => {
+    const toRatio = useCallback((score) => {
         const n = Number(score);
         if (!Number.isFinite(n)) return 0;
         return Math.max(0, Math.min(1, (n - safeMin) / safeRange));
-    };
+    }, [safeMin, safeRange]);
 
     const categoriesVersion = useMemo(() => categories.map((cat) => {
         const history = getHistoryArray(cat);
@@ -336,7 +336,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             return { cat, cells };
         });
         return { dates, rows };
-    }, [activeCategories, safeMax, safeMin]);
+    }, [activeCategories, safeMax, toRatio]);
 
     const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
@@ -360,7 +360,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
         return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
-    }, [activeCategories, safeMax, safeMin]);
+    }, [activeCategories, safeMax, toRatio]);
 
     return { activeCategories, timeline, heatmapData, globalMetrics };
 }

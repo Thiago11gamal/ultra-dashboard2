@@ -1,9 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { useCategoryLevels } from '../../../../hooks/useCategoryLevels';
-import { generateEvolutionInsights } from '../../../../engine/insightGenerator';
-import { buildPredictiveCompareData } from '../../../EvolutionChart';
+
 import { PerformanceBarChart } from '../PerformanceBarChart';
 import { SubtopicsPerformanceChart } from '../SubtopicsPerformanceChart';
 import { TodayVsGeneralChart } from '../TodayVsGeneralChart';
@@ -16,14 +14,11 @@ import {
   safeDomain, 
   clampScore, 
   scoreToRatio, 
-  ratioToScore, 
   scoreToPct, 
   pctToScore, 
   formatUnitValue 
 } from '../../../../utils/scoreDomain';
-import { ratioToPoints, pointsToRatio } from '../../../../utils/scoreHelper.conversions';
 import { aggregateHeatmap, calculateSubjectMastery } from '../../../../utils/heatmapAggregation';
-import { classifyScenarioSignal } from '../../../../utils/monteCarloScenario';
 
 vi.mock('recharts', async () => {
   const actual = await vi.importActual('recharts');

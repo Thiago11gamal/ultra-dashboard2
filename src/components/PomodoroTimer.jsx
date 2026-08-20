@@ -18,7 +18,7 @@ import React, {
     useMemo,
     useRef
 } from 'react';
-import { flushSync } from 'react-dom';
+
 
 import {
     Play,
@@ -505,6 +505,7 @@ function PomodoroTimer({
             ) {
                 const restoredTime = Math.max(0, Number(savedState.timeLeft));
 
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setTimeLeft(restoredTime);
                 stateRefs.current.timeLeft = restoredTime;
 
@@ -779,7 +780,7 @@ function PomodoroTimer({
             }
 
             // ✅ Passar 0 pois os minutos já foram salvos acima
-            const phaseMinutes = completePomodoroPhase(isManual, 0);
+            completePomodoroPhase(isManual, 0);
 
             if (typeof onSessionComplete === 'function') {
                 onSessionComplete();

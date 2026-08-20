@@ -760,7 +760,8 @@ useEffect(() => {
         calibrationPenalty,
         projectDays,
         effectiveSimulateToday,
-        safeCategories
+        safeCategories,
+        statsData?.estimatedRho
     ]);
 
   const probabilityData = useMemo(() => {

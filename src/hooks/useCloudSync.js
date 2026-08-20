@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { db, isLocalMode } from '../services/firebase';
-import { doc, onSnapshot, runTransaction, writeBatch, collection, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, writeBatch, collection, getDocs } from 'firebase/firestore';
 import { SYNC_LOG_CAP } from '../config';
 import { logger } from '../utils/logger';
 import { useAppStore } from '../store/useAppStore';
@@ -569,7 +569,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         }
         lastSyncedRef.current = stateStringForSync(appStateRef.current);
         const isCloudSignificantlyAhead = cloudUpdatedTime > localUpdatedTime + 5000;
-        const isLocalSignificantlyAhead = localUpdatedTime > cloudUpdatedTime + 5000;
         
         // Conflito REAL: Cloud está na frente (outro aparelho editou) E localWasJustEdited (nós editamos aqui)
         // Se a Cloud está na frente mas NÃO editamos localmente, deveria ter feito Pull automático.
@@ -754,70 +753,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       let attempt = 0;
       let lastError = null;
 
-      const setDocWithTimeout = (docRef, data, timeoutMs = 15000) => {
-        return new Promise((resolve, reject) => {
-          let isTimeout = false;
-          const timer = setTimeout(() => {
-            isTimeout = true;
-            reject(new Error('Firestore timeout'));
-          }, timeoutMs);
-          
-          runTransaction(db, async (transaction) => {
-            if (isTimeout) throw new Error('AbortTransaction');
-            const docSnap = await transaction.get(docRef);
-            if (isTimeout) throw new Error('AbortTransaction');
-            
-            let cloudData = docSnap.exists() ? docSnap.data() : null;
-            
-            if (cloudData && cloudData.contestIds) {
-              cloudData.contests = {};
-              for (const cid of cloudData.contestIds) {
-                const cSnap = await transaction.get(doc(db, 'backups', currentUser.uid, 'contests', cid));
-                if (cSnap.exists()) {
-                  cloudData.contests[cid] = cSnap.data();
-                }
-              }
-            }
-
-            // FIX Bug 1: Calcular IDs deletados ANTES do merge nonDestructive
-            const localContestIds = new Set(Object.keys(data.contests || {}));
-            const cloudContestIdsToDelete = (cloudData?.contestIds || []).filter(id => !localContestIds.has(id));
-
-            let mergedState = cloudData ? mergeAppState(data, cloudData, { nonDestructive: true }) : { ...data };
-
-            // Remover do mergedState os editais que o usuário deletou localmente
-            if (mergedState.contests) {
-              for (const deletedId of cloudContestIdsToDelete) {
-                delete mergedState.contests[deletedId];
-              }
-            }
-            
-            mergedState._syncVersion = data._syncVersion || 0;
-            mergedState._syncTimestamp = Date.now();
-
-            const coreState = { ...mergedState };
-            const contests = coreState.contests || {};
-            coreState.contestIds = Object.keys(contests);
-            delete coreState.contests;
-
-            // ✅ PATCH-10: Verificação otimista: só sobrescreve se versão local >= versão da nuvem
-            transaction.set(docRef, coreState, { merge: false });
-            for (const [cid, cData] of Object.entries(contests)) {
-              transaction.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
-            }
-
-            // Deletar fisicamente os editais órfãos da subcoleção
-            for (const deletedId of cloudContestIdsToDelete) {
-              transaction.delete(doc(db, 'backups', currentUser.uid, 'contests', deletedId));
-            }
-          })
-          .then(() => {
-            if (!isTimeout) { clearTimeout(timer); resolve(); }
-          }).catch(err => {
-            if (!isTimeout) { clearTimeout(timer); reject(err); }
-          });
-        });
-      };
 
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;

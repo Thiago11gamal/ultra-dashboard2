@@ -169,7 +169,7 @@ export function CompareChart({
 
 
     const renderLabel = (props, type, color) => {
-        const { x, y, index, value, viewBox } = props;
+        const { x, index, value, viewBox } = props;
         if (value === null || value === undefined) return null;
         
         const isMc = type === 'mc';

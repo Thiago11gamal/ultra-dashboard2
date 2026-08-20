@@ -92,7 +92,7 @@ const PerformanceTable = ({ categories = [] }) => {
     };
 
     // FIX 5.6c: Cabeçalho acessível com aria-sort
-    const SortableHeader = ({ column, children, className }) => (
+    const renderSortableHeader = (column, children, className) => (
         <th 
             className={`p-5 cursor-pointer hover:bg-white/5 transition-colors select-none ${className}`}
             role="columnheader"
@@ -124,10 +124,10 @@ const PerformanceTable = ({ categories = [] }) => {
                     <thead className="bg-slate-900/50 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] border-b border-white/5 sticky top-0 z-10">
                         <tr>
                             <th className="p-5 pl-8 w-16 text-center">#</th>
-                            <SortableHeader column="name" className="w-72 md:w-80 border-r border-white/5">Disciplina</SortableHeader>
-                            <SortableHeader column="totalVolume" className="text-center w-28 md:w-32"><div className="flex items-center justify-center gap-2 w-full"><Hash size={12} className="text-slate-600" /> Volume</div></SortableHeader>
+                            {renderSortableHeader('name', 'Disciplina', 'w-72 md:w-80 border-r border-white/5')}
+                            {renderSortableHeader('totalVolume', <div className="flex items-center justify-center gap-2 w-full"><Hash size={12} className="text-slate-600" /> Volume</div>, 'text-center w-28 md:w-32')}
                             <th className="p-5 text-center w-32 md:w-40"><div className="flex items-center justify-center gap-2"><Target size={12} className="text-slate-600" /> Desempenho</div></th>
-                            <SortableHeader column="balance" className="text-center w-32 md:w-36 border-l border-white/5"><div className="flex items-center justify-center gap-2 w-full"><Wallet size={12} className="text-slate-600" /> Saldo</div></SortableHeader>
+                            {renderSortableHeader('balance', <div className="flex items-center justify-center gap-2 w-full"><Wallet size={12} className="text-slate-600" /> Saldo</div>, 'text-center w-32 md:w-36 border-l border-white/5')}
                             <th className="p-5 text-center w-24 md:w-28">Acertos%</th>
                             <th className="p-5 text-center w-24 md:w-28 lg:w-32 rounded-tr-xl border-l border-white/5">Tendência</th>
                         </tr>

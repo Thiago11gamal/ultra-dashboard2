@@ -8,7 +8,7 @@ import { kahanMean, kahanSum } from './math/kahan.js';
 import { pruneHistoryForMemory, getSortedHistory } from './stats.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
 // ✅ LOTE-03: importar do módulo probabilístico unificado
-import { fsrsRetrievability, fsrsIntervalForRetention } from './probabilistic/fsrs.js';
+import { fsrsRetrievability } from './probabilistic/fsrs.js';
 // ✅ LOTE-01 FIX (C5): MSSD real para o risco de esquecimento
 import { calculateMSSD } from './projection.js';
 

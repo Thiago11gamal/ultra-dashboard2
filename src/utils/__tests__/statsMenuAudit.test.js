@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../chartDataMappers.js';
 import { analyzeProgressState } from '../ProgressStateEngine.js';
-import { getDateKey, normalizeDate, APP_TIMEZONE, formatDatePtBR } from '../dateHelper.js';
-import { computeFlashcardDueForecast, getFlashcardTotalCards, getFlashcardDueTodayCount } from '../analytics.js';
+import { getDateKey, normalizeDate, APP_TIMEZONE } from '../dateHelper.js';
+import { computeFlashcardDueForecast, getFlashcardTotalCards } from '../analytics.js';
 
 describe('Stats Menu Audit & Regression Tests', () => {
     describe('mapFocusEvolutionData', () => {

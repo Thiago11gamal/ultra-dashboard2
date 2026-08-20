@@ -44,25 +44,7 @@ export function toPoints(score, maxScore = 100, minScore = 0, mode = 'raw') {
   return clamp(rawScore, finalMin, finalMax);
 }
 
-function pctToPoints(pct, maxScore = 100, minScore = 0) {
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const safeMin = Number.isFinite(Number(minScore)) && Number(minScore) >= 0 ? Number(minScore) : 0;
-  const safePct = clamp(Number(pct) || 0, 0, 100);
-  const range = Math.max(1e-9, Math.abs(safeMax - safeMin));
-  return safeMin + (safePct / 100) * range;
-}
 
-function toPct(points, maxScore = 100, minScore = 0) {
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const safeMin = Number.isFinite(Number(minScore)) && Number(minScore) >= 0 ? Number(minScore) : 0;
-  const safePoints = clamp(Number(points) || 0, safeMin, safeMax);
-  const range = Math.max(1e-9, Math.abs(safeMax - safeMin));
-  return clamp(((safePoints - safeMin) / range) * 100, 0, 100);
-}
-
-function pointsToPct(points, maxScore = 100, minScore = 0) {
-  return toPct(points, maxScore, minScore);
-}
 
 export function formatValue(value, digits = 1) {
   const n = Number(value);

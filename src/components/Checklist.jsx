@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+
 import {
     ChevronDown,
     ChevronUp,
@@ -334,10 +334,7 @@ const TaskItem = ({
 const CategoryAccordion = React.memo(({
     category,
     onToggleTask,
-    onDeleteTask,
-    onAddTask,
     onTogglePriority,
-    onDeleteCategory,
     onPlayContext,
     showSimuladoStats,
     filter,

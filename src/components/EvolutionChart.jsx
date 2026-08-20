@@ -73,7 +73,7 @@ function renderInsightText(text, textColorClass) {
 }
 
 // Função pura fora do componente
-export function buildPredictiveCompareData(
+function buildPredictiveCompareData(
   timeline,
   focusCategory,
   categoryLevels,

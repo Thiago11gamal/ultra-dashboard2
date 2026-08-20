@@ -4,16 +4,12 @@ import { Minus, Plus, Layers } from 'lucide-react';
 export function PomodoroProgress({
     targetCycles,
     completedCycles,
-    sessions,
     setTargetCycles,
     syncChannel,
     STABLE_TAB_ID,
     activeSubject,
     workFillsRef,
-    breakBallsRef,
-    mode,
-    timeLeft,
-    totalTime
+    breakBallsRef
 }) {
     return (
         <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] rounded-3xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-6 sm:px-8 py-5 sm:py-6 shadow-2xl relative overflow-hidden group mx-auto">

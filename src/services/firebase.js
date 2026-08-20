@@ -8,7 +8,7 @@ import {
     persistentMultipleTabManager,
     clearIndexedDbPersistence,
 } from 'firebase/firestore';
-import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signOut } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 
 export const firebaseConfig = {

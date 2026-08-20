@@ -782,7 +782,7 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
                 });
             }
         }
-    }, [location.state, categories, activeSubject]);
+    }, [location.state, location.pathname, categories, activeSubject, navigate]);
 
     useEffect(() => {
         let timeoutId;

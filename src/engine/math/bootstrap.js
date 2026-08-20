@@ -1,4 +1,3 @@
-import { makeNormalRng } from '../random.js';
 import { kahanSum } from './kahan.js';
 
 /**

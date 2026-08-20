@@ -14,7 +14,6 @@ export function PomodoroClock({
     mode,
     isRunning,
     timeLeft,
-    safeSettings,
     svgCircleRef,
     clockRef
 }) {

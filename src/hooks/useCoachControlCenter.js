@@ -71,6 +71,7 @@ export function useCoachControlCenter({
   useEffect(() => {
     const persisted = loadControlCenterState();
     if (persisted) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (persisted.activeTab) setActiveTab(persisted.activeTab);
       if (persisted.flagOverrides) setFlagOverrides(persisted.flagOverrides);
     }
@@ -160,6 +161,7 @@ export function useCoachControlCenter({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAuxiliaryData();
   }, [loadAuxiliaryData]);
 

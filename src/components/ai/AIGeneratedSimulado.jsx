@@ -4,7 +4,6 @@ import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../../hooks/useToast';
 import { getDateKey } from '../../utils/dateHelper';
 import { generateId } from '../../utils/idGenerator';
-import { normalize } from '../../utils/normalization';
 import SimuladoSetup from './SimuladoSetup';
 import SimuladoPlayer from './SimuladoPlayer';
 import SimuladoResults from './SimuladoResults';
@@ -628,7 +627,7 @@ export default function AIGeneratedSimulado() {
       for (const [groupKey, g] of Object.entries(groups)) {
         const [materia, assunto] = groupKey.split('|');
 
-        const cat = rawCats.find(c =>
+        const cat = cats.find(c =>
           String(c?.name || '').trim().toLowerCase() === String(materia || '').trim().toLowerCase()
         );
 
@@ -779,7 +778,7 @@ export default function AIGeneratedSimulado() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [step, currentQuestion, questions.length, goTo, selectAnswer, resetAll]);
 
   useEffect(() => {

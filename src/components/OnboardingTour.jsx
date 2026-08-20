@@ -302,7 +302,7 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
 
 export default function OnboardingTour() {
     const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
-    const lastSeenTourDate = useAppStore(state => state.appState.lastSeenTourDate);
+
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
 
     // Mostra o tutorial se o usuário nunca tiver visto ou se resetar explicitamente

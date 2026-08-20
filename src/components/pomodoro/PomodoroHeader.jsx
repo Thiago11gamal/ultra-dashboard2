@@ -2,7 +2,7 @@ import React from 'react';
 import { motion as Motion } from 'framer-motion';
 import { Zap, AlertCircle } from 'lucide-react';
 
-export function PomodoroHeader({ mode, activeSubject, onManualExit }) {
+export function PomodoroHeader({ mode, activeSubject }) {
     return (
         <div className="flex-1 flex justify-center bg-transparent">
             {mode === 'break' || mode === 'long_break' ? (

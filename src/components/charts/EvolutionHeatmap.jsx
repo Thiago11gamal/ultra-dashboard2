@@ -33,7 +33,6 @@ function releaseSharedWorker() {
 export const EvolutionHeatmap = ({ 
     heatmapData, 
     targetScore = 70, 
-    unit = '%', 
     showOnlyFocus, 
     focusSubjectId,
     maxScore = 100,

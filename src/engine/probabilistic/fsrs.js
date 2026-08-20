@@ -49,7 +49,6 @@ export function fsrsIntervalForRetention(stabilityDays, targetRetention = 0.7) {
 export function estimateTopicFsrs(topic, options = {}) {
   if (!topic) return null;
 
-  const maxScore = Math.max(1, Number(options.maxScore) || 100);
   const desiredRetention = Math.max(0.5, Math.min(0.95, Number(options.desiredRetention) || 0.85));
 
   const scores = (topic.scores || [])

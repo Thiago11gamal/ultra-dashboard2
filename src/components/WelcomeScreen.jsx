@@ -30,6 +30,14 @@ export default function WelcomeScreen({ onDismiss }) {
     }, []);
 
     // FIX 5.4b: Fechar com tecla Escape
+    const handleNext = useCallback(() => {
+        if (isExiting) return; // FIX 5.4d: Prevenir dupla chamada
+        setIsExiting(true);
+        setTimeout(() => {
+            onDismiss();
+        }, 800); 
+    }, [isExiting, onDismiss]);
+
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape' && !isExiting) {
@@ -60,15 +68,9 @@ export default function WelcomeScreen({ onDismiss }) {
 
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isExiting]);
+    }, [isExiting, handleNext]);
 
-    const handleNext = useCallback(() => {
-        if (isExiting) return; // FIX 5.4d: Prevenir dupla chamada
-        setIsExiting(true);
-        setTimeout(() => {
-            onDismiss();
-        }, 800); 
-    }, [isExiting, onDismiss]);
+
 
     return (
         <AnimatePresence>

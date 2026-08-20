@@ -24,6 +24,7 @@ export default function PromptModal({
 
     useEffect(() => {
         if (isOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setInputValue(initialValue || '');
         }
     }, [isOpen, initialValue]);

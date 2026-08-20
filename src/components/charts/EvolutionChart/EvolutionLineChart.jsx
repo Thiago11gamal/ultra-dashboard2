@@ -1,4 +1,4 @@
-import React, { useId, useState, useRef } from 'react';
+import React, { useId, useState, useRef, useMemo } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -58,8 +58,8 @@ export function EvolutionLineChart({
     const [highlightedDataKey, setHighlightedDataKey] = useState(null);
     const isLineClicked = useRef(false);
 
-    const safeActiveCategories = Array.isArray(activeCategories) ? activeCategories : [];
-    const safeChartData = Array.isArray(filteredChartData) ? filteredChartData : [];
+    const safeActiveCategories = useMemo(() => Array.isArray(activeCategories) ? activeCategories : [], [activeCategories]);
+    const safeChartData = useMemo(() => Array.isArray(filteredChartData) ? filteredChartData : [], [filteredChartData]);
 
     const handleLegendClick = (e) => {
         if (e?.domEvent?.stopPropagation) {
