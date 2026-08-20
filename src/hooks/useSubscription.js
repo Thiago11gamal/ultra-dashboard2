@@ -24,7 +24,14 @@ export function useSubscription(user) {
         user?.plan === 'vitalicio' ||
         user?.isPremium === true
     );
-    const shouldBypassBilling = Boolean(isLocalMode || isAdmin);
+    const isDevBypass = import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true';
+    const shouldBypassBilling = Boolean(isAdmin || isDevBypass);
+    
+    useEffect(() => {
+        if (isLocalMode && !isAdmin && !isDevBypass) {
+            console.warn('[Subscription] Modo local sem bypass premium. Usuário não terá acesso premium.');
+        }
+    }, [isLocalMode, isAdmin, isDevBypass]);
 
     const [isPremium, setIsPremium] = useState(shouldBypassBilling);
     const [loading, setLoading] = useState(!shouldBypassBilling);

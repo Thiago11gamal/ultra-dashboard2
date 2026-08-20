@@ -180,17 +180,34 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const getStableKey = (item) => {
       if (!item || typeof item !== 'object') return null;
       if (item.id) return String(item.id);
-      return `${item.date || item.startTime || ''}-${item.categoryId || ''}-${item.taskId || ''}-${item.duration || item.minutes || ''}`;
+      if (item.text || item.title) {
+          return `task:${item.text || item.title}`;
+      }
+      if (item.date || item.startTime) {
+          return `${item.date || item.startTime}-${item.categoryId || ''}-${item.taskId || ''}`;
+      }
+      if (item.subject && item.date) {
+          return `sim:${item.date}:${item.subject}`;
+      }
+      return `unknown:${JSON.stringify(item).slice(0, 50)}`;
     };
+    
     const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
     const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
+    
     safeArr1.forEach(item => {
       const key = getStableKey(item);
-      if (key) map.set(key, item);
+      if (key && !map.has(key)) map.set(key, item);
     });
     safeArr2.forEach(item => {
       const key = getStableKey(item);
-      if (key) map.set(key, item);
+      if (key) {
+        const existing = map.get(key);
+        if (!existing || (item.lastUpdated && existing.lastUpdated && 
+            new Date(item.lastUpdated) > new Date(existing.lastUpdated))) {
+            map.set(key, item);
+        }
+      }
     });
     return Array.from(map.values()).filter(Boolean);
   };
@@ -584,6 +601,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             applyingRemoteRef.current = false;
             isCloudPullRef.current = false;
           }
+        } else {
+          isCloudPullRef.current = false;
         }
         lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
         setHasConflict(false);

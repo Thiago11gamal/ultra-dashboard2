@@ -135,7 +135,7 @@ function PomodoroTimer({
 
     const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
 
-    const [savedState] = useState(() => {
+    const [savedState, setSavedState] = useState(() => {
         if (typeof window === 'undefined') return null;
 
         try {
@@ -164,6 +164,27 @@ function PomodoroTimer({
 
         return null;
     });
+
+    useEffect(() => {
+        if (activeSubject?.taskId) {
+            try {
+                const saved = JSON.parse(localStorage.getItem('pomodoroState'));
+                const matchesTask = saved?.activeTaskId === activeSubject.taskId;
+                const matchesMode = saved?.mode === mode;
+                const matchesSession = !activeSubject.sessionInstanceId || 
+                    saved?.sessionInstanceId === activeSubject.sessionInstanceId;
+                if (saved && matchesTask && matchesMode && matchesSession) {
+                    setSavedState({ ...saved, isRunning: false });
+                } else {
+                    setSavedState(null);
+                }
+            } catch {
+                setSavedState(null);
+            }
+        } else {
+            setSavedState(null);
+        }
+    }, [activeSubject?.taskId, activeSubject?.sessionInstanceId, mode]);
 
     const getSavedState = (key, defaultValue) => {
         if (savedState && savedState[key] !== undefined) {
@@ -371,7 +392,9 @@ function PomodoroTimer({
         mode
     });
 
-    const flushPendingStudyTime = useCallback((subjectSnapshot = activeSubjectRef.current) => {
+    const flushPendingStudyTime = useCallback((subjectOverride = null) => {
+        // FIX: Aceitar override ou usar o ref
+        const subjectSnapshot = subjectOverride || activeSubjectRef.current;
         if (!subjectSnapshot) return;
 
         const current = stateRefs.current;
@@ -914,7 +937,11 @@ function PomodoroTimer({
             }
 
             if (newTime <= 0) {
-                transitionSession(stateRefs.current.mode, 'natural');
+                if (!isTransitioningRef.current) {
+                    transitionSession(stateRefs.current.mode, 'natural');
+                } else {
+                    timeoutId = setTimeout(tick, 200);
+                }
             } else {
                 if (document.hidden) {
                     timeoutId = setTimeout(tick, 1000 / (speedRef.current || 1));
@@ -1100,15 +1127,17 @@ function PomodoroTimer({
         });
     }, [activeSubject, isRunning, postSync, showToast]);
 
-    const handleManualExit = () => {
-        if (activeSubject) {
-            // flushSync não deve ser usado fora do ciclo de render do React.
-            // Chamar diretamente é seguro e evita crash em contextos não-React.
-            flushPendingStudyTime();
+    const handleManualExit = useCallback(() => {
+        // FIX: Capturar snapshot ANTES de qualquer limpeza de estado
+        const subjectSnapshot = activeSubjectRef.current;
+        
+        if (subjectSnapshot) {
+            // FIX: Passar o snapshot explicitamente para flushPendingStudyTime
+            flushPendingStudyTime(subjectSnapshot);
         }
-
+        
         safeOnExit({ forceDashboard: true, source: 'dashboard' });
-    };
+    }, [flushPendingStudyTime, safeOnExit]);
 
     const totalTime =
         mode === 'work'

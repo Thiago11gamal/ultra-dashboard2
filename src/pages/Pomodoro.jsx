@@ -728,7 +728,14 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
     const toggleLayoutLock = () => {
         const newState = !isLayoutLocked;
         setIsLayoutLocked(newState);
-        localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
+        try {
+            localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
+        } catch (err) {
+            console.warn('[Pomodoro] Falha ao salvar pomodoroLayoutLocked:', err);
+            try {
+                sessionStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
+            } catch { /* ignore */ }
+        }
     };
 
     const userStats = useMemo(() => {

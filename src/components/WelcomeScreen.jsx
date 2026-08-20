@@ -34,6 +34,11 @@ export default function WelcomeScreen({ onDismiss }) {
         if (isExiting) return; // FIX 5.4d: Prevenir dupla chamada
         setIsExiting(true);
         setTimeout(() => {
+            try {
+                sessionStorage.setItem('hasSeenWelcomeScreen', 'true');
+            } catch (err) {
+                console.warn('[Welcome] Falha ao salvar hasSeenWelcomeScreen:', err);
+            }
             onDismiss();
         }, 800); 
     }, [isExiting, onDismiss]);

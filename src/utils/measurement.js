@@ -385,7 +385,28 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
  * Para motores matemáticos, retorne SEMPRE pontos.
  */
 export function getSafeScore(row, maxScore, minScore = 0) {
-  return normalizeScoreValue(row, maxScore, minScore).points;
+    if (!row) return minScore;
+    
+    // FIX: Tratar todos os formatos possíveis
+    let score;
+    if (typeof row === 'number') {
+        score = row;
+    } else if (row.score != null) {
+        score = Number(row.score);
+    } else if (row.value != null) {
+        score = Number(row.value);
+    } else if (row.correct != null && row.total != null) {
+        const total = Number(row.total);
+        const correct = Number(row.correct);
+        if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
+            score = (correct / total) * maxScore;
+        }
+    }
+    
+    // FIX: Garantir que score nunca é NaN
+    if (!Number.isFinite(score)) return minScore;
+    
+    return Math.max(minScore, Math.min(maxScore, score));
 }
 
 export function clampCorrectToTotal(correct, total) {

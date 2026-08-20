@@ -254,6 +254,11 @@ export function computeAdaptiveSignal(historyOrScores = []) {
       effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
       weightedMean = kahanSum(finiteScores.map((s, i) => s * weighted[i])) / sumW;
     }
+    
+    // FIX: Garantir que weightedMean nunca é NaN/Infinity
+    if (!Number.isFinite(weightedMean)) {
+        weightedMean = kahanMean(finiteScores) || 0;
+    }
 
     // Robustez adaptativa: Huber-like clipping guiado por MAD para reduzir impacto de outliers
     const sorted = [...finiteScores].sort((a, b) => a - b);

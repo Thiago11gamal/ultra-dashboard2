@@ -468,9 +468,11 @@ export default function Coach() {
 
   useEffect(() => {
     if (!isHydrated) return;
-    // FIX: usa o array normalizado (data.categories pode ser objeto sem .length)
+    // FIX: Se não há categorias, marcar análise como completa imediatamente
     if (categories.length === 0) {
-      setTimeout(() => setIsAnalyzing(false), 0);
+      queueMicrotask(() => {
+          setIsAnalyzing(false);
+      });
       return;
     }
     let metricsTimer = null;

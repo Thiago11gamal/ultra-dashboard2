@@ -346,7 +346,9 @@ export default function Simulados() {
       const totalQForToast = validRowsForToast.reduce((s, r) => s + (Number(r.total) || 0), 0);
 
       setData((current) => {
-        const prev = current || {};
+        if (!current || typeof current !== 'object') return current;
+        if (!current.categories && !current.simuladoRows) return current;
+        const prev = current;
         const newCategories = (Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories || {}))
           .filter(Boolean)
           .map(c => ({

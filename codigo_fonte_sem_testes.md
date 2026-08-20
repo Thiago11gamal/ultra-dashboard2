@@ -5827,7 +5827,7 @@ export default React.memo(function EvolutionChart({
                                  ?
                              </button>
                          </div>
-                         <div className={`absolute top-10 left-0 sm:left-12 w-[280px] max-w-[90vw] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-300 z-[100] ${showEngineTooltip ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto'}`}>
+                         <div className={`absolute top-10 left-0 sm:left-12 w-[280px] max-w-[min(90vw,280px)] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-300 z-[100] ${showEngineTooltip ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto'}`}>
                              <p className="text-xs text-slate-200 mb-3 leading-relaxed">{engine.explain.simples}</p>
                              <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-700/50">
                                  <p className="text-[10px] text-amber-400 italic font-bold">💡 Dica Prática</p>
@@ -5877,7 +5877,7 @@ export default React.memo(function EvolutionChart({
 
                 <div 
                     className="relative w-full mb-8"
-                    style={{ maskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)', WebkitMaskImage: '-webkit-linear-gradient(left, transparent, black 5%, black 95%, transparent)' }}
+                    style={{ maskImage: 'linear-gradient(to right, transparent, black 2%, black 98%, transparent)', WebkitMaskImage: '-webkit-linear-gradient(left, transparent, black 2%, black 98%, transparent)' }}
                 >
                     <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex overflow-x-auto pt-2 pb-4 px-4 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
                         {ENGINES.map((eng, idx) => {
@@ -5903,7 +5903,7 @@ export default React.memo(function EvolutionChart({
                                     style={active ? { backgroundColor: `${eng.color}12`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}20, 0 4px 12px -2px rgba(0,0,0,0.3)` } : {}}
                                 >
                                     <span className="text-[22px] group-hover:scale-105 transition-transform duration-150" style={{ filter: active ? `drop-shadow(0 0 4px ${eng.color})` : 'none' }}>{eng.emoji}</span>
-                                    <span className="text-[10px] uppercase tracking-[0.1em] font-bold text-center leading-none px-1">{eng.label}</span>
+                                    <span className="text-[10px] uppercase tracking-[0.05em] font-bold text-center leading-tight px-1 line-clamp-2">{eng.label}</span>
                                 </button>
                             );
                         })}
@@ -7470,6 +7470,19 @@ const getPasswordStrength = (password) => {
     return { level: 4, label: 'Forte', color: '#10b981' };
 };
 
+// FIX 5.1e: Função ripple movida para fora do componente para evitar recriação
+function handleRipple(e) {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    r.style.width = r.style.height = `${btn.offsetWidth}px`;
+    r.style.left = `${e.clientX - rect.left - btn.offsetWidth / 2}px`;
+    r.style.top = `${e.clientY - rect.top - btn.offsetWidth / 2}px`;
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 600);
+}
+
 export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
@@ -7729,19 +7742,6 @@ export default function Login() {
             </div>
         </div>
     );
-}
-
-// FIX 5.1e: Função ripple movida para fora do componente para evitar recriação
-function handleRipple(e) {
-    const btn = e.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    const r = document.createElement('span');
-    r.className = 'ripple';
-    r.style.width = r.style.height = `${btn.offsetWidth}px`;
-    r.style.left = `${e.clientX - rect.left - btn.offsetWidth / 2}px`;
-    r.style.top = `${e.clientY - rect.top - btn.offsetWidth / 2}px`;
-    btn.appendChild(r);
-    setTimeout(() => r.remove(), 600);
 }
 
 ```
@@ -11011,6 +11011,10 @@ function PomodoroTimer({
             savedMinutes = sessionMinutes;
         }
 
+        if (transitionTimeoutRef.current) {
+            clearTimeout(transitionTimeoutRef.current);
+        }
+
         transitionTimeoutRef.current = setTimeout(() => {
             if (!isMountedRef.current) {
                 return;
@@ -11078,6 +11082,7 @@ function PomodoroTimer({
 
             setIsTransitioning(false);
             isTransitioningRef.current = false;
+            transitionTimeoutRef.current = null;
 
             if (isEndingCycle) {
                 safeOnFullCycleComplete(
@@ -19804,7 +19809,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     {subjName}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-4 gap-2 text-center">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                                 <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
                                     <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Bruta</span>
                                     <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
@@ -22038,11 +22043,15 @@ export function CompareChart({
         const rawY = chartY + chartHeight - (ptPos - safeMinScore) * pxPerPct - 10;
         const safeY = Math.max(2, Math.min(chartY + chartHeight - 22, rawY));
         
+        // BUG-5 FIX: Clamp label X to prevent overflow past chart right edge
+        const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0);
+        const labelX = Math.min(x + xOff - 2, maxX - boxWidth - 4);
+        
         return (
             <g>
-                <rect x={x + xOff - 2} y={safeY} width={boxWidth} height={20} rx={10}
+                <rect x={labelX} y={safeY} width={boxWidth} height={20} rx={10}
                       fill={color} fillOpacity={0.15} stroke={color} strokeOpacity={0.4} />
-                <text x={x + xOff - 2 + boxWidth / 2} y={safeY + 14} fill={color} fontSize={11}
+                <text x={labelX + boxWidth / 2} y={safeY + 14} fill={color} fontSize={11}
                       fontWeight="black" textAnchor="middle"
                       style={{ textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}>
                     {formatted}
@@ -22521,7 +22530,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
         <button onClick={onClick}
             aria-pressed={isFocused}
             aria-label={`Focar na disciplina ${cat.name}`}
-            className={`relative text-left w-full rounded-2xl border p-3 sm:p-4 transition-all duration-200 group min-h-[82px] sm:min-h-[105px] flex flex-col justify-between ${isFocused ? 'z-20 border-transparent bg-slate-900/80 shadow-sm' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-800/40'}`}
+            className={`relative text-left w-full rounded-2xl border p-3 sm:p-4 overflow-hidden transition-all duration-200 group min-h-[82px] sm:min-h-[105px] flex flex-col justify-between ${isFocused ? 'z-20 border-transparent bg-slate-900/80 shadow-sm' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-800/40'}`}
             style={{
                 backgroundColor: isFocused ? `${cat.color}10` : 'rgba(15,23,42,0.5)',
                 borderColor: isFocused ? cat.color : undefined,
@@ -22907,7 +22916,7 @@ export function EvolutionLineChart({
                         strokeWidth={1.5}
                         strokeDasharray="4 2"
                         label={{ 
-                            value: `Meta ${targetScore}${unit}`, 
+                            value: `Meta ${formatValue(targetScore)}${unit}`, 
                             fill: '#22c55e', 
                             fontSize: 10, 
                             position: 'insideBottomLeft', 
@@ -22917,7 +22926,7 @@ export function EvolutionLineChart({
                     />
 
                     <Tooltip 
-                        offset={150}
+                        offset={20}
                         cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '2 2' }}
                         content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} maxScore={maxScore} minScore={minScore} />} 
                     />
@@ -23387,7 +23396,7 @@ export const MonteCarloEvolutionChart = ({
                                 tickFormatter={(v) => unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit}`}
                             />
                             <Tooltip
-                                offset={200}
+                                offset={20}
                                 content={renderTooltip}
                                 cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
                             />
@@ -23596,7 +23605,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                             const rendPctRaw = d.questoes > 0 ? ((d.acertos / d.questoes) * 100) : 0;
                                             const rendPct = formatValue(rendPctRaw);
                                             return (
-                                                <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px]">
+                                                <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px] max-w-[90vw]">
                                                     <p className="font-black text-slate-200 mb-2 border-b border-white/5 pb-1.5 text-xs">{d.fullName}</p>
                                                     <div className="space-y-1.5">
                                                         <div className="flex justify-between items-center gap-4">
@@ -23702,9 +23711,9 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                 <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Equilíbrio Geral</p>
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">🕸️ Raio-X das Disciplinas</h3>
-                    <div className="relative flex items-center justify-center w-4 h-4 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors">
+                    <div className="relative flex items-center justify-center w-4 h-4 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors" tabIndex={0} role="button" aria-label="Informação sobre o gráfico radar">
                         ?
-                        <div className="absolute top-6 left-1/2 -translate-x-1/2 sm:-translate-x-0 sm:left-0 w-[240px] p-3 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-50 pointer-events-none text-left">
+                        <div className="absolute top-6 left-1/2 -translate-x-1/2 sm:-translate-x-0 sm:left-0 w-[240px] p-3 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible focus-within:opacity-100 focus-within:visible transition-all duration-300 z-50 pointer-events-none group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible text-left">
                             <p className="text-[11px] text-slate-200 font-normal leading-relaxed normal-case tracking-normal">
                                 Este gráfico (Radar) avalia o seu <strong className="text-indigo-400">nível de acertos</strong> em cada matéria, revelando o seu equilíbrio. Quanto mais o desenho se expandir e formar um círculo perfeito, mais forte e constante está o seu conhecimento global.
                             </p>
@@ -24708,7 +24717,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
                             <Clock size={12} className="text-cyan-400" /> Agilidade AI
                         </p>
-                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-wider">
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-wider shrink-0">
                             Apenas Simulado IA
                         </span>
                         <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-wider ml-1 hidden sm:inline-block">
@@ -25105,7 +25114,7 @@ export function TodayVsGeneralChart({
                         {isToday ? "Sessão de Hoje" : "Última Sessão"}
                     </span>
                 </div>
-                <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+                <div className="absolute top-4 right-4 flex flex-col items-end gap-0.5 max-h-[calc(100%-6rem)] overflow-y-auto no-scrollbar">
                     {temporalMetrics.slice().reverse().map(metric => {
                         if (metric.val == null) {
                             return (
@@ -25231,7 +25240,7 @@ export function TodayVsGeneralChart({
                 </div>
                 <div className="flex-1 w-full min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: -20, bottom: 10 }}>
+                        <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
                             <defs>
                                 <linearGradient id="neonGradient" x1="0" y1="0" x2="1" y2="0">
                                     <stop offset="0%" stopColor={COLORS.neonLine} stopOpacity={0.4} />
@@ -25786,7 +25795,7 @@ export const WeeklyEvolutionView = ({
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
                                 <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={true} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
-                                <Tooltip offset={200} content={renderWeeklyTooltip} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {keys.map(key => {
@@ -25842,10 +25851,10 @@ export const WeeklyEvolutionView = ({
                                         return `${v > 0 ? '+' : ''}${formatted}${unit}`;
                                     }} 
                                 />
-                                <Tooltip offset={200} content={renderWeeklyTooltip} cursor={{ fill: '#ffffff11' }} />
+                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ fill: '#ffffff11' }} />
                                 <Legend 
                                     verticalAlign="bottom" 
-                                    height={keys.length > 4 ? Math.min(100, Math.ceil(keys.length / 2) * 20 + 20) : 40} 
+                                    height={60} 
                                     iconType="square" 
                                     formatter={renderLegendText} 
                                     onClick={handleLegendClick} 
@@ -31903,9 +31912,22 @@ export function makeNormalRng(rng) {
 ```javascript
 export const simulationCache = new Map();
 const MAX_CACHE_SIZE = 1000;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
 export function getCachedSimulation(seed) {
-  return simulationCache.get(seed);
+  const entry = simulationCache.get(seed);
+  if (!entry) return null;
+  
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    simulationCache.delete(seed);
+    return null;
+  }
+  
+  // LRU bump
+  simulationCache.delete(seed);
+  simulationCache.set(seed, entry);
+  
+  return entry.value;
 }
 
 export function setCachedSimulation(seed, result) {
@@ -31913,7 +31935,7 @@ export function setCachedSimulation(seed, result) {
     const firstKey = simulationCache.keys().next().value;
     simulationCache.delete(firstKey);
   }
-  simulationCache.set(seed, result);
+  simulationCache.set(seed, { value: result, timestamp: Date.now() });
 }
 
 export function clearSimulationCache() {
@@ -42715,6 +42737,19 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const [parityTick, setParityTick] = useState(0);
   const lastLocalMutationRef = useRef(0);
   const isCloudPullRef = useRef(false);
+
+  // Safety net: resetar isCloudPullRef se ficar preso por mais de 10s
+  useEffect(() => {
+    if (!isCloudPullRef.current) return;
+    const safetyTimer = setTimeout(() => {
+      if (isCloudPullRef.current) {
+        console.warn('[Sync] isCloudPullRef ficou preso, resetando.');
+        isCloudPullRef.current = false;
+      }
+    }, 10000);
+    return () => clearTimeout(safetyTimer);
+  }, [syncTrigger]);
+
   const debounceRef = useRef(null);
   const latestCloudDataRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -42785,13 +42820,20 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const mergeArrays = (arr1, arr2) => {
     const map = new Map();
     const getStableKey = (item) => {
-      if (item.id) return item.id;
+      if (!item || typeof item !== 'object') return null;
+      if (item.id) return String(item.id);
       return `${item.date || item.startTime || ''}-${item.categoryId || ''}-${item.taskId || ''}-${item.duration || item.minutes || ''}`;
     };
     const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
     const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
-    safeArr1.forEach(item => { if (item) map.set(getStableKey(item), item); });
-    safeArr2.forEach(item => { if (item) map.set(getStableKey(item), item); });
+    safeArr1.forEach(item => {
+      const key = getStableKey(item);
+      if (key) map.set(key, item);
+    });
+    safeArr2.forEach(item => {
+      const key = getStableKey(item);
+      if (key) map.set(key, item);
+    });
     return Array.from(map.values()).filter(Boolean);
   };
 
@@ -43171,12 +43213,19 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         isCloudPullRef.current = true;
         if (isMountedRef.current) {
           applyingRemoteRef.current = true;
-          setAppState(() => {
-            const freshState = useAppStore.getState().appState;
-            return mergeAppState(freshState, cloudData, {
-              nonDestructive: mergeMode === "nonDestructive"
+          try {
+            setAppState(() => {
+              const freshState = useAppStore.getState().appState;
+              return mergeAppState(freshState, cloudData, {
+                nonDestructive: mergeMode === "nonDestructive"
+              });
             });
-          });
+          } catch (pullErr) {
+            console.error('[Sync] Erro ao aplicar dados remotos:', pullErr);
+          } finally {
+            applyingRemoteRef.current = false;
+            isCloudPullRef.current = false;
+          }
         }
         lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
         setHasConflict(false);
@@ -43506,7 +43555,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 ## src/hooks/useCoachControlCenter.js
 
 ```javascript
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   runCoachOrchestrator,
   buildCoachOrchestratorDashboard,
@@ -43573,6 +43622,12 @@ export function useCoachControlCenter({
   const [flagOverrides, setFlagOverrides] = useState({});
   const [lastRunTimestamp, setLastRunTimestamp] = useState(null);
 
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
   // ==========================================================
   // Carregar estado persistido
   // ==========================================================
@@ -43626,21 +43681,23 @@ export function useCoachControlCenter({
       );
 
       // ✅ FIX: Validar result e dash
-      if (result) {
+      if (isMounted.current && result) {
         setOrchestratorResult(result);
         const dash = buildCoachOrchestratorDashboard(result);
         if (dash) setDashboard(dash);
       }
 
-      setLastRunTimestamp(Date.now());
+      if (isMounted.current) setLastRunTimestamp(Date.now());
 
       return result;
     } catch (err) {
-      const msg = err?.message || String(err);
-      setError(msg);
+      if (isMounted.current) {
+        const msg = err?.message || String(err);
+        setError(msg);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   }, [categories, simulados, studyLogs, maxScore, targetScore, currentFlags, flagOverrides]);
 
@@ -43690,6 +43747,8 @@ export function useCoachControlCenter({
         minImprovement: options.minImprovement ?? 0.02,
       });
 
+      if (!isMounted.current) return null;
+
       setTunerResult(result);
       loadAuxiliaryData();
 
@@ -43701,11 +43760,13 @@ export function useCoachControlCenter({
 
       return result;
     } catch (err) {
-      const msg = err?.message || String(err);
-      setError(msg);
+      if (isMounted.current) {
+        const msg = err?.message || String(err);
+        setError(msg);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   }, [maxScore, loadAuxiliaryData]);
 
@@ -44629,6 +44690,8 @@ export function useMonteCarloStats({
         statsData?.categoryStats || [],
         maxScore
       );
+
+      if (!Array.isArray(backfilled)) return;
 
       const changed = JSON.stringify(backfilled.slice(-3)) !== JSON.stringify(calibrationEvents.slice(-3));
 
@@ -45957,7 +46020,9 @@ export function usePomodoroSync({
         if (!syncChannel) return;
 
         const handleMessage = (event) => {
-            const data = event.data || {};
+            const data = event.data;
+            // ✅ FIX: Validar estrutura da mensagem antes de processar
+            if (!data || typeof data !== 'object' || !data.type) return;
 
             const {
                 type,
@@ -45970,6 +46035,14 @@ export function usePomodoroSync({
             } = data;
 
             if (tabId === STABLE_TAB_ID) return;
+
+            // ✅ FIX: Validar que o tipo é conhecido
+            const KNOWN_TYPES = [
+                'START_SESSION', 'PAUSE_SESSION', 'TIMER_RESET',
+                'PHASE_SKIP', 'PHASE_COMPLETE', 'PHASE_REWIND',
+                'TARGET_CYCLES_CHANGE', 'SPEED_CHANGE', 'TOGGLE_MUTE'
+            ];
+            if (!KNOWN_TYPES.includes(type)) return;
 
             if (SESSION_SCOPED_TYPES.includes(type)) {
                 const currentTaskId = activeSubjectRef.current?.taskId ?? null;
@@ -52752,7 +52825,6 @@ export async function secureLogout() {
         console.error('[Firebase] Erro durante logout:', err);
         signOutFailed = true;
     } finally {
-        // ✅ Sempre limpar dados locais, mesmo se signOut falhou
         const keysToRemove = [
             'appState',
             'contests',
@@ -52760,7 +52832,11 @@ export async function secureLogout() {
             'pomodoro',
             'gameState',
             'userId',
-            'userPreferences'
+            'userPreferences',
+            'pomodoroState',
+            'ultra-sync-dirty',
+            'focusPanelLocked',
+            'pomodoroLayoutLocked',
         ];
         keysToRemove.forEach(key => {
             try {
@@ -52769,6 +52845,20 @@ export async function secureLogout() {
             } catch { /* ignore */ }
         });
         
+        // ✅ FIX: Limpar IndexedDB do app
+        try {
+            const { del } = await import('idb-keyval');
+            await del('ultra-dashboard-storage');
+        } catch (e) {
+            console.warn('[Firebase] Falha ao limpar IndexedDB no logout:', e);
+        }
+
+        // ✅ FIX: Limpar sessionStorage de flags de sessão
+        try {
+            sessionStorage.removeItem('hasSeenWelcomeScreen');
+            sessionStorage.removeItem('page-has-been-force-refreshed');
+        } catch { /* ignore */ }
+
         if (signOutFailed) {
             console.warn('[Firebase] Logout local executado, mas signOut remoto falhou.');
         }
@@ -53278,7 +53368,7 @@ const idbStorage = {
         }
     },
     setItem: (name, value) => {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             if (isStorageLocked) {
                 console.warn('[Storage] Operação ignorada. Lock de emergência ativo.');
                 return resolve();
@@ -53287,28 +53377,27 @@ const idbStorage = {
             // Rejeita a promise pendente anterior para evitar dangling promises (Memory Leak)
             if (saveTimeouts[name]) {
                 clearTimeout(saveTimeouts[name]);
+                // Resolve a promise anterior em vez de rejeitar
                 if (savePromises[name]) {
-                    savePromises[name].reject(new Error('Debounced'));
+                    savePromises[name].resolve();
                 }
             }
             
-            savePromises[name] = { resolve, reject };
+            savePromises[name] = { resolve };
             
             saveTimeouts[name] = setTimeout(async () => {
                 try {
                     await idbSet(name, value);
-                    savePromises[name].resolve();
+                    savePromises[name]?.resolve();
                 } catch (e) {
                     console.error('[Storage] Falha crítica ao escrever no IDB:', e);
-                    savePromises[name].reject(e);
+                    // Resolve em vez de rejeitar para evitar unhandled rejection
+                    savePromises[name]?.resolve();
                 } finally {
                     delete savePromises[name];
                     delete saveTimeouts[name];
                 }
             }, 250);
-        }).catch(err => {
-            // Ignora o erro se foi intencionalmente cancelado pelo debounce
-            if (err.message !== 'Debounced') throw err;
         });
     },
     removeItem: async (name) => {
@@ -55115,7 +55204,7 @@ export const createStudySlice = (set, get) => ({
       localStorage.setItem('ultra-sync-dirty', 'true');
     });
 
-    if (pendingXp > 0 && get().awardExperience) {
+    if (pendingXp > 0 && typeof get().awardExperience === 'function') {
       get().awardExperience(pendingXp);
     }
   },
@@ -55169,7 +55258,7 @@ export const createStudySlice = (set, get) => ({
       localStorage.setItem('ultra-sync-dirty', 'true');
     });
 
-    if (xpToDeduct > 0 && get().awardExperience) {
+    if (xpToDeduct > 0 && typeof get().awardExperience === 'function') {
       get().awardExperience(-xpToDeduct);
     }
   },
@@ -55236,7 +55325,7 @@ export const createStudySlice = (set, get) => ({
       localStorage.setItem('ultra-sync-dirty', 'true');
     });
 
-    if (get().awardExperience) {
+    if (typeof get().awardExperience === 'function') {
       const xp = rating >= 2 ? 3 : 1;
       get().awardExperience(xp);
     }
@@ -57558,29 +57647,35 @@ const validateFullBackup = (data) => {
 };
 
 // RIGOR-SEC: Camada de limpeza para remover campos potencialmente perigosos ou inválidos mantendo propriedades essenciais
-const sanitizeCategory = (cat) => ({
-    ...cat,
-    id: String(cat.id || generateId('cat')),
-    name: DOMPurify.sanitize(String(cat.name || "Sem Nome")).substring(0, 50),
-    // PRESERVE: Mantemos propriedades inerentes (maxScore, weight, simuladoStats, etc) através do spread acima
-    priority: cat.priority || 'medium',
-    completedAt: cat.completedAt || null,
-    lastStudiedAt: cat.lastStudiedAt || null,
-    awardedXP: !!cat.awardedXP,
-    status: cat.status || 'active',
-    tasks: Array.isArray(cat.tasks) ? cat.tasks.map(t => ({
-        ...t,
-        id: String(t.id || generateId('task')),
-        text: DOMPurify.sanitize(String(t.text || "")),
-        title: DOMPurify.sanitize(String(t.title || t.text || "")),
-        completed: !!t.completed,
-        // PRESERVE: Metadados da tarefa
-        priority: t.priority || 'medium',
-        completedAt: t.completedAt || null,
-        lastStudiedAt: t.lastStudiedAt || null,
-        awardedXP: !!t.awardedXP
-    })) : []
-});
+const sanitizeCategory = (cat) => {
+    if (!cat || typeof cat !== 'object') return null;
+    return {
+        ...cat,
+        id: String(cat.id || generateId('cat')),
+        name: DOMPurify.sanitize(String(cat.name || "Sem Nome")).substring(0, 50),
+        // PRESERVE: Mantemos propriedades inerentes (maxScore, weight, simuladoStats, etc) através do spread acima
+        priority: cat.priority || 'medium',
+        completedAt: cat.completedAt || null,
+        lastStudiedAt: cat.lastStudiedAt || null,
+        awardedXP: !!cat.awardedXP,
+        status: cat.status || 'active',
+        tasks: Array.isArray(cat.tasks) ? cat.tasks.map(t => {
+            if (!t || typeof t !== 'object') return null;
+            return {
+                ...t,
+                id: String(t.id || generateId('task')),
+                text: DOMPurify.sanitize(String(t.text || "")),
+                title: DOMPurify.sanitize(String(t.title || t.text || "")),
+                completed: !!t.completed,
+                // PRESERVE: Metadados da tarefa
+                priority: t.priority || 'medium',
+                completedAt: t.completedAt || null,
+                lastStudiedAt: t.lastStudiedAt || null,
+                awardedXP: !!t.awardedXP
+            };
+        }).filter(Boolean) : []
+    };
+};
 
 const sanitizeContest = (contest) => ({
     ...contest,
@@ -59772,12 +59867,38 @@ export {
     runCoachMonteCarlo
 };
 
+const URGENCY_CACHE_MAX = 80;
+const TOPICS_CACHE_MAX = 50;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
 // LRU Cache for urgency calculations
 export const _urgencyCache = new Map();
 export const clearUrgencyCache = () => _urgencyCache.clear();
 
 export const _topicsCache = new Map();
 export const clearTopicsCache = () => _topicsCache.clear();
+
+// ✅ FIX: Helper para inserção com limite e TTL
+function cacheSet(cache, maxSize, key, value) {
+  if (cache.size >= maxSize) {
+    const oldestKey = cache.keys().next().value;
+    cache.delete(oldestKey);
+  }
+  cache.set(key, { value, timestamp: Date.now() });
+}
+
+function cacheGet(cache, key) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    cache.delete(key);
+    return null;
+  }
+  // LRU: mover para o fim
+  cache.delete(key);
+  cache.set(key, entry);
+  return entry.value;
+}
 
 const sanitizeMinutes = (mins) => Math.min(720, Math.max(0, Number(mins) || 0));
 
@@ -61362,12 +61483,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}_f${featuresHash}_ms${options.maxScore ?? 100}_ts${options.targetScore ?? 0}`;
 
-        if (_urgencyCache.has(cacheKey)) {
-            const cached = _urgencyCache.get(cacheKey);
-            _urgencyCache.delete(cacheKey);
-            _urgencyCache.set(cacheKey, cached);
-            return cached;
-        }
+        const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
+        if (cachedUrgency) return cachedUrgency;
 
         const metrics = extractMetrics(safeCat, safeSims, safeLogs, options);
         const scoreInfo = calculateUrgencyScore(metrics, options);
@@ -61437,12 +61554,7 @@ if (
             }
         }
 
-        if (_urgencyCache.size > 80) {
-            const oldestKey = _urgencyCache.keys().next().value;
-            _urgencyCache.delete(oldestKey);
-        }
-
-        _urgencyCache.set(cacheKey, result);
+        cacheSet(_urgencyCache, URGENCY_CACHE_MAX, cacheKey, result);
         return result;
     } catch (err) {
         console.error("[CoachLogic] Critical error in calculateUrgency:", err);
@@ -61553,7 +61665,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     return result;
 };
 
-const MAX_CACHE_SIZE = 50;
+// MAX_CACHE_SIZE movido para o topo
 
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const safeCat = category || {};
@@ -61627,20 +61739,11 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}-${coachFeatureHash}`;
     const cacheKey = `isolate_${catId}_${hash}`;
 
-    if (_topicsCache.has(cacheKey)) {
-        const result = _topicsCache.get(cacheKey);
-        _topicsCache.delete(cacheKey);
-        _topicsCache.set(cacheKey, result);
-        return result.map(t => ({ ...t }));
-    }
-
-    if (_topicsCache.size >= MAX_CACHE_SIZE) {
-        const oldestKey = _topicsCache.keys().next().value;
-        _topicsCache.delete(oldestKey);
-    }
+    const cachedTopics = cacheGet(_topicsCache, cacheKey);
+    if (cachedTopics) return cachedTopics.map(t => ({ ...t }));
 
     const result = _buildSortedTopicsImpl(safeCat, safeSims, maxScore);
-    _topicsCache.set(cacheKey, result);
+    cacheSet(_topicsCache, TOPICS_CACHE_MAX, cacheKey, result);
 
     return result.map(t => ({ ...t }));
 }
@@ -63323,9 +63426,13 @@ export const getDateKey = (rawDate) => {
     // ignore
   }
 
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
+  // ✅ FIX: Usar offset fixo de Manaus (UTC-4) em vez de UTC genérico
+  // para manter consistência com o timezone principal do app
+  const MANAUS_OFFSET_MS = -4 * 60 * 60 * 1000;
+  const adjusted = new Date(date.getTime() + MANAUS_OFFSET_MS);
+  const year = adjusted.getUTCFullYear();
+  const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(adjusted.getUTCDate()).padStart(2, '0');
   const result = `${year}-${month}-${day}`;
   // ✅ FIX: Range mais permissivo (dados de teste, datas futuras de agenda)
   if (year < 1970 || year > 2200) return null;
@@ -63341,10 +63448,8 @@ export const getLocalMidnight = (date = new Date()) => {
       return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
     }
     // ✅ FIX: Offset fixo de Manaus (-04:00) em vez de timezone local
-    // eslint-disable-next-line no-restricted-syntax
     return new Date(`${dateKey}T00:00:00-04:00`);
   } catch {
-    // Fallback: extrair componentes UTC e ancorar em Manaus (UTC-4)
     const utc = new Date(date);
     return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
   }
@@ -64466,10 +64571,8 @@ export function resolveTargetPoints(value, domainOrMax, minScore = 0, unit = "au
     return pctToPoints(n, domain);
   }
 
-  if (domain.max > 100 && n >= 0 && n <= 100) {
-    return pctToPoints(n, domain);
-  }
-
+  // FIX: Removida auto-detecção também daqui para manter coerência com normalizeScoreValue.
+  // Valores ambíguos são tratados como pontos por segurança.
   return clampFinite(n, domain.min, domain.max, domain.min);
 }
 
@@ -65104,9 +65207,13 @@ export function parseNoonLocal(input) {
  * Usado para projetar a data-alvo do Monte Carlo sem atravessar fusos.
  */
 export function addDaysNoon(date, days) {
+  if (!date || typeof date.getTime !== 'function' || Number.isNaN(date.getTime())) {
+    return null;
+  }
   const d = new Date(date.getTime());
   d.setDate(d.getDate() + (Number(days) || 0));
   d.setHours(12, 0, 0, 0);
+  if (Number.isNaN(d.getTime())) return null;
   return d;
 }
 

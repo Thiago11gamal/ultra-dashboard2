@@ -168,7 +168,30 @@ const Sidebar = React.memo(function Sidebar({
             await logout();
             useAppStore.getState().resetStore();
             await del('ultra-dashboard-storage');
-            localStorage.clear();
+            // FIX: Remover apenas as chaves do Ultra Dashboard
+            const appKeys = [
+                'ultra-dashboard-storage',
+                'ultra-sync-dirty',
+                'pomodoroState',
+                'pomodoro_muted',
+                'focusPanelLocked',
+                'pomodoroLayoutLocked',
+                'hasSeenWelcomeScreen',
+                'page-has-been-force-refreshed',
+                'ultra_local_session',
+                'coach_calibration_events_v1',
+                'coach_flag_optimizer_state_v1',
+                'coach_causal_model_v1',
+                'coach_auto_tuner_history_v1',
+                'coach_evaluation_results_v1',
+                'coach_model_health_v1',
+            ];
+            appKeys.forEach(key => {
+                try {
+                    localStorage.removeItem(key);
+                    sessionStorage.removeItem(key);
+                } catch { /* ignore */ }
+            });
         } catch (err) {
             console.error("Erro ao sair", err);
         }

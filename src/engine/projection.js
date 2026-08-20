@@ -274,13 +274,16 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
     const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
     const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
     
-    const normalizedHistory = trendOrHistory.map(item => {
+    const normalizedHistory = trendOrHistory
+      .filter(item => item != null)
+      .map(item => {
       if (typeof item === 'number') {
         return { score: item, date: null };
       }
       if (item && typeof item === 'object') {
+        const score = Number(item.score ?? item.value);
         return {
-          score: Number.isFinite(item.score) ? item.score : NaN,
+          score: Number.isFinite(score) ? score : NaN,
           date: item.date || item.createdAt || null
         };
       }
@@ -288,7 +291,8 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
     }).filter(item => Number.isFinite(item.score));
     
     if (normalizedHistory.length < 2) return 0;
-    return calculateAdaptiveSlope(normalizedHistory, maxScore, opts);
+    const result = calculateAdaptiveSlope(normalizedHistory, maxScore, opts);
+    return Number.isFinite(result) ? result : 0;
   }
   
   // ✅ FIX: Clamp proporcional à amplitude real (maxScore - minScore) da prova
