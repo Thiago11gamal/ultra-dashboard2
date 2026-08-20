@@ -583,7 +583,10 @@ export default function AIGeneratedSimulado() {
     const qList = latestQuestionsRef.current.length > 0 ? latestQuestionsRef.current : questions;
     const ansMap = Object.keys(latestAnswersRef.current).length > 0 ? latestAnswersRef.current : answers;
     const f = latestFormRef.current;
-    if (qList.length === 0) return;
+    if (qList.length === 0) {
+      showToast('Nenhuma questão disponível para finalizar.', 'warning');
+      return;
+    }
 
     const absoluteElapsedSecs = simStartMsRef.current ? Math.round((Date.now() - simStartMsRef.current) / 1000) : 0;
     const totalAllowedTime = qList.length * 3 * 60;

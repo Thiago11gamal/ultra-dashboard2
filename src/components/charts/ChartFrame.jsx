@@ -6,9 +6,16 @@ import React, { useLayoutEffect, useRef, useState } from 'react';
  * Enquanto mede, exibe um placeholder ambient com shimmer — nunca um chart cego.
  * Reage a resize / aba que vira visível via ResizeObserver.
  */
-const isTestEnv =
-  (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') ||
-  (typeof window !== 'undefined' && window.navigator && /jsdom/i.test(window.navigator.userAgent || ''));
+const isTestEnv = (() => {
+  try {
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') return true;
+    if (typeof window !== 'undefined' && window.__vitest_worker__) return true;
+    if (typeof window !== 'undefined' && /jsdom|happy-dom/i.test(window.navigator?.userAgent || '')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+})();
 
 export default function ChartFrame({
   children,

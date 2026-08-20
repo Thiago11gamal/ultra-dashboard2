@@ -83,17 +83,15 @@ export async function clearFirestoreCache() {
  * Logout seguro: signOut + limpeza de persistência + limpeza de storages.
  */
 export async function secureLogout() {
+    let signOutFailed = false;
     try {
-        if (auth) {
-            await signOut(auth);
-        }
-
+        if (auth) await signOut(auth);
         await clearFirestoreCache();
     } catch (err) {
         console.error('[Firebase] Erro durante logout:', err);
+        signOutFailed = true;
     } finally {
-        // ✅ FIX #2: Limpar apenas chaves da aplicação, não localStorage completo
-        // Evita danificar dados em aplicações multi-tenant
+        // ✅ Sempre limpar dados locais, mesmo se signOut falhou
         const keysToRemove = [
             'appState',
             'contests',
@@ -104,9 +102,15 @@ export async function secureLogout() {
             'userPreferences'
         ];
         keysToRemove.forEach(key => {
-            localStorage.removeItem(key);
-            sessionStorage.removeItem(key);
+            try {
+                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
+            } catch { /* ignore */ }
         });
+        
+        if (signOutFailed) {
+            console.warn('[Firebase] Logout local executado, mas signOut remoto falhou.');
+        }
     }
 }
 

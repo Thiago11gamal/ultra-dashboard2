@@ -112,6 +112,14 @@ export const useAppStore = create(
                     localStorage.removeItem('pomodoroState');
                     // MATH-03 / LEAK-01 FIX: Clear module-level MC cache on logout
                     clearCoachCaches();
+
+                    // ✅ FIX: Limpar sessionStorage também
+                    try {
+                        sessionStorage.removeItem('hasSeenWelcomeScreen');
+                        sessionStorage.removeItem('ultra-sync-dirty');
+                        sessionStorage.removeItem('page-has-been-force-refreshed');
+                    } catch { /* ignore */ }
+
                     // ✅ FIX: Notificar outras abas para encerrar Pomodoro
                     try {
                         const channel = new BroadcastChannel('pomodoro_sync');

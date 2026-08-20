@@ -282,7 +282,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false]
   }));
   const contestId = cfg?.contestId || cfg?.userId || 'default';
-  const hash = `${contestId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}-${cfgHash}-ag${agilityPenalty}`;
+  const hash = `${contestId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}` +
+    `-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}` +
+    `-${cfgHash}-ag${agilityPenalty}-tgt${Number(safeTargetScore).toFixed(1)}`;
   if (mcCache.has(hash)) {
     const val = mcCache.get(hash);
     mcCache.delete(hash);

@@ -198,6 +198,11 @@ export function useMonteCarloStats({
     return newWeights;
   }, [activeCategories]);
 
+  const weightsKey = useMemo(() => {
+    if (equalWeightsMode) return JSON.stringify(getEqualWeights());
+    return JSON.stringify(weights || {});
+  }, [equalWeightsMode, weights, getEqualWeights]);
+
   const effectiveWeights = useMemo(() => {
     if (equalWeightsMode) return getEqualWeights();
     if (!weights) return getEqualWeights();
@@ -211,7 +216,8 @@ export function useMonteCarloStats({
     });
 
     return weightsMap;
-  }, [equalWeightsMode, weights, activeCategories, getEqualWeights]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weightsKey, activeCategories.length]);
 
   const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
   const [debouncedWeights, setDebouncedWeights] = useState(() => effectiveWeights);

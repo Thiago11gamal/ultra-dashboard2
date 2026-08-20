@@ -110,7 +110,7 @@ export const calculateStudyStreak = (studyLogs) => {
   // caía no dia ANTERIOR de Manaus -> daySet.has() nunca casava -> streak sempre 0.
   // Agora a iteração é feita por chave de data ancorada (Manaus não tem DST — seguro).
   let cursorKey = lastDayStr;
-  const maxIterations = Math.min(sortedDays.length + 2, 366); // ✅ FIX: Cap absoluto
+  const maxIterations = Math.min(sortedDays.length + 2, 3660); // 10 anos
   for (let i = 0; i < maxIterations; i++) {
     if (!cursorKey || !daySet.has(cursorKey)) break;
     streak++;

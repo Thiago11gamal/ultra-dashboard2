@@ -21,7 +21,11 @@ export const calculateLevel = (xpInput) => {
 export const getLevelFromXP = calculateLevel;
 
 // B-11 FIX: Nomes descritivos e distintos
-// Recebe XP atual → retorna XP RESTANTE para próximo nível
+/**
+ * Retorna quantos XP FALTAM para o próximo nível.
+ * @param {number} currentXP - XP atual do usuário
+ * @returns {number} XP restante (nunca negativo)
+ */
 export const getXpRemainingToNextLevel = (currentXP) => {
     const xp = Math.max(0, Number(currentXP) || 0);
     const level = calculateLevel(xp);
@@ -29,7 +33,11 @@ export const getXpRemainingToNextLevel = (currentXP) => {
     return Math.max(0, nextLevelThreshold - xp);
 };
 
-// Recebe NÍVEL atual → retorna XP TOTAL do próximo nível (threshold)
+/**
+ * Retorna o XP TOTAL necessário para ATINGIR o nível informado.
+ * @param {number} level - Nível desejado (ex: 5)
+ * @returns {number} XP total acumulado para chegar nesse nível
+ */
 export const getXpThresholdForLevel = (level) => {
     return Math.pow(Math.max(0, level - 1), 2) * 100;
 };
