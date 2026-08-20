@@ -6,9 +6,10 @@ export const generateId = (prefix = 'id') => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${prefix}-${crypto.randomUUID()}`;
   }
-  // Fallback para contextos HTTP não-secure
-  const rand = () => Math.random().toString(36).substring(2, 10);
-  return `${prefix}-${Date.now().toString(36)}-${rand()}${rand()}`;
+  // Fallback para contextos HTTP não-secure com alta entropia
+  const rand = () => Math.random().toString(36).substring(2, 15);
+  const perf = typeof performance !== 'undefined' ? performance.now().toString(36).replace('.', '') : '';
+  return `${prefix}-${Date.now().toString(36)}-${perf}-${rand()}${rand()}`;
 };
 
 const stableIdMap = new WeakMap();

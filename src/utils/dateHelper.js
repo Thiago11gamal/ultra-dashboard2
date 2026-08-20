@@ -2,13 +2,13 @@ import { addDays } from 'date-fns';
 
 export const APP_TIMEZONE = 'America/Manaus';
 
-export const safeDateParse = (dateInput) => {
-  if (!dateInput) return null;
+export const safeDateParse = (dateInput, fallback = null) => {
+  if (!dateInput) return fallback;
   const normalizedString = typeof dateInput === 'string'
     ? dateInput.replace(' ', 'T')
     : dateInput;
   const d = new Date(normalizedString);
-  return isNaN(d.getTime()) ? null : d;
+  return isNaN(d.getTime()) ? fallback : d;
 };
 
 export function parseGoalDateUnified(value) {
@@ -44,55 +44,16 @@ export function parseGoalDateUnified(value) {
 }
 
 export const getDateKey = (rawDate) => {
-  if (!rawDate) return null;
-  let date;
-  
-  if (typeof rawDate === 'object' && (rawDate.seconds != null || rawDate._seconds != null)) {
-    const secs = rawDate.seconds != null ? rawDate.seconds : rawDate._seconds;
-    date = new Date(secs * 1000);
-  } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
-    const parts = rawDate.split(/[/-]/);
-    if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-      // ✅ FIX: Ancora ao meio-dia de Manaus (UTC-4)
-      // eslint-disable-next-line no-restricted-syntax
-      date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
-    } else {
-      date = new Date(rawDate);
-    }
-  } else if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
-    // ✅ FIX: Ancora ao meio-dia de Manaus para evitar shift de dia em UTC
-    // eslint-disable-next-line no-restricted-syntax
-    date = new Date(`${rawDate.trim()}T12:00:00-04:00`);
-  } else {
-    date = new Date(rawDate);
-  }
-  
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
-  
+  if (!rawDate) return new Date().toISOString().split('T')[0];
   try {
-    // ✅ FIX: Formata na timezone explicitamente ligada a Manaus (UTC-4) em vez de UTC genérico
-    const f = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Manaus',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).format(date);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
+    const d = normalizeDate(rawDate) || new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch {
-    // ignore
+    return new Date().toISOString().split('T')[0];
   }
-
-  // ✅ FIX: Usar offset fixo de Manaus (UTC-4) em vez de UTC genérico
-  // para manter consistência com o timezone principal do app
-  const MANAUS_OFFSET_MS = -4 * 60 * 60 * 1000;
-  const adjusted = new Date(date.getTime() + MANAUS_OFFSET_MS);
-  const year = adjusted.getUTCFullYear();
-  const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(adjusted.getUTCDate()).padStart(2, '0');
-  const result = `${year}-${month}-${day}`;
-  // ✅ FIX: Range mais permissivo (dados de teste, datas futuras de agenda)
-  if (year < 1970 || year > 2200) return null;
-  return result;
 };
 
 export const getLocalMidnight = (date = new Date()) => {

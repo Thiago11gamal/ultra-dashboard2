@@ -123,7 +123,7 @@ const Sidebar = React.memo(function Sidebar({
                 // Usar a referência real do React em vez de querySelector
                 if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
                     // Verifica se o clique não foi no botão de toggle do header
-                    const toggleBtn = e.target.closest('[aria-label="Expandir Menu"], [aria-label="Recolher Menu"]');
+                    const toggleBtn = e.target.closest('[data-sidebar-toggle="true"]');
                     if (!toggleBtn) {
                         setCollapsed(true);
                     }

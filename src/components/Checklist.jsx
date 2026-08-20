@@ -575,22 +575,22 @@ function Checklist({
     useEffect(() => {
         return () => {
             if (scrollTimerRef.current) {
-                clearTimeout(scrollTimerRef.current);
+                cancelAnimationFrame(scrollTimerRef.current);
             }
         };
     }, []);
 
     const scrollToBottom = useCallback(() => {
         if (scrollTimerRef.current) {
-            clearTimeout(scrollTimerRef.current);
+            cancelAnimationFrame(scrollTimerRef.current);
         }
 
-        scrollTimerRef.current = setTimeout(() => {
+        scrollTimerRef.current = requestAnimationFrame(() => {
             bottomRef.current?.scrollIntoView({
                 behavior: 'smooth',
                 block: 'end'
             });
-        }, 100);
+        });
     }, []);
 
     const safeCategories = useMemo(() => {

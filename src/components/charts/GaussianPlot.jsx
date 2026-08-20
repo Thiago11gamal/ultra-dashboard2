@@ -139,16 +139,16 @@ export const GaussianPlot = ({
             // FIX: Defesa Ativa contra Boundary Leaks no KDE recebido
             const safeX = (val) => Math.max(domainMin, Math.min(domainMax, val));
 
-            points.push(`${xp(safeX(kdeData[0].x))},100`);
+            points.push({ x: xp(safeX(kdeData[0].x)), y: 100 });
             kdeData.forEach(p => {
-                points.push(`${xp(safeX(p.x))},${yp(p.y * baseHeightFactor)}`);
+                points.push({ x: xp(safeX(p.x)), y: yp(p.y * baseHeightFactor) });
             });
-            points.push(`${xp(safeX(kdeData[kdeData.length - 1].x))},100`);
-            path = `M ${points.join(' L ')}`;
+            points.push({ x: xp(safeX(kdeData[kdeData.length - 1].x)), y: 100 });
+            path = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
             pointsForArea = points;
         } else {
             const pts = generateGaussianPoints(xMin, domainMax, 100, meanVal, vizSdLeft, vizSdRight, baseHeightFactor, xp, yp);
-            path = `M ${pts.join(' L ')}`;
+            path = `M ${pts.map(p => `${p.x},${p.y}`).join(' L ')}`;
             pointsForArea = pts;
         }
 
@@ -168,12 +168,12 @@ export const GaussianPlot = ({
         }
 
         // ✅ LOTE-04 FIX (M4): busca binária O(log N) em vez de varredura linear O(N).
-        // O hover chamava isto a cada mousemove com split() de ~200 strings.
+        // Resolvido BUG-015: Uso de objetos em vez de strings evita garbage collection e CPU overhead de split() no hover.
         const getYAtX = (pts, xTarget) => {
             const n = pts.length;
             if (n === 0) return 100;
-            const getX = (p) => Number(p.split(',')[0]);
-            const getY = (p) => Number(p.split(',')[1]);
+            const getX = (p) => p.x;
+            const getY = (p) => p.y;
             // pts já está ordenado por x (KDE e generateGaussianPoints ordenam)
             let loIdx = -1;
             let lo = 0, hi = n - 1;
@@ -203,27 +203,27 @@ export const GaussianPlot = ({
         const areaPoints = [];
         const failPoints = [];
 
-        areaPoints.push(`${xp(successStart)},${yAtTargetVisual}`);
+        const startXP = xp(successStart);
+
+        areaPoints.push({ x: startXP, y: yAtTargetVisual });
         pointsForArea.forEach(p => {
-            const [xPos] = p.split(',').map(Number);
-            if (xPos > xp(successStart)) areaPoints.push(p);
+            if (p.x > startXP) areaPoints.push(p);
         });
         if (areaPoints.length > 0) {
             const lastP = areaPoints[areaPoints.length - 1];
-            areaPoints.push(`${lastP.split(',')[0]},100`);
-            areaPoints.push(`${xp(successStart)},100`);
+            areaPoints.push({ x: lastP.x, y: 100 });
+            areaPoints.push({ x: startXP, y: 100 });
         }
 
-        failPoints.push(`${pointsForArea[0].split(',')[0]},100`);
+        failPoints.push({ x: pointsForArea[0].x, y: 100 });
         pointsForArea.forEach(p => {
-            const [xPos] = p.split(',').map(Number);
-            if (xPos <= xp(successStart)) failPoints.push(p);
+            if (p.x <= startXP) failPoints.push(p);
         });
-        failPoints.push(`${xp(successStart)},${yAtTargetVisual}`);
-        failPoints.push(`${xp(successStart)},100`);
+        failPoints.push({ x: startXP, y: yAtTargetVisual });
+        failPoints.push({ x: startXP, y: 100 });
 
-        const areaPath = areaPoints.length > 2 ? `M ${areaPoints.join(' L ')} Z` : '';
-        const failPath = failPoints.length > 2 ? `M ${failPoints.join(' L ')} Z` : '';
+        const areaPath = areaPoints.length > 2 ? `M ${areaPoints.map(p => `${p.x},${p.y}`).join(' L ')} Z` : '';
+        const failPath = failPoints.length > 2 ? `M ${failPoints.map(p => `${p.x},${p.y}`).join(' L ')} Z` : '';
 
         const calculateCurveY = (x) => {
             const safeXVal = Math.max(domainMin, Math.min(domainMax, Number(x) || domainMin));

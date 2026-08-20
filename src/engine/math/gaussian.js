@@ -125,7 +125,7 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
 
     return points
         .sort((a, b) => a.x - b.x)
-        .map(p => `${safeXp(p.x)},${safeYp(p.y)}`);
+        .map(p => ({ x: safeXp(p.x), y: safeYp(p.y) }));
 }
 
 export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore = 0, maxScore = 100) {

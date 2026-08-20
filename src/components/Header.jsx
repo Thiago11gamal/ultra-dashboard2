@@ -89,15 +89,7 @@ const Header = React.memo(function Header({
         }, 500);
     };
 
-    // FIX 5.3d: Cleanup imediato ao desmontar durante debounce
-    useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-                debounceRef.current = null;
-            }
-        };
-    }, []);
+
 
     return (
         <>
@@ -148,6 +140,7 @@ const Header = React.memo(function Header({
                             title={sidebarCollapsed ? "Expandir Menu" : "Recolher Menu"}
                             aria-label={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"} // FIX 5.3e
                             aria-expanded={!sidebarCollapsed} // FIX 5.3f
+                            data-sidebar-toggle="true"
                         >
                             <Menu size={18} aria-hidden="true" />
                         </button>

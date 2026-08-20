@@ -232,7 +232,22 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
   const mergeCategoryTasks = (localTasks = [], cloudTasks = []) => {
     const taskMap = new Map();
-    const taskKey = (t) => t?.id || t?.text || `${t?.title || ''}-${t?.priority || ''}`;
+    const textToIdMap = new Map();
+
+    const normalizeText = (txt) =>
+      String(txt || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+
+    const taskKey = (t) => {
+      if (t?.id) return `id:${t.id}`;
+
+      const text = normalizeText(t?.text || t?.title);
+      if (text) return `text:${text}`;
+
+      return `fallback:${t?.priority || ''}:${t?.createdAt || ''}`;
+    };
     const pickWinner = (a, b) => {
       if (!a) return b;
       if (!b) return a;
@@ -245,7 +260,27 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const safeLocalTasks = Array.isArray(localTasks) ? localTasks : Object.values(localTasks || {});
     const safeCloudTasks = Array.isArray(cloudTasks) ? cloudTasks : Object.values(cloudTasks || {});
     [...safeLocalTasks, ...safeCloudTasks].filter(Boolean).forEach(t => {
-      const key = taskKey(t);
+      let key = taskKey(t);
+
+      const text = normalizeText(t.text || t.title);
+
+      if (t.id && text) {
+        const previousTextKey = `text:${text}`;
+        const existingByText = taskMap.get(previousTextKey);
+
+        if (existingByText) {
+          taskMap.delete(previousTextKey);
+          key = `id:${t.id}`;
+          taskMap.set(key, pickWinner(existingByText, t));
+          textToIdMap.set(text, key);
+          return;
+        }
+      }
+
+      if (!t.id && text && textToIdMap.has(text)) {
+        key = textToIdMap.get(text);
+      }
+
       if (key) {
         taskMap.set(key, pickWinner(taskMap.get(key), t));
       }
@@ -528,6 +563,18 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         return;
       }
 
+      const localState = useAppStore.getState().appState;
+      const localVersion = Number(localState?.version || 0);
+      const cloudVersion = Number(cloudData?.version || 0);
+
+      if (localVersion > cloudVersion) {
+        console.warn('[CloudSync] Pull ignorado: estado local é mais novo que nuvem.', {
+          localVersion,
+          cloudVersion
+        });
+        return;
+      }
+
       const now = Date.now();
       const cloudUpdatedRaw = new Date(cloudData.lastUpdated);
       const cloudUpdatedTime = isNaN(cloudUpdatedRaw.getTime()) ? 0 : cloudUpdatedRaw.getTime();
@@ -591,6 +638,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           try {
             setAppState(() => {
               const freshState = useAppStore.getState().appState;
+              const freshVersion = Number(freshState?.version || 0);
+              if (freshVersion > cloudVersion) {
+                console.warn('[CloudSync] Merge cancelado: houve edição local durante o snapshot.');
+                return freshState;
+              }
               return mergeAppState(freshState, cloudData, {
                 nonDestructive: mergeMode === "nonDestructive"
               });
@@ -666,8 +718,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         : syncState.contests;
       const safeTrash = (syncState.trash || []).slice(-20);
       const stateToSave = cleanUndefined(safeClone({
-        ...syncState, contests: safeContests, trash: safeTrash,
-        history: [], _lastBackup: new Date().toISOString()
+        ...syncState,
+        version: currentVersion,
+        contests: safeContests,
+        trash: safeTrash,
+        history: [],
+        _lastBackup: new Date().toISOString()
       }));
 
       // ✅ FIX: Incluir version no payload para detecção de conflito

@@ -258,7 +258,8 @@ export default function Simulados() {
     const savedManualRows = {};
     rawTodayRows.forEach(r => {
       if (!r.isAuto && r.source !== 'ai-generated') {
-        const key = `${normalize(r.subject)}-${normalize(r.topic)}`;
+        // Fallback to string if IDs are missing for legacy records
+        const key = (r.categoryId && r.topicId) ? `${r.categoryId}-${r.topicId}` : `${normalize(r.subject)}-${normalize(r.topic)}`;
         savedManualRows[key] = r;
       }
     });
@@ -266,18 +267,20 @@ export default function Simulados() {
       const rawTasks = cat.tasks || [];
       const tasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
       if (tasks.length === 0) {
-        const key = `${normalize(cat.name)}-${normalize('nenhum')}`;
-        rows.push(savedManualRows[key] || {
-          id: `manual-fallback-${cat.id}`, subject: cat.name, topic: 'nenhum',
+        const keyStr = `${normalize(cat.name)}-${normalize('nenhum')}`;
+        const keyId = `${cat.id}-nenhum`;
+        rows.push(savedManualRows[keyId] || savedManualRows[keyStr] || {
+          id: `manual-fallback-${cat.id}`, categoryId: cat.id, topicId: 'nenhum', subject: cat.name, topic: 'nenhum',
           correct: 0, total: 0, isAuto: false, source: 'manual'
         });
       } else {
         tasks.forEach(task => {
           const title = String(task.title || task.text || '').trim();
           if (!title) return;
-          const key = `${normalize(cat.name)}-${normalize(title)}`;
-          rows.push(savedManualRows[key] || {
-            id: `manual-${cat.id}-${task.id}`, subject: cat.name, topic: title,
+          const keyStr = `${normalize(cat.name)}-${normalize(title)}`;
+          const keyId = `${cat.id}-${task.id}`;
+          rows.push(savedManualRows[keyId] || savedManualRows[keyStr] || {
+            id: `manual-${cat.id}-${task.id}`, categoryId: cat.id, topicId: task.id, subject: cat.name, topic: title,
             correct: 0, total: 0, isAuto: false, source: 'manual'
           });
         });

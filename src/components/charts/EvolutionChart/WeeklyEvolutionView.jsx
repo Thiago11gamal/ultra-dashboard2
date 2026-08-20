@@ -86,9 +86,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit, st
 });
 
 const getMondayStr = (dateStr) => {
-    const dt = typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr.trim())
-      ? parseNoonLocal(dateStr)
-        : new Date(dateStr);
+    const dt = parseNoonLocal(dateStr);
     // ✅ BUG-3 FIX: parseNoonLocal pode retornar null → guard antes de getTime()
     if (!dt || isNaN(dt.getTime())) return null;
     const day = dt.getDay();

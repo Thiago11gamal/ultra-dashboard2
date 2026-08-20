@@ -92,8 +92,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         const newRows = rows.map((row, i) => {
             if (i === index) {
                 const updatedRow = { ...row, [field]: finalValue };
-                const c = Math.max(0, parseFloat(updatedRow.correct) || 0);
+                let c = Math.max(0, parseFloat(updatedRow.correct) || 0);
                 const t = Math.max(0, parseFloat(updatedRow.total) || 0);
+                
+                if (t > 0 && c > t) {
+                    c = t;
+                    updatedRow.correct = c;
+                }
+                
                 updatedRow.score = t > 0 ? Math.min(100, (c / t) * 100) : 0;
                 return updatedRow;
             }

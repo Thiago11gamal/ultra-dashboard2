@@ -210,8 +210,8 @@ export default function Dashboard() {
                 <div className="tour-step-5">
                     <NextGoalCard
                         categories={data.categories}
-                        simulados={data.simulados || []}
-                        studyLogs={data.studyLogs || []}
+                        simulados={data.simulados}
+                        studyLogs={data.studyLogs}
                         onStartStudying={handleStartStudying}
                     />
                 </div>

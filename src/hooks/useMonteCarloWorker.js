@@ -35,17 +35,17 @@ function initSharedWorker() {
         };
 
         sharedWorker.onerror = (err) => {
-            console.warn('[MC Worker Singleton] Error, falling back to main thread:', err.message);
-            for (const [id, pending] of sharedPendingRequests) {
-                if (pending.worker === sharedWorker) {
-                    pending.reject(new Error('Worker error'));
-                    sharedPendingRequests.delete(id);
-                }
+            console.error('[MonteCarloWorker] erro fatal:', err);
+            for (const [id, pending] of sharedPendingRequests.entries()) {
+                try {
+                    pending.reject?.(new Error(err?.message || 'Worker Monte Carlo falhou'));
+                } catch {}
+                sharedPendingRequests.delete(id);
             }
-            if (sharedWorker) {
-                sharedWorker.terminate();
-                sharedWorker = null;
-            }
+            try {
+                if (sharedWorker) sharedWorker.terminate();
+            } catch {}
+            sharedWorker = null;
         };
     } catch (e) {
         console.warn('[MC Worker Singleton] Not available, using main thread:', e.message);

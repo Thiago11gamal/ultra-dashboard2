@@ -62,18 +62,24 @@ export function EvolutionLineChart({
     const safeChartData = useMemo(() => Array.isArray(filteredChartData) ? filteredChartData : [], [filteredChartData]);
 
     const handleLegendClick = (e) => {
-        if (e?.domEvent?.stopPropagation) {
+        if (!e || typeof e !== 'object') return;
+
+        if (e.domEvent && typeof e.domEvent.stopPropagation === 'function') {
             e.domEvent.stopPropagation();
-        } else if (e?.stopPropagation) {
+        } else if (typeof e.stopPropagation === 'function') {
             e.stopPropagation();
         }
 
         // Find the category ID from the clicked legend item (it usually passes payload)
-        let catId = e?.payload?.id || e?.id;
-        if (!catId && e?.dataKey) catId = String(e.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay|stats|trend|band)_/, '');
-        if (!catId && e?.payload?.dataKey) catId = String(e.payload.dataKey).replace(/^(bay_ci_low|bay_ci_high|raw|bay|stats|trend|band)_/, '');
+        let catId = e.payload?.id || e.id;
+        if (!catId && typeof e.dataKey === 'string') {
+            catId = e.dataKey.replace(/^(bay_ci_low|bay_ci_high|raw|bay|stats|trend|band)_/, '');
+        }
+        if (!catId && e.payload && typeof e.payload.dataKey === 'string') {
+            catId = e.payload.dataKey.replace(/^(bay_ci_low|bay_ci_high|raw|bay|stats|trend|band)_/, '');
+        }
         
-        if (catId) {
+        if (catId && typeof catId === 'string' && catId.trim() !== '') {
             setHighlightedDataKey(prev => prev === catId ? null : catId);
         }
     };

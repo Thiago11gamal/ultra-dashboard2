@@ -402,7 +402,10 @@ function PomodoroTimer({
         let minutes = Number(current.accumulatedMinutes) || 0;
 
         if (current.mode === 'work') {
-            const totalWorkSeconds = safeSettings.pomodoroWork * 60;
+            const liveState = useAppStore.getState();
+            const liveSettings = liveState?.appState?.settings || liveState?.settings || {};
+            const livePomodoroWork = Math.max(1, Number(liveSettings.pomodoroWork || safeSettings.pomodoroWork || 25));
+            const totalWorkSeconds = livePomodoroWork * 60;
 
             const safePrevTime = Number.isFinite(Number(current.timeLeft))
                 ? Number(current.timeLeft)

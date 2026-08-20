@@ -185,12 +185,12 @@ export function CompareChart({
 
         if (!isValid) return null;
 
-        let ptPos = value;
+        let ptPos = Number.isFinite(Number(value)) ? Number(value) : safeMinScore;
         const isFuture = isFuturePoint && index === futureIdx;
         const pts = isFuture ? lastY : todayY;
         if (pts && pts.length) {
             const pt = pts.find(p => p.name === type);
-            if (pt && pt.yPos != null) ptPos = pt.yPos;
+            if (pt && pt.yPos != null && Number.isFinite(Number(pt.yPos))) ptPos = Number(pt.yPos);
         }
 
         const xOff = isMc ? 12 : 10;
@@ -209,7 +209,8 @@ export function CompareChart({
         const pxPerPct = chartHeight / (range || 1);
         
         // Compute Y strictly via our internal coordinate map (bypassing Recharts' `y` which bugs out on isolated dots)
-        const rawY = chartY + chartHeight - (ptPos - safeMinScore) * pxPerPct - 10;
+        let rawY = chartY + chartHeight - (ptPos - safeMinScore) * pxPerPct - 10;
+        if (!Number.isFinite(rawY)) rawY = chartY + chartHeight / 2;
         const safeY = Math.max(2, Math.min(chartY + chartHeight - 22, rawY));
         
         // BUG-5 FIX: Clamp label X to prevent overflow past chart right edge

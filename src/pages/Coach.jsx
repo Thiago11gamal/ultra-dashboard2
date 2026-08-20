@@ -469,10 +469,8 @@ export default function Coach() {
   useEffect(() => {
     if (!isHydrated) return;
     // FIX: Se não há categorias, marcar análise como completa imediatamente
-    if (categories.length === 0) {
-      queueMicrotask(() => {
-          setIsAnalyzing(false);
-      });
+    if (!Array.isArray(categories) || categories.length === 0) {
+      setIsAnalyzing(false);
       return;
     }
     let metricsTimer = null;
@@ -702,10 +700,10 @@ export default function Coach() {
   // FIX: GovernanceBanner — contagem segura (filter(Boolean)) e filho com key
   const degradedCount = Object.values(data?.calibrationOps || {})
     .filter(Boolean)
-    .filter(op => op.degraded === true).length;
+    .filter(op => op && op.degraded === true).length;
   // FIX (alto): o efeito popula `globalMcContext`, mas a UI lia `globalProjectedMean`
   const globalProjectedMean =
-    suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean;
+    suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean ?? null;
   const showGlobalMc = Number.isFinite(Number(globalProjectedMean));
 
   return (

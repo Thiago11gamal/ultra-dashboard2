@@ -16,7 +16,7 @@ import {
 } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
 import { formatValue } from '../utils/scoreHelper';
-import { parseGoalDateUnified } from '../utils/dateHelper';
+import { parseGoalDateUnified, parseNoonLocal } from '../utils/dateHelper';
 
 const getEfficiencyTheme = (score) => {
     if (!Number.isFinite(score) || score === null) {
@@ -117,32 +117,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
     const daysRemaining = useMemo(() => {
         if (!user.goalDate) return null;
-
-        const goal = parseGoalDateUnified(user.goalDate);
-        if (!goal || Number.isNaN(goal.getTime())) return null;
-
-        const now = new Date();
-
-        const today = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-            12,
-            0,
-            0,
-            0
-        );
-
-        const target = new Date(
-            goal.getFullYear(),
-            goal.getMonth(),
-            goal.getDate(),
-            12,
-            0,
-            0,
-            0
-        );
-
+        const target = parseNoonLocal(user.goalDate);
+        const today = parseNoonLocal(new Date());
+        if (!target || !today) return null;
         return Math.round((target.getTime() - today.getTime()) / 86400000);
     }, [user.goalDate]);
 

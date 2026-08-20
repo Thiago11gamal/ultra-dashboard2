@@ -31,7 +31,9 @@ const extractRowDate = (r) => {
   return r.date || r.createdAt || null;
 };
 
-const repairContestHistory = (data) => {
+const repairContestHistory = (rawData) => {
+  if (!rawData || typeof rawData !== 'object') return rawData;
+  const data = safeClone(rawData);
   if (!data.simuladoRows || data.simuladoRows.length === 0 || !data.categories) return data;
 
   const rows = data.simuladoRows;
@@ -149,7 +151,7 @@ export const sanitizeContest = (data) => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };
 
   const source = (data.simuladoRows && data.simuladoRows.length > 0)
-    ? repairContestHistory(safeClone(data))
+    ? repairContestHistory(data)
     : data;
 
   // FORTRESS-01: Defensive initialization for all top-level keys

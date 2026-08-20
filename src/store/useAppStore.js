@@ -58,8 +58,15 @@ const idbStorage = {
                     savePromises[name]?.resolve();
                 } catch (e) {
                     console.error('[Storage] Falha crítica ao escrever no IDB:', e);
-                    // Resolve em vez de rejeitar para evitar unhandled rejection
-                    savePromises[name]?.resolve();
+                    try {
+                        // Fallback emergencial para evitar perda total
+                        localStorage.setItem(name, value);
+                        console.warn('[Storage] Fallback localStorage usado para:', name);
+                        savePromises[name]?.resolve();
+                    } catch (fallbackErr) {
+                        console.error('[Storage] Fallback localStorage também falhou:', fallbackErr);
+                        savePromises[name]?.reject?.(fallbackErr);
+                    }
                 } finally {
                     delete savePromises[name];
                     delete saveTimeouts[name];

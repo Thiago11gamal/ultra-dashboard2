@@ -17,8 +17,7 @@ export default function SimuladoSetup({
   DIFFICULTIES,
   LOADING_MESSAGES
 }) {
-  const hasApiKey = Boolean(import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_BACKEND_URL);
-  const isReadyToGenerate = form.categoryId && form.taskId && hasApiKey;
+  const isReadyToGenerate = form.categoryId && form.taskId;
   const safeAvailableTasks = Array.isArray(availableTasks) ? availableTasks : [];
 
 return (
@@ -362,9 +361,6 @@ return (
             {/* Footer info */}
             <div className="text-center mt-4 space-y-1">
               <p className="text-[10px] text-slate-600">Vinculado aos IDs oficiais • Resultados alimentam seu dashboard e projeções</p>
-              {!hasApiKey && (
-                <p className="text-xs text-rose-400 font-medium">Configure sua chave de API (VITE_GEMINI_API_KEY) e reinicie o servidor</p>
-              )}
             </div>
               </motion.div>
             )}

@@ -77,7 +77,12 @@ export const getTaskXP = (task, completed) => {
     // Math.abs() e Number() protegem contra corrupção do estado (ex: negative awardedXP).
     const rawAwarded = task.awardedXP !== undefined ? Number(task.awardedXP) : baseXP;
     const deduction = Number.isFinite(rawAwarded) ? rawAwarded : baseXP;
-    return -Math.abs(deduction);
+    
+    // Limita a dedução a um teto razoável (ex: 2x o XP base) para evitar perdas ou ganhos bizarros em exploits
+    const maxDeduction = baseXP * 2;
+    const safeDeduction = Math.min(Math.abs(deduction), maxDeduction);
+    
+    return -safeDeduction;
 };
 
 // Calculate Title based on Level

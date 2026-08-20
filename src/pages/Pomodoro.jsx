@@ -679,6 +679,12 @@ export default function Pomodoro() {
     const topRef = useRef(null);
 
     useEffect(() => {
+        if (location.state?.from) {
+            entrySourceRef.current = location.state.from;
+        }
+    }, [location.state?.from]);
+
+    useEffect(() => {
         if (activeSubject && topRef.current) {
             topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -839,6 +845,9 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         }
 
         setPomodoroActiveSubject(null);
+        try {
+            localStorage.removeItem('pomodoroState');
+        } catch {}
         const returnPath = resolveReturnPath(currentSource, Boolean(options.forceDashboard));
         navigate(returnPath, { replace: Boolean(options.forceDashboard) });
     }, [activeSubject, setData, setPomodoroActiveSubject, navigate]);

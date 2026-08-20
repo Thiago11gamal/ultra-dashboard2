@@ -154,13 +154,6 @@ export const MonteCarloEvolutionChart = ({
     );
 
     const displayData = useMemo(() => {
-        if (scenarioAdjustedData.length === 1) {
-            const single = scenarioAdjustedData[0];
-            return [
-                { ...single, date: `${single.date} (Início)`, displayDate: 'Início', fullDate: `${single.fullDate} (Registro Inicial)` },
-                { ...single, date: `${single.date} (Atual)`, displayDate: 'Atual', fullDate: `${single.fullDate} (Registro Atual)` }
-            ];
-        }
         return scenarioAdjustedData;
     }, [scenarioAdjustedData]);
 
@@ -186,15 +179,19 @@ export const MonteCarloEvolutionChart = ({
         [unit, safeTargetScore, maxScore, minScore]
     );
 
-    if (formattedData.length === 0) {
+    if (formattedData.length <= 1) {
         return (
             <div className="w-full min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-2xl border border-white/5 p-6 overflow-hidden relative">
                 <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4">
                     <AlertCircle size={32} className="text-blue-400" />
                 </div>
-                <h3 className="text-lg font-black text-slate-200 mb-2 uppercase tracking-widest text-center">Nenhum Ponto Registrado</h3>
+                <h3 className="text-lg font-black text-slate-200 mb-2 uppercase tracking-widest text-center">
+                    {formattedData.length === 0 ? "Nenhum Ponto Registrado" : "Apenas 1 Ponto Registrado"}
+                </h3>
                 <p className="text-xs text-slate-400 text-center max-w-sm mb-6 leading-relaxed">
-                    A evolução do Monte Carlo é registrada gradativamente a cada vez que o motor calcula as projeções diárias. Aguarde o primeiro registro de hoje!
+                    {formattedData.length === 0 
+                        ? "A evolução do Monte Carlo é registrada gradativamente a cada vez que o motor calcula as projeções diárias. Aguarde o primeiro registro de hoje!"
+                        : "É necessário ao menos dois dias de simulações diferentes para traçar a linha do tempo da evolução. Continue estudando para gerar mais projeções!"}
                 </p>
                 {/* 🎯 FIX: Ajustado h-32 para h-40 para que o minHeight=150 não estoure as bordas do pai */}
                 <div className="w-full max-w-md h-40 opacity-20 pointer-events-none">
