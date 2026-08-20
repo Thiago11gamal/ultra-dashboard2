@@ -3600,6 +3600,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
     useEffect(() => {
         if (effectiveOpen && category) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setMinCutoff(category.minCutoff ?? 0);
             setMaxScore(category.maxScore ?? 100);
             setName(category.name || '');
@@ -3791,7 +3792,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
 ```javascript
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+
 import {
     ChevronDown,
     ChevronUp,
@@ -4126,10 +4127,7 @@ const TaskItem = ({
 const CategoryAccordion = React.memo(({
     category,
     onToggleTask,
-    onDeleteTask,
-    onAddTask,
     onTogglePriority,
-    onDeleteCategory,
     onPlayContext,
     showSimuladoStats,
     filter,
@@ -4737,7 +4735,7 @@ export default React.memo(Checklist);
 ## src/components/ConfirmModal.jsx
 
 ```javascript
-import React, { useEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { AlertTriangle, X, Check, Info, Play } from 'lucide-react';
@@ -5337,7 +5335,7 @@ function renderInsightText(text, textColorClass) {
 }
 
 // Função pura fora do componente
-export function buildPredictiveCompareData(
+function buildPredictiveCompareData(
   timeline,
   focusCategory,
   categoryLevels,
@@ -9267,7 +9265,7 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
 
 export default function OnboardingTour() {
     const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
-    const lastSeenTourDate = useAppStore(state => state.appState.lastSeenTourDate);
+
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
 
     // Mostra o tutorial se o usuário nunca tiver visto ou se resetar explicitamente
@@ -9835,7 +9833,7 @@ const PerformanceTable = ({ categories = [] }) => {
     };
 
     // FIX 5.6c: Cabeçalho acessível com aria-sort
-    const SortableHeader = ({ column, children, className }) => (
+    const renderSortableHeader = (column, children, className) => (
         <th 
             className={`p-5 cursor-pointer hover:bg-white/5 transition-colors select-none ${className}`}
             role="columnheader"
@@ -9867,10 +9865,10 @@ const PerformanceTable = ({ categories = [] }) => {
                     <thead className="bg-slate-900/50 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] border-b border-white/5 sticky top-0 z-10">
                         <tr>
                             <th className="p-5 pl-8 w-16 text-center">#</th>
-                            <SortableHeader column="name" className="w-72 md:w-80 border-r border-white/5">Disciplina</SortableHeader>
-                            <SortableHeader column="totalVolume" className="text-center w-28 md:w-32"><div className="flex items-center justify-center gap-2 w-full"><Hash size={12} className="text-slate-600" /> Volume</div></SortableHeader>
+                            {renderSortableHeader('name', 'Disciplina', 'w-72 md:w-80 border-r border-white/5')}
+                            {renderSortableHeader('totalVolume', <div className="flex items-center justify-center gap-2 w-full"><Hash size={12} className="text-slate-600" /> Volume</div>, 'text-center w-28 md:w-32')}
                             <th className="p-5 text-center w-32 md:w-40"><div className="flex items-center justify-center gap-2"><Target size={12} className="text-slate-600" /> Desempenho</div></th>
-                            <SortableHeader column="balance" className="text-center w-32 md:w-36 border-l border-white/5"><div className="flex items-center justify-center gap-2 w-full"><Wallet size={12} className="text-slate-600" /> Saldo</div></SortableHeader>
+                            {renderSortableHeader('balance', <div className="flex items-center justify-center gap-2 w-full"><Wallet size={12} className="text-slate-600" /> Saldo</div>, 'text-center w-32 md:w-36 border-l border-white/5')}
                             <th className="p-5 text-center w-24 md:w-28">Acertos%</th>
                             <th className="p-5 text-center w-24 md:w-28 lg:w-32 rounded-tr-xl border-l border-white/5">Tendência</th>
                         </tr>
@@ -10264,7 +10262,7 @@ import React, {
     useMemo,
     useRef
 } from 'react';
-import { flushSync } from 'react-dom';
+
 
 import {
     Play,
@@ -10751,6 +10749,7 @@ function PomodoroTimer({
             ) {
                 const restoredTime = Math.max(0, Number(savedState.timeLeft));
 
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setTimeLeft(restoredTime);
                 stateRefs.current.timeLeft = restoredTime;
 
@@ -10998,12 +10997,12 @@ function PomodoroTimer({
         }
 
         const targetSubject = activeSubjectRef.current;
-
-        // ✅ FIX 1.4: Salvar minutos ANTES do timeout de transição
-        // Assim, mesmo se o componente desmontar nos próximos 50ms,
-        // os minutos já estão persistidos.
         let savedMinutes = 0;
         if (targetSubject && completedMode === 'work' && sessionMinutes > 0) {
+            // ✅ FIX: Validar que sessionMinutes não é NaN/Infinity
+            if (!Number.isFinite(sessionMinutes) || sessionMinutes <= 0) {
+                sessionMinutes = 0;
+            }
             safeOnUpdateStudyTime(
                 targetSubject.categoryId,
                 sessionMinutes,
@@ -11025,7 +11024,7 @@ function PomodoroTimer({
             }
 
             // ✅ Passar 0 pois os minutos já foram salvos acima
-            const phaseMinutes = completePomodoroPhase(isManual, 0);
+            completePomodoroPhase(isManual, 0);
 
             if (typeof onSessionComplete === 'function') {
                 onSessionComplete();
@@ -11342,13 +11341,9 @@ function PomodoroTimer({
 
     const handleManualExit = () => {
         if (activeSubject) {
-            try {
-                flushSync(() => {
-                    flushPendingStudyTime();
-                });
-            } catch {
-                flushPendingStudyTime();
-            }
+            // flushSync não deve ser usado fora do ciclo de render do React.
+            // Chamar diretamente é seguro e evita crash em contextos não-React.
+            flushPendingStudyTime();
         }
 
         safeOnExit({ forceDashboard: true, source: 'dashboard' });
@@ -11731,6 +11726,7 @@ export default function PromptModal({
 
     useEffect(() => {
         if (isOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setInputValue(initialValue || '');
         }
     }, [isOpen, initialValue]);
@@ -13821,7 +13817,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 setLoading(false);
             }
         }, viewMode === 'report' ? 0 : 800); // Remove delay when just viewing report
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [categoriesArray, rows, viewMode, onAnalysisComplete]);
 
     React.useEffect(() => {
@@ -17751,6 +17747,14 @@ export default function WelcomeScreen({ onDismiss }) {
     }, []);
 
     // FIX 5.4b: Fechar com tecla Escape
+    const handleNext = useCallback(() => {
+        if (isExiting) return; // FIX 5.4d: Prevenir dupla chamada
+        setIsExiting(true);
+        setTimeout(() => {
+            onDismiss();
+        }, 800); 
+    }, [isExiting, onDismiss]);
+
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape' && !isExiting) {
@@ -17781,15 +17785,9 @@ export default function WelcomeScreen({ onDismiss }) {
 
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isExiting]);
+    }, [isExiting, handleNext]);
 
-    const handleNext = useCallback(() => {
-        if (isExiting) return; // FIX 5.4d: Prevenir dupla chamada
-        setIsExiting(true);
-        setTimeout(() => {
-            onDismiss();
-        }, 800); 
-    }, [isExiting, onDismiss]);
+
 
     return (
         <AnimatePresence>
@@ -17904,7 +17902,6 @@ import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../../hooks/useToast';
 import { getDateKey } from '../../utils/dateHelper';
 import { generateId } from '../../utils/idGenerator';
-import { normalize } from '../../utils/normalization';
 import SimuladoSetup from './SimuladoSetup';
 import SimuladoPlayer from './SimuladoPlayer';
 import SimuladoResults from './SimuladoResults';
@@ -18484,7 +18481,10 @@ export default function AIGeneratedSimulado() {
     const qList = latestQuestionsRef.current.length > 0 ? latestQuestionsRef.current : questions;
     const ansMap = Object.keys(latestAnswersRef.current).length > 0 ? latestAnswersRef.current : answers;
     const f = latestFormRef.current;
-    if (qList.length === 0) return;
+    if (qList.length === 0) {
+      showToast('Nenhuma questão disponível para finalizar.', 'warning');
+      return;
+    }
 
     const absoluteElapsedSecs = simStartMsRef.current ? Math.round((Date.now() - simStartMsRef.current) / 1000) : 0;
     const totalAllowedTime = qList.length * 3 * 60;
@@ -18528,7 +18528,7 @@ export default function AIGeneratedSimulado() {
       for (const [groupKey, g] of Object.entries(groups)) {
         const [materia, assunto] = groupKey.split('|');
 
-        const cat = rawCats.find(c =>
+        const cat = cats.find(c =>
           String(c?.name || '').trim().toLowerCase() === String(materia || '').trim().toLowerCase()
         );
 
@@ -18679,7 +18679,7 @@ export default function AIGeneratedSimulado() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [step, currentQuestion, questions.length, goTo, selectAnswer, resetAll]);
 
   useEffect(() => {
@@ -19628,9 +19628,16 @@ import React, { useLayoutEffect, useRef, useState } from 'react';
  * Enquanto mede, exibe um placeholder ambient com shimmer — nunca um chart cego.
  * Reage a resize / aba que vira visível via ResizeObserver.
  */
-const isTestEnv =
-  (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') ||
-  (typeof window !== 'undefined' && window.navigator && /jsdom/i.test(window.navigator.userAgent || ''));
+const isTestEnv = (() => {
+  try {
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') return true;
+    if (typeof window !== 'undefined' && window.__vitest_worker__) return true;
+    if (typeof window !== 'undefined' && /jsdom|happy-dom/i.test(window.navigator?.userAgent || '')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+})();
 
 export default function ChartFrame({
   children,
@@ -20023,7 +20030,6 @@ function releaseSharedWorker() {
 export const EvolutionHeatmap = ({ 
     heatmapData, 
     targetScore = 70, 
-    unit = '%', 
     showOnlyFocus, 
     focusSubjectId,
     maxScore = 100,
@@ -20092,6 +20098,9 @@ export const EvolutionHeatmap = ({
         const handleMessage = (e) => {
             if (e.data?.id !== msgId) return;
 
+            worker.removeEventListener('message', handleMessage);
+            worker.removeEventListener('error', handleError);
+
             if (e.data.type === 'success') {
                 setAggregated(e.data.result);
             } else {
@@ -20101,6 +20110,8 @@ export const EvolutionHeatmap = ({
         };
 
         const handleError = (err) => {
+            worker.removeEventListener('message', handleMessage);
+            worker.removeEventListener('error', handleError);
             console.warn('[EvolutionHeatmap] Worker error, falling back:', err);
             setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
             setIsAggregating(false);
@@ -21984,7 +21995,7 @@ export function CompareChart({
 
 
     const renderLabel = (props, type, color) => {
-        const { x, y, index, value, viewBox } = props;
+        const { x, index, value, viewBox } = props;
         if (value === null || value === undefined) return null;
         
         const isMc = type === 'mc';
@@ -22580,7 +22591,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 ## src/components/charts/EvolutionChart/EvolutionLineChart.jsx
 
 ```javascript
-import React, { useId, useState, useRef } from 'react';
+import React, { useId, useState, useRef, useMemo } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -22640,8 +22651,8 @@ export function EvolutionLineChart({
     const [highlightedDataKey, setHighlightedDataKey] = useState(null);
     const isLineClicked = useRef(false);
 
-    const safeActiveCategories = Array.isArray(activeCategories) ? activeCategories : [];
-    const safeChartData = Array.isArray(filteredChartData) ? filteredChartData : [];
+    const safeActiveCategories = useMemo(() => Array.isArray(activeCategories) ? activeCategories : [], [activeCategories]);
+    const safeChartData = useMemo(() => Array.isArray(filteredChartData) ? filteredChartData : [], [filteredChartData]);
 
     const handleLegendClick = (e) => {
         if (e?.domEvent?.stopPropagation) {
@@ -23493,7 +23504,7 @@ import {
 } from "recharts";
 import { ChartFrame } from "../ChartFrame";
 
-export const PerformanceBarChart = React.memo(function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit = '%' }) {
+export const PerformanceBarChart = React.memo(function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory }) {
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;
@@ -24482,7 +24493,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     );
 });
 
-export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100, minScore = 0 }) {
+export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
     const chartData = useMemo(() => {
@@ -27366,7 +27377,6 @@ export function PomodoroClock({
     mode,
     isRunning,
     timeLeft,
-    safeSettings,
     svgCircleRef,
     clockRef
 }) {
@@ -27479,7 +27489,7 @@ import React from 'react';
 import { motion as Motion } from 'framer-motion';
 import { Zap, AlertCircle } from 'lucide-react';
 
-export function PomodoroHeader({ mode, activeSubject, onManualExit }) {
+export function PomodoroHeader({ mode, activeSubject }) {
     return (
         <div className="flex-1 flex justify-center bg-transparent">
             {mode === 'break' || mode === 'long_break' ? (
@@ -27517,16 +27527,12 @@ import { Minus, Plus, Layers } from 'lucide-react';
 export function PomodoroProgress({
     targetCycles,
     completedCycles,
-    sessions,
     setTargetCycles,
     syncChannel,
     STABLE_TAB_ID,
     activeSubject,
     workFillsRef,
-    breakBallsRef,
-    mode,
-    timeLeft,
-    totalTime
+    breakBallsRef
 }) {
     return (
         <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] rounded-3xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-6 sm:px-8 py-5 sm:py-6 shadow-2xl relative overflow-hidden group mx-auto">
@@ -28600,7 +28606,7 @@ import { kahanMean, kahanSum } from './math/kahan.js';
 import { pruneHistoryForMemory, getSortedHistory } from './stats.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
 // ✅ LOTE-03: importar do módulo probabilístico unificado
-import { fsrsRetrievability, fsrsIntervalForRetention } from './probabilistic/fsrs.js';
+import { fsrsRetrievability } from './probabilistic/fsrs.js';
 // ✅ LOTE-01 FIX (C5): MSSD real para o risco de esquecimento
 import { calculateMSSD } from './projection.js';
 
@@ -30246,8 +30252,10 @@ export function simulateNormalDistribution(
     const safeSimulations = sanitizeSimulations(simulations);
 
     if (safeSD < 1e-5) {
-        // ✅ FIX: Na fronteira exata, probabilidade é 50% (distribuição degenerada simétrica)
-        const EPS = 1e-9;
+        // ✅ FIX: Com sd ≈ 0, a distribuição é degenerada.
+        // Usar comparação com tolerância relativa ao domínio.
+        const domainWidth = Math.max(1e-9, maxScore - minScore);
+        const EPS = domainWidth * 1e-6;
         let prob;
         if (safeMean > effectiveTarget + EPS) {
             prob = 100;
@@ -30826,7 +30834,7 @@ import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecompositio
 // ✅ LOTE-04 FIX: Z_95 e MIN_SD_FLOOR removidos — não eram usados aqui
 // (Z_95 vive em stats.js; MIN_SD_FLOOR vive em gaussian.js)
 import { kahanSum, kahanMean } from './math/kahan.js';
-import { weightedRegression, calculateSlopeStdError, getSortedHistory, calculateSlopePerDay } from './stats.js';
+import { weightedRegression, getSortedHistory, calculateSlopePerDay } from './stats.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 // ✅ LOTE-04 FIX: re-export removido. Estes símbolos já são exportados por
@@ -35997,7 +36005,6 @@ export default {
 ## src/engine/math/bootstrap.js
 
 ```javascript
-import { makeNormalRng } from '../random.js';
 import { kahanSum } from './kahan.js';
 
 /**
@@ -36234,7 +36241,6 @@ export const ageInHours = (date, reference = new Date()) => {
 // src/engine/math/gaussian.js
 import { getPercentile } from './percentile.js';
 import { MIN_SD_FLOOR } from './constants.js';
-import { kahanSum } from './kahan.js';
 
 /**
  * Abramowitz & Stegun approximation (formula 7.1.26) for Normal(0,1) CDF
@@ -39983,22 +39989,24 @@ function varianceValues(values) {
 // Necessário para a função beta regularizada incompleta.
 // ============================================================
 function logGamma(z) {
+  /* eslint-disable no-loss-of-precision */
   const cof = [
-    57.1562356658629235, -59.5979603554754912, 14.1360979747417471,
-    -0.491913816097620199, 0.339946499848118887e-4, 0.465236289270485756e-4,
-    -0.983744753048795646e-4, 0.158088703224912494e-3,
-    -0.210264441724104883e-3, 0.217439618115212643e-3,
-    -0.164318106536763890e-3, 0.844182239838527433e-4,
-    -0.261908384015814087e-4, 0.368991826595316234e-5,
+    57.15623566586292, -59.59796035547549, 14.136097974741747,
+    -0.4919138160976202, 0.3399464998481189e-4, 0.4652362892704858e-4,
+    -0.9837447530487956e-4, 0.1580887032249125e-3,
+    -0.2102644417241049e-3, 0.2174396181152126e-3,
+    -0.1643181065367639e-3, 0.8441822398385274e-4,
+    -0.2619083840158141e-4, 0.3689918265953162e-5,
   ];
+  /* eslint-enable no-loss-of-precision */
   if (z <= 0) return NaN;
   let x = z;
   let y = x;
   let tmp = x + 5.2421875;
   tmp = (x + 0.5) * Math.log(tmp) - tmp;
-  let ser = 0.999999999999997092;
+  let ser = 0.9999999999999971;
   for (let j = 0; j < cof.length; j++) ser += cof[j] / ++y;
-  return tmp + Math.log(2.5066282746310005 * ser / x);
+  return tmp + Math.log(2.5066282746310007 * ser / x);
 }
 
 // ============================================================
@@ -40652,7 +40660,6 @@ export function fsrsIntervalForRetention(stabilityDays, targetRetention = 0.7) {
 export function estimateTopicFsrs(topic, options = {}) {
   if (!topic) return null;
 
-  const maxScore = Math.max(1, Number(options.maxScore) || 100);
   const desiredRetention = Math.max(0.5, Math.min(0.95, Number(options.desiredRetention) || 0.85));
 
   const scores = (topic.scores || [])
@@ -42144,7 +42151,7 @@ export function useCategoryLevels(categories, timeline, activeEngine, maxScore =
 ## src/hooks/useChartData.js
 
 ```javascript
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
@@ -42301,11 +42308,11 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeRange = Math.max(1e-9, safeMax - safeMin);
 
-    const toRatio = (score) => {
+    const toRatio = useCallback((score) => {
         const n = Number(score);
         if (!Number.isFinite(n)) return 0;
         return Math.max(0, Math.min(1, (n - safeMin) / safeRange));
-    };
+    }, [safeMin, safeRange]);
 
     const categoriesVersion = useMemo(() => categories.map((cat) => {
         const history = getHistoryArray(cat);
@@ -42482,7 +42489,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             return { cat, cells };
         });
         return { dates, rows };
-    }, [activeCategories, safeMax, safeMin]);
+    }, [activeCategories, safeMax, toRatio]);
 
     const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
@@ -42506,7 +42513,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
         return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
-    }, [activeCategories, safeMax, safeMin]);
+    }, [activeCategories, safeMax, toRatio]);
 
     return { activeCategories, timeline, heatmapData, globalMetrics };
 }
@@ -42613,7 +42620,7 @@ export default useClock;
 ```javascript
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { db, isLocalMode } from '../services/firebase';
-import { doc, onSnapshot, runTransaction, writeBatch, collection, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, writeBatch, collection, getDocs } from 'firebase/firestore';
 import { SYNC_LOG_CAP } from '../config';
 import { logger } from '../utils/logger';
 import { useAppStore } from '../store/useAppStore';
@@ -43182,7 +43189,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         }
         lastSyncedRef.current = stateStringForSync(appStateRef.current);
         const isCloudSignificantlyAhead = cloudUpdatedTime > localUpdatedTime + 5000;
-        const isLocalSignificantlyAhead = localUpdatedTime > cloudUpdatedTime + 5000;
         
         // Conflito REAL: Cloud está na frente (outro aparelho editou) E localWasJustEdited (nós editamos aqui)
         // Se a Cloud está na frente mas NÃO editamos localmente, deveria ter feito Pull automático.
@@ -43367,70 +43373,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       let attempt = 0;
       let lastError = null;
 
-      const setDocWithTimeout = (docRef, data, timeoutMs = 15000) => {
-        return new Promise((resolve, reject) => {
-          let isTimeout = false;
-          const timer = setTimeout(() => {
-            isTimeout = true;
-            reject(new Error('Firestore timeout'));
-          }, timeoutMs);
-          
-          runTransaction(db, async (transaction) => {
-            if (isTimeout) throw new Error('AbortTransaction');
-            const docSnap = await transaction.get(docRef);
-            if (isTimeout) throw new Error('AbortTransaction');
-            
-            let cloudData = docSnap.exists() ? docSnap.data() : null;
-            
-            if (cloudData && cloudData.contestIds) {
-              cloudData.contests = {};
-              for (const cid of cloudData.contestIds) {
-                const cSnap = await transaction.get(doc(db, 'backups', currentUser.uid, 'contests', cid));
-                if (cSnap.exists()) {
-                  cloudData.contests[cid] = cSnap.data();
-                }
-              }
-            }
-
-            // FIX Bug 1: Calcular IDs deletados ANTES do merge nonDestructive
-            const localContestIds = new Set(Object.keys(data.contests || {}));
-            const cloudContestIdsToDelete = (cloudData?.contestIds || []).filter(id => !localContestIds.has(id));
-
-            let mergedState = cloudData ? mergeAppState(data, cloudData, { nonDestructive: true }) : { ...data };
-
-            // Remover do mergedState os editais que o usuário deletou localmente
-            if (mergedState.contests) {
-              for (const deletedId of cloudContestIdsToDelete) {
-                delete mergedState.contests[deletedId];
-              }
-            }
-            
-            mergedState._syncVersion = data._syncVersion || 0;
-            mergedState._syncTimestamp = Date.now();
-
-            const coreState = { ...mergedState };
-            const contests = coreState.contests || {};
-            coreState.contestIds = Object.keys(contests);
-            delete coreState.contests;
-
-            // ✅ PATCH-10: Verificação otimista: só sobrescreve se versão local >= versão da nuvem
-            transaction.set(docRef, coreState, { merge: false });
-            for (const [cid, cData] of Object.entries(contests)) {
-              transaction.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
-            }
-
-            // Deletar fisicamente os editais órfãos da subcoleção
-            for (const deletedId of cloudContestIdsToDelete) {
-              transaction.delete(doc(db, 'backups', currentUser.uid, 'contests', deletedId));
-            }
-          })
-          .then(() => {
-            if (!isTimeout) { clearTimeout(timer); resolve(); }
-          }).catch(err => {
-            if (!isTimeout) { clearTimeout(timer); reject(err); }
-          });
-        });
-      };
 
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;
@@ -43485,6 +43427,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           lastSyncedRef.current = currentStateString;
           try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
           lastError = null;
+          syncReentryCountRef.current = 0; // ✅ FIX: Resetar contador em sucesso
           break;
         } catch (e) {
           lastError = e;
@@ -43526,6 +43469,18 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [syncTrigger, parityTick, currentUser?.uid, mergeAppState]);
+
+  // ✅ FIX: Safety net — se isCloudPullRef ficar true por > 10s, resetar
+  useEffect(() => {
+    if (!isCloudPullRef.current) return;
+    const safetyTimer = setTimeout(() => {
+      if (isCloudPullRef.current) {
+        console.warn('[Sync] isCloudPullRef stuck, resetting.');
+        isCloudPullRef.current = false;
+      }
+    }, 10000);
+    return () => clearTimeout(safetyTimer);
+  }, [syncTrigger]);
 
   const forcePull = useCallback(() => {
     if (latestCloudDataRef.current && setAppState && isMountedRef.current) {
@@ -43624,6 +43579,7 @@ export function useCoachControlCenter({
   useEffect(() => {
     const persisted = loadControlCenterState();
     if (persisted) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (persisted.activeTab) setActiveTab(persisted.activeTab);
       if (persisted.flagOverrides) setFlagOverrides(persisted.flagOverrides);
     }
@@ -43713,6 +43669,7 @@ export function useCoachControlCenter({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAuxiliaryData();
   }, [loadAuxiliaryData]);
 
@@ -44132,7 +44089,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         }
         timerRef.current = setTimeout(() => {
             logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
-            if (logoutRef.current) logoutRef.current();
+            logoutRef.current?.();
         }, timeoutMs);
     }, [timeoutMs]);
 
@@ -44176,7 +44133,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
                 const elapsed = Date.now() - lastAct;
                 if (elapsed >= timeoutMs) {
                     logger.log('[IdleLogout] Aba voltou ao foco e o tempo estava expirado. Deslogando...');
-                    if (logoutRef.current) logoutRef.current();
+                    logoutRef.current?.();
                 } else {
                     lastActivityRef.current = lastAct; // Sync ref with storage
                     resetTimer();
@@ -44509,6 +44466,11 @@ export function useMonteCarloStats({
     return newWeights;
   }, [activeCategories]);
 
+  const weightsKey = useMemo(() => {
+    if (equalWeightsMode) return JSON.stringify(getEqualWeights());
+    return JSON.stringify(weights || {});
+  }, [equalWeightsMode, weights, getEqualWeights]);
+
   const effectiveWeights = useMemo(() => {
     if (equalWeightsMode) return getEqualWeights();
     if (!weights) return getEqualWeights();
@@ -44522,7 +44484,8 @@ export function useMonteCarloStats({
     });
 
     return weightsMap;
-  }, [equalWeightsMode, weights, activeCategories, getEqualWeights]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weightsKey, activeCategories.length]);
 
   const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
   const [debouncedWeights, setDebouncedWeights] = useState(() => effectiveWeights);
@@ -45071,7 +45034,8 @@ useEffect(() => {
         calibrationPenalty,
         projectDays,
         effectiveSimulateToday,
-        safeCategories
+        safeCategories,
+        statsData?.estimatedRho
     ]);
 
   const probabilityData = useMemo(() => {
@@ -45838,6 +45802,20 @@ export function useMonteCarloWorker() {
         // The worker lives for the lifetime of the application.
     }, []);
 
+    // Adicionar cleanup periódico para requests órfãos
+    useEffect(() => {
+        const cleanupInterval = setInterval(() => {
+            const now = Date.now();
+            for (const [id, pending] of sharedPendingRequests) {
+                if (pending.createdAt && now - pending.createdAt > 60000) {
+                    clearTimeout(pending.timeoutId);
+                    sharedPendingRequests.delete(id);
+                }
+            }
+        }, 30000);
+        return () => clearInterval(cleanupInterval);
+    }, []);
+
     const runAnalysis = useCallback(async (...args) => {
         if (!sharedWorker) {
             initSharedWorker();
@@ -45907,6 +45885,7 @@ export function useMonteCarloWorker() {
             sharedPendingRequests.set(id, { 
                 worker: currentWorker, // Track request owner worker instance
                 timeoutId, // Guardar referência para limpeza
+                createdAt: Date.now(),
                 resolve: (data) => {
                     clearTimeout(timeoutId);
                     resolve(data);
@@ -51013,6 +50992,18 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         }
     });
 
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.key === 'pomodoroLayoutLocked') {
+                try {
+                    setIsLayoutLocked(JSON.parse(e.newValue) ?? true);
+                } catch { /* ignore */ }
+            }
+        };
+        window.addEventListener('storage', handler);
+        return () => window.removeEventListener('storage', handler);
+    }, []);
+
     const toggleLayoutLock = () => {
         const newState = !isLayoutLocked;
         setIsLayoutLocked(newState);
@@ -51082,7 +51073,7 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
                 });
             }
         }
-    }, [location.state, categories, activeSubject]);
+    }, [location.state, location.pathname, categories, activeSubject, navigate]);
 
     useEffect(() => {
         let timeoutId;
@@ -51814,7 +51805,7 @@ export default function Simulados() {
       }
     });
     return rows;
-  }, [categoriesArray, simuladoRowsArray]);
+  }, [categoriesArray, simuladoRowsArray, data?.categories]);
 
   /* ── FIX: Último simulado — lógica corrigida e robusta ── */
   const lastSimuladoData = useMemo(() => {
@@ -52678,7 +52669,7 @@ import {
     persistentMultipleTabManager,
     clearIndexedDbPersistence,
 } from 'firebase/firestore';
-import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signOut } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 
 export const firebaseConfig = {
@@ -52753,17 +52744,15 @@ export async function clearFirestoreCache() {
  * Logout seguro: signOut + limpeza de persistência + limpeza de storages.
  */
 export async function secureLogout() {
+    let signOutFailed = false;
     try {
-        if (auth) {
-            await signOut(auth);
-        }
-
+        if (auth) await signOut(auth);
         await clearFirestoreCache();
     } catch (err) {
         console.error('[Firebase] Erro durante logout:', err);
+        signOutFailed = true;
     } finally {
-        // ✅ FIX #2: Limpar apenas chaves da aplicação, não localStorage completo
-        // Evita danificar dados em aplicações multi-tenant
+        // ✅ Sempre limpar dados locais, mesmo se signOut falhou
         const keysToRemove = [
             'appState',
             'contests',
@@ -52774,9 +52763,15 @@ export async function secureLogout() {
             'userPreferences'
         ];
         keysToRemove.forEach(key => {
-            localStorage.removeItem(key);
-            sessionStorage.removeItem(key);
+            try {
+                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
+            } catch { /* ignore */ }
         });
+        
+        if (signOutFailed) {
+            console.warn('[Firebase] Logout local executado, mas signOut remoto falhou.');
+        }
     }
 }
 
@@ -53360,6 +53355,14 @@ export const useAppStore = create(
                     localStorage.removeItem('pomodoroState');
                     // MATH-03 / LEAK-01 FIX: Clear module-level MC cache on logout
                     clearCoachCaches();
+
+                    // ✅ FIX: Limpar sessionStorage também
+                    try {
+                        sessionStorage.removeItem('hasSeenWelcomeScreen');
+                        sessionStorage.removeItem('ultra-sync-dirty');
+                        sessionStorage.removeItem('page-has-been-force-refreshed');
+                    } catch { /* ignore */ }
+
                     // ✅ FIX: Notificar outras abas para encerrar Pomodoro
                     try {
                         const channel = new BroadcastChannel('pomodoro_sync');
@@ -53444,7 +53447,7 @@ export const useAppStore = create(
         ),
         {
             name: 'ultra-dashboard-storage',
-            version: 1,
+            version: 5, // Forçar bump de versão
             storage: createJSONStorage(() => idbStorage),
             // Don't persist the history/temporal state itself, just the app state
             partialize: (state) => ({ appState: state.appState }),
@@ -54552,7 +54555,7 @@ export const createPomodoroSlice = (set, get) => ({
             if (!p) return;
 
             const activeId = state.appState.activeId;
-            const settings = state.appState.contests[activeId]?.settings || {
+            const settings = state.appState?.contests?.[activeId]?.settings || {
                 pomodoroWork: 25,
                 pomodoroBreak: 5
             };
@@ -54563,11 +54566,11 @@ export const createPomodoroSlice = (set, get) => ({
             if (p.mode === 'work') {
                 if (!isManual) {
                     p.accumulatedMinutes = (p.accumulatedMinutes || 0) + workDuration;
+                    savedMinutes = p.accumulatedMinutes;
                 } else if (manualMinutes > 0) {
                     p.accumulatedMinutes = (p.accumulatedMinutes || 0) + manualMinutes;
+                    savedMinutes = p.accumulatedMinutes;
                 }
-
-                savedMinutes = p.accumulatedMinutes;
 
                 const currentCycles = Math.min(
                     targetCycles,
@@ -56449,7 +56452,7 @@ export const calculateStudyStreak = (studyLogs) => {
   // caía no dia ANTERIOR de Manaus -> daySet.has() nunca casava -> streak sempre 0.
   // Agora a iteração é feita por chave de data ancorada (Manaus não tem DST — seguro).
   let cursorKey = lastDayStr;
-  const maxIterations = sortedDays.length + 2; // trava anti-loop
+  const maxIterations = Math.min(sortedDays.length + 2, 3660); // 10 anos
   for (let i = 0; i < maxIterations; i++) {
     if (!cursorKey || !daySet.has(cursorKey)) break;
     streak++;
@@ -58804,7 +58807,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false]
   }));
   const contestId = cfg?.contestId || cfg?.userId || 'default';
-  const hash = `${contestId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}-${cfgHash}-ag${agilityPenalty}`;
+  const hash = `${contestId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}` +
+    `-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}` +
+    `-${cfgHash}-ag${agilityPenalty}-tgt${Number(safeTargetScore).toFixed(1)}`;
   if (mcCache.has(hash)) {
     const val = mcCache.get(hash);
     mcCache.delete(hash);
@@ -58968,7 +58973,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     finalResult.adaptiveBaseline = Number.isFinite(Number(adaptive?.calibrationBaseline))
       ? Number(adaptive.calibrationBaseline) : null;
     finalResult.explainability = buildCoachExplainability(finalResult);
-    if (mcCache.size >= MC_CACHE_MAX) mcCache.delete(mcCache.keys().next().value);
+    if (mcCache.size >= MC_CACHE_MAX) {
+      const firstKey = mcCache.keys().next().value;
+      if (firstKey !== undefined) mcCache.delete(firstKey);
+    }
     if (mcCache.has(hash)) mcCache.delete(hash);
     mcCache.set(hash, finalResult);
     return finalResult;
@@ -63319,8 +63327,8 @@ export const getDateKey = (rawDate) => {
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const day = String(date.getUTCDate()).padStart(2, '0');
   const result = `${year}-${month}-${day}`;
-  // ✅ FIX: Rejeitar datas obviamente inválidas
-  if (year < 2000 || year > 2100) return null;
+  // ✅ FIX: Range mais permissivo (dados de teste, datas futuras de agenda)
+  if (year < 1970 || year > 2200) return null;
   return result;
 };
 
@@ -63954,7 +63962,11 @@ export const calculateLevel = (xpInput) => {
 export const getLevelFromXP = calculateLevel;
 
 // B-11 FIX: Nomes descritivos e distintos
-// Recebe XP atual → retorna XP RESTANTE para próximo nível
+/**
+ * Retorna quantos XP FALTAM para o próximo nível.
+ * @param {number} currentXP - XP atual do usuário
+ * @returns {number} XP restante (nunca negativo)
+ */
 export const getXpRemainingToNextLevel = (currentXP) => {
     const xp = Math.max(0, Number(currentXP) || 0);
     const level = calculateLevel(xp);
@@ -63962,7 +63974,11 @@ export const getXpRemainingToNextLevel = (currentXP) => {
     return Math.max(0, nextLevelThreshold - xp);
 };
 
-// Recebe NÍVEL atual → retorna XP TOTAL do próximo nível (threshold)
+/**
+ * Retorna o XP TOTAL necessário para ATINGIR o nível informado.
+ * @param {number} level - Nível desejado (ex: 5)
+ * @returns {number} XP total acumulado para chegar nesse nível
+ */
 export const getXpThresholdForLevel = (level) => {
     return Math.pow(Math.max(0, level - 1), 2) * 100;
 };
@@ -64219,6 +64235,7 @@ export const logger = {
         if (DEBUG_MODE) console.log(...args);
     },
     error: (...args) => {
+        if (typeof window === 'undefined') return;
         // Errors are always logged even in production for troubleshooting
         console.error(...args);
     },
@@ -65634,25 +65651,7 @@ export function toPoints(score, maxScore = 100, minScore = 0, mode = 'raw') {
   return clamp(rawScore, finalMin, finalMax);
 }
 
-function pctToPoints(pct, maxScore = 100, minScore = 0) {
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const safeMin = Number.isFinite(Number(minScore)) && Number(minScore) >= 0 ? Number(minScore) : 0;
-  const safePct = clamp(Number(pct) || 0, 0, 100);
-  const range = Math.max(1e-9, Math.abs(safeMax - safeMin));
-  return safeMin + (safePct / 100) * range;
-}
 
-function toPct(points, maxScore = 100, minScore = 0) {
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const safeMin = Number.isFinite(Number(minScore)) && Number(minScore) >= 0 ? Number(minScore) : 0;
-  const safePoints = clamp(Number(points) || 0, safeMin, safeMax);
-  const range = Math.max(1e-9, Math.abs(safeMax - safeMin));
-  return clamp(((safePoints - safeMin) / range) * 100, 0, 100);
-}
-
-function pointsToPct(points, maxScore = 100, minScore = 0) {
-  return toPct(points, maxScore, minScore);
-}
 
 export function formatValue(value, digits = 1) {
   const n = Number(value);

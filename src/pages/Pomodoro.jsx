@@ -713,6 +713,18 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         }
     });
 
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.key === 'pomodoroLayoutLocked') {
+                try {
+                    setIsLayoutLocked(JSON.parse(e.newValue) ?? true);
+                } catch { /* ignore */ }
+            }
+        };
+        window.addEventListener('storage', handler);
+        return () => window.removeEventListener('storage', handler);
+    }, []);
+
     const toggleLayoutLock = () => {
         const newState = !isLayoutLocked;
         setIsLayoutLocked(newState);
