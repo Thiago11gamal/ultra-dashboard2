@@ -95,6 +95,19 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const [parityTick, setParityTick] = useState(0);
   const lastLocalMutationRef = useRef(0);
   const isCloudPullRef = useRef(false);
+
+  // Safety net: resetar isCloudPullRef se ficar preso por mais de 10s
+  useEffect(() => {
+    if (!isCloudPullRef.current) return;
+    const safetyTimer = setTimeout(() => {
+      if (isCloudPullRef.current) {
+        console.warn('[Sync] isCloudPullRef ficou preso, resetando.');
+        isCloudPullRef.current = false;
+      }
+    }, 10000);
+    return () => clearTimeout(safetyTimer);
+  }, [syncTrigger]);
+
   const debounceRef = useRef(null);
   const latestCloudDataRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -165,13 +178,20 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const mergeArrays = (arr1, arr2) => {
     const map = new Map();
     const getStableKey = (item) => {
-      if (item.id) return item.id;
+      if (!item || typeof item !== 'object') return null;
+      if (item.id) return String(item.id);
       return `${item.date || item.startTime || ''}-${item.categoryId || ''}-${item.taskId || ''}-${item.duration || item.minutes || ''}`;
     };
     const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
     const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
-    safeArr1.forEach(item => { if (item) map.set(getStableKey(item), item); });
-    safeArr2.forEach(item => { if (item) map.set(getStableKey(item), item); });
+    safeArr1.forEach(item => {
+      const key = getStableKey(item);
+      if (key) map.set(key, item);
+    });
+    safeArr2.forEach(item => {
+      const key = getStableKey(item);
+      if (key) map.set(key, item);
+    });
     return Array.from(map.values()).filter(Boolean);
   };
 
@@ -551,12 +571,19 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         isCloudPullRef.current = true;
         if (isMountedRef.current) {
           applyingRemoteRef.current = true;
-          setAppState(() => {
-            const freshState = useAppStore.getState().appState;
-            return mergeAppState(freshState, cloudData, {
-              nonDestructive: mergeMode === "nonDestructive"
+          try {
+            setAppState(() => {
+              const freshState = useAppStore.getState().appState;
+              return mergeAppState(freshState, cloudData, {
+                nonDestructive: mergeMode === "nonDestructive"
+              });
             });
-          });
+          } catch (pullErr) {
+            console.error('[Sync] Erro ao aplicar dados remotos:', pullErr);
+          } finally {
+            applyingRemoteRef.current = false;
+            isCloudPullRef.current = false;
+          }
         }
         lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
         setHasConflict(false);

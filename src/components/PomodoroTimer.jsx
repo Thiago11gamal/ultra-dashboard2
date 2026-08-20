@@ -767,6 +767,10 @@ function PomodoroTimer({
             savedMinutes = sessionMinutes;
         }
 
+        if (transitionTimeoutRef.current) {
+            clearTimeout(transitionTimeoutRef.current);
+        }
+
         transitionTimeoutRef.current = setTimeout(() => {
             if (!isMountedRef.current) {
                 return;
@@ -834,6 +838,7 @@ function PomodoroTimer({
 
             setIsTransitioning(false);
             isTransitioningRef.current = false;
+            transitionTimeoutRef.current = null;
 
             if (isEndingCycle) {
                 safeOnFullCycleComplete(

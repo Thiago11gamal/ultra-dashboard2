@@ -82,9 +82,13 @@ export const getDateKey = (rawDate) => {
     // ignore
   }
 
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
+  // ✅ FIX: Usar offset fixo de Manaus (UTC-4) em vez de UTC genérico
+  // para manter consistência com o timezone principal do app
+  const MANAUS_OFFSET_MS = -4 * 60 * 60 * 1000;
+  const adjusted = new Date(date.getTime() + MANAUS_OFFSET_MS);
+  const year = adjusted.getUTCFullYear();
+  const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(adjusted.getUTCDate()).padStart(2, '0');
   const result = `${year}-${month}-${day}`;
   // ✅ FIX: Range mais permissivo (dados de teste, datas futuras de agenda)
   if (year < 1970 || year > 2200) return null;
@@ -100,10 +104,8 @@ export const getLocalMidnight = (date = new Date()) => {
       return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
     }
     // ✅ FIX: Offset fixo de Manaus (-04:00) em vez de timezone local
-    // eslint-disable-next-line no-restricted-syntax
     return new Date(`${dateKey}T00:00:00-04:00`);
   } catch {
-    // Fallback: extrair componentes UTC e ancorar em Manaus (UTC-4)
     const utc = new Date(date);
     return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
   }

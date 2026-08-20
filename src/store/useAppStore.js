@@ -35,7 +35,7 @@ const idbStorage = {
         }
     },
     setItem: (name, value) => {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             if (isStorageLocked) {
                 console.warn('[Storage] Operação ignorada. Lock de emergência ativo.');
                 return resolve();
@@ -44,28 +44,27 @@ const idbStorage = {
             // Rejeita a promise pendente anterior para evitar dangling promises (Memory Leak)
             if (saveTimeouts[name]) {
                 clearTimeout(saveTimeouts[name]);
+                // Resolve a promise anterior em vez de rejeitar
                 if (savePromises[name]) {
-                    savePromises[name].reject(new Error('Debounced'));
+                    savePromises[name].resolve();
                 }
             }
             
-            savePromises[name] = { resolve, reject };
+            savePromises[name] = { resolve };
             
             saveTimeouts[name] = setTimeout(async () => {
                 try {
                     await idbSet(name, value);
-                    savePromises[name].resolve();
+                    savePromises[name]?.resolve();
                 } catch (e) {
                     console.error('[Storage] Falha crítica ao escrever no IDB:', e);
-                    savePromises[name].reject(e);
+                    // Resolve em vez de rejeitar para evitar unhandled rejection
+                    savePromises[name]?.resolve();
                 } finally {
                     delete savePromises[name];
                     delete saveTimeouts[name];
                 }
             }, 250);
-        }).catch(err => {
-            // Ignora o erro se foi intencionalmente cancelado pelo debounce
-            if (err.message !== 'Debounced') throw err;
         });
     },
     removeItem: async (name) => {

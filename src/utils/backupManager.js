@@ -21,29 +21,35 @@ const validateFullBackup = (data) => {
 };
 
 // RIGOR-SEC: Camada de limpeza para remover campos potencialmente perigosos ou inválidos mantendo propriedades essenciais
-const sanitizeCategory = (cat) => ({
-    ...cat,
-    id: String(cat.id || generateId('cat')),
-    name: DOMPurify.sanitize(String(cat.name || "Sem Nome")).substring(0, 50),
-    // PRESERVE: Mantemos propriedades inerentes (maxScore, weight, simuladoStats, etc) através do spread acima
-    priority: cat.priority || 'medium',
-    completedAt: cat.completedAt || null,
-    lastStudiedAt: cat.lastStudiedAt || null,
-    awardedXP: !!cat.awardedXP,
-    status: cat.status || 'active',
-    tasks: Array.isArray(cat.tasks) ? cat.tasks.map(t => ({
-        ...t,
-        id: String(t.id || generateId('task')),
-        text: DOMPurify.sanitize(String(t.text || "")),
-        title: DOMPurify.sanitize(String(t.title || t.text || "")),
-        completed: !!t.completed,
-        // PRESERVE: Metadados da tarefa
-        priority: t.priority || 'medium',
-        completedAt: t.completedAt || null,
-        lastStudiedAt: t.lastStudiedAt || null,
-        awardedXP: !!t.awardedXP
-    })) : []
-});
+const sanitizeCategory = (cat) => {
+    if (!cat || typeof cat !== 'object') return null;
+    return {
+        ...cat,
+        id: String(cat.id || generateId('cat')),
+        name: DOMPurify.sanitize(String(cat.name || "Sem Nome")).substring(0, 50),
+        // PRESERVE: Mantemos propriedades inerentes (maxScore, weight, simuladoStats, etc) através do spread acima
+        priority: cat.priority || 'medium',
+        completedAt: cat.completedAt || null,
+        lastStudiedAt: cat.lastStudiedAt || null,
+        awardedXP: !!cat.awardedXP,
+        status: cat.status || 'active',
+        tasks: Array.isArray(cat.tasks) ? cat.tasks.map(t => {
+            if (!t || typeof t !== 'object') return null;
+            return {
+                ...t,
+                id: String(t.id || generateId('task')),
+                text: DOMPurify.sanitize(String(t.text || "")),
+                title: DOMPurify.sanitize(String(t.title || t.text || "")),
+                completed: !!t.completed,
+                // PRESERVE: Metadados da tarefa
+                priority: t.priority || 'medium',
+                completedAt: t.completedAt || null,
+                lastStudiedAt: t.lastStudiedAt || null,
+                awardedXP: !!t.awardedXP
+            };
+        }).filter(Boolean) : []
+    };
+};
 
 const sanitizeContest = (contest) => ({
     ...contest,

@@ -41,7 +41,9 @@ export function usePomodoroSync({
         if (!syncChannel) return;
 
         const handleMessage = (event) => {
-            const data = event.data || {};
+            const data = event.data;
+            // ✅ FIX: Validar estrutura da mensagem antes de processar
+            if (!data || typeof data !== 'object' || !data.type) return;
 
             const {
                 type,
@@ -54,6 +56,14 @@ export function usePomodoroSync({
             } = data;
 
             if (tabId === STABLE_TAB_ID) return;
+
+            // ✅ FIX: Validar que o tipo é conhecido
+            const KNOWN_TYPES = [
+                'START_SESSION', 'PAUSE_SESSION', 'TIMER_RESET',
+                'PHASE_SKIP', 'PHASE_COMPLETE', 'PHASE_REWIND',
+                'TARGET_CYCLES_CHANGE', 'SPEED_CHANGE', 'TOGGLE_MUTE'
+            ];
+            if (!KNOWN_TYPES.includes(type)) return;
 
             if (SESSION_SCOPED_TYPES.includes(type)) {
                 const currentTaskId = activeSubjectRef.current?.taskId ?? null;

@@ -91,7 +91,6 @@ export async function secureLogout() {
         console.error('[Firebase] Erro durante logout:', err);
         signOutFailed = true;
     } finally {
-        // ✅ Sempre limpar dados locais, mesmo se signOut falhou
         const keysToRemove = [
             'appState',
             'contests',
@@ -99,7 +98,11 @@ export async function secureLogout() {
             'pomodoro',
             'gameState',
             'userId',
-            'userPreferences'
+            'userPreferences',
+            'pomodoroState',
+            'ultra-sync-dirty',
+            'focusPanelLocked',
+            'pomodoroLayoutLocked',
         ];
         keysToRemove.forEach(key => {
             try {
@@ -108,6 +111,20 @@ export async function secureLogout() {
             } catch { /* ignore */ }
         });
         
+        // ✅ FIX: Limpar IndexedDB do app
+        try {
+            const { del } = await import('idb-keyval');
+            await del('ultra-dashboard-storage');
+        } catch (e) {
+            console.warn('[Firebase] Falha ao limpar IndexedDB no logout:', e);
+        }
+
+        // ✅ FIX: Limpar sessionStorage de flags de sessão
+        try {
+            sessionStorage.removeItem('hasSeenWelcomeScreen');
+            sessionStorage.removeItem('page-has-been-force-refreshed');
+        } catch { /* ignore */ }
+
         if (signOutFailed) {
             console.warn('[Firebase] Logout local executado, mas signOut remoto falhou.');
         }

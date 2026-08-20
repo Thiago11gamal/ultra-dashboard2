@@ -203,10 +203,8 @@ export function resolveTargetPoints(value, domainOrMax, minScore = 0, unit = "au
     return pctToPoints(n, domain);
   }
 
-  if (domain.max > 100 && n >= 0 && n <= 100) {
-    return pctToPoints(n, domain);
-  }
-
+  // FIX: Removida auto-detecção também daqui para manter coerência com normalizeScoreValue.
+  // Valores ambíguos são tratados como pontos por segurança.
   return clampFinite(n, domain.min, domain.max, domain.min);
 }
 

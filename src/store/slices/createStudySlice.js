@@ -88,7 +88,7 @@ export const createStudySlice = (set, get) => ({
       localStorage.setItem('ultra-sync-dirty', 'true');
     });
 
-    if (pendingXp > 0 && get().awardExperience) {
+    if (pendingXp > 0 && typeof get().awardExperience === 'function') {
       get().awardExperience(pendingXp);
     }
   },
@@ -142,7 +142,7 @@ export const createStudySlice = (set, get) => ({
       localStorage.setItem('ultra-sync-dirty', 'true');
     });
 
-    if (xpToDeduct > 0 && get().awardExperience) {
+    if (xpToDeduct > 0 && typeof get().awardExperience === 'function') {
       get().awardExperience(-xpToDeduct);
     }
   },
@@ -209,7 +209,7 @@ export const createStudySlice = (set, get) => ({
       localStorage.setItem('ultra-sync-dirty', 'true');
     });
 
-    if (get().awardExperience) {
+    if (typeof get().awardExperience === 'function') {
       const xp = rating >= 2 ? 3 : 1;
       get().awardExperience(xp);
     }

@@ -362,6 +362,8 @@ export function useMonteCarloStats({
         maxScore
       );
 
+      if (!Array.isArray(backfilled)) return;
+
       const changed = JSON.stringify(backfilled.slice(-3)) !== JSON.stringify(calibrationEvents.slice(-3));
 
       if (changed) {

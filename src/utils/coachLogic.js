@@ -47,12 +47,38 @@ export {
     runCoachMonteCarlo
 };
 
+const URGENCY_CACHE_MAX = 80;
+const TOPICS_CACHE_MAX = 50;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
 // LRU Cache for urgency calculations
 export const _urgencyCache = new Map();
 export const clearUrgencyCache = () => _urgencyCache.clear();
 
 export const _topicsCache = new Map();
 export const clearTopicsCache = () => _topicsCache.clear();
+
+// ✅ FIX: Helper para inserção com limite e TTL
+function cacheSet(cache, maxSize, key, value) {
+  if (cache.size >= maxSize) {
+    const oldestKey = cache.keys().next().value;
+    cache.delete(oldestKey);
+  }
+  cache.set(key, { value, timestamp: Date.now() });
+}
+
+function cacheGet(cache, key) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    cache.delete(key);
+    return null;
+  }
+  // LRU: mover para o fim
+  cache.delete(key);
+  cache.set(key, entry);
+  return entry.value;
+}
 
 const sanitizeMinutes = (mins) => Math.min(720, Math.max(0, Number(mins) || 0));
 
@@ -1637,12 +1663,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}_f${featuresHash}_ms${options.maxScore ?? 100}_ts${options.targetScore ?? 0}`;
 
-        if (_urgencyCache.has(cacheKey)) {
-            const cached = _urgencyCache.get(cacheKey);
-            _urgencyCache.delete(cacheKey);
-            _urgencyCache.set(cacheKey, cached);
-            return cached;
-        }
+        const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
+        if (cachedUrgency) return cachedUrgency;
 
         const metrics = extractMetrics(safeCat, safeSims, safeLogs, options);
         const scoreInfo = calculateUrgencyScore(metrics, options);
@@ -1712,12 +1734,7 @@ if (
             }
         }
 
-        if (_urgencyCache.size > 80) {
-            const oldestKey = _urgencyCache.keys().next().value;
-            _urgencyCache.delete(oldestKey);
-        }
-
-        _urgencyCache.set(cacheKey, result);
+        cacheSet(_urgencyCache, URGENCY_CACHE_MAX, cacheKey, result);
         return result;
     } catch (err) {
         console.error("[CoachLogic] Critical error in calculateUrgency:", err);
@@ -1828,7 +1845,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     return result;
 };
 
-const MAX_CACHE_SIZE = 50;
+// MAX_CACHE_SIZE movido para o topo
 
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const safeCat = category || {};
@@ -1902,20 +1919,11 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}-${coachFeatureHash}`;
     const cacheKey = `isolate_${catId}_${hash}`;
 
-    if (_topicsCache.has(cacheKey)) {
-        const result = _topicsCache.get(cacheKey);
-        _topicsCache.delete(cacheKey);
-        _topicsCache.set(cacheKey, result);
-        return result.map(t => ({ ...t }));
-    }
-
-    if (_topicsCache.size >= MAX_CACHE_SIZE) {
-        const oldestKey = _topicsCache.keys().next().value;
-        _topicsCache.delete(oldestKey);
-    }
+    const cachedTopics = cacheGet(_topicsCache, cacheKey);
+    if (cachedTopics) return cachedTopics.map(t => ({ ...t }));
 
     const result = _buildSortedTopicsImpl(safeCat, safeSims, maxScore);
-    _topicsCache.set(cacheKey, result);
+    cacheSet(_topicsCache, TOPICS_CACHE_MAX, cacheKey, result);
 
     return result.map(t => ({ ...t }));
 }

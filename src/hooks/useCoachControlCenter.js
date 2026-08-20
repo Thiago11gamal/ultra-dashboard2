@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   runCoachOrchestrator,
   buildCoachOrchestratorDashboard,
@@ -65,6 +65,12 @@ export function useCoachControlCenter({
   const [flagOverrides, setFlagOverrides] = useState({});
   const [lastRunTimestamp, setLastRunTimestamp] = useState(null);
 
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
   // ==========================================================
   // Carregar estado persistido
   // ==========================================================
@@ -118,21 +124,23 @@ export function useCoachControlCenter({
       );
 
       // ✅ FIX: Validar result e dash
-      if (result) {
+      if (isMounted.current && result) {
         setOrchestratorResult(result);
         const dash = buildCoachOrchestratorDashboard(result);
         if (dash) setDashboard(dash);
       }
 
-      setLastRunTimestamp(Date.now());
+      if (isMounted.current) setLastRunTimestamp(Date.now());
 
       return result;
     } catch (err) {
-      const msg = err?.message || String(err);
-      setError(msg);
+      if (isMounted.current) {
+        const msg = err?.message || String(err);
+        setError(msg);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   }, [categories, simulados, studyLogs, maxScore, targetScore, currentFlags, flagOverrides]);
 
@@ -182,6 +190,8 @@ export function useCoachControlCenter({
         minImprovement: options.minImprovement ?? 0.02,
       });
 
+      if (!isMounted.current) return null;
+
       setTunerResult(result);
       loadAuxiliaryData();
 
@@ -193,11 +203,13 @@ export function useCoachControlCenter({
 
       return result;
     } catch (err) {
-      const msg = err?.message || String(err);
-      setError(msg);
+      if (isMounted.current) {
+        const msg = err?.message || String(err);
+        setError(msg);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   }, [maxScore, loadAuxiliaryData]);
 

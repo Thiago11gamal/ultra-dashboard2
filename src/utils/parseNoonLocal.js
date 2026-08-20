@@ -26,8 +26,12 @@ export function parseNoonLocal(input) {
  * Usado para projetar a data-alvo do Monte Carlo sem atravessar fusos.
  */
 export function addDaysNoon(date, days) {
+  if (!date || typeof date.getTime !== 'function' || Number.isNaN(date.getTime())) {
+    return null;
+  }
   const d = new Date(date.getTime());
   d.setDate(d.getDate() + (Number(days) || 0));
   d.setHours(12, 0, 0, 0);
+  if (Number.isNaN(d.getTime())) return null;
   return d;
 }

@@ -36,6 +36,19 @@ const getPasswordStrength = (password) => {
     return { level: 4, label: 'Forte', color: '#10b981' };
 };
 
+// FIX 5.1e: Função ripple movida para fora do componente para evitar recriação
+function handleRipple(e) {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    r.style.width = r.style.height = `${btn.offsetWidth}px`;
+    r.style.left = `${e.clientX - rect.left - btn.offsetWidth / 2}px`;
+    r.style.top = `${e.clientY - rect.top - btn.offsetWidth / 2}px`;
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 600);
+}
+
 export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
@@ -295,17 +308,4 @@ export default function Login() {
             </div>
         </div>
     );
-}
-
-// FIX 5.1e: Função ripple movida para fora do componente para evitar recriação
-function handleRipple(e) {
-    const btn = e.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    const r = document.createElement('span');
-    r.className = 'ripple';
-    r.style.width = r.style.height = `${btn.offsetWidth}px`;
-    r.style.left = `${e.clientX - rect.left - btn.offsetWidth / 2}px`;
-    r.style.top = `${e.clientY - rect.top - btn.offsetWidth / 2}px`;
-    btn.appendChild(r);
-    setTimeout(() => r.remove(), 600);
 }
