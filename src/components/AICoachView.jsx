@@ -611,11 +611,11 @@ Penalidade: <span className="text-amber-400 ml-1">-{Math.round(alertTask.analysi
 <BrainCircuit size={14} className="shrink-0 mt-0.5" />
 <span className="leading-relaxed">{alertTask.analysis.verdict}</span>
 </div>
-<div className="pt-3 border-t border-white/5 mt-1">
-<span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">
+<div className="pt-3 pb-1.5 border-t border-white/10 mt-1">
+<span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/50 block mb-1">
 Ação Sugerida
 </span>
-<p className={`text-xs font-bold ${t.titleColor} opacity-90 pl-0.5`}>{actionDesc}</p>
+<p className={`text-xs font-bold leading-relaxed ${t.titleColor} opacity-95 pl-0.5`}>{actionDesc}</p>
 </div>
 </div>
 )}

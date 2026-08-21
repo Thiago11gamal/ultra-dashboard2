@@ -42,11 +42,11 @@ export const getSafeId = (task) => {
         return stableIdMap.get(task);
     }
     
-    const text = task.text || task.title || "sem-nome";
-    const randPart = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-      ? crypto.randomUUID().substring(0, 8)
-      : Math.random().toString(36).substring(2, 10);
-    const newId = `task-fb-${text.replace(/\s+/g, '').substring(0, 15)}-${randPart}`;
+    const text = (task.text || task.title || task.topic || 'task').trim();
+    const cat = task.subject || task.category || task.subjectId || '';
+    const hash = hashString(`${cat}_${text}`);
+    const cleanPrefix = text.replace(/[^a-zA-Z0-9]/g, '').substring(0, 12).toLowerCase() || 'tsk';
+    const newId = `task-${cleanPrefix}-${hash}`;
     stableIdMap.set(task, newId);
     return newId;
 };
