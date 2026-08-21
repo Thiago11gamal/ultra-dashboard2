@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import {
   BrainCircuit, Zap, Target, Sparkles,
@@ -150,10 +150,9 @@ function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
     ? clampPct(mc.ci95HighPct)
     : toScorePct(mc.ci95High ?? mc.conformalHigh);
 
-  if (low == null || high == null) {
-    low = Math.max(0, prob - 5);
-    high = Math.min(100, prob + 5);
-  }
+  // ✅ PATCH-18: Fallback independente para low e high
+  if (low == null) low = Math.max(0, prob - 5);
+  if (high == null) high = Math.min(100, prob + 5);
 
   if (low > high) {
     [low, high] = [high, low];
@@ -300,7 +299,11 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
   const isDegraded = Boolean(calibrationOps[categoryKey]?.degraded);
   const cfg = getUrgencyConfig(urgencyScore, statusLabel);
   const { tier, Icon: TierIcon } = cfg;
-  const sortedHumanReadable = Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
+  // ✅ PATCH-19: Memoizar para evitar re-sort a cada render
+  const sortedHumanReadable = useMemo(
+    () => Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR')),
+    [urgency.humanReadable]
+  );
   return (
     <Motion.div
       initial={{ opacity: 0, y: 20 }}

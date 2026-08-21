@@ -70,9 +70,10 @@ const systemAlertMessage = isSystemAlert ? (parsed.action || parsed.topic) : nul
 const displayAssunto = parsed.topic;
 const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
 const col = CARD_COLORS[idx % CARD_COLORS.length];
-const probRaw = task.analysis?.monteCarlo?.probability;
-const hasProb = probRaw !== null && probRaw !== undefined && probRaw !== '';
-const safeProb = hasProb ? toFiniteNumber(String(probRaw).match(/-?\d+(\.\d+)?/)?.[0], null) : null;
+// ✅ PATCH-05 e PATCH-06: Usar getMcProbPct para consistência e sem negativos
+const mcProbPct = getMcProbPct(task);
+const hasProb = mcProbPct > 0 || task.analysis?.monteCarlo?.probability != null;
+const safeProb = hasProb ? mcProbPct : null;
 const safeVol = toFiniteNumber(task.analysis?.monteCarlo?.volatility, 0);
 const safeMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
 const highVolThreshold = 8 * (safeMax / 100);
@@ -301,8 +302,28 @@ const startNeuralSession = useAppStore(state => state.startNeuralSession);
 const navigate = useNavigate();
 const showToast = useToast();
 // BUG-10 FIX: Memoizado para evitar re-render de todos os AICoachCard memoizados
-const handleStartNeural = useCallback((task) => {
-let targetIndex = unallocatedCards.findIndex(t => {
+// ✅ PATCH-04: Aceitar sourceContextHint como 2º parâmetro
+const handleStartNeural = useCallback((task, sourceContextHint) => {
+  // Fast path: se o Planner já informou o contexto do dia, usa diretamente
+  if (sourceContextHint) {
+    const hintTasks = sourceContextHint === 'backlog'
+      ? unallocatedCards
+      : (coachPlanner[sourceContextHint] || []);
+    const hintIndex = hintTasks.findIndex(t => {
+      const idT = getSafeId(t);
+      const idTask = getSafeId(task);
+      if (idT && idTask) return idT === idTask;
+      return t === task || (t.title && t.title === task.title);
+    });
+    if (hintIndex !== -1) {
+      const session = hintTasks.map(t => ({ ...t, sourceContext: sourceContextHint }));
+      startNeuralSession(session, hintIndex);
+      navigate('/pomodoro');
+      return;
+    }
+  }
+  // Fallback: busca linear nos 3 contextos (comportamento original)
+  let targetIndex = unallocatedCards.findIndex(t => {
 const idT = getSafeId(t);
 const idTask = getSafeId(task);
 if (idT && idTask) return idT === idTask;

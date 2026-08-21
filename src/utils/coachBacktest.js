@@ -1,4 +1,6 @@
 export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
+  // ✅ PATCH-26: Early return para arrays vazios
+  if (!predicted.length || !actual.length) return 0;
   const topK = Math.max(1, Math.min(k, predicted.length));
   const actualMap = new Map(actual.map((x) => [x.id, Number(x.relevance) || 0]));
 

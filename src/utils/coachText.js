@@ -7,8 +7,9 @@ export const RX_BRACKET_TOPIC = /^\[(.*?)\]\s*([\s\S]*)$/i;
 export const RX_REC_MARKUP = /(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g;
 export const RX_BOLD = /(\*\*.*?\*\*)/g;
 
+// ✅ PATCH-21: Ancorar no início para evitar false positives no meio do texto
 export const RX_NOISE_ACTION =
-  /Revisão Geral Complementar.*|Revisão Complementar.*|CRUZEIRO SEGURO.*|Revisão Necessária.*|ANOMALIA.*|TREINO RÁPIDO.*|\(Novo\).*|\(Prioridade\).*|% de acerto.*/gi;
+  /^(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)|\(Prioridade\)|% de acerto).*$/gi;
 
 export function isSystemAlertTask(value) {
   const text =
@@ -91,10 +92,12 @@ export function parseCoachTask(task, categories = []) {
     topicRaw = action || subjectRaw || 'Revisão Geral';
   }
 
+  // ✅ PATCH-20: Não sobrescrever se analysis.reason confirma o tópico
   if (
     topicRaw.toLowerCase() === subjectRaw.toLowerCase() &&
     !task?.topicName &&
-    !task?.analysis?.label
+    !task?.analysis?.label &&
+    !(task?.analysis?.reason && topicRaw && task.analysis.reason.includes(topicRaw))
   ) {
     topicRaw = 'Revisão Geral';
   }

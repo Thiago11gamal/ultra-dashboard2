@@ -92,6 +92,7 @@ const clamp = (value, min, max) => {
 const simpleHash = hashString;
 
 export const DEFAULT_CONFIG = {
+    MC_HISTORY_WINDOW: 10,
     SCORE_MAX: 45,
     RECENCY_MAX: 28,
     INSTABILITY_MAX: 22,
@@ -499,9 +500,11 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         .map(s => getSafeScore(s, maxScore))
         .filter(s => Number.isFinite(s));
 
-    if (validGlobalSims.length > 0) {
+    if (validGlobalSims.length > 0 && maxScore > 0) {
         const totalPoints = kahanSum(validGlobalSims);
-        globalBaselinePct = (totalPoints / (validGlobalSims.length * maxScore)) * 100;
+        // ✅ PATCH-34: Proteção explícita contra divisão por zero
+        const denominator = validGlobalSims.length * maxScore;
+        globalBaselinePct = denominator > 0 ? (totalPoints / denominator) * 100 : 50;
     }
 
     let averageScore = 0;
@@ -564,7 +567,11 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             if (diff > DELTA) clampedDiff = DELTA;
             else if (diff < -DELTA) clampedDiff = -DELTA;
 
-            const hoursSinceLastSim = (referenceNow - mostRecentSimDate) / (1000 * 60 * 60);
+            // ✅ PATCH-09: Validar hoursSinceLastSim explicitamente
+            const rawHoursSinceLastSim = (referenceNow - mostRecentSimDate) / (1000 * 60 * 60);
+            const hoursSinceLastSim = Number.isFinite(rawHoursSinceLastSim) && rawHoursSinceLastSim >= 0
+                ? rawHoursSinceLastSim
+                : Infinity; // ← força o caminho "notaBruta"
 
             if (hoursSinceLastSim < 24) {
                 averageScore = notaAnterior + clampedDiff;
@@ -669,7 +676,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const limiteInferior = -averageScore;
     const trend = Math.max(limiteInferior, Math.min(limiteSuperior, rawTrend));
 
-    const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
+    // ✅ PATCH-27: Janela do MC configurável (padrão 10 para volatilidade de curto prazo)
+    const MC_WINDOW = Number(cfg.MC_HISTORY_WINDOW) || 10;
+    const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, MC_WINDOW), maxScore);
 
     const baseMssdVolatility = mcHistory.length >= 3
         ? calculateMSSD(mcHistory, maxScore)
@@ -1150,7 +1159,9 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const allCategoriesSafe = options.allCategories || [];
     const activeCount = allCategoriesSafe.length > 0 ? allCategoriesSafe.length : 1;
 
-    const currentLambda = metrics.mcAdaptive?.decayK || 0.03;
+    // ✅ PATCH-11 & 29: Validação explícita de decayK
+    const rawLambda = metrics.mcAdaptive?.decayK;
+    const currentLambda = (Number.isFinite(rawLambda) && rawLambda > 1e-6) ? rawLambda : 0.03;
     const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
 
     const windowStart = (normalizeDate(metrics.referenceDate) || new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY);
@@ -1663,7 +1674,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
   })
 );
 
-        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}_f${featuresHash}_ms${options.maxScore ?? 100}_ts${options.targetScore ?? 0}`;
+        // ✅ PATCH-13: Incluir hash da config customizada no cache key
+        const configHash = options.config
+            ? simpleHash(JSON.stringify(options.config))
+            : 'defcfg';
+        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}_f${featuresHash}_cfg${configHash}_ms${options.maxScore ?? 100}_ts${options.targetScore ?? 0}`;
 
         const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
         if (cachedUrgency) return cachedUrgency;
@@ -1789,10 +1804,12 @@ export function analisarDesempenhoHistorico(historico) {
 
     const risk = computeForgettingRisk(formattedHistory);
 
+    // ✅ PATCH-33: Validar retentionPct contra NaN
+    const safeRetention = Number.isFinite(risk.retentionPct) ? risk.retentionPct : 0;
     return {
-        tendencia: risk.retentionPct > 80 ? 'alta' : (risk.retentionPct > 50 ? 'estável' : 'baixa'),
+        tendencia: safeRetention > 80 ? 'alta' : (safeRetention > 50 ? 'estável' : 'baixa'),
         confiabilidadeDosDados: historico.length > 5 ? 'alta' : 'média',
-        projecaoRetencao: risk.retentionPct
+        projecaoRetencao: safeRetention
     };
 }
 
@@ -1814,9 +1831,15 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     const maxScore = options.maxScore ?? 100;
 
     // ✅ FIX: Deep clone do urgency para evitar mutação do cache
+    // ✅ PATCH-08: structuredClone preserva Date, Map, Set, undefined
+    const clonedUrgency = top.urgency
+        ? (typeof structuredClone === 'function'
+            ? structuredClone(top.urgency)
+            : JSON.parse(JSON.stringify(top.urgency)))
+        : null;
     const result = {
         ...top,
-        urgency: top.urgency ? JSON.parse(JSON.stringify(top.urgency)) : null,
+        urgency: clonedUrgency,
         weakestTopic: getWeakestTopic(top, simulados, maxScore)
     };
 
@@ -2017,6 +2040,10 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
                     // ✅ FIX (BUG-H05): Preservar maxScore no payload para FSRS (necessário para re-escala de estabilidade)
                     maxScore: maxScore 
                 });
+                // ✅ PATCH-28: Limitar crescimento do array interno
+                if (topicMap[name].scores.length > 20) {
+                    topicMap[name].scores = topicMap[name].scores.slice(-10);
+                }
             }
 
             if (entryDate > topicMap[name].lastSeen) {
@@ -2480,6 +2507,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     };
 
     let allGeneratedTasks = [];
+    // ✅ PATCH-10: Contador explícito e global para o label prioritário
+    let globalPriorityCounter = 0;
 
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
 
@@ -2488,7 +2517,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const mc = cat.urgency?.details?.monteCarlo;
 
         const iterations = tasksPerCategory;
-        const getPriorityLabel = () => allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
+        // ✅ PATCH-10: Usar contador dedicado ao invés de allGeneratedTasks.length
+        const getPriorityLabel = () => (globalPriorityCounter < 3) ? '[PROTOCOLO PRIORITÁRIO] ' : '';
 
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
@@ -2616,7 +2646,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             }
             : computeAgilityMetrics((cat.simuladoStats && Array.isArray(cat.simuladoStats.history)) ? cat.simuladoStats.history : []);
 
-        const avgSeconds = agilityData.avgSeconds;
+        // ✅ PATCH-12: Validar avgSeconds explicitamente
+        const avgSeconds = Number.isFinite(agilityData?.avgSeconds) ? agilityData.avgSeconds : 0;
         const targetSeconds = 120;
 
         const isAgilityProblem = (avgSeconds > targetSeconds + 30) && (cat.urgency?.normalizedScore >= 75);
@@ -2753,7 +2784,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             cleanTitle = cleanTitle.replace(`[${catNameLower}]`, '[revisão geral]');
         }
 
-        const key = `${t.categoryId || 'global'}::${cleanTitle}`;
+        // ✅ PATCH-15: Preservar tipo de alerta na chave de dedup
+        const isAlert = /\[(ALERTA MESTRE|STATUS)\]/i.test(rawText);
+        const key = `${t.categoryId || 'global'}::${isAlert ? 'alert::' : ''}${cleanTitle}`;
         if (seenTaskKeys.has(key)) return false;
         seenTaskKeys.add(key);
         return true;
@@ -2787,7 +2820,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 export function getCognitiveState(stats) {
     if (!stats || typeof stats !== 'object') return 100;
 
-    let focusMinutes = stats.consecutiveMinutes || 0;
+    // ✅ PATCH-31: Garantir que focusMinutes não é negativo
+    let focusMinutes = Math.max(0, Number(stats.consecutiveMinutes) || 0);
 
     if (focusMinutes === 0 && stats.lastActivityTimestamp) {
         const minutesSinceLast = Math.max(0, (Date.now() - stats.lastActivityTimestamp) / 60000);
@@ -2873,7 +2907,11 @@ export function getBestTask(categories, excludeTaskId = null) {
         legacyScore += normalizedErrorRate * 40;
       }
 
-      const taskId = String(task.id || task.text || task.title || `task-${Math.random().toString(36).slice(2, 7)}`);
+      // ✅ PATCH-14: Id determinístico baseado no conteúdo do task
+      const taskId = String(
+        task.id || task.text || task.title ||
+        `task-${simpleHash(JSON.stringify({ p: task.priority, c: task.completed, t: task.text }))}`
+      );
 
       let finalScore = legacyScore;
 
@@ -2972,10 +3010,11 @@ export function getCoachInsight(activeSubject, stats) {
         };
     }
 
+    // ✅ PATCH-07: Usar safeFatigueScore (já validado) ao invés de fatigueScore
     return {
         type: 'info',
         title: 'Foco Ativo',
-        text: `Energia mental em **${fatigueScore}%**. Mantenha a concentração na missão: **${activeSubject.task || 'ação'}**.`,
+        text: `Energia mental em **${safeFatigueScore}%**. Mantenha a concentração na missão: **${activeSubject.task || 'ação'}**.`,
         color: 'indigo',
         iconType: 'Brain'
     };

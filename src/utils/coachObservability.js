@@ -72,10 +72,10 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
 
   const volatilities = [];
 
+  // ✅ PATCH-24: Remover check redundante e adicionar early return
+  if (scores.length < 5) return { scores, volatilities: [], sampleSize: scores.length };
   for (let i = 4; i < scores.length; i++) {
     const window = scores.slice(i - 4, i + 1);
-
-    if (window.length < 5) continue;
 
     const mean = window.reduce((acc, val) => acc + val, 0) / window.length;
 

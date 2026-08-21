@@ -282,9 +282,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false]
   }));
   const contestId = cfg?.contestId || cfg?.userId || 'default';
-  const hash = `${contestId}-${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}` +
-    `-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}-${adaptiveHash}` +
-    `-${cfgHash}-ag${agilityPenalty}-tgt${Number(safeTargetScore).toFixed(1)}`;
+  // ✅ PATCH-17: Usar hashString para evitar ambiguidade com separadores
+  const hash = hashString(
+    `${contestId}|${categoryId}|${maxScore}|${history.length}|${Number(sumCorrect).toFixed(2)}` +
+    `|${safeTargetScore}|${sequenceChecksum}|${firstDate}|${lastDate}|${days}|${calibHash}|${adaptiveHash}` +
+    `|${cfgHash}|ag${agilityPenalty}|tgt${Number(safeTargetScore).toFixed(1)}`
+  );
   if (mcCache.has(hash)) {
     const val = mcCache.get(hash);
     mcCache.delete(hash);
@@ -349,8 +352,13 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
           baseline: adaptive?.calibrationBaseline ?? cfg.MC_CALIBRATION_BRIER_BASELINE ?? 0.18,
           maxPenalty: adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25
         });
-        calibrationPenalty = summary.calibrationPenalty;
-        avgBrier = summary.avgBrier;
+        // ✅ PATCH-16: Validar imediatamente após receber do summarizeCalibration
+        calibrationPenalty = Number.isFinite(summary.calibrationPenalty)
+          ? summary.calibrationPenalty
+          : 0;
+        avgBrier = Number.isFinite(summary.avgBrier)
+          ? summary.avgBrier
+          : 0;
         const adaptiveBins = predObsPairs.length >= 10
           ? (Number(cfg.MC_ECE_BINS_MAX) || 6)
           : predObsPairs.length >= 6 ? (Number(cfg.MC_ECE_BINS_MID) || 4) : (Number(cfg.MC_ECE_BINS_MIN) || 3);

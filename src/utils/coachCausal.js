@@ -232,8 +232,10 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       });
     });
 
-    // Eventos controle: intervalos sem tarefa concluída.
-    for (let i = 1; i < categorySimulados.length; i++) {
+    // ✅ PATCH-23: Limitar eventos controle para evitar desbalanceamento
+    const MAX_CONTROL_EVENTS_PER_CATEGORY = 5;
+    let controlCount = 0;
+    for (let i = 1; i < categorySimulados.length && controlCount < MAX_CONTROL_EVENTS_PER_CATEGORY; i++) {
       const prev = categorySimulados[i - 1];
       const curr = categorySimulados[i];
 
@@ -242,6 +244,7 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       );
 
       if (hasTaskInInterval) continue;
+      controlCount++;
 
       const outcomeDelta = curr.score - prev.score;
       const baselineScore = prev.score;

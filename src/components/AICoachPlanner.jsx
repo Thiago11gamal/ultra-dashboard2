@@ -7,9 +7,11 @@ import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
 
+// ✅ PATCH-02: Fallback determinístico para tasks sem id
+let _coachTaskFallbackCounter = 0;
 const ensureCoachTaskId = (task) => {
   if (!task || typeof task !== 'object') return task;
-  const stableId = task.id || getSafeId(task);
+  const stableId = task.id || getSafeId(task) || `coach-task-fb-${++_coachTaskFallbackCounter}-${Date.now().toString(36)}`;
   return {
     ...task,
     id: stableId,
@@ -185,18 +187,29 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
   const [columns, setColumns] = useState(() => getInitialColumns());
   const columnsRef = useRef(columns);
+  // ✅ PATCH-01: Flag para ignorar o reset imediato após dragEnd
+  const justDraggedRef = useRef(false);
+
   useEffect(() => {
     columnsRef.current = columns;
   }, [columns]);
 
   useEffect(() => {
     if (!isDragging) {
+      // ✅ PATCH-01: Se acabou de terminar um drag, o onDragEnd já
+      // atualizou columns corretamente. Não reseta com dados stale.
+      if (justDraggedRef.current) {
+        justDraggedRef.current = false;
+        return;
+      }
       setColumns(getInitialColumns());
     }
   }, [coachPlan, coachPlanner, getInitialColumns, isDragging]);
 
   const onDragEnd = (result) => {
     setIsDragging(false);
+    // ✅ PATCH-01: Marca que um drag acabou de terminar
+    justDraggedRef.current = true;
     if (!result.destination) return;
 
     const { source, destination } = result;
@@ -251,7 +264,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
   const handleStartTask = useCallback((task, dayId) => {
     if (propOnStart) {
-      propOnStart(task);
+      // ✅ PATCH-03: Propagar dayId como 2º argumento
+      propOnStart(task, dayId);
       return;
     }
 
