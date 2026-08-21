@@ -61,14 +61,14 @@ function TaskCard({ task, index, isBacklog, stableId, dayTheme, categories = [],
           style={provided.draggableProps.style}
         >
           <div
-            className={`group relative p-3 rounded-2xl border transition-all duration-200 cursor-grab active:cursor-grabbing ${
+            className={`group relative p-2.5 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing ${
               snapshot.isDragging
                 ? `bg-slate-800/95 backdrop-blur-xl border-2 ${accentBorder} shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5),0_0_20px_-5px_rgba(139,92,246,0.3)] scale-[1.04] rotate-1 z-[9999]`
                 : `${cardBg} ${cardBorder} hover:border-white/20 hover:bg-white/[0.04] shadow-sm`
             }`}
           >
             {!isBacklog && dayTheme && (
-              <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${gradientLine} opacity-80 rounded-l-2xl`} />
+              <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${gradientLine} opacity-80 rounded-l-xl`} />
             )}
 
             <div className="flex flex-col gap-2 relative z-10">
@@ -77,7 +77,7 @@ function TaskCard({ task, index, isBacklog, stableId, dayTheme, categories = [],
                 <div className="flex items-center gap-1 min-w-0 flex-1">
                   <GripVertical size={13} className="text-slate-500 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
                   <div
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider truncate max-w-[calc(100%-8px)] ${
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide truncate max-w-[calc(100%-8px)] ${
                       isBacklog
                         ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30'
                         : `bg-black/40 ${accentColor} border border-white/10`
@@ -372,7 +372,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
             </div>
 
             {/* Grid / Flex responsivo dos 7 dias com scroll horizontal elegante */}
-            <div className="overflow-x-auto custom-scrollbar pb-2 pt-1">
+            <div className="overflow-x-auto kanban-scrollbar pb-3 pt-1">
               <div className="flex gap-2.5 min-w-[1100px] 2xl:min-w-full">
                 {DAYS.map((day) => {
                   const dayTasks = columns[day.id] || [];
@@ -382,11 +382,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                       <div className={`mb-3 rounded-2xl border ${day.border} ${day.bg} p-2.5 relative overflow-hidden`}>
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
-                            <span className={`text-xs font-black tracking-wider ${day.text} uppercase`}>
+                            <span className={`text-sm font-extrabold tracking-wide ${day.text} uppercase`}>
                               {day.label}
                             </span>
-                            <span className="text-[8px] font-medium text-slate-400 uppercase tracking-widest leading-none mt-0.5">
-                              {day.full.substring(0, 3)}
+                            <span className="text-[10px] font-medium text-slate-400 capitalize mt-0.5">
+                              {day.full}
                             </span>
                           </div>
                           <div className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border ${day.border}`}>
@@ -424,8 +424,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                             })}
                             {provided.placeholder}
                             {dayTasks.length === 0 && !snapshot.isDraggingOver && (
-                              <div className="flex-1 flex items-center justify-center border border-dashed border-white/[0.04] rounded-xl p-3 text-center my-1">
-                                <span className="text-[10px] font-medium text-slate-600">Arraste aqui</span>
+                              <div className={`flex-1 flex items-center justify-center border border-dashed ${day.border} opacity-50 rounded-xl p-3 text-center my-1 bg-black/10`}>
+                                <span className={`text-[10px] font-medium ${day.text} opacity-60`}>Arraste aqui</span>
                               </div>
                             )}
                           </div>
