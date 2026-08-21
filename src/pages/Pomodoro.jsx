@@ -897,7 +897,21 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         //  - avançar a fila neural (sequenciar a próxima meta sem concluir a atual)
         // Ela apenas salva o progresso e encerra o foco atual.
         if (!wasNatural) {
-            showToast(`Sessão encerrada manualmente. ${totalMinutes} minutos salvos no histórico.`, 'info');
+            const pomodoroState = store.appState?.pomodoro || {};
+            const accumulatedMinutes = pomodoroState.accumulatedMinutes || 0;
+            const minutesToSave = Math.max(totalMinutes, accumulatedMinutes);
+
+            if (currentSubject && minutesToSave > 0) {
+                store.handleUpdateStudyTime(
+                    currentSubject.categoryId,
+                    minutesToSave,
+                    currentSubject.taskId
+                );
+                showToast(`Sessão encerrada manualmente. ${minutesToSave} minutos salvos no histórico.`, 'info');
+            } else {
+                showToast('Sessão encerrada manualmente.', 'info');
+            }
+
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
             completionTimeoutRef.current = setTimeout(() => {
                 useAppStore.getState().setPomodoroActiveSubject(null);

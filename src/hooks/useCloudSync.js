@@ -26,11 +26,13 @@ const cleanUndefined = (obj, seen = new WeakSet()) => {
   if (Array.isArray(obj)) {
     result = obj.map(v => v === undefined ? null : cleanUndefined(v, seen));
   } else {
-    result = Object.fromEntries(
-      Object.entries(obj)
-        .filter(([_, v]) => v !== undefined)
-        .map(([k, v]) => [k, cleanUndefined(v, seen)])
-    );
+    result = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+      if (v !== undefined) {
+        result[k] = cleanUndefined(v, seen);
+      }
+    }
   }
   seen.delete(obj);
   return result;
@@ -456,7 +458,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const combined = [...(local.trash || []), ...(cloud.trash || []), ...newTrashItems];
         const seen = new Set();
         return combined.filter(item => {
-          const stableId = item?.id || `virtual-${item?.contestId || 'unknown'}-${item?.deletedAt || JSON.stringify(item?.data || {}).length}`;
+          if (!item || typeof item !== 'object') return false;
+          
+          const stableId = item.id || [
+            item.type || 'unknown',
+            item.contestId || 'no-contest',
+            item.deletedAt || 'no-date',
+            JSON.stringify(item.data || {}).length
+          ].join('|');
+          
           if (seen.has(stableId)) return false;
           seen.add(stableId);
           return true;
@@ -633,14 +643,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
       if (shouldPullCloud) {
         isCloudPullRef.current = true;
+        const pullStartTime = Date.now();
         if (isMountedRef.current) {
           applyingRemoteRef.current = true;
           try {
             setAppState(() => {
               const freshState = useAppStore.getState().appState;
-              const freshVersion = Number(freshState?.version || 0);
-              if (freshVersion > cloudVersion) {
-                console.warn('[CloudSync] Merge cancelado: houve edição local durante o snapshot.');
+              const freshUpdated = new Date(freshState?.lastUpdated || 0).getTime();
+              if (freshUpdated > pullStartTime) {
+                console.warn('[Sync] Mutation local durante pull — preservando dados locais');
                 return freshState;
               }
               return mergeAppState(freshState, cloudData, {

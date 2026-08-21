@@ -773,7 +773,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const agilityData = computeAgilityMetrics(safeCategory.simuladoStats?.history || []);
     const agilityPenalty = agilityData.agilityPenalty || 0;
-    const avgSeconds = agilityData.avgSeconds || 0;
+    const avgSeconds = Number.isFinite(agilityData?.avgSeconds)
+        ? agilityData.avgSeconds
+        : 0;
 
     const mcResult = runCoachMonteCarlo(
         simuladosWithMaxScore,
@@ -1681,7 +1683,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}_f${featuresHash}_cfg${configHash}_ms${options.maxScore ?? 100}_ts${options.targetScore ?? 0}`;
 
         const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
-        if (cachedUrgency) return cachedUrgency;
+        if (cachedUrgency) {
+            if (typeof structuredClone === 'function') {
+                return structuredClone(cachedUrgency);
+            }
+            return JSON.parse(JSON.stringify(cachedUrgency));
+        }
 
         const metrics = extractMetrics(safeCat, safeSims, safeLogs, options);
         const scoreInfo = calculateUrgencyScore(metrics, options);
@@ -2866,7 +2873,16 @@ export function getBestTask(categories, excludeTaskId = null) {
       : 5;
 
     (cat.tasks || []).filter(Boolean).forEach(task => {
-      if (task.completed || (excludeTaskId && (task.id || task.text) === excludeTaskId)) {
+      const taskId = String(
+        task.id || task.text || task.title ||
+        `task-${hashString(JSON.stringify({
+          p: task.priority,
+          c: task.completed,
+          t: task.text
+        }))}`
+      );
+
+      if (task.completed || (excludeTaskId && taskId === excludeTaskId)) {
         return;
       }
 

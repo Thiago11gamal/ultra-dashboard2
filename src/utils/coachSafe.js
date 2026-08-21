@@ -23,7 +23,11 @@ export function getCalibrationKey(id) {
 // ✅ PATCH-22: FNV-1a para melhor distribuição e menos colisões
 export function hashString(str) {
   let h = 0x811c9dc5; // FNV offset basis
-  const s = String(str || '');
+  const s = str === null || str === undefined
+    ? ''
+    : typeof str === 'object'
+      ? JSON.stringify(str)
+      : String(str);
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
     h = Math.imul(h, 0x01000193); // FNV prime

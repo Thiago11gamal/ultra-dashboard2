@@ -7,6 +7,13 @@ const SESSION_CAP = SYNC_LOG_CAP;
 
 export const createStudySlice = (set, get) => ({
   handleUpdateStudyTime: (categoryId, minutes, taskId) => {
+    const rawMinutes = Number(minutes);
+    if (!Number.isFinite(rawMinutes) || rawMinutes <= 0) {
+      console.warn('[StudySlice] minutes inválido, ignorando:', minutes);
+      return;
+    }
+    const safeMinutes = Math.min(1440, Math.max(0.1, rawMinutes));
+
     let pendingXp = 0;
 
     set((state) => {
@@ -35,7 +42,7 @@ export const createStudySlice = (set, get) => ({
         date: now,
         categoryId,
         taskId,
-        minutes,
+        minutes: safeMinutes,
         taskTitle
       };
 

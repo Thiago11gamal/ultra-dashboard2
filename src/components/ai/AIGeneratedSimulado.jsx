@@ -113,13 +113,17 @@ export default function AIGeneratedSimulado() {
 
   // FIX: Draft persist com debounce de 5s (não a cada segundo)
   const draftTimeoutRef = useRef(null);
+  const timeLeftRef = useRef(timeLeft);
+  useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
+
   useEffect(() => {
     if (step === 'playing' && questions.length > 0) {
       if (draftTimeoutRef.current) clearTimeout(draftTimeoutRef.current);
       draftTimeoutRef.current = setTimeout(() => {
         const draft = {
           version: 1,
-          form, questions, answers, currentIndex, timeLeft,
+          form, questions, answers, currentIndex,
+          timeLeft: timeLeftRef.current,
           timePerQuestion, simStartMs: simStartMsRef.current, savedAt: Date.now()
         };
         try {
@@ -132,7 +136,7 @@ export default function AIGeneratedSimulado() {
     return () => {
       if (draftTimeoutRef.current) clearTimeout(draftTimeoutRef.current);
     };
-  }, [step, questions, answers, currentIndex, timeLeft, form, timePerQuestion]);
+  }, [step, questions, answers, currentIndex, form, timePerQuestion]);
 
   // FIX: Effect de restore com deps vazias (ref já garante execução única)
   useEffect(() => {

@@ -12,10 +12,11 @@ export const createGamificationSlice = (set, get) => ({
             const currentXP = activeData.user.xp || 0;
             const currentMaxLevel = activeData.user.level || 1;
             
-            // FIX A: Don't reduce XP below the threshold of the current achieved level
-            // Prevents "negative progress" bars and inconsistency with calculatedLevel
             const minXPForLevel = Math.pow(currentMaxLevel - 1, 2) * 100;
-            let newXP = Math.max(minXPForLevel, currentXP + xpGained);
+
+            // ✅ FIX: Permitir que XP desça abaixo do mínimo do nível atual,
+            // mas nunca abaixo de 0. O nível é recalculado dinamicamente.
+            let newXP = Math.max(0, currentXP + xpGained);
 
             const currentAchievements = activeData.user.achievements || [];
             const stats = buildAchievementStats(activeData) || {};

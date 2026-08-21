@@ -35,6 +35,7 @@ export {
 
 import {
   loadPersistedCoachFlags,
+  getSafeBaselineFeatures,
 } from '../engine/optimization/flagOptimizer.js';
 
 import {
@@ -47,7 +48,11 @@ import {
  * Deve ser chamado no bootstrap da aplicação.
  */
 export function bootstrapCoachFlags() {
-  return loadPersistedCoachFlags();
+  const flags = loadPersistedCoachFlags();
+  if (!flags || typeof flags !== 'object') {
+      return getSafeBaselineFeatures();
+  }
+  return flags;
 }
 
 /**

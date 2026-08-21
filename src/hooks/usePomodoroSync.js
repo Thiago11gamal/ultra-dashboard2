@@ -40,7 +40,10 @@ export function usePomodoroSync({
     useEffect(() => {
         if (!syncChannel) return;
 
+        let isMounted = true;
+
         const handleMessage = (event) => {
+            if (!isMounted) return;
             const data = event.data;
             // ✅ FIX: Validar estrutura da mensagem antes de processar
             if (!data || typeof data !== 'object' || !data.type) return;
@@ -226,7 +229,13 @@ export function usePomodoroSync({
         syncChannel.addEventListener('message', handleMessage);
 
         return () => {
+            isMounted = false;
             syncChannel.removeEventListener('message', handleMessage);
+            try {
+                syncChannel.close();
+            } catch (e) {
+                console.warn('[usePomodoroSync] Erro ao fechar BroadcastChannel:', e);
+            }
         };
     }, [
         syncChannel,
