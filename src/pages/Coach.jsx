@@ -708,14 +708,14 @@ export default function Coach() {
 
   return (
     <PageErrorBoundary pageName="Coach">
-      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-8 pb-32">
         <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <PageHeader
             title="Análise do Coach"
             description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
           />
           <div className="relative z-[60] flex items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner overflow-x-auto scrollbar-hide">
-            <div className="flex items-center gap-3 sm:px-4 px-2 min-w-max">
+            <div className="flex items-center gap-3 sm:gap-5 md:gap-6 sm:px-4 px-2 min-w-max">
               <QuickStat
                 label="Volatilidade"
                 value={`${normalizedVolatility.toFixed(1)}pp`}

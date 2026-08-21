@@ -278,10 +278,17 @@ const coachPlanRaw = useMemo(() => {
 const raw = activeContest?.coachPlan || [];
 return Array.isArray(raw) ? raw : Object.values(raw || {});
 }, [activeContest?.coachPlan]);
-const systemAlerts = useMemo(
-() => coachPlanRaw.filter(task => isSystemAlertTask(task?.text || task?.title || '')),
-[coachPlanRaw]
-);
+const systemAlerts = useMemo(() => {
+  const alerts = coachPlanRaw.filter(task => isSystemAlertTask(task?.text || task?.title || ''));
+  const uniqueAlertsMap = new Map();
+  alerts.forEach(alert => {
+    const key = alert.categoryId || alert.subjectName || alert.id;
+    if (!uniqueAlertsMap.has(key)) {
+      uniqueAlertsMap.set(key, alert);
+    }
+  });
+  return Array.from(uniqueAlertsMap.values());
+}, [coachPlanRaw]);
 const actionableTasks = useMemo(
 () => coachPlanRaw.filter(task => !isSystemAlertTask(task?.text || task?.title || '')),
 [coachPlanRaw]
@@ -383,9 +390,11 @@ const hasPlan = coachPlan && coachPlan.length > 0;
 return (
 <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 <div className="flex flex-col gap-6">
-<div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-3xl shadow-inner relative overflow-hidden">
-<div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32 pointer-events-none" />
-<div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] -ml-32 -mb-32 pointer-events-none" />
+<div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-3xl shadow-inner relative">
+<div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+<div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32" />
+<div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] -ml-32 -mb-32" />
+</div>
 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
 <div className="flex items-center gap-4">
 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
