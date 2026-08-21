@@ -182,7 +182,7 @@ function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
     <Motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-3 p-4 bg-black/40 border border-white/10 relative overflow-hidden"
+      className="mt-3 p-4 bg-black/40 border border-white/10 rounded-2xl relative overflow-hidden"
     >
       <div className="absolute top-0 right-0 p-3 text-white/5">
         <BrainCircuit size={48} />
@@ -305,7 +305,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     <Motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative mb-8 w-full border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-hidden group/widget`}
+      className={`relative mb-8 w-full border rounded-2xl ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-hidden group/widget`}
     >
       <div className={`absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-[120px] opacity-50`} />
       <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-80`} />
@@ -369,7 +369,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
           </div>
         ) : (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_320px] gap-8 xl:gap-12 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_minmax(240px,320px)] gap-6 xl:gap-10 items-start">
               <div className="flex flex-col gap-5">
                 <div className="flex items-center gap-3">
                   <div className={`w-1 h-5 rounded-full bg-gradient-to-b ${cfg.bar}`} />

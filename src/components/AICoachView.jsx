@@ -227,8 +227,8 @@ className="overflow-hidden"
 {Object.entries(task.analysis.metrics).map(([key, value], idx) => (
 <div key={`metric-${key}-${idx}`} className="bg-indigo-500/[0.03] border border-indigo-500/10 px-3 py-2 rounded-xl flex flex-col gap-0.5">
 <span className="text-[8px] text-indigo-400/60 uppercase tracking-widest font-black">{key}</span>
-<span className="text-[10px] font-mono text-indigo-200 font-bold">
-{typeof value === 'object' ? JSON.stringify(value) : String(value)}
+<span className="text-[10px] font-mono text-indigo-200">
+{(value === null || value === undefined) ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value)}
 </span>
 </div>
 ))}
@@ -421,7 +421,7 @@ onClick={onGenerateGoals}
 disabled={loading}
 className="group relative w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
 >
-<div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none animate-pulse" />
+<div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none animate-shimmer" />
 {loading ? (
 <>
 <Loader2 size={16} className="animate-spin shrink-0 drop-shadow-md" />
@@ -469,7 +469,7 @@ Nenhum foco pendente fora do planner
 </p>
 </div>
 ) : (
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
+<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
 {unallocatedCards.map((task, idx) => (
 <AICoachCard
 key={getSafeId(task) || `coach-card-${idx}`}

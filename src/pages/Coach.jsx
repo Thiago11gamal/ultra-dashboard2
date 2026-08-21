@@ -714,8 +714,8 @@ export default function Coach() {
             title="Análise do Coach"
             description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
           />
-          <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner">
-            <div className="flex items-center gap-3 sm:px-4 px-2">
+          <div className="relative z-[60] flex items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-3 sm:px-4 px-2 min-w-max">
               <QuickStat
                 label="Volatilidade"
                 value={`${normalizedVolatility.toFixed(1)}pp`}
@@ -1126,7 +1126,7 @@ function RaioXDashboard({ data }) {
               return (
                 <div
                   key={row.categoryId}
-                  className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between"
+                  className={`group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between ${isDegraded ? 'shadow-[0_0_20px_-5px_rgba(244,63,94,0.15)] hover:shadow-[0_0_30px_-5px_rgba(244,63,94,0.25)]' : ''}`}
                 >
                   <div className="flex justify-between items-start gap-4 mb-4">
                     <div className="flex flex-col min-w-0 flex-1">
