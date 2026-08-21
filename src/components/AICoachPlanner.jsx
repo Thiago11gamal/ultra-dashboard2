@@ -77,14 +77,14 @@ function TaskCard({ task, index, isBacklog, stableId, dayTheme, categories = [],
                 <div className="flex items-center gap-1 min-w-0 flex-1">
                   <GripVertical size={13} className="text-slate-500 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
                   <div
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide truncate max-w-[calc(100%-8px)] ${
+                    className={`inline-flex items-center gap-1.5 px-2 py-[3px] rounded-md text-[9px] font-black uppercase tracking-widest truncate max-w-[calc(100%-8px)] ${
                       isBacklog
                         ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30'
                         : `bg-black/40 ${accentColor} border border-white/10`
                     }`}
                   >
                     <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
-                    <span className="truncate leading-tight">{displaySubject(subject, categories)}</span>
+                    <span className="truncate leading-normal">{displaySubject(subject, categories)}</span>
                   </div>
                 </div>
 
@@ -393,10 +393,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                       <div className={`mb-3 rounded-2xl border ${day.border} ${day.bg} p-2.5 relative overflow-hidden`}>
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
-                            <span className={`text-sm font-extrabold tracking-wide ${day.text} uppercase`}>
+                            <span className={`text-sm font-black tracking-widest ${day.text} uppercase pb-[1px]`}>
                               {day.label}
                             </span>
-                            <span className="text-[10px] font-medium text-slate-400 capitalize mt-0.5">
+                            <span className="text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-normal pb-[1px]">
                               {day.full}
                             </span>
                           </div>
@@ -412,7 +412,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                           <div
                             ref={provided.innerRef}
                             {...provided.droppableProps}
-                            className={`flex-1 p-2 rounded-2xl border border-dashed transition-all flex flex-col min-h-[220px] max-h-[580px] overflow-y-auto custom-scrollbar ${
+                            className={`flex-1 p-2 rounded-xl border border-dashed transition-colors flex flex-col min-h-[220px] max-h-[580px] overflow-y-auto custom-scrollbar ${
                               snapshot.isDraggingOver
                                 ? `${day.over} scale-[1.01]`
                                 : 'bg-black/20 border-white/[0.08] hover:border-white/15'
@@ -435,8 +435,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                             })}
                             {provided.placeholder}
                             {dayTasks.length === 0 && !snapshot.isDraggingOver && (
-                              <div className={`flex-1 flex items-center justify-center border border-dashed ${day.border} opacity-50 rounded-xl p-3 text-center my-1 bg-black/10`}>
-                                <span className={`text-[10px] font-medium ${day.text} opacity-60`}>Arraste aqui</span>
+                              <div className={`w-full min-h-[120px] flex items-center justify-center border border-dashed ${day.border} opacity-40 rounded-xl p-3 text-center my-1 bg-black/10 transition-colors`}>
+                                <span className={`text-[10px] font-semibold tracking-wider uppercase ${day.text} opacity-70`}>Arraste aqui</span>
                               </div>
                             )}
                           </div>
