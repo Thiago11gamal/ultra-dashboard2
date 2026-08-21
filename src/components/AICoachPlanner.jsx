@@ -154,6 +154,13 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   const startNeuralSession = useAppStore(state => state.startNeuralSession);
   const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
+  
+  // ✅ FIX: Evitar problemas com React 18 Strict Mode no @hello-pangea/dnd
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    const animation = requestAnimationFrame(() => setEnabled(true));
+    return () => cancelAnimationFrame(animation);
+  }, []);
 
   const getInitialColumns = useCallback(() => {
     const allAssignedIds = new Set();
@@ -293,6 +300,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     startNeuralSession(sessionWithContext, startIndex);
     navigate('/pomodoro');
   }, [startNeuralSession, navigate, propOnStart]);
+
+  if (!enabled) {
+    return null;
+  }
 
   return (
     <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
