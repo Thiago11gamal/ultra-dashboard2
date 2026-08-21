@@ -104,8 +104,9 @@ export function useCoachControlCenter({
       const mergedFeatures = {
         ...currentFlags,
         ...flagOverrides,
-        useCoachOrchestrator: true,
         ...(options.features || {}),
+        // PATCH: orquestrador configurável
+        useCoachOrchestrator: (options.features?.useCoachOrchestrator ?? flagOverrides.useCoachOrchestrator ?? true),
       };
 
       const result = await runCoachOrchestrator(

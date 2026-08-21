@@ -514,18 +514,14 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
     toFinite(candTopics.avgPrecisionAtK, 0) -
     toFinite(baseTopics.avgPrecisionAtK, 0);
 
-  // Heurística:
-  // - Brier menor é melhor.
-  // - ECE menor é melhor.
-  // - MAE menor é melhor.
-  // - NDCG maior é melhor.
+  // PATCH: heurística normalizada
+  const normBrier = deltaBrier / Math.max(0.001, Math.abs(toFinite(baseProbability.avgBrier, 0.2)));
+  const normNdcg = deltaNdcg / Math.max(0.001, Math.abs(toFinite(baseTopics.avgNdcg, 0.5)));
+  const normEce = deltaEce / Math.max(0.001, Math.abs(toFinite(baseProbability.ece, 0.15)));
   const heuristicScore =
-    -deltaBrier * 60 +
-    -deltaLogLoss * 10 +
-    -deltaEce * 20 +
-    -deltaMae * 0.05 +
-    deltaNdcg * 30 +
-    deltaPrecision * 10;
+    -normBrier * 40 +
+    -normEce * 25 +
+    normNdcg * 35;
 
   let winner = 'tie';
 

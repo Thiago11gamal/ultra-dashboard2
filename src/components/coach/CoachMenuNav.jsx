@@ -39,7 +39,7 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
                     }`}>
                     <Icon size={20} className={active ? 'drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : ''} />
                 </div>
-                <div className="flex flex-col items-start min-w-0 text-left">
+                <div className="flex flex-col items-start min-w-0 text-left min-h-[36px] justify-center">
                     <span className={`text-sm font-black tracking-tight truncate w-full transition-colors duration-300 ${active ? 'text-white' : 'text-slate-300 group-hover:text-white'
                         }`}>
                         {label}

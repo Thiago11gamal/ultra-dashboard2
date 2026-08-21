@@ -103,11 +103,16 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
     boost = minBoost;
   }
   const lowVolLimit = (Number(cfg.MC_VOLATILITY_HIGH || 8) * 0.7) * (safeMaxScore / 100);
-  if (Number.isFinite(volatility) && boost < 0) {
+  if (Number.isFinite(volatility)) {
     const a = lowVolLimit * 0.8;
     const b = lowVolLimit * 1.2;
     const tVol = smoothstep(Math.max(0, Math.min(1, (volatility - a) / Math.max(1e-9, b - a))));
-    boost *= 1 - 0.75 * tVol;
+    if (boost < 0) {
+      boost *= 1 - 0.75 * tVol;
+    } else if (boost > 0 && tVol > 0.5) {
+      // Alta volatilidade também reduz boost positivo (simetria)
+      boost *= 1 - 0.35 * (tVol - 0.5) * 2;
+    }
   }
   let riskLabel = 'ok';
   if (p <= d) riskLabel = 'critical';
@@ -284,7 +289,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const contestId = cfg?.contestId || cfg?.userId || 'default';
   // ✅ PATCH-17: Usar hashString para evitar ambiguidade com separadores
   const hash = hashString(
-    `${contestId}|${categoryId}|${maxScore}|${history.length}|${Number(sumCorrect).toFixed(2)}` +
+    `${contestId}|${categoryId}|${maxScore}|${safeMinScore}|${history.length}|${Number(sumCorrect).toFixed(2)}` +
     `|${safeTargetScore}|${sequenceChecksum}|${firstDate}|${lastDate}|${days}|${calibHash}|${adaptiveHash}` +
     `|${cfgHash}|ag${agilityPenalty}|tgt${Number(safeTargetScore).toFixed(1)}`
   );

@@ -369,11 +369,11 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
         {/* Barra de progresso */}
         <div className="mt-4 h-2 bg-slate-700 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${
+            className={`h-full rounded-full transition-all duration-700 ${
               latestHealth.healthScore >= 80 ? 'bg-emerald-500' :
               latestHealth.healthScore >= 60 ? 'bg-amber-500' : 'bg-red-500'
             }`}
-            style={{ width: `${latestHealth.healthScore}%` }}
+            style={{ width: `${Math.max(0, Math.min(100, latestHealth.healthScore))}%` }}
           />
         </div>
         <p className="text-xs text-slate-500 mt-2">
@@ -687,9 +687,9 @@ function BacktestPanel({ backtestReport }) {
       </div>
       {/* Sumários por estratégia */}
       {strategyIds.length > 0 && (
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 overflow-hidden">
           <SectionTitle icon="📊">Métricas por Estratégia</SectionTitle>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-5 px-5">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-400 border-b border-slate-700/50">
@@ -710,7 +710,7 @@ function BacktestPanel({ backtestReport }) {
                       <td className="py-2 pr-4 font-mono text-slate-200">{id}</td>
                       <td className="py-2 pr-4 text-white">{s.count}</td>
                       <td className="py-2 pr-4 font-mono text-white">{fmt(s.probability?.avgBrier, 4)}</td>
-                      <td className="py-2 pr-4 font-mono text-white">{fmt(s.probability?.avgAbsoluteError, 4)}</td>
+                      <td className="py-2 pr-4 font-mono text-white">{fmt(s.probability?.ece, 4)}</td>
                       <td className="py-2 pr-4 font-mono text-white">{fmt(s.score?.mae, 2)}</td>
                       <td className="py-2 pr-4 font-mono text-white">{fmt(s.topics?.avgNdcg, 3)}</td>
                       <td className="py-2 font-mono text-white">{fmt(s.tasks?.avgUplift, 2)}</td>

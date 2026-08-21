@@ -61,8 +61,16 @@ export const clearTopicsCache = () => _topicsCache.clear();
 // ✅ FIX: Helper para inserção com limite e TTL
 function cacheSet(cache, maxSize, key, value) {
   if (cache.size >= maxSize) {
-    const oldestKey = cache.keys().next().value;
-    cache.delete(oldestKey);
+    // Limpar expirados primeiro
+    const now = Date.now();
+    for (const [k, v] of cache.entries()) {
+      if (now - v.timestamp > CACHE_TTL_MS) cache.delete(k);
+    }
+    // Se ainda cheio, remover LRU
+    if (cache.size >= maxSize) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey !== undefined) cache.delete(oldestKey);
+    }
   }
   cache.set(key, { value, timestamp: Date.now() });
 }
@@ -162,8 +170,8 @@ const getDaysDiff = (newer, older) => {
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
     if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
     if (daysToExam < 0) return 1.0;
-    if (daysToExam === 0) return 2.0;
-
+    // PATCH: removido early return daysToExam === 0
+    // A curva logística já converge para ~2.0 naturalmente
     let criticalHorizon = 21;
     let timeDivisor = 7;
 
@@ -1267,11 +1275,10 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     // FIX: Removido fatigueRatio baseado em performance.
     // Notas altas já recebem urgência menor via SCORE_MAX (gap da meta).
     // Penalizar novamente aqui causava dupla penalização.
-    const fatigueRatio = 1.0;
 
     if (exactHoursSinceLast < 24) {
         const recentFatigue = Math.max(0.2, Math.exp(-exactHoursSinceLast / 12));
-        rotationPenalty = Math.min(30, 15 * recentFatigue * (1 + (mssdVolatility / maxScore)) * fatigueRatio);
+        rotationPenalty = Math.min(30, 15 * recentFatigue * (1 + (mssdVolatility / maxScore)));
         
         const baseAt24 = mssdVolatility > (maxScore * 0.05) ? 6 : 2;
         rotationPenalty = Math.max(rotationPenalty, baseAt24 + 1);
@@ -2793,7 +2800,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         // ✅ PATCH-15: Preservar tipo de alerta na chave de dedup
         const isAlert = /\[(ALERTA MESTRE|STATUS)\]/i.test(rawText);
-        const key = `${t.categoryId || 'global'}::${isAlert ? 'alert::' : ''}${cleanTitle}`;
+        const key = `${t.categoryId || 'global'}::${isAlert ? 'alert::' : ''}${cleanTitle}::${t.priority || ''}`;
         if (seenTaskKeys.has(key)) return false;
         seenTaskKeys.add(key);
         return true;
