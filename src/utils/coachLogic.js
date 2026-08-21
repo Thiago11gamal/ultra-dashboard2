@@ -2923,11 +2923,6 @@ export function getBestTask(categories, excludeTaskId = null) {
         legacyScore += normalizedErrorRate * 40;
       }
 
-      // ✅ PATCH-14: Id determinístico baseado no conteúdo do task
-      const taskId = String(
-        task.id || task.text || task.title ||
-        `task-${simpleHash(JSON.stringify({ p: task.priority, c: task.completed, t: task.text }))}`
-      );
 
       let finalScore = legacyScore;
 
