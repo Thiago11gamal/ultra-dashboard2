@@ -64,7 +64,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 ? '0 20px 40px -10px rgba(0,0,0,0.85), 0 0 25px rgba(139,92,246,0.5)'
                 : undefined,
             }}
-            className={`group relative mb-2 rounded-lg border p-2.5 sm:p-3 pl-3.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-150 ${
+            className={`group relative mb-2.5 rounded-lg border p-3 pl-4 sm:pl-4.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-150 ${
               snapshot.isDragging
                 ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
                 : isBacklog
@@ -80,16 +80,17 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
               }`}
             />
 
-            <div className="flex items-center justify-between gap-1.5 min-w-0">
+            {/* Linha Superior: Badge da Matéria + Ações */}
+            <div className="flex items-center justify-between gap-2 min-w-0">
               <span
-                className={`inline-flex min-w-0 max-w-full items-center gap-1.5 rounded border px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide truncate ${
+                className={`inline-flex min-w-0 max-w-[72%] items-center gap-1.5 rounded px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider truncate ${
                   isBacklog
-                    ? 'border-violet-500/30 bg-violet-500/10 text-violet-300'
-                    : `border-white/10 bg-black/40 ${dayTheme.text}`
+                    ? (isPriority ? 'border border-amber-500/40 bg-amber-500/15 text-amber-300' : 'border border-violet-500/30 bg-violet-500/10 text-violet-300')
+                    : `border border-white/10 bg-black/40 ${dayTheme.text}`
                 }`}
               >
                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
-                <span className="truncate font-black" title={displaySubject(subject, categories)}>
+                <span className="truncate" title={displaySubject(subject, categories)}>
                   {displaySubject(subject, categories)}
                 </span>
               </span>
@@ -115,14 +116,26 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
               </div>
             </div>
 
+            {/* Linha Principal: Título do Tópico + Detalhes */}
             <div className="mt-2 flex flex-col gap-0.5">
-              <h4 className="text-[12px] sm:text-[13px] font-bold leading-snug text-slate-100 break-words line-clamp-2">
+              <h4 className="text-[12px] sm:text-[13px] font-bold leading-snug text-slate-100 break-words line-clamp-2 tracking-normal">
                 {topicLabel}
               </h4>
               {secondaryText && (
-                <p className="text-[10px] text-slate-400 font-medium leading-relaxed line-clamp-2 mt-0.5">{secondaryText}</p>
+                <p className="text-[10px] text-slate-400 font-medium leading-relaxed line-clamp-2 mt-0.5">
+                  {secondaryText}
+                </p>
               )}
             </div>
+
+            {/* Tag de SRS / Prioridade quando relevante */}
+            {isSrsCard && (
+              <div className="mt-1.5 flex items-center gap-1">
+                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  SRS
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
