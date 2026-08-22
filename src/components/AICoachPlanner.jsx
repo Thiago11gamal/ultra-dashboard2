@@ -54,10 +54,16 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          style={provided.draggableProps.style}
+          style={
+            snapshot.isDragging 
+              ? { ...provided.draggableProps.style, transition: 'none' } 
+              : provided.draggableProps.style
+          }
           className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-lg select-none"
         >
           <div
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
             style={{
               paddingLeft: '1.25rem',
               boxShadow: snapshot.isDragging
@@ -107,8 +113,8 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                   >
                     <Play size={8} className="fill-current ml-0.5" />
                   </button>
-                  <div className="w-4 h-5 flex items-center justify-center cursor-grab text-slate-500 hover:text-slate-300 transition-colors">
-                    <GripVertical size={11} />
+                  <div className="w-4 h-5 flex items-center justify-center cursor-grab text-slate-500 hover:text-slate-300 transition-colors pointer-events-none">
+                    <GripVertical size={11} className="pointer-events-none" />
                   </div>
                 </div>
               </div>
