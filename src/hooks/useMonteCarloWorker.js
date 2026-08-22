@@ -39,12 +39,16 @@ function initSharedWorker() {
             for (const [id, pending] of sharedPendingRequests.entries()) {
                 try {
                     pending.reject?.(new Error(err?.message || 'Worker Monte Carlo falhou'));
-                } catch {}
+                } catch (e) {
+                    console.error('Failed to reject pending request:', e);
+                }
                 sharedPendingRequests.delete(id);
             }
             try {
                 if (sharedWorker) sharedWorker.terminate();
-            } catch {}
+            } catch (e) {
+                console.warn('Worker terminate failed:', e);
+            }
             sharedWorker = null;
         };
     } catch (e) {

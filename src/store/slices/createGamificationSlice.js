@@ -11,8 +11,6 @@ export const createGamificationSlice = (set, get) => ({
 
             const currentXP = activeData.user.xp || 0;
             const currentMaxLevel = activeData.user.level || 1;
-            
-            const minXPForLevel = Math.pow(currentMaxLevel - 1, 2) * 100;
 
             // ✅ FIX: Permitir que XP desça abaixo do mínimo do nível atual,
             // mas nunca abaixo de 0. O nível é recalculado dinamicamente.

@@ -3,7 +3,6 @@
  *
  * Lote 10 — Facade de otimização automática do Coach.
  */
-
 export {
   EXPERIMENTAL_MATH_FLAGS,
   getSafeBaselineFeatures,
@@ -37,7 +36,6 @@ import {
   loadPersistedCoachFlags,
   getSafeBaselineFeatures,
 } from '../engine/optimization/flagOptimizer.js';
-
 import {
   runAutoTunerCycle,
   buildAutoTunerDashboard,
@@ -46,13 +44,29 @@ import {
 /**
  * Inicializa flags persistidas.
  * Deve ser chamado no bootstrap da aplicação.
+ *
+ * FIX: merge correto baseline + persistido (apenas booleans válidos)
+ * e propagação para globalThis.__COACH_FEATURES__ — antes o orquestrador
+ * relia o global e nunca enxergava as flags persistidas.
  */
 export function bootstrapCoachFlags() {
-  const flags = loadPersistedCoachFlags();
-  if (!flags || typeof flags !== 'object') {
-      return getSafeBaselineFeatures();
+  const baseline = getSafeBaselineFeatures();
+  const persisted = loadPersistedCoachFlags();
+
+  if (!persisted || typeof persisted !== 'object') {
+    globalThis.__COACH_FEATURES__ = { ...baseline };
+    return { ...baseline };
   }
-  return flags;
+
+  const merged = { ...baseline };
+  for (const [key, value] of Object.entries(persisted)) {
+    if (typeof value === 'boolean') {
+      merged[key] = value;
+    }
+  }
+
+  globalThis.__COACH_FEATURES__ = merged;
+  return merged;
 }
 
 /**

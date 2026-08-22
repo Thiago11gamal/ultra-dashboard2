@@ -43,19 +43,20 @@ const BRIER_VISUAL_CRIT = 0.25;
 const BRIER_VISUAL_WARN = 0.18;
 const CALIBRATION_EVENTS_MAX = 300;
 const LEARNING_EVENT_STALE_MS = 6 * 3600000;
+
+// FIX: congelado só p/ retornos defensivos; STABLE_EMPTY p/ hooks que podem iterar/mutar
 const EMPTY_ARRAY = Object.freeze([]);
+const STABLE_EMPTY = [];
 
 function normalizeToArray(value) {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return Object.values(value);
   return EMPTY_ARRAY;
 }
-
 function sanitizeMaxScore(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : 100;
 }
-
 function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
   const safeMax = sanitizeMaxScore(maxScore);
   const safeMin = Math.max(0, Math.min(Number(minScore) || 0, safeMax));
@@ -78,7 +79,6 @@ export default function Coach() {
   const activeId = useAppStore(state => state.appState.activeId);
   const activeIdRef = useRef(activeId);
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
-
   const data = useAppStore(useShallow(state => {
     const contest = state.appState?.contests?.[state.appState?.activeId] || {};
     return {
@@ -99,13 +99,11 @@ export default function Coach() {
       coachPlanner: contest.coachPlanner
     };
   }));
-
   const isHydrated = useAppStore(state => state.appState.isHydrated);
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
   const showToastRef = useRef(showToast);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
-
   const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
   const history = useMemo(() => normalizeToArray(rawHistory), [rawHistory]);
   const rawSimulados = data?.simulados || EMPTY_ARRAY;
@@ -123,14 +121,12 @@ export default function Coach() {
   const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
   const studyLogs = useMemo(() => normalizeToArray(rawStudyLogs), [rawStudyLogs]);
   const flashcardDue = useMemo(() => getFlashcardDueTodayCount(flashcardDecks), [flashcardDecks]);
-
   const { currentUser } = useAuth();
   const userProfile = data?.user;
   const updateCoachScore = useAppStore(state => state.updateCoachScore);
   const { isPremium } = useSubscription(currentUser || userProfile);
   const navigate = useNavigate();
   const isPremiumBool = Boolean(isPremium);
-
   const [activeTab, setActiveTab] = useState('insights');
   const safeActiveTab = (activeTab === 'analytics' && isPremiumBool) ? 'analytics' : 'insights';
   const [isAnalyzing, setIsAnalyzing] = useState(true);
@@ -155,9 +151,10 @@ export default function Coach() {
       if ('cancelIdleCallback' in window) window.cancelIdleCallback(id);
     });
     idleCallbackIdsRef.current = [];
-    rafIdsRef.current.forEach(id => cancelAnimationFrame(id));
     rafIdsRef.current = [];
-    setCoachLoading(false);
+    setTimeout(() => {
+      if (isMountedRef.current) setCoachLoading(false);
+    }, 0);
   }, []);
 
   useEffect(() => {
@@ -404,12 +401,12 @@ export default function Coach() {
     goalDate: userProfile?.goalDate,
     targetScore: targetScorePoints,
     timeIndex: -1,
-    timelineDates: EMPTY_ARRAY,
+    // FIX: array estável não congelado (evita throw se o hook mutar)
+    timelineDates: STABLE_EMPTY,
     minScore: data?.minScore ?? 0,
     maxScore: currentMaxScore,
     simuladoRows: history
   });
-
   const projectedScore = mcStats?.projectedMean;
   const volatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
   const safeVolatility = Number.isFinite(volatility) ? volatility : 0;
@@ -417,28 +414,26 @@ export default function Coach() {
     const denom = Math.max(1, Number(currentMaxScore) || 1);
     return (safeVolatility / denom) * 100;
   }, [safeVolatility, currentMaxScore]);
-
   const drift = useMemo(() => {
     const slope = calculateAdaptiveSlope(combinedHistory, currentMaxScore);
     return Number.isFinite(slope) ? slope : 0;
   }, [combinedHistory, currentMaxScore]);
-
   const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
-
   const mcStatsContext = useMemo(() => ({
     projectedMean: mcStats?.projectedMean,
     probability: mcStats?.probability,
     statsData: mcStats?.statsData,
     sd: mcStats?.sd
   }), [mcStats?.projectedMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
-
   const mcStatsContextRef = useRef(mcStatsContext);
   useEffect(() => { mcStatsContextRef.current = mcStatsContext; }, [mcStatsContext]);
 
   useEffect(() => {
     if (!isHydrated) return;
     if (!Array.isArray(categories) || categories.length === 0) {
-      setIsAnalyzing(false);
+      setTimeout(() => {
+        if (isMountedRef.current) setIsAnalyzing(false);
+      }, 0);
       return;
     }
     let metricsTimer = null;
@@ -656,60 +651,59 @@ export default function Coach() {
   const degradedCount = Object.values(data?.calibrationOps || {})
     .filter(Boolean)
     .filter(op => op && op.degraded === true).length;
-
   const globalProjectedMean =
     suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean ?? null;
   const showGlobalMc = Number.isFinite(Number(globalProjectedMean));
 
   return (
     <PageErrorBoundary pageName="Coach">
-      {/* PATCH: pt-24 → pt-6 no mobile */}
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-20 sm:pb-32">
         <div className="relative z-40 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <PageHeader
             title="Análise do Coach"
             description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
           />
-          {/* PATCH: z-[60] → z-50 */}
-          <div className="relative z-50 flex items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner overflow-x-auto scrollbar-hide">
-            {/* PATCH: adicionado flex-shrink-0 */}
-            <div className="flex items-center gap-3 sm:gap-5 md:gap-6 sm:px-4 px-2 min-w-max flex-shrink-0">
-              <QuickStat
-                label="Volatilidade"
-                value={`${normalizedVolatility.toFixed(1)}pp`}
-                color="text-rose-400"
-                icon={<Zap size={14} />}
-              />
-              <div className="hidden sm:block w-px h-6 bg-white/10" />
-              <MonteCarloDebugger stats={mcStats} />
-              <div className="w-px h-6 bg-white/10" />
-              <CalibrationAuditPopover />
-              <div className="w-px h-6 bg-white/10" />
-              <QuickStat
-                label="Tendência"
-                value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
-                color="text-emerald-400"
-                icon={<ArrowUpRight size={14} />}
-              />
-              <div className="w-px h-6 bg-white/10" />
-              <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
-              <div className="w-px h-6 bg-white/10" />
-              <QuickStat
-                label="Loop MC"
-                value={`${(data?.calibrationEvents || []).length} ev`}
-                color="text-cyan-400"
-                icon={<Database size={14} />}
-              />
+          {/* FIX (BUG-14): wrapper relativo + fade nas bordas p/ indicar scroll */}
+          <div className="relative z-50 w-full md:w-auto">
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-900/80 to-transparent z-10 rounded-r-3xl" />
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-900/80 to-transparent z-10 rounded-l-3xl" />
+            <div className="flex items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl shadow-inner overflow-x-auto scrollbar-hide">
+              <div className="flex items-center gap-3 sm:gap-5 md:gap-6 sm:px-4 px-2 min-w-max flex-shrink-0">
+                <QuickStat
+                  label="Volatilidade"
+                  value={`${normalizedVolatility.toFixed(1)}pp`}
+                  color="text-rose-400"
+                  icon={<Zap size={14} />}
+                />
+                <div className="hidden sm:block w-px h-6 bg-white/10" />
+                <MonteCarloDebugger stats={mcStats} />
+                <div className="w-px h-6 bg-white/10" />
+                <CalibrationAuditPopover />
+                <div className="w-px h-6 bg-white/10" />
+                <QuickStat
+                  label="Tendência"
+                  value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
+                  color="text-emerald-400"
+                  icon={<ArrowUpRight size={14} />}
+                />
+                <div className="w-px h-6 bg-white/10" />
+                <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
+                <div className="w-px h-6 bg-white/10" />
+                <QuickStat
+                  label="Loop MC"
+                  value={`${(data?.calibrationEvents || []).length} ev`}
+                  color="text-cyan-400"
+                  icon={<Database size={14} />}
+                />
+              </div>
             </div>
           </div>
         </div>
-
         <AnimatePresence initial={false}>
           {degradedCount > 0 && (
             <GovernanceBanner key="governance-banner" degradedCount={degradedCount} />
           )}
         </AnimatePresence>
-
         <div className="space-y-10">
           <div className="w-full">
             <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} />
@@ -806,8 +800,33 @@ function CalibrationAuditPopover({ categoryId = null }) {
     };
   }, [isOpen]);
 
-  if (!import.meta.env.DEV && summary.count === 0) return null;
+  // FIX (BUG-24): focus trap no dialog
+  useEffect(() => {
+    if (!isOpen || !popoverRef.current) return;
+    const node = popoverRef.current;
+    const getFocusables = () =>
+      Array.from(node.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])'));
+    const first = getFocusables()[0];
+    if (first) first.focus();
+    const handleTab = (e) => {
+      if (e.key !== 'Tab') return;
+      const list = getFocusables();
+      if (list.length === 0) return;
+      const firstEl = list[0];
+      const lastEl = list[list.length - 1];
+      if (e.shiftKey && document.activeElement === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && document.activeElement === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
+    node.addEventListener('keydown', handleTab);
+    return () => node.removeEventListener('keydown', handleTab);
+  }, [isOpen]);
 
+  if (!import.meta.env.DEV && summary.count === 0) return null;
   return (
     <div ref={popoverRef} className="relative font-mono text-[11px] select-none shrink-0">
       <button
@@ -906,7 +925,6 @@ const GovernanceBanner = React.memo(React.forwardRef(function GovernanceBanner({
           </p>
         </div>
       </div>
-      {/* PATCH: visível em mobile */}
       <div className="text-right">
         <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest leading-tight">
           O Coach está aplicando<br className="hidden sm:block" />ajustes conservadores.
@@ -921,13 +939,11 @@ function RaioXDashboard({ data }) {
   const rawCategories = data?.categories || [];
   const categories = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
   const [filter, setFilter] = useState('all');
-
   const toFiniteNumber = (value, fallback = 0) => {
     if (value === null || value === undefined || value === '') return fallback;
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
   };
-
   const [mountTime] = useState(() => Date.now());
 
   const calibrationSummary = useMemo(() => {
@@ -989,7 +1005,6 @@ function RaioXDashboard({ data }) {
   const latestWithReliability = sortedLogs.find(
     log => Array.isArray(log?.reliability) && log.reliability.length > 0
   );
-
   const eceValues = sortedLogs.map(log => toFiniteNumber(log?.ece, null)).filter(val => val !== null);
   const avgEce = eceValues.length
     ? eceValues.reduce((a, b) => a + b, 0) / eceValues.length : null;
@@ -1001,20 +1016,14 @@ function RaioXDashboard({ data }) {
       const ece = toFiniteNumber(log?.ece, null);
       if (brier === null && ece === null) return acc;
       if (!acc[cat]) acc[cat] = [];
-      acc[cat].push({
-        ts: toFiniteNumber(log?.timestamp),
-        brier,
-        ece
-      });
+      acc[cat].push({ ts: toFiniteNumber(log?.timestamp), brier, ece });
       return acc;
     }, {});
   }, [sortedLogs]);
-
   const categoryNames = Object.keys(categorySeriesMap);
   const [seriesCategory, setSeriesCategory] = useState(() => categoryNames[0] || '');
   const effectiveCategory = categoryNames.includes(seriesCategory)
     ? seriesCategory : (categoryNames[0] || '');
-
   const temporalSeries = useMemo(() => {
     if (!effectiveCategory) return [];
     return [...(categorySeriesMap[effectiveCategory] || [])]
@@ -1023,7 +1032,6 @@ function RaioXDashboard({ data }) {
   }, [categorySeriesMap, effectiveCategory]);
 
   const calibrationEvents = data?.calibrationEvents;
-
   const learningStats = useMemo(() => {
     const events = Array.isArray(calibrationEvents) ? calibrationEvents : [];
     const observed = events.filter(e => e.observed === 0 || e.observed === 1).length;
@@ -1040,9 +1048,10 @@ function RaioXDashboard({ data }) {
     };
   }, [calibrationEvents, sortedLogs]);
 
-  // PATCH: toBarWidth com mínimo de 2% e escala relativa ao BRIER_VISUAL_MAX
+  // FIX: retorna 0% para valores <= 0 (antes o mínimo de 2% mostrava barra p/ zero)
   const toBarWidth = (value, max = BRIER_VISUAL_MAX) => {
     const safeVal = Number(value) || 0;
+    if (safeVal <= 0) return '0%';
     const pct = (safeVal / max) * 100;
     return `${Math.max(2, Math.min(100, pct))}%`;
   };
@@ -1083,7 +1092,6 @@ function RaioXDashboard({ data }) {
                 >
                   <div className="flex justify-between items-start gap-4 mb-4">
                     <div className="flex flex-col min-w-0 flex-1">
-                      {/* PATCH: title tooltip */}
                       <p
                         className="text-sm sm:text-[15px] text-white font-black tracking-tight truncate mb-1.5"
                         title={displaySubject(row.label, categories)}
@@ -1100,19 +1108,19 @@ function RaioXDashboard({ data }) {
                         </span>
                       </div>
                     </div>
-                    {/* PATCH: gauge responsivo */}
                     <div className="shrink-0 relative w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center">
+                      {/* FIX (BUG-15): strokeWidth 2.5 */}
                       <svg
                         className="w-full h-full -rotate-90 transform drop-shadow-md"
                         viewBox="0 0 36 36"
                         role="img"
                         aria-label={`Brier Score: ${avgBrier.toFixed(2)} de ${BRIER_VISUAL_MAX} máximo`}
                       >
-                        <circle cx="18" cy="18" r={radius} fill="none" className="stroke-black/40" strokeWidth="3" />
+                        <circle cx="18" cy="18" r={radius} fill="none" className="stroke-black/40" strokeWidth="2.5" />
                         <circle
                           cx="18" cy="18" r={radius} fill="none"
                           className={`stroke-current ${colorClass} transition-all duration-1000 ease-out`}
-                          strokeWidth="3"
+                          strokeWidth="2.5"
                           strokeDasharray={circ}
                           strokeDashoffset={offset}
                           strokeLinecap="round"

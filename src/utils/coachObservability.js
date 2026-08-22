@@ -3,7 +3,6 @@
  *
  * Lote 9 — Facade de observabilidade do Coach.
  */
-
 import {
   evaluateModelHealth,
   generateHealthDashboard,
@@ -11,14 +10,12 @@ import {
   loadModelHealthSnapshots,
   clearModelHealthSnapshots,
 } from '../engine/observability/modelHealth.js';
-
 import {
   detectScoreDrift,
   detectVolatilityDrift,
   detectCalibrationDrift,
   detectProbabilityCalibrationDrift,
 } from '../engine/observability/driftMonitor.js';
-
 import { getSafeScore } from './scoreHelper.js';
 import { normalizeDate } from './dateHelper.js';
 
@@ -50,9 +47,14 @@ export function loadCalibrationTelemetryEvents() {
 
 /**
  * Extrai séries de score e volatilidade a partir de simulados.
+ *
+ * FIX (BUG-44): janela de volatilidade configurável via options.volatilityWindow
+ * (default 5, mínimo 3). Early return quando os dados são insuficientes para a
+ * janela escolhida — antes o loop era hardcoded em janela 5 e o early return em < 5.
  */
 export function extractObservabilitySeries(simulados = [], options = {}) {
   const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
+  const windowSize = Math.max(3, Number(options.volatilityWindow) || 5);
 
   const sorted = safeArray(simulados)
     .map((simulado) => ({
@@ -69,20 +71,19 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
     });
 
   const scores = sorted.map((entry) => entry.score);
-
   const volatilities = [];
 
-  // ✅ PATCH-24: Remover check redundante e adicionar early return
-  if (scores.length < 5) return { scores, volatilities: [], sampleSize: scores.length };
-  for (let i = 4; i < scores.length; i++) {
-    const window = scores.slice(i - 4, i + 1);
+  // FIX: early return genérico para a janela configurada
+  if (scores.length < windowSize) {
+    return { scores, volatilities, sampleSize: scores.length };
+  }
 
+  for (let i = windowSize - 1; i < scores.length; i++) {
+    const window = scores.slice(i - windowSize + 1, i + 1);
     const mean = window.reduce((acc, val) => acc + val, 0) / window.length;
-
     const variance =
       window.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) /
       (window.length - 1);
-
     volatilities.push(Math.sqrt(Math.max(0, variance)));
   }
 
@@ -98,7 +99,6 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
  */
 export function observeCoachUrgencyResult(result = {}, options = {}) {
   const mc = result?.details?.monteCarlo || null;
-
   return {
     timestamp: Date.now(),
     categoryId: options.categoryId ?? null,
@@ -132,12 +132,10 @@ export function runCoachDriftGuard(options = {}) {
   const calibrationEvents = Array.isArray(options.calibrationEvents)
     ? options.calibrationEvents
     : loadCalibrationTelemetryEvents();
-
   const scores = Array.isArray(options.scores) ? options.scores : [];
   const volatilities = Array.isArray(options.volatilities)
     ? options.volatilities
     : [];
-
   const probabilityPairs = Array.isArray(options.probabilityPairs)
     ? options.probabilityPairs
     : [];

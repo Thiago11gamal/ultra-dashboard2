@@ -10,12 +10,10 @@
  * - uplift de tarefas;
  * - comparação entre estratégias.
  */
-
 import {
   computeNDCGAtK,
   computeUplift,
 } from '../../utils/coachBacktest.js';
-
 import {
   computeBrierScore,
   computeLogLoss,
@@ -36,9 +34,12 @@ function toFinite(value, fallback = null) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+// FIX: remove acentos (NFD) para casar "Funções" ≙ "funcoes"
 function normalizeName(value) {
   return String(value ?? '')
     .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -47,9 +48,7 @@ function meanValues(values) {
   const finite = (Array.isArray(values) ? values : [])
     .map((v) => Number(v))
     .filter((v) => Number.isFinite(v));
-
   if (finite.length === 0) return null;
-
   return finite.reduce((acc, val) => acc + val, 0) / finite.length;
 }
 
@@ -71,9 +70,7 @@ export function evaluateProbabilityPrediction(
 ) {
   const predictedPct = clampFinite(predictedProbabilityPct, 0, 100, 50);
   const predictedProbability01 = predictedPct / 100;
-
   const observed = observedSuccess ? 1 : 0;
-
   const brier = computeBrierScore(predictedProbability01, observed);
   const logLoss = computeLogLoss(predictedProbability01, observed);
 
@@ -101,7 +98,6 @@ export function evaluateScorePrediction(
   options = {}
 ) {
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
-
   const predicted = clampFinite(predictedScore, 0, maxScore, null);
   const observed = clampFinite(observedScore, 0, maxScore, null);
 
@@ -146,7 +142,6 @@ export function evaluateTopicRanking(
     .filter(Boolean)
     .map((topic, index) => {
       const name = topic?.name ?? topic?.topic ?? topic?.id ?? `topic-${index}`;
-
       return {
         id: normalizeName(name),
         originalName: String(name),
@@ -168,9 +163,7 @@ export function evaluateTopicRanking(
           relevance: 1,
         };
       }
-
       const name = topic?.name ?? topic?.topic ?? topic?.id ?? `actual-${index}`;
-
       return {
         id: normalizeName(name),
         originalName: String(name),
@@ -195,16 +188,13 @@ export function evaluateTopicRanking(
     id: topic.id,
     relevance: topic.relevance,
   }));
-
   const ndcg = computeNDCGAtK(ndcgPredicted, ndcgActual, k);
 
   const actualMap = new Map(
     safeActual.map((topic) => [topic.id, topic.relevance])
   );
-
   const topK = safePredicted.slice(0, k);
   const hits = topK.filter((topic) => actualMap.has(topic.id)).length;
-
   const precisionAtK = topK.length > 0 ? hits / topK.length : 0;
   const recallAtK = actualMap.size > 0 ? hits / actualMap.size : 0;
 
@@ -229,18 +219,14 @@ export function evaluateTopicRanking(
  */
 export function evaluateTaskUplift(events = [], _options = {}) {
   const safeEvents = (Array.isArray(events) ? events : []).filter(Boolean);
-
   const completedDeltas = [];
   const controlDeltas = [];
 
   safeEvents.forEach((event) => {
     const pre = toFinite(event?.preScore, NaN);
     const post = toFinite(event?.postScore, NaN);
-
     if (!Number.isFinite(pre) || !Number.isFinite(post)) return;
-
     const delta = post - pre;
-
     if (event?.completed === true) {
       completedDeltas.push(delta);
     } else {
@@ -250,7 +236,6 @@ export function evaluateTaskUplift(events = [], _options = {}) {
 
   const avgCompletedDelta = meanValues(completedDeltas);
   const avgControlDelta = meanValues(controlDeltas);
-
   const uplift = computeUplift(controlDeltas, completedDeltas);
 
   return {
@@ -270,14 +255,11 @@ export function evaluateTaskUplift(events = [], _options = {}) {
 export function evaluateCoachSnapshot(snapshot = {}, outcome = {}, options = {}) {
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
   const targetScore = clampFinite(options.targetScore, 0, maxScore, maxScore * 0.8);
-
   const predictedProbability = toFinite(snapshot?.probability, null);
 
   let observedSuccess = outcome?.success;
-
   if (observedSuccess === undefined || observedSuccess === null) {
     const observedScore = toFinite(outcome?.score, null);
-
     if (observedScore !== null) {
       observedSuccess = observedScore >= targetScore;
     }
@@ -295,7 +277,6 @@ export function evaluateCoachSnapshot(snapshot = {}, outcome = {}, options = {})
   );
 
   let topicEvaluation = null;
-
   if (
     options.evaluateTopics !== false &&
     Array.isArray(snapshot?.weakTopics) &&
@@ -336,86 +317,69 @@ export function evaluateCoachSnapshot(snapshot = {}, outcome = {}, options = {})
 
 /**
  * Resume várias avaliações.
+ *
+ * FIX: um único loop (reduce) em vez de 10 arrays + forEach separados —
+ * mesma saída, menos alocação e menos passadas.
  */
 export function summarizeCoachEvaluations(evaluations = [], options = {}) {
   const safeEvaluations = (Array.isArray(evaluations) ? evaluations : []).filter(
     Boolean
   );
 
-  const probabilityPairs = [];
-  const briers = [];
-  const logLosses = [];
-  const probabilityAbsoluteErrors = [];
-
-  const scoreAbsoluteErrors = [];
-  const scoreNormalizedErrors = [];
-
-  const ndcgs = [];
-  const precisions = [];
-  const recalls = [];
-
-  const uplifts = [];
-
-  safeEvaluations.forEach((evaluation) => {
-    const probability = evaluation?.probabilityEvaluation;
-
-    if (probability) {
-      probabilityPairs.push({
-        probability: probability.predictedProbability01,
-        observed: probability.observed,
-      });
-
-      if (Number.isFinite(probability.brier)) {
-        briers.push(probability.brier);
+  const acc = safeEvaluations.reduce(
+    (result, evaluation) => {
+      const probability = evaluation?.probabilityEvaluation;
+      if (probability) {
+        result.probabilityPairs.push({
+          probability: probability.predictedProbability01,
+          observed: probability.observed,
+        });
+        if (Number.isFinite(probability.brier)) result.briers.push(probability.brier);
+        if (Number.isFinite(probability.logLoss)) result.logLosses.push(probability.logLoss);
+        if (Number.isFinite(probability.absoluteError)) {
+          result.probabilityAbsoluteErrors.push(probability.absoluteError);
+        }
       }
 
-      if (Number.isFinite(probability.logLoss)) {
-        logLosses.push(probability.logLoss);
+      const score = evaluation?.scoreEvaluation;
+      if (score) {
+        if (Number.isFinite(score.absoluteError)) {
+          result.scoreAbsoluteErrors.push(score.absoluteError);
+        }
+        if (Number.isFinite(score.normalizedError)) {
+          result.scoreNormalizedErrors.push(score.normalizedError);
+        }
       }
 
-      if (Number.isFinite(probability.absoluteError)) {
-        probabilityAbsoluteErrors.push(probability.absoluteError);
+      const topics = evaluation?.topicEvaluation;
+      if (topics) {
+        if (Number.isFinite(topics.ndcg)) result.ndcgs.push(topics.ndcg);
+        if (Number.isFinite(topics.precisionAtK)) result.precisions.push(topics.precisionAtK);
+        if (Number.isFinite(topics.recallAtK)) result.recalls.push(topics.recallAtK);
       }
+
+      const uplift = evaluation?.taskUpliftEvaluation?.uplift;
+      if (Number.isFinite(uplift)) result.uplifts.push(uplift);
+
+      return result;
+    },
+    {
+      probabilityPairs: [],
+      briers: [],
+      logLosses: [],
+      probabilityAbsoluteErrors: [],
+      scoreAbsoluteErrors: [],
+      scoreNormalizedErrors: [],
+      ndcgs: [],
+      precisions: [],
+      recalls: [],
+      uplifts: [],
     }
-
-    const score = evaluation?.scoreEvaluation;
-
-    if (score) {
-      if (Number.isFinite(score.absoluteError)) {
-        scoreAbsoluteErrors.push(score.absoluteError);
-      }
-
-      if (Number.isFinite(score.normalizedError)) {
-        scoreNormalizedErrors.push(score.normalizedError);
-      }
-    }
-
-    const topics = evaluation?.topicEvaluation;
-
-    if (topics) {
-      if (Number.isFinite(topics.ndcg)) {
-        ndcgs.push(topics.ndcg);
-      }
-
-      if (Number.isFinite(topics.precisionAtK)) {
-        precisions.push(topics.precisionAtK);
-      }
-
-      if (Number.isFinite(topics.recallAtK)) {
-        recalls.push(topics.recallAtK);
-      }
-    }
-
-    const uplift = evaluation?.taskUpliftEvaluation?.uplift;
-
-    if (Number.isFinite(uplift)) {
-      uplifts.push(uplift);
-    }
-  });
+  );
 
   const diagnostics =
-    probabilityPairs.length >= 3
-      ? computeCalibrationDiagnostics(probabilityPairs, {
+    acc.probabilityPairs.length >= 3
+      ? computeCalibrationDiagnostics(acc.probabilityPairs, {
           bins: options.bins ?? 6,
         })
       : {
@@ -424,23 +388,21 @@ export function summarizeCoachEvaluations(evaluations = [], options = {}) {
           reliability: [],
         };
 
-  const avgBrier = meanValues(briers);
-  const avgLogLoss = meanValues(logLosses);
-  const avgProbabilityAbsoluteError = meanValues(probabilityAbsoluteErrors);
-
-  const mae = meanValues(scoreAbsoluteErrors);
-  const meanNormalizedError = meanValues(scoreNormalizedErrors);
-
-  const avgNdcg = meanValues(ndcgs);
-  const avgPrecisionAtK = meanValues(precisions);
-  const avgRecallAtK = meanValues(recalls);
-  const avgUplift = meanValues(uplifts);
+  const avgBrier = meanValues(acc.briers);
+  const avgLogLoss = meanValues(acc.logLosses);
+  const avgProbabilityAbsoluteError = meanValues(acc.probabilityAbsoluteErrors);
+  const mae = meanValues(acc.scoreAbsoluteErrors);
+  const meanNormalizedError = meanValues(acc.scoreNormalizedErrors);
+  const avgNdcg = meanValues(acc.ndcgs);
+  const avgPrecisionAtK = meanValues(acc.precisions);
+  const avgRecallAtK = meanValues(acc.recalls);
+  const avgUplift = meanValues(acc.uplifts);
 
   return {
     count: safeEvaluations.length,
     generatedAt: Date.now(),
     probability: {
-      count: probabilityPairs.length,
+      count: acc.probabilityPairs.length,
       avgBrier: avgBrier === null ? null : Number(avgBrier.toFixed(6)),
       avgLogLoss: avgLogLoss === null ? null : Number(avgLogLoss.toFixed(6)),
       avgAbsoluteError:
@@ -452,7 +414,7 @@ export function summarizeCoachEvaluations(evaluations = [], options = {}) {
       reliability: diagnostics.reliability || [],
     },
     score: {
-      count: scoreAbsoluteErrors.length,
+      count: acc.scoreAbsoluteErrors.length,
       mae: mae === null ? null : Number(mae.toFixed(4)),
       meanNormalizedError:
         meanNormalizedError === null
@@ -460,7 +422,7 @@ export function summarizeCoachEvaluations(evaluations = [], options = {}) {
           : Number(meanNormalizedError.toFixed(6)),
     },
     topics: {
-      count: ndcgs.length,
+      count: acc.ndcgs.length,
       avgNdcg: avgNdcg === null ? null : Number(avgNdcg.toFixed(6)),
       avgPrecisionAtK:
         avgPrecisionAtK === null ? null : Number(avgPrecisionAtK.toFixed(6)),
@@ -468,7 +430,7 @@ export function summarizeCoachEvaluations(evaluations = [], options = {}) {
         avgRecallAtK === null ? null : Number(avgRecallAtK.toFixed(6)),
     },
     tasks: {
-      count: uplifts.length,
+      count: acc.uplifts.length,
       avgUplift: avgUplift === null ? null : Number(avgUplift.toFixed(4)),
     },
     strategyIds: [
@@ -483,48 +445,46 @@ export function summarizeCoachEvaluations(evaluations = [], options = {}) {
 
 /**
  * Compara dois summaries.
+ *
+ * FIX: heurística clampada em [-1, 1] (pesos fracionários 0.40/0.25/0.35)
+ * para não produzir scores fora da faixa quando os deltas normalizados
+ * excedem [-1, 1].
  */
 export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
   const baseProbability = baseline?.probability || {};
   const candProbability = candidate?.probability || {};
-
   const baseScore = baseline?.score || {};
   const candScore = candidate?.score || {};
-
   const baseTopics = baseline?.topics || {};
   const candTopics = candidate?.topics || {};
 
   const deltaBrier =
     toFinite(candProbability.avgBrier, 0) - toFinite(baseProbability.avgBrier, 0);
-
   const deltaLogLoss =
     toFinite(candProbability.avgLogLoss, 0) -
     toFinite(baseProbability.avgLogLoss, 0);
-
   const deltaEce =
     toFinite(candProbability.ece, 0) - toFinite(baseProbability.ece, 0);
-
   const deltaMae =
     toFinite(candScore.mae, 0) - toFinite(baseScore.mae, 0);
-
   const deltaNdcg =
     toFinite(candTopics.avgNdcg, 0) - toFinite(baseTopics.avgNdcg, 0);
-
   const deltaPrecision =
     toFinite(candTopics.avgPrecisionAtK, 0) -
     toFinite(baseTopics.avgPrecisionAtK, 0);
 
-  // PATCH: heurística normalizada
   const normBrier = deltaBrier / Math.max(0.001, Math.abs(toFinite(baseProbability.avgBrier, 0.2)));
   const normNdcg = deltaNdcg / Math.max(0.001, Math.abs(toFinite(baseTopics.avgNdcg, 0.5)));
   const normEce = deltaEce / Math.max(0.001, Math.abs(toFinite(baseProbability.ece, 0.15)));
-  const heuristicScore =
-    -normBrier * 40 +
-    -normEce * 25 +
-    normNdcg * 35;
+
+  // FIX: clamp [-1, 1]
+  const heuristicScore = Math.max(-1, Math.min(1,
+    -normBrier * 0.40 +
+    -normEce * 0.25 +
+    normNdcg * 0.35
+  ));
 
   let winner = 'tie';
-
   if (heuristicScore > 0.001) {
     winner = 'candidate';
   } else if (heuristicScore < -0.001) {
@@ -632,18 +592,14 @@ export function buildEvaluationDashboardData(summary = {}) {
 export function saveEvaluationResult(result) {
   const storage = getStorage();
   if (!storage) return false;
-
   try {
     const raw = storage.getItem(EVAL_STORAGE_KEY);
     const parsed = JSON.parse(raw || '[]');
     const current = Array.isArray(parsed) ? parsed : [];
-
     const toAdd = Array.isArray(result) ? result : [result];
-
     const next = [...current, ...toAdd]
       .filter(Boolean)
       .slice(-EVAL_STORAGE_MAX);
-
     storage.setItem(EVAL_STORAGE_KEY, JSON.stringify(next));
     return true;
   } catch {
@@ -657,7 +613,6 @@ export function saveEvaluationResult(result) {
 export function loadEvaluationResults() {
   const storage = getStorage();
   if (!storage) return [];
-
   try {
     const raw = storage.getItem(EVAL_STORAGE_KEY);
     const parsed = JSON.parse(raw || '[]');
@@ -673,7 +628,6 @@ export function loadEvaluationResults() {
 export function clearEvaluationResults() {
   const storage = getStorage();
   if (!storage) return;
-
   try {
     storage.removeItem(EVAL_STORAGE_KEY);
   } catch {

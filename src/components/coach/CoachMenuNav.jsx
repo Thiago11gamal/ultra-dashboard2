@@ -10,6 +10,7 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
     const handleClick = useCallback(() => {
         onClick(tabKey);
     }, [onClick, tabKey]);
+
     return (
         <button
             ref={tabRef}
@@ -50,8 +51,9 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
                     </span>
                 </div>
             </div>
+            {/* FIX (BUG-18): bottom-0 em vez de -bottom-[1px] para não ser cortado por overflow do pai */}
             {active && (
-                <div className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 w-12 h-[2px] bg-indigo-500 rounded-t-full shadow-[0_-2px_8px_rgba(99,102,241,0.5)]" />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] bg-indigo-500 rounded-t-full shadow-[0_-2px_8px_rgba(99,102,241,0.5)]" />
             )}
         </button>
     );
@@ -80,6 +82,21 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     ], []);
 
     const handleKeyDown = useCallback((e) => {
+        // FIX: helper genérico de tab desabilitada
+        const isDisabled = (tab) => tab.key === 'analytics' && !isPremiumBool;
+
+        // FIX (BUG-23): suporte a Home/End (navegação ARIA completa de tablist)
+        if (e.key === 'Home' || e.key === 'End') {
+            e.preventDefault();
+            const enabled = tabs.filter((t) => !isDisabled(t));
+            if (enabled.length === 0) return;
+            const target = e.key === 'Home' ? enabled[0] : enabled[enabled.length - 1];
+            if (target && target.key !== activeTab) {
+                onChangeTab(target.key);
+            }
+            return;
+        }
+
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             e.preventDefault();
             const currentIndex = tabs.findIndex(t => t.key === activeTab);
@@ -91,8 +108,8 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                 if (nextIndex >= tabs.length) nextIndex = 0;
                 if (nextIndex < 0) nextIndex = tabs.length - 1;
                 attempts++;
-            } while (nextIndex !== currentIndex && tabs[nextIndex].key === 'analytics' && !isPremiumBool && attempts < tabs.length);
-            
+            } while (nextIndex !== currentIndex && isDisabled(tabs[nextIndex]) && attempts < tabs.length);
+
             const nextTab = tabs[nextIndex];
             if (nextTab && nextTab.key !== activeTab) {
                 onChangeTab(nextTab.key);

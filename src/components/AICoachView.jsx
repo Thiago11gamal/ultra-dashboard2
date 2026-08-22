@@ -30,24 +30,37 @@ const getMcProbPct = (task) => {
   );
 };
 
+// FIX (BUG-04): protege edge cases — '**' isolado, inner vazio, fragmentos vazios
 function renderBoldText(text) {
   const safeText = String(text || '');
+  if (!safeText.trim()) return null;
   const parts = safeText.split(RX_BOLD).filter(Boolean);
-  return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-      return (
-        <strong key={`bold-${idx}`} className="text-white font-black">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    return (
-      <React.Fragment key={`bold-${idx}`}>
-        {part.replace(/\*\*/g, '')}
-      </React.Fragment>
-    );
-  });
+  return parts
+    .map((part, idx) => {
+      if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+        const inner = part.slice(2, -2).trim();
+        if (!inner) return null;
+        return (
+          <strong key={`bold-${idx}`} className="text-white font-black">
+            {inner}
+          </strong>
+        );
+      }
+      const cleaned = part.replace(/\*\*/g, '');
+      return cleaned ? (
+        <React.Fragment key={`bold-${idx}`}>{cleaned}</React.Fragment>
+      ) : null;
+    })
+    .filter(Boolean);
 }
+
+// FIX (BUG-16): helper de match em escopo de módulo (evita recriação por render)
+const matchesTask = (t, task) => {
+  const idT = getSafeId(t);
+  const idTask = getSafeId(task);
+  if (idT && idTask) return idT === idTask;
+  return t === task || (t.title && t.title === task.title);
+};
 
 const CARD_COLORS = [
   { accent: 'border-l-violet-500', dot: 'bg-violet-500', badge: 'bg-violet-500/10 text-violet-300 border-violet-500/20', glow: 'from-violet-900/20', btnHover: 'hover:bg-violet-600 hover:text-white hover:border-violet-500 hover:shadow-[0_0_20px_-3px_rgba(139,92,246,0.4)]' },
@@ -71,7 +84,6 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
   const displayAssunto = parsed.topic;
   const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
   const col = CARD_COLORS[idx % CARD_COLORS.length];
-
   const mcProbPct = getMcProbPct(task);
   const hasProb = mcProbPct > 0 || task.analysis?.monteCarlo?.probability != null;
   const safeProb = hasProb ? mcProbPct : null;
@@ -84,10 +96,10 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
   const isSrs = isSrsTask;
   const isSafe = isSafeTask;
   const isChaos = isChaosTask;
-
   return (
+    // FIX (BUG-12): h-full para cards de altura uniforme no grid items-stretch
     <div
-      className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
+      className={`group relative flex flex-col h-full p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
         isCompleted
           ? 'opacity-75 border-emerald-500/20 border-l-4 sm:border-l-8 border-l-emerald-500'
           : isPriority
@@ -99,7 +111,6 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
       {isPriority && !isCompleted && (
         <div className="absolute -top-20 -right-20 w-56 h-56 bg-rose-600/20 blur-[80px] rounded-full pointer-events-none animate-pulse" />
       )}
-
       <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-5 gap-4">
         <div className="flex flex-col items-start gap-2 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -157,7 +168,6 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
           <Play size={13} fill="currentColor" className="transition-colors" />
         </button>
       </div>
-
       <div className="relative z-10 flex-1 mb-5">
         {systemAlertMessage ? (
           <h4 className="text-sm sm:text-base font-extrabold text-amber-300 tracking-tight leading-snug">
@@ -178,7 +188,6 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
           </>
         )}
       </div>
-
       {(safeProb !== null || safeVol > 0) && (
         <div className={`relative z-10 grid ${safeProb !== null && safeVol > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-5`}>
           {safeProb !== null && (
@@ -207,7 +216,6 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
           )}
         </div>
       )}
-
       {task.analysis && (
         <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.04]">
           <button
@@ -275,14 +283,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
   const [isExporting, setIsExporting] = useState(false);
   const [viewMode, setViewMode] = useState('planner');
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-
   const categories = useMemo(() => {
     const rawCategories = activeContest?.categories;
     return Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
   }, [activeContest?.categories]);
-
   const safeMaxScore = Number(activeContest?.maxScore) > 0 ? Number(activeContest.maxScore) : 100;
-
   const coachPlanner = useMemo(() => {
     const raw = activeContest?.coachPlanner || {};
     const normalized = {};
@@ -291,12 +296,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     }
     return normalized;
   }, [activeContest?.coachPlanner]);
-
   const coachPlanRaw = useMemo(() => {
     const raw = activeContest?.coachPlan || [];
     return Array.isArray(raw) ? raw : Object.values(raw || {});
   }, [activeContest?.coachPlan]);
-
   const systemAlerts = useMemo(() => {
     const alerts = coachPlanRaw.filter(task => isSystemAlertTask(task?.text || task?.title || ''));
     const uniqueAlertsMap = new Map();
@@ -308,13 +311,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     });
     return Array.from(uniqueAlertsMap.values());
   }, [coachPlanRaw]);
-
   const actionableTasks = useMemo(
     () => coachPlanRaw.filter(task => !isSystemAlertTask(task?.text || task?.title || '')),
     [coachPlanRaw]
   );
   const coachPlan = actionableTasks;
-
   const unallocatedCards = useMemo(() => {
     if (!coachPlan || coachPlan.length === 0) return [];
     const allAssignedIds = new Set();
@@ -327,73 +328,68 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     return coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
   }, [coachPlan, coachPlanner]);
 
+  // FIX (BUG-16): mapa de localização O(1) para handleStartNeural
+  const taskLocationMap = useMemo(() => {
+    const map = new Map();
+    const register = (tasks, source) => {
+      (tasks || []).forEach((t, index) => {
+        const id = getSafeId(t);
+        if (id && !map.has(id)) map.set(id, { tasks, index, source });
+      });
+    };
+    register(unallocatedCards, 'backlog');
+    Object.entries(coachPlanner).forEach(([day, tasks]) => register(tasks, day));
+    register(coachPlan, 'plan');
+    return map;
+  }, [unallocatedCards, coachPlanner, coachPlan]);
+
   const startNeuralSession = useAppStore(state => state.startNeuralSession);
   const navigate = useNavigate();
   const showToast = useToast();
 
+  // FIX (BUG-08/16): lookup O(1) via taskLocationMap, com fallback por título e isolado
   const handleStartNeural = useCallback((task, sourceContextHint) => {
+    const startWith = (tasks, index, source) => {
+      const session = (tasks || []).map(t => ({ ...t, sourceContext: source }));
+      startNeuralSession(session, index);
+      navigate('/pomodoro');
+    };
+
     if (sourceContextHint) {
       const hintTasks = sourceContextHint === 'backlog'
         ? unallocatedCards
         : (coachPlanner[sourceContextHint] || []);
-      const hintIndex = hintTasks.findIndex(t => {
-        const idT = getSafeId(t);
-        const idTask = getSafeId(task);
-        if (idT && idTask) return idT === idTask;
-        return t === task || (t.title && t.title === task.title);
-      });
+      const hintIndex = hintTasks.findIndex(t => matchesTask(t, task));
       if (hintIndex !== -1) {
-        const session = hintTasks.map(t => ({ ...t, sourceContext: sourceContextHint }));
-        startNeuralSession(session, hintIndex);
-        navigate('/pomodoro');
+        startWith(hintTasks, hintIndex, sourceContextHint);
         return;
       }
     }
-    let targetIndex = unallocatedCards.findIndex(t => {
-      const idT = getSafeId(t);
-      const idTask = getSafeId(task);
-      if (idT && idTask) return idT === idTask;
-      return t === task || (t.title && t.title === task.title);
-    });
-    let sessionTasks = unallocatedCards;
-    let sourceContext = 'backlog';
-    if (targetIndex === -1) {
-      const dayEntry = Object.entries(coachPlanner).find(([, tasks]) =>
-        (tasks || []).some(t => {
-          const idT = getSafeId(t);
-          const idTask = getSafeId(task);
-          if (idT && idTask) return idT === idTask;
-          return t === task || (t.title && t.title === task.title);
-        })
-      );
-      if (dayEntry) {
-        sessionTasks = dayEntry[1];
-        targetIndex = sessionTasks.findIndex(t => {
-          const idT = getSafeId(t);
-          const idTask = getSafeId(task);
-          if (idT && idTask) return idT === idTask;
-          return t === task || (t.title && t.title === task.title);
-        });
-        sourceContext = dayEntry[0];
-      } else {
-        sessionTasks = coachPlan;
-        targetIndex = coachPlan.findIndex(t => {
-          const idT = getSafeId(t);
-          const idTask = getSafeId(task);
-          if (idT && idTask) return idT === idTask;
-          return t === task || (t.title && t.title === task.title);
-        });
-      }
-    }
-    if (targetIndex === -1) {
-      startNeuralSession([{ ...task, sourceContext: sourceContext || 'isolated' }], 0);
-      navigate('/pomodoro');
+
+    const id = getSafeId(task);
+    const found = id ? taskLocationMap.get(id) : null;
+    if (found) {
+      startWith(found.tasks, found.index, found.source);
       return;
     }
-    const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext }));
-    startNeuralSession(sessionWithContext, targetIndex);
+
+    // fallback por título (quando ids estão ausentes)
+    for (const [day, tasks] of Object.entries(coachPlanner)) {
+      const idx = (tasks || []).findIndex(t => matchesTask(t, task));
+      if (idx !== -1) {
+        startWith(tasks, idx, day);
+        return;
+      }
+    }
+    const planIdx = coachPlan.findIndex(t => matchesTask(t, task));
+    if (planIdx !== -1) {
+      startWith(coachPlan, planIdx, 'plan');
+      return;
+    }
+
+    startNeuralSession([{ ...task, sourceContext: sourceContextHint || 'isolated' }], 0);
     navigate('/pomodoro');
-  }, [unallocatedCards, coachPlanner, coachPlan, startNeuralSession, navigate]);
+  }, [unallocatedCards, coachPlanner, coachPlan, taskLocationMap, startNeuralSession, navigate]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -490,7 +486,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
           </div>
         </div>
       </div>
-
       <AnimatePresence mode="wait">
         {viewMode === 'cards' && (
           <Motion.div
@@ -523,7 +518,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
+                // FIX (BUG-12): items-stretch para alturas uniformes
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
                   {unallocatedCards.map((task, idx) => (
                     <AICoachCard
                       key={getSafeId(task) || `coach-card-${idx}`}
@@ -546,7 +542,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             )}
           </Motion.div>
         )}
-
         {viewMode === 'planner' && (
           <Motion.div
             key="planner"
@@ -573,7 +568,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 </div>
               )}
             </div>
-
             {systemAlerts.length > 0 && (
               <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {systemAlerts.map((alertTask, idx) => {
@@ -607,6 +601,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     success: { bg: 'bg-[#06140e]', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', titleColor: 'text-emerald-100', descColor: 'text-emerald-200/70', badgeBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300', verdictBg: 'bg-emerald-500/5 text-emerald-400', glowColor: 'bg-emerald-600', Icon: Trophy, isCritical: false },
                     info: { bg: 'bg-slate-900/50', border: 'border-slate-500/20', iconBg: 'bg-slate-500/10', iconColor: 'text-slate-400', titleColor: 'text-slate-100', descColor: 'text-slate-400', badgeBg: 'bg-slate-500/10 border-slate-500/30 text-slate-300', verdictBg: 'bg-slate-500/5 text-slate-400', glowColor: 'bg-slate-600', Icon: AlertCircle, isCritical: false }
                   }[type];
+                  // FIX (BUG-05): parse seguro de volatilidade (regex podia gerar NaN)
+                  const safeVolatilityDisplay = (() => {
+                    const raw = alertTask.analysis?.monteCarlo?.volatility;
+                    const n = typeof raw === 'number' ? raw : parseFloat(String(raw ?? 0).replace(/[^\d.-]/g, ''));
+                    return Number.isFinite(n) ? n.toFixed(2) : '0.00';
+                  })();
                   return (
                     /* PATCH: key estável */
                     <div key={alertTask?.id || `sys-alert-${alertTask?.categoryId || 'cat'}-${idx}`} className={`relative overflow-hidden p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
@@ -648,7 +648,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                                   Volatilidade:{' '}
                                   <span className="text-white ml-1">
-                                    {(Number(String(alertTask.analysis.monteCarlo.volatility || 0).replace(/[^\d.-]/g, '')) || 0).toFixed(2)}
+                                    {safeVolatilityDisplay}
                                   </span>
                                 </span>
                               </div>
@@ -683,7 +683,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 })}
               </div>
             )}
-
             <AICoachPlanner plannerData={coachPlanner} categories={categories} onStartPomodoro={handleStartNeural} />
           </Motion.div>
         )}

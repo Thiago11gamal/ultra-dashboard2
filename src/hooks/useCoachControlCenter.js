@@ -4,7 +4,6 @@ import {
   buildCoachOrchestratorDashboard,
   clearCoachCaches,
 } from '../utils/coachPipeline.js';
-
 import {
   loadLastBacktestReport,
   loadTunerHistory,
@@ -15,21 +14,38 @@ import {
   getSafeBaselineFeatures,
   getStrategySpace,
 } from '../utils/coachOptimizer.js';
-
 import {
   loadCausalModel,
 } from '../utils/coachCausal.js';
-
 import {
   loadModelHealthSnapshots,
 } from '../utils/coachObservability.js';
 
 const CONTROL_CENTER_STORAGE_KEY = 'coach_control_center_state_v1';
 
+// FIX: conjunto de abas válidas para validar estado persistido
+const VALID_TABS = new Set(['overview', 'flags', 'health', 'causal', 'autotuner', 'backtest']);
+
+// FIX: valida shape do estado persistido (evita corromper a UI com dado inválido)
 function loadControlCenterState() {
   try {
     const raw = localStorage.getItem(CONTROL_CENTER_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    const state = {};
+    if (typeof parsed.activeTab === 'string' && VALID_TABS.has(parsed.activeTab)) {
+      state.activeTab = parsed.activeTab;
+    }
+    if (parsed.flagOverrides && typeof parsed.flagOverrides === 'object' && !Array.isArray(parsed.flagOverrides)) {
+      const clean = {};
+      for (const [k, v] of Object.entries(parsed.flagOverrides)) {
+        if (typeof v === 'boolean') clean[k] = v;
+      }
+      state.flagOverrides = clean;
+    }
+    return state;
   } catch {
     return null;
   }
@@ -53,7 +69,6 @@ export function useCoachControlCenter({
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
   const [orchestratorResult, setOrchestratorResult] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [backtestReport, setBacktestReport] = useState(null);
@@ -66,6 +81,9 @@ export function useCoachControlCenter({
   const [lastRunTimestamp, setLastRunTimestamp] = useState(null);
 
   const isMounted = useRef(true);
+  // FIX: contador de execução para descartar resultados obsoletos
+  const runIdRef = useRef(0);
+
   useEffect(() => {
     isMounted.current = true;
     return () => { isMounted.current = false; };
@@ -81,7 +99,6 @@ export function useCoachControlCenter({
       if (persisted.activeTab) setActiveTab(persisted.activeTab);
       if (persisted.flagOverrides) setFlagOverrides(persisted.flagOverrides);
     }
-
     const flags = loadPersistedCoachFlags();
     setCurrentFlags(flags || {});
   }, []);
@@ -97,9 +114,10 @@ export function useCoachControlCenter({
   // Executar orquestrador completo
   // ==========================================================
   const runOrchestrator = useCallback(async (options = {}) => {
+    // FIX: registra esta execução; resultados de execuções anteriores são descartados
+    const runId = ++runIdRef.current;
     setLoading(true);
     setError(null);
-
     try {
       const mergedFeatures = {
         ...currentFlags,
@@ -108,7 +126,6 @@ export function useCoachControlCenter({
         // PATCH: orquestrador configurável
         useCoachOrchestrator: (options.features?.useCoachOrchestrator ?? flagOverrides.useCoachOrchestrator ?? true),
       };
-
       const result = await runCoachOrchestrator(
         { categories, simulados, studyLogs },
         {
@@ -123,25 +140,22 @@ export function useCoachControlCenter({
           force: true,
         }
       );
-
-      // ✅ FIX: Validar result e dash
-      if (isMounted.current && result) {
+      // FIX: valida mount E que esta ainda é a execução mais recente
+      if (isMounted.current && runId === runIdRef.current && result) {
         setOrchestratorResult(result);
         const dash = buildCoachOrchestratorDashboard(result);
         if (dash) setDashboard(dash);
       }
-
-      if (isMounted.current) setLastRunTimestamp(Date.now());
-
+      if (isMounted.current && runId === runIdRef.current) setLastRunTimestamp(Date.now());
       return result;
     } catch (err) {
-      if (isMounted.current) {
+      if (isMounted.current && runId === runIdRef.current) {
         const msg = err?.message || String(err);
         setError(msg);
       }
       return null;
     } finally {
-      if (isMounted.current) setLoading(false);
+      if (isMounted.current && runId === runIdRef.current) setLoading(false);
     }
   }, [categories, simulados, studyLogs, maxScore, targetScore, currentFlags, flagOverrides]);
 
@@ -152,16 +166,12 @@ export function useCoachControlCenter({
     try {
       const bt = loadLastBacktestReport();
       setBacktestReport(bt);
-
       const history = loadTunerHistory();
       setTunerHistory(Array.isArray(history) ? history : []);
-
       const causal = loadCausalModel();
       setCausalModel(causal);
-
       const health = loadModelHealthSnapshots();
       setHealthSnapshots(Array.isArray(health) ? health : []);
-
       const flags = loadPersistedCoachFlags();
       setCurrentFlags(flags || {});
     } catch (err) {
@@ -178,9 +188,9 @@ export function useCoachControlCenter({
   // Executar AutoTuner
   // ==========================================================
   const runAutoTuner = useCallback(async (options = {}) => {
+    const runId = ++runIdRef.current;
     setLoading(true);
     setError(null);
-
     try {
       const result = await runCoachAutoTuner({
         maxScore,
@@ -190,27 +200,24 @@ export function useCoachControlCenter({
         exploration: options.exploration === true,
         minImprovement: options.minImprovement ?? 0.02,
       });
-
-      if (!isMounted.current) return null;
-
+      // FIX: valida mount + execução atual
+      if (!isMounted.current || runId !== runIdRef.current) return null;
       setTunerResult(result);
       loadAuxiliaryData();
-
       if (result?.applied) {
         clearCoachCaches();
         const flags = loadPersistedCoachFlags();
         setCurrentFlags(flags || {});
       }
-
       return result;
     } catch (err) {
-      if (isMounted.current) {
+      if (isMounted.current && runId === runIdRef.current) {
         const msg = err?.message || String(err);
         setError(msg);
       }
       return null;
     } finally {
-      if (isMounted.current) setLoading(false);
+      if (isMounted.current && runId === runIdRef.current) setLoading(false);
     }
   }, [maxScore, loadAuxiliaryData]);
 
@@ -222,13 +229,11 @@ export function useCoachControlCenter({
       const applied = applyRecommendedFlags(recommendation, {
         force: options.force === true,
       });
-
       if (applied) {
         clearCoachCaches();
         const flags = loadPersistedCoachFlags();
         setCurrentFlags(flags || {});
       }
-
       return applied;
     } catch (err) {
       console.warn('[ControlCenter] Failed to apply recommendation:', err);
@@ -246,13 +251,11 @@ export function useCoachControlCenter({
         ...(globalThis.__COACH_FEATURES__ || {}),
         ...baseline,
       };
-
       globalThis.__COACH_FEATURES__ = next;
       persistCoachFlags(next);
       clearCoachCaches();
       setCurrentFlags(next);
       setFlagOverrides({});
-
       return true;
     } catch {
       return false;
@@ -263,16 +266,17 @@ export function useCoachControlCenter({
   // Toggle de flag individual
   // ==========================================================
   const toggleFlag = useCallback((flagKey, value) => {
+    // FIX: só aceita chave string + valor boolean
+    if (typeof flagKey !== 'string' || typeof value !== 'boolean') return;
+
     setFlagOverrides((prev) => ({
       ...prev,
       [flagKey]: value,
     }));
-
     const next = {
       ...(globalThis.__COACH_FEATURES__ || {}),
       [flagKey]: value,
     };
-
     globalThis.__COACH_FEATURES__ = next;
     persistCoachFlags(next);
     setCurrentFlags(next);
@@ -316,7 +320,6 @@ export function useCoachControlCenter({
     hasError,
     isReady,
     lastRunTimestamp,
-
     // Dados principais
     orchestratorResult,
     dashboard,
@@ -329,7 +332,6 @@ export function useCoachControlCenter({
     currentFlags,
     flagOverrides,
     strategySpace,
-
     // Ações
     runOrchestrator,
     loadAuxiliaryData,

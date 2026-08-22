@@ -1,74 +1,65 @@
-// ==================== COACH FEATURE FLAGS ====================
-// Permite evoluir o motor matemático por lotes sem quebrar o comportamento atual.
+/**
+ * coachFeatures.js
+ *
+ * Feature flags para evolução por lotes do motor Coach.
+ */
 
 const DEFAULT_COACH_FEATURES = Object.freeze({
-  // ==================== Lote 1 ====================
+  // Lote 1 — State-Space
   useStateSpace: false,
   useStateSpaceAverage: false,
   useStateSpaceTrend: false,
-
-  // ==================== Lote 2 ====================
+  // Lote 2 — Volatilidade
   useDynamicVolatility: false,
   useGarchVolatility: false,
   useDynamicVolatilityOverride: false,
-
-  // ==================== Lote 3 ====================
+  // Lote 3 — Posterior MC
   usePosteriorMonteCarlo: false,
   usePosteriorMonteCarloOverride: false,
-
-  // ==================== Lote 4 ====================
+  // Lote 4 — Bayesian Topics
   useBayesianTopics: false,
   useBayesianTopicsForUrgency: false,
-
-  // ==================== Lote 5 ====================
+  // Lote 5 — Decision Utility
   useDecisionUtility: false,
   useDecisionUtilityForTopics: false,
   useDecisionUtilityForBestTask: false,
   useBanditPlanner: false,
-
-  // ==================== Lote 6 ====================
+  // Lote 6 — LLM
   useLLMExplanations: false,
   useLLMInsights: false,
   useLLMTaskClassifier: false,
   useLLMStrictValidation: false,
-
-  // ==================== Lote 7 ====================
+  // Lote 7 — Graph + FSRS
   useKnowledgeGraph: false,
   useKnowledgeGraphForTopics: false,
   useAdvancedFsrs: false,
   useFsrsForSrsBoost: false,
   useFsrsTopicScheduling: false,
-
-  // ==================== Lote 8 ====================
+  // Lote 8 — Evaluation
   useEvaluationTelemetry: false,
   useStrategyBacktester: false,
   useTopicRankEvaluation: false,
-
-  // ==================== Lote 9 ====================
+  // Lote 9 — Observability
   useObservability: false,
   useDriftGuard: false,
   useModelHealthTelemetry: false,
   useDriftAlerts: false,
-
-  // ==================== Lote 10 ====================
+  // Lote 10 — AutoTuner
   useMetaOptimizer: false,
   useAutoTuner: false,
   useAutoFlagApplication: false,
   useAutoRollback: false,
-
-  // ==================== Lote 11 ====================
+  // Lote 11 — Causal
   useCausalUplift: false,
   usePersonalizedPolicy: false,
   useCausalTaskSelection: false,
   useCausalBootstrap: false,
-
-  // ==================== Lote 12 ====================
+  // Lote 12 — Orchestrator
   useCoachOrchestrator: false,
   useOrchestratorHealth: false,
   useOrchestratorLLM: false,
   useOrchestratorAutoTuner: false,
-
-  // ==================== Lote 13 ====================
+  // Lote 13 — Control Center
   useCoachControlCenter: false,
   useControlCenterFlagsPanel: false,
   useControlCenterHealthPanel: false,
@@ -88,11 +79,12 @@ const DEFAULT_COACH_FEATURES = Object.freeze({
  * 4. fallback
  */
 export function getCoachFeature(options, key, fallback = false) {
+  // FIX: guarda contra key inválida antes de qualquer acesso
+  if (typeof key !== 'string' || key === '') return fallback;
   try {
     if (options?.features && typeof options.features[key] === 'boolean') {
       return options.features[key];
     }
-
     if (
       typeof globalThis !== 'undefined' &&
       globalThis.__COACH_FEATURES__ &&
@@ -100,18 +92,22 @@ export function getCoachFeature(options, key, fallback = false) {
     ) {
       return globalThis.__COACH_FEATURES__[key];
     }
-
     if (typeof DEFAULT_COACH_FEATURES[key] === 'boolean') {
       return DEFAULT_COACH_FEATURES[key];
     }
-
     return fallback;
   } catch {
     return fallback;
   }
 }
 
+// PATCH-NOVO: validação de chave para toggleFlag / painéis de flags
+export function isValidFeatureKey(key) {
+  return typeof key === 'string' && Object.prototype.hasOwnProperty.call(DEFAULT_COACH_FEATURES, key);
+}
+
 export default {
   getCoachFeature,
+  isValidFeatureKey,
   DEFAULT_COACH_FEATURES,
 };

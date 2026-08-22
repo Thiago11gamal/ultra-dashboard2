@@ -65,6 +65,7 @@ export const getLocalMidnight = (date = new Date()) => {
       return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
     }
     // ✅ FIX: Offset fixo de Manaus (-04:00) em vez de timezone local
+    // eslint-disable-next-line no-restricted-syntax
     return new Date(`${dateKey}T00:00:00-04:00`);
   } catch {
     const utc = new Date(date);

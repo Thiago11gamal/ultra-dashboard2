@@ -23,7 +23,6 @@ import { estimateDynamicVolatility } from '../engine/probabilistic/volatility.js
 import { estimatePosteriorPredictive } from '../engine/probabilistic/posteriorPredictive.js';
 import { estimateTopicProficiencies } from '../engine/probabilistic/bayesianTopics.js';
 import {
-  computeDecisionUtility,
   rankDecisionCandidates,
 } from '../engine/probabilistic/decisionEngine.js';
 import {
@@ -36,8 +35,9 @@ import {
 } from '../engine/probabilistic/fsrs.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { computeAgilityMetrics } from '../engine/stats.js';
-import { cleanCoachTags } from './coachText.js';
-import { safeArray, getCalibrationKey, hashString } from './coachSafe.js';
+// import { cleanCoachTags } from './coachText.js';
+// FIX (BUG-13): hashString64 disponível para cache keys compactas
+import { safeArray, getCalibrationKey, hashString, hashString64 } from './coachSafe.js';
 
 export {
     deriveAdaptiveRiskThresholds,
@@ -54,7 +54,6 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 // LRU Cache for urgency calculations
 export const _urgencyCache = new Map();
 export const clearUrgencyCache = () => _urgencyCache.clear();
-
 export const _topicsCache = new Map();
 export const clearTopicsCache = () => _topicsCache.clear();
 
@@ -88,8 +87,23 @@ function cacheGet(cache, key) {
   return entry.value;
 }
 
-const sanitizeMinutes = (mins) => Math.min(720, Math.max(0, Number(mins) || 0));
+// FIX (BUG-14): deep clone robusto — preserva Date, Map, Set, undefined
+// (JSON.parse(JSON.stringify()) perde esses tipos no fallback)
+function deepClone(value) {
+  if (value === null || typeof value !== 'object') return value;
+  try {
+    if (typeof structuredClone === 'function') return structuredClone(value);
+  } catch { /* fallback abaixo */ }
+  if (Array.isArray(value)) return value.map(deepClone);
+  if (value instanceof Date) return new Date(value.getTime());
+  if (value instanceof Map) return new Map([...value].map(([k, v]) => [deepClone(k), deepClone(v)]));
+  if (value instanceof Set) return new Set([...value].map(deepClone));
+  const out = {};
+  for (const [k, v] of Object.entries(value)) out[k] = deepClone(v);
+  return out;
+}
 
+const sanitizeMinutes = (mins) => Math.min(720, Math.max(0, Number(mins) || 0));
 const clamp = (value, min, max) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return min;
@@ -108,11 +122,9 @@ export const DEFAULT_CONFIG = {
     EFFICIENCY_MAX: 10,
     SRS_BOOST: 16,
     BASE_HOURS_THRESHOLD: 5,
-
     // Normalização
     NORMALIZATION_CEILING: 170,
     CRITICAL_THRESHOLD: 122,
-
     // Monte Carlo
     MC_SIMULATIONS: 800,
     MC_MIN_DATA_POINTS: 3,
@@ -120,7 +132,6 @@ export const DEFAULT_CONFIG = {
     MC_PROB_SAFE: 90,
     MC_VOLATILITY_HIGH: 8,
     INSTABILITY_MSSD_DIVISOR: 12,
-
     MC_BACKTEST_HORIZON: 3,
     MC_BACKTEST_HORIZON_MAX: 6,
     MC_CALIBRATION_BRIER_BASELINE: 0.18,
@@ -135,7 +146,6 @@ export const DEFAULT_CONFIG = {
     MC_ECE_BINS_MID: 6,
     MC_ECE_BINS_MAX: 8,
     MC_LOW_SAMPLE_THRESHOLD: 10,
-
     MC_BOOST_DANGER_BASE: 10,
     MC_BOOST_DANGER_RANGE: 12,
     MC_BOOST_MODERATE_BASE: 10,
@@ -154,7 +164,6 @@ function getDynamicTrendThreshold(currentScore, maxScore) {
 
 // ==================== FUNÇÕES AUXILIARES ====================
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
 const getDaysDiff = (newer, older) => {
     const d1 = normalizeDate(newer) || new Date(0);
     const d2 = normalizeDate(older) || new Date(0);
@@ -166,33 +175,31 @@ const getDaysDiff = (newer, older) => {
  * - monotônico com os dias restantes
  * - menos distorção para veteranos
  * - curva logística mais justa e explicável
+ *
+ * PATCH: daysToExam === 0 → curva logística converge para ~2.0 (máxima urgência no dia da prova)
+ * daysToExam < 0 → retorna 1.0 (prova já passou)
  */
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
     if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
     if (daysToExam < 0) return 1.0;
-    // PATCH: removido early return daysToExam === 0
+    if (daysToExam === 0) return 2.0;
     // A curva logística já converge para ~2.0 naturalmente
     let criticalHorizon = 21;
     let timeDivisor = 7;
-
     const safeFirstActivity = normalizeDate(firstActivityDate);
     if (safeFirstActivity && !isNaN(safeFirstActivity.getTime())) {
         const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
         const refTime = referenceDate.getTime();
         const firstTime = safeFirstActivity.getTime();
-
         if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
-
         const journeyDays = Math.max(0, refTime - firstTime) / 86400000;
         // ✅ FIX: Validar journeyDays antes de calcular totalJourneyDays
         if (!Number.isFinite(journeyDays) || journeyDays <= 0) return 1.0;
         const safeDays = Number.isFinite(daysToExam) ? Math.max(0, daysToExam) : 0;
         const totalJourneyDays = Math.max(1, journeyDays) + safeDays;
-
         criticalHorizon = Math.max(14, Math.min(35, totalJourneyDays * 0.08));
         timeDivisor = Math.max(7, Math.min(60, totalJourneyDays * 0.15));
     }
-
     const timeDist = Number.isFinite(daysToExam) ? Number(daysToExam) : criticalHorizon;
     const urgency = 1.0 + (1.0 / (1.0 + Math.exp((timeDist - criticalHorizon) / timeDivisor)));
     return Number(Math.min(2.0, urgency).toFixed(4));
@@ -211,7 +218,6 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
         cfg,
         desiredRetention: 0.85,
       });
-
       if (fsrsData) {
         return fsrsData;
       }
@@ -231,23 +237,19 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
   );
 
   // ✅ FIX: Validar retention antes de calcular boost
-  const retention = Number.isFinite(forgettingData.retentionPct) 
-    ? forgettingData.retentionPct 
+  const retention = Number.isFinite(forgettingData.retentionPct)
+    ? forgettingData.retentionPct
     : 100;
 
   if (retention < 75) {
     const intensity = Math.pow((75 - retention) / 75, 1.2);
     const boost = cfg.SRS_BOOST * 2.0 * intensity;
-
     let label;
-
     if (retention < 30) label = "⚠️ Memória Crítica (Risco de Branco)";
     else if (retention < 55) label = "🧠 Revisão Necessária (Curva de Esquecimento)";
     else label = "🔄 Revisão de Reforço";
-
     return { boost, label };
   }
-
   return { boost: 0, label: null };
 }
 
@@ -277,41 +279,31 @@ export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, gl
 export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
     const n = history.length;
     const fallbackVol = 0.08 * maxScore;
-
     if (n < 2) return fallbackVol;
-
     const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
     const validScores = safeHistory
         .map(h => getSafeScore(h, maxScore))
         .filter(s => Number.isFinite(s));
-
     const validN = validScores.length;
     if (validN < 2) return fallbackVol;
-
     const mean = kahanSum(validScores) / validN;
     const devs = validScores.map(val => Math.pow(val - mean, 2));
     const variance = kahanSum(devs) / (validN - 1);
     const empiricalVol = Math.sqrt(Math.max(0, variance));
-
     const shrinkFactor = validN / (validN + 4);
     return empiricalVol * shrinkFactor + fallbackVol * (1 - shrinkFactor);
 }
 
 export const sanitizeNum = (val) => {
     if (val === null || val === undefined || val === '') return NaN;
-
     let str = String(val).trim();
     str = str.replace(/[%\s]/g, '');
-
     if (!str) return NaN;
-
     const hasComma = str.includes(',');
     const hasDot = str.includes('.');
-
     if (hasComma && hasDot) {
         const lastComma = str.lastIndexOf(',');
         const lastDot = str.lastIndexOf('.');
-
         if (lastComma > lastDot) {
             // BR: 1.234,56
             str = str.replace(/\./g, '').replace(',', '.');
@@ -324,7 +316,6 @@ export const sanitizeNum = (val) => {
     } else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
         str = str.replace(/\./g, '');
     }
-
     const n = Number(str);
     return Number.isFinite(n) ? n : NaN;
 };
@@ -333,20 +324,16 @@ export const getCoachPriorities = (topicsData) => {
   if (!Array.isArray(topicsData)) return [];
 
   const useBayesian = getCoachFeature(null, 'useBayesianTopics', false);
-
   if (useBayesian) {
     try {
       const bayesianInput = topicsData.map(topic => {
         const parsedAcertos = sanitizeNum(topic.acertos);
         const parsedCorrect = sanitizeNum(topic.correct);
         const parsedTotal = sanitizeNum(topic.total);
-
         const correct = Number.isFinite(parsedAcertos)
           ? parsedAcertos
           : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
-
         const total = Number.isFinite(parsedTotal) ? parsedTotal : 0;
-
         return {
           name: topic.name || topic.topic || topic.id || 'Tópico',
           total,
@@ -401,11 +388,9 @@ export const getCoachPriorities = (topicsData) => {
     const parsedAcertos = sanitizeNum(topic.acertos);
     const parsedCorrect = sanitizeNum(topic.correct);
     const parsedTotal = sanitizeNum(topic.total);
-
     const c = Number.isFinite(parsedAcertos)
       ? parsedAcertos
       : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
-
     const tot = Number.isFinite(parsedTotal) ? parsedTotal : 0;
 
     let realProficiency = computeBayesianProficiency(c, tot, mediaGlobal, globalTotal);
@@ -426,10 +411,8 @@ export const getCoachPriorities = (topicsData) => {
 // ==================== FUNÇÃO PRINCIPAL ====================
 export const extractMetrics = (category, simulados = [], studyLogs = [], options = {}) => {
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
-
     const safeCategory = category || {};
     const categoryId = safeCategory.id;
-
     const calibrationHistory = options.calibrationHistoryByCategory?.[getCalibrationKey(categoryId)] || [];
     const rollingCalibration = computeRollingCalibrationParams(calibrationHistory, {
         baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
@@ -452,14 +435,12 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
-
     const targetScoreLabel = options.targetScoreLabel ?? Math.round((targetScore / maxScore) * 100);
 
     let rawWeightVal = safeCategory.weight;
     if (typeof rawWeightVal === 'string') {
         rawWeightVal = rawWeightVal.replace(/\./g, '').replace(',', '.');
     }
-
     const parsedWeight = Number(rawWeightVal);
     const rawWeight = Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 5;
     const boundedWeight = Math.min(10, Math.max(1, rawWeight));
@@ -519,7 +500,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     if (relevantSimulados.length > 0) {
         const coachAdaptive = deriveCoachAdaptiveParams(simuladosToHistory(relevantSimulados, maxScore), maxScore, cfg);
-
         const today = normalizeDate(referenceDate) || referenceDate;
         const K = coachAdaptive.decayK;
         const PESO_MIN = coachAdaptive.minWeight;
@@ -528,25 +508,19 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         const calculateExponentialScore = (dataset) => {
             let weightedSum = 0;
             let totalWeight = 0;
-
             dataset.forEach(s => {
                 const sScore = getSafeScore(s, maxScore);
                 if (!Number.isFinite(sScore)) return;
-
                 const simDate = normalizeDate(s.date || s.createdAt) || new Date(0);
                 const days = getDaysDiff(today, simDate);
-
                 let timeWeight = Math.exp(-K * days);
                 if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
-
                 const rawTotal = Math.max(1, Number(s.total) || getSyntheticTotal(maxScore));
                 const volumeWeight = Math.sqrt(Math.min(rawTotal, maxScore * 2));
                 const peso = timeWeight * volumeWeight;
-
                 weightedSum += sScore * peso;
                 totalWeight += peso;
             });
-
             return totalWeight > 0 ? weightedSum / totalWeight : (maxScore / 2);
         };
 
@@ -555,7 +529,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             : referenceNow;
 
         const SESSION_GAP_MS = 60 * 60 * 1000;
-
         let pastSimulados = relevantSimulados.filter(s => {
             const sTime = (normalizeDate(s.date || s.createdAt) || new Date(0)).getTime();
             return sTime < (mostRecentSimDate - SESSION_GAP_MS);
@@ -570,7 +543,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         if (pastSimulados.length > 0) {
             const notaAnterior = calculateExponentialScore(pastSimulados);
             const diff = notaBruta - notaAnterior;
-
             let clampedDiff = diff;
             if (diff > DELTA) clampedDiff = DELTA;
             else if (diff < -DELTA) clampedDiff = -DELTA;
@@ -591,13 +563,11 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         }
     } else {
         const domain = Math.max(1e-6, maxScore - minScore);
-
         const globalAnchor = Number.isFinite(options.globalMcStats?.currentMean)
             ? options.globalMcStats.currentMean
             : (globalBaselinePct !== 50
                 ? (globalBaselinePct / 100) * maxScore
                 : minScore + 0.5 * domain);
-
         averageScore = clamp(globalAnchor, minScore, maxScore);
     }
 
@@ -622,7 +592,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         const sortedLogs = [...validStudyLogs].sort((a, b) =>
             (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime()
         );
-
         const logDate = normalizeDate(sortedLogs[0].date) || new Date(0);
         if (logDate > lastDate) lastDate = logDate;
     }
@@ -652,9 +621,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     // ==================== LOTE 1: STATE-SPACE / KALMAN ====================
     let stateSpace = null;
-
     const useStateSpace = getCoachFeature(options, 'useStateSpace', false);
-
     if (useStateSpace && trendHistory.length >= 3) {
       try {
         stateSpace = kalmanAbilityTrend(trendHistory, {
@@ -679,7 +646,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const rawTrend = stateSpace && getCoachFeature(options, 'useStateSpaceTrend', false)
       ? stateSpace.trendPerMonth
       : calculateSlope(trendHistory, maxScore) * 30;
-    // =====================================================================
+
     const limiteSuperior = maxScore - averageScore;
     const limiteInferior = -averageScore;
     const trend = Math.max(limiteInferior, Math.min(limiteSuperior, rawTrend));
@@ -710,7 +677,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
         if (dynamicVolatility && Number.isFinite(dynamicVolatility.volatility)) {
           const dynamicVol = clamp(dynamicVolatility.volatility, 0, maxScore);
-
           if (getCoachFeature(options, 'useDynamicVolatilityOverride', false)) {
             mssdVolatility = dynamicVol;
           } else {
@@ -728,7 +694,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         mssdVolatility = baseMssdVolatility;
       }
     }
-    // ======================================================================
 
     const mcAdaptive = {
         ...deriveCoachAdaptiveParams(mcHistory, maxScore, cfg),
@@ -741,7 +706,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         : cfg.MC_SIMULATIONS;
 
     const DISTANCE_THRESHOLD = 0.15 * maxScore;
-
     let effectiveMCTarget = targetScore;
     let effectiveMCDays = Number.isFinite(daysToExam)
         ? Math.max(0, Math.min(daysToExam, 90))
@@ -750,12 +714,10 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     if (targetScore - averageScore > DISTANCE_THRESHOLD) {
         effectiveMCTarget = averageScore + Math.max(mssdVolatility, maxScore * 0.05) + (maxScore * 0.02);
         effectiveMCTarget = Math.min(effectiveMCTarget, targetScore);
-
         if (Number.isFinite(daysToExam)) {
             const totalGap = Math.max(1, targetScore - averageScore);
             const proximalGap = effectiveMCTarget - averageScore;
             const gapRatio = clamp(proximalGap / totalGap, 0, 1);
-
             effectiveMCDays = daysToExam > 0
                 ? Math.max(1, Math.min(daysToExam, Math.max(7, Math.floor(gapRatio * daysToExam))))
                 : 0;
@@ -811,26 +773,20 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
       try {
         const safeStateSpace = typeof stateSpace !== 'undefined' ? stateSpace : null;
         const safeDynamicVolatility = typeof dynamicVolatility !== 'undefined' ? dynamicVolatility : null;
-
         const domain = Math.max(1e-6, maxScore - minScore);
-
         const fallbackAbilitySd = Math.max(
           domain * 0.02,
           (Number.isFinite(mssdVolatility) ? mssdVolatility : domain * 0.05) /
             Math.sqrt(Math.max(2, (lastNScores || []).length))
         );
-
         const fallbackTrendPerDay = Number.isFinite(trend)
           ? trend / 30
           : 0;
-
         const fallbackTrendSd = Math.max(
           domain * 0.0015,
           Math.abs(fallbackTrendPerDay) * 0.35
         );
-
         const medianGapDays = safeDynamicVolatility?.medianGapDays ?? 7;
-
         const fallbackDailyVolatility = Number.isFinite(mssdVolatility)
           ? mssdVolatility / Math.sqrt(Math.max(1, medianGapDays))
           : domain * 0.02;
@@ -882,7 +838,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
         if (posteriorMc && Number.isFinite(posteriorMc.probability)) {
           finalMcProbability = clamp(posteriorMc.probability, 0, 100);
-
           finalMcResult = {
             ...mcResult,
             probability: finalMcProbability,
@@ -912,8 +867,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         finalMcProbability = baseMcProbability;
       }
     }
-
-    // ==================================================================================
 
     return {
         cfg,
@@ -989,13 +942,10 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         maxScore,
         globalProjectedMean
     } = metrics;
-
     const minScore = metrics.minScore ?? 0;
     const targetScore = metrics.targetScore ?? (maxScore * 0.8);
     const domain = Math.max(1e-6, maxScore - minScore);
-
     const hasData = (simuladosWithMaxScore?.length || 0) > 0 || (categoryStudyLogs?.length || 0) > 0;
-
     // FIX: agilidade não entra mais no forgetting risk
     const forgetting = computeForgettingRisk(
         simuladosWithMaxScore,
@@ -1005,60 +955,48 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         backtestWeights?.effectiveN || simuladosWithMaxScore.length,
         recencyUnknown ? null : daysSinceLastStudy
     );
-
     const performanceDeficit = Math.max(0, targetScore - averageScore);
     const gapRange = Math.max(1e-6, targetScore - minScore);
     const gapRatio = clamp(performanceDeficit / gapRange, 0, 1);
-
     // ✅ FIX: Adicionar validação de retention
-    const safeRetention = Number.isFinite(forgetting.retentionPct) 
-        ? forgetting.retentionPct 
+    const safeRetention = Number.isFinite(forgetting.retentionPct)
+        ? forgetting.retentionPct
         : 100;
     const memoryRisk = !hasData
         ? 8
         : clamp(35 * Math.pow(1 - safeRetention / 100, 1.5), 2, 35);
-    const safeMssdVolatility = Number.isFinite(mssdVolatility) 
-        ? mssdVolatility 
+    const safeMssdVolatility = Number.isFinite(mssdVolatility)
+        ? mssdVolatility
         : 0;
     const volatilityRiskPct = clamp((safeMssdVolatility / domain) * 100, 0, 35);
-
     const weightMultiplier = 1 + ((boundedWeight - 5) / 5) * 0.40;
-
     const crunchMultiplier = getCrunchMultiplier(
         daysToExam,
         rootActivityDate,
         metrics.referenceDate
     );
-
     const safeTasksArray = Array.isArray(safeCategory?.tasks)
         ? safeCategory.tasks
         : Object.values(safeCategory?.tasks || {});
-
     const hasHighPriorityTasks = safeTasksArray.some(t => t && !t.completed && t.priority === 'high');
     const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
-
     const totalTasks = safeTasksArray.length;
     const completedTasks = safeTasksArray.filter(t => t?.completed).length;
     const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 1.0;
     const inefficiency = Math.max(0, 1 - completionRate);
-
     let empiricalTrust = 1.0;
     if (!hasData) {
         const globalSignal = computeAdaptiveCoachWeight(metrics.trendHistory || []);
         empiricalTrust = Math.max(0.2, globalSignal?.confidenceWeight ?? 0.2);
     }
-
     const inefficiencyPenaltyMultiplier = totalTasks >= 5
         ? 1 + (inefficiency * 0.15 * empiricalTrust)
         : 1.0;
-
     // SCORE: agora mede distância até a meta, não até 100%
     const scoreComponent = clamp(gapRatio * cfg.SCORE_MAX, 0, cfg.SCORE_MAX);
-
     // RECENCY: recência desconhecida não é mais máxima
     const effectiveRiskDays = recencyUnknown ? 5 : Math.min(daysSinceLastStudy, 45);
     const recencyFactor = 1 - Math.exp(-effectiveRiskDays / 8);
-
     const recencyRaw =
         cfg.RECENCY_MAX *
         (memoryRisk / 35) *
@@ -1066,33 +1004,26 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         crunchMultiplier *
         (backtestWeights?.recencyWeight ?? 1) *
         inefficiencyPenaltyMultiplier;
-
     const recencyComponent = clamp(recencyRaw, 0, cfg.RECENCY_MAX * 1.2);
-
     // INSTABILITY: mais justa, baseada em % do domínio e com filtro de ruído
     const lastNCount = Math.max(2, (lastNScores || []).length || 2);
     const trendNoise = 0.75 * (mssdVolatility / Math.sqrt(lastNCount));
     const trendThreshold = Math.max(getDynamicTrendThreshold(averageScore, maxScore), trendNoise);
-
     let trendModifier = 1;
     if (trend > trendThreshold) {
         trendModifier = 0.55;
     } else if (trend < -trendThreshold) {
         trendModifier = 1.25;
     }
-
     const instabilityRaw =
         cfg.INSTABILITY_MAX *
         Math.min(1, volatilityRiskPct / 12) *
         trendModifier *
         (backtestWeights?.instabilityWeight ?? 1);
-
     const instabilityComponent = clamp(instabilityRaw, 0, cfg.INSTABILITY_MAX);
-
     // MC BOOST
     let mcUrgencyBoost = 0;
     let mcRiskLabel = null;
-
     const adaptiveRisk = deriveAdaptiveRiskThresholds(
         lastNScores,
         mssdVolatility,
@@ -1100,13 +1031,11 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         maxScore,
         mcResult?.predObsPairs || []
     );
-
     if (globalProjectedMean != null && globalProjectedMean > (averageScore + maxScore * 0.1)) {
         const haloBoost = Math.min(6, (globalProjectedMean - averageScore) * 0.2);
         adaptiveRisk.danger = Math.min(99, adaptiveRisk.danger + haloBoost);
         adaptiveRisk.safe = Math.min(99, adaptiveRisk.safe + haloBoost);
     }
-
     if (mcHasData && mcProbability !== null) {
         const continuous = computeContinuousMcBoost(
             mcProbability,
@@ -1116,114 +1045,85 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
             maxScore,
             cfg
         );
-
         mcUrgencyBoost = continuous.boost;
         mcRiskLabel = continuous.riskLabel;
-
         const globalProbability = options.globalMcStats && Number.isFinite(options.globalMcStats.probability)
             ? options.globalMcStats.probability
             : null;
-
         if (globalProbability != null && globalProbability < (mcProbability * 0.8)) {
             mcUrgencyBoost += 4;
             mcRiskLabel = mcRiskLabel || 'elevated_global_risk';
         }
     }
-
     const mcUrgencyBoostClamped = clamp(
         mcUrgencyBoost,
         cfg.MC_BOOST_SAFE_PENALTY ?? -6,
         25
     );
-
     // Burnout / hours
     const totalMinutes = (categoryStudyLogs || []).reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
     const totalHours = totalMinutes / 60;
-
     const sortedLogsForBurnout = [...(categoryStudyLogs || [])].sort((a, b) =>
         (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(b.date) || new Date(0)).getTime()
     );
-
     const rollingWindowMs = 28 * MS_PER_DAY;
     const nowMs = metrics.referenceNow;
-
     const recentBaselineLogs = sortedLogsForBurnout.filter(log =>
         (nowMs - (normalizeDate(log.date) || new Date(0)).getTime()) <= rollingWindowMs
     );
-
     const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0) / 60;
-
     const firstLogTime = sortedLogsForBurnout.length > 0
         ? (normalizeDate(sortedLogsForBurnout[0].date) || new Date(nowMs)).getTime()
         : nowMs;
-
     const recentSpanDays = recentBaselineLogs.length > 0
         ? Math.max(1, (nowMs - (normalizeDate(recentBaselineLogs[0].date) || new Date(nowMs)).getTime()) / MS_PER_DAY)
         : Math.max(1, (nowMs - firstLogTime) / MS_PER_DAY);
-
     const activeWeeks = Math.max(1, Math.min(4, recentSpanDays / 7));
     const baselineHoursPerWeek = recentBaselineLogs.length > 0 ? (recentBaselineHours / activeWeeks) : 5.0;
     const dynamicBurnoutThreshold = Math.max(15.0, baselineHoursPerWeek * 1.8);
-
     // Balance bridge boost
     const allCategoriesSafe = options.allCategories || [];
     const activeCount = allCategoriesSafe.length > 0 ? allCategoriesSafe.length : 1;
-
     // ✅ PATCH-11 & 29: Validação explícita de decayK
     const rawLambda = metrics.mcAdaptive?.decayK;
     const currentLambda = (Number.isFinite(rawLambda) && rawLambda > 1e-6) ? rawLambda : 0.03;
     const dynamicWindowDays = Math.max(7, Math.min(90, Math.round((Math.LN2 / currentLambda) * 2)));
-
     const windowStart = (normalizeDate(metrics.referenceDate) || new Date()).getTime() - (dynamicWindowDays * MS_PER_DAY);
-
     const safeGlobalLogsInput = options.studyLogs || studyLogs || [];
     const safeGlobalLogs = Array.isArray(safeGlobalLogsInput)
         ? safeGlobalLogsInput
         : Object.values(safeGlobalLogsInput || {});
-
     const recentAllLogs = safeGlobalLogs.filter(log =>
         (normalizeDate(log?.date) || new Date(0)).getTime() >= windowStart
     );
-
     const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
-
     const totalRecentMinutesCat = recentAllLogs
         .filter(log => log?.categoryId === metrics.categoryId)
         .reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
-
     const observedShare = totalRecentMinutesAll > 0
         ? totalRecentMinutesCat / totalRecentMinutesAll
         : (1 / activeCount);
-
     const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
         if (!c) return acc;
-
         let rawW = c.weight;
         if (typeof rawW === 'string') rawW = rawW.replace(/\./g, '').replace(',', '.');
-
         const parsedW = Number(rawW);
         const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
-
         return acc + w;
     }, 0);
-
     const idealShare = totalSyllabusWeight > 0
         ? metrics.rawWeight / totalSyllabusWeight
         : (1 / activeCount);
-
     const tolerance = 0.05;
     const underAllocation = Math.max(0, idealShare - observedShare - tolerance);
-
     const balanceBridgeBoost = clamp(
         Math.min(cfg.EFFICIENCY_MAX, Math.pow(underAllocation * 10, 1.5)),
         0,
         cfg.EFFICIENCY_MAX
     );
-
     // SRS
     let srsBoost = 0;
     let srsLabel = null;
-
     if (hasData && !recencyUnknown) {
         const srsData = _getSRSBoost(
             simuladosWithMaxScore,
@@ -1233,61 +1133,48 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
             mssdVolatility,
             backtestWeights?.effectiveN || simuladosWithMaxScore.length
         );
-
         srsBoost = srsData.boost;
         srsLabel = srsData.label;
     }
-
     const maxSrsBoost = cfg.SRS_BOOST * 2;
     const currentSrsBoost = clamp(
         srsBoost * (crunchMultiplier > 1 ? 1.10 : 1),
         0,
         maxSrsBoost
     );
-
     const currentPriorityBoost = clamp(
         priorityBoost * (crunchMultiplier > 1 ? 1.15 : 1),
         0,
         cfg.PRIORITY_BOOST
     );
-
     // Rotation penalty corrigida: menos dependente da nota e mais dependente de recência/volatilidade
     let exactLastTime = 0;
-
     if (simuladosWithMaxScore.length > 0) {
         exactLastTime = (normalizeDate(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt) || new Date(0)).getTime();
     }
-
     if (validStudyLogs.length > 0) {
         const logsOrdenados = [...validStudyLogs].sort((a, b) =>
             (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime()
         );
-
         const logTime = (normalizeDate(logsOrdenados[0].date) || new Date(0)).getTime();
         if (logTime > exactLastTime) exactLastTime = logTime;
     }
-
     const exactHoursSinceLast = exactLastTime > 0
         ? (nowMs - exactLastTime) / (1000 * 60 * 60)
         : 48;
-
     let rotationPenalty = 0;
     // FIX: Removido fatigueRatio baseado em performance.
     // Notas altas já recebem urgência menor via SCORE_MAX (gap da meta).
     // Penalizar novamente aqui causava dupla penalização.
-
     if (exactHoursSinceLast < 24) {
         const recentFatigue = Math.max(0.2, Math.exp(-exactHoursSinceLast / 12));
         rotationPenalty = Math.min(30, 15 * recentFatigue * (1 + (mssdVolatility / maxScore)));
-        
         const baseAt24 = mssdVolatility > (maxScore * 0.05) ? 6 : 2;
         rotationPenalty = Math.max(rotationPenalty, baseAt24 + 1);
     } else if (exactHoursSinceLast >= 24 && exactHoursSinceLast < 48 && !srsLabel) {
         rotationPenalty = mssdVolatility > (maxScore * 0.05) ? 6 : 2;
     }
-
     if (srsBoost > 0) rotationPenalty *= 0.1;
-
     const rawScore = Math.max(
         0,
         scoreComponent +
@@ -1299,14 +1186,10 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         balanceBridgeBoost -
         rotationPenalty
     );
-
     const weightedRaw = rawScore * weightMultiplier;
-
     const NORMALIZATION_CEILING = cfg.NORMALIZATION_CEILING || 170;
     const CRITICAL_THRESHOLD = cfg.CRITICAL_THRESHOLD || Math.round(NORMALIZATION_CEILING * 0.72);
-
     let normalized;
-
     if (weightedRaw <= 0) {
         normalized = 0;
     } else if (weightedRaw <= CRITICAL_THRESHOLD) {
@@ -1316,9 +1199,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         const excessNormalized = 20 * (1 - Math.exp(-excess / (NORMALIZATION_CEILING * 0.4)));
         normalized = 80 + excessNormalized;
     }
-
     normalized = Number.isFinite(normalized) ? clamp(Math.round(normalized), 0, 100) : 0;
-
     return {
         weightedRaw,
         normalized,
@@ -1377,7 +1258,6 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         globalProjectedMean,
         agilityPenalty
     } = metrics;
-
     const {
         scoreComponent,
         recencyComponent,
@@ -1399,46 +1279,34 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         completionRate,
         trendThreshold: scoreInfoTrendThreshold
     } = scoreInfo;
-
     let recommendation = "";
-
     const oneWeekAgo = (normalizeDate(metrics.referenceDate) || new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
-
     const recentLogs = categoryStudyLogs.filter(log => {
         const d = normalizeDate(log.date) || new Date(0);
         return d && d.getTime() >= oneWeekAgo;
     });
-
     const recentHours = recentLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0) / 60;
-
     // FIX: contar dias reais, não timestamps únicos
     const recentStudyDays = new Set(
         recentLogs.map(log => getDateKey(log.date)).filter(Boolean)
     ).size;
-
     const isHighVolume = recentHours > dynamicBurnoutThreshold;
     const isHighFrequency = recentStudyDays >= 5;
     const isEliteMaintenance = averageScore >= (maxScore * 0.95);
-
     const trendThreshold = Number.isFinite(scoreInfoTrendThreshold)
         ? scoreInfoTrendThreshold
         : getDynamicTrendThreshold(averageScore, maxScore);
-
     const lastNScores = metrics.lastNScores;
     const isStagnant = !isEliteMaintenance && trend <= trendThreshold && lastNScores.length >= 2;
-
     const burnoutMsg = isHighVolume && isStagnant
         ? `Você estudou ${recentHours.toFixed(1)}h esta semana (seu normal é ~${baselineHoursPerWeek.toFixed(1)}h), mas a nota estagnou.`
         : '';
-
     const isBurnoutRisk = (isHighVolume || (isHighFrequency && recentHours > 5.0)) && isStagnant && recentStudyDays >= 3;
-
     // Ordem corrigida: crítico > burnout > SRS > cruzeiro seguro
     if (mcHasData && mcRiskLabel === 'critical') {
         const burnoutNote = isBurnoutRisk ? ` (⚠️ ${burnoutMsg || 'Sinais de estafa — mude o método.'})` : '';
         const targetInfo = effectiveMCTarget < targetScore ? ` (Meta ZDP: ${formatValue(effectiveMCTarget)})` : '';
         const globalNote = globalProjectedMean != null ? ` [Global: ${formatPercent(globalProjectedMean)}]` : '';
-
         recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${targetInfo}${globalNote}${burnoutNote}`;
     } else if (isBurnoutRisk) {
         recommendation = `🛑 Risco de Estafa: ${burnoutMsg || 'Você estudou muito mas a nota não reagiu.'} Considere descansar.`;
@@ -1457,9 +1325,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     } else {
         recommendation = "Pratique com regularidade";
     }
-
     const hasData = relevantSimulados.length > 0 || categoryStudyLogs.length > 0;
-
     const result = {
         score: weightedRaw,
         normalizedScore: normalized,
@@ -1572,20 +1438,21 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             }
         }
     };
-
+    // FIX: try/catch para o callback de calibração nunca quebrar o fluxo
     if (result.details?.monteCarlo && typeof options.onCalibrationMetric === 'function') {
-        options.onCalibrationMetric({
-            categoryId: metrics.categoryId || null,
-            categoryName: metrics.safeCategory?.name || metrics.categoryName || 'Disciplina',
-            timestamp: Date.now(),
-            avgBrier: result.details.monteCarlo.avgBrier,
-            ece: result.details.monteCarlo.ece,
-            calibrationPenalty: result.details.monteCarlo.calibrationPenalty,
-            reliability: result.details.monteCarlo.reliability || [],
-            calibrationQuality: result.details.monteCarlo.explainability?.calibrationQuality || 'low'
-        });
+        try {
+            options.onCalibrationMetric({
+                categoryId: metrics.categoryId || null,
+                categoryName: metrics.safeCategory?.name || metrics.categoryName || 'Disciplina',
+                timestamp: Date.now(),
+                avgBrier: result.details.monteCarlo.avgBrier,
+                ece: result.details.monteCarlo.ece,
+                calibrationPenalty: result.details.monteCarlo.calibrationPenalty,
+                reliability: result.details.monteCarlo.reliability || [],
+                calibrationQuality: result.details.monteCarlo.explainability?.calibrationQuality || 'low'
+            });
+        } catch { /* não quebrar o fluxo principal */ }
     }
-
     return result;
 };
 
@@ -1593,170 +1460,151 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     try {
         const safeCat = category || {};
         const catId = safeCat.id || safeCat.name || 'unknown';
-
         const safeSims = Array.isArray(simulados) ? [...simulados] : Object.values(simulados || {});
         const safeLogs = Array.isArray(studyLogs) ? [...studyLogs] : Object.values(studyLogs || {});
         const safeTasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
-
         const simCount = safeSims.length;
         const logCount = safeLogs.length;
         const todayStr = getDateKey(new Date());
-
         const simsForChecksum = [...safeSims].sort((a, b) => {
             const timeA = (normalizeDate(a?.date || a?.createdAt) || new Date(0)).getTime();
             const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
             return timeA - timeB;
         });
-
         const scoreChecksum = simsForChecksum.reduce((acc, s, index) => {
             if (!s) return acc;
             const parsed = getSafeScore(s, options.maxScore || 100);
             const validVal = Number.isNaN(parsed) ? 0 : parsed;
             return acc + (validVal * (index + 1) * 1.17);
         }, 0).toFixed(2);
-
         const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
         const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${options?.maxScore ?? 100}`;
-
         const logsForChecksum = [...safeLogs].sort((a, b) => {
             const timeA = (normalizeDate(a?.date || a?.createdAt) || new Date(0)).getTime();
             const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
             return timeA - timeB;
         });
-
         const lastSim = simsForChecksum.length > 0
             ? (simsForChecksum[simsForChecksum.length - 1]?.date || simsForChecksum[simsForChecksum.length - 1]?.createdAt || '')
             : '';
         const lastLog = logsForChecksum.length > 0
             ? (logsForChecksum[logsForChecksum.length - 1]?.date || logsForChecksum[logsForChecksum.length - 1]?.createdAt || '')
             : '';
-
         const tasksHash = safeTasks.reduce((acc, t) => acc + (t?.completed ? 0 : 1) + (t?.priority === 'high' ? 5 : 0), 0);
-
         const activeId = useAppStore.getState()?.appState?.activeId || 'default';
-
         const weightsHash = simpleHash(
             (options.allCategories || [])
                 .map(c => `${c?.id || c?.name || '?'}:${c?.weight ?? ''}`)
                 .join('|')
         );
-
         const globalHash = options.globalMcStats
             ? simpleHash(
                 `${Number(options.globalMcStats.projectedMean || 0).toFixed(1)}:${Number(options.globalMcStats.probability || 0).toFixed(1)}:${Number(options.globalMcStats.currentMean || 0).toFixed(1)}`
             )
             : 'noglobal';
-
         const calibrationHash = (options.calibrationHistoryByCategory?.[getCalibrationKey(catId)] || []).length;
-
         const goalKey = options?.user?.goalDate
             ? `_gd${getDateKey(options.user.goalDate) || String(options.user.goalDate)}`
             : '';
-
-        const featuresHash = simpleHash(
-  JSON.stringify({
-    uss: getCoachFeature(options, 'useStateSpace', false),
-    ussa: getCoachFeature(options, 'useStateSpaceAverage', false),
-    usst: getCoachFeature(options, 'useStateSpaceTrend', false),
-    udv: getCoachFeature(options, 'useDynamicVolatility', false),
-    ugv: getCoachFeature(options, 'useGarchVolatility', false),
-    udvo: getCoachFeature(options, 'useDynamicVolatilityOverride', false),
-    ppm: getCoachFeature(options, 'usePosteriorMonteCarlo', false),
-    ppmo: getCoachFeature(options, 'usePosteriorMonteCarloOverride', false),
-    bt: getCoachFeature(options, 'useBayesianTopics', false),
-    btu: getCoachFeature(options, 'useBayesianTopicsForUrgency', false),
-    du: getCoachFeature(options, 'useDecisionUtility', false),
-    dut: getCoachFeature(options, 'useDecisionUtilityForTopics', false),
-    dubt: getCoachFeature(options, 'useDecisionUtilityForBestTask', false),
-    bp: getCoachFeature(options, 'useBanditPlanner', false),
-    llm: getCoachFeature(options, 'useLLMExplanations', false),
-    kg: getCoachFeature(options, 'useKnowledgeGraph', false),
-    kgt: getCoachFeature(options, 'useKnowledgeGraphForTopics', false),
-    afsrs: getCoachFeature(options, 'useAdvancedFsrs', false),
-    fsrsb: getCoachFeature(options, 'useFsrsForSrsBoost', false),
-    fsrst: getCoachFeature(options, 'useFsrsTopicScheduling', false),
-    eval: getCoachFeature(options, 'useEvaluationTelemetry', false),
-    obs: getCoachFeature(options, 'useObservability', false),
-    drift: getCoachFeature(options, 'useDriftGuard', false),
-    health: getCoachFeature(options, 'useModelHealthTelemetry', false),
-    driftAlerts: getCoachFeature(options, 'useDriftAlerts', false),
-  })
-);
-
+        const featuresHash = simpleHash(JSON.stringify({
+            uss: getCoachFeature(options, 'useStateSpace', false),
+            ussa: getCoachFeature(options, 'useStateSpaceAverage', false),
+            usst: getCoachFeature(options, 'useStateSpaceTrend', false),
+            udv: getCoachFeature(options, 'useDynamicVolatility', false),
+            ugv: getCoachFeature(options, 'useGarchVolatility', false),
+            udvo: getCoachFeature(options, 'useDynamicVolatilityOverride', false),
+            ppm: getCoachFeature(options, 'usePosteriorMonteCarlo', false),
+            ppmo: getCoachFeature(options, 'usePosteriorMonteCarloOverride', false),
+            bt: getCoachFeature(options, 'useBayesianTopics', false),
+            btu: getCoachFeature(options, 'useBayesianTopicsForUrgency', false),
+            du: getCoachFeature(options, 'useDecisionUtility', false),
+            dut: getCoachFeature(options, 'useDecisionUtilityForTopics', false),
+            dubt: getCoachFeature(options, 'useDecisionUtilityForBestTask', false),
+            bp: getCoachFeature(options, 'useBanditPlanner', false),
+            llm: getCoachFeature(options, 'useLLMExplanations', false),
+            kg: getCoachFeature(options, 'useKnowledgeGraph', false),
+            kgt: getCoachFeature(options, 'useKnowledgeGraphForTopics', false),
+            afsrs: getCoachFeature(options, 'useAdvancedFsrs', false),
+            fsrsb: getCoachFeature(options, 'useFsrsForSrsBoost', false),
+            fsrst: getCoachFeature(options, 'useFsrsTopicScheduling', false),
+            eval: getCoachFeature(options, 'useEvaluationTelemetry', false),
+            obs: getCoachFeature(options, 'useObservability', false),
+            drift: getCoachFeature(options, 'useDriftGuard', false),
+            health: getCoachFeature(options, 'useModelHealthTelemetry', false),
+            driftAlerts: getCoachFeature(options, 'useDriftAlerts', false),
+        }));
         // ✅ PATCH-13: Incluir hash da config customizada no cache key
         const configHash = options.config
             ? simpleHash(JSON.stringify(options.config))
             : 'defcfg';
-        const cacheKey = `urg_${activeId}_${catId}_${simCount}_${logCount}_${scoreChecksum}_${todayStr}${optKey}${targetKey}_${lastSim}_${lastLog}_tsk${tasksHash}_w${weightsHash}_g${globalHash}_cal${calibrationHash}${goalKey}_f${featuresHash}_cfg${configHash}_ms${options.maxScore ?? 100}_ts${options.targetScore ?? 0}`;
-
+        // FIX (BUG-13): cache key compacta via hashString64 (evita chave de 400+ chars e colisões)
+        const cacheKeyRaw = [
+            activeId, catId, simCount, logCount, scoreChecksum,
+            todayStr, optKey, targetKey, lastSim, lastLog,
+            tasksHash, weightsHash, globalHash, calibrationHash,
+            goalKey, featuresHash, configHash,
+            options.maxScore ?? 100, options.targetScore ?? 0
+        ].join('|');
+        const cacheKey = `urg_${hashString64(cacheKeyRaw)}`;
         const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
         if (cachedUrgency) {
-            if (typeof structuredClone === 'function') {
-                return structuredClone(cachedUrgency);
-            }
-            return JSON.parse(JSON.stringify(cachedUrgency));
+            // FIX (BUG-14): deepClone robusto (preserva Date/Map/Set/undefined)
+            return deepClone(cachedUrgency);
         }
-
         const metrics = extractMetrics(safeCat, safeSims, safeLogs, options);
         const scoreInfo = calculateUrgencyScore(metrics, options);
         const result = generateCoachStrings(scoreInfo.weightedRaw, scoreInfo.normalized, metrics, scoreInfo, options);
-
-// ==================== LOTE 8: EVALUATION SNAPSHOT ====================
-if (
-  getCoachFeature(options, 'useEvaluationTelemetry', false) &&
-  typeof options.onCoachEvaluationSnapshot === 'function'
-) {
-  try {
-    options.onCoachEvaluationSnapshot({
-      timestamp: Date.now(),
-      categoryId: metrics.categoryId || null,
-      categoryName: metrics.safeCategory?.name || null,
-      normalizedScore: result.normalizedScore,
-      probability: result.details?.monteCarlo?.probability ?? null,
-      predictedMean:
-        result.details?.monteCarlo?.meanProjected ??
-        result.details?.averageScore ??
-        null,
-      targetScore: metrics.targetScore,
-      maxScore: metrics.maxScore,
-      strategyId: options.strategyId || null,
-    });
-  } catch {
-    // ignore evaluation errors
-  }
-}
-// ======================================================================
-
-// ==================== LOTE 9: OBSERVABILITY SNAPSHOT ====================
-if (
-  getCoachFeature(options, 'useObservability', false) &&
-  typeof options.onCoachObservability === 'function'
-) {
-  try {
-    const mcDetails = result.details?.monteCarlo || null;
-
-    options.onCoachObservability({
-      timestamp: Date.now(),
-      categoryId: metrics.categoryId || null,
-      categoryName: metrics.safeCategory?.name || null,
-      normalizedScore: result.normalizedScore,
-      probability: mcDetails?.probability ?? null,
-      probabilityRaw: mcDetails?.probabilityRaw ?? null,
-      avgBrier: mcDetails?.avgBrier ?? null,
-      ece: mcDetails?.ece ?? null,
-      calibrationPenalty: mcDetails?.calibrationPenalty ?? null,
-      volatility: mcDetails?.volatility ?? result.details?.mssdVolatility ?? null,
-      sampleSize: mcDetails?.sampleSize ?? null,
-      reliability: Array.isArray(mcDetails?.reliability)
-        ? mcDetails.reliability
-        : [],
-    });
-  } catch {
-    // observability must never break the Coach
-  }
-}
-// ========================================================================
-
+        // ==================== LOTE 8: EVALUATION SNAPSHOT ====================
+        if (
+          getCoachFeature(options, 'useEvaluationTelemetry', false) &&
+          typeof options.onCoachEvaluationSnapshot === 'function'
+        ) {
+          try {
+            options.onCoachEvaluationSnapshot({
+              timestamp: Date.now(),
+              categoryId: metrics.categoryId || null,
+              categoryName: metrics.safeCategory?.name || null,
+              normalizedScore: result.normalizedScore,
+              probability: result.details?.monteCarlo?.probability ?? null,
+              predictedMean:
+                result.details?.monteCarlo?.meanProjected ??
+                result.details?.averageScore ??
+                null,
+              targetScore: metrics.targetScore,
+              maxScore: metrics.maxScore,
+              strategyId: options.strategyId || null,
+            });
+          } catch {
+            // ignore evaluation errors
+          }
+        }
+        // ==================== LOTE 9: OBSERVABILITY SNAPSHOT ====================
+        if (
+          getCoachFeature(options, 'useObservability', false) &&
+          typeof options.onCoachObservability === 'function'
+        ) {
+          try {
+            const mcDetails = result.details?.monteCarlo || null;
+            options.onCoachObservability({
+              timestamp: Date.now(),
+              categoryId: metrics.categoryId || null,
+              categoryName: metrics.safeCategory?.name || null,
+              normalizedScore: result.normalizedScore,
+              probability: mcDetails?.probability ?? null,
+              probabilityRaw: mcDetails?.probabilityRaw ?? null,
+              avgBrier: mcDetails?.avgBrier ?? null,
+              ece: mcDetails?.ece ?? null,
+              calibrationPenalty: mcDetails?.calibrationPenalty ?? null,
+              volatility: mcDetails?.volatility ?? result.details?.mssdVolatility ?? null,
+              sampleSize: mcDetails?.sampleSize ?? null,
+              reliability: Array.isArray(mcDetails?.reliability)
+                ? mcDetails.reliability
+                : [],
+            });
+          } catch {
+            // observability must never break the Coach
+          }
+        }
         if (typeof options.logger === 'function') {
             try {
                 options.logger({ categoryId: metrics.categoryId, name: metrics.safeCategory?.name, urgency: result });
@@ -1764,12 +1612,10 @@ if (
                 // ignore
             }
         }
-
         cacheSet(_urgencyCache, URGENCY_CACHE_MAX, cacheKey, result);
         return result;
     } catch (err) {
         console.error("[CoachLogic] Critical error in calculateUrgency:", err);
-
         return {
             score: 0,
             normalizedScore: 0,
@@ -1792,32 +1638,24 @@ export function analisarDesempenhoHistorico(historico) {
             projecaoRetencao: 0
         };
     }
-
     const formattedHistory = historico.map((h, i) => {
         if (!h) return { score: 0, total: 100, date: new Date().toISOString() };
-
         let rawDias = h.diasRevisao;
         if (typeof rawDias === 'string') rawDias = rawDias.replace(',', '.');
-
         const diasValidos = (rawDias === null || rawDias === undefined || rawDias === '')
             ? i
             : (Number.isFinite(Number(rawDias)) ? Number(rawDias) : i);
-
         const timestamp = Date.now() - (diasValidos * 86400000);
         const safeDate = Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
-
         const total = Math.max(1, Number(h.total) || 100);
         const acertos = Math.max(0, Number(h.acertos) || 0);
-
         return {
             score: (acertos / total) * 100,
             total: total,
             date: safeDate.toISOString()
         };
     });
-
     const risk = computeForgettingRisk(formattedHistory);
-
     // ✅ PATCH-33: Validar retentionPct contra NaN
     const safeRetention = Number.isFinite(risk.retentionPct) ? risk.retentionPct : 0;
     return {
@@ -1829,7 +1667,6 @@ export function analisarDesempenhoHistorico(historico) {
 
 export const getSuggestedFocus = (categories, simulados, studyLogs = [], options = {}) => {
     if (!categories || categories.length === 0) return null;
-
     const ranked = categories.map(cat => ({
         ...cat,
         urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
@@ -1838,37 +1675,25 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
         const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
         return valB - valA;
     });
-
     const top = ranked[0];
     if (!top) return null;
-
     const maxScore = options.maxScore ?? 100;
-
-    // ✅ FIX: Deep clone do urgency para evitar mutação do cache
-    // ✅ PATCH-08: structuredClone preserva Date, Map, Set, undefined
-    const clonedUrgency = top.urgency
-        ? (typeof structuredClone === 'function'
-            ? structuredClone(top.urgency)
-            : JSON.parse(JSON.stringify(top.urgency)))
-        : null;
+    // FIX (BUG-14): deepClone robusto do urgency para evitar mutação do cache
+    const clonedUrgency = top.urgency ? deepClone(top.urgency) : null;
     const result = {
         ...top,
         urgency: clonedUrgency,
         weakestTopic: getWeakestTopic(top, simulados, maxScore)
     };
-
     if (options.flashcardDue > 0) {
         result.flashcardDue = options.flashcardDue;
         result.srsRecommendation = `Revisar ${options.flashcardDue} flashcards hoje para reforçar retenção e consistência.`;
-
         if (result.urgency) {
             result.urgency.srsDue = options.flashcardDue;
         }
     }
-
     if (options.globalMcStats && Number.isFinite(options.globalMcStats.projectedMean)) {
         const globalMean = Number(options.globalMcStats.projectedMean);
-
         if (result.urgency && result.urgency.details) {
             result.urgency.details.globalMcContext = {
                 projectedMean: Number(globalMean.toFixed(1)),
@@ -1876,71 +1701,50 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
                 source: 'global from useMonteCarloStats (Coach integration)'
             };
         }
-
         result.globalProjectedMean = Number(globalMean.toFixed(1));
         result.mcIntegrationSource = 'globalMcStats';
     }
-
     return result;
 };
-
-// MAX_CACHE_SIZE movido para o topo
 
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const safeCat = category || {};
     const catId = safeCat.id || safeCat.name || 'unknown';
-
     const safeTasks = Array.isArray(safeCat.tasks)
         ? safeCat.tasks
         : Object.values(safeCat.tasks || {});
-
     const openTasks = safeTasks.filter(t => t && !t.completed).length;
-
     const safeSims = Array.isArray(simulados)
         ? simulados
         : Object.values(simulados || {});
-
     let lastSimTimestamp = 0;
     let historyVolume = 0;
-
     if (safeSims.length > 0) {
         const lastSim = safeSims.reduce((latest, current) => {
             if (!latest) return current;
             if (!current) return latest;
-
             const latestTime = (normalizeDate(latest.date || latest.createdAt) || new Date(0)).getTime();
             const currTime = (normalizeDate(current.date || current.createdAt) || new Date(0)).getTime();
-
             return currTime > latestTime ? current : latest;
         }, safeSims[0]);
-
         if (lastSim) {
             lastSimTimestamp = (normalizeDate(lastSim.date || lastSim.createdAt) || new Date(0)).getTime();
         }
-
         historyVolume = safeSims.length;
     }
-
     const scoreChecksum = safeSims.reduce((acc, s, index) => {
         if (!s) return acc;
-
         const parsed = getSafeScore(s, maxScore);
         const validVal = Number.isNaN(parsed) ? 0 : parsed;
-
         return acc + (validVal * (index + 1) * 1.17);
     }, 0);
-
     const tasksHash = safeTasks.reduce((acc, t) => acc + ((t?.id || t?.text || '').length), 0);
-
     const historyLen = (safeCat.simuladoStats && safeCat.simuladoStats.history)
         ? (Array.isArray(safeCat.simuladoStats.history) ? safeCat.simuladoStats.history.length : Object.keys(safeCat.simuladoStats.history).length)
         : 0;
-
     const todayStr = getDateKey(new Date());
     const userId = safeCat?.userId || safeSims[0]?.userId || 'default';
-
-    const coachFeatureHash = simpleHash(
-      JSON.stringify({
+    const coachFeatureHash = simpleHash(JSON.stringify({
         bt: getCoachFeature(null, 'useBayesianTopics', false),
         btu: getCoachFeature(null, 'useBayesianTopicsForUrgency', false),
         du: getCoachFeature(null, 'useDecisionUtility', false),
@@ -1952,61 +1756,43 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
         afsrs: getCoachFeature(null, 'useAdvancedFsrs', false),
         fsrsb: getCoachFeature(null, 'useFsrsForSrsBoost', false),
         fsrst: getCoachFeature(null, 'useFsrsTopicScheduling', false),
-      })
-    );
-
+    }));
     const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}-${coachFeatureHash}`;
     const cacheKey = `isolate_${catId}_${hash}`;
-
     const cachedTopics = cacheGet(_topicsCache, cacheKey);
     if (cachedTopics) return cachedTopics.map(t => ({ ...t }));
-
     const result = _buildSortedTopicsImpl(safeCat, safeSims, maxScore);
     cacheSet(_topicsCache, TOPICS_CACHE_MAX, cacheKey, result);
-
     return result.map(t => ({ ...t }));
 }
 
 const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
     const safeCat = category || {};
     const tasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
-
     const topicMap = {};
-
     const history = safeArray(safeCat.simuladoStats?.history);
     const todayForTopics = new Date();
-
     const sortedTopicsHistory = [...history].sort((a, b) => {
         const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
         const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
         return (Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0);
     });
-
     sortedTopicsHistory.forEach(entry => {
         if (!entry) return;
-
         let entryTime = todayForTopics.getTime();
-
         if (entry.date || entry.createdAt) {
             entryTime = (normalizeDate(entry.date || entry.createdAt) || new Date(0)).getTime();
         }
-
         const safeEntryTime = Number.isFinite(entryTime) && entryTime > 0 ? entryTime : todayForTopics.getTime();
         const entryDate = normalizeDate(safeEntryTime) || new Date(safeEntryTime);
-
         const daysOld = Math.max(0, (todayForTopics.getTime() - safeEntryTime) / (1000 * 60 * 60 * 24));
         const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));
-
         const topics = entry.topics || [];
-
         topics.forEach(t => {
             if (!t) return;
-
             let rawName = t.name;
             if (typeof rawName !== 'string' || !rawName) rawName = "Tópico Desconhecido";
-
             const name = rawName.trim();
-
             if (!topicMap[name]) {
                 topicMap[name] = {
                     total: 0,
@@ -2018,13 +1804,10 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
                 };
                 topicMap[name].hasUnfinishedTask = false;
             }
-
             let rawTotal = Number(t.total);
             let topicTotal = Number.isFinite(rawTotal) && rawTotal > 0 ? rawTotal : 0;
             let topicCorrect = 0;
-
             const isTotalMissing = t.total === undefined || t.total === null || String(t.total).trim() === "" || Number(t.total) === 0;
-
             if (t.score != null && isTotalMissing) {
                 topicTotal = getSyntheticTotal(maxScore);
                 topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;
@@ -2038,38 +1821,31 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
             } else {
                 return;
             }
-
             if (Number.isNaN(topicCorrect)) return;
-
             topicCorrect = Math.max(0, topicCorrect);
-
             topicMap[name].total += (topicTotal * timeWeight);
             topicMap[name].correct += (topicCorrect * timeWeight);
-
             if (topicTotal > 0) {
                 topicMap[name].scores.push({
                     score: (topicCorrect / topicTotal) * 100,
                     total: topicTotal,
                     date: entryDate.toISOString(),
-                    // ✅ FIX (BUG-H05): Preservar maxScore no payload para FSRS (necessário para re-escala de estabilidade)
-                    maxScore: maxScore 
+                    // ✅ FIX (BUG-H05): Preservar maxScore no payload para FSRS
+                    maxScore: maxScore
                 });
                 // ✅ PATCH-28: Limitar crescimento do array interno
                 if (topicMap[name].scores.length > 20) {
                     topicMap[name].scores = topicMap[name].scores.slice(-10);
                 }
             }
-
             if (entryDate > topicMap[name].lastSeen) {
                 topicMap[name].lastSeen = entryDate;
             }
         });
     });
-
     tasks.forEach(task => {
         const name = String(task.text || task.title || "").trim();
         if (!name) return;
-
         if (!topicMap[name]) {
             topicMap[name] = {
                 total: 0,
@@ -2082,71 +1858,53 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
             topicMap[name].hasUnfinishedTask = !task.completed;
         } else {
             topicMap[name].hasTasks = true;
-
             if (topicMap[name].hasUnfinishedTask === undefined) {
                 topicMap[name].hasUnfinishedTask = !task.completed;
             } else if (!task.completed) {
                 topicMap[name].hasUnfinishedTask = true;
             }
-
             topicMap[name].completed = !topicMap[name].hasUnfinishedTask;
         }
-
         let newTaskPriority = 0;
-
         if (task.priority === 'high') newTaskPriority = 40;
         else if (task.priority === 'medium') newTaskPriority = 20;
-
         if (!task.completed) {
             topicMap[name].manualPriority = Math.max(topicMap[name].manualPriority || 0, newTaskPriority);
         }
     });
-
     const today = new Date();
-
     const topics = Object.entries(topicMap).map(([name, data]) => {
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
         const topicHistory = data.scores.slice(-3);
         const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, 100) * 30 : 0;
-
         let daysSince = 0;
-
         if (data.lastSeen.getTime() === 0) {
             daysSince = 30;
         } else {
             daysSince = getDaysDiff(today, data.lastSeen);
         }
-
         const priorityBoost = data.manualPriority || 0;
-
         const perfComponent = Math.max(0, Math.min(1, (100 - percentage) / 100));
         const recencyComponent_topic = Math.max(0, Math.min(1, daysSince / 60));
         const priorityComponent = Math.max(0, Math.min(1, priorityBoost / 40));
-
         const perfRatio = percentage / 100;
-
         const TOPIC_W_PERF = 0.70 - (0.40 * perfRatio);
         const TOPIC_W_RECENCY = 0.10 + (0.40 * perfRatio);
         const TOPIC_W_PRIORITY = 0.20;
-
         let urgencyScore = (
             perfComponent * TOPIC_W_PERF +
             recencyComponent_topic * TOPIC_W_RECENCY +
             priorityComponent * TOPIC_W_PRIORITY
         ) * 200;
-
         // FIX: tópicos não testados pesam menos do que tópicos já aferidos
         if (data.total === 0) {
             urgencyScore *= 0.45;
         }
-
         const topicDropThreshold = -2.0;
-
         if (trend < topicDropThreshold) {
             const dropSeverity = Math.min(2.0, 1 + Math.abs(trend / topicDropThreshold) * 0.1);
             urgencyScore *= dropSeverity;
         }
-
         return {
             name,
             total: data.total,
@@ -2163,10 +1921,8 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
             lastSeen: data.lastSeen
         };
     });
-
     // ==================== LOTE 4: BAYESIAN TOPICS ====================
     let bayesianTopicMap = null;
-
     if (getCoachFeature(null, 'useBayesianTopics', false)) {
       try {
         const bayesianInput = topics.map(topic => ({
@@ -2177,39 +1933,29 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
           trend: topic.trend,
           isUntested: topic.isUntested
         }));
-
         const bayesianResult = estimateTopicProficiencies(bayesianInput, {
           untestedPriorMean: 0.25,
           untestedPriorWeight: 0.45
         });
-
         bayesianTopicMap = new Map(
           bayesianResult.topics.map(t => [t.name, t])
         );
-
         topics.forEach(topic => {
           const bayes = bayesianTopicMap.get(topic.name);
           if (!bayes) return;
-
           topic.bayesian = bayes;
           topic.bayesianProficiency = bayes.proficiencyMean * 100;
           topic.bayesianEvidence = bayes.evidence;
           topic.bayesianUncertainty = bayes.uncertainty;
-
           if (getCoachFeature(null, 'useBayesianTopicsForUrgency', false)) {
             const weakness = clamp(1 - bayes.proficiencyMean, 0, 1);
             const uncertainty = clamp(bayes.uncertainty, 0, 1);
             const evidence = clamp(bayes.evidence, 0, 1);
-
             const bayesianBoost = (weakness * 0.65 + uncertainty * 0.35) * 70;
-
             topic.urgencyScore =
               topic.urgencyScore * (0.75 + 0.25 * evidence) +
               bayesianBoost;
-
             if (topic.isUntested) {
-              // Tópico não testado não deve dominar o ranking,
-              // mas incerteza alta pode justificar exploração.
               const explorationFactor = 0.40 + 0.35 * uncertainty;
               topic.urgencyScore *= explorationFactor;
             }
@@ -2220,30 +1966,23 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
         bayesianTopicMap = null;
       }
     }
-    // ==================================================================
-
     // ==================== LOTE 5: DECISION UTILITY ====================
     let decisionTopicMap = null;
-
     if (getCoachFeature(null, 'useDecisionUtility', false)) {
       try {
         const decisionCandidates = topics.map(topic => {
           const bayesianProficiency = Number.isFinite(topic.bayesianProficiency)
             ? topic.bayesianProficiency
             : topic.percentage;
-
           const weakness = clamp(1 - (bayesianProficiency / 100), 0, 1);
-
           const uncertainty = Number.isFinite(topic.bayesianUncertainty)
             ? topic.bayesianUncertainty
             : (topic.total > 0
                 ? clamp(10 / (topic.total + 10), 0, 1)
                 : 0.85);
-
           const evidence = Number.isFinite(topic.bayesianEvidence)
             ? topic.bayesianEvidence
             : clamp(topic.total / (topic.total + 10), 0, 1);
-
           return {
             id: `topic:${topic.name}`,
             name: topic.name,
@@ -2265,28 +2004,22 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
             weight: null
           };
         });
-
         const rankedDecisionTopics = rankDecisionCandidates(decisionCandidates, {
           useBandit: getCoachFeature(null, 'useBanditPlanner', false),
           seed: `topics-${topics.length}-${getDateKey(new Date())}`,
           explorationScale: 16
         });
-
         decisionTopicMap = new Map(
           rankedDecisionTopics.map(item => [item.name, item])
         );
-
         topics.forEach(topic => {
           const decisionItem = decisionTopicMap.get(topic.name);
           if (!decisionItem) return;
-
           topic.decisionUtility = decisionItem.decision?.utility ?? 0;
           topic.decisionScore = decisionItem.decisionScore ?? 0;
           topic.decisionExploration = decisionItem.explorationBonus ?? 0;
           topic.decisionComponents = decisionItem.decision?.components ?? null;
-
           if (getCoachFeature(null, 'useDecisionUtilityForTopics', false)) {
-            // Blend conservador: mantém a urgência antiga, mas incorpora utilidade.
             topic.urgencyScore =
               topic.urgencyScore * 0.75 +
               topic.decisionUtility * 0.45;
@@ -2297,11 +2030,8 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
         decisionTopicMap = null;
       }
     }
-    // ==================================================================
-
     const useBayesianSort = getCoachFeature(null, 'useBayesianTopicsForUrgency', false);
     const useDecisionSort = getCoachFeature(null, 'useDecisionUtilityForTopics', false);
-
     // ==================== LOTE 7: FSRS + KNOWLEDGE GRAPH ====================
     if (getCoachFeature(null, 'useAdvancedFsrs', false)) {
       try {
@@ -2320,7 +2050,6 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
               desiredRetention: 0.85,
             }
           );
-
           if (
             getCoachFeature(null, 'useFsrsTopicScheduling', false) &&
             topic.fsrs
@@ -2330,11 +2059,8 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
               0,
               1
             );
-
             const dueBoost = topic.fsrs.due ? 10 : 0;
-
             topic.urgencyScore += retentionRisk * 18 + dueBoost;
-
             if (topic.fsrs.due) {
               topic.srsDue = true;
             }
@@ -2344,13 +2070,11 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
         console.warn('[CoachLogic] Advanced FSRS topics failed:', err);
       }
     }
-
     if (getCoachFeature(null, 'useKnowledgeGraph', false)) {
       try {
         const graphConfig = getKnowledgeGraphForCategory(
           category?.name || category?.id
         );
-
         if (graphConfig) {
           const graphInput = topics.map(topic => ({
             name: topic.name,
@@ -2362,26 +2086,19 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
               : clamp(topic.total / (topic.total + 10), 0, 1),
             total: topic.total,
           }));
-
           const graphMetrics = computeTopicGraphMetrics(graphInput, graphConfig);
-
           const graphMap = new Map(
             graphMetrics.topics.map(metric => [metric.name, metric])
           );
-
           topics.forEach(topic => {
             const metric = graphMap.get(topic.name);
             if (!metric) return;
-
             topic.graph = metric;
-
             if (getCoachFeature(null, 'useKnowledgeGraphForTopics', false)) {
               const importanceBoost = metric.graphImportance * 22;
               const prereqPenalty = (1 - metric.prereqReadiness) * 16;
-
               topic.urgencyScore =
                 topic.urgencyScore + importanceBoost - prereqPenalty;
-
               if ((metric.blockedBy || []).length > 0) {
                 topic.urgencyScore *= 0.92;
                 topic.recommendedPrerequisites = metric.blockedBy;
@@ -2393,23 +2110,17 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
         console.warn('[CoachLogic] Knowledge graph topics failed:', err);
       }
     }
-    // ========================================================================
-
     topics.sort((a, b) => {
       const aNeedsAction = !a.completed && a.hasTasks;
       const bNeedsAction = !b.completed && b.hasTasks;
-
       const aProf = useBayesianSort && Number.isFinite(a.bayesianProficiency)
         ? a.bayesianProficiency
         : a.percentage;
-
       const bProf = useBayesianSort && Number.isFinite(b.bayesianProficiency)
         ? b.bayesianProficiency
         : b.percentage;
-
       let aBase = a.urgencyScore;
       let bBase = b.urgencyScore;
-
       if (
         useDecisionSort &&
         Number.isFinite(a.decisionScore) &&
@@ -2418,41 +2129,31 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
         aBase = (a.urgencyScore * 0.55) + (a.decisionScore * 0.45);
         bBase = (b.urgencyScore * 0.55) + (b.decisionScore * 0.45);
       }
-
       let aScore = aBase + (aNeedsAction ? 50 : 0);
       let bScore = bBase + (bNeedsAction ? 50 : 0);
-
       if (a.total > 0 && aProf < 40) aScore += 80;
       else if (a.total > 0 && aProf < 60) aScore += 40;
-
       if (b.total > 0 && bProf < 40) bScore += 80;
       else if (b.total > 0 && bProf < 60) bScore += 40;
-
       if (useBayesianSort) {
         const aEvidence = Number.isFinite(a.bayesianEvidence) ? a.bayesianEvidence : 0;
         const bEvidence = Number.isFinite(b.bayesianEvidence) ? b.bayesianEvidence : 0;
-
         if (a.total > 0) aScore += aEvidence * 15;
         if (b.total > 0) bScore += bEvidence * 15;
-
         if (a.total === 0) aScore -= 12;
         if (b.total === 0) bScore -= 12;
       } else {
         if (a.total === 0) aScore -= 25;
         if (b.total === 0) bScore -= 25;
       }
-
       if (useDecisionSort) {
         const aDecision = Number.isFinite(a.decisionUtility) ? a.decisionUtility : 0;
         const bDecision = Number.isFinite(b.decisionUtility) ? b.decisionUtility : 0;
-
         aScore += aDecision * 0.20;
         bScore += bDecision * 0.20;
       }
-
       return bScore - aScore;
     });
-
     return topics;
 };
 
@@ -2470,7 +2171,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
     const safeSimulados = safeArray(simulados);
     const safeStudyLogs = safeArray(studyLogs);
-
     const ranked = categories.map(cat => ({
         ...cat,
         urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, { ...options, allCategories: categories })
@@ -2479,72 +2179,53 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
         return valB - valA;
     });
-
     const topCategories = ranked.slice(0, 10);
-
     const performDeepCheck = (category, averageScore) => {
         const baseDate = options.now ? (normalizeDate(options.now) || new Date()) : new Date();
         const thirtyDaysAgo = new Date(baseDate.getTime() - 30 * 24 * 60 * 60 * 1000);
         const cutoffTime = thirtyDaysAgo.getTime();
-
         const recentLogs = safeStudyLogs.filter(l =>
             l.categoryId === category.id &&
             (normalizeDate(l.date) || new Date(0)).getTime() >= cutoffTime
         );
-
         const catNormalized = normalize(category.name);
-
         const recentSims = safeSimulados.filter(s =>
             normalize(s.subject) === catNormalized &&
             (normalizeDate(s.date || s.createdAt) || new Date(0)).getTime() >= cutoffTime
         );
-
         const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l.minutes), 0) / 60;
         const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || getSyntheticTotal(maxScore)), 0);
-
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
         const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
-
         // ✅ FIX: Validar averageScore antes de calcular normalizedScore
         const safeAverageScore = Number.isFinite(averageScore) ? averageScore : 0;
         const normalizedScore = (safeAverageScore / maxScore) * 100;
         const isFormingBase = normalizedScore < 45;
-
         if (totalHours > 5 && questionsPerHour < dynamicThreshold && !isFormingBase) {
             return {
                 isTrap: true,
                 msg: `⚠️ Alerta de Método: Estudou ${totalHours.toFixed(1)}h de ${category.name} mas resolveu poucas questões (${questionsPerHour.toFixed(1)}/h). O seu nível atual exige prática >${dynamicThreshold}/h.`
             };
         }
-
         return { isTrap: false };
     };
-
     let allGeneratedTasks = [];
     // ✅ PATCH-10: Contador explícito e global para o label prioritário
     let globalPriorityCounter = 0;
-
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
-
     topCategories.forEach((cat) => {
         const weakTopics = getWeakestTopicsList(cat, safeSimulados, maxScore, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
-
         const iterations = tasksPerCategory;
-        // ✅ PATCH-10: Usar contador dedicado ao invés de allGeneratedTasks.length
         const getPriorityLabel = () => (globalPriorityCounter < 3) ? '[PROTOCOLO PRIORITÁRIO] ' : '';
-
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
-
         const mcIdSuffix = Date.now().toString(36);
         const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
         const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
-
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
-
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-danger-${mcProbKey}-${mcIdSuffix}`,
                 text: `${cat.name}: ${getPriorityLabel()}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
@@ -2566,7 +2247,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             });
         } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE) {
             const probPct = Math.round(mc.probabilityRaw);
-
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}-${mcIdSuffix}`,
                 text: `${cat.name}: ${getPriorityLabel()}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
@@ -2589,7 +2269,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         } else if (cat.urgency?.details?.srsLabel) {
             const srsKey = cat.urgency?.details?.srsLabel.replace(/\s/g, '').substring(0, 15);
             const srsTopic = weakTopics[0]?.name || 'Revisão Espaçada (SRS)';
-
             allGeneratedTasks.push({
                 id: `${cat.id}-srs-${srsKey}`,
                 text: `${cat.name}: ${getPriorityLabel()}[${srsTopic}]`,
@@ -2611,7 +2290,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             });
         } else if (mc && mc.probabilityRaw >= adaptiveSafe) {
             const probPct = Math.round(mc.probabilityRaw);
-
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-safe-${mcProbKey}-${mcIdSuffix}`,
                 text: `${cat.name}: ${getPriorityLabel()}[Manutenção - ${cat.name}]`,
@@ -2652,20 +2330,16 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 }
             });
         }
-
         const agilityData = cat.urgency?.details?.agilityPenalty !== undefined
             ? {
                 avgSeconds: cat.urgency?.details?.avgSeconds || 0,
                 agilityPenalty: cat.urgency?.details?.agilityPenalty || 0
             }
             : computeAgilityMetrics((cat.simuladoStats && Array.isArray(cat.simuladoStats.history)) ? cat.simuladoStats.history : []);
-
         // ✅ PATCH-12: Validar avgSeconds explicitamente
         const avgSeconds = Number.isFinite(agilityData?.avgSeconds) ? agilityData.avgSeconds : 0;
         const targetSeconds = 120;
-
         const isAgilityProblem = (avgSeconds > targetSeconds + 30) && (cat.urgency?.normalizedScore >= 75);
-
         if (isAgilityProblem) {
             allGeneratedTasks.push({
                 id: `${cat.id}-agility-${avgSeconds}`,
@@ -2687,40 +2361,37 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 }
             });
         }
-
         let topicCursor = 0;
-
         for (let i = 0; i < iterations; i++) {
             const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
-
             const topicLabel = weakTopic
                 ? `${getPriorityLabel()}[${weakTopic.name}]`
                 : `${getPriorityLabel()}[Revisão Geral Complementar]`;
-
             const uniqueIdSuffix = weakTopic
                 ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total || 0}-${i}`)
                 : `geral-${i}`;
-
             if (weakTopic) {
                 let reasonStr = "";
                 let topicPriority = 'medium';
-
                 if (weakTopic.isUntested) {
                     reasonStr = "Tópico Novo / Não Testado";
                     topicPriority = 'medium';
-                } else if (weakTopic.manualPriority > 0) {
-                    reasonStr = "Alta Prioridade Manual";
+                } else if (weakTopic.percentage < 40) {
+                    reasonStr = "Vetor Crítico de Erros";
                     topicPriority = 'high';
-                } else if (weakTopic.percentage < 70) {
-                    reasonStr = "Baixa Performance";
-                    topicPriority = 'high';
-                } else {
-                    reasonStr = "Aperfeiçoamento Contínuo";
+                } else if (weakTopic.percentage < 60) {
+                    reasonStr = "Lacuna de Conhecimento";
                     topicPriority = 'medium';
+                } else if (weakTopic.trend < -2) {
+                    reasonStr = "Degradação Recente";
+                    topicPriority = 'medium';
+                } else {
+                    reasonStr = "Consolidação Estratégica";
+                    topicPriority = 'low';
                 }
 
                 allGeneratedTasks.push({
-                    id: `${cat.id}-weaktopic-${uniqueIdSuffix}`,
+                    id: `${cat.id}-topic-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}`,
                     completed: false,
                     status: 'pending',
@@ -2731,312 +2402,141 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     subjectName: cat.name,
                     topicName: weakTopic.name,
                     analysis: {
-                        reason: `Tópico Selecionado: ${weakTopic.name}`,
-                        details: reasonStr,
+                        reason: reasonStr,
+                        details: `Aproveitamento: ${Number(weakTopic.percentage || 0).toFixed(0)}% | Última visita: ${weakTopic.daysSince ?? 0} dias | Tendência: ${Number(weakTopic.trend || 0) > 0 ? '+' : ''}${Number(weakTopic.trend || 0).toFixed(1)}`,
                         metrics: cat.urgency?.details?.humanReadable || {},
                         monteCarlo: mc || null,
-                        categoryDetails: {
-                            "Urgência Total": Math.round(cat.urgency.score),
-                            ...cat.urgency?.details?.components
-                        },
-                        topicDetails: {
-                            "Nota do Tópico": Math.round(weakTopic.percentage) + "%",
-                            "Dias sem Ver": weakTopic.daysSince,
-                            "Tendência": weakTopic.trend > 0 ? `↑ ${weakTopic.trend}` : `↓ ${weakTopic.trend}`,
-                            "Bônus de Prioridade": weakTopic.priorityBoost,
-                            "Urgência Calculada": Math.round(weakTopic.urgencyScore)
-                        }
+                        verdict: `Priorize ${weakTopic.name} — ${reasonStr}.`
                     }
                 });
+                globalPriorityCounter++;
             } else {
-                const alreadyHasGeneral = allGeneratedTasks.some(
-                    t => t.categoryId === cat.id && (
-                        /Revisão Geral/i.test(String(t.text || t.topicName || '')) ||
-                        String(t.text || '').trim().endsWith(`[${cat.name}]`)
-                    )
-                );
-                if (!alreadyHasGeneral) {
-                    allGeneratedTasks.push({
-                        id: `${cat.id}-general-review-${uniqueIdSuffix}-it0`,
-                        text: `${cat.name}: ${getPriorityLabel()}[Revisão Geral]`,
-                        completed: false,
-                        status: 'pending',
-                        priority: 'medium',
-                        categoryId: cat.id,
-                        category: cat.name,
-                        catName: cat.name,
-                        subjectName: cat.name,
-                        topicName: 'Revisão Geral Complementar',
-                        analysis: {
-                            reason: "Revisão Geral Complementar",
-                            details: "Prática global da disciplina e resolução variada de exercícios.",
-                            metrics: cat.urgency?.details?.humanReadable || {},
-                            monteCarlo: mc || null,
-                            categoryDetails: {
-                                "Total Urgency": Math.round(cat.urgency.score),
-                                ...cat.urgency?.details?.components
-                            }
-                        }
-                    });
-                }
-                break; // Evita gerar repetições extras sem subtópicos na mesma rodada
+                allGeneratedTasks.push({
+                    id: `${cat.id}-geral-${i}-${Date.now().toString(36)}`,
+                    text: `${cat.name}: ${getPriorityLabel()}[Revisão Geral Complementar]`,
+                    completed: false,
+                    status: 'pending',
+                    priority: 'low',
+                    categoryId: cat.id,
+                    category: cat.name,
+                    catName: cat.name,
+                    subjectName: cat.name,
+                    topicName: 'Revisão Geral Complementar',
+                    analysis: {
+                        reason: "Cobertura Geral",
+                        details: "Sem tópico fraco específico — mantenha a revisão geral em dia.",
+                        metrics: cat.urgency?.details?.humanReadable || {},
+                        monteCarlo: mc || null,
+                        verdict: "Revisão geral leve para manutenção."
+                    }
+                });
+                globalPriorityCounter++;
             }
         }
     });
 
-    const seenTaskKeys = new Set();
-    const deduplicatedTasks = allGeneratedTasks.filter(t => {
-        const rawText = String(t.text || t.title || '');
-        const catNameLower = String(t.catName || t.category || '').trim().toLowerCase();
-        let cleanTitle = cleanCoachTags(rawText)
-            .replace(/Revisão Geral Complementar.*$/i, 'Revisão Geral')
-            .replace(/Revisão Complementar.*$/i, 'Revisão Geral')
-            .trim()
-            .toLowerCase();
-
-        if (catNameLower && cleanTitle.endsWith(`[${catNameLower}]`)) {
-            cleanTitle = cleanTitle.replace(`[${catNameLower}]`, '[revisão geral]');
-        }
-
-        // ✅ PATCH-15: Preservar tipo de alerta na chave de dedup
-        const isAlert = /\[(ALERTA MESTRE|STATUS)\]/i.test(rawText);
-        const key = `${t.categoryId || 'global'}::${isAlert ? 'alert::' : ''}${cleanTitle}::${t.priority || ''}`;
-        if (seenTaskKeys.has(key)) return false;
-        seenTaskKeys.add(key);
+    // FIX: dedupe estável por id (evita tarefas duplicadas no planner)
+    const seenIds = new Set();
+    const dedupedTasks = allGeneratedTasks.filter(t => {
+        if (!t || seenIds.has(t.id)) return false;
+        seenIds.add(t.id);
         return true;
     });
 
-    const interleaved = [];
-    const tasksByCat = {};
-    deduplicatedTasks.forEach(t => {
-        const cid = t.categoryId || 'global';
-        if (!tasksByCat[cid]) tasksByCat[cid] = [];
-        tasksByCat[cid].push(t);
-    });
-    
-    let added = true;
-    let idx = 0;
-    while (added && interleaved.length < 12) {
-        added = false;
-        for (const cid of Object.keys(tasksByCat)) {
-            if (idx < tasksByCat[cid].length) {
-                interleaved.push(tasksByCat[cid][idx]);
-                added = true;
-                if (interleaved.length >= 12) break;
-            }
-        }
-        idx++;
-    }
-
-    return interleaved;
+    return dedupedTasks;
 };
 
-export function getCognitiveState(stats) {
-    if (!stats || typeof stats !== 'object') return 100;
+export const getCognitiveState = (studyLogs = [], options = {}) => {
+    const safeLogs = safeArray(studyLogs);
+    const referenceDate = options.now ? (normalizeDate(options.now) || new Date()) : new Date();
+    const nowMs = referenceDate.getTime();
+    const todayKey = getDateKey(referenceDate);
 
-    // ✅ PATCH-31: Garantir que focusMinutes não é negativo
-    let focusMinutes = Math.max(0, Number(stats.consecutiveMinutes) || 0);
+    const minutesToday = safeLogs
+        .filter(l => getDateKey(l?.date) === todayKey)
+        .reduce((acc, l) => acc + sanitizeMinutes(l.minutes), 0);
 
-    if (focusMinutes === 0 && stats.lastActivityTimestamp) {
-        const minutesSinceLast = Math.max(0, (Date.now() - stats.lastActivityTimestamp) / 60000);
-        if (minutesSinceLast < 30) focusMinutes = stats.previousSessionMinutes || 0;
-    }
-
-    let hadBreaks = (stats.pomodorosCompleted || 0) > 0;
-
-    if (focusMinutes === 0 && hadBreaks) {
-        focusMinutes = stats.pomodorosCompleted * (stats.settings?.pomodoroWork || 25);
-    }
-
-    const rawLevel = stats.user?.level;
-    const userLevel = (rawLevel === null || rawLevel === undefined || rawLevel === '')
-        ? 1
-        : (Number.isFinite(Number(rawLevel)) ? Number(rawLevel) : 1);
-
-    const levelMultiplier = Math.max(0.1, 1 + (userLevel * 0.05));
-    const decayModifier = hadBreaks ? 0.6 : 1.0;
-    const dynamicDecay = (0.003 / levelMultiplier) * decayModifier;
-
-    const fatigueScore = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-dynamicDecay * focusMinutes))));
-
-    return fatigueScore;
-}
-
-export function getBestTask(categories, excludeTaskId = null) {
-  const useDecision = getCoachFeature(null, 'useDecisionUtility', false);
-  const useDecisionForBestTask = getCoachFeature(
-    null,
-    'useDecisionUtilityForBestTask',
-    false
-  );
-
-  let bestTask = null;
-  let highestScore = -Infinity;
-
-  (categories || []).filter(Boolean).forEach(cat => {
-    const rawCatWeight = Number(cat.weight);
-    const boundedCatWeight = Number.isFinite(rawCatWeight)
-      ? Math.min(10, Math.max(1, rawCatWeight))
-      : 5;
-
-    (cat.tasks || []).filter(Boolean).forEach(task => {
-      const taskId = String(
-        task.id || task.text || task.title ||
-        `task-${hashString(JSON.stringify({
-          p: task.priority,
-          c: task.completed,
-          t: task.text
-        }))}`
-      );
-
-      if (task.completed || (excludeTaskId && taskId === excludeTaskId)) {
-        return;
-      }
-
-      let legacyScore = 0;
-
-      if (task.priority === 'high') legacyScore += 50;
-      else if (task.priority === 'medium') legacyScore += 20;
-
-      legacyScore += (boundedCatWeight - 5) * 2;
-
-      const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
-      const normalizedStudyDate = normalizeDate(studiedAt);
-      const parsedTime = normalizedStudyDate ? normalizedStudyDate.getTime() : NaN;
-
-      let recencyDays = 30;
-
-      if (studiedAt && !isNaN(parsedTime) && parsedTime > 0) {
-        recencyDays = Math.max(0, (Date.now() - parsedTime) / (1000 * 60 * 60 * 24));
-        const urgenciaPorEsquecimento = 40 * (1 - Math.exp(-0.05 * recencyDays));
-        legacyScore += urgenciaPorEsquecimento;
-      } else {
-        legacyScore += 45;
-      }
-
-      let normalizedErrorRate = 0;
-
-      if (task.errorRate !== undefined && task.errorRate !== null) {
-        let rawError = String(task.errorRate || '0')
-          .replace(/%/g, '')
-          .replace(/,/g, '.')
-          .trim();
-
-        const validErrorRate = Number.isFinite(Number(rawError))
-          ? Number(rawError)
-          : 0;
-
-        normalizedErrorRate = Math.min(100, Math.max(0, validErrorRate)) / 100;
-        legacyScore += normalizedErrorRate * 40;
-      }
-
-
-      let finalScore = legacyScore;
-
-      if (useDecision) {
-        try {
-          const decision = computeDecisionUtility({
-            id: taskId,
-            type: 'task',
-            priority: task.priority,
-            weight: boundedCatWeight,
-            recencyDays,
-            errorRate: normalizedErrorRate,
-            costMinutes: Number(task.estimatedMinutes || task.minutes || 30),
-            fatigue: Number.isFinite(task.cognitiveFreshness)
-              ? task.cognitiveFreshness
-              : 100,
-          });
-
-          task.decisionUtility = decision.utility;
-          task.decisionComponents = decision.components;
-
-          if (useDecisionForBestTask) {
-            finalScore = (legacyScore * 0.45) + (decision.utility * 0.55);
-          }
-        } catch (err) {
-          console.warn('[CoachLogic] Decision utility best task failed:', err);
-        }
-      }
-      // ✅ FIX: Validar finalScore antes de comparar
-      if (Number.isFinite(finalScore) && finalScore > highestScore) {
-        highestScore = finalScore;
-        bestTask = {
-          ...task,
-          id: taskId,
-          catName: cat.name,
-          catColor: cat.color,
-          catIcon: cat.icon,
-          catId: cat.id,
-          legacyScore,
-          finalScore
-        };
-      }
+    const last7DaysLogs = safeLogs.filter(l => {
+        const t = (normalizeDate(l?.date) || new Date(0)).getTime();
+        return t > 0 && (nowMs - t) <= 7 * MS_PER_DAY;
     });
-  });
+    const hours7d = last7DaysLogs.reduce((acc, l) => acc + sanitizeMinutes(l.minutes), 0) / 60;
 
-  return bestTask;
-}
+    const dailyLoad = Math.min(1, (minutesToday / 60) / 6);
+    const weeklyLoad = Math.min(1, hours7d / 40);
+    const fatigue = clamp(Math.round((dailyLoad * 0.6 + weeklyLoad * 0.4) * 100), 0, 100);
 
-export function getCoachInsight(activeSubject, stats) {
-    if (!activeSubject) {
-        return {
-            type: 'info',
-            title: 'Pronto para Foco',
-            text: 'Sua mente está pronta. Selecione um objetivo tático abaixo para iniciar.',
-            color: 'indigo',
-            iconType: 'Brain'
-        };
-    }
+    const streakDays = new Set(last7DaysLogs.map(l => getDateKey(l?.date)).filter(Boolean)).size;
+    const focus = clamp(Math.round((streakDays / 7) * 100), 0, 100);
 
-    const fatigueScore = getCognitiveState(stats);
-    // ✅ FIX: Validar fatigueScore antes de usar
-    const safeFatigueScore = Number.isFinite(fatigueScore) ? fatigueScore : 100;
+    let recommendation = 'Ritmo saudável — mantenha o plano.';
+    if (fatigue > 75) recommendation = 'Carga cognitiva alta — prefira revisões leves hoje.';
+    else if (fatigue > 50) recommendation = 'Carga moderada — alterne blocos curtos com pausas.';
+    else if (focus < 30) recommendation = 'Consistência baixa — comece com um bloco curto para retomar o ritmo.';
 
-    const userResilience = stats?.user?.level || 1;
-
-    const dangerThreshold = Math.max(45, 75 - (userResilience * 2));
-    const flowThreshold = Math.min(90, 80 + (userResilience * 0.5));
-
-    if (safeFatigueScore < dangerThreshold) {
-        return {
-            type: 'danger',
-            title: 'Pausa Recomendada',
-            text: `Carga cognitiva elevada (**${safeFatigueScore}%**). Sua taxa de retenção pode começar a cair. É um bom momento para descansar a mente.`,
-            color: 'red',
-            iconType: 'Alert'
-        };
-    }
-
-    if (safeFatigueScore >= flowThreshold && stats?.pomodorosCompleted >= 3) {
-        return {
-            type: 'success',
-            title: 'Fluxo Profundo',
-            text: `Excelente ritmo! Você atingiu o estado de fluxo com **${safeFatigueScore}%** de energia mental. Aproveite o momento para avançar no conteúdo.`,
-            color: 'emerald',
-            iconType: 'Zap'
-        };
-    }
-
-    if (stats?.pomodorosCompleted >= 3) {
-        return {
-            type: 'info',
-            title: 'Belo Progresso',
-            text: `${stats.pomodorosCompleted} sessões concluídas. Você ainda tem **${safeFatigueScore}%** de energia. Continue assim, mas lembre-se de fazer breves pausas.`,
-            color: 'indigo',
-            iconType: 'Brain'
-        };
-    }
-
-    // ✅ PATCH-07: Usar safeFatigueScore (já validado) ao invés de fatigueScore
     return {
-        type: 'info',
-        title: 'Foco Ativo',
-        text: `Energia mental em **${safeFatigueScore}%**. Mantenha a concentração na missão: **${activeSubject.task || 'ação'}**.`,
-        color: 'indigo',
-        iconType: 'Brain'
+        fatigue,
+        focus,
+        streakDays,
+        minutesToday: Math.round(minutesToday),
+        hours7d: Number(hours7d.toFixed(2)),
+        recommendation
     };
-}
+};
+
+export const getBestTask = (categories = [], excludeTaskId = null) => {
+    const safeCategories = safeArray(categories);
+    const priorityWeight = { high: 3, medium: 2, low: 1 };
+
+    const candidates = [];
+    safeCategories.forEach(cat => {
+        const tasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+        tasks.forEach(task => {
+            if (!task || task.completed === true) return;
+            if (String(task.status || '').toLowerCase() === 'completed') return;
+            const id = task.id || task.text || '';
+            if (excludeTaskId && id === excludeTaskId) return;
+            candidates.push({ ...task, id, catName: cat?.name || task.catName || '' });
+        });
+    });
+
+    if (candidates.length === 0) return null;
+
+    // FIX: sort estável e seguro (peso de prioridade → tem analysis → ordem original)
+    candidates.sort((a, b) => {
+        const pa = priorityWeight[a.priority] ?? 2;
+        const pb = priorityWeight[b.priority] ?? 2;
+        if (pb !== pa) return pb - pa;
+        const aa = a.analysis ? 1 : 0;
+        const ab = b.analysis ? 1 : 0;
+        if (ab !== aa) return ab - aa;
+        return 0;
+    });
+
+    return candidates[0];
+};
+
+export const getCoachInsight = (category, simulados = [], studyLogs = [], options = {}) => {
+    try {
+        const urgency = calculateUrgency(category, simulados, studyLogs, options);
+        const details = urgency?.details || {};
+        const mc = details.monteCarlo;
+        const trend = Number(details.trend) || 0;
+        const vol = Number(details.mssdVolatility) || 0;
+
+        const parts = [];
+        if (mc && Number.isFinite(mc.probability)) {
+            parts.push(`chance de meta em ${Math.round(mc.probability)}%`);
+        }
+        parts.push(trend > 0.5 ? 'tendência de alta' : trend < -0.5 ? 'tendência de queda' : 'tendência estável');
+        parts.push(`volatilidade ±${vol.toFixed(1)} pts`);
+
+        return `${details.humanReadable?.['Média'] ?? '—'} de média | ${parts.join(' | ')}. ${urgency?.recommendation ?? ''}`.trim();
+    } catch (err) {
+        console.warn('[CoachLogic] getCoachInsight failed:', err);
+        return null;
+    }
+};
 
 export function getCombinedHistory(history, simulados, maxScore = 100) {
     const deduplicatedMap = new Map();
@@ -3044,7 +2544,6 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
 
     allSimulados.forEach((s, idx) => {
         const safeScore = getSafeScore(s, maxScore);
-        // ✅ FIX: Validar safeScore antes de usar
         const safeScoreStr = Number.isFinite(safeScore) ? safeScore.toFixed(2) : '0.00';
         const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${safeScoreStr}`;
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
@@ -3057,13 +2556,10 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
     );
 
     const rowsByDate = {};
-
     safeArray(history).forEach(r => {
         const dKey = getDateKey(r.date || r.createdAt);
-
         if (dKey && !hasSimuladoForDate.has(dKey)) {
             if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0 };
-
             rowsByDate[dKey].correct += (Number(r.correct) || 0);
             rowsByDate[dKey].total += (Number(r.total) || 0);
         }
@@ -3072,10 +2568,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
     Object.entries(rowsByDate).forEach(([dKey, stats]) => {
         if (stats.total > 0) {
             const score = (stats.correct / stats.total) * maxScore;
-            // ✅ FIX: Validar score antes de usar
             const safeScoreStr = Number.isFinite(score) ? score.toFixed(2) : '0.00';
             const key = `legacy-${dKey}|${dKey}|${safeScoreStr}`;
-
             if (!deduplicatedMap.has(key)) {
                 deduplicatedMap.set(key, {
                     id: `legacy-${dKey}`,
@@ -3089,3 +2583,5 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
 
     return getSortedHistory(Array.from(deduplicatedMap.values()));
 }
+
+export { getWeakestTopic, getWeakestTopicsList };

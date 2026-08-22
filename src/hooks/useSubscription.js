@@ -31,7 +31,7 @@ export function useSubscription(user) {
         if (isLocalMode && !isAdmin && !isDevBypass) {
             console.warn('[Subscription] Modo local sem bypass premium. Usuário não terá acesso premium.');
         }
-    }, [isLocalMode, isAdmin, isDevBypass]);
+    }, [isAdmin, isDevBypass]);
 
     const [isPremium, setIsPremium] = useState(shouldBypassBilling);
     const [loading, setLoading] = useState(!shouldBypassBilling);

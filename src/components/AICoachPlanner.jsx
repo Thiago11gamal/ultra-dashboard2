@@ -7,14 +7,23 @@ import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
 
+// FIX (BUG-01): WeakMap cacheia o ID fallback por referência de objeto,
+// garantindo estabilidade entre renders (Strict Mode) — evita remount/flicker.
+const _taskIdWeakMap = new WeakMap();
 let _coachTaskFallbackCounter = 0;
+
 const ensureCoachTaskId = (task) => {
   if (!task || typeof task !== 'object') return task;
-  const stableId = task.id || getSafeId(task) || `coach-task-fb-${++_coachTaskFallbackCounter}-${Date.now().toString(36)}`;
-  return {
-    ...task,
-    id: stableId,
-  };
+  if (task.id) return { ...task, id: task.id };
+
+  const cached = _taskIdWeakMap.get(task);
+  if (cached) return { ...task, id: cached };
+
+  const stableId =
+    getSafeId(task) ||
+    `coach-task-fb-${++_coachTaskFallbackCounter}-${Date.now().toString(36)}`;
+  _taskIdWeakMap.set(task, stableId);
+  return { ...task, id: stableId };
 };
 
 const DAYS = [
@@ -44,7 +53,6 @@ function TaskCard({ task, index, isBacklog, stableId, dayTheme, categories = [],
   const accentColor = !isBacklog && dayTheme ? dayTheme.text : 'text-violet-300';
   const accentBorder = !isBacklog && dayTheme ? dayTheme.border : 'border-violet-500/40';
   const gradientLine = !isBacklog && dayTheme ? dayTheme.gradient : 'from-violet-600 to-indigo-600';
-
   return (
     <Draggable draggableId={stableId} index={index}>
       {(provided, snapshot) => (
@@ -131,7 +139,6 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
   const rawCoachPlanner = propPlannerData || activeContest?.coachPlanner || defaultCoachPlanner;
   const rawCoachPlan = activeContest?.coachPlan || defaultCoachPlan;
-
   const coachPlanner = useMemo(() => {
     const normalized = {};
     for (const [key, val] of Object.entries(rawCoachPlanner)) {
@@ -139,23 +146,19 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     }
     return normalized;
   }, [rawCoachPlanner]);
-
   const coachPlan = useMemo(
     () => (Array.isArray(rawCoachPlan) ? rawCoachPlan : Object.values(rawCoachPlan || {})).map(ensureCoachTaskId),
     [rawCoachPlan]
   );
-
   const setData = useAppStore(state => state.setData);
   const startNeuralSession = useAppStore(state => state.startNeuralSession);
   const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
   const [enabled, setEnabled] = useState(false);
-
   useEffect(() => {
     const animation = requestAnimationFrame(() => setEnabled(true));
     return () => cancelAnimationFrame(animation);
   }, []);
-
   const getInitialColumns = useCallback(() => {
     const allAssignedIds = new Set();
     DAYS.forEach(d => (coachPlanner[d.id] || []).forEach(t => {
@@ -182,17 +185,13 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       sun: cleanCol(coachPlanner.sun)
     };
   }, [coachPlan, coachPlanner]);
-
   const [columns, setColumns] = useState(() => getInitialColumns());
   const columnsRef = useRef(columns);
-
   // PATCH: contador em vez de boolean (sobrevive a Strict Mode)
   const skipResetCountRef = useRef(0);
-
   useEffect(() => {
     columnsRef.current = columns;
   }, [columns]);
-
   useEffect(() => {
     if (!isDragging) {
       if (skipResetCountRef.current > 0) {
@@ -202,12 +201,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       setColumns(getInitialColumns());
     }
   }, [coachPlan, coachPlanner, getInitialColumns, isDragging]);
-
   const onDragEnd = (result) => {
     setIsDragging(false);
     // PATCH: sobrevive a 2 execuções do effect (Strict Mode)
     skipResetCountRef.current = 2;
-
     if (!result.destination) return;
     const { source, destination } = result;
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
@@ -251,7 +248,6 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       };
     });
   };
-
   const handleStartTask = useCallback((task, dayId) => {
     if (propOnStart) {
       propOnStart(task, dayId);
@@ -277,11 +273,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     startNeuralSession(sessionWithContext, startIndex);
     navigate('/pomodoro');
   }, [startNeuralSession, navigate, propOnStart]);
-
   if (!enabled) {
     return null;
   }
-
   return (
     <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
       <div className="flex flex-col xl:flex-row gap-5 items-stretch mt-3">
@@ -296,8 +290,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                 <h3 className="text-xs font-black uppercase tracking-[0.18em] text-slate-200">Sugestões</h3>
                 <p className="text-[9px] font-semibold text-slate-400 tracking-wider">IA Coach</p>
               </div>
+              {/* FIX (BUG-02): protege contra backlog undefined */}
               <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-violet-500/15 text-violet-300 border border-violet-500/30">
-                {columns.backlog.length}
+                {(columns.backlog || []).length}
               </span>
             </div>
             <Droppable droppableId="backlog">
@@ -305,6 +300,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
+                  /* FIX (BUG-22/35): ARIA na região droppable */
+                  role="list"
+                  aria-label="Sugestões de tarefas não alocadas"
                   className={`flex-1 flex flex-col gap-1 p-2 rounded-2xl border border-dashed transition-colors overflow-y-auto max-h-[580px] custom-scrollbar ${
                     snapshot.isDraggingOver
                       ? 'border-violet-500/60 bg-violet-500/10'
@@ -326,7 +324,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                     );
                   })}
                   {provided.placeholder}
-                  {columns.backlog.length === 0 && (
+                  {(columns.backlog || []).length === 0 && (
                     <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500 my-auto">
                       <Sparkles size={20} className="mb-2 text-violet-400/50" />
                       <p className="text-xs font-medium text-slate-400">Tudo distribuído!</p>
@@ -338,7 +336,6 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
             </Droppable>
           </div>
         </div>
-
         <div className="w-full flex-1 min-w-0 flex flex-col">
           <div className="bg-slate-900/60 border border-white/[0.08] rounded-3xl p-4 sm:p-5 flex flex-col h-full relative backdrop-blur-md">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
@@ -354,13 +351,13 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
               </div>
             </div>
             <div className="overflow-x-auto kanban-scrollbar pb-3 pt-1">
-              {/* PATCH: min-w responsivo */}
-              <div className="flex gap-2.5 min-w-[900px] xl:min-w-[1100px] 2xl:min-w-full">
+              {/* FIX (BUG-11/21): min-w responsivo — sem scroll horizontal forçado em telas pequenas */}
+              <div className="flex gap-2.5 min-w-[700px] sm:min-w-[900px] xl:min-w-[1100px] 2xl:min-w-full">
                 {DAYS.map((day) => {
                   const dayTasks = columns[day.id] || [];
                   return (
-                    /* PATCH: min-w por coluna responsivo */
-                    <div key={day.id} className="flex-1 min-w-[128px] xl:min-w-[155px] flex flex-col">
+                    /* FIX: min-w por coluna responsivo */
+                    <div key={day.id} className="flex-1 min-w-[100px] sm:min-w-[128px] xl:min-w-[155px] flex flex-col">
                       <div className={`mb-3 rounded-2xl border ${day.border} ${day.bg} p-2.5 relative overflow-hidden`}>
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
@@ -381,6 +378,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                           <div
                             ref={provided.innerRef}
                             {...provided.droppableProps}
+                            /* FIX (BUG-22/35): ARIA na região droppable do dia */
+                            role="list"
+                            aria-label={`Tarefas de ${day.full}`}
                             className={`flex-1 p-2 rounded-xl border border-dashed transition-colors flex flex-col min-h-[220px] max-h-[580px] overflow-y-auto custom-scrollbar ${
                               snapshot.isDraggingOver
                                 ? `${day.over} scale-[1.01]`

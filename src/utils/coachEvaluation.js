@@ -3,7 +3,6 @@
  *
  * Lote 8 — Facade para avaliação e backtest do Coach.
  */
-
 export {
   evaluateProbabilityPrediction,
   evaluateScorePrediction,
@@ -30,7 +29,6 @@ import {
   getGranularCoachStrategies,
   runCoachStrategyBacktest,
 } from '../engine/evaluation/strategyBacktester.js';
-
 import {
   summarizeCoachEvaluations,
   buildEvaluationDashboardData,
@@ -74,9 +72,14 @@ export function runGranularCoachBacktest(
 
 /**
  * Constrói dashboard a partir de avaliações salvas ou de um backtest.
+ *
+ * FIX: valida input e retorna null se o summary for inválido,
+ * evitando exceção em chamadas com dado corrompido.
  */
 export function buildCoachEvaluationDashboard(evaluations = []) {
-  const summary = summarizeCoachEvaluations(evaluations);
+  const safeEvaluations = Array.isArray(evaluations) ? evaluations : [];
+  const summary = summarizeCoachEvaluations(safeEvaluations);
+  if (!summary || typeof summary !== 'object') return null;
   return buildEvaluationDashboardData(summary);
 }
 

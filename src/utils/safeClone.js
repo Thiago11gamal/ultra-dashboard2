@@ -5,8 +5,9 @@ export const safeClone = (value) => {
     if (typeof structuredClone === 'function') {
       return structuredClone(value);
     }
-  } catch {}
-
+  } catch {
+    // fallback
+  }
   try {
     return JSON.parse(JSON.stringify(value));
   } catch {

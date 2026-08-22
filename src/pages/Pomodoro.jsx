@@ -847,7 +847,9 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         setPomodoroActiveSubject(null);
         try {
             localStorage.removeItem('pomodoroState');
-        } catch {}
+        } catch {
+            // ignore
+        }
         const returnPath = resolveReturnPath(currentSource, Boolean(options.forceDashboard));
         navigate(returnPath, { replace: Boolean(options.forceDashboard) });
     }, [activeSubject, setData, setPomodoroActiveSubject, navigate]);

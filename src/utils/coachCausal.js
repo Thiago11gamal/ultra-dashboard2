@@ -3,11 +3,9 @@
  *
  * Lote 11 — Facade de Causal Uplift & Policy Engine.
  */
-
 import { getSafeScore } from './scoreHelper.js';
 import { normalizeDate } from './dateHelper.js';
 import { isSubjectMatch } from './normalization.js';
-
 import {
   prepareCausalEvents,
   estimateUpliftByAction,
@@ -15,7 +13,6 @@ import {
   loadCausalModel,
   clearCausalModel,
 } from '../engine/causal/upliftModel.js';
-
 import {
   inferActionType,
   candidatesFromWeakTopics,
@@ -35,21 +32,23 @@ function toTime(value) {
   return date && Number.isFinite(date.getTime()) ? date.getTime() : NaN;
 }
 
+// FIX: tolerância de 1 dia para datas "no futuro" (fuso horário / relógio errado).
+// Qualquer timestamp além disso é tratado como dado corrompido e descartado.
+const MAX_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
+function isReasonableTime(t) {
+  return Number.isFinite(t) && t <= Date.now() + MAX_FUTURE_TOLERANCE_MS;
+}
+
 function rollingSd(values, windowSize = 5) {
   const safeValues = safeArray(values)
     .map((v) => Number(v))
     .filter((v) => Number.isFinite(v));
-
   if (safeValues.length < 2) return 0;
-
   const window = safeValues.slice(-windowSize);
-
   const mean = window.reduce((acc, val) => acc + val, 0) / window.length;
-
   const variance =
     window.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) /
     Math.max(1, window.length - 1);
-
   return Math.sqrt(Math.max(0, variance));
 }
 
@@ -59,7 +58,6 @@ function rollingSd(values, windowSize = 5) {
 export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], options = {}) {
   const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
   const minTreatmentMinutes = Number(options.minTreatmentMinutes) || 60;
-
   const categoryId = options.categoryId || null;
   const categoryName = options.categoryName || null;
 
@@ -71,7 +69,6 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
     .map((simulado, index) => {
       const time = toTime(simulado?.date ?? simulado?.createdAt);
       const score = getSafeScore(simulado, maxScore);
-
       return {
         index,
         time,
@@ -79,7 +76,8 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
         simulado,
       };
     })
-    .filter((entry) => Number.isFinite(entry.time) && Number.isFinite(entry.score))
+    // FIX: descarta timestamps inválidos OU no futuro além da tolerância
+    .filter((entry) => Number.isFinite(entry.time) && Number.isFinite(entry.score) && isReasonableTime(entry.time))
     .sort((a, b) => a.time - b.time);
 
   const safeLogs = safeArray(studyLogs)
@@ -91,34 +89,29 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
       time: toTime(log?.date ?? log?.createdAt),
       minutes: Math.min(720, Math.max(0, Number(log?.minutes) || 0)),
     }))
-    .filter((entry) => Number.isFinite(entry.time));
+    // FIX: descarta logs com timestamp inválido/futuro
+    .filter((entry) => Number.isFinite(entry.time) && isReasonableTime(entry.time));
 
   const events = [];
-
   const scores = safeSimulados.map((entry) => entry.score);
 
   for (let i = 1; i < safeSimulados.length; i++) {
     const prev = safeSimulados[i - 1];
     const curr = safeSimulados[i];
-
     if (curr.time <= prev.time) continue;
 
     const outcomeDelta = curr.score - prev.score;
     const baselineScore = prev.score;
-
     const daysSince = (curr.time - prev.time) / 86400000;
 
     const intervalLogs = safeLogs.filter(
       (log) => log.time > prev.time && log.time <= curr.time
     );
-
     const totalMinutes = intervalLogs.reduce(
       (acc, log) => acc + log.minutes,
       0
     );
-
     const treated = totalMinutes >= minTreatmentMinutes ? 1 : 0;
-
     const volatility = rollingSd(scores.slice(0, i), 5);
 
     events.push({
@@ -144,7 +137,6 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
 export function buildTaskCausalEvents(categories = [], simulados = [], options = {}) {
   const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
   const maxHorizonDays = Number(options.maxHorizonDays) || 45;
-
   const safeCategories = safeArray(categories);
   const events = [];
 
@@ -157,7 +149,6 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       .map((simulado, index) => {
         const time = toTime(simulado?.date ?? simulado?.createdAt);
         const score = getSafeScore(simulado, maxScore);
-
         return {
           index,
           time,
@@ -165,7 +156,8 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
           simulado,
         };
       })
-      .filter((entry) => Number.isFinite(entry.time) && Number.isFinite(entry.score))
+      // FIX: descarta timestamps inválidos/futuros
+      .filter((entry) => Number.isFinite(entry.time) && Number.isFinite(entry.score) && isReasonableTime(entry.time))
       .sort((a, b) => a.time - b.time);
 
     if (categorySimulados.length < 2) return;
@@ -177,13 +169,13 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
     const taskTimes = tasks
       .map((task) => {
         const time = toTime(task?.lastStudiedAt ?? task?.completedAt);
-
         return {
           task,
           time,
         };
       })
-      .filter((entry) => Number.isFinite(entry.time))
+      // FIX: descarta timestamps inválidos/futuros
+      .filter((entry) => Number.isFinite(entry.time) && isReasonableTime(entry.time))
       .sort((a, b) => a.time - b.time);
 
     const scores = categorySimulados.map((entry) => entry.score);
@@ -198,7 +190,6 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
           prevSim = sim;
         }
       }
-
       for (const sim of categorySimulados) {
         if (sim.time > time) {
           nextSim = sim;
@@ -209,13 +200,11 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       if (!prevSim || !nextSim) return;
 
       const horizonDays = (nextSim.time - prevSim.time) / 86400000;
-
       if (horizonDays > maxHorizonDays) return;
 
       const outcomeDelta = nextSim.score - prevSim.score;
       const baselineScore = prevSim.score;
       const daysSince = (time - prevSim.time) / 86400000;
-
       const volatility = rollingSd(scores.slice(0, prevSim.index + 1), 5);
 
       events.push({
@@ -235,6 +224,7 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
     // ✅ PATCH-23: Limitar eventos controle para evitar desbalanceamento
     const MAX_CONTROL_EVENTS_PER_CATEGORY = 5;
     let controlCount = 0;
+
     for (let i = 1; i < categorySimulados.length && controlCount < MAX_CONTROL_EVENTS_PER_CATEGORY; i++) {
       const prev = categorySimulados[i - 1];
       const curr = categorySimulados[i];
@@ -242,8 +232,8 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       const hasTaskInInterval = taskTimes.some(
         ({ time }) => time > prev.time && time <= curr.time
       );
-
       if (hasTaskInInterval) continue;
+
       controlCount++;
 
       const outcomeDelta = curr.score - prev.score;
@@ -279,7 +269,6 @@ export function buildCausalEventsFromHistory(
   options = {}
 ) {
   const taskEvents = buildTaskCausalEvents(categories, simulados, options);
-
   const volumeEvents = buildStudyVolumeCausalEvents(simulados, studyLogs, {
     ...options,
     categoryName: options.categoryName || null,
@@ -349,7 +338,6 @@ export function runCausalPolicyCycle(input = {}) {
   const topics = input.topics || [];
 
   let candidates = candidatesFromWeakTopics(topics, category || {}, input.options || {});
-
   candidates = addSystemActionCandidates(candidates, input.metrics || {}, {
     categoryId: category?.id || null,
     categoryName: category?.name || null,
@@ -381,7 +369,6 @@ export function runCausalPolicyCycle(input = {}) {
  */
 export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null, options = {}) {
   const safeTasks = safeArray(tasks);
-
   if (safeTasks.length === 0) return [];
 
   const priorityToUtility = (priority) => {
@@ -392,7 +379,6 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
 
   const candidates = safeTasks.map((task, index) => {
     const actionType = inferActionType(task?.text || task?.topicName || '');
-
     return {
       id: task?.id || task?.text || `task-${index}`,
       type: actionType,
@@ -418,22 +404,24 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
   // ✅ FIX: Validar ranked antes de criar orderMap
   const safeRanked = Array.isArray(ranked) ? ranked : [];
   const orderMap = new Map();
-
   safeRanked.forEach((candidate, index) => {
     if (candidate && candidate.id) {
       orderMap.set(candidate.id, index);
     }
   });
 
-  return [...safeTasks].sort((a, b) => {
-    const aKey = a?.id || a?.text || '';
-    const bKey = b?.id || b?.text || '';
-
-    const aIndex = orderMap.get(aKey) ?? 9999;
-    const bIndex = orderMap.get(bKey) ?? 9999;
-
-    return aIndex - bIndex;
-  });
+  // FIX (BUG-41): tarefas NÃO mapeadas pelo modelo causal mantêm sua ordem
+  // original relativa (posicionadas após as ranqueadas), em vez do fallback
+  // arbitrário 9999 — que era instável e quebrava com muitas tarefas.
+  return [...safeTasks]
+    .map((task, originalIndex) => ({
+      task,
+      sortKey:
+        orderMap.get(task?.id || task?.text || '') ??
+        (safeRanked.length + originalIndex),
+    }))
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .map((item) => item.task);
 }
 
 export {

@@ -166,24 +166,27 @@ function PomodoroTimer({
     });
 
     useEffect(() => {
-        if (activeSubject?.taskId) {
-            try {
-                const saved = JSON.parse(localStorage.getItem('pomodoroState'));
-                const matchesTask = saved?.activeTaskId === activeSubject.taskId;
-                const matchesMode = saved?.mode === mode;
-                const matchesSession = !activeSubject.sessionInstanceId || 
-                    saved?.sessionInstanceId === activeSubject.sessionInstanceId;
-                if (saved && matchesTask && matchesMode && matchesSession) {
-                    setSavedState({ ...saved, isRunning: false });
-                } else {
+        const timer = setTimeout(() => {
+            if (activeSubject?.taskId) {
+                try {
+                    const saved = JSON.parse(localStorage.getItem('pomodoroState'));
+                    const matchesTask = saved?.activeTaskId === activeSubject.taskId;
+                    const matchesMode = saved?.mode === mode;
+                    const matchesSession = !activeSubject.sessionInstanceId || 
+                        saved?.sessionInstanceId === activeSubject.sessionInstanceId;
+                    if (saved && matchesTask && matchesMode && matchesSession) {
+                        setSavedState({ ...saved, isRunning: false });
+                    } else {
+                        setSavedState(null);
+                    }
+                } catch {
                     setSavedState(null);
                 }
-            } catch {
+            } else {
                 setSavedState(null);
             }
-        } else {
-            setSavedState(null);
-        }
+        }, 0);
+        return () => clearTimeout(timer);
     }, [activeSubject?.taskId, activeSubject?.sessionInstanceId, mode]);
 
     const getSavedState = (key, defaultValue) => {

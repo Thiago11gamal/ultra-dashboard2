@@ -11,11 +11,18 @@ import { getCalibrationKey } from '../utils/coachSafe.js';
 import { RX_REC_MARKUP } from '../utils/coachText';
 import { safeDomain, clampFinite, toProbPct, pointsToPct } from '../utils/measurement';
 
+// FIX (BUG-06): cache limitado p/ evitar re-parse recursivo a cada render
+const REC_CACHE_MAX = 200;
+const recCache = new Map();
+
 function renderRecommendation(text, depth = 0) {
   if (depth > 6) return String(text || '');
   const safeText = String(text || '');
+  const key = `${depth}::${safeText}`;
+  if (recCache.has(key)) return recCache.get(key);
+
   const parts = safeText.split(RX_REC_MARKUP).filter(Boolean);
-  return parts.map((part, idx) => {
+  const result = parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
         <strong
@@ -49,19 +56,31 @@ function renderRecommendation(text, depth = 0) {
     const cleanPart = part.replace(/\*\*|!!|\+\+/g, '');
     return <React.Fragment key={`rec-${idx}`}>{cleanPart}</React.Fragment>;
   });
+
+  if (recCache.size >= REC_CACHE_MAX) {
+    const first = recCache.keys().next().value;
+    recCache.delete(first);
+  }
+  recCache.set(key, result);
+  return result;
 }
 
+// FIX (BUG-07): status normalizado (lowercase + strip de acentos) p/ matching robusto
 function getUrgencyConfig(score, status = '') {
   const numericScore = Number.isFinite(Number(score)) ? Number(score) : 0;
-  const s = status.toLowerCase();
-  if (s.includes('urgente') || numericScore > 70) return {
+  const s = String(status || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (s.includes('urgente') || s.includes('critico') || numericScore > 70) return {
     tier: 'CRÍTICO', Icon: Flame,
     border: 'border-red-500/45', glow: 'shadow-red-900/40',
     badge: 'bg-red-500/15 text-red-300 border-red-500/30',
     bar: 'from-red-600 to-rose-500', accent: 'text-red-400',
     stripe: 'from-red-600/15', pulse: 'bg-red-500', line: 'via-red-500'
   };
-  if (s.includes('médio') || numericScore > 50) return {
+  if (s.includes('medio') || s.includes('alto') || numericScore > 50) return {
     tier: 'ALTO', Icon: TrendingDown,
     border: 'border-orange-500/45', glow: 'shadow-orange-900/30',
     badge: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
@@ -145,20 +164,16 @@ function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
   let high = Number.isFinite(Number(mc.ci95HighPct))
     ? clampPct(mc.ci95HighPct)
     : toScorePct(mc.ci95High ?? mc.conformalHigh);
-
   const volatility = Number.isFinite(Number(mc.volatility)) ? Number(mc.volatility) : 0;
-
   // PATCH: fallback baseado em volatilidade real
   const volPct = Number.isFinite(volatility) && volatility > 0
     ? Math.min(15, Math.max(3, volatility * 1.96 / ((domain.max - domain.min) / 100)))
     : 5;
   if (low == null) low = Math.max(0, prob - volPct);
   if (high == null) high = Math.min(100, prob + volPct);
-
   if (low > high) {
     [low, high] = [high, low];
   }
-
   const highVolThreshold = 8 * ((domain.max - domain.min) / 100);
   const isHighVol = volatility > highVolThreshold;
   const danger = Number.isFinite(mc?.thresholds?.danger)
@@ -177,7 +192,6 @@ function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
   const hasConformal =
     Number.isFinite(Number(mc.conformalLow)) &&
     Number.isFinite(Number(mc.conformalHigh));
-
   return (
     <Motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -282,8 +296,12 @@ function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
 export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
   const [showMatrix, setShowMatrix] = useState(false);
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-  if (!suggestion) return null;
+  const sortedHumanReadable = useMemo(() => {
+    const urgencyHumanReadable = suggestion?.urgency?.details?.humanReadable || suggestion?.urgency?.humanReadable || {};
+    return Object.entries(urgencyHumanReadable).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
+  }, [suggestion?.urgency?.details?.humanReadable, suggestion?.urgency?.humanReadable]);
 
+  if (!suggestion) return null;
   const topic = suggestion.weakestTopic;
   const urgency = suggestion?.urgency?.details ?? { hasData: false };
   const monteCarloData = suggestion?.urgency?.monteCarlo || suggestion?.urgency?.details?.monteCarlo || urgency?.monteCarlo;
@@ -298,13 +316,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
   const isDegraded = Boolean(calibrationOps[categoryKey]?.degraded);
   const cfg = getUrgencyConfig(urgencyScore, statusLabel);
   const { tier, Icon: TierIcon } = cfg;
-
-  // PATCH: memoização com JSON.stringify
-  const humanReadableKey = JSON.stringify(urgency.humanReadable || {});
-  const sortedHumanReadable = useMemo(
-    () => Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR')),
-    [humanReadableKey]
-  );
 
   return (
     <Motion.div
@@ -364,7 +375,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
             )}
           </div>
         </div>
-
         {!urgency.hasData ? (
           <div className="flex flex-col md:flex-row items-center gap-8 py-12 px-8 bg-white/[0.02] border border-white/5 shadow-inner">
             <div className="w-20 h-20 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-2xl">
@@ -379,8 +389,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
           </div>
         ) : (
           <div className="space-y-8">
-            {/* PATCH: grid responsivo em md */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_1.5fr_minmax(240px,320px)] gap-6 xl:gap-10 items-start">
+            {/* FIX (BUG-23): removido md:grid-cols-2 que quebrava o layout em telas médias */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_minmax(240px,320px)] gap-6 xl:gap-10 items-start">
               <div className="flex flex-col gap-5">
                 <div className="flex items-center gap-3">
                   <div className={`w-1 h-5 rounded-full bg-gradient-to-b ${cfg.bar}`} />
@@ -441,10 +451,12 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                 )}
               </div>
             </div>
-
             <div className="pt-4">
+              {/* FIX (BUG-38): ARIA completo no toggle da matriz */}
               <button
                 onClick={() => setShowMatrix(!showMatrix)}
+                aria-expanded={showMatrix}
+                aria-controls="coach-telemetry-matrix"
                 className="flex items-center justify-between w-full sm:w-auto gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all py-3 px-4 sm:px-6 rounded-md bg-white/[0.03] border border-white/[0.05] hover:border-white/20"
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -458,6 +470,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
               <AnimatePresence>
                 {showMatrix && (
                   <Motion.div
+                    id="coach-telemetry-matrix"
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
