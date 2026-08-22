@@ -59,12 +59,13 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
         >
           <div
             style={{
+              paddingLeft: '1.25rem',
               transform: snapshot.isDragging ? 'scale(1.03)' : 'none',
               boxShadow: snapshot.isDragging
                 ? '0 20px 40px -10px rgba(0,0,0,0.85), 0 0 25px rgba(139,92,246,0.5)'
                 : undefined,
             }}
-            className={`group relative mb-2.5 rounded-lg border py-3 pr-3 pl-6 sm:pl-7 select-none cursor-grab active:cursor-grabbing transition-colors duration-150 ${
+            className={`group relative mb-2 rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${
               snapshot.isDragging
                 ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
                 : isBacklog
@@ -73,69 +74,67 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
             }`}
           >
             <span
-              className={`absolute left-0 top-0 bottom-0 w-[4px] rounded-l-lg bg-gradient-to-b opacity-90 ${
+              className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg bg-gradient-to-b opacity-90 z-0 ${
                 isBacklog
                   ? (isPriority ? 'from-amber-400 to-amber-500' : 'from-violet-500 to-indigo-500')
                   : dayTheme.gradient
               }`}
             />
 
-            {/* Linha Superior: Badge da Matéria + Ações */}
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <span
-                className={`inline-flex min-w-0 max-w-[72%] items-center gap-1.5 rounded px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider truncate ${
-                  isBacklog
-                    ? (isPriority ? 'border border-amber-500/40 bg-amber-500/15 text-amber-300' : 'border border-violet-500/30 bg-violet-500/10 text-violet-300')
-                    : `border border-white/10 bg-black/40 ${dayTheme.text}`
-                }`}
-              >
-                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
-                <span className="truncate" title={displaySubject(subject, categories)}>
-                  {displaySubject(subject, categories)}
-                </span>
-              </span>
+            <div className="relative z-10 w-full flex flex-col h-full pl-0.5">
+              {/* Cabeçalho: Matéria + Ações */}
+              <div className="flex items-start justify-between gap-3 min-w-0 mt-1">
+                <div className="flex items-start gap-1.5 flex-1 min-w-0 mt-0.5">
+                  <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-[5px] ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
+                  <span className={`text-[9.5px] font-black uppercase tracking-[0.1em] leading-snug break-words ${isBacklog ? (isPriority ? 'text-amber-300' : 'text-violet-300') : dayTheme.text}`} title={displaySubject(subject, categories)}>
+                    {displaySubject(subject, categories)}
+                  </span>
+                </div>
 
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onStartPomodoro?.(task, isBacklog ? 'backlog' : dayTheme?.id); }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  aria-label={`Iniciar estudo: ${displaySubject(subject, categories)}`}
-                  title="Estudar agora no Pomodoro"
-                  className={`w-5 h-5 rounded flex items-center justify-center transition-all ${
-                    !isBacklog && dayTheme
-                      ? `${dayTheme.text} bg-white/5 hover:bg-white/15 hover:scale-110`
-                      : 'bg-violet-500/15 text-violet-300 hover:bg-violet-500 hover:text-white hover:scale-110'
-                  }`}
-                >
-                  <Play size={9} className="fill-current ml-0.5" />
-                </button>
-                <GripVertical size={13} className="shrink-0 text-slate-500 group-hover:text-slate-300 transition-colors cursor-grab" />
+                <div className="flex items-center gap-1 shrink-0 bg-black/20 rounded-md border border-white/5 p-0.5">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onStartPomodoro?.(task, isBacklog ? 'backlog' : dayTheme?.id); }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    aria-label={`Iniciar estudo: ${displaySubject(subject, categories)}`}
+                    title="Estudar agora no Pomodoro"
+                    className={`w-5 h-5 rounded flex items-center justify-center transition-all ${
+                      !isBacklog && dayTheme
+                        ? `${dayTheme.text} bg-white/5 hover:bg-white/15 hover:scale-110`
+                        : 'bg-violet-500/15 text-violet-300 hover:bg-violet-500 hover:text-white hover:scale-110'
+                    }`}
+                  >
+                    <Play size={8} className="fill-current ml-0.5" />
+                  </button>
+                  <div className="w-4 h-5 flex items-center justify-center cursor-grab text-slate-500 hover:text-slate-300 transition-colors">
+                    <GripVertical size={11} />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Linha Principal: Título do Tópico + Detalhes */}
-            <div className="mt-2 flex flex-col gap-0.5">
-              <h4 className="text-[12px] sm:text-[13px] font-bold leading-snug text-slate-100 break-words line-clamp-2 tracking-normal">
-                {topicLabel}
-              </h4>
-              {secondaryText && (
-                <p className="text-[10px] text-slate-400 font-medium leading-relaxed line-clamp-2 mt-0.5">
-                  {secondaryText}
-                </p>
+              {/* Tópico Principal e Secundário (Alinhados com o texto da matéria) */}
+              <div className="mt-4 flex flex-col gap-1 pl-3">
+                <h4 className="text-[11px] sm:text-[12px] font-bold leading-normal text-slate-100 break-words tracking-normal">
+                  {topicLabel}
+                </h4>
+                {secondaryText && (
+                  <p className="text-[9.5px] sm:text-[10px] text-slate-400 font-medium leading-relaxed break-words">
+                    {secondaryText}
+                  </p>
+                )}
+              </div>
+
+              {/* Rodapé (Tags Especiais) */}
+              {isSrsCard && (
+                <div className="mt-3 pt-2 border-t border-white/5 flex items-center pl-3">
+                  <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                    SRS
+                  </span>
+                </div>
               )}
             </div>
-
-            {/* Tag de SRS / Prioridade quando relevante */}
-            {isSrsCard && (
-              <div className="mt-1.5 flex items-center gap-1">
-                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                  SRS
-                </span>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -173,12 +172,54 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   const startNeuralSession = useAppStore(state => state.startNeuralSession);
   const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
+  const [hoveredCol, setHoveredCol] = useState(null);
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
     const animation = requestAnimationFrame(() => setEnabled(true));
     return () => cancelAnimationFrame(animation);
   }, []);
+
+  // Tracking global do ponteiro durante o drag para acender colunas imediatamente
+  useEffect(() => {
+    if (!isDragging) {
+      setHoveredCol(null);
+      return;
+    }
+    
+    let animationFrameId;
+    const updateHover = (clientX, clientY) => {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        const cols = document.querySelectorAll('[data-col-id]');
+        let found = null;
+        for (const col of cols) {
+          const rect = col.getBoundingClientRect();
+          if (clientX >= rect.left && clientX <= rect.right &&
+              clientY >= rect.top && clientY <= rect.bottom) {
+            found = col.getAttribute('data-col-id');
+            break;
+          }
+        }
+        setHoveredCol(found);
+      });
+    };
+
+    const handleMouseMove = (e) => updateHover(e.clientX, e.clientY);
+    const handleTouchMove = (e) => {
+      const touch = e.touches[0];
+      if (touch) updateHover(touch.clientX, touch.clientY);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchmove', handleTouchMove);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [isDragging]);
 
   const getInitialColumns = useCallback(() => {
     const allAssignedIds = new Set();
@@ -278,25 +319,32 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
   return (
     <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
-      <div className="flex flex-col xl:flex-row gap-5 items-stretch mt-3">
+      <div className="flex flex-col xl:flex-row gap-4 items-stretch mt-6 w-full">
 
         {/* ================= BACKLOG ================= */}
-        <div className="w-full xl:w-72 2xl:w-80 shrink-0 flex flex-col">
+        <div 
+          className="w-full xl:w-72 2xl:w-80 shrink-0 flex flex-col"
+          data-col-id="backlog"
+          onMouseEnter={() => !isDragging && setHoveredCol('backlog')}
+          onMouseLeave={() => !isDragging && setHoveredCol(null)}
+        >
           {/* FIX: SEM backdrop-blur (backdrop-filter quebra o fixed do dnd) */}
-          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-xl p-4 sm:p-5 flex flex-col h-full min-h-[460px] relative overflow-hidden">
+          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 min-h-[380px] relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
             <Droppable droppableId="backlog">
-              {(provided, snapshot) => (
-                <div className={`flex-1 flex flex-col transition-all duration-300 ${snapshot.isDraggingOver ? 'bg-white/5 shadow-xl scale-[1.01] rounded-lg p-1' : ''}`}>
-                  <div className={`flex items-center gap-2.5 mb-4 pb-3 border-b transition-colors duration-300 ${snapshot.isDraggingOver ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 ${snapshot.isDraggingOver ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
-                      <BrainCircuit size={16} className={`transition-colors ${snapshot.isDraggingOver ? 'text-violet-200' : 'text-violet-400'}`} />
+              {(provided, snapshot) => {
+                const isHighlight = snapshot.isDraggingOver || hoveredCol === 'backlog';
+                return (
+                <div className={`flex-1 flex flex-col transition-colors duration-150 ${isHighlight ? 'bg-white/5 shadow-xl rounded-lg p-1' : ''}`}>
+                  <div className={`flex items-center gap-2 mb-3 pb-2.5 border-b transition-colors duration-150 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
+                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all duration-150 shrink-0 ${isHighlight ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
+                      <BrainCircuit size={15} className={`transition-colors ${isHighlight ? 'text-violet-200' : 'text-violet-400'}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className={`text-xs font-black uppercase tracking-[0.18em] transition-colors ${snapshot.isDraggingOver ? 'text-white' : 'text-slate-200'}`}>Sugestões</h3>
-                      <p className={`text-[9px] font-semibold tracking-wider transition-colors ${snapshot.isDraggingOver ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
+                      <h3 className={`text-xs font-black uppercase tracking-[0.16em] transition-colors ${isHighlight ? 'text-white' : 'text-slate-200'}`}>Sugestões</h3>
+                      <p className={`text-[9px] font-semibold tracking-wider transition-colors ${isHighlight ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
                     </div>
-                    <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-md border transition-all duration-300 ${snapshot.isDraggingOver ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
+                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition-all duration-150 shrink-0 ${isHighlight ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
                       {(columns.backlog || []).length}
                     </span>
                   </div>
@@ -306,8 +354,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                     {...provided.droppableProps}
                     role="list"
                     aria-label="Sugestões de tarefas não alocadas"
-                    className={`flex-1 flex flex-col p-2 rounded-lg border border-dashed transition-all duration-300 overflow-y-auto max-h-[580px] custom-scrollbar ${
-                      snapshot.isDraggingOver
+                    className={`flex-1 flex flex-col p-2 rounded-lg border border-dashed transition-all duration-150 overflow-y-auto max-h-[580px] custom-scrollbar ${
+                      isHighlight
                         ? 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-400/30'
                         : 'bg-black/20 border-white/[0.08]'
                     }`}
@@ -328,7 +376,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                     )}
                   </div>
                 </div>
-              )}
+              )}}
             </Droppable>
           </div>
         </div>
@@ -336,42 +384,50 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
         {/* ================= SEMANA ================= */}
         <div className="w-full flex-1 min-w-0 flex flex-col">
           {/* FIX: SEM backdrop-blur aqui também */}
-          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-xl p-4 sm:p-5 flex flex-col h-full relative">
+          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 relative shadow-2xl overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.08] shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
-                  <CalendarDays size={16} className="text-indigo-400" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                  <CalendarDays size={15} className="text-indigo-400" />
                 </div>
                 <div className="flex flex-col">
-                  <h3 className="text-xs font-black uppercase tracking-[0.18em] text-slate-200">Planejamento Semanal</h3>
+                  <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-200">Planejamento Semanal</h3>
                   <p className="text-[9px] font-semibold text-slate-400 tracking-wider uppercase">Agenda do Aluno</p>
                 </div>
               </div>
-              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25">
+              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0">
                 {weekTotal} tarefa{weekTotal === 1 ? '' : 's'} na semana
               </span>
             </div>
 
-            <div className="overflow-x-auto custom-scrollbar pb-3 pt-1">
-              <div className="flex gap-3 min-w-[850px] sm:min-w-[1000px] xl:min-w-[1200px] 2xl:min-w-full">
+            <div className="w-full overflow-x-auto kanban-scrollbar pb-2 pt-1 flex-1 flex flex-col">
+              <div className="flex gap-3 min-w-[900px] xl:min-w-0 w-full flex-1">
                 {DAYS.map((day) => {
                   const dayTasks = columns[day.id] || [];
                   return (
-                    <div key={day.id} className="flex-1 min-w-[120px] sm:min-w-[140px] xl:min-w-[160px] flex flex-col">
+                    <div 
+                      key={day.id} 
+                      className="flex-1 min-w-[130px] xl:min-w-0 flex flex-col"
+                      data-col-id={day.id}
+                      onMouseEnter={() => !isDragging && setHoveredCol(day.id)}
+                      onMouseLeave={() => !isDragging && setHoveredCol(null)}
+                    >
                       <Droppable droppableId={day.id}>
-                        {(provided, snapshot) => (
-                          <div className={`flex-1 flex flex-col p-1.5 rounded-lg transition-all duration-300 ${snapshot.isDraggingOver ? 'bg-white/5 shadow-xl scale-[1.02]' : ''}`}>
-                            <div className={`mb-3 rounded-lg border transition-all duration-300 ${
-                              snapshot.isDraggingOver ? `${day.over} shadow-[0_0_15px_rgba(255,255,255,0.05)]` : `${day.headerBorder} ${day.headerBg}`
-                            } p-2.5 relative overflow-hidden`}>
+                        {(provided, snapshot) => {
+                          const isHighlight = snapshot.isDraggingOver || hoveredCol === day.id;
+                          return (
+                          <div className={`flex-1 flex flex-col p-1 rounded-lg transition-colors duration-150 ${isHighlight ? 'bg-white/5 shadow-xl' : ''}`}>
+                            <div className={`mb-2 rounded-lg border transition-all duration-150 ${
+                              isHighlight ? `${day.over} shadow-[0_0_15px_rgba(255,255,255,0.05)]` : `${day.headerBorder} ${day.headerBg}`
+                            } p-2 relative overflow-hidden`}>
                               <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${day.gradient} opacity-70`} />
-                              <div className="flex items-center justify-between">
-                                <div className="flex flex-col">
-                                  <span className={`text-sm font-black tracking-widest ${day.text} uppercase pb-[1px] transition-transform duration-300 ${snapshot.isDraggingOver ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
-                                  <span className="text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-normal">{day.full}</span>
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="flex flex-col min-w-0">
+                                  <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-150 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
+                                  <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
                                 </div>
-                                <div className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border transition-colors duration-300 ${snapshot.isDraggingOver ? day.over : day.headerBorder}`}>
+                                <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border shrink-0 transition-colors duration-150 ${isHighlight ? day.over : day.headerBorder}`}>
                                   {dayTasks.length}
                                 </div>
                               </div>
@@ -382,8 +438,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                               {...provided.droppableProps}
                               role="list"
                               aria-label={`Tarefas de ${day.full}`}
-                              className={`flex-1 p-2 rounded-lg border border-dashed transition-all duration-300 flex flex-col min-h-[220px] max-h-[580px] overflow-y-auto custom-scrollbar ${
-                                snapshot.isDraggingOver
+                              className={`flex-1 p-1.5 rounded-lg border border-dashed transition-all duration-150 flex flex-col min-h-[160px] max-h-[580px] overflow-y-auto kanban-scrollbar ${
+                                isHighlight
                                   ? `${day.over} ring-1 ring-white/20`
                                   : 'bg-black/20 border-white/[0.08] hover:border-white/15'
                               }`}
@@ -396,14 +452,14 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                               })}
                               {provided.placeholder}
                               {dayTasks.length === 0 && !snapshot.isDraggingOver && (
-                                <div className={`w-full min-h-[120px] flex flex-col items-center justify-center gap-1.5 border border-dashed ${day.headerBorder} opacity-40 rounded-lg p-3 text-center my-1 bg-black/10`}>
-                                  <Inbox size={16} className={day.text} />
-                                  <span className={`text-[10px] font-semibold tracking-wider uppercase ${day.text} opacity-70`}>Arraste aqui</span>
+                                <div className={`w-full flex-1 min-h-[100px] flex flex-col items-center justify-center gap-1 border border-dashed ${day.headerBorder} opacity-40 rounded-lg p-2 text-center my-auto bg-black/10`}>
+                                  <Inbox size={14} className={day.text} />
+                                  <span className={`text-[9px] font-semibold tracking-wider uppercase ${day.text} opacity-70`}>Arraste aqui</span>
                                 </div>
                               )}
                             </div>
                           </div>
-                        )}
+                        )}}
                       </Droppable>
                     </div>
                   );

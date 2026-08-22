@@ -99,7 +99,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
   return (
     // FIX (BUG-12): h-full para cards de altura uniforme no grid items-stretch
     <div
-      className={`group relative flex flex-col h-full p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
+      className={`group relative flex flex-col h-full p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-200 overflow-hidden shadow-2xl hover:border-white/10 ${
         isCompleted
           ? 'opacity-75 border-emerald-500/20 border-l-4 sm:border-l-8 border-l-emerald-500'
           : isPriority
@@ -107,7 +107,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
           : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
       }`}
     >
-      <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] via-[#0a0c14]/0 to-transparent ${isPriority ? 'from-rose-900/30' : col.glow}`} />
+      <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] via-[#0a0c14]/0 to-transparent ${isPriority ? 'from-rose-900/30' : col.glow}`} />
       {isPriority && !isCompleted && (
         <div className="absolute -top-20 -right-20 w-56 h-56 bg-rose-600/20 blur-[80px] rounded-full pointer-events-none animate-pulse" />
       )}
@@ -158,7 +158,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
         <button
           onClick={(e) => { e.stopPropagation(); onStartPomodoro(task); }}
           aria-label={`Iniciar sessão de estudo: ${displaySubject(subjectPart, categories)}`}
-          className={`shrink-0 flex items-center gap-2 rounded-xl border min-w-[40px] h-10 px-3 sm:px-4 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${
+          className={`shrink-0 flex items-center gap-2 rounded-xl border min-w-[40px] h-10 px-3 sm:px-4 transition-all duration-150 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${
             isPriority
               ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
               : `bg-white/[0.03] border-white/[0.08] text-slate-300 ${col.btnHover}`
@@ -197,7 +197,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
                 <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(safeProb)}%</span>
               </div>
               <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, Math.max(0, safeProb))}%` }} />
+                <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, safeProb))}%` }} />
               </div>
             </div>
           )}
@@ -210,7 +210,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
                 </span>
               </div>
               <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                <div className={`h-full rounded-full transition-all duration-1000 ${isHighVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (safeVol / (0.2 * safeMax)) * 100))}%` }} />
+                <div className={`h-full rounded-full transition-all duration-500 ${isHighVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (safeVol / (0.2 * safeMax)) * 100))}%` }} />
               </div>
             </div>
           )}
@@ -220,7 +220,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
         <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.04]">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-300 outline-none focus:outline-none ${isExpanded ? 'bg-indigo-500/[0.04] border-indigo-500/10' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'}`}
+            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-150 outline-none focus:outline-none ${isExpanded ? 'bg-indigo-500/[0.04] border-indigo-500/10' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'}`}
           >
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
@@ -230,7 +230,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
                 Análise do Coach
               </span>
             </div>
-            <ChevronDown size={14} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-indigo-400' : 'text-slate-500'}`} />
+            <ChevronDown size={14} className={`transition-transform duration-150 ${isExpanded ? 'rotate-180 text-indigo-400' : 'text-slate-500'}`} />
           </button>
           <AnimatePresence>
             {isExpanded && (
@@ -468,7 +468,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             <button
               onClick={onGenerateGoals}
               disabled={loading}
-              className="group relative w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-100 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none animate-shimmer" />
               {loading ? (
@@ -493,7 +493,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+            transition={{ duration: 0.1, ease: "easeOut" }}
             className="space-y-8"
           >
             <div className="flex items-center justify-between">
@@ -548,7 +548,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+            transition={{ duration: 0.1, ease: "easeOut" }}
             style={{ transform: "none", filter: "none", willChange: "auto" }}
           >
             <div className="space-y-6 mb-8">
@@ -570,7 +570,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
               )}
             </div>
             {systemAlerts.length > 0 && (
-              <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="mb-12 sm:mb-16 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8">
                 {systemAlerts.map((alertTask, idx) => {
                   const parsedAlert = parseCoachTask(alertTask, categories);
                   const cleanText = alertTask.text || alertTask.title || '';

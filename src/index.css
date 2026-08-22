@@ -148,75 +148,81 @@ body::before {
 /* Custom scrollbar utility */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: var(--neon-purple) transparent;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-  display: block;
+  width: 5px;
+  height: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.2);
+  background: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--neon-purple, #818cf8), var(--neon-pink, #f472b6));
+  background: rgba(139, 92, 246, 0.25);
   border-radius: 99px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, var(--neon-blue, #38bdf8), var(--neon-purple, #818cf8));
+  background: rgba(139, 92, 246, 0.55);
 }
 
 /* Kanban horizontal thin scrollbar */
 .kanban-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.2) transparent;
+  scrollbar-color: rgba(139, 92, 246, 0.25) transparent;
 }
 
 .kanban-scrollbar::-webkit-scrollbar {
   height: 4px;
   width: 4px;
-  display: block;
 }
 
 .kanban-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
+  background: transparent;
   border-radius: 99px;
 }
 
 .kanban-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.25);
   border-radius: 99px;
   transition: background 0.2s ease;
 }
 
 .kanban-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.6);
+  background: rgba(139, 92, 246, 0.55);
+}
+
+/* Hide scrollbar buttons (arrows) */
+.kanban-scrollbar::-webkit-scrollbar-button,
+.custom-scrollbar::-webkit-scrollbar-button,
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Premium Global Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.25);
   border-radius: 99px;
-  border: 2px solid #0f172a;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.6);
+  background: rgba(139, 92, 246, 0.55);
 }
 
 
