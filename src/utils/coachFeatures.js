@@ -3,6 +3,7 @@
  *
  * Feature flags para evolução por lotes do motor Coach.
  */
+import { getFlag } from './coachFeatureStore.js';
 
 const DEFAULT_COACH_FEATURES = Object.freeze({
   // Lote 1 — State-Space
@@ -74,7 +75,7 @@ const DEFAULT_COACH_FEATURES = Object.freeze({
  *
  * Prioridade:
  * 1. options.features
- * 2. globalThis.__COACH_FEATURES__
+ * 2. Store centralizado
  * 3. DEFAULT_COACH_FEATURES
  * 4. fallback
  */
@@ -82,16 +83,14 @@ export function getCoachFeature(options, key, fallback = false) {
   // FIX: guarda contra key inválida antes de qualquer acesso
   if (typeof key !== 'string' || key === '') return fallback;
   try {
+    // 1. options.features (prioridade máxima)
     if (options?.features && typeof options.features[key] === 'boolean') {
       return options.features[key];
     }
-    if (
-      typeof globalThis !== 'undefined' &&
-      globalThis.__COACH_FEATURES__ &&
-      typeof globalThis.__COACH_FEATURES__[key] === 'boolean'
-    ) {
-      return globalThis.__COACH_FEATURES__[key];
-    }
+    // 2. Store centralizado (substitui globalThis.__COACH_FEATURES__)
+    const storeValue = getFlag(key, undefined);
+    if (typeof storeValue === 'boolean') return storeValue;
+    // 3. Defaults
     if (typeof DEFAULT_COACH_FEATURES[key] === 'boolean') {
       return DEFAULT_COACH_FEATURES[key];
     }

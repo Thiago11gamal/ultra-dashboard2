@@ -51,7 +51,7 @@ const STABLE_EMPTY = [];
 function normalizeToArray(value) {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return Object.values(value);
-  return EMPTY_ARRAY;
+  return STABLE_EMPTY;
 }
 function sanitizeMaxScore(value) {
   const n = Number(value);
@@ -104,11 +104,11 @@ export default function Coach() {
   const showToast = useToast();
   const showToastRef = useRef(showToast);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
-  const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
+  const rawHistory = data?.simuladoRows || STABLE_EMPTY;
   const history = useMemo(() => normalizeToArray(rawHistory), [rawHistory]);
-  const rawSimulados = data?.simulados || EMPTY_ARRAY;
+  const rawSimulados = data?.simulados || STABLE_EMPTY;
   const simulados = useMemo(() => normalizeToArray(rawSimulados), [rawSimulados]);
-  const rawCategories = data?.categories || EMPTY_ARRAY;
+  const rawCategories = data?.categories || STABLE_EMPTY;
   const categories = useMemo(() =>
     normalizeToArray(rawCategories).map(c => ({
       ...c,
@@ -116,9 +116,9 @@ export default function Coach() {
     })),
     [rawCategories]
   );
-  const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
+  const rawFlashcardDecks = data?.flashcardDecks || STABLE_EMPTY;
   const flashcardDecks = useMemo(() => normalizeToArray(rawFlashcardDecks), [rawFlashcardDecks]);
-  const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
+  const rawStudyLogs = data?.studyLogs || STABLE_EMPTY;
   const studyLogs = useMemo(() => normalizeToArray(rawStudyLogs), [rawStudyLogs]);
   const flashcardDue = useMemo(() => getFlashcardDueTodayCount(flashcardDecks), [flashcardDecks]);
   const { currentUser } = useAuth();

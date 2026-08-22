@@ -9,18 +9,10 @@ import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
 
-// FIX (BUG-01): ID estável via WeakMap (Strict Mode safe)
-const _taskIdWeakMap = new WeakMap();
-let _coachTaskFallbackCounter = 0;
 const ensureCoachTaskId = (task) => {
   if (!task || typeof task !== 'object') return task;
-  if (task.id) return { ...task, id: task.id };
-  const cached = _taskIdWeakMap.get(task);
-  if (cached) return { ...task, id: cached };
-  const stableId =
-    getSafeId(task) ||
-    `coach-task-fb-${++_coachTaskFallbackCounter}-${Date.now().toString(36)}`;
-  _taskIdWeakMap.set(task, stableId);
+  if (task.id) return task;
+  const stableId = getSafeId(task) || `task-${task.categoryId || 'null'}-${task.priority || 'none'}-${task.title ? task.title.length : 0}`;
   return { ...task, id: stableId };
 };
 
@@ -298,8 +290,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       if (!prev) return prev;
       const freshPlanner = { ...(prev.coachPlanner || {}) };
       Object.keys(freshPlanner).forEach(day => { freshPlanner[day] = [...(freshPlanner[day] || [])]; });
-      if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
-      if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
+      if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = [...startList];
+      if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = [...finishList];
       return { coachPlanner: freshPlanner, coachPlan: newCoachPlan };
     });
   };
