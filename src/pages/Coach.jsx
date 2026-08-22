@@ -713,6 +713,7 @@ export default function Coach() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
               className="min-h-[200px]"
+              style={{ transform: "none", filter: "none", willChange: "auto" }}
             >
               <div
                 role="tabpanel"

@@ -549,6 +549,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
+            style={{ transform: "none", filter: "none", willChange: "auto" }}
           >
             <div className="space-y-6 mb-8">
               {suggestedFocus ? (

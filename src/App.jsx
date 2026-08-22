@@ -370,9 +370,10 @@ function MainLayout() {
                 <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 mt-0 pt-[110px] lg:pt-0 pb-24 lg:pb-12 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
                   <Motion.div 
                     key={`${activeContestId}-${location.pathname}`} 
-                    initial={{ opacity: 0.9, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0.9 }}
+                    animate={{ opacity: 1 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
+                    style={{ transform: "none", filter: "none", willChange: "auto" }}
                   >
                     {routesContent}
                   </Motion.div>
