@@ -54,12 +54,8 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          style={
-            snapshot.isDragging
-              ? { ...provided.draggableProps.style, transition: 'none', cursor: 'grabbing' }
-              : provided.draggableProps.style
-          }
-          className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-lg select-none mb-2"
+          style={provided.draggableProps.style}
+          className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-lg select-none"
         >
           <div
             style={{
@@ -68,7 +64,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 ? '0 20px 40px -10px rgba(0,0,0,0.85), 0 0 25px rgba(139,92,246,0.5)'
                 : undefined,
             }}
-            className={`group relative rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${
+            className={`group relative mb-2 rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${
               snapshot.isDragging
                 ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
                 : isBacklog
