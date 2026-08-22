@@ -89,7 +89,7 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
     if (i === 0) edges.push(-0.01);
     else if (i === bins) edges.push(1.01);
     else if (!useQuantile) edges.push(i / bins);
-    else edges.push(sorted[Math.floor((i / bins) * (sorted.length - 1))].probability);
+    else edges.push(sorted[Math.floor((i / bins) * sorted.length)].probability);
   }
   for (let i = 1; i < edges.length - 1; i++) edges[i] = Math.max(edges[i], edges[i - 1] + 1e-6);
   for (let i = 0; i < bins; i++) {
@@ -240,14 +240,13 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   if (recent.length < minSamples) {
     return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3, confidenceFactor: 0 };
   }
-  const isPct = recent.some(r => Number(r.probability) > 1);
   const now = Date.now();
   const LAMBDA = Math.log(2) / (14 * 86400000);
   let sw = 0, swb = 0;
   for (const h of recent) {
     let b = null;
     if (Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1)) {
-      const p = (isPct || Number(h.probability) > 1) ? Number(h.probability) / 100 : Number(h.probability);
+      const p = Number(h.probability) > 1 ? Number(h.probability) / 100 : Number(h.probability);
       b = (p - h.observed) ** 2;
     } else if (Number.isFinite(Number(h.avgBrier))) {
       b = Number(h.avgBrier);
