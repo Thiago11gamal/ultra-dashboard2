@@ -709,8 +709,8 @@ export default function Coach() {
             <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} />
             <Motion.div
               key={safeActiveTab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
               className="min-h-[200px]"
             >
