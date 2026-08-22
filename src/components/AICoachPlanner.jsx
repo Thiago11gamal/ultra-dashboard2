@@ -36,7 +36,7 @@ const DAYS = [
   { id: 'sun', label: 'DOM', full: 'Domingo', gradient: 'from-rose-500 to-red-500', text: 'text-rose-300', dot: 'bg-rose-500', headerBg: 'bg-rose-500/10', headerBorder: 'border-rose-500/25', over: 'border-rose-500/60 bg-rose-500/10', cardBg: 'bg-rose-500/[0.07]', cardBorder: 'border-rose-500/20' },
 ];
 
-function TaskCard({ task, index, isBacklog, stableId, dayTheme, categories = [], onStartPomodoro }) {
+const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categories = [], onStartPomodoro }) => {
   const rawText = typeof task?.text === 'string' ? task.text : (task?.title || '');
   const parsed = parseCoachTask({ ...task, text: rawText }, categories);
   const subject = parsed.subjectRaw;
@@ -54,15 +54,19 @@ function TaskCard({ task, index, isBacklog, stableId, dayTheme, categories = [],
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          /* FIX: style correto do dnd; SEM margin neste elemento (margin vai no card interno) */
+          /* O wrapper externo controla as coordenadas, NUNCA aplique transform aqui além do que a biblioteca passa */
           style={provided.draggableProps.style}
           className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-xl"
         >
           <div
-            className={`group relative mb-2.5 rounded-xl border p-3 cursor-grab active:cursor-grabbing transition-colors duration-150 ${
+            /* O wrapper INTERNO pode receber animações (scale, rotate) sem quebrar as coordenadas do drag */
+            style={{
+              transform: snapshot.isDragging ? 'scale(1.02) rotate(1.5deg)' : 'scale(1) rotate(0deg)',
+              transition: 'transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s'
+            }}
+            className={`group relative mb-2.5 rounded-xl border p-3 cursor-grab active:cursor-grabbing ${
               snapshot.isDragging
-                ? /* FIX: sem scale/rotate (o transform inline do dnd sobrescreveria anyway) */
-                  'border-violet-400/60 bg-[#1a1f30] shadow-[0_18px_40px_-12px_rgba(0,0,0,0.85),0_0_24px_-6px_rgba(139,92,246,0.45)]'
+                ? 'border-violet-400/60 bg-[#1a1f30] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.9),0_0_24px_-6px_rgba(139,92,246,0.55)] z-[999]'
                 : isBacklog
                   ? 'border-white/[0.07] bg-[#12151f] hover:border-violet-400/30 hover:bg-[#161a28]'
                   : `${dayTheme.cardBorder} ${dayTheme.cardBg} hover:border-white/20`
@@ -124,7 +128,12 @@ function TaskCard({ task, index, isBacklog, stableId, dayTheme, categories = [],
       )}
     </Draggable>
   );
-}
+}, (prev, next) => {
+  return prev.stableId === next.stableId &&
+         prev.index === next.index &&
+         prev.isBacklog === next.isBacklog &&
+         prev.dayTheme?.id === next.dayTheme?.id;
+});
 
 export default function AICoachPlanner({ plannerData: propPlannerData, categories: propCategories, onStartPomodoro: propOnStart }) {
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
