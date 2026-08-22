@@ -27,13 +27,13 @@ const ensureCoachTaskId = (task) => {
 // ⚠️ SEM "scale/rotate" no over e SEM backdrop-blur em nenhum painel:
 // transform/backdrop-filter em ANCESTRAL quebra o position:fixed do dnd.
 const DAYS = [
-  { id: 'mon', label: 'SEG', full: 'Segunda', gradient: 'from-violet-600 to-indigo-600', text: 'text-violet-300', dot: 'bg-violet-500', headerBg: 'bg-violet-500/10', headerBorder: 'border-violet-500/25', over: 'border-violet-500/60 bg-violet-500/10', cardBg: 'bg-violet-500/[0.07]', cardBorder: 'border-violet-500/20' },
-  { id: 'tue', label: 'TER', full: 'Terça', gradient: 'from-sky-500 to-cyan-500', text: 'text-sky-300', dot: 'bg-sky-500', headerBg: 'bg-sky-500/10', headerBorder: 'border-sky-500/25', over: 'border-sky-500/60 bg-sky-500/10', cardBg: 'bg-sky-500/[0.07]', cardBorder: 'border-sky-500/20' },
-  { id: 'wed', label: 'QUA', full: 'Quarta', gradient: 'from-pink-500 to-rose-500', text: 'text-pink-300', dot: 'bg-pink-500', headerBg: 'bg-pink-500/10', headerBorder: 'border-pink-500/25', over: 'border-pink-500/60 bg-pink-500/10', cardBg: 'bg-pink-500/[0.07]', cardBorder: 'border-pink-500/20' },
-  { id: 'thu', label: 'QUI', full: 'Quinta', gradient: 'from-orange-500 to-amber-500', text: 'text-orange-300', dot: 'bg-orange-500', headerBg: 'bg-orange-500/10', headerBorder: 'border-orange-500/25', over: 'border-orange-500/60 bg-orange-500/10', cardBg: 'bg-orange-500/[0.07]', cardBorder: 'border-orange-500/20' },
-  { id: 'fri', label: 'SEX', full: 'Sexta', gradient: 'from-emerald-500 to-teal-500', text: 'text-emerald-300', dot: 'bg-emerald-500', headerBg: 'bg-emerald-500/10', headerBorder: 'border-emerald-500/25', over: 'border-emerald-500/60 bg-emerald-500/10', cardBg: 'bg-emerald-500/[0.07]', cardBorder: 'border-emerald-500/20' },
-  { id: 'sat', label: 'SAB', full: 'Sábado', gradient: 'from-cyan-500 to-blue-500', text: 'text-cyan-300', dot: 'bg-cyan-500', headerBg: 'bg-cyan-500/10', headerBorder: 'border-cyan-500/25', over: 'border-cyan-500/60 bg-cyan-500/10', cardBg: 'bg-cyan-500/[0.07]', cardBorder: 'border-cyan-500/20' },
-  { id: 'sun', label: 'DOM', full: 'Domingo', gradient: 'from-rose-500 to-red-500', text: 'text-rose-300', dot: 'bg-rose-500', headerBg: 'bg-rose-500/10', headerBorder: 'border-rose-500/25', over: 'border-rose-500/60 bg-rose-500/10', cardBg: 'bg-rose-500/[0.07]', cardBorder: 'border-rose-500/20' },
+  { id: 'mon', label: 'SEG', full: 'Segunda', gradient: 'from-violet-600 to-indigo-600', text: 'text-violet-300', dot: 'bg-violet-500', headerBg: 'bg-violet-500/10', headerBorder: 'border-violet-500/25', over: 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)]', cardBg: 'bg-violet-500/[0.07]', cardBorder: 'border-violet-500/20' },
+  { id: 'tue', label: 'TER', full: 'Terça', gradient: 'from-sky-500 to-cyan-500', text: 'text-sky-300', dot: 'bg-sky-500', headerBg: 'bg-sky-500/10', headerBorder: 'border-sky-500/25', over: 'border-sky-400/80 bg-sky-500/20 shadow-[inset_0_0_30px_rgba(14,165,233,0.15)]', cardBg: 'bg-sky-500/[0.07]', cardBorder: 'border-sky-500/20' },
+  { id: 'wed', label: 'QUA', full: 'Quarta', gradient: 'from-pink-500 to-rose-500', text: 'text-pink-300', dot: 'bg-pink-500', headerBg: 'bg-pink-500/10', headerBorder: 'border-pink-500/25', over: 'border-pink-400/80 bg-pink-500/20 shadow-[inset_0_0_30px_rgba(236,72,153,0.15)]', cardBg: 'bg-pink-500/[0.07]', cardBorder: 'border-pink-500/20' },
+  { id: 'thu', label: 'QUI', full: 'Quinta', gradient: 'from-orange-500 to-amber-500', text: 'text-orange-300', dot: 'bg-orange-500', headerBg: 'bg-orange-500/10', headerBorder: 'border-orange-500/25', over: 'border-orange-400/80 bg-orange-500/20 shadow-[inset_0_0_30px_rgba(249,115,22,0.15)]', cardBg: 'bg-orange-500/[0.07]', cardBorder: 'border-orange-500/20' },
+  { id: 'fri', label: 'SEX', full: 'Sexta', gradient: 'from-emerald-500 to-teal-500', text: 'text-emerald-300', dot: 'bg-emerald-500', headerBg: 'bg-emerald-500/10', headerBorder: 'border-emerald-500/25', over: 'border-emerald-400/80 bg-emerald-500/20 shadow-[inset_0_0_30px_rgba(16,185,129,0.15)]', cardBg: 'bg-emerald-500/[0.07]', cardBorder: 'border-emerald-500/20' },
+  { id: 'sat', label: 'SAB', full: 'Sábado', gradient: 'from-cyan-500 to-blue-500', text: 'text-cyan-300', dot: 'bg-cyan-500', headerBg: 'bg-cyan-500/10', headerBorder: 'border-cyan-500/25', over: 'border-cyan-400/80 bg-cyan-500/20 shadow-[inset_0_0_30px_rgba(6,182,212,0.15)]', cardBg: 'bg-cyan-500/[0.07]', cardBorder: 'border-cyan-500/20' },
+  { id: 'sun', label: 'DOM', full: 'Domingo', gradient: 'from-rose-500 to-red-500', text: 'text-rose-300', dot: 'bg-rose-500', headerBg: 'bg-rose-500/10', headerBorder: 'border-rose-500/25', over: 'border-rose-400/80 bg-rose-500/20 shadow-[inset_0_0_30px_rgba(244,63,94,0.15)]', cardBg: 'bg-rose-500/[0.07]', cardBorder: 'border-rose-500/20' },
 ];
 
 const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categories = [], onStartPomodoro }) => {
@@ -272,46 +272,48 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
           {/* FIX: SEM backdrop-blur (backdrop-filter quebra o fixed do dnd) */}
           <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-3xl p-4 sm:p-5 flex flex-col h-full min-h-[460px] relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
-            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-white/[0.08]">
-              <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center">
-                <BrainCircuit size={16} className="text-violet-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xs font-black uppercase tracking-[0.18em] text-slate-200">Sugestões</h3>
-                <p className="text-[9px] font-semibold text-slate-400 tracking-wider">IA Coach</p>
-              </div>
-              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-violet-500/15 text-violet-300 border border-violet-500/30">
-                {(columns.backlog || []).length}
-              </span>
-            </div>
-
             <Droppable droppableId="backlog">
               {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  role="list"
-                  aria-label="Sugestões de tarefas não alocadas"
-                  className={`flex-1 flex flex-col p-2 rounded-2xl border border-dashed transition-colors overflow-y-auto max-h-[580px] custom-scrollbar ${
-                    snapshot.isDraggingOver
-                      ? 'border-violet-500/60 bg-violet-500/10'
-                      : 'bg-black/20 border-white/[0.08]'
-                  }`}
-                >
-                  {(columns.backlog || []).filter(Boolean).map((task, idx) => {
-                    const safeId = getSafeId(task) || `backlog-${idx}`;
-                    return (
-                      <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog categories={categories} onStartPomodoro={handleStartTask} />
-                    );
-                  })}
-                  {provided.placeholder}
-                  {(columns.backlog || []).length === 0 && (
-                    <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500 my-auto">
-                      <Sparkles size={20} className="mb-2 text-violet-400/50" />
-                      <p className="text-xs font-medium text-slate-400">Tudo distribuído!</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Arraste itens de volta se quiser reorganizar.</p>
+                <div className={`flex-1 flex flex-col transition-all duration-300 ${snapshot.isDraggingOver ? 'bg-white/5 shadow-xl scale-[1.01] rounded-2xl p-1' : ''}`}>
+                  <div className={`flex items-center gap-2.5 mb-4 pb-3 border-b transition-colors duration-300 ${snapshot.isDraggingOver ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 ${snapshot.isDraggingOver ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
+                      <BrainCircuit size={16} className={`transition-colors ${snapshot.isDraggingOver ? 'text-violet-200' : 'text-violet-400'}`} />
                     </div>
-                  )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className={`text-xs font-black uppercase tracking-[0.18em] transition-colors ${snapshot.isDraggingOver ? 'text-white' : 'text-slate-200'}`}>Sugestões</h3>
+                      <p className={`text-[9px] font-semibold tracking-wider transition-colors ${snapshot.isDraggingOver ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
+                    </div>
+                    <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border transition-all duration-300 ${snapshot.isDraggingOver ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
+                      {(columns.backlog || []).length}
+                    </span>
+                  </div>
+
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    role="list"
+                    aria-label="Sugestões de tarefas não alocadas"
+                    className={`flex-1 flex flex-col p-2 rounded-2xl border border-dashed transition-all duration-300 overflow-y-auto max-h-[580px] custom-scrollbar ${
+                      snapshot.isDraggingOver
+                        ? 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-400/30'
+                        : 'bg-black/20 border-white/[0.08]'
+                    }`}
+                  >
+                    {(columns.backlog || []).filter(Boolean).map((task, idx) => {
+                      const safeId = getSafeId(task) || `backlog-${idx}`;
+                      return (
+                        <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog categories={categories} onStartPomodoro={handleStartTask} />
+                      );
+                    })}
+                    {provided.placeholder}
+                    {(columns.backlog || []).length === 0 && (
+                      <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500 my-auto">
+                        <Sparkles size={20} className="mb-2 text-violet-400/50" />
+                        <p className="text-xs font-medium text-slate-400">Tudo distribuído!</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Arraste itens de volta se quiser reorganizar.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </Droppable>
@@ -344,46 +346,49 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                   const dayTasks = columns[day.id] || [];
                   return (
                     <div key={day.id} className="flex-1 min-w-[100px] sm:min-w-[128px] xl:min-w-[155px] flex flex-col">
-                      <div className={`mb-3 rounded-2xl border ${day.headerBorder} ${day.headerBg} p-2.5 relative overflow-hidden`}>
-                        <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${day.gradient} opacity-70`} />
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-col">
-                            <span className={`text-sm font-black tracking-widest ${day.text} uppercase pb-[1px]`}>{day.label}</span>
-                            <span className="text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-normal">{day.full}</span>
-                          </div>
-                          <div className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border ${day.headerBorder}`}>
-                            {dayTasks.length}
-                          </div>
-                        </div>
-                      </div>
-
                       <Droppable droppableId={day.id}>
                         {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            role="list"
-                            aria-label={`Tarefas de ${day.full}`}
-                            /* FIX: SEM scale-[1.01] no isDraggingOver */
-                            className={`flex-1 p-2 rounded-xl border border-dashed transition-colors flex flex-col min-h-[220px] max-h-[580px] overflow-y-auto custom-scrollbar ${
-                              snapshot.isDraggingOver
-                                ? day.over
-                                : 'bg-black/20 border-white/[0.08] hover:border-white/15'
-                            }`}
-                          >
-                            {dayTasks.filter(Boolean).map((task, idx) => {
-                              const safeId = getSafeId(task) || `${day.id}-${idx}`;
-                              return (
-                                <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} categories={categories} onStartPomodoro={handleStartTask} />
-                              );
-                            })}
-                            {provided.placeholder}
-                            {dayTasks.length === 0 && !snapshot.isDraggingOver && (
-                              <div className={`w-full min-h-[120px] flex flex-col items-center justify-center gap-1.5 border border-dashed ${day.headerBorder} opacity-40 rounded-xl p-3 text-center my-1 bg-black/10`}>
-                                <Inbox size={16} className={day.text} />
-                                <span className={`text-[10px] font-semibold tracking-wider uppercase ${day.text} opacity-70`}>Arraste aqui</span>
+                          <div className={`flex-1 flex flex-col p-1.5 rounded-2xl transition-all duration-300 ${snapshot.isDraggingOver ? 'bg-white/5 shadow-xl scale-[1.02]' : ''}`}>
+                            <div className={`mb-3 rounded-2xl border transition-all duration-300 ${
+                              snapshot.isDraggingOver ? `${day.over} shadow-[0_0_15px_rgba(255,255,255,0.05)]` : `${day.headerBorder} ${day.headerBg}`
+                            } p-2.5 relative overflow-hidden`}>
+                              <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${day.gradient} opacity-70`} />
+                              <div className="flex items-center justify-between">
+                                <div className="flex flex-col">
+                                  <span className={`text-sm font-black tracking-widest ${day.text} uppercase pb-[1px] transition-transform duration-300 ${snapshot.isDraggingOver ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
+                                  <span className="text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-normal">{day.full}</span>
+                                </div>
+                                <div className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border transition-colors duration-300 ${snapshot.isDraggingOver ? day.over : day.headerBorder}`}>
+                                  {dayTasks.length}
+                                </div>
                               </div>
-                            )}
+                            </div>
+
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              role="list"
+                              aria-label={`Tarefas de ${day.full}`}
+                              className={`flex-1 p-2 rounded-xl border border-dashed transition-all duration-300 flex flex-col min-h-[220px] max-h-[580px] overflow-y-auto custom-scrollbar ${
+                                snapshot.isDraggingOver
+                                  ? `${day.over} ring-1 ring-white/20`
+                                  : 'bg-black/20 border-white/[0.08] hover:border-white/15'
+                              }`}
+                            >
+                              {dayTasks.filter(Boolean).map((task, idx) => {
+                                const safeId = getSafeId(task) || `${day.id}-${idx}`;
+                                return (
+                                  <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} categories={categories} onStartPomodoro={handleStartTask} />
+                                );
+                              })}
+                              {provided.placeholder}
+                              {dayTasks.length === 0 && !snapshot.isDraggingOver && (
+                                <div className={`w-full min-h-[120px] flex flex-col items-center justify-center gap-1.5 border border-dashed ${day.headerBorder} opacity-40 rounded-xl p-3 text-center my-1 bg-black/10`}>
+                                  <Inbox size={16} className={day.text} />
+                                  <span className={`text-[10px] font-semibold tracking-wider uppercase ${day.text} opacity-70`}>Arraste aqui</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </Droppable>
