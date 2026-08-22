@@ -333,7 +333,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
             <Droppable droppableId="backlog">
               {(provided, snapshot) => {
-                const isHighlight = snapshot.isDraggingOver || hoveredCol === 'backlog';
+                const isHighlight = hoveredCol ? (hoveredCol === 'backlog') : snapshot.isDraggingOver;
                 return (
                 <div className={`flex-1 flex flex-col transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl rounded-lg p-1' : ''}`}>
                   <div className={`flex items-center gap-2 mb-3 pb-2.5 border-b transition-colors duration-75 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
@@ -415,7 +415,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                     >
                       <Droppable droppableId={day.id}>
                         {(provided, snapshot) => {
-                          const isHighlight = snapshot.isDraggingOver || hoveredCol === day.id;
+                          const isHighlight = hoveredCol ? (hoveredCol === day.id) : snapshot.isDraggingOver;
                           return (
                           <div className={`flex-1 flex flex-col p-1 rounded-lg transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl' : ''}`}>
                             <div className={`mb-2 rounded-lg border transition-all duration-75 ${
