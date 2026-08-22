@@ -918,3 +918,29 @@ input[type=range].custom-slider::-moz-range-thumb:active {
     outline: 2px solid theme('colors.indigo.400');
     outline-offset: 2px;
 }
+
+/* Sleek custom scrollbars */
+.custom-scrollbar::-webkit-scrollbar,
+.kanban-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track,
+.kanban-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.kanban-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition: background 0.2s;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.kanban-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
