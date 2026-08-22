@@ -20,19 +20,26 @@ export function toFiniteNumber(value, fallback = 0) {
 
 // FIX (BUG-31): valida min/max (troca se invertidos) e trata Infinity no value/fallback
 export function clampFinite(value, min, max, fallback = min) {
-  if (value === null || value === undefined || value === '') {
-    const fb = Number(fallback);
-    const safeMin = Math.min(min, max);
-    const safeMax = Math.max(min, max);
-    return Number.isFinite(fb) ? Math.min(safeMax, Math.max(safeMin, fb)) : safeMin;
+  let safeMin = Number(min);
+  let safeMax = Number(max);
+
+  if (!Number.isFinite(safeMin)) safeMin = 0;
+  if (!Number.isFinite(safeMax)) safeMax = safeMin;
+
+  if (safeMin > safeMax) {
+    const tmp = safeMin;
+    safeMin = safeMax;
+    safeMax = tmp;
   }
-  const safeMin = Math.min(min, max);
-  const safeMax = Math.max(min, max);
+
   const n = Number(value);
   if (!Number.isFinite(n)) {
     const fb = Number(fallback);
-    return Number.isFinite(fb) ? Math.min(safeMax, Math.max(safeMin, fb)) : safeMin;
+    return Number.isFinite(fb)
+      ? Math.min(safeMax, Math.max(safeMin, fb))
+      : safeMin;
   }
+
   return Math.min(safeMax, Math.max(safeMin, n));
 }
 

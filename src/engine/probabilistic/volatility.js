@@ -300,7 +300,12 @@ export function estimateDynamicVolatility(history = [], options = {}) {
   };
 }
 
-if (process.env.NODE_ENV !== 'production') {
+const isDev =
+  typeof process !== 'undefined' &&
+  process.env &&
+  process.env.NODE_ENV !== 'production';
+
+if (isDev) {
   // Teste: a variância de longo prazo deve convergir para ω/(1-α-β)
   // independentemente do valor de dt
   const alphaG = 0.05, betaG = 0.75;
