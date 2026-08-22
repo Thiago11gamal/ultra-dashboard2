@@ -254,7 +254,7 @@ export default function Coach() {
           penaltyDelta < 0.001 &&
           probabilityDelta < 0.01 &&
           !reliabilitySignatureChanged;
-        if (shouldSkipPersist) return;
+        if (shouldSkipPersist) return prev;
       }
       const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
       const cleaned = categoryHistory.filter(
@@ -1002,9 +1002,37 @@ function RaioXDashboard({ data }) {
     [sortedLogs, filter]
   );
 
-  const latestWithReliability = sortedLogs.find(
-    log => Array.isArray(log?.reliability) && log.reliability.length > 0
-  );
+  const latestWithReliability = useMemo(() => {
+    // Primeiro tenta no audit log, caso você decida manter reliability lá no futuro.
+    const fromAudit = sortedLogs.find(
+      log => Array.isArray(log?.reliability) && log.reliability.length > 0
+    );
+    if (fromAudit) return fromAudit;
+
+    // Fallback correto: procurar no histórico por categoria,
+    // onde a métrica completa realmente é persistida.
+    const histories = Object.values(data?.calibrationHistoryByCategory || {});
+    let latest = null;
+    let latestTs = -1;
+
+    histories.forEach((history) => {
+      if (!Array.isArray(history)) return;
+
+      for (let i = history.length - 1; i >= 0; i--) {
+        const entry = history[i];
+        if (Array.isArray(entry?.reliability) && entry.reliability.length > 0) {
+          const ts = Number(entry?.timestamp) || 0;
+          if (ts > latestTs) {
+            latestTs = ts;
+            latest = entry;
+          }
+          break;
+        }
+      }
+    });
+
+    return latest;
+  }, [sortedLogs, data?.calibrationHistoryByCategory]);
   const eceValues = sortedLogs.map(log => toFiniteNumber(log?.ece, null)).filter(val => val !== null);
   const avgEce = eceValues.length
     ? eceValues.reduce((a, b) => a + b, 0) / eceValues.length : null;

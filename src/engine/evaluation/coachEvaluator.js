@@ -68,7 +68,7 @@ export function evaluateProbabilityPrediction(
   observedSuccess,
   _options = {}
 ) {
-  const predictedPct = clampFinite(predictedProbabilityPct, 0, 100, 50);
+  const predictedPct = clampFinite(Number(predictedProbabilityPct), 0, 100, 50);
   const predictedProbability01 = predictedPct / 100;
   const observed = observedSuccess ? 1 : 0;
   const brier = computeBrierScore(predictedProbability01, observed);
@@ -98,8 +98,8 @@ export function evaluateScorePrediction(
   options = {}
 ) {
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
-  const predicted = clampFinite(predictedScore, 0, maxScore, null);
-  const observed = clampFinite(observedScore, 0, maxScore, null);
+  const predicted = clampFinite(Number(predictedScore), 0, maxScore, null);
+  const observed = clampFinite(Number(observedScore), 0, maxScore, null);
 
   if (predicted === null || observed === null) {
     return null;

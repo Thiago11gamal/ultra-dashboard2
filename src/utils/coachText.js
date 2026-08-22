@@ -66,9 +66,12 @@ export function parseCoachTask(task, categories = []) {
 
   let subjectRaw = String(
     task?.subjectName ||
+    task?.subject?.name ||
+    task?.subject?.subjectName ||
     task?.category ||
     task?.catName ||
-    (hasSeparator ? clean.slice(0, separatorIndex) : clean)
+    (hasSeparator ? clean.slice(0, separatorIndex) : clean) ||
+    "Matéria Indefinida"
   )
     .replace(/^Foco em\s*/i, '')
     .trim();

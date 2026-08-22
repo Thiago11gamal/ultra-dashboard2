@@ -82,7 +82,8 @@ export function useCoachControlCenter({
 
   const isMounted = useRef(true);
   // FIX: contador de execução para descartar resultados obsoletos
-  const runIdRef = useRef(0);
+  const orchestratorRunIdRef = useRef(0);
+  const tunerRunIdRef = useRef(0);
 
   useEffect(() => {
     isMounted.current = true;
@@ -115,7 +116,7 @@ export function useCoachControlCenter({
   // ==========================================================
   const runOrchestrator = useCallback(async (options = {}) => {
     // FIX: registra esta execução; resultados de execuções anteriores são descartados
-    const runId = ++runIdRef.current;
+    const runId = ++orchestratorRunIdRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -141,21 +142,21 @@ export function useCoachControlCenter({
         }
       );
       // FIX: valida mount E que esta ainda é a execução mais recente
-      if (isMounted.current && runId === runIdRef.current && result) {
+      if (isMounted.current && runId === orchestratorRunIdRef.current && result) {
         setOrchestratorResult(result);
         const dash = buildCoachOrchestratorDashboard(result);
         if (dash) setDashboard(dash);
       }
-      if (isMounted.current && runId === runIdRef.current) setLastRunTimestamp(Date.now());
+      if (isMounted.current && runId === orchestratorRunIdRef.current) setLastRunTimestamp(Date.now());
       return result;
     } catch (err) {
-      if (isMounted.current && runId === runIdRef.current) {
+      if (isMounted.current && runId === orchestratorRunIdRef.current) {
         const msg = err?.message || String(err);
         setError(msg);
       }
       return null;
     } finally {
-      if (isMounted.current && runId === runIdRef.current) setLoading(false);
+      if (isMounted.current && runId === orchestratorRunIdRef.current) setLoading(false);
     }
   }, [categories, simulados, studyLogs, maxScore, targetScore, currentFlags, flagOverrides]);
 
@@ -188,7 +189,7 @@ export function useCoachControlCenter({
   // Executar AutoTuner
   // ==========================================================
   const runAutoTuner = useCallback(async (options = {}) => {
-    const runId = ++runIdRef.current;
+    const runId = ++tunerRunIdRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -201,7 +202,7 @@ export function useCoachControlCenter({
         minImprovement: options.minImprovement ?? 0.02,
       });
       // FIX: valida mount + execução atual
-      if (!isMounted.current || runId !== runIdRef.current) return null;
+      if (!isMounted.current || runId !== tunerRunIdRef.current) return null;
       setTunerResult(result);
       loadAuxiliaryData();
       if (result?.applied) {
@@ -211,13 +212,13 @@ export function useCoachControlCenter({
       }
       return result;
     } catch (err) {
-      if (isMounted.current && runId === runIdRef.current) {
+      if (isMounted.current && runId === tunerRunIdRef.current) {
         const msg = err?.message || String(err);
         setError(msg);
       }
       return null;
     } finally {
-      if (isMounted.current && runId === runIdRef.current) setLoading(false);
+      if (isMounted.current && runId === tunerRunIdRef.current) setLoading(false);
     }
   }, [maxScore, loadAuxiliaryData]);
 

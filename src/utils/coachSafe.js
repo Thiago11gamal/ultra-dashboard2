@@ -20,6 +20,12 @@ export function toFiniteNumber(value, fallback = 0) {
 
 // FIX (BUG-31): valida min/max (troca se invertidos) e trata Infinity no value/fallback
 export function clampFinite(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '') {
+    const fb = Number(fallback);
+    const safeMin = Math.min(min, max);
+    const safeMax = Math.max(min, max);
+    return Number.isFinite(fb) ? Math.min(safeMax, Math.max(safeMin, fb)) : safeMin;
+  }
   const safeMin = Math.min(min, max);
   const safeMax = Math.max(min, max);
   const n = Number(value);
