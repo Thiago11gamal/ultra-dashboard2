@@ -64,7 +64,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 ? '0 20px 40px -10px rgba(0,0,0,0.85), 0 0 25px rgba(139,92,246,0.5)'
                 : undefined,
             }}
-            className={`group relative mb-2.5 rounded-lg border p-3 pl-4 sm:pl-4.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-150 ${
+            className={`group relative mb-2.5 rounded-lg border py-3 pr-3 pl-6 sm:pl-7 select-none cursor-grab active:cursor-grabbing transition-colors duration-150 ${
               snapshot.isDragging
                 ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
                 : isBacklog
@@ -73,7 +73,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
             }`}
           >
             <span
-              className={`absolute left-0 top-0 bottom-0 w-[3.5px] rounded-l-lg bg-gradient-to-b opacity-90 ${
+              className={`absolute left-0 top-0 bottom-0 w-[4px] rounded-l-lg bg-gradient-to-b opacity-90 ${
                 isBacklog
                   ? (isPriority ? 'from-amber-400 to-amber-500' : 'from-violet-500 to-indigo-500')
                   : dayTheme.gradient
