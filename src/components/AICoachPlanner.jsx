@@ -335,16 +335,16 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
               {(provided, snapshot) => {
                 const isHighlight = snapshot.isDraggingOver || hoveredCol === 'backlog';
                 return (
-                <div className={`flex-1 flex flex-col transition-colors duration-150 ${isHighlight ? 'bg-white/5 shadow-xl rounded-lg p-1' : ''}`}>
-                  <div className={`flex items-center gap-2 mb-3 pb-2.5 border-b transition-colors duration-150 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
-                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all duration-150 shrink-0 ${isHighlight ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
+                <div className={`flex-1 flex flex-col transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl rounded-lg p-1' : ''}`}>
+                  <div className={`flex items-center gap-2 mb-3 pb-2.5 border-b transition-colors duration-75 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
+                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
                       <BrainCircuit size={15} className={`transition-colors ${isHighlight ? 'text-violet-200' : 'text-violet-400'}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className={`text-xs font-black uppercase tracking-[0.16em] transition-colors ${isHighlight ? 'text-white' : 'text-slate-200'}`}>Sugestões</h3>
                       <p className={`text-[9px] font-semibold tracking-wider transition-colors ${isHighlight ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
                     </div>
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition-all duration-150 shrink-0 ${isHighlight ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
+                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
                       {(columns.backlog || []).length}
                     </span>
                   </div>
@@ -354,7 +354,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                     {...provided.droppableProps}
                     role="list"
                     aria-label="Sugestões de tarefas não alocadas"
-                    className={`flex-1 flex flex-col p-2 rounded-lg border border-dashed transition-all duration-150 overflow-y-auto max-h-[580px] custom-scrollbar ${
+                    className={`flex-1 flex flex-col p-2 rounded-lg border border-dashed transition-all duration-75 overflow-y-auto max-h-[580px] custom-scrollbar ${
                       isHighlight
                         ? 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-400/30'
                         : 'bg-black/20 border-white/[0.08]'
@@ -417,17 +417,17 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                         {(provided, snapshot) => {
                           const isHighlight = snapshot.isDraggingOver || hoveredCol === day.id;
                           return (
-                          <div className={`flex-1 flex flex-col p-1 rounded-lg transition-colors duration-150 ${isHighlight ? 'bg-white/5 shadow-xl' : ''}`}>
-                            <div className={`mb-2 rounded-lg border transition-all duration-150 ${
+                          <div className={`flex-1 flex flex-col p-1 rounded-lg transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl' : ''}`}>
+                            <div className={`mb-2 rounded-lg border transition-all duration-75 ${
                               isHighlight ? `${day.over} shadow-[0_0_15px_rgba(255,255,255,0.05)]` : `${day.headerBorder} ${day.headerBg}`
                             } p-2 relative overflow-hidden`}>
                               <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${day.gradient} opacity-70`} />
                               <div className="flex items-center justify-between gap-1">
                                 <div className="flex flex-col min-w-0">
-                                  <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-150 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
+                                  <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-75 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
                                   <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
                                 </div>
-                                <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border shrink-0 transition-colors duration-150 ${isHighlight ? day.over : day.headerBorder}`}>
+                                <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border shrink-0 transition-colors duration-75 ${isHighlight ? day.over : day.headerBorder}`}>
                                   {dayTasks.length}
                                 </div>
                               </div>
@@ -438,7 +438,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                               {...provided.droppableProps}
                               role="list"
                               aria-label={`Tarefas de ${day.full}`}
-                              className={`flex-1 p-1.5 rounded-lg border border-dashed transition-all duration-150 flex flex-col min-h-[160px] max-h-[580px] overflow-y-auto kanban-scrollbar ${
+                              className={`flex-1 p-1.5 rounded-lg border border-dashed transition-all duration-75 flex flex-col min-h-[160px] max-h-[580px] overflow-y-auto kanban-scrollbar ${
                                 isHighlight
                                   ? `${day.over} ring-1 ring-white/20`
                                   : 'bg-black/20 border-white/[0.08] hover:border-white/15'
