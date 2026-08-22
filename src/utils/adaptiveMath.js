@@ -170,7 +170,10 @@ export const calcSlopeWithSignificance = (dados) => {
 
     // FIX 1: Centralização dos eixos X (Mean Centering) para anular a perda de precisão
     // em matrizes de ponto flutuante durante a elevação ao quadrado de datas gigantes.
-    const minX = Math.min(...rawXs);
+    let minX = Infinity;
+    for (let i = 0; i < n; i++) {
+        if (rawXs[i] < minX) minX = rawXs[i];
+    }
     const Xs = rawXs.map(x => x - minX);
     
     const sumX = kahanSum(Xs);

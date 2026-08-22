@@ -110,6 +110,11 @@ const clamp = (value, min, max) => {
     return Math.min(max, Math.max(min, n));
 };
 
+const safeFixedNumber = (value, digits = 2, fallback = 0) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? Number(n.toFixed(digits)) : fallback;
+};
+
 // simpleHash moved to coachSafe.js as hashString (canonical)
 const simpleHash = hashString;
 
@@ -277,10 +282,10 @@ export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, gl
 };
 
 export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
-    const n = history.length;
     const fallbackVol = 0.08 * maxScore;
-    if (n < 2) return fallbackVol;
     const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
+    const n = safeHistory.length;
+    if (n < 2) return fallbackVol;
     const validScores = safeHistory
         .map(h => getSafeScore(h, maxScore))
         .filter(s => Number.isFinite(s));
@@ -741,8 +746,10 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         MC_CALIBRATION_NEUTRAL_PCT: globalBaselinePct
     };
 
-    const agilityData = computeAgilityMetrics(safeCategory.simuladoStats?.history || []);
-    const agilityPenalty = agilityData.agilityPenalty || 0;
+    const agilityData = computeAgilityMetrics(safeCategory.simuladoStats?.history || []) || {};
+    const agilityPenalty = Number.isFinite(agilityData.agilityPenalty)
+      ? agilityData.agilityPenalty
+      : 0;
     const avgSeconds = Number.isFinite(agilityData?.avgSeconds)
         ? agilityData.avgSeconds
         : 0;
@@ -771,8 +778,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
       mcResult
     ) {
       try {
-        const safeStateSpace = typeof stateSpace !== 'undefined' ? stateSpace : null;
-        const safeDynamicVolatility = typeof dynamicVolatility !== 'undefined' ? dynamicVolatility : null;
+        const safeStateSpace = stateSpace ?? null;
+        const safeDynamicVolatility = dynamicVolatility ?? null;
         const domain = Math.max(1e-6, maxScore - minScore);
         const fallbackAbilitySd = Math.max(
           domain * 0.02,
@@ -1331,90 +1338,90 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         normalizedScore: normalized,
         recommendation,
         details: {
-            averageScore: Number(averageScore.toFixed(2)),
-            globalProjectedMean: globalProjectedMean != null ? Number(globalProjectedMean.toFixed(1)) : null,
+            averageScore: safeFixedNumber(averageScore),
+            globalProjectedMean: globalProjectedMean != null ? safeFixedNumber(globalProjectedMean, 1) : null,
             daysSinceLastStudy,
-            standardDeviation: Number(mssdVolatility.toFixed(2)),
-            mssdVolatility: Number(mssdVolatility.toFixed(2)),
+            standardDeviation: safeFixedNumber(mssdVolatility),
+            mssdVolatility: safeFixedNumber(mssdVolatility),
             posteriorMonteCarlo: metrics.posteriorMc
               ? {
-                  model: metrics.posteriorMc.model,
-                  probability: Number(metrics.posteriorMc.probability.toFixed(2)),
-                  probabilityRaw: Number(metrics.posteriorMc.probabilityRaw.toFixed(2)),
-                  mean: Number(metrics.posteriorMc.mean.toFixed(2)),
-                  ciLow: Number(metrics.posteriorMc.ciLow.toFixed(2)),
-                  ciHigh: Number(metrics.posteriorMc.ciHigh.toFixed(2)),
-                  horizonDays: Number(metrics.posteriorMc.horizonDays.toFixed(2)),
-                  simulations: metrics.posteriorMc.simulations,
-                  sampleTrust: Number(metrics.posteriorMc.sampleTrust.toFixed(4)),
+                  model: metrics.posteriorMc.model || null,
+                  probability: safeFixedNumber(metrics.posteriorMc.probability),
+                  probabilityRaw: safeFixedNumber(metrics.posteriorMc.probabilityRaw),
+                  mean: safeFixedNumber(metrics.posteriorMc.mean),
+                  ciLow: safeFixedNumber(metrics.posteriorMc.ciLow),
+                  ciHigh: safeFixedNumber(metrics.posteriorMc.ciHigh),
+                  horizonDays: safeFixedNumber(metrics.posteriorMc.horizonDays),
+                  simulations: metrics.posteriorMc.simulations ?? null,
+                  sampleTrust: safeFixedNumber(metrics.posteriorMc.sampleTrust, 4),
                   diagnostics: metrics.posteriorMc.diagnostics || null,
                   inputs: metrics.posteriorMc.inputs || null,
                 }
               : null,
             dynamicVolatility: metrics.dynamicVolatility && Number.isFinite(metrics.dynamicVolatility.volatility)
               ? {
-                  model: metrics.dynamicVolatility.model,
-                  volatility: Number(metrics.dynamicVolatility.volatility.toFixed(2)),
-                  modelVolatility: Number(metrics.dynamicVolatility.modelVolatility.toFixed(2)),
-                  fallbackVolatility: Number(metrics.dynamicVolatility.fallbackVolatility.toFixed(2)),
-                  dailyVolatility: Number(metrics.dynamicVolatility.dailyVolatility.toFixed(2)),
-                  horizonDays: Number(metrics.dynamicVolatility.horizonDays.toFixed(2)),
-                  medianGapDays: Number(metrics.dynamicVolatility.medianGapDays.toFixed(2)),
-                  sampleSize: metrics.dynamicVolatility.sampleSize,
+                  model: metrics.dynamicVolatility.model || null,
+                  volatility: safeFixedNumber(metrics.dynamicVolatility.volatility),
+                  modelVolatility: safeFixedNumber(metrics.dynamicVolatility.modelVolatility),
+                  fallbackVolatility: safeFixedNumber(metrics.dynamicVolatility.fallbackVolatility),
+                  dailyVolatility: safeFixedNumber(metrics.dynamicVolatility.dailyVolatility),
+                  horizonDays: safeFixedNumber(metrics.dynamicVolatility.horizonDays),
+                  medianGapDays: safeFixedNumber(metrics.dynamicVolatility.medianGapDays),
+                  sampleSize: metrics.dynamicVolatility.sampleSize ?? null,
                   parameters: metrics.dynamicVolatility.parameters || null
                 }
               : null,
-            trend: Number(trend.toFixed(2)),
-            totalHours: Number(totalHours.toFixed(2)),
+            trend: safeFixedNumber(trend),
+            totalHours: safeFixedNumber(totalHours),
             hasData,
             hasSimulados: relevantSimulados.length > 0,
             hasHighPriorityTasks,
-            completionRate: Number((completionRate * 100).toFixed(1)),
-            balanceBridgeBoost: Number(balanceBridgeBoost.toFixed(2)),
+            completionRate: safeFixedNumber(completionRate * 100, 1),
+            balanceBridgeBoost: safeFixedNumber(balanceBridgeBoost),
             weight,
             srsLabel,
             isBurnoutRisk,
-            crunchMultiplier: Number(crunchMultiplier.toFixed(2)),
-            agilityPenalty: agilityPenalty !== undefined ? Number(agilityPenalty.toFixed(4)) : 0,
+            crunchMultiplier: safeFixedNumber(crunchMultiplier),
+            agilityPenalty: safeFixedNumber(agilityPenalty, 4),
             avgSeconds: metrics.avgSeconds || 0,
             monteCarlo: mcHasData ? {
-                probability: Number(mcProbability.toFixed(2)),
+                probability: safeFixedNumber(mcProbability),
                 probabilityRaw: mcProbability,
                 thresholds: {
-                    danger: Number(adaptiveRisk.danger.toFixed(2)),
-                    safe: Number(adaptiveRisk.safe.toFixed(2))
+                    danger: safeFixedNumber(adaptiveRisk?.danger),
+                    safe: safeFixedNumber(adaptiveRisk?.safe)
                 },
                 riskLabel: mcRiskLabel,
-                volatility: Number(mcResult.volatility.toFixed(2)),
-                meanProjected: Number(mcResult.mean.toFixed(2)),
-                effectiveMCTarget: Number(effectiveMCTarget.toFixed(2)),
-                effectiveMCDays: Number(effectiveMCDays),
-                globalProjectedMean: globalProjectedMean != null ? Number(globalProjectedMean.toFixed(1)) : null,
+                volatility: safeFixedNumber(mcResult?.volatility),
+                meanProjected: safeFixedNumber(mcResult?.mean),
+                effectiveMCTarget: safeFixedNumber(effectiveMCTarget),
+                effectiveMCDays: Number.isFinite(Number(effectiveMCDays)) ? Number(effectiveMCDays) : 0,
+                globalProjectedMean: globalProjectedMean != null ? safeFixedNumber(globalProjectedMean, 1) : null,
                 diagnostics: mcResult?.diagnostics || null,
-                ci95Low: Number(mcResult.ci95Low.toFixed(2)),
-                ci95High: Number(mcResult.ci95High.toFixed(2)),
-                urgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
-                calibrationPenalty: Number((mcResult.calibrationPenalty || 0).toFixed(4)),
-                avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
-                ece: Number((mcResult.ece || 0).toFixed(4)),
-                reliability: Array.isArray(mcResult.reliability) ? mcResult.reliability : [],
+                ci95Low: safeFixedNumber(mcResult?.ci95Low),
+                ci95High: safeFixedNumber(mcResult?.ci95High),
+                urgencyBoost: safeFixedNumber(mcUrgencyBoost),
+                calibrationPenalty: safeFixedNumber(mcResult?.calibrationPenalty, 4),
+                avgBrier: safeFixedNumber(mcResult?.avgBrier, 4),
+                ece: safeFixedNumber(mcResult?.ece, 4),
+                reliability: Array.isArray(mcResult?.reliability) ? mcResult.reliability : [],
                 explainability: {
-                    confidenceAdjusted: (mcResult.calibrationPenalty || 0) > 0,
-                    confidenceAdjustmentPct: Number(((mcResult.calibrationPenalty || 0) * 100).toFixed(2)),
-                    calibrationQuality: (mcResult.avgBrier || 0) <= cfg.MC_CALIBRATION_BRIER_BASELINE
+                    confidenceAdjusted: (mcResult?.calibrationPenalty || 0) > 0,
+                    confidenceAdjustmentPct: safeFixedNumber((mcResult?.calibrationPenalty || 0) * 100),
+                    calibrationQuality: (mcResult?.avgBrier || 0) <= cfg.MC_CALIBRATION_BRIER_BASELINE
                         ? 'good'
-                        : (mcResult.avgBrier || 0) <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07) ? 'moderate' : 'low',
-                    note: (mcResult.calibrationPenalty || 0) > 0
+                        : (mcResult?.avgBrier || 0) <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07) ? 'moderate' : 'low',
+                    note: (mcResult?.calibrationPenalty || 0) > 0
                         ? 'Probabilidade ajustada para reduzir overconfidence após backtest interno.'
                         : 'Sem ajuste de calibração significativo.'
                 }
             } : null,
             backtest: {
-                rankQuality: Number(metrics.backtestWeights.rankQuality.toFixed(4)),
-                uplift: Number(metrics.backtestWeights.uplift.toFixed(4)),
-                scoreWeight: Number(metrics.backtestWeights.scoreWeight.toFixed(3)),
-                recencyWeight: Number(metrics.backtestWeights.recencyWeight.toFixed(3)),
-                instabilityWeight: Number(metrics.backtestWeights.instabilityWeight.toFixed(3))
+                rankQuality: safeFixedNumber(metrics.backtestWeights?.rankQuality, 4),
+                uplift: safeFixedNumber(metrics.backtestWeights?.uplift, 4),
+                scoreWeight: safeFixedNumber(metrics.backtestWeights?.scoreWeight, 3),
+                recencyWeight: safeFixedNumber(metrics.backtestWeights?.recencyWeight, 3),
+                instabilityWeight: safeFixedNumber(metrics.backtestWeights?.instabilityWeight, 3)
             },
             humanReadable: {
                 "Média": formatPercent((averageScore / maxScore) * 100),
@@ -1760,10 +1767,10 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}-${coachFeatureHash}`;
     const cacheKey = `isolate_${catId}_${hash}`;
     const cachedTopics = cacheGet(_topicsCache, cacheKey);
-    if (cachedTopics) return cachedTopics.map(t => ({ ...t }));
+    if (cachedTopics) return deepClone(cachedTopics);
     const result = _buildSortedTopicsImpl(safeCat, safeSims, maxScore);
     cacheSet(_topicsCache, TOPICS_CACHE_MAX, cacheKey, result);
-    return result.map(t => ({ ...t }));
+    return deepClone(result);
 }
 
 const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
@@ -2217,7 +2224,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const weakTopics = getWeakestTopicsList(cat, safeSimulados, maxScore, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
         const iterations = tasksPerCategory;
-        const getPriorityLabel = () => (globalPriorityCounter < 3) ? '[PROTOCOLO PRIORITÁRIO] ' : '';
+        const getPriorityLabel = () => {
+            if (globalPriorityCounter < 3) {
+                globalPriorityCounter++;
+                return '[PROTOCOLO PRIORITÁRIO] ';
+            }
+            return '';
+        };
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
         const mcIdSuffix = Date.now().toString(36);
@@ -2409,7 +2422,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: `Priorize ${weakTopic.name} — ${reasonStr}.`
                     }
                 });
-                globalPriorityCounter++;
+
             } else {
                 allGeneratedTasks.push({
                     id: `${cat.id}-geral-${i}-${Date.now().toString(36)}`,
@@ -2430,7 +2443,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Revisão geral leve para manutenção."
                     }
                 });
-                globalPriorityCounter++;
+
             }
         }
     });

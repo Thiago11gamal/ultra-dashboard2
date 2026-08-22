@@ -223,7 +223,10 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
     pageRank = next;
   }
 
-  const maxPageRank = Math.max(...pageRank.values(), 1e-9);
+  let maxPageRank = 1e-9;
+  for (const pr of pageRank.values()) {
+    if (pr > maxPageRank) maxPageRank = pr;
+  }
   const readinessThreshold = clampFinite(options.readinessThreshold, 0, 1, 0.6);
 
   const topicMetrics = nodes.map((node) => {

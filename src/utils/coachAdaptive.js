@@ -16,6 +16,11 @@ import { detectDataAnomalies } from '../engine/diagnostics.js';
 import { pruneHistoryForMemory } from '../engine/stats.js';
 import { safeArray, toFiniteNumber, hashString } from './coachSafe.js';
 
+const clampProbForLoss = (p) => {
+  const n = Number(p);
+  if (!Number.isFinite(n)) return 0.5;
+  return Math.min(1 - 1e-6, Math.max(1e-6, n));
+};
 export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = {}, maxScore = 100, backtestPairs = []) {
   const fallbackDanger = Number(cfg.MC_PROB_DANGER) || 30;
   const fallbackSafe = Number(cfg.MC_PROB_SAFE) || 90;
@@ -367,6 +372,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const result = monteCarloSimulation(history, safeTargetScore, days, safeSimulations,
       { maxScore: safeMaxScore, agilityPenalty, globalBaselinePct: neutralPct });
 
+    if (!result || !Number.isFinite(result.probability)) return null;
+
     const enableAdaptiveCalibration = safeCfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false;
     let calibrationPenalty = 0;
     let avgBrier = 0;
@@ -409,7 +416,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             Math.min(500, Math.max(200, Math.floor(safeSimulations * 0.35))),
             { maxScore: safeMaxScore, agilityPenalty, globalBaselinePct: neutralPct });
 
-          const p = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
+          if (!bt || !Number.isFinite(bt.probability)) continue;
+
+          const p = Math.max(0, Math.min(1, bt.probability / 100));
           brierScores.push(computeBrierScore(p, observed));
           predObsPairs.push({ probability: p, observed });
           rawPreds.push(p);
@@ -439,7 +448,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         const mceScaled = Math.max(0, Math.min(1, Number(diagnostics.mce || 0) / 0.4));
         const penaltyCap = adaptive?.calibrationMaxPenalty ?? safeCfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25;
         const meanLL = rawPreds.length > 0
-          ? rawPreds.reduce((acc, p, idx) => acc + computeLogLoss(p, observedSeq[idx]), 0) / rawPreds.length
+          ? rawPreds.reduce((acc, p, idx) => acc + computeLogLoss(clampProbForLoss(p), observedSeq[idx]), 0) / rawPreds.length
           : 0;
         const llScaled = Math.max(0, Math.min(1, meanLL / 0.693));
 
