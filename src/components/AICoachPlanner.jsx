@@ -8,11 +8,19 @@ import { useAppStore } from '../store/useAppStore';
 import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
+import { hashString } from '../utils/coachSafe';
 
+// FIX (BUG-07): ID determinístico via hash de conteúdo — sem contador mutável no render.
+const _taskIdWeakMap = new WeakMap();
 const ensureCoachTaskId = (task) => {
   if (!task || typeof task !== 'object') return task;
-  if (task.id) return task;
-  const stableId = getSafeId(task) || `task-${task.categoryId || 'null'}-${task.priority || 'none'}-${task.title ? task.title.length : 0}`;
+  if (task.id) return task; // FIX: não clona quem já tem id (estabilidade referencial)
+  const cached = _taskIdWeakMap.get(task);
+  if (cached) return { ...task, id: cached };
+  const stableId =
+    getSafeId(task) ||
+    `coach-task-${hashString(`${task.title || ''}|${task.text || ''}|${task.categoryId || ''}`)}`;
+  _taskIdWeakMap.set(task, stableId);
   return { ...task, id: stableId };
 };
 
@@ -38,7 +46,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   const isPriority = parsed.priority === 'high' || isSrsCard || isSafeCard || isChaosCard;
   const topicLabel = parsed.topic || rawText;
   const secondaryText = parsed.action && parsed.action !== parsed.topic ? parsed.action : '';
-
   return (
     <Draggable draggableId={stableId} index={index}>
       {(provided, snapshot) => (
@@ -46,9 +53,10 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
+          role="listitem"
           style={
-            snapshot.isDragging 
-              ? { ...provided.draggableProps.style, transition: 'none' } 
+            snapshot.isDragging
+              ? { ...provided.draggableProps.style, transition: 'none' }
               : provided.draggableProps.style
           }
           className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-lg select-none"
@@ -77,9 +85,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                   : dayTheme.gradient
               }`}
             />
-
             <div className="relative z-10 w-full flex flex-col h-full pl-0.5">
-              {/* Cabeçalho: Matéria + Ações */}
               <div className="flex items-start justify-between gap-3 min-w-0 mt-1">
                 <div className="flex items-start gap-1.5 flex-1 min-w-0 mt-0.5">
                   <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-[5px] ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
@@ -87,7 +93,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                     {displaySubject(subject, categories)}
                   </span>
                 </div>
-
                 <div className="flex items-center gap-1 shrink-0 bg-black/20 rounded-md border border-white/5 p-0.5">
                   <button
                     type="button"
@@ -110,8 +115,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                   </div>
                 </div>
               </div>
-
-              {/* Tópico Principal e Secundário (Alinhados com o texto da matéria) */}
               <div className="mt-4 flex flex-col gap-1 pl-3">
                 <h4 className="text-[11px] sm:text-[12px] font-bold leading-normal text-slate-100 break-words tracking-normal">
                   {topicLabel}
@@ -122,8 +125,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                   </p>
                 )}
               </div>
-
-              {/* Rodapé (Tags Especiais) */}
               {isSrsCard && (
                 <div className="mt-3 pt-2 border-t border-white/5 flex items-center pl-3">
                   <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
@@ -137,12 +138,16 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
       )}
     </Draggable>
   );
-}, (prev, next) => {
-  return prev.stableId === next.stableId &&
-         prev.index === next.index &&
-         prev.isBacklog === next.isBacklog &&
-         prev.dayTheme?.id === next.dayTheme?.id;
-});
+}, (prev, next) => (
+  // FIX (BUG-06/10): comparação COMPLETA — card re-renderiza quando conteúdo/callback mudam
+  prev.stableId === next.stableId &&
+  prev.index === next.index &&
+  prev.isBacklog === next.isBacklog &&
+  prev.dayTheme?.id === next.dayTheme?.id &&
+  prev.task === next.task &&
+  prev.categories === next.categories &&
+  prev.onStartPomodoro === next.onStartPomodoro
+));
 
 export default function AICoachPlanner({ plannerData: propPlannerData, categories: propCategories, onStartPomodoro: propOnStart }) {
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
@@ -168,54 +173,98 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   const setData = useAppStore(state => state.setData);
   const startNeuralSession = useAppStore(state => state.startNeuralSession);
   const navigate = useNavigate();
-  const [isDragging, setIsDragging] = useState(false);
-  const [hoveredCol, setHoveredCol] = useState(null);
-  const [enabled, setEnabled] = useState(false);
 
-  useEffect(() => {
-    const animation = requestAnimationFrame(() => setEnabled(true));
-    return () => cancelAnimationFrame(animation);
+  // ==========================================================
+  // FIX (BUG-02/03/04): FONTE ÚNICA DE VERDADE.
+  // `storeColumns` é derivado do store; `dragColumns` é um override
+  // congelado SOMENTE durante o drag. Não há mais useEffect de reset
+  // nem skipResetCountRef — nada para dessincronizar.
+  // ==========================================================
+  const deriveColumns = useCallback((plan, planner) => {
+    const assigned = new Set();
+    DAYS.forEach(d => (planner?.[d.id] || []).forEach(t => {
+      const sid = getSafeId(t);
+      if (sid) assigned.add(sid);
+    }));
+    const seen = new Set(); // FIX (BUG-08): dedupe de draggableId entre colunas
+    const take = (t) => {
+      if (!t) return null;
+      const withId = ensureCoachTaskId(t);
+      const sid = getSafeId(withId);
+      if (!sid || seen.has(sid)) return null;
+      seen.add(sid);
+      return withId;
+    };
+    const backlog = [];
+    for (const t of (Array.isArray(plan) ? plan : [])) {
+      if (!t || isSystemAlertTask(t)) continue;
+      const sid = getSafeId(t);
+      if (sid && assigned.has(sid)) continue;
+      const item = take(t);
+      if (item) backlog.push(item);
+    }
+    const cleanCol = (arr) => {
+      const out = [];
+      for (const t of (Array.isArray(arr) ? arr : [])) {
+        const item = take(t);
+        if (item) out.push(item);
+      }
+      return out;
+    };
+    return {
+      backlog,
+      mon: cleanCol(planner?.mon), tue: cleanCol(planner?.tue),
+      wed: cleanCol(planner?.wed), thu: cleanCol(planner?.thu),
+      fri: cleanCol(planner?.fri), sat: cleanCol(planner?.sat),
+      sun: cleanCol(planner?.sun)
+    };
   }, []);
 
-  // Tracking global do ponteiro durante o drag para acender colunas imediatamente
+  const storeColumns = useMemo(
+    () => deriveColumns(coachPlan, coachPlanner),
+    [coachPlan, coachPlanner, deriveColumns]
+  );
+
+  const [dragColumns, setDragColumns] = useState(null);
+  const columns = dragColumns || storeColumns;
+
+  // FIX (BUG-01): contadores AO VIVO durante o drag
+  const [dragInfo, setDragInfo] = useState(null); // { source, destination }
+  const [hoveredCol, setHoveredCol] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Tracking global do ponteiro (acende colunas imediatamente, inclusive no header)
   useEffect(() => {
     if (!isDragging) {
       setHoveredCol(null);
       return;
     }
-    
-    // Cache the bounding boxes once at the start of the drag to prevent extreme layout thrashing (lag)
-    const cols = Array.from(document.querySelectorAll('[data-col-id]'));
-    const cachedRects = cols.map(col => ({
-      id: col.getAttribute('data-col-id'),
-      rect: col.getBoundingClientRect()
-    }));
-
     let animationFrameId;
     const updateHover = (clientX, clientY) => {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = requestAnimationFrame(() => {
+        // FIX (BUG-05): rects recalculados por frame (8 colunas é barato) —
+        // não congela no início do drag, sobrevive a scroll.
+        const cols = document.querySelectorAll('[data-col-id]');
         let found = null;
-        for (const { id, rect } of cachedRects) {
+        for (const col of cols) {
+          const rect = col.getBoundingClientRect();
           if (clientX >= rect.left && clientX <= rect.right &&
               clientY >= rect.top && clientY <= rect.bottom) {
-            found = id;
+            found = col.getAttribute('data-col-id');
             break;
           }
         }
-        setHoveredCol(prev => prev !== found ? found : prev);
+        setHoveredCol(prev => (prev === found ? prev : found));
       });
     };
-
     const handleMouseMove = (e) => updateHover(e.clientX, e.clientY);
     const handleTouchMove = (e) => {
       const touch = e.touches[0];
       if (touch) updateHover(touch.clientX, touch.clientY);
     };
-
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
-
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('touchmove', handleTouchMove);
@@ -223,88 +272,78 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     };
   }, [isDragging]);
 
-  const getInitialColumns = useCallback(() => {
-    const allAssignedIds = new Set();
-    DAYS.forEach(d => (coachPlanner[d.id] || []).forEach(t => {
-      const sid = getSafeId(t);
-      if (sid) allAssignedIds.add(sid);
-    }));
-    const activeBacklog = (coachPlan || [])
-      .map(ensureCoachTaskId)
-      .filter(t => {
-        if (!t) return false;
-        if (isSystemAlertTask(t)) return false;
-        const sid = getSafeId(t);
-        return !allAssignedIds.has(sid);
-      });
-    const cleanCol = (arr) => (Array.isArray(arr) ? arr.filter(Boolean).map(ensureCoachTaskId) : []);
-    return {
-      backlog: cleanCol(activeBacklog),
-      mon: cleanCol(coachPlanner.mon), tue: cleanCol(coachPlanner.tue),
-      wed: cleanCol(coachPlanner.wed), thu: cleanCol(coachPlanner.thu),
-      fri: cleanCol(coachPlanner.fri), sat: cleanCol(coachPlanner.sat),
-      sun: cleanCol(coachPlanner.sun)
-    };
-  }, [coachPlan, coachPlanner]);
+  const onDragStart = useCallback((start) => {
+    setIsDragging(true);
+    setDragColumns(storeColumns); // congela snapshot local só durante o drag
+    setDragInfo({ source: start?.source?.droppableId ?? null, destination: null });
+  }, [storeColumns]);
 
-  const [columns, setColumns] = useState(() => getInitialColumns());
-  const columnsRef = useRef(columns);
-  const skipResetCountRef = useRef(0);
+  const onDragUpdate = useCallback((update) => {
+    setDragInfo(prev => {
+      const source = update?.source?.droppableId ?? null;
+      const destination = update?.destination?.droppableId ?? null;
+      if (prev && prev.source === source && prev.destination === destination) return prev;
+      return { source, destination };
+    });
+  }, []);
 
-  useEffect(() => { columnsRef.current = columns; }, [columns]);
-  useEffect(() => {
-    if (!isDragging) {
-      if (skipResetCountRef.current > 0) { skipResetCountRef.current--; return; }
-      setColumns(getInitialColumns());
-    }
-  }, [coachPlan, coachPlanner, getInitialColumns, isDragging]);
-
-  const onDragEnd = (result) => {
+  // ==========================================================
+  // FIX (BUG-03): o drop aplica a OPERAÇÃO de mover sobre o snapshot
+  // ATUAL do store (dentro do setData), nunca um snapshot local stale.
+  // Atualizações externas ocorridas durante o drag são preservadas.
+  // ==========================================================
+  const onDragEnd = useCallback((result) => {
     setIsDragging(false);
-    skipResetCountRef.current = 2;
-    if (!result.destination) return;
+    setDragColumns(null);
+    setDragInfo(null);
+
     const { source, destination } = result;
+    if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
-
-    const currentCols = columnsRef.current;
-    const startCol = currentCols[source.droppableId] || [];
-    const finishCol = currentCols[destination.droppableId] || [];
-    const startList = Array.from(startCol);
-    const [removed] = startList.splice(source.index, 1);
-    if (!removed) return;
-    const finishList = (source.droppableId === destination.droppableId) ? startList : Array.from(finishCol);
-    finishList.splice(destination.index, 0, removed);
-
-    const newCols = { ...currentCols, [source.droppableId]: startList, [destination.droppableId]: finishList };
-    setColumns(newCols);
-
-    const systemAlerts = (coachPlan || []).filter(t => t && isSystemAlertTask(t));
-    const newCoachPlan = [
-      ...systemAlerts,
-      ...(newCols.backlog || []),
-      ...(newCols.mon || []), ...(newCols.tue || []), ...(newCols.wed || []),
-      ...(newCols.thu || []), ...(newCols.fri || []), ...(newCols.sat || []), ...(newCols.sun || [])
-    ];
 
     setData(prev => {
       if (!prev) return prev;
-      const freshPlanner = { ...(prev.coachPlanner || {}) };
-      Object.keys(freshPlanner).forEach(day => { freshPlanner[day] = [...(freshPlanner[day] || [])]; });
-      if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = [...startList];
-      if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = [...finishList];
-      return { coachPlanner: freshPlanner, coachPlan: newCoachPlan };
+      const cur = deriveColumns(
+        Array.isArray(prev.coachPlan) ? prev.coachPlan : Object.values(prev.coachPlan || {}),
+        prev.coachPlanner || {}
+      );
+      const startList = [...(cur[source.droppableId] || [])];
+      const [moved] = startList.splice(source.index, 1);
+      if (!moved) return prev;
+      const finishList = (source.droppableId === destination.droppableId)
+        ? startList
+        : [...(cur[destination.droppableId] || [])];
+      finishList.splice(destination.index, 0, moved);
+
+      const nextCols = {
+        ...cur,
+        [source.droppableId]: startList,
+        [destination.droppableId]: finishList
+      };
+
+      const existingPlan = Array.isArray(prev.coachPlan) ? prev.coachPlan : Object.values(prev.coachPlan || {});
+      const systemAlerts = existingPlan.filter(t => t && isSystemAlertTask(t));
+      const nextPlan = [
+        ...systemAlerts,
+        ...(nextCols.backlog || []),
+        ...DAYS.flatMap(d => nextCols[d.id] || [])
+      ];
+      const freshPlanner = {};
+      DAYS.forEach(d => { freshPlanner[d.id] = nextCols[d.id] || []; });
+
+      return { coachPlanner: freshPlanner, coachPlan: nextPlan };
     });
-  };
+  }, [setData, deriveColumns]);
 
   const handleStartTask = useCallback((task, dayId) => {
     if (propOnStart) { propOnStart(task, dayId); return; }
     if (!task) return;
-    const cols = columnsRef.current;
-    const sessionTasks = dayId === 'backlog' ? (cols.backlog || []) : (cols[dayId] || []);
+    // FIX: lê `columns` derivado (nunca ref stale)
+    const sessionTasks = columns[dayId || 'backlog'] || [];
+    const taskToFind = getSafeId(task);
     const startIndex = sessionTasks.findIndex(t => {
-      const idT = getSafeId(t); const idTask = getSafeId(task);
-      if (idT && idTask) return idT === idTask;
-      return t === task || (t.title && t.title === task.title);
+      const idT = getSafeId(t);
+      return (taskToFind && idT === taskToFind) || t === task || (t?.title && t.title === task?.title);
     });
     if (startIndex === -1) {
       startNeuralSession([{ ...task, sourceContext: dayId || 'isolated' }], 0);
@@ -313,27 +352,39 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     }
     startNeuralSession(sessionTasks.map(t => ({ ...t, sourceContext: dayId })), startIndex);
     navigate('/pomodoro');
-  }, [startNeuralSession, navigate, propOnStart]);
+  }, [columns, startNeuralSession, navigate, propOnStart]);
 
-  const weekTotal = DAYS.reduce((acc, d) => acc + (columns[d.id] || []).length, 0);
+  // FIX (BUG-01): contador ao vivo (−1 na origem, +1 no destino durante o drag)
+  const liveCount = useCallback((colId, base) => {
+    if (!dragInfo) return base;
+    let n = base;
+    if (dragInfo.source === colId) n -= 1;
+    if (dragInfo.destination === colId) n += 1;
+    return Math.max(0, n);
+  }, [dragInfo]);
 
-  if (!enabled) return null;
+  const weekTotal = useMemo(
+    () => DAYS.reduce((acc, d) => acc + (columns[d.id] || []).length, 0),
+    [columns]
+  );
+  const liveWeekTotal = useMemo(
+    () => DAYS.reduce((acc, d) => acc + liveCount(d.id, (columns[d.id] || []).length), 0),
+    [columns, liveCount]
+  );
+
+  // FIX (BUG-09): removido o gate `enabled` (flash de primeiro frame).
 
   return (
-    <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
+    <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
       <div className="flex flex-col xl:flex-row gap-4 items-stretch mt-6 w-full">
-
         {/* ================= BACKLOG ================= */}
-        <div 
-          className="w-full xl:w-72 2xl:w-80 shrink-0 flex flex-col"
-          data-col-id="backlog"
-        >
-          {/* FIX: SEM backdrop-blur (backdrop-filter quebra o fixed do dnd) */}
+        <div className="w-full xl:w-72 2xl:w-80 shrink-0 flex flex-col" data-col-id="backlog">
           <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 min-h-[380px] relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
             <Droppable droppableId="backlog">
               {(provided, snapshot) => {
                 const isHighlight = hoveredCol ? (hoveredCol === 'backlog') : snapshot.isDraggingOver;
+                const backlogCount = liveCount('backlog', (columns.backlog || []).length);
                 return (
                 <div className={`flex-1 flex flex-col transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl rounded-lg p-1' : ''}`}>
                   <div className={`flex items-center gap-2 mb-3 pb-2.5 border-b transition-colors duration-75 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
@@ -345,10 +396,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                       <p className={`text-[9px] font-semibold tracking-wider transition-colors ${isHighlight ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
                     </div>
                     <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
-                      {(columns.backlog || []).length}
+                      {backlogCount}
                     </span>
                   </div>
-
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
@@ -383,7 +433,6 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
         {/* ================= SEMANA ================= */}
         <div className="w-full flex-1 min-w-0 flex flex-col">
-          {/* FIX: SEM backdrop-blur aqui também */}
           <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 relative shadow-2xl overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.08] shrink-0">
@@ -397,20 +446,16 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                 </div>
               </div>
               <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0">
-                {weekTotal} tarefa{weekTotal === 1 ? '' : 's'} na semana
+                {liveWeekTotal} tarefa{liveWeekTotal === 1 ? '' : 's'} na semana
               </span>
             </div>
-
             <div className="w-full overflow-x-auto kanban-scrollbar pb-2 pt-1 flex-1 flex flex-col">
               <div className="flex gap-3 min-w-[900px] xl:min-w-0 w-full flex-1">
                 {DAYS.map((day) => {
                   const dayTasks = columns[day.id] || [];
+                  const dayCount = liveCount(day.id, dayTasks.length);
                   return (
-                    <div 
-                      key={day.id} 
-                      className="flex-1 min-w-[130px] xl:min-w-0 flex flex-col"
-                      data-col-id={day.id}
-                    >
+                    <div key={day.id} className="flex-1 min-w-[130px] xl:min-w-0 flex flex-col" data-col-id={day.id}>
                       <Droppable droppableId={day.id}>
                         {(provided, snapshot) => {
                           const isHighlight = hoveredCol ? (hoveredCol === day.id) : snapshot.isDraggingOver;
@@ -426,11 +471,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                                   <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
                                 </div>
                                 <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border shrink-0 transition-colors duration-75 ${isHighlight ? day.over : day.headerBorder}`}>
-                                  {dayTasks.length}
+                                  {dayCount}
                                 </div>
                               </div>
                             </div>
-
                             <div
                               ref={provided.innerRef}
                               {...provided.droppableProps}
