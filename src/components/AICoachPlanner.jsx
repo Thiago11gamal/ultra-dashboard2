@@ -54,18 +54,21 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          style={provided.draggableProps.style}
-          className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-lg select-none"
+          style={
+            snapshot.isDragging
+              ? { ...provided.draggableProps.style, transition: 'none', cursor: 'grabbing' }
+              : provided.draggableProps.style
+          }
+          className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-lg select-none mb-2"
         >
           <div
             style={{
               paddingLeft: '1.25rem',
-              transform: snapshot.isDragging ? 'scale(1.03)' : 'none',
               boxShadow: snapshot.isDragging
                 ? '0 20px 40px -10px rgba(0,0,0,0.85), 0 0 25px rgba(139,92,246,0.5)'
                 : undefined,
             }}
-            className={`group relative mb-2 rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${
+            className={`group relative rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${
               snapshot.isDragging
                 ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
                 : isBacklog
@@ -187,21 +190,26 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       return;
     }
     
+    // Cache the bounding boxes once at the start of the drag to prevent extreme layout thrashing (lag)
+    const cols = Array.from(document.querySelectorAll('[data-col-id]'));
+    const cachedRects = cols.map(col => ({
+      id: col.getAttribute('data-col-id'),
+      rect: col.getBoundingClientRect()
+    }));
+
     let animationFrameId;
     const updateHover = (clientX, clientY) => {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = requestAnimationFrame(() => {
-        const cols = document.querySelectorAll('[data-col-id]');
         let found = null;
-        for (const col of cols) {
-          const rect = col.getBoundingClientRect();
+        for (const { id, rect } of cachedRects) {
           if (clientX >= rect.left && clientX <= rect.right &&
               clientY >= rect.top && clientY <= rect.bottom) {
-            found = col.getAttribute('data-col-id');
+            found = id;
             break;
           }
         }
-        setHoveredCol(found);
+        setHoveredCol(prev => prev !== found ? found : prev);
       });
     };
 
@@ -325,8 +333,6 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
         <div 
           className="w-full xl:w-72 2xl:w-80 shrink-0 flex flex-col"
           data-col-id="backlog"
-          onMouseEnter={() => !isDragging && setHoveredCol('backlog')}
-          onMouseLeave={() => !isDragging && setHoveredCol(null)}
         >
           {/* FIX: SEM backdrop-blur (backdrop-filter quebra o fixed do dnd) */}
           <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 min-h-[380px] relative overflow-hidden shadow-2xl">
@@ -410,8 +416,6 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                       key={day.id} 
                       className="flex-1 min-w-[130px] xl:min-w-0 flex flex-col"
                       data-col-id={day.id}
-                      onMouseEnter={() => !isDragging && setHoveredCol(day.id)}
-                      onMouseLeave={() => !isDragging && setHoveredCol(null)}
                     >
                       <Droppable droppableId={day.id}>
                         {(provided, snapshot) => {
