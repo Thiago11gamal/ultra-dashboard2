@@ -2233,9 +2233,10 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         };
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
-        const mcIdSuffix = Date.now().toString(36);
         const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
         const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
+        // ✅ FIX: sufixo determinístico — sem Date.now() (IDs estáveis p/ Planner/dedupe)
+        const mcIdSuffix = hashString(`${cat.id}|${mcProbKey}|${mcVolKey}|${cat.urgency?.normalizedScore ?? 0}`);
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
@@ -2425,7 +2426,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             } else {
                 allGeneratedTasks.push({
-                    id: `${cat.id}-geral-${i}-${Date.now().toString(36)}`,
+                    id: `${cat.id}-geral-${i}-${hashString(`${cat.id}|geral|${i}`)}`,
                     text: `${cat.name}: ${getPriorityLabel()}[Revisão Geral Complementar]`,
                     completed: false,
                     status: 'pending',

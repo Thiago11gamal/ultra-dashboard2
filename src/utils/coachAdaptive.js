@@ -308,7 +308,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const dataIssues = anomalies.filter(a => a.severity === 'error' || a.severity === 'warning').length;
   const dataQuality = Math.max(0.3, 1 - (dataIssues * 0.15));
   const lowSampleThreshold = Math.max(Number(safeCfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (safeCfg.MC_MIN_DATA_POINTS || 5) + 2);
-  const neutralPct = toFiniteNumber(safeCfg.MC_CALIBRATION_NEUTRAL_PCT, 50);
+   const neutralPct = toFiniteNumber(safeCfg.MC_CALIBRATION_NEUTRAL_PCT, 50);
+   // ✅ FIX: a âncora do shrinkage é o prior NEUTRO (50), não o baseline global.
+   // (coachLogic sobrescreve MC_CALIBRATION_NEUTRAL_PCT com globalBaselinePct,
+   // o que enviesava categorias fortes para baixo ao encolher em direção à média.)
+   const shrinkAnchorPct = 50;
   const maxAppliedPenalty = toFiniteNumber(safeCfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
 
   const btWeights = deriveBacktestWeights(history.map(h => h.score), safeMaxScore);
@@ -397,10 +401,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       for (let i = 1; i <= horizon; i += 1) {
         const train = history.slice(0, history.length - i);
         const observedRecord = history[history.length - i];
-        const windowLen = Math.min(lookAhead, horizon - i + 1);
-        const futureWindow = history.slice(history.length - i, history.length - i + windowLen);
-        const avgFutureScore = futureWindow.reduce((acc, r) => acc + r.score, 0) / Math.max(1, futureWindow.length);
-        const observed = avgFutureScore >= safeTargetScore ? 1 : 0;
+        const observed = Number(observedRecord.score) >= safeTargetScore ? 1 : 0;
 
         try {
           let gapDays = 7;
@@ -489,7 +490,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const totalShrink = Math.min(0.65, calibrationPenalty + lowSampleShrink + anomalyShrink);
 
     const probability = enableAdaptiveCalibration
-      ? shrinkProbabilityToNeutral(stackedProb01 * 100, totalShrink, neutralPct, maxAppliedPenalty)
+      ? shrinkProbabilityToNeutral(stackedProb01 * 100, totalShrink, shrinkAnchorPct, maxAppliedPenalty)
       : (stackedProb01 * 100);
 
     let ciLow = Number(result.ci95Low) || 0;

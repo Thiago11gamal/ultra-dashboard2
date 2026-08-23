@@ -240,6 +240,7 @@ export function computeAdaptiveSignal(historyOrScores = []) {
 
     const sumW = kahanSum(weighted);
     const sumW2 = kahanSum(weighted.map(w => w * w));
+    const weightsCollapsed = sumW < 1e-6; // ✅ FIX: flag única p/ média E variância
 
     // ✅ FIX: Se os pesos decaíram para zero, fazer fallback para média simples.
     // Isso evita que a média ponderada colapse para 0 quando todos os
@@ -247,7 +248,7 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     let effectiveN;
     let weightedMean;
 
-    if (sumW < 1e-6) {
+    if (weightsCollapsed) {
       // Fallback: pesos decaíram completamente → média simples com N real
       effectiveN = finiteScores.length;
       weightedMean = kahanMean(finiteScores);
@@ -275,11 +276,19 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     const robustSigma = Math.max(0.5, 1.4826 * mad);
     const huberK = 2.5 * robustSigma;
 
-    const weightedVariance = kahanSum(finiteScores.map((s, i) => {
-        const d = s - weightedMean;
-        const clipped = Math.max(-huberK, Math.min(huberK, d));
-        return weighted[i] * clipped * clipped;
-    })) / Math.max(1e-9, sumW);
+    // ✅ FIX: quando os pesos decaíram, usar variância simples (não ponderada).
+    // Antes, numerator≈0 / sumW≈0 → sd≈0 → motor ficava superconfiante em séries antigas.
+    const weightedVariance = weightsCollapsed
+        ? kahanSum(finiteScores.map((s) => {
+            const d = s - weightedMean;
+            const clipped = Math.max(-huberK, Math.min(huberK, d));
+            return clipped * clipped;
+          })) / Math.max(1, finiteScores.length)
+        : kahanSum(finiteScores.map((s, i) => {
+            const d = s - weightedMean;
+            const clipped = Math.max(-huberK, Math.min(huberK, d));
+            return weighted[i] * clipped * clipped;
+          })) / Math.max(1e-9, sumW);
 
     // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo (que só funcionava para N=10) 
     // pela verdadeira Correção de Bessel adaptável ao Tamanho Efetivo da Amostra (effectiveN).

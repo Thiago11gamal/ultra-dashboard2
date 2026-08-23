@@ -246,7 +246,10 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   for (const h of recent) {
     let b = null;
     if (Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1)) {
-      const p = Number(h.probability) > 1 ? Number(h.probability) / 100 : Number(h.probability);
+      const rawP = Number(h.probability);
+      const isPercentScale = rawP > 1 && rawP <= 100;
+      // ✅ FIX: detecção de escala + clamp defensivo (bloqueia valores >100 corrompidos)
+      const p = Math.max(0, Math.min(1, isPercentScale ? rawP / 100 : rawP));
       b = (p - h.observed) ** 2;
     } else if (Number.isFinite(Number(h.avgBrier))) {
       b = Number(h.avgBrier);
@@ -392,7 +395,9 @@ export function computeStackingWeights(candidateProbs = [], observed = [], compl
   const z = kahanSum(raw) || 1;
   const maxLoss = Math.max(...logLoss);
   const isSeverePenalty = maxLoss > 2.0;
-  const lambda = Math.min(1, Math.max(0, n / (n + (isSeverePenalty ? 0.2 : 4))));
+  // ✅ FIX: regularização mais forte para amostras mínimas (antes lambda=0.5 em n=4)
+  const regularization = n < 8 ? 8 : (isSeverePenalty ? 0.2 : 4);
+  const lambda = Math.min(1, Math.max(0, n / (n + regularization)));
   return raw.map(w => lambda * (w / z) + (1 - lambda) / k);
 }
 

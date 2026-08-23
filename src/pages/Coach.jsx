@@ -57,6 +57,12 @@ function sanitizeMaxScore(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : 100;
 }
+// ✅ FIX: elimina "-0.0" (zero negativo do toFixed) em displays de tendência/volatilidade
+function formatSigned(value, digits = 1) {
+  const n = Number(value) || 0;
+  const fixed = n.toFixed(digits);
+  return fixed === `-${(0).toFixed(digits)}` ? (0).toFixed(digits) : fixed;
+}
 function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
   const safeMax = sanitizeMaxScore(maxScore);
   const safeMin = Math.max(0, Math.min(Number(minScore) || 0, safeMax));
@@ -671,7 +677,7 @@ export default function Coach() {
               <div className="flex items-center gap-3 sm:gap-5 md:gap-6 sm:px-4 px-2 min-w-max flex-shrink-0">
                 <QuickStat
                   label="Volatilidade"
-                  value={`${normalizedVolatility.toFixed(1)}pp`}
+                  value={`${formatSigned(normalizedVolatility)}pp`}
                   color="text-rose-400"
                   icon={<Zap size={14} />}
                 />
@@ -682,7 +688,7 @@ export default function Coach() {
                 <div className="w-px h-6 bg-white/10" />
                 <QuickStat
                   label="Tendência"
-                  value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
+                  value={`${formatSigned((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100)}pp`}
                   color="text-emerald-400"
                   icon={<ArrowUpRight size={14} />}
                 />
