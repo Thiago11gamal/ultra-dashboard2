@@ -56,7 +56,12 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
           role="listitem"
           style={
             snapshot.isDragging
-              ? { ...provided.draggableProps.style, transition: 'none' }
+              ? { 
+                  ...provided.draggableProps.style, 
+                  ...(snapshot.draggingOver && snapshot.draggingOver !== 'backlog' 
+                      ? { width: '180px' } 
+                      : {})
+                }
               : provided.draggableProps.style
           }
           className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-lg select-none"
