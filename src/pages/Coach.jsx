@@ -671,8 +671,6 @@ export default function Coach() {
           />
           {/* FIX (BUG-14): wrapper relativo + fade nas bordas p/ indicar scroll */}
           <div className="relative z-50 w-full md:w-auto">
-            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-900/80 to-transparent z-10 rounded-r-3xl" />
-            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-900/80 to-transparent z-10 rounded-l-3xl" />
             <div className="flex items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl shadow-inner overflow-x-auto scrollbar-hide">
               <div className="flex items-center gap-3 sm:gap-5 md:gap-6 sm:px-4 px-2 min-w-max flex-shrink-0">
                 <QuickStat
