@@ -20,6 +20,8 @@ export {
   applyRecommendedFlags,
 } from '../engine/optimization/flagOptimizer.js';
 
+import { writeFlags } from './coachFeatureStore.js';
+
 export {
   saveBacktestReport,
   loadLastBacktestReport,
@@ -54,7 +56,7 @@ export function bootstrapCoachFlags() {
   const persisted = loadPersistedCoachFlags();
 
   if (!persisted || typeof persisted !== 'object') {
-    globalThis.__COACH_FEATURES__ = { ...baseline };
+    writeFlags({ ...baseline });
     return { ...baseline };
   }
 
@@ -65,7 +67,7 @@ export function bootstrapCoachFlags() {
     }
   }
 
-  globalThis.__COACH_FEATURES__ = merged;
+  writeFlags(merged);
   return merged;
 }
 

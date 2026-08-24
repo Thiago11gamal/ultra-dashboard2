@@ -121,33 +121,33 @@ function OverviewPanel({ dashboard }) {
         ))}
       </div>
 
-      {dashboard.focus && (
+      {dashboard?.focus && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
           <SectionTitle icon="🎯">Foco Principal</SectionTitle>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <p className="text-lg font-bold text-white">{dashboard.focus.name || '—'}</p>
+              <p className="text-lg font-bold text-white">{dashboard.focus?.name || '—'}</p>
               <p className="text-sm text-slate-400 mt-1">
-                Urgência: <span className="text-indigo-300 font-semibold">{dashboard.focus.normalizedScore ?? '—'}</span>
+                Urgência: <span className="text-indigo-300 font-semibold">{dashboard.focus?.normalizedScore ?? '—'}</span>
               </p>
-              {dashboard.focus.probability != null && Number.isFinite(Number(dashboard.focus.probability)) && (
+              {dashboard.focus?.probability != null && Number.isFinite(Number(dashboard.focus.probability)) && (
                 <p className="text-sm text-slate-400">
                   Probabilidade MC: <span className="text-cyan-300 font-semibold">{Number(dashboard.focus.probability)}%</span>
                 </p>
               )}
             </div>
-            {dashboard.focus.recommendation && (
+            {dashboard.focus?.recommendation && (
               <div className="bg-slate-900/50 rounded-lg p-3">
                 <p className="text-xs text-slate-500 uppercase mb-1">Recomendação</p>
                 <p className="text-sm text-slate-300">{dashboard.focus.recommendation}</p>
               </div>
             )}
           </div>
-          {dashboard.focus.llmExplanation && (
+          {dashboard.focus?.llmExplanation && (
             <div className="mt-4 bg-indigo-500/5 border border-indigo-500/20 rounded-lg p-3">
               <p className="text-xs text-indigo-400 uppercase mb-1 flex items-center gap-1">🤖 Explicação IA</p>
               <p className="text-sm text-indigo-200">{dashboard.focus.llmExplanation.headline}</p>
-              {dashboard.focus.llmExplanation.recommendation && (
+              {dashboard.focus.llmExplanation?.recommendation && (
                 <p className="text-xs text-indigo-300/70 mt-2">{dashboard.focus.llmExplanation.recommendation}</p>
               )}
             </div>
@@ -155,7 +155,7 @@ function OverviewPanel({ dashboard }) {
         </div>
       )}
 
-      {dashboard.tasks && dashboard.tasks.length > 0 && (
+      {dashboard?.tasks && dashboard.tasks.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
           <SectionTitle icon="📋">Tarefas Geradas ({dashboard.tasks.length})</SectionTitle>
           <div className="space-y-2">
@@ -181,14 +181,14 @@ function OverviewPanel({ dashboard }) {
         </div>
       )}
 
-      {dashboard.health && (
+      {dashboard?.health && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
           <SectionTitle icon="🏥">Saúde do Modelo</SectionTitle>
           <div className="flex items-center gap-4">
-            <div className="text-4xl font-bold text-white">{dashboard.health.healthScore ?? '—'}</div>
+            <div className="text-4xl font-bold text-white">{dashboard.health?.healthScore ?? '—'}</div>
             <div>
-              <StatusBadge status={dashboard.health.status} />
-              {dashboard.health.alertsCount > 0 && (
+              <StatusBadge status={dashboard.health?.status} />
+              {dashboard.health?.alertsCount > 0 && (
                 <p className="text-xs text-slate-400 mt-1">{dashboard.health.alertsCount} alerta(s) ativo(s)</p>
               )}
             </div>
@@ -196,10 +196,10 @@ function OverviewPanel({ dashboard }) {
         </div>
       )}
 
-      {dashboard.causal && (
+      {dashboard?.causal && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
           <SectionTitle icon="🔬">Modelo Causal</SectionTitle>
-          {dashboard.causal.available ? (
+          {dashboard.causal?.available ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <MetricCard label="Uplift Global" value={fmt(dashboard.causal.model?.globalUplift, 2)} />
               <MetricCard label="Amostras" value={dashboard.causal.model?.sampleSize} />

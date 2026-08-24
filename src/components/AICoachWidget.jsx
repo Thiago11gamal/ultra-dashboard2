@@ -11,18 +11,12 @@ import { getCalibrationKey } from '../utils/coachSafe.js';
 import { RX_REC_MARKUP } from '../utils/coachText';
 import { safeDomain, clampFinite, toProbPct, pointsToPct } from '../utils/measurement';
 
-// FIX (BUG-06): cache limitado p/ evitar re-parse recursivo a cada render
-const REC_CACHE_MAX = 200;
-const recCache = new Map();
-
 function renderRecommendation(text, depth = 0) {
   if (depth > 6) return String(text || '');
   const safeText = String(text || '');
-  const key = `${depth}::${safeText}`;
-  if (recCache.has(key)) return recCache.get(key);
-
+  
   const parts = safeText.split(RX_REC_MARKUP).filter(Boolean);
-  const result = parts.map((part, idx) => {
+  return parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
         <strong
@@ -56,13 +50,6 @@ function renderRecommendation(text, depth = 0) {
     const cleanPart = part.replace(/\*\*|!!|\+\+/g, '');
     return <React.Fragment key={`rec-${idx}`}>{cleanPart}</React.Fragment>;
   });
-
-  if (recCache.size >= REC_CACHE_MAX) {
-    const first = recCache.keys().next().value;
-    recCache.delete(first);
-  }
-  recCache.set(key, result);
-  return result;
 }
 
 // FIX (BUG-07): status normalizado (lowercase + strip de acentos) p/ matching robusto
@@ -166,8 +153,9 @@ function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
     : toScorePct(mc.ci95High ?? mc.conformalHigh);
   const volatility = Number.isFinite(Number(mc.volatility)) ? Number(mc.volatility) : 0;
   // PATCH: fallback baseado em volatilidade real
-  const volPct = Number.isFinite(volatility) && volatility > 0
-    ? Math.min(15, Math.max(3, volatility * 1.96 / ((domain.max - domain.min) / 100)))
+  const domainSpread = domain.max - domain.min;
+  const volPct = Number.isFinite(volatility) && volatility > 0 && domainSpread > 0
+    ? Math.min(15, Math.max(3, volatility * 1.96 / (domainSpread / 100)))
     : 5;
   if (low == null) low = Math.max(0, prob - volPct);
   if (high == null) high = Math.min(100, prob + volPct);

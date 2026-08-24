@@ -28,9 +28,14 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
     return acc + ((2 ** rel - 1) / Math.log2(idx + 2));
   }, 0);
 
-  const ideal = [...safeActual].sort(
-    (a, b) => (Number(b?.relevance) || 0) - (Number(a?.relevance) || 0)
-  );
+  // FIX: sort com tie-breaker para estabilizar IDCG em caso de empates de relevância
+  const ideal = [...safeActual].sort((a, b) => {
+    const diff = (Number(b?.relevance) || 0) - (Number(a?.relevance) || 0);
+    if (diff !== 0) return diff;
+    const idA = String(a?.id || '');
+    const idB = String(b?.id || '');
+    return idA.localeCompare(idB);
+  });
 
   const idcg = ideal.slice(0, topK).reduce((acc, item, idx) => {
     const rel = Number(item?.relevance) || 0;

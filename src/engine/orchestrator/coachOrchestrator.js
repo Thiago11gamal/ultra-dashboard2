@@ -72,6 +72,7 @@ function getFeature(features, key, fallback = false) {
  * FIX (BUG-11): valida o path contra ALLOWED_PATHS antes do import.
  */
 async function loadOptionalModule(name, meta) {
+  let timeoutId;
   try {
     if (
       typeof globalThis !== 'undefined' &&
@@ -87,13 +88,15 @@ async function loadOptionalModule(name, meta) {
       return null;
     }
     const importPromise = import(/* @vite-ignore */ path);
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`Import timeout: ${name}`)), 3000)
-    );
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(`Import timeout: ${name}`)), 3000);
+    });
     const module = await Promise.race([importPromise, timeoutPromise]);
+    clearTimeout(timeoutId);
     meta.modules[name] = true;
     return module;
   } catch (err) {
+    if (timeoutId) clearTimeout(timeoutId);
     meta.modules[name] = false;
     meta.errors.push({
       module: name,
@@ -162,7 +165,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
   const checkAbort = (stepName) => {
     if (controller.signal.aborted) {
       meta.errors.push({ step: stepName, message: 'Timeout exceeded' });
-      return true;
+      throw new Error(`Orchestrator aborted at step: ${stepName}`);
     }
     return false;
   };
@@ -492,6 +495,16 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       },
       llmExplanation,
       tuner: tuner || null,
+      meta,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      generatedAt: Date.now(),
+      durationMs: Date.now() - startedAt,
+      version: ORCHESTRATOR_VERSION,
+      aborted: controller.signal.aborted,
+      error: err?.message || String(err),
       meta,
     };
   } finally {

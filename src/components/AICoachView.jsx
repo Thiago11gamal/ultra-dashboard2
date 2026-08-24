@@ -76,9 +76,9 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
   const parsed = parseCoachTask({ ...task, text: fullText }, categories);
   const subjectPart = parsed.subject;
   const isSystemAlert = parsed.isSystemAlert;
-  const isSrsTask = Boolean(task?.analysis?.reason?.includes('SRS') || task?.text?.includes('SRS'));
-  const isSafeTask = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
-  const isChaosTask = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+  const isSrsTask = Boolean(task?.analysis?.reason?.includes('SRS') || fullText.includes('SRS'));
+  const isSafeTask = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção') || fullText.includes('Cruzeiro') || fullText.includes('Manutenção'));
+  const isChaosTask = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos') || fullText.includes('Oscilação') || fullText.includes('Caos'));
   const isPriority = parsed.priority === 'high' || isSrsTask || isSafeTask || isChaosTask;
   const systemAlertMessage = isSystemAlert ? (parsed.action || parsed.topic) : null;
   const displayAssunto = parsed.topic;

@@ -138,7 +138,7 @@ export function evaluateTopicRanking(
 ) {
   const k = Math.max(1, Math.round(clampFinite(options.k, 1, 20, 5)));
 
-  const safePredicted = (Array.isArray(predictedTopics) ? predictedTopics : [])
+  const rawPredicted = (Array.isArray(predictedTopics) ? predictedTopics : [])
     .filter(Boolean)
     .map((topic, index) => {
       const name = topic?.name ?? topic?.topic ?? topic?.id ?? `topic-${index}`;
@@ -150,10 +150,18 @@ export function evaluateTopicRanking(
           predictedTopics.length - index
         ),
       };
-    })
-    .sort((a, b) => b.score - a.score);
+    });
 
-  const safeActual = (Array.isArray(actualTopics) ? actualTopics : [])
+  // FIX: deduplicar para evitar collision hits inflando o Recall
+  const predictedMap = new Map();
+  for (const p of rawPredicted) {
+    if (!predictedMap.has(p.id) || p.score > predictedMap.get(p.id).score) {
+      predictedMap.set(p.id, p);
+    }
+  }
+  const safePredicted = Array.from(predictedMap.values()).sort((a, b) => b.score - a.score);
+
+  const rawActual = (Array.isArray(actualTopics) ? actualTopics : [])
     .filter(Boolean)
     .map((topic, index) => {
       if (typeof topic === 'string') {
@@ -170,6 +178,14 @@ export function evaluateTopicRanking(
         relevance: toFinite(topic?.relevance ?? topic?.weight ?? topic?.score, 1),
       };
     });
+
+  const actualMap = new Map();
+  for (const a of rawActual) {
+    if (!actualMap.has(a.id) || a.relevance > actualMap.get(a.id).relevance) {
+      actualMap.set(a.id, a);
+    }
+  }
+  const safeActual = Array.from(actualMap.values());
 
   if (safePredicted.length === 0 || safeActual.length === 0) {
     return {
@@ -190,9 +206,6 @@ export function evaluateTopicRanking(
   }));
   const ndcg = computeNDCGAtK(ndcgPredicted, ndcgActual, k);
 
-  const actualMap = new Map(
-    safeActual.map((topic) => [topic.id, topic.relevance])
-  );
   const topK = safePredicted.slice(0, k);
   const hits = topK.filter((topic) => actualMap.has(topic.id)).length;
   const precisionAtK = topK.length > 0 ? hits / topK.length : 0;

@@ -20,6 +20,7 @@ import {
 import {
   loadModelHealthSnapshots,
 } from '../utils/coachObservability.js';
+import { replaceFlags, writeFlags } from '../utils/coachFeatureStore.js';
 
 const CONTROL_CENTER_STORAGE_KEY = 'coach_control_center_state_v1';
 
@@ -248,11 +249,8 @@ export function useCoachControlCenter({
   const rollbackToBaseline = useCallback(() => {
     try {
       const baseline = getSafeBaselineFeatures();
-      const next = {
-        ...(globalThis.__COACH_FEATURES__ || {}),
-        ...baseline,
-      };
-      globalThis.__COACH_FEATURES__ = next;
+      const next = { ...baseline };
+      replaceFlags(next);
       persistCoachFlags(next);
       clearCoachCaches();
       setCurrentFlags(next);
@@ -274,11 +272,7 @@ export function useCoachControlCenter({
       ...prev,
       [flagKey]: value,
     }));
-    const next = {
-      ...(globalThis.__COACH_FEATURES__ || {}),
-      [flagKey]: value,
-    };
-    globalThis.__COACH_FEATURES__ = next;
+    const next = writeFlags({ [flagKey]: value });
     persistCoachFlags(next);
     setCurrentFlags(next);
   }, []);

@@ -8,15 +8,13 @@ import { displaySubject, displayTopic } from './displaySubject';
 export const RX_SYSTEM_ALERT_TEST = /\[(ALERTA MESTRE|STATUS)\]/i;
 export const RX_SYSTEM_ALERT_GLOBAL = /\[(ALERTA MESTRE|STATUS)\]/gi;
 export const RX_PROTOCOLO_GLOBAL = /\[PROTOCOLO PRIORITÁRIO\]\s*/gi;
-export const RX_BRACKET_TOPIC = /^\[(.*?)\]\s*([\s\S]*)$/i;
+export const RX_BRACKET_TOPIC = /^\[(.+?)\]\s*([\s\S]*)$/i;
 export const RX_REC_MARKUP = /(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g;
 export const RX_BOLD = /(\*\*.*?\*\*)/g;
 
-// FIX (BUG-06/33): removidas as âncoras ^...$ — com âncora + flag g, o .replace()
-// só substituía se a string INTEIRA fosse um match. Agora remove o ruído em qualquer
-// posição, mantendo a lista de marcadores de ruído.
+// FIX: Restauradas as âncoras ^...$ ou limites de palavra para evitar substituição destrutiva de substrings
 export const RX_NOISE_ACTION =
-  /(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)|\(Prioridade\)|% de acerto)/gi;
+  /^(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)|\(Prioridade\)|% de acerto)$/gi;
 
 export function isSystemAlertTask(value) {
   const text =

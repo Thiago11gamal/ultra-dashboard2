@@ -1,10 +1,10 @@
-# Código Completo do Coach AI
+﻿# Código Completo do Coach AI (Atualizado)
 
-Este arquivo consolida todos os códigos (Componentes, Engine, Hooks, Utilities e Integrações LLM) relacionados ao ecossistema Coach AI.
+Este arquivo consolida todos os códigos atualizados relacionados ao ecossistema Coach AI.
 
-## `src/components/AICoachPlanner.jsx`
+## $f
 
-```javascript
+`javascript
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
@@ -15,18 +15,18 @@ import { useAppStore } from '../store/useAppStore';
 import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
+import { hashString } from '../utils/coachSafe';
 
-// FIX (BUG-01): ID estável via WeakMap (Strict Mode safe)
+// FIX (BUG-07): ID determinístico via hash de conteúdo — sem contador mutável no render.
 const _taskIdWeakMap = new WeakMap();
-let _coachTaskFallbackCounter = 0;
 const ensureCoachTaskId = (task) => {
   if (!task || typeof task !== 'object') return task;
-  if (task.id) return { ...task, id: task.id };
+  if (task.id) return task; // FIX: não clona quem já tem id (estabilidade referencial)
   const cached = _taskIdWeakMap.get(task);
   if (cached) return { ...task, id: cached };
   const stableId =
     getSafeId(task) ||
-    `coach-task-fb-${++_coachTaskFallbackCounter}-${Date.now().toString(36)}`;
+    `coach-task-${hashString(`${task.title || ''}|${task.text || ''}|${task.categoryId || ''}`)}`;
   _taskIdWeakMap.set(task, stableId);
   return { ...task, id: stableId };
 };
@@ -53,7 +53,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   const isPriority = parsed.priority === 'high' || isSrsCard || isSafeCard || isChaosCard;
   const topicLabel = parsed.topic || rawText;
   const secondaryText = parsed.action && parsed.action !== parsed.topic ? parsed.action : '';
-
   return (
     <Draggable draggableId={stableId} index={index}>
       {(provided, snapshot) => (
@@ -61,9 +60,15 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
+          role="listitem"
           style={
-            snapshot.isDragging 
-              ? { ...provided.draggableProps.style, transition: 'none' } 
+            snapshot.isDragging
+              ? {
+                ...provided.draggableProps.style,
+                ...(snapshot.draggingOver && snapshot.draggingOver !== 'backlog'
+                  ? { width: '180px' }
+                  : {})
+              }
               : provided.draggableProps.style
           }
           className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-lg select-none"
@@ -77,24 +82,20 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 ? '0 20px 40px -10px rgba(0,0,0,0.85), 0 0 25px rgba(139,92,246,0.5)'
                 : undefined,
             }}
-            className={`group relative mb-2 rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${
-              snapshot.isDragging
+            className={`group relative mb-2 rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${snapshot.isDragging
                 ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
                 : isBacklog
                   ? 'border-white/[0.07] bg-[#12151f] hover:border-violet-400/30 hover:bg-[#161a28]'
                   : `${dayTheme.cardBorder} ${dayTheme.cardBg} hover:border-white/20`
-            }`}
+              }`}
           >
             <span
-              className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg bg-gradient-to-b opacity-90 z-0 ${
-                isBacklog
+              className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg bg-gradient-to-b opacity-90 z-0 ${isBacklog
                   ? (isPriority ? 'from-amber-400 to-amber-500' : 'from-violet-500 to-indigo-500')
                   : dayTheme.gradient
-              }`}
+                }`}
             />
-
             <div className="relative z-10 w-full flex flex-col h-full pl-0.5">
-              {/* Cabeçalho: Matéria + Ações */}
               <div className="flex items-start justify-between gap-3 min-w-0 mt-1">
                 <div className="flex items-start gap-1.5 flex-1 min-w-0 mt-0.5">
                   <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-[5px] ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
@@ -102,7 +103,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                     {displaySubject(subject, categories)}
                   </span>
                 </div>
-
                 <div className="flex items-center gap-1 shrink-0 bg-black/20 rounded-md border border-white/5 p-0.5">
                   <button
                     type="button"
@@ -112,11 +112,10 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                     onTouchStart={(e) => e.stopPropagation()}
                     aria-label={`Iniciar estudo: ${displaySubject(subject, categories)}`}
                     title="Estudar agora no Pomodoro"
-                    className={`w-5 h-5 rounded flex items-center justify-center transition-all ${
-                      !isBacklog && dayTheme
+                    className={`w-5 h-5 rounded flex items-center justify-center transition-all ${!isBacklog && dayTheme
                         ? `${dayTheme.text} bg-white/5 hover:bg-white/15 hover:scale-110`
                         : 'bg-violet-500/15 text-violet-300 hover:bg-violet-500 hover:text-white hover:scale-110'
-                    }`}
+                      }`}
                   >
                     <Play size={8} className="fill-current ml-0.5" />
                   </button>
@@ -125,8 +124,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                   </div>
                 </div>
               </div>
-
-              {/* Tópico Principal e Secundário (Alinhados com o texto da matéria) */}
               <div className="mt-4 flex flex-col gap-1 pl-3">
                 <h4 className="text-[11px] sm:text-[12px] font-bold leading-normal text-slate-100 break-words tracking-normal">
                   {topicLabel}
@@ -137,8 +134,6 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                   </p>
                 )}
               </div>
-
-              {/* Rodapé (Tags Especiais) */}
               {isSrsCard && (
                 <div className="mt-3 pt-2 border-t border-white/5 flex items-center pl-3">
                   <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
@@ -152,12 +147,16 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
       )}
     </Draggable>
   );
-}, (prev, next) => {
-  return prev.stableId === next.stableId &&
-         prev.index === next.index &&
-         prev.isBacklog === next.isBacklog &&
-         prev.dayTheme?.id === next.dayTheme?.id;
-});
+}, (prev, next) => (
+  // FIX (BUG-06/10): comparação COMPLETA — card re-renderiza quando conteúdo/callback mudam
+  prev.stableId === next.stableId &&
+  prev.index === next.index &&
+  prev.isBacklog === next.isBacklog &&
+  prev.dayTheme?.id === next.dayTheme?.id &&
+  prev.task === next.task &&
+  prev.categories === next.categories &&
+  prev.onStartPomodoro === next.onStartPomodoro
+));
 
 export default function AICoachPlanner({ plannerData: propPlannerData, categories: propCategories, onStartPomodoro: propOnStart }) {
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
@@ -183,54 +182,98 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   const setData = useAppStore(state => state.setData);
   const startNeuralSession = useAppStore(state => state.startNeuralSession);
   const navigate = useNavigate();
-  const [isDragging, setIsDragging] = useState(false);
-  const [hoveredCol, setHoveredCol] = useState(null);
-  const [enabled, setEnabled] = useState(false);
 
-  useEffect(() => {
-    const animation = requestAnimationFrame(() => setEnabled(true));
-    return () => cancelAnimationFrame(animation);
+  // ==========================================================
+  // FIX (BUG-02/03/04): FONTE ÚNICA DE VERDADE.
+  // `storeColumns` é derivado do store; `dragColumns` é um override
+  // congelado SOMENTE durante o drag. Não há mais useEffect de reset
+  // nem skipResetCountRef — nada para dessincronizar.
+  // ==========================================================
+  const deriveColumns = useCallback((plan, planner) => {
+    const assigned = new Set();
+    DAYS.forEach(d => (planner?.[d.id] || []).forEach(t => {
+      const sid = getSafeId(t);
+      if (sid) assigned.add(sid);
+    }));
+    const seen = new Set(); // FIX (BUG-08): dedupe de draggableId entre colunas
+    const take = (t) => {
+      if (!t) return null;
+      const withId = ensureCoachTaskId(t);
+      const sid = getSafeId(withId);
+      if (!sid || seen.has(sid)) return null;
+      seen.add(sid);
+      return withId;
+    };
+    const backlog = [];
+    for (const t of (Array.isArray(plan) ? plan : [])) {
+      if (!t || isSystemAlertTask(t)) continue;
+      const sid = getSafeId(t);
+      if (sid && assigned.has(sid)) continue;
+      const item = take(t);
+      if (item) backlog.push(item);
+    }
+    const cleanCol = (arr) => {
+      const out = [];
+      for (const t of (Array.isArray(arr) ? arr : [])) {
+        const item = take(t);
+        if (item) out.push(item);
+      }
+      return out;
+    };
+    return {
+      backlog,
+      mon: cleanCol(planner?.mon), tue: cleanCol(planner?.tue),
+      wed: cleanCol(planner?.wed), thu: cleanCol(planner?.thu),
+      fri: cleanCol(planner?.fri), sat: cleanCol(planner?.sat),
+      sun: cleanCol(planner?.sun)
+    };
   }, []);
 
-  // Tracking global do ponteiro durante o drag para acender colunas imediatamente
+  const storeColumns = useMemo(
+    () => deriveColumns(coachPlan, coachPlanner),
+    [coachPlan, coachPlanner, deriveColumns]
+  );
+
+  const [dragColumns, setDragColumns] = useState(null);
+  const columns = dragColumns || storeColumns;
+
+  // FIX (BUG-01): contadores AO VIVO durante o drag
+  const [dragInfo, setDragInfo] = useState(null); // { source, destination }
+  const [hoveredCol, setHoveredCol] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Tracking global do ponteiro (acende colunas imediatamente, inclusive no header)
   useEffect(() => {
     if (!isDragging) {
       setHoveredCol(null);
       return;
     }
-    
-    // Cache the bounding boxes once at the start of the drag to prevent extreme layout thrashing (lag)
-    const cols = Array.from(document.querySelectorAll('[data-col-id]'));
-    const cachedRects = cols.map(col => ({
-      id: col.getAttribute('data-col-id'),
-      rect: col.getBoundingClientRect()
-    }));
-
     let animationFrameId;
     const updateHover = (clientX, clientY) => {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = requestAnimationFrame(() => {
+        // FIX (BUG-05): rects recalculados por frame (8 colunas é barato) —
+        // não congela no início do drag, sobrevive a scroll.
+        const cols = document.querySelectorAll('[data-col-id]');
         let found = null;
-        for (const { id, rect } of cachedRects) {
+        for (const col of cols) {
+          const rect = col.getBoundingClientRect();
           if (clientX >= rect.left && clientX <= rect.right &&
-              clientY >= rect.top && clientY <= rect.bottom) {
-            found = id;
+            clientY >= rect.top && clientY <= rect.bottom) {
+            found = col.getAttribute('data-col-id');
             break;
           }
         }
-        setHoveredCol(prev => prev !== found ? found : prev);
+        setHoveredCol(prev => (prev === found ? prev : found));
       });
     };
-
     const handleMouseMove = (e) => updateHover(e.clientX, e.clientY);
     const handleTouchMove = (e) => {
       const touch = e.touches[0];
       if (touch) updateHover(touch.clientX, touch.clientY);
     };
-
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
-
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('touchmove', handleTouchMove);
@@ -238,88 +281,78 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     };
   }, [isDragging]);
 
-  const getInitialColumns = useCallback(() => {
-    const allAssignedIds = new Set();
-    DAYS.forEach(d => (coachPlanner[d.id] || []).forEach(t => {
-      const sid = getSafeId(t);
-      if (sid) allAssignedIds.add(sid);
-    }));
-    const activeBacklog = (coachPlan || [])
-      .map(ensureCoachTaskId)
-      .filter(t => {
-        if (!t) return false;
-        if (isSystemAlertTask(t)) return false;
-        const sid = getSafeId(t);
-        return !allAssignedIds.has(sid);
-      });
-    const cleanCol = (arr) => (Array.isArray(arr) ? arr.filter(Boolean).map(ensureCoachTaskId) : []);
-    return {
-      backlog: cleanCol(activeBacklog),
-      mon: cleanCol(coachPlanner.mon), tue: cleanCol(coachPlanner.tue),
-      wed: cleanCol(coachPlanner.wed), thu: cleanCol(coachPlanner.thu),
-      fri: cleanCol(coachPlanner.fri), sat: cleanCol(coachPlanner.sat),
-      sun: cleanCol(coachPlanner.sun)
-    };
-  }, [coachPlan, coachPlanner]);
+  const onDragStart = useCallback((start) => {
+    setIsDragging(true);
+    setDragColumns(storeColumns); // congela snapshot local só durante o drag
+    setDragInfo({ source: start?.source?.droppableId ?? null, destination: null });
+  }, [storeColumns]);
 
-  const [columns, setColumns] = useState(() => getInitialColumns());
-  const columnsRef = useRef(columns);
-  const skipResetCountRef = useRef(0);
+  const onDragUpdate = useCallback((update) => {
+    setDragInfo(prev => {
+      const source = update?.source?.droppableId ?? null;
+      const destination = update?.destination?.droppableId ?? null;
+      if (prev && prev.source === source && prev.destination === destination) return prev;
+      return { source, destination };
+    });
+  }, []);
 
-  useEffect(() => { columnsRef.current = columns; }, [columns]);
-  useEffect(() => {
-    if (!isDragging) {
-      if (skipResetCountRef.current > 0) { skipResetCountRef.current--; return; }
-      setColumns(getInitialColumns());
-    }
-  }, [coachPlan, coachPlanner, getInitialColumns, isDragging]);
-
-  const onDragEnd = (result) => {
+  // ==========================================================
+  // FIX (BUG-03): o drop aplica a OPERAÇÃO de mover sobre o snapshot
+  // ATUAL do store (dentro do setData), nunca um snapshot local stale.
+  // Atualizações externas ocorridas durante o drag são preservadas.
+  // ==========================================================
+  const onDragEnd = useCallback((result) => {
     setIsDragging(false);
-    skipResetCountRef.current = 2;
-    if (!result.destination) return;
+    setDragColumns(null);
+    setDragInfo(null);
+
     const { source, destination } = result;
+    if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
-
-    const currentCols = columnsRef.current;
-    const startCol = currentCols[source.droppableId] || [];
-    const finishCol = currentCols[destination.droppableId] || [];
-    const startList = Array.from(startCol);
-    const [removed] = startList.splice(source.index, 1);
-    if (!removed) return;
-    const finishList = (source.droppableId === destination.droppableId) ? startList : Array.from(finishCol);
-    finishList.splice(destination.index, 0, removed);
-
-    const newCols = { ...currentCols, [source.droppableId]: startList, [destination.droppableId]: finishList };
-    setColumns(newCols);
-
-    const systemAlerts = (coachPlan || []).filter(t => t && isSystemAlertTask(t));
-    const newCoachPlan = [
-      ...systemAlerts,
-      ...(newCols.backlog || []),
-      ...(newCols.mon || []), ...(newCols.tue || []), ...(newCols.wed || []),
-      ...(newCols.thu || []), ...(newCols.fri || []), ...(newCols.sat || []), ...(newCols.sun || [])
-    ];
 
     setData(prev => {
       if (!prev) return prev;
-      const freshPlanner = { ...(prev.coachPlanner || {}) };
-      Object.keys(freshPlanner).forEach(day => { freshPlanner[day] = [...(freshPlanner[day] || [])]; });
-      if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
-      if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
-      return { coachPlanner: freshPlanner, coachPlan: newCoachPlan };
+      const cur = deriveColumns(
+        Array.isArray(prev.coachPlan) ? prev.coachPlan : Object.values(prev.coachPlan || {}),
+        prev.coachPlanner || {}
+      );
+      const startList = [...(cur[source.droppableId] || [])];
+      const [moved] = startList.splice(source.index, 1);
+      if (!moved) return prev;
+      const finishList = (source.droppableId === destination.droppableId)
+        ? startList
+        : [...(cur[destination.droppableId] || [])];
+      finishList.splice(destination.index, 0, moved);
+
+      const nextCols = {
+        ...cur,
+        [source.droppableId]: startList,
+        [destination.droppableId]: finishList
+      };
+
+      const existingPlan = Array.isArray(prev.coachPlan) ? prev.coachPlan : Object.values(prev.coachPlan || {});
+      const systemAlerts = existingPlan.filter(t => t && isSystemAlertTask(t));
+      const nextPlan = [
+        ...systemAlerts,
+        ...(nextCols.backlog || []),
+        ...DAYS.flatMap(d => nextCols[d.id] || [])
+      ];
+      const freshPlanner = {};
+      DAYS.forEach(d => { freshPlanner[d.id] = nextCols[d.id] || []; });
+
+      return { coachPlanner: freshPlanner, coachPlan: nextPlan };
     });
-  };
+  }, [setData, deriveColumns]);
 
   const handleStartTask = useCallback((task, dayId) => {
     if (propOnStart) { propOnStart(task, dayId); return; }
     if (!task) return;
-    const cols = columnsRef.current;
-    const sessionTasks = dayId === 'backlog' ? (cols.backlog || []) : (cols[dayId] || []);
+    // FIX: lê `columns` derivado (nunca ref stale)
+    const sessionTasks = columns[dayId || 'backlog'] || [];
+    const taskToFind = getSafeId(task);
     const startIndex = sessionTasks.findIndex(t => {
-      const idT = getSafeId(t); const idTask = getSafeId(task);
-      if (idT && idTask) return idT === idTask;
-      return t === task || (t.title && t.title === task.title);
+      const idT = getSafeId(t);
+      return (taskToFind && idT === taskToFind) || t === task || (t?.title && t.title === task?.title);
     });
     if (startIndex === -1) {
       startNeuralSession([{ ...task, sourceContext: dayId || 'isolated' }], 0);
@@ -328,77 +361,87 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     }
     startNeuralSession(sessionTasks.map(t => ({ ...t, sourceContext: dayId })), startIndex);
     navigate('/pomodoro');
-  }, [startNeuralSession, navigate, propOnStart]);
+  }, [columns, startNeuralSession, navigate, propOnStart]);
 
-  const weekTotal = DAYS.reduce((acc, d) => acc + (columns[d.id] || []).length, 0);
+  // FIX (BUG-01): contador ao vivo (−1 na origem, +1 no destino durante o drag)
+  const liveCount = useCallback((colId, base) => {
+    if (!dragInfo) return base;
+    let n = base;
+    if (dragInfo.source === colId) n -= 1;
+    if (dragInfo.destination === colId) n += 1;
+    return Math.max(0, n);
+  }, [dragInfo]);
 
-  if (!enabled) return null;
+  const weekTotal = useMemo(
+    () => DAYS.reduce((acc, d) => acc + (columns[d.id] || []).length, 0),
+    [columns]
+  );
+  const liveWeekTotal = useMemo(
+    () => DAYS.reduce((acc, d) => acc + liveCount(d.id, (columns[d.id] || []).length), 0),
+    [columns, liveCount]
+  );
+
+  // FIX (BUG-09): removido o gate `enabled` (flash de primeiro frame).
 
   return (
-    <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
+    <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
       <div className="flex flex-col xl:flex-row gap-4 items-stretch mt-6 w-full">
-
         {/* ================= BACKLOG ================= */}
-        <div 
-          className="w-full xl:w-72 2xl:w-80 shrink-0 flex flex-col"
-          data-col-id="backlog"
-        >
-          {/* FIX: SEM backdrop-blur (backdrop-filter quebra o fixed do dnd) */}
+        <div className="w-full xl:w-72 2xl:w-80 shrink-0 flex flex-col" data-col-id="backlog">
           <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 min-h-[380px] relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
             <Droppable droppableId="backlog">
               {(provided, snapshot) => {
                 const isHighlight = hoveredCol ? (hoveredCol === 'backlog') : snapshot.isDraggingOver;
+                const backlogCount = liveCount('backlog', (columns.backlog || []).length);
                 return (
-                <div className={`flex-1 flex flex-col transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl rounded-lg p-1' : ''}`}>
-                  <div className={`flex items-center gap-2 mb-3 pb-2.5 border-b transition-colors duration-75 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
-                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
-                      <BrainCircuit size={15} className={`transition-colors ${isHighlight ? 'text-violet-200' : 'text-violet-400'}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className={`text-xs font-black uppercase tracking-[0.16em] transition-colors ${isHighlight ? 'text-white' : 'text-slate-200'}`}>Sugestões</h3>
-                      <p className={`text-[9px] font-semibold tracking-wider transition-colors ${isHighlight ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
-                    </div>
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
-                      {(columns.backlog || []).length}
-                    </span>
-                  </div>
-
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    role="list"
-                    aria-label="Sugestões de tarefas não alocadas"
-                    className={`flex-1 flex flex-col p-2 rounded-lg border border-dashed transition-all duration-75 overflow-y-auto max-h-[580px] custom-scrollbar ${
-                      isHighlight
-                        ? 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-400/30'
-                        : 'bg-black/20 border-white/[0.08]'
-                    }`}
-                  >
-                    {(columns.backlog || []).filter(Boolean).map((task, idx) => {
-                      const safeId = getSafeId(task) || `backlog-${idx}`;
-                      return (
-                        <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog categories={categories} onStartPomodoro={handleStartTask} />
-                      );
-                    })}
-                    {provided.placeholder}
-                    {(columns.backlog || []).length === 0 && (
-                      <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500 my-auto">
-                        <Sparkles size={20} className="mb-2 text-violet-400/50" />
-                        <p className="text-xs font-medium text-slate-400">Tudo distribuído!</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Arraste itens de volta se quiser reorganizar.</p>
+                  <div className={`flex-1 flex flex-col transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl rounded-lg p-1' : ''}`}>
+                    <div className={`flex items-center gap-2 mb-3 pb-2.5 border-b transition-colors duration-75 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
+                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
+                        <BrainCircuit size={15} className={`transition-colors ${isHighlight ? 'text-violet-200' : 'text-violet-400'}`} />
                       </div>
-                    )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`text-xs font-black uppercase tracking-[0.16em] transition-colors ${isHighlight ? 'text-white' : 'text-slate-200'}`}>Sugestões</h3>
+                        <p className={`text-[9px] font-semibold tracking-wider transition-colors ${isHighlight ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
+                      </div>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
+                        {backlogCount}
+                      </span>
+                    </div>
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      role="list"
+                      aria-label="Sugestões de tarefas não alocadas"
+                      className={`flex-1 flex flex-col p-2 rounded-lg border border-dashed transition-all duration-75 overflow-y-auto max-h-[580px] custom-scrollbar ${isHighlight
+                          ? 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-400/30'
+                          : 'bg-black/20 border-white/[0.08]'
+                        }`}
+                    >
+                      {(columns.backlog || []).filter(Boolean).map((task, idx) => {
+                        const safeId = getSafeId(task) || `backlog-${idx}`;
+                        return (
+                          <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog categories={categories} onStartPomodoro={handleStartTask} />
+                        );
+                      })}
+                      {provided.placeholder}
+                      {(columns.backlog || []).length === 0 && (
+                        <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500 my-auto">
+                          <Sparkles size={20} className="mb-2 text-violet-400/50" />
+                          <p className="text-xs font-medium text-slate-400">Tudo distribuído!</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Arraste itens de volta se quiser reorganizar.</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}}
+                )
+              }}
             </Droppable>
           </div>
         </div>
 
         {/* ================= SEMANA ================= */}
         <div className="w-full flex-1 min-w-0 flex flex-col">
-          {/* FIX: SEM backdrop-blur aqui também */}
           <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 relative shadow-2xl overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.08] shrink-0">
@@ -412,67 +455,61 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                 </div>
               </div>
               <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0">
-                {weekTotal} tarefa{weekTotal === 1 ? '' : 's'} na semana
+                {liveWeekTotal} tarefa{liveWeekTotal === 1 ? '' : 's'} na semana
               </span>
             </div>
-
             <div className="w-full overflow-x-auto kanban-scrollbar pb-2 pt-1 flex-1 flex flex-col">
               <div className="flex gap-3 min-w-[900px] xl:min-w-0 w-full flex-1">
                 {DAYS.map((day) => {
                   const dayTasks = columns[day.id] || [];
+                  const dayCount = liveCount(day.id, dayTasks.length);
                   return (
-                    <div 
-                      key={day.id} 
-                      className="flex-1 min-w-[130px] xl:min-w-0 flex flex-col"
-                      data-col-id={day.id}
-                    >
+                    <div key={day.id} className="flex-1 min-w-[130px] xl:min-w-0 flex flex-col" data-col-id={day.id}>
                       <Droppable droppableId={day.id}>
                         {(provided, snapshot) => {
                           const isHighlight = hoveredCol ? (hoveredCol === day.id) : snapshot.isDraggingOver;
                           return (
-                          <div className={`flex-1 flex flex-col p-1 rounded-lg transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl' : ''}`}>
-                            <div className={`mb-2 rounded-lg border transition-all duration-75 ${
-                              isHighlight ? `${day.over} shadow-[0_0_15px_rgba(255,255,255,0.05)]` : `${day.headerBorder} ${day.headerBg}`
-                            } p-2 relative overflow-hidden`}>
-                              <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${day.gradient} opacity-70`} />
-                              <div className="flex items-center justify-between gap-1">
-                                <div className="flex flex-col min-w-0">
-                                  <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-75 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
-                                  <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
-                                </div>
-                                <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border shrink-0 transition-colors duration-75 ${isHighlight ? day.over : day.headerBorder}`}>
-                                  {dayTasks.length}
+                            <div className={`flex-1 flex flex-col p-1 rounded-lg transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl' : ''}`}>
+                              <div className={`mb-2 rounded-lg border transition-all duration-75 ${isHighlight ? `${day.over} shadow-[0_0_15px_rgba(255,255,255,0.05)]` : `${day.headerBorder} ${day.headerBg}`
+                                } p-2 relative overflow-hidden`}>
+                                <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${day.gradient} opacity-70`} />
+                                <div className="flex items-center justify-between gap-1">
+                                  <div className="flex flex-col min-w-0">
+                                    <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-75 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
+                                    <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
+                                  </div>
+                                  <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border shrink-0 transition-colors duration-75 ${isHighlight ? day.over : day.headerBorder}`}>
+                                    {dayCount}
+                                  </div>
                                 </div>
                               </div>
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                role="list"
+                                aria-label={`Tarefas de ${day.full}`}
+                                className={`flex-1 p-1.5 rounded-lg border border-dashed transition-all duration-75 flex flex-col min-h-[160px] max-h-[580px] overflow-y-auto kanban-scrollbar ${isHighlight
+                                    ? `${day.over} ring-1 ring-white/20`
+                                    : 'bg-black/20 border-white/[0.08] hover:border-white/15'
+                                  }`}
+                              >
+                                {dayTasks.filter(Boolean).map((task, idx) => {
+                                  const safeId = getSafeId(task) || `${day.id}-${idx}`;
+                                  return (
+                                    <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} categories={categories} onStartPomodoro={handleStartTask} />
+                                  );
+                                })}
+                                {provided.placeholder}
+                                {dayTasks.length === 0 && !snapshot.isDraggingOver && (
+                                  <div className={`w-full flex-1 min-h-[100px] flex flex-col items-center justify-center gap-1 border border-dashed ${day.headerBorder} opacity-40 rounded-lg p-2 text-center my-auto bg-black/10`}>
+                                    <Inbox size={14} className={day.text} />
+                                    <span className={`text-[9px] font-semibold tracking-wider uppercase ${day.text} opacity-70`}>Arraste aqui</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              role="list"
-                              aria-label={`Tarefas de ${day.full}`}
-                              className={`flex-1 p-1.5 rounded-lg border border-dashed transition-all duration-75 flex flex-col min-h-[160px] max-h-[580px] overflow-y-auto kanban-scrollbar ${
-                                isHighlight
-                                  ? `${day.over} ring-1 ring-white/20`
-                                  : 'bg-black/20 border-white/[0.08] hover:border-white/15'
-                              }`}
-                            >
-                              {dayTasks.filter(Boolean).map((task, idx) => {
-                                const safeId = getSafeId(task) || `${day.id}-${idx}`;
-                                return (
-                                  <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} categories={categories} onStartPomodoro={handleStartTask} />
-                                );
-                              })}
-                              {provided.placeholder}
-                              {dayTasks.length === 0 && !snapshot.isDraggingOver && (
-                                <div className={`w-full flex-1 min-h-[100px] flex flex-col items-center justify-center gap-1 border border-dashed ${day.headerBorder} opacity-40 rounded-lg p-2 text-center my-auto bg-black/10`}>
-                                  <Inbox size={14} className={day.text} />
-                                  <span className={`text-[9px] font-semibold tracking-wider uppercase ${day.text} opacity-70`}>Arraste aqui</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}}
+                          )
+                        }}
                       </Droppable>
                     </div>
                   );
@@ -485,11 +522,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     </DragDropContext>
   );
 }
-```
+``n
+## $f
 
-## `src/components/AICoachView.jsx`
-
-```javascript
+`javascript
 import React, { useMemo, useState, useCallback } from 'react';
 import {
   Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download,
@@ -1183,11 +1219,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     </div>
   );
 }
-```
+``n
+## $f
 
-## `src/components/AICoachWidget.jsx`
-
-```javascript
+`javascript
 import React, { useState, useMemo } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import {
@@ -1710,11 +1745,10 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     </Motion.div>
   );
 }
-```
+``n
+## $f
 
-## `src/components/coach/CoachControlCenter.jsx`
-
-```javascript
+`javascript
 import React, { useMemo, useState } from 'react';
 import { useCoachControlCenter } from '../../hooks/useCoachControlCenter.js';
 
@@ -2540,12 +2574,10 @@ export default function CoachControlCenter({
     </div>
   );
 }
+``n
+## $f
 
-```
-
-## `src/components/coach/CoachMenuNav.jsx`
-
-```javascript
+`javascript
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 
@@ -2700,12 +2732,10 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         </div>
     );
 }
+``n
+## $f
 
-```
-
-## `src/engine/evaluation/coachEvaluator.js`
-
-```javascript
+`javascript
 /**
  * coachEvaluator.js
  *
@@ -3356,12 +3386,10 @@ export default {
   loadEvaluationResults,
   clearEvaluationResults,
 };
+``n
+## $f
 
-```
-
-## `src/engine/orchestrator/coachOrchestrator.js`
-
-```javascript
+`javascript
 /**
  * coachOrchestrator.js
  *
@@ -3387,6 +3415,7 @@ import {
   clearTopicsCache,
   clearMcCache,
 } from '../../utils/coachLogic.js';
+import { writeFlags, readFlags } from '../../utils/coachFeatureStore.js';
 
 const ORCHESTRATOR_VERSION = '12.0.0';
 // FIX (BUG-34): timeout padrão para não pendurar a UI em operações longas
@@ -3419,12 +3448,9 @@ function getFeature(features, key, fallback = false) {
     if (features && typeof features[key] === 'boolean') {
       return features[key];
     }
-    if (
-      typeof globalThis !== 'undefined' &&
-      globalThis.__COACH_FEATURES__ &&
-      typeof globalThis.__COACH_FEATURES__[key] === 'boolean'
-    ) {
-      return globalThis.__COACH_FEATURES__[key];
+    const storeFlags = readFlags();
+    if (typeof storeFlags[key] === 'boolean') {
+      return storeFlags[key];
     }
     return fallback;
   } catch {
@@ -3448,12 +3474,15 @@ async function loadOptionalModule(name, meta) {
       return globalThis.__COACH_MODULES__[name];
     }
     const path = OPTIONAL_MODULE_PATHS[name];
-    // FIX: só carrega paths conhecidos
     if (!path || !ALLOWED_PATHS.has(path)) {
       meta.modules[name] = false;
       return null;
     }
-    const module = await import(/* @vite-ignore */ path);
+    const importPromise = import(/* @vite-ignore */ path);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Import timeout: ${name}`)), 3000)
+    );
+    const module = await Promise.race([importPromise, timeoutPromise]);
     meta.modules[name] = true;
     return module;
   } catch (err) {
@@ -3522,13 +3551,23 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  const checkAbort = (stepName) => {
+    if (controller.signal.aborted) {
+      meta.errors.push({ step: stepName, message: 'Timeout exceeded' });
+      return true;
+    }
+    return false;
+  };
+
   try {
     // Flags iniciais.
-    let features = {
-      ...(globalThis.__COACH_FEATURES__ || {}),
-      ...(options.features || {}),
-    };
-    globalThis.__COACH_FEATURES__ = features;
+    let features = {};
+    const baseFeatures = readFlags();
+    const optionFeatures = options.features || {};
+    for (const [k, v] of Object.entries({ ...baseFeatures, ...optionFeatures })) {
+      if (typeof k === 'string' && typeof v === 'boolean') features[k] = v;
+    }
+    writeFlags(features);
 
     const orchestratorEnabled =
       options.force === true ||
@@ -3554,11 +3593,12 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     ) {
       try {
         optimizerModule.bootstrapCoachFlags();
-        features = {
-          ...(globalThis.__COACH_FEATURES__ || {}),
-          ...(options.features || {}),
-        };
-        globalThis.__COACH_FEATURES__ = features;
+        const updatedBase = readFlags();
+        features = {};
+        for (const [k, v] of Object.entries({ ...updatedBase, ...optionFeatures })) {
+          if (typeof k === 'string' && typeof v === 'boolean') features[k] = v;
+        }
+        writeFlags(features);
       } catch (err) {
         meta.errors.push({
           step: 'bootstrapCoachFlags',
@@ -3580,7 +3620,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
         getFeature(features, 'useOrchestratorHealth', false)
       );
 
-    if (shouldRunHealth && !controller.signal.aborted) {
+    if (shouldRunHealth && !checkAbort('observability')) {
       const observabilityModule = await loadOptionalModule(
         'coachObservability',
         meta
@@ -3623,7 +3663,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       getFeature(features, 'usePersonalizedPolicy', false) ||
       getFeature(features, 'useCausalTaskSelection', false);
 
-    if (shouldLoadCausal && !controller.signal.aborted) {
+    if (shouldLoadCausal && !checkAbort('causal')) {
       causalModule = await loadOptionalModule('coachCausal', meta);
       if (causalModule) {
         try {
@@ -3711,7 +3751,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       causalModel &&
       Array.isArray(tasks) &&
       tasks.length > 0 &&
-      !controller.signal.aborted
+      !checkAbort('causalTaskRerank')
     ) {
       try {
         tasks = causalModule.rerankCoachTasksWithCausalPolicy(
@@ -3742,24 +3782,30 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
         getFeature(features, 'useOrchestratorLLM', false)
       );
 
-    if (shouldRunLLM && focus?.urgency && !controller.signal.aborted) {
+    if (shouldRunLLM && focus?.urgency && !checkAbort('llmExplanation')) {
       const explanationModule = await loadOptionalModule(
         'explanationAgent',
         meta
       );
       if (explanationModule?.enhanceCoachResultWithLLM) {
         try {
-          const enhanced = await explanationModule.enhanceCoachResultWithLLM(
-            focus.urgency,
-            {
-              features,
-              context: {
-                categoryName: focus.name || focus.categoryName || null,
-                maxScore,
-                targetScore,
-              },
-            }
+          const llmTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('LLM timeout')), 5000)
           );
+          const enhanced = await Promise.race([
+            explanationModule.enhanceCoachResultWithLLM(
+              focus.urgency,
+              {
+                features,
+                context: {
+                  categoryName: focus.name || focus.categoryName || null,
+                  maxScore,
+                  targetScore,
+                },
+              }
+            ),
+            llmTimeout
+          ]);
           llmExplanation = enhanced?.llmExplanation || null;
           if (llmExplanation && focus.urgency) {
             focus.urgency.llmExplanation = llmExplanation;
@@ -3784,7 +3830,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
         getFeature(features, 'useOrchestratorAutoTuner', false)
       );
 
-    if (shouldRunTuner && !controller.signal.aborted) {
+    if (shouldRunTuner && !checkAbort('autoTuner')) {
       const tunerModule =
         optimizerModule || (await loadOptionalModule('coachOptimizer', meta));
       if (tunerModule?.runCoachAutoTuner) {
@@ -3817,6 +3863,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       generatedAt: Date.now(),
       durationMs: Date.now() - startedAt,
       version: ORCHESTRATOR_VERSION,
+      aborted: controller.signal.aborted,
       focus,
       tasks: Array.isArray(tasks) ? tasks : [],
       bestTask,
@@ -3915,13 +3962,13 @@ export function buildCoachOrchestratorDashboard(result = {}) {
         }
       : null,
     tasks: Array.isArray(safeResult.tasks)
-      ? safeResult.tasks.slice(0, 12).map((task) => ({
-          id: task.id || null,
-          text: task.text || null,
-          priority: task.priority || null,
-          categoryId: task.categoryId || null,
-          categoryName: task.catName || task.category || null,
-          topicName: task.topicName || null,
+      ? safeResult.tasks.filter(Boolean).slice(0, 12).map((task) => ({
+          id: task?.id || null,
+          text: task?.text || null,
+          priority: ['high', 'medium', 'low'].includes(task?.priority) ? task.priority : 'medium',
+          categoryId: task?.categoryId || null,
+          categoryName: task?.catName || task?.category || null,
+          topicName: task?.topicName || null,
         }))
       : [],
     bestTask: safeResult.bestTask
@@ -3970,12 +4017,10 @@ export default {
   buildCoachOrchestratorDashboard,
   clearCoachCaches,
 };
+``n
+## $f
 
-```
-
-## `src/hooks/useCoachControlCenter.js`
-
-```javascript
+`javascript
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   runCoachOrchestrator,
@@ -4324,12 +4369,10 @@ export function useCoachControlCenter({
 }
 
 export default useCoachControlCenter;
+``n
+## $f
 
-```
-
-## `src/llm/coachLLMIntegration.js`
-
-```javascript
+`javascript
 /**
  * coachLLMIntegration.js
  *
@@ -4415,12 +4458,10 @@ export default {
   getSuggestedFocusWithLLM,
   explainUrgencyResult,
 };
+``n
+## $f
 
-```
-
-## `src/pages/Coach.jsx`
-
-```javascript
+`javascript
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Brain, Zap, AlertCircle, ArrowUpRight, ShieldCheck, Dna, List, BookOpen, Database
@@ -4474,11 +4515,17 @@ const STABLE_EMPTY = [];
 function normalizeToArray(value) {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return Object.values(value);
-  return EMPTY_ARRAY;
+  return STABLE_EMPTY;
 }
 function sanitizeMaxScore(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : 100;
+}
+// ✅ FIX: elimina "-0.0" (zero negativo do toFixed) em displays de tendência/volatilidade
+function formatSigned(value, digits = 1) {
+  const n = Number(value) || 0;
+  const fixed = n.toFixed(digits);
+  return fixed === `-${(0).toFixed(digits)}` ? (0).toFixed(digits) : fixed;
 }
 function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
   const safeMax = sanitizeMaxScore(maxScore);
@@ -4527,11 +4574,11 @@ export default function Coach() {
   const showToast = useToast();
   const showToastRef = useRef(showToast);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
-  const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
+  const rawHistory = data?.simuladoRows || STABLE_EMPTY;
   const history = useMemo(() => normalizeToArray(rawHistory), [rawHistory]);
-  const rawSimulados = data?.simulados || EMPTY_ARRAY;
+  const rawSimulados = data?.simulados || STABLE_EMPTY;
   const simulados = useMemo(() => normalizeToArray(rawSimulados), [rawSimulados]);
-  const rawCategories = data?.categories || EMPTY_ARRAY;
+  const rawCategories = data?.categories || STABLE_EMPTY;
   const categories = useMemo(() =>
     normalizeToArray(rawCategories).map(c => ({
       ...c,
@@ -4539,9 +4586,9 @@ export default function Coach() {
     })),
     [rawCategories]
   );
-  const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
+  const rawFlashcardDecks = data?.flashcardDecks || STABLE_EMPTY;
   const flashcardDecks = useMemo(() => normalizeToArray(rawFlashcardDecks), [rawFlashcardDecks]);
-  const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
+  const rawStudyLogs = data?.studyLogs || STABLE_EMPTY;
   const studyLogs = useMemo(() => normalizeToArray(rawStudyLogs), [rawStudyLogs]);
   const flashcardDue = useMemo(() => getFlashcardDueTodayCount(flashcardDecks), [flashcardDecks]);
   const { currentUser } = useAuth();
@@ -5088,13 +5135,11 @@ export default function Coach() {
           />
           {/* FIX (BUG-14): wrapper relativo + fade nas bordas p/ indicar scroll */}
           <div className="relative z-50 w-full md:w-auto">
-            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-900/80 to-transparent z-10 rounded-r-3xl" />
-            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-900/80 to-transparent z-10 rounded-l-3xl" />
             <div className="flex items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl shadow-inner overflow-x-auto scrollbar-hide">
               <div className="flex items-center gap-3 sm:gap-5 md:gap-6 sm:px-4 px-2 min-w-max flex-shrink-0">
                 <QuickStat
                   label="Volatilidade"
-                  value={`${normalizedVolatility.toFixed(1)}pp`}
+                  value={`${formatSigned(normalizedVolatility)}pp`}
                   color="text-rose-400"
                   icon={<Zap size={14} />}
                 />
@@ -5105,7 +5150,7 @@ export default function Coach() {
                 <div className="w-px h-6 bg-white/10" />
                 <QuickStat
                   label="Tendência"
-                  value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
+                  value={`${formatSigned((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100)}pp`}
                   color="text-emerald-400"
                   icon={<ArrowUpRight size={14} />}
                 />
@@ -5827,11 +5872,1207 @@ function RaioXDashboard({ data }) {
     </div>
   );
 }
-```
+``n
+## $f
 
-## `src/utils/coachAdaptive.js`
+`javascript
+/**
+ * adaptiveEngine.js — Adaptive Analytics Engine
+ * 
+ * ADAPT-02: Detecção de transição de regime (simplificado).
+ * Analisa o histórico de estados (progression, stagnation, regression, etc.)
+ * para detectar TRANSIÇÕES iminentes — ex: "evolução desacelerando → platô provável".
+ * 
+ * Related modules:
+ * - src/utils/adaptiveMath.js — Core adaptive math utilities
+ * - src/utils/calibration.js — Calibration governance
+ * - src/utils/coachLogic.js — Coach decision engine
+ * - src/utils/ProgressStateEngine.js — State classification
+ */
 
-```javascript
+import { analyzeProgressState } from './ProgressStateEngine.js';
+
+/**
+ * Detecta transições de regime no desempenho do aluno.
+ * 
+ * Usa um modelo simplificado de probabilidades de transição baseado na
+ * frequência histórica de mudanças de estado + indicadores de velocidade.
+ * 
+ * @param {number[]} scores - Série de scores do aluno (mais antigo → mais recente)
+ * @param {Object} options - { maxScore, windowSize, minHistory }
+ * @returns {Object} { currentState, transitionRisk, flags, velocity }
+ */
+export function detectRegimeTransition(scores = [], options = {}) {
+    const {
+        maxScore = 100,
+        windowSize = 10,
+        minHistory = 6
+    } = options;
+
+    const noData = {
+        currentState: 'insufficient_data',
+        transitionRisk: null,
+        flags: [],
+        velocity: null,
+        regimeStability: null
+    };
+
+    if (!Array.isArray(scores) || scores.length < minHistory) return noData;
+    
+    // BUG-ADAPT-01 FIX: Janela Dinâmica
+    // Se scores.length < windowSize * 1.5, a janela de 10 itens impede a geração 
+    // de 2 estados (necessários para a derivada). Ajustamos para scores.length/2.
+    const actualWindowSize = Math.min(windowSize, Math.floor(scores.length / 2));
+
+    // 1. Calcular estados em janelas deslizantes
+    const states = [];
+    const stepSize = Math.max(1, Math.floor(actualWindowSize / 2)); // 50% overlap
+    for (let end = actualWindowSize; end <= scores.length; end += stepSize) {
+        const window = scores.slice(end - actualWindowSize, end);
+        const result = analyzeProgressState(window, { maxScore, window_size: actualWindowSize });
+        states.push({
+            state: result.state,
+            mean: result.mean_score,
+            slope: result.trend_slope,
+            variance: result.variance,
+            endIdx: end
+        });
+    }
+
+    if (states.length < 2) return noData;
+
+    const current = states[states.length - 1];
+    const previous = states[states.length - 2];
+
+    // 2. Detectar transições de regime
+    const flags = [];
+    let transitionRisk = 'none';
+
+    // Calcular velocidade de mudança (derivada do slope)
+    const slopeChange = current.slope - previous.slope;
+    const meanChange = current.mean - previous.mean;
+
+    // 2a. Desaceleração em evolução (possível platô)
+    if (current.state === 'progression') {
+        // Se o slope caiu >50% comparado com o anterior, o ritmo está desacelerando
+        if (previous.slope > 0 && current.slope > 0 && current.slope < previous.slope * 0.5) {
+            transitionRisk = 'deceleration';
+            flags.push({
+                type: 'warning',
+                msg: `Desaceleração detectada: ritmo caiu de ${(previous.slope * 30).toFixed(1)} para ${(current.slope * 30).toFixed(1)} pp/mês. Possível platô em formação.`,
+                severity: 'medium'
+            });
+        }
+        // Se a variância está subindo enquanto o slope diminui
+        // [CORREÇÃO] Injetar um limite mínimo (Epsilon) de variância para impedir (Bug 3.1 Fix)
+        // que um salto de 0 para 0.01 dispare uma falsa "Instabilidade crescente".
+        const varianciaMinima = Math.pow(maxScore * 0.02, 2); // Piso de 2%
+        const varianciaAnteriorSegura = Math.max(previous.variance, varianciaMinima);
+        
+        if (current.variance > varianciaAnteriorSegura * 1.5 && slopeChange < 0) {
+            flags.push({
+                type: 'info',
+                msg: 'Instabilidade crescente durante evolução. Consolide a base antes de avançar.',
+                severity: 'low'
+            });
+        }
+    }
+
+    // 2b. Regressão acelerando (queda livre)
+    if (current.state === 'regression' && previous.state === 'regression') {
+        if (current.slope < previous.slope) {
+            transitionRisk = 'acceleration_negative';
+            flags.push({
+                type: 'danger',
+                msg: `Queda acelerada: declínio de ${(current.slope * 30).toFixed(1)} pp/mês (era ${(previous.slope * 30).toFixed(1)}). Intervenção urgente necessária.`,
+                severity: 'high'
+            });
+        }
+    }
+
+    // 2c. Estagnação após evolução (platô confirmado)
+    if ((current.state === 'stagnation_positive' || current.state === 'stagnation_neutral') 
+        && previous.state === 'progression') {
+        transitionRisk = 'plateau_entry';
+        flags.push({
+            type: 'warning',
+            msg: 'Transição para platô detectada. O progresso desacelerou. Mude a estratégia de estudo.',
+            severity: 'medium'
+        });
+    }
+
+    // 2d. Recuperação após queda (inflexão positiva)
+    if (current.state === 'progression' && 
+        (previous.state === 'regression' || previous.state === 'stagnation_negative')) {
+        transitionRisk = 'recovery';
+        flags.push({
+            type: 'success',
+            msg: 'Inflexão positiva detectada! A recuperação está em andamento. Mantenha o novo ritmo.',
+            severity: 'none'
+        });
+    }
+
+    // 2e. Instabilidade crônica (oscilação contínua)
+    if (current.state === 'unstable' && previous.state === 'unstable') {
+        transitionRisk = 'chronic_instability';
+        flags.push({
+            type: 'warning',
+            msg: 'Instabilidade crônica: performance oscila sem padrão. Foque em preencher lacunas de base.',
+            severity: 'medium'
+        });
+    }
+
+    // 3. Regime stability: quantos estados consecutivos iguais
+    let consecutiveSame = 1;
+    for (let i = states.length - 2; i >= 0; i--) {
+        if (states[i].state === current.state) consecutiveSame++;
+        else break;
+    }
+    const regimeStability = Math.min(1, consecutiveSame / 5); // Normalizar para [0,1], satura em 5
+
+    return {
+        currentState: current.state,
+        transitionRisk,
+        flags,
+        velocity: {
+            slopeChange: Number(slopeChange.toFixed(4)),
+            meanChange: Number(meanChange.toFixed(2)),
+            currentSlope: Number(current.slope.toFixed(4)),
+            previousSlope: Number(previous.slope.toFixed(4))
+        },
+        regimeStability: Number(regimeStability.toFixed(3)),
+        stateHistory: states.map(s => s.state)
+    };
+}
+
+export default { detectRegimeTransition };
+``n
+## $f
+
+`javascript
+/**
+ * Utilitários de Matemática Adaptativa para o Motor Estatístico
+ */
+import { bootstrapCI } from '../engine/math/bootstrap.js';
+import { kahanSum, kahanMean } from '../engine/math/kahan.js';
+import { safeDateParse } from './dateHelper.js';
+
+// t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
+// Evita subestimar IC quando n é baixo.
+const SMALL_SAMPLE_T_CRITICAL = {
+    1: 12.706,
+    2: 4.303,
+    3: 3.182,
+    4: 2.776,
+    5: 2.571,
+    6: 2.447,
+    7: 2.365,
+    8: 2.306,
+    9: 2.262,
+    10: 2.228,
+    11: 2.201,
+    12: 2.179,
+    13: 2.160,
+    14: 2.145,
+    15: 2.131,
+    16: 2.120,
+    17: 2.110,
+    18: 2.101,
+    19: 2.093,
+    20: 2.086,
+    21: 2.080,
+    22: 2.074,
+    23: 2.069,
+    24: 2.064,
+    25: 2.060,
+    26: 2.056,
+    27: 2.052,
+    28: 2.048,
+    29: 2.045,
+    30: 2.042
+};
+
+/**
+ * Calcula o multiplicador de confiança (T-Student aproximado).
+ * @param {number} sampleSize - Tamanho da amostra.
+ * @param {Object} options 
+ * @param {boolean} [options.allowFractional=false] - Se true, permite N fracionário (útil apenas para N Efetivo de Kish). Se false, força um número inteiro para manter a consistência da T-Student em contagens de amostras reais.
+ */
+export function getConfidenceMultiplier(sampleSize, options = {}) {
+    const nRaw = Number(sampleSize);
+    const allowFractional = options?.allowFractional === true;
+    const nBase = Number.isFinite(nRaw) ? nRaw : 1;
+    const n = Math.max(1, allowFractional ? nBase : Math.round(nBase));
+    const df = Math.max(allowFractional ? 0.1 : 1, n - 1);
+
+
+
+    if (df <= 30) {
+        const lowDf = Math.max(1, Math.floor(df)); 
+        const highDf = Math.ceil(df);
+        const lowT = SMALL_SAMPLE_T_CRITICAL[lowDf] ?? SMALL_SAMPLE_T_CRITICAL[1];
+        const highT = SMALL_SAMPLE_T_CRITICAL[highDf] ?? SMALL_SAMPLE_T_CRITICAL[30];
+        
+        if (lowDf === highDf) return lowT;
+        
+        // CORREÇÃO: Em vez de interpolação harmónica reversa instável, 
+        // usamos interpolação log-linear no espaço dos Graus de Liberdade.
+        // É estatisticamente superior para o decaimento em cauda pesada.
+        const logDenom = Math.log(highDf) - Math.log(lowDf);
+        if (Math.abs(logDenom) < 1e-15) return lowT;
+        const w = (Math.log(df) - Math.log(lowDf)) / logDenom;
+        return (lowT * (1 - w)) + (highT * w);
+    }
+
+    // Aproximação assintótica para df altos (erro pequeno para df > 30)
+    const z = 1.959963984540054;
+    const c1 = (Math.pow(z, 3) + z) / (4 * df);
+    const c2 = (5 * Math.pow(z, 5) + 16 * Math.pow(z, 3) + 3 * z) / (96 * df * df);
+    const tApprox = z + c1 + c2;
+
+    // Limites de sanidade (sem truncar agressivamente amostras pequenas)
+    return Math.max(1.96, Math.min(6.0, tApprox));
+}
+
+export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
+    if (!Array.isArray(values)) return [];
+
+    // Sanitiza percentis para evitar intervalos inválidos (ex: lower > upper)
+    const lowerClamped = Number.isFinite(lowerPct) ? Math.min(1, Math.max(0, lowerPct)) : 0.05;
+    const upperClamped = Number.isFinite(upperPct) ? Math.min(1, Math.max(0, upperPct)) : 0.95;
+    const lowQ = Math.min(lowerClamped, upperClamped);
+    const highQ = Math.max(lowerClamped, upperClamped);
+
+    const nullCount = values.filter(v => !Number.isFinite(v)).length;
+    if (nullCount > values.length * 0.5) {
+        // OTIMIZAÇÃO DE MEMÓRIA: Se mais de 50% for lixo, retornar a referência original
+        // em vez de criar um novo array map com NaNs. Evita alocação desnecessária.
+        return values; 
+    }
+ 
+    const finiteValues = values.filter(v => Number.isFinite(v));
+    // BUGFIX (data-shape): preservar o comprimento da série mesmo sem valores finitos.
+    // Alguns consumidores assumem alinhamento 1:1 com a série original.
+    // [FIX 4] Jamais force um 0 em domínios não triviais. Deixe o filtro NaN tratar jusante.
+    if (finiteValues.length === 0) return values;
+    if (finiteValues.length < 5) {
+        return values; 
+    }
+
+    const sorted = [...finiteValues].sort((a, b) => a - b);
+    const lowIndex = Math.floor((sorted.length - 1) * lowQ);
+    const highIndex = Math.ceil((sorted.length - 1) * highQ);
+    const low = sorted[Math.max(0, lowIndex)];
+    const high = sorted[Math.min(sorted.length - 1, highIndex)];
+
+    return values.map((v) => {
+        // CORREÇÃO: Em vez de injetar uma mediana falsa (o que destrói a variância em séries com poucos dados),
+        // preservamos o valor inválido original para que os filtros a jusante lidem com a lacuna naturalmente.
+        if (!Number.isFinite(v)) return v; 
+        return Math.max(low, Math.min(high, v));
+    });
+}
+
+export function deriveAdaptiveConfig(scores = []) {
+    const finiteScores = Array.isArray(scores) ? scores.filter(v => Number.isFinite(v)) : [];
+    const n = finiteScores.length;
+    const mean = kahanMean(finiteScores);
+    const variance = n > 1 ? kahanSum(finiteScores.map(s => Math.pow(s - mean, 2))) / (n - 1) : 0;
+    const sd = Math.sqrt(Math.max(0, variance));
+    const cv = mean !== 0 ? Math.min(2, Math.abs(sd / mean)) : 1;
+
+    // Meia-vida dinâmica baseada em n e volatilidade
+    const halfLife = Math.max(2, Math.round(Math.min(14, Math.sqrt(Math.max(1, n)) * (1 + cv))));
+    const lambda = Math.pow(0.5, 1 / halfLife);
+    const dynamicTail = Math.min(0.12, Math.max(0.03, 0.08 * (1 / Math.sqrt(Math.max(1, n))) + (cv * 0.02)));
+    // BUGFIX: sensibilidade mínima muito alta ampliava ruído em séries curtas.
+    const trendSensitivity = 0.03 + Math.min(0.06, cv * 0.04);
+    const maxCIInflation = 1.1 + Math.min(0.25, cv * 0.12);
+
+    return {
+        lambda,
+        lowWinsor: dynamicTail,
+        highWinsor: 1 - dynamicTail,
+        trendSensitivity,
+        maxCIInflation
+    };
+}
+
+/**
+ * Calcula a regressão linear incluindo o Erro Padrão da Inclinação (Standard Error) e o T-Stat.
+ * Atualizado para suportar deltas de tempo reais (x) em vez de assumir índices estáticos.
+ */
+export const calcSlopeWithSignificance = (dados) => {
+    if (!Array.isArray(dados)) return { slope: 0, se: 0, tStat: 0 };
+
+    const n = dados.length;
+    if (n < 3) return { slope: 0, se: 0, tStat: 0 };
+    
+    // Extração bruta
+    const rawXs = dados.map((d, i) => {
+        const rawX = (d && typeof d === 'object' && d.x !== undefined) ? d.x : i;
+        const x = Number(rawX);
+        return Number.isFinite(x) ? x : i;
+    });
+    
+    const Ys = dados.map(d => {
+        const val = typeof d === 'number' ? d : (d && typeof d === 'object' ? d.y : 0);
+        return Number.isFinite(Number(val)) ? Number(val) : 0;
+    });
+
+    // FIX 1: Centralização dos eixos X (Mean Centering) para anular a perda de precisão
+    // em matrizes de ponto flutuante durante a elevação ao quadrado de datas gigantes.
+    let minX = Infinity;
+    for (let i = 0; i < n; i++) {
+        if (rawXs[i] < minX) minX = rawXs[i];
+    }
+    const Xs = rawXs.map(x => x - minX);
+    
+    const sumX = kahanSum(Xs);
+    const sumY = kahanSum(Ys);
+    const sumXY = kahanSum(Xs.map((x, i) => x * Ys[i]));
+    const sumXX = kahanSum(Xs.map(x => x * x));
+    
+    const meanX = sumX / n;
+    const det = n * sumXX - sumX * sumX;
+    
+    const slope = det === 0 ? 0 : (n * sumXY - sumX * sumY) / det;
+    const intercept = (sumY - slope * sumX) / n;
+    
+    const predYs = Xs.map((x) => intercept + slope * x);
+    const ssRes = kahanSum(Ys.map((y, i) => Math.pow(y - predYs[i], 2)));
+    const ssX = kahanSum(Xs.map(x => Math.pow(x - meanX, 2)));
+    
+    const varRes = ssRes / (n - 2);
+    const seSlope = ssX > 0 ? Math.sqrt(varRes / ssX) : 0;
+    const tStat = seSlope > 0 ? slope / seSlope : 0;
+    
+    return { slope, se: seSlope, tStat };
+};
+
+export function computeAdaptiveSignal(historyOrScores = []) {
+    const isObjectHistory = historyOrScores.length > 0 && typeof historyOrScores[0] === 'object' && historyOrScores[0] !== null;
+    
+    // Extrai scores e datas
+    const parsedData = historyOrScores.map((item, i) => {
+        if (isObjectHistory) {
+            const rawDate = safeDateParse(item.date || item.createdAt);
+            const rawTime = rawDate ? rawDate.getTime() : NaN;
+            return {
+                score: Number(item.score ?? item.value ?? 0),
+                time: Number.isFinite(rawTime) ? rawTime : Date.now() - (historyOrScores.length - i) * 86400000
+            };
+        }
+        // Fallback legado se enviarem apenas o array de números
+        return { score: Number(item), time: Date.now() - (historyOrScores.length - i) * 86400000 }; 
+    }).filter(d => Number.isFinite(d.score));
+    
+    // ADAPT-SORT: Força ordenação cronológica para garantir que ages (referenceNow - time) sejam sempre >= 0.
+    parsedData.sort((a, b) => a.time - b.time);
+
+    if (parsedData.length === 0) {
+        return { effectiveN: 1, trendStrength: 0, adaptiveWinsor: { low: 0.05, high: 0.95 }, ciInflation: 1 };
+    }
+
+    const finiteScores = parsedData.map(d => d.score);
+    const cfg = deriveAdaptiveConfig(finiteScores);
+    const referenceNow = parsedData[parsedData.length - 1].time; // O tempo do último evento
+
+    const weighted = [];
+    for (let i = 0; i < parsedData.length; i++) {
+        // FIX BUG: Idade baseada no delta real de dias (Entropia do Tempo), não em índices
+        let ageInDays = Math.max(0, (referenceNow - parsedData[i].time) / (1000 * 60 * 60 * 24));
+        
+        // CORREÇÃO: Blindagem contra envenenamento matemático por datas ausentes
+        if (Number.isNaN(ageInDays)) ageInDays = 0; 
+        
+        const dailyDecay = cfg.lambda; 
+        weighted.push(Math.pow(dailyDecay, ageInDays));
+    }
+
+    const sumW = kahanSum(weighted);
+    const sumW2 = kahanSum(weighted.map(w => w * w));
+    const weightsCollapsed = sumW < 1e-6; // ✅ FIX: flag única p/ média E variância
+
+    // ✅ FIX: Se os pesos decaíram para zero, fazer fallback para média simples.
+    // Isso evita que a média ponderada colapse para 0 quando todos os
+    // dados são "antigos" demais para o lambda configurado.
+    let effectiveN;
+    let weightedMean;
+
+    if (weightsCollapsed) {
+      // Fallback: pesos decaíram completamente → média simples com N real
+      effectiveN = finiteScores.length;
+      weightedMean = kahanMean(finiteScores);
+      // ✅ FIX: Marcar explicitamente que NÃO houve ponderação
+      // para que consumidores downstream saibam que é fallback
+    } else {
+      effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
+      weightedMean = kahanSum(finiteScores.map((s, i) => s * weighted[i])) / sumW;
+    }
+    
+    // FIX: Garantir que weightedMean nunca é NaN/Infinity
+    if (!Number.isFinite(weightedMean)) {
+        weightedMean = kahanMean(finiteScores) || 0;
+    }
+
+    // Robustez adaptativa: Huber-like clipping guiado por MAD para reduzir impacto de outliers
+    const sorted = [...finiteScores].sort((a, b) => a - b);
+    const median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)];
+    const absDev = sorted.map(v => Math.abs(v - median)).sort((a, b) => a - b);
+    const mad = absDev.length % 2 === 0
+        ? (absDev[absDev.length / 2 - 1] + absDev[absDev.length / 2]) / 2
+        : absDev[Math.floor(absDev.length / 2)];
+    const robustSigma = Math.max(0.5, 1.4826 * mad);
+    const huberK = 2.5 * robustSigma;
+
+    // ✅ FIX: quando os pesos decaíram, usar variância simples (não ponderada).
+    // Antes, numerator≈0 / sumW≈0 → sd≈0 → motor ficava superconfiante em séries antigas.
+    const weightedVariance = weightsCollapsed
+        ? kahanSum(finiteScores.map((s) => {
+            const d = s - weightedMean;
+            const clipped = Math.max(-huberK, Math.min(huberK, d));
+            return clipped * clipped;
+          })) / Math.max(1, finiteScores.length)
+        : kahanSum(finiteScores.map((s, i) => {
+            const d = s - weightedMean;
+            const clipped = Math.max(-huberK, Math.min(huberK, d));
+            return weighted[i] * clipped * clipped;
+          })) / Math.max(1e-9, sumW);
+
+    // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo (que só funcionava para N=10) 
+    // pela verdadeira Correção de Bessel adaptável ao Tamanho Efetivo da Amostra (effectiveN).
+    // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo pela verdadeira Correção de Bessel,
+    // mas com clamping defensivo para evitar assíntotas hiperbólicas quando effectiveN cai para perto de 1.
+    // O piso desce de 1.0 para 0.1, permitindo que a penalidade de incerteza seja aplicada corretamente.
+    // Transição suave: interpola entre 1.0 e N/(N-1) via sigmoid
+    // para evitar descontinuidade em effectiveN = 1.5
+    const besselRaw = effectiveN > 1.01 ? effectiveN / (effectiveN - 1) : effectiveN * 10;
+    const transition = 1 / (1 + Math.exp(-5 * (effectiveN - 1.5)));
+    const consistencyFactor = 1 * (1 - transition) + Math.min(10, besselRaw) * transition;
+    
+    const sd = Math.sqrt(Math.max(0, weightedVariance * consistencyFactor));
+    
+    // MATEMÁTICA COMPLEXA: Em vez de linear trend clampada, usamos Bootstrapping 
+    // para medir se o momento positivo é estatisticamente significativo ou só sorte.
+
+    let trueTrendStrength = 0;
+    let isPlateau = false;
+
+    if (finiteScores.length >= 5) {
+        // Reamostragem de Monte Carlo (Bootstrap) com os deltas mais recentes
+        const recentDeltas = [];
+        for (let i = 1; i < finiteScores.length; i++) {
+            recentDeltas.push(finiteScores[i] - finiteScores[i-1]);
+        }
+        
+        // Pede o Intervalo de Confiança (CI) a 95% para a média dos deltas
+        const momentumCI = bootstrapCI(recentDeltas, (arr) => arr.reduce((a,b)=>a+b,0)/arr.length, { iterations: 500 });
+        
+        // Diagnóstico de Estagnação (Platô): Se a ponta alta for positiva, mas a baixa negativa,
+        // E houver variância real (não é apenas uma série de zeros exatos),
+        // significa que a variação é apenas ruído estocástico.
+        const amplitudeCI = momentumCI.high - momentumCI.low;
+        
+        if (momentumCI.low <= 0 && momentumCI.high >= 0 && amplitudeCI > 1e-6) {
+            isPlateau = true;
+            trueTrendStrength = 0; // Zera a tendência, forçando o motor a focar no baseline histórico
+        } else {
+            trueTrendStrength = Math.abs(momentumCI.estimate) / (sd > 0 ? sd : 1);
+        }
+    } else {
+       // Fallback matemático rigoroso para micro-amostras (N<5)
+       const slopeData = finiteScores.map((score, i) => ({ x: parsedData[i].time / 86400000, y: score }));
+       const { slope: shortSlope } = calcSlopeWithSignificance(slopeData);
+       trueTrendStrength = sd > 1e-9 ? Math.min(3.0, Math.abs(shortSlope) / sd) : 0;
+    }
+
+    const ciInflationRaw = 1 + (trueTrendStrength * cfg.trendSensitivity);
+    const ciInflation = Math.max(1, Math.min(cfg.maxCIInflation, ciInflationRaw));
+
+    return { 
+        effectiveN, 
+        trendStrength: trueTrendStrength, 
+        isPlateau, 
+        adaptiveWinsor: { low: cfg.lowWinsor, high: cfg.highWinsor }, 
+        ciInflation 
+    };
+}
+
+// NOTE: deriveCoachAdaptiveParams lives in coachAdaptive.js (canonical version).
+// This file previously had a duplicate with a slightly different signature.
+// Removed to avoid confusion and dead code.
+
+// ─────────────────────────────────────────────────────────────────
+// ADAPT-03: Unified Adaptive Confidence Shrinkage
+// Substitui os 3 padrões diferentes de shrinkage espalhados pelo codebase:
+//   1. shrinkProbabilityToNeutral (calibration.js) — penalidade de calibração
+//   2. extraLowSampleShrink (coachAdaptive.js:278) — amostra pequena
+//   3. POPULATION_SD prior (stats.js:44) — prior Bayesiano
+//
+// Esta função unifica o conceito: dado um estimador (probabilidade, média, etc.),
+// qual é o fator de shrinkage adequado considerando TODOS os sinais de incerteza?
+// ─────────────────────────────────────────────────────────────────
+export function adaptiveConfidenceShrinkage(options = {}) {
+    const {
+        sampleSize = 1,
+        calibrationPenalty = 0,
+        trendStrength = 0,
+        neutralValue = 50,
+        maxShrink = 0.6
+    } = options;
+
+    const n = Math.max(1, Number(sampleSize) || 1);
+    const calPen = Math.max(0, Math.min(1, Number(calibrationPenalty) || 0));
+    const trend = Math.max(0, Math.min(5, Number(trendStrength) || 0));
+
+    // Componente 1: Sample size shrinkage (1/√n decay)
+    // n<5: forte shrinkage (~0.45), n=15: moderado (~0.26), n>30: mínimo (~0.18)
+    const sampleShrink = Math.max(0, 1 / Math.sqrt(n));
+
+    // Componente 2: Calibração (quanto pior a calibração, mais puxamos para o neutro)
+    const calibShrink = calPen * 0.8; // escalar para não dominar
+
+    // Componente 3: Trend uncertainty (tendência forte = mais incerteza no futuro, não no presente)
+    // FIX: Usar índice bruto de penalidade (0 a 1) para evitar dupla supressão de peso.
+    const trendPenaltyFactor = Math.min(1.0, trend * 0.25); 
+
+    // FIX BUG 4: Incluir a incerteza da tendência no cálculo final de contração
+    // Redistribuir os pesos para incluir a incerteza da tendência (15%)
+    const rawShrink = (sampleShrink * 0.50) + (calibShrink * 0.35) + (trendPenaltyFactor * 0.15); 
+    const finalShrink = Math.max(0, Math.min(maxShrink, rawShrink));
+
+    return {
+        shrinkFactor: Number(finalShrink.toFixed(4)),
+        trendUncertaintyPenalty: Number(trendPenaltyFactor.toFixed(4)), // Exporta para o Monte Carlo inflar o desvio padrão
+        components: {
+            sampleShrink: Number(sampleShrink.toFixed(4)),
+            calibShrink: Number(calibShrink.toFixed(4)),
+            trendShrink: Number(trendPenaltyFactor.toFixed(4))
+        },
+        // Helper: aplica o shrinkage a um valor
+        apply: (value) => {
+            const v = Number(value) || 0;
+            return v * (1 - finalShrink) + neutralValue * finalShrink;
+        }
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// IMP-MATH-07: Ponte entre computeAdaptiveSignal e o pipeline do Coach
+// Exporta um peso consolidado que indica quanta confiança o motor deve
+// depositar nas previsões atuais vs. recuar para priors conservadores.
+// ─────────────────────────────────────────────────────────────────
+export function computeAdaptiveCoachWeight(scores = []) {
+    const signal = computeAdaptiveSignal(scores);
+    
+    // CORREÇÃO MATH: Se o tamanho da amostra (efetiva) for irrisório, 
+    // a confiança matemática na tendência empírica DEVE colapsar para 0 estrito.
+    // O sistema não pode dar 30% de credibilidade cega ao Vazio.
+    if (signal.effectiveN < 1.5) {
+        return {
+            confidenceWeight: 0,
+            effectiveN: Number(signal.effectiveN.toFixed(2)),
+            trendStrength: 0,
+            ciInflation: 1,
+            adaptiveWinsor: signal.adaptiveWinsor
+        };
+    }
+
+    const nConfidence = Math.min(1, signal.effectiveN / 15);
+    const trendUncertainty = Math.min(1, signal.trendStrength / 2.5); 
+    
+    const confidenceWeight = Math.max(0, Math.min(1, 
+        nConfidence * 0.7 + (1 - trendUncertainty) * 0.3
+    ));
+
+    return {
+        confidenceWeight: Number(confidenceWeight.toFixed(4)),
+        effectiveN: Number(signal.effectiveN.toFixed(2)),
+        trendStrength: Number(signal.trendStrength.toFixed(4)),
+        ciInflation: Number(signal.ciInflation.toFixed(4)),
+        adaptiveWinsor: signal.adaptiveWinsor
+    };
+}
+/**
+ * Calcula a retenção real usando o algoritmo FSRS (Free Spaced Repetition Scheduler).
+ * Substitui o modelo clássico de Ebbinghaus por uma matriz de Estabilidade e Recuperabilidade.
+ * 
+ * @param {number} horasDesdeEstudo - Tempo (t) em horas.
+ * @param {number} forcaMemoria - Força do traço de memória (S) baseada em revisões (0 a 10).
+ * @param {number} dificuldade - Fator de dificuldade do item (0.1 a 1.0).
+ * @returns {number} Percentual de Retenção (0.20 a 1.0)
+ */
+export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificuldade = 0.5) => {
+    const baseline = 0.2; // Limiar mínimo de retenção
+    const tempoDias = Math.max(0, horasDesdeEstudo / 24);
+    
+    // CORREÇÃO CIENTÍFICA (FSRS): A dificuldade afeta a construção da Estabilidade (S), 
+    // não deve aplicar um corte instantâneo de penalização na hora t=0.
+    const difficultyFactor = 1 - (Math.max(0.1, Math.min(1.0, dificuldade)) * 0.35); 
+    
+    // S = exp(forcaMemoria * fator_escala) modulado pela dificuldade do item.
+    // Tópicos difíceis geram consolidações mais frágeis (menor Estabilidade).
+    const stability = Math.max(0.5, Math.exp(forcaMemoria * 0.45) * difficultyFactor);
+    
+    // Retrievability FSRS: R = (1 + t/(9·S))^(-1)
+    // Power-law decay: decai mais lentamente que exponencial para intervalos longos,
+    // mais rápido para intervalos curtos — conforme dados empíricos do FSRS.
+    const retrievability = Math.pow(1 + tempoDias / (9 * stability), -1);
+    const finalRetention = retrievability; 
+    
+    return Math.max(baseline, finalRetention);
+};
+``n
+## $f
+
+`javascript
+import { kahanSum } from '../engine/math/kahan.js';
+import { getDateKey, normalizeDate } from './dateHelper.js';
+import { getSafeScore } from './scoreHelper.js';
+import { isSubjectMatch } from './normalization.js';
+
+const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+
+// [LOTE 5] PAV extraído para reuso com restrição de bloco mínimo
+function pavBlocks(blocks) {
+  let i = 0;
+  let iterations = 0;
+  const maxIterations = Math.max(100, blocks.length * 10); // ✅ FIX #3: Guard contra loop infinito
+  
+  while (i < blocks.length - 1 && iterations < maxIterations) {
+    iterations++;
+    if (blocks[i].mean <= blocks[i + 1].mean) { i++; continue; }
+    const a = blocks[i], b = blocks[i + 1];
+    // ✅ FIX #3: Check sumW > 0 para evitar divisão por zero
+    const sumW = a.sumW + b.sumW;
+    if (sumW <= 0) { i++; continue; }
+    const merged = { minX: a.minX, maxX: b.maxX, sumWY: a.sumWY + b.sumWY, sumW: sumW, mean: 0 };
+    merged.mean = merged.sumWY / sumW;
+    blocks.splice(i, 2, merged);
+    if (i > 0) i--;
+  }
+  
+  if (iterations >= maxIterations) {
+    console.warn('[calibration] pavBlocks atingiu limite de iterações, possível convergência lenta');
+  }
+  return blocks;
+}
+
+export function computeBrierScore(probability01, observedBinary) {
+  const rawP = Number(probability01);
+  if (!Number.isFinite(rawP)) return null;
+  const p = Math.max(0, Math.min(1, rawP));
+  const y = observedBinary ? 1 : 0;
+  return (p - y) ** 2;
+}
+
+export function computeLogLoss(probability01, observedBinary) {
+  const epsilon = 1e-15;
+  const rawP = Number(probability01);
+  const safeP = Number.isFinite(rawP) ? rawP : 0.5;
+  const p = Math.max(epsilon, Math.min(1 - epsilon, safeP));
+  const y = observedBinary ? 1 : 0;
+  return -(y * Math.log(p) + (1 - y) * Math.log(1 - p));
+}
+
+export function summarizeCalibration(scores = [], options = {}) {
+  const maxPenalty = Math.max(0, Math.min(1, Number(options.maxPenalty) || 0.25));
+  const baseline = Number.isFinite(options.baseline) ? options.baseline : 0.18;
+  // FIX M5: entrada vazia NÃO retorna mais "Brier 0 = perfeito"
+  if (!Array.isArray(scores) || scores.length === 0) {
+    return { avgBrier: null, calibrationPenalty: 0, sampleSize: 0 };
+  }
+  const finiteScores = scores.map(v => Number(v)).filter(Number.isFinite);
+  if (finiteScores.length === 0) return { avgBrier: null, calibrationPenalty: 0, sampleSize: 0 };
+  const sorted = [...finiteScores].sort((a, b) => a - b);
+  const trim = sorted.length >= 8 ? Math.floor(sorted.length * 0.1) : 0;
+  const core = trim > 0 ? sorted.slice(trim, sorted.length - trim) : sorted;
+  const avgBrier = kahanSum(core) / core.length;
+  const calibrationPenalty = Math.min(maxPenalty, Math.max(0, avgBrier - baseline));
+  return { avgBrier, calibrationPenalty, sampleSize: finiteScores.length };
+}
+
+export function computeCalibrationDiagnostics(pairs = [], options = {}) {
+  const bins = Math.max(2, Number(options.bins) || 5);
+  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
+  const cleanPairs = pairs
+    .map((p) => ({
+      probability: Math.max(0, Math.min(1, Number(p?.probability))),
+      observed: Math.max(0, Math.min(1, Number(p?.observed)))
+    }))
+    .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
+  if (cleanPairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
+  const sorted = [...cleanPairs].sort((a, b) => a.probability - b.probability);
+  let ece = 0;
+  let mce = 0;
+  const reliability = [];
+  const overallObserved = kahanSum(cleanPairs.map(p => p.observed)) / cleanPairs.length;
+  let relTerm = 0;
+  let resTerm = 0;
+  // [LOTE 5] ECE equal-frequency quando n < 20 (menos variância); equal-width p/ n grande
+  const strategy = options.binStrategy || 'auto';
+  const useQuantile = strategy === 'quantile' || (strategy === 'auto' && cleanPairs.length < 20);
+  const edges = [];
+  for (let i = 0; i <= bins; i++) {
+    if (i === 0) edges.push(-0.01);
+    else if (i === bins) edges.push(1.01);
+    else if (!useQuantile) edges.push(i / bins);
+    else edges.push(sorted[Math.floor((i / bins) * sorted.length)].probability);
+  }
+  for (let i = 1; i < edges.length - 1; i++) edges[i] = Math.max(edges[i], edges[i - 1] + 1e-6);
+  for (let i = 0; i < bins; i++) {
+    const binMin = edges[i];
+    const binMax = edges[i + 1];
+    const slice = sorted.filter(p => p.probability >= binMin && p.probability < binMax);
+    if (slice.length === 0) continue;
+    const meanPred = kahanSum(slice.map(p => p.probability)) / slice.length;
+    const observedRate = kahanSum(slice.map(p => p.observed)) / slice.length;
+    const gap = Math.abs(meanPred - observedRate);
+    const weight = slice.length / cleanPairs.length;
+    ece += weight * gap;
+    mce = Math.max(mce, gap);
+    relTerm += weight * ((meanPred - observedRate) ** 2);
+    resTerm += weight * ((observedRate - overallObserved) ** 2);
+    reliability.push({ bin: i + 1, binMin, binMax, count: slice.length, meanPred, observedRate, gap });
+  }
+  const uncertainty = overallObserved * (1 - overallObserved);
+  return { ece, mce, reliability, brierDecomposition: { reliability: relTerm, resolution: resTerm, uncertainty } };
+}
+
+export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct = 50, maxAppliedPenalty = 0.5) {
+  const p = Math.max(0, Math.min(100, probabilityPct ?? 0));
+  const limit = Math.max(0, Math.min(1, maxAppliedPenalty ?? 0.5));
+  const k = Math.max(0, Math.min(limit, penalty ?? 0));
+  const neutral = Math.max(0, Math.min(100, neutralPct ?? 50));
+  return p * (1 - k) + neutral * k;
+}
+
+// FIX: sem storeUpdateFn — retorna evento validado (loop de aprendizagem)
+export function recordPredictionEvent(prediction = {}) {
+  const prob = clamp01(prediction.probability);
+  return {
+    timestamp: Number.isFinite(Number(prediction.timestamp)) ? Number(prediction.timestamp) : Date.now(),
+    probability: prob,
+    probabilityRaw: Number.isFinite(Number(prediction.probabilityRaw)) ? clamp01(prediction.probabilityRaw) : prob,
+    observed: prediction.observed != null ? (prediction.observed ? 1 : 0) : null,
+    targetScore: Number.isFinite(Number(prediction.targetScore)) ? Number(prediction.targetScore) : null,
+    sims: Number(prediction.sims) || 5000,
+    category: prediction.category || 'global',
+    effectiveN: Number.isFinite(Number(prediction.effectiveN)) ? Number(prediction.effectiveN) : null
+  };
+}
+
+export function computeCalibrationSummary(events = [], options = {}) {
+  const clean = (events || []).filter(e =>
+    Number.isFinite(e?.probability) && (e?.observed === 0 || e?.observed === 1)
+  );
+  if (clean.length < 3) {
+    return { n: clean.length, ece: 0, avgBrier: 0, reliability: [], trend: 'insufficient_data' };
+  }
+  const diag = computeCalibrationDiagnostics(clean.map(e => ({ probability: e.probability, observed: e.observed })), { bins: options.bins || 6 });
+  const briers = clean.map(e => computeBrierScore(e.probability, e.observed));
+  const avgBrier = kahanSum(briers) / briers.length;
+  const mid = Math.floor(clean.length / 2);
+  const firstHalf = briers.slice(0, mid);
+  const secondHalf = briers.slice(mid);
+  const firstAvg = firstHalf.length ? kahanSum(firstHalf) / firstHalf.length : avgBrier;
+  const secondAvg = secondHalf.length ? kahanSum(secondHalf) / secondHalf.length : avgBrier;
+  const trend = secondAvg < firstAvg * 0.92 ? 'improving' : (secondAvg > firstAvg * 1.08 ? 'degrading' : 'stable');
+  return {
+    n: clean.length, ece: diag.ece, mce: diag.mce,
+    avgBrier: Number(avgBrier.toFixed(4)),
+    reliability: diag.reliability, trend, brierDecomposition: diag.brierDecomposition
+  };
+}
+
+// FIX M4: imutável, causal (ts >= evento) e targetScore null-safe
+export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRows = [], _categories = [], maxScore = 100) {
+  if (!Array.isArray(calibrationEvents)) return [];
+  if (!Array.isArray(simuladoRows) || simuladoRows.length === 0) return calibrationEvents;
+  const timed = simuladoRows
+    .map(row => {
+      const parsed = normalizeDate(row?.date || row?.createdAt);
+      return { row, ts: parsed ? parsed.getTime() : NaN };
+    })
+    .filter(x => Number.isFinite(x.ts))
+    .sort((a, b) => a.ts - b.ts);
+  if (timed.length === 0) return calibrationEvents;
+  return calibrationEvents.map(ev => {
+    if (!ev || ev.observed != null || !ev.category) return ev;
+    if (ev.targetScore == null || !Number.isFinite(Number(ev.timestamp))) return ev;
+    // ✅ LOTE-03 FIX (C6): eventos com category 'global' NUNCA casavam porque
+    // simuladoRows são registros POR MATÉRIA — o loop de aprendizagem global
+    // estava morto (observed ficava null para sempre).
+    let score = null;
+    let observedAt = null;
+    if (String(ev.category).toLowerCase() === 'global') {
+      // Agrega as rows do PRIMEIRO dia de simulado após o evento
+      // (média ponderada por total de questões quando disponível).
+      const candidates = timed.filter(x => x.ts >= Number(ev.timestamp));
+      if (candidates.length > 0) {
+        const firstDayKey = getDateKey(candidates[0].row.date || candidates[0].row.createdAt);
+        if (!firstDayKey) return ev; // ✅ FIX: data inválida → pular evento
+        const sameDay = candidates.filter(x => {
+          const key = getDateKey(x.row.date || x.row.createdAt);
+          return key !== null && key === firstDayKey; // ✅ FIX: excluir nulls
+        });
+        let sumScore = 0;
+        let sumWeight = 0;
+        sameDay.forEach(x => {
+          const s = getSafeScore(x.row, maxScore);
+          if (!Number.isFinite(s)) return;
+          const w = Math.max(1, Number(x.row.total) || 1);
+          sumScore += s * w;
+          sumWeight += w;
+        });
+        if (sumWeight > 0) {
+          score = sumScore / sumWeight;
+          observedAt = candidates[0].ts;
+        }
+      }
+    } else {
+      const hit = timed.find(x =>
+        x.ts >= Number(ev.timestamp) &&
+        isSubjectMatch(ev.category, x.row.subject || x.row.categoryName)
+      );
+      if (hit) {
+        score = getSafeScore(hit.row, maxScore);
+        observedAt = hit.ts;
+      }
+    }
+    if (score === null || !Number.isFinite(score)) return ev;
+    return { ...ev, observed: score >= Number(ev.targetScore) ? 1 : 0, backfilled: true, observedAt };
+  });
+}
+
+// FIX F1: baseline posterior que aprende (fallback avgBrier + pesos corretos)
+export function computeRollingCalibrationParams(history = [], cfg = {}) {
+  const safeHistory = Array.isArray(history) ? history : [];
+  const windowDays = Number(cfg.windowDays) || 60;
+  const cutoff = Date.now() - windowDays * 86400000;
+  const maxSamples = Number(cfg.maxSamples) || 20;
+
+  const isSignalEvent = (h) => {
+    if (!h || !Number.isFinite(Number(h?.timestamp))) return false;
+    const hasObserved = Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1);
+    const hasBrier = Number.isFinite(Number(h.avgBrier));
+    return hasObserved || hasBrier;
+  };
+
+  const recent = safeHistory
+    .filter(h => isSignalEvent(h) && Number(h.timestamp) >= cutoff)
+    .sort((a, b) => Number(a.timestamp) - Number(b.timestamp))
+    .slice(-maxSamples);
+
+  const minSamples = Number(cfg.minSamples) || 4;
+  if (recent.length < minSamples) {
+    return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3, confidenceFactor: 0 };
+  }
+  const now = Date.now();
+  const LAMBDA = Math.log(2) / (14 * 86400000);
+  let sw = 0, swb = 0;
+  for (const h of recent) {
+    let b = null;
+    if (Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1)) {
+      const rawP = Number(h.probability);
+      const isPercentScale = rawP > 1 && rawP <= 100;
+      // ✅ FIX: detecção de escala + clamp defensivo (bloqueia valores >100 corrompidos)
+      const p = Math.max(0, Math.min(1, isPercentScale ? rawP / 100 : rawP));
+      b = (p - h.observed) ** 2;
+    } else if (Number.isFinite(Number(h.avgBrier))) {
+      b = Number(h.avgBrier);
+    }
+    if (b === null) continue;
+    const w = Math.exp(-LAMBDA * Math.max(0, now - Number(h.timestamp)));
+    swb += b * w; sw += w;
+  }
+  if (sw <= 1e-9) return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3, confidenceFactor: 0 };
+  const kappa = Number(cfg.priorStrength) || 6;
+  const mu0 = Number(cfg.baseline) || 0.2;
+  const baseline = (swb + kappa * mu0) / (sw + kappa);
+  const avgBrier = swb / sw;
+  const confidenceFactor = Math.min(1, recent.length / (Number(cfg.targetSamples) || 12));
+  const maxPenalty = (avgBrier > 0.25 ? 0.35 : 0.25) * confidenceFactor
+                   + (cfg.maxPenalty ?? 0.3) * (1 - confidenceFactor);
+  return { baseline, maxPenalty, confidenceFactor, avgBrier };
+}
+
+export const CRITICAL_BRIER_THRESHOLD = 0.28;
+export const HIGH_PENALTY_THRESHOLD = 0.20;
+export const ALERT_COOLDOWN_MS = 1000 * 60 * 60 * 12;
+
+// [LOTE 5] PAV com bloco mínimo anti-escada
+export function fitIsotonicCalibration(pairs = [], options = {}) {
+  const clean = (pairs || [])
+    .map(p => ({ x: Number(p?.probability), y: Number(p?.observed) }))
+    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+    .map(p => ({ x: clamp01(p.x), y: clamp01(p.y) }))
+    .sort((a, b) => a.x - b.x);
+  if (clean.length === 0) return [];
+  let blocks = pavBlocks(clean.map(p => ({ minX: p.x, maxX: p.x, sumWY: p.y, sumW: 1, mean: p.y })));
+  const minBlock = Math.max(2, Math.floor(clean.length / (Number(options.maxBlocks) || 6)));
+  let guard = 0;
+  // ✅ FIX #6: Guard++ ANTES da condição para evitar iterações extras
+  while (++guard <= 24 && blocks.length > 1 && blocks.some(b => b.sumW < minBlock)) {
+    const idx = blocks.findIndex(b => b.sumW < minBlock);
+    const left = blocks[idx - 1];
+    const right = blocks[idx + 1];
+    const useLeft = left && (!right || Math.abs(left.mean - blocks[idx].mean) <= Math.abs(right.mean - blocks[idx].mean));
+    const j = useLeft ? idx - 1 : idx + 1;
+    const a = blocks[Math.min(idx, j)];
+    const b = blocks[Math.max(idx, j)];
+    blocks.splice(Math.min(idx, j), 2, {
+      minX: a.minX, maxX: b.maxX,
+      sumWY: a.sumWY + b.sumWY, sumW: a.sumW + b.sumW,
+      mean: (a.sumWY + b.sumWY) / (a.sumW + b.sumW)
+    });
+    blocks = pavBlocks(blocks);
+  }
+  return blocks.map(b => ({ minX: b.minX, maxX: b.maxX, value: b.mean }));
+}
+
+// Interpolação linear entre blocos (monotônica)
+export function predictIsotonicProbability(probability01, model = []) {
+  const p = clamp01(probability01);
+  if (!Array.isArray(model) || model.length === 0) return p;
+  if (p <= model[0].minX) return clamp01(model[0].value);
+  const last = model[model.length - 1];
+  if (p >= last.maxX) return clamp01(last.value);
+  for (let i = 0; i < model.length; i++) {
+    const b = model[i];
+    if (p >= b.minX && p <= b.maxX) return clamp01(b.value);
+    if (p > b.maxX && i + 1 < model.length && p < model[i + 1].minX) {
+      const t = (p - b.maxX) / Math.max(1e-9, model[i + 1].minX - b.maxX);
+      return clamp01(b.value * (1 - t) + model[i + 1].value * t);
+    }
+  }
+  return clamp01(last.value);
+}
+
+export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
+  const p = clamp01(probability01);
+  const clean = (pairs || [])
+    .map(x => ({ probability: Number(x?.probability), observed: Number(x?.observed) }))
+    .filter(x => Number.isFinite(x.probability) && Number.isFinite(x.observed))
+    .map(x => ({ probability: clamp01(x.probability), observed: clamp01(x.observed) }));
+  if (clean.length < 4) return p;
+  const sorted = [...clean].sort((a, b) => a.probability - b.probability);
+  const bins = Math.max(2, Math.min(10, Number(options.bins) || Math.round(Math.sqrt(sorted.length))));
+  const alpha0 = Math.max(0.1, Number(options.alpha0) || 0.5);
+  const beta0 = Math.max(0.1, Number(options.beta0) || 0.5);
+  for (let i = 0; i < bins; i++) {
+    const start = Math.floor(i * sorted.length / bins);
+    const end = Math.floor((i + 1) * sorted.length / bins);
+    const slice = sorted.slice(start, end);
+    if (slice.length === 0) continue;
+    const isFirstBin = (i === 0);
+    const isLastBin = (i === bins - 1);
+    const lo = isFirstBin ? -0.01 : sorted[start].probability;
+    const hi = isLastBin ? 1.01 : sorted[end].probability;
+    if (!(p >= lo && (p < hi || isLastBin))) continue;
+    const succ = kahanSum(slice.map(x => x.observed));
+    const n = slice.length;
+    return (succ + alpha0) / (n + alpha0 + beta0);
+  }
+  return p;
+}
+
+// FIX F4: conformal real (resíduos) + teto 0.35 + piso = ruído amostral
+export function conformalizedCalibrationInterval(probability01, pairs = [], alpha = 0.1) {
+  const p = clamp01(probability01);
+  const clean = (pairs || [])
+    .map(x => ({ probability: clamp01(x?.probability), observed: clamp01(x?.observed) }))
+    .filter(x => Number.isFinite(x.probability) && Number.isFinite(x.observed));
+  if (clean.length < 8) {
+    let low = p - 0.15;
+    let high = p + 0.15;
+    if (high > 1) { low -= (high - 1); high = 1; }
+    if (low < 0) { high += (0 - low); low = 0; }
+    return { low: Math.max(0, low), high: Math.min(1, high), qHat: 0.15 };
+  }
+  const n = clean.length;
+  const residuals = clean.map(x => Math.abs(x.probability - x.observed)).sort((a, b) => a - b);
+  const idx = Math.max(0, Math.min(n - 1, Math.ceil((1 - alpha) * n) - 1));
+  const qConformal = residuals[idx] * ((n + 1) / n);
+  const smoothedP = (p * n + 0.5) / (n + 1);
+  const standardError = Math.sqrt((smoothedP * (1 - smoothedP)) / n);
+  const zScore = alpha <= 0.05 ? 1.96 : (alpha <= 0.1 ? 1.645 : 1.28);
+  const qHat = Math.min(0.35, Math.max(qConformal, standardError * zScore));
+  let low = p - qHat;
+  let high = p + qHat;
+  if (high > 1) { low -= (high - 1); high = 1; }
+  if (low < 0) { high += (0 - low); low = 0; }
+  return { low: Math.max(0, low), high: Math.min(1, high), qHat };
+}
+
+// FIX F3: Akaike weights + complexidade + shrink p/ uniforme
+export function computeStackingWeights(candidateProbs = [], observed = [], complexityParams = [0, 4, 6]) {
+  const k = Array.isArray(candidateProbs) ? candidateProbs.length : 0;
+  if (k === 0) return [];
+  const n = Array.isArray(observed) ? observed.length : 0;
+  if (n === 0) return new Array(k).fill(1 / k);
+  const logLoss = candidateProbs.map(series => {
+    if (!Array.isArray(series) || series.length !== n) return 1e6;
+    let acc = 0;
+    for (let i = 0; i < n; i++) acc += computeLogLoss(series[i], observed[i]);
+    return acc / n;
+  });
+  const aic = logLoss.map((l, m) => 2 * l * n + 2 * (Number(complexityParams[m]) || 0));
+  const minAic = Math.min(...aic);
+  const raw = aic.map(a => Math.exp(-0.5 * (a - minAic)));
+  const z = kahanSum(raw) || 1;
+  const maxLoss = Math.max(...logLoss);
+  const isSeverePenalty = maxLoss > 2.0;
+  // ✅ FIX: regularização mais forte para amostras mínimas (antes lambda=0.5 em n=4)
+  const regularization = n < 8 ? 8 : (isSeverePenalty ? 0.2 : 4);
+  const lambda = Math.min(1, Math.max(0, n / (n + regularization)));
+  return raw.map(w => lambda * (w / z) + (1 - lambda) / k);
+}
+
+export function buildCalibrationDashboardSeries(events = []) {
+  const clean = (events || [])
+    .map(e => ({
+      timestamp: Number(e?.timestamp),
+      avgBrier: Number(e?.avgBrier),
+      ece: Number(e?.ece),
+      calibrationPenalty: Number(e?.calibrationPenalty),
+      probability: Number(e?.probability)
+    }))
+    .filter(e => Number.isFinite(e.timestamp))
+    .sort((a, b) => a.timestamp - b.timestamp);
+  if (clean.length === 0) {
+    return { trend: [], rolling7: [], controlLimits: { brierMean: null, brierUpper95: null, brierLower95: null }, driftSignals: [] };
+  }
+  const briers = clean.map(e => Number.isFinite(e.avgBrier) ? e.avgBrier : null).filter(v => v !== null);
+  const mean = briers.length > 0 ? kahanSum(briers) / briers.length : null;
+  const sd = briers.length > 1
+    ? Math.sqrt(kahanSum(briers.map(v => (v - mean) ** 2)) / (briers.length - 1))
+    : 0;
+  const trend = clean.map(e => ({
+    timestamp: e.timestamp,
+    date: getDateKey(new Date(e.timestamp)),
+    avgBrier: Number.isFinite(e.avgBrier) ? e.avgBrier : null,
+    ece: Number.isFinite(e.ece) ? e.ece : null,
+    penalty: Number.isFinite(e.calibrationPenalty) ? e.calibrationPenalty : null,
+    probability: Number.isFinite(e.probability) ? e.probability : null
+  }));
+  const rolling7 = trend.map((row, idx) => {
+    const startTs = row.timestamp - (7 * 24 * 60 * 60 * 1000);
+    const win = trend.slice(0, idx + 1).filter(r => r.timestamp >= startTs && Number.isFinite(r.avgBrier));
+    const winMean = win.length > 0 ? (win.reduce((a, b) => a + b.avgBrier, 0) / win.length) : null;
+    return { timestamp: row.timestamp, date: row.date, avgBrier7d: winMean };
+  });
+  const controlLimits = mean === null
+    ? { brierMean: null, brierUpper95: null, brierLower95: null }
+    : { brierMean: mean, brierUpper95: mean + 2 * sd, brierLower95: Math.max(0, mean - 2 * sd) };
+  const driftSignals = trend.map((row) => ({
+    timestamp: row.timestamp,
+    date: row.date,
+    outOfControl: mean !== null && Number.isFinite(row.avgBrier)
+      ? row.avgBrier > (controlLimits.brierUpper95 ?? Infinity)
+      : false
+  }));
+  return { trend, rolling7, controlLimits, driftSignals };
+}
+``n
+## $f
+
+`javascript
+const TELEMETRY_KEY = 'coach_calibration_events_v1';
+const TELEMETRY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
+
+async function sendToFirebaseAnalytics(metric) {
+    try {
+        const { analytics, isLocalMode } = await import('../services/firebase.js');
+        if (isLocalMode || !analytics) return;
+        const { logEvent } = await import('firebase/analytics');
+        logEvent(analytics, 'coach_calibration_event', {
+            event_type: String(metric.eventType || 'calibration'),
+            category_id: String(metric.categoryId || 'unknown'),
+            avg_brier: Number(metric.avgBrier || 0),
+            calibration_penalty: Number(metric.calibrationPenalty || 0),
+            probability: Number(metric.probability || 0),
+        });
+    } catch {
+        // analytics unavailable in this runtime
+    }
+}
+
+export function logCalibrationTelemetryEvent(metric) {
+    if (!metric || !metric.categoryId) return;
+    try {
+        const currentRaw = JSON.parse(localStorage.getItem(TELEMETRY_KEY) || '[]');
+        const current = Array.isArray(currentRaw) ? currentRaw : [];
+        const normalizedMetric = {
+            eventType: metric.eventType || 'calibration',
+            categoryId: String(metric.categoryId || 'unknown'),
+            avgBrier: Number(metric.avgBrier || 0),
+            calibrationPenalty: Number(metric.calibrationPenalty || 0),
+            probability: Number(metric.probability || 0),
+            ece: Number(metric.ece || 0),
+            timestamp: Number(metric.timestamp || Date.now())
+        };
+        const cutoff = Date.now() - TELEMETRY_RETENTION_MS;
+        const next = [...current, normalizedMetric]
+            .filter(e => Number.isFinite(Number(e?.timestamp)) && Number(e.timestamp) >= cutoff)
+            .slice(-1000);
+        localStorage.setItem(TELEMETRY_KEY, JSON.stringify(next));
+        void sendToFirebaseAnalytics(normalizedMetric);
+    } catch {
+        // best effort telemetry
+    }
+}
+
+export function getCalibrationTelemetrySummary(categoryId = null) {
+  try {
+    const currentRaw = JSON.parse(localStorage.getItem(TELEMETRY_KEY) || '[]');
+    const current = Array.isArray(currentRaw) ? currentRaw : [];
+    const filtered = categoryId
+      ? current.filter(item => String(item.categoryId) === String(categoryId))
+      : current;
+
+    if (filtered.length === 0) {
+      return {
+        count: 0,
+        avgBrier: null,
+        avgPenalty: null,
+        lastTimestamp: null
+      };
+    }
+
+    const totalBrier = filtered.reduce((sum, item) => sum + Number(item.avgBrier || 0), 0);
+    const totalPenalty = filtered.reduce((sum, item) => sum + Number(item.calibrationPenalty || 0), 0);
+
+    return {
+      count: filtered.length,
+      avgBrier: Number((totalBrier / filtered.length).toFixed(4)),
+      avgPenalty: Number((totalPenalty / filtered.length).toFixed(4)),
+      lastTimestamp: filtered[filtered.length - 1]?.timestamp || null
+    };
+  } catch {
+    return {
+      count: 0,
+      avgBrier: null,
+      avgPenalty: null,
+      lastTimestamp: null
+    };
+  }
+}
+
+export function clearCalibrationTelemetry() {
+  try {
+    localStorage.removeItem(TELEMETRY_KEY);
+  } catch {
+    // ignore
+  }
+}
+``n
+## $f
+
+`javascript
 /**
  * coachAdaptive.js
  *
@@ -6142,7 +7383,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const dataIssues = anomalies.filter(a => a.severity === 'error' || a.severity === 'warning').length;
   const dataQuality = Math.max(0.3, 1 - (dataIssues * 0.15));
   const lowSampleThreshold = Math.max(Number(safeCfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (safeCfg.MC_MIN_DATA_POINTS || 5) + 2);
-  const neutralPct = toFiniteNumber(safeCfg.MC_CALIBRATION_NEUTRAL_PCT, 50);
+   const neutralPct = toFiniteNumber(safeCfg.MC_CALIBRATION_NEUTRAL_PCT, 50);
+   // ✅ FIX: a âncora do shrinkage é o prior NEUTRO (50), não o baseline global.
+   // (coachLogic sobrescreve MC_CALIBRATION_NEUTRAL_PCT com globalBaselinePct,
+   // o que enviesava categorias fortes para baixo ao encolher em direção à média.)
+   const shrinkAnchorPct = 50;
   const maxAppliedPenalty = toFiniteNumber(safeCfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
 
   const btWeights = deriveBacktestWeights(history.map(h => h.score), safeMaxScore);
@@ -6231,10 +7476,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       for (let i = 1; i <= horizon; i += 1) {
         const train = history.slice(0, history.length - i);
         const observedRecord = history[history.length - i];
-        const windowLen = Math.min(lookAhead, horizon - i + 1);
-        const futureWindow = history.slice(history.length - i, history.length - i + windowLen);
-        const avgFutureScore = futureWindow.reduce((acc, r) => acc + r.score, 0) / Math.max(1, futureWindow.length);
-        const observed = avgFutureScore >= safeTargetScore ? 1 : 0;
+        const observed = Number(observedRecord.score) >= safeTargetScore ? 1 : 0;
 
         try {
           let gapDays = 7;
@@ -6323,7 +7565,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const totalShrink = Math.min(0.65, calibrationPenalty + lowSampleShrink + anomalyShrink);
 
     const probability = enableAdaptiveCalibration
-      ? shrinkProbabilityToNeutral(stackedProb01 * 100, totalShrink, neutralPct, maxAppliedPenalty)
+      ? shrinkProbabilityToNeutral(stackedProb01 * 100, totalShrink, shrinkAnchorPct, maxAppliedPenalty)
       : (stackedProb01 * 100);
 
     let ciLow = Number(result.ci95Low) || 0;
@@ -6397,12 +7639,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     return null;
   }
 }
+``n
+## $f
 
-```
-
-## `src/utils/coachBacktest.js`
-
-```javascript
+`javascript
 /**
  * coachBacktest.js
  *
@@ -6497,12 +7737,10 @@ export function compareStrategyRuns(runA = {}, runB = {}, metrics = ['ndcg']) {
 
   return results;
 }
+``n
+## $f
 
-```
-
-## `src/utils/coachCausal.js`
-
-```javascript
+`javascript
 /**
  * coachCausal.js
  *
@@ -6950,12 +8188,10 @@ export default {
   runCausalPolicyCycle,
   rerankCoachTasksWithCausalPolicy,
 };
+``n
+## $f
 
-```
-
-## `src/utils/coachEvaluation.js`
-
-```javascript
+`javascript
 /**
  * coachEvaluation.js
  *
@@ -7046,17 +8282,16 @@ export default {
   runGranularCoachBacktest,
   buildCoachEvaluationDashboard,
 };
+``n
+## $f
 
-```
-
-## `src/utils/coachFeatures.js`
-
-```javascript
+`javascript
 /**
  * coachFeatures.js
  *
  * Feature flags para evolução por lotes do motor Coach.
  */
+import { getFlag } from './coachFeatureStore.js';
 
 const DEFAULT_COACH_FEATURES = Object.freeze({
   // Lote 1 — State-Space
@@ -7128,7 +8363,7 @@ const DEFAULT_COACH_FEATURES = Object.freeze({
  *
  * Prioridade:
  * 1. options.features
- * 2. globalThis.__COACH_FEATURES__
+ * 2. Store centralizado
  * 3. DEFAULT_COACH_FEATURES
  * 4. fallback
  */
@@ -7136,16 +8371,14 @@ export function getCoachFeature(options, key, fallback = false) {
   // FIX: guarda contra key inválida antes de qualquer acesso
   if (typeof key !== 'string' || key === '') return fallback;
   try {
+    // 1. options.features (prioridade máxima)
     if (options?.features && typeof options.features[key] === 'boolean') {
       return options.features[key];
     }
-    if (
-      typeof globalThis !== 'undefined' &&
-      globalThis.__COACH_FEATURES__ &&
-      typeof globalThis.__COACH_FEATURES__[key] === 'boolean'
-    ) {
-      return globalThis.__COACH_FEATURES__[key];
-    }
+    // 2. Store centralizado (substitui globalThis.__COACH_FEATURES__)
+    const storeValue = getFlag(key, undefined);
+    if (typeof storeValue === 'boolean') return storeValue;
+    // 3. Defaults
     if (typeof DEFAULT_COACH_FEATURES[key] === 'boolean') {
       return DEFAULT_COACH_FEATURES[key];
     }
@@ -7165,12 +8398,74 @@ export default {
   isValidFeatureKey,
   DEFAULT_COACH_FEATURES,
 };
+``n
+## $f
 
-```
+`javascript
+/**
+ * coachFeatureStore.js
+ * Store singleton para feature flags com API atômica.
+ * Substitui mutação direta de globalThis.__COACH_FEATURES__.
+ */
 
-## `src/utils/coachLogic.js`
+const FLAG_REGISTRY_KEY = '__COACH_FEATURE_REGISTRY__';
 
-```javascript
+function getRegistry() {
+  if (typeof globalThis === 'undefined') return {};
+  if (!globalThis[FLAG_REGISTRY_KEY]) {
+    globalThis[FLAG_REGISTRY_KEY] = Object.create(null);
+  }
+  return globalThis[FLAG_REGISTRY_KEY];
+}
+
+/** Lê flags de forma atômica (snapshot imutável). */
+export function readFlags() {
+  return { ...getRegistry() };
+}
+
+/** Atualiza flags atomicamente. Retorna o novo snapshot. */
+export function writeFlags(patch) {
+  if (!patch || typeof patch !== 'object') return readFlags();
+  const registry = getRegistry();
+  const clean = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (typeof k === 'string' && typeof v === 'boolean') {
+      clean[k] = v;
+    }
+  }
+  Object.assign(registry, clean);
+  return readFlags();
+}
+
+/** Remove uma flag. */
+export function removeFlag(key) {
+  const registry = getRegistry();
+  delete registry[key];
+  return readFlags();
+}
+
+/** Substitui todas as flags (para rollback). */
+export function replaceFlags(flags) {
+  const registry = getRegistry();
+  for (const key of Object.keys(registry)) delete registry[key];
+  if (flags && typeof flags === 'object') {
+    for (const [k, v] of Object.entries(flags)) {
+      if (typeof k === 'string' && typeof v === 'boolean') registry[k] = v;
+    }
+  }
+  return readFlags();
+}
+
+/** Lê uma flag com fallback. */
+export function getFlag(key, fallback = false) {
+  if (typeof key !== 'string') return fallback;
+  const registry = getRegistry();
+  return typeof registry[key] === 'boolean' ? registry[key] : fallback;
+}
+``n
+## $f
+
+`javascript
 // ==================== CONSTANTES ====================
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { getSortedHistory } from '../engine/stats.js';
@@ -9406,9 +10701,10 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         };
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
-        const mcIdSuffix = Date.now().toString(36);
         const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
         const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
+        // ✅ FIX: sufixo determinístico — sem Date.now() (IDs estáveis p/ Planner/dedupe)
+        const mcIdSuffix = hashString(`${cat.id}|${mcProbKey}|${mcVolKey}|${cat.urgency?.normalizedScore ?? 0}`);
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
@@ -9598,7 +10894,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             } else {
                 allGeneratedTasks.push({
-                    id: `${cat.id}-geral-${i}-${Date.now().toString(36)}`,
+                    id: `${cat.id}-geral-${i}-${hashString(`${cat.id}|geral|${i}`)}`,
                     text: `${cat.name}: ${getPriorityLabel()}[Revisão Geral Complementar]`,
                     completed: false,
                     status: 'pending',
@@ -9771,12 +11067,10 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
 }
 
 export { getWeakestTopic, getWeakestTopicsList };
+``n
+## $f
 
-```
-
-## `src/utils/coachObservability.js`
-
-```javascript
+`javascript
 /**
  * coachObservability.js
  *
@@ -9972,12 +11266,10 @@ export default {
   runCoachDriftGuard,
   buildCoachObservabilityDashboard,
 };
+``n
+## $f
 
-```
-
-## `src/utils/coachOptimizer.js`
-
-```javascript
+`javascript
 /**
  * coachOptimizer.js
  *
@@ -10068,12 +11360,10 @@ export default {
   runCoachAutoTuner,
   buildCoachAutoTunerDashboard,
 };
+``n
+## $f
 
-```
-
-## `src/utils/coachPipeline.js`
-
-```javascript
+`javascript
 /**
  * coachPipeline.js
  *
@@ -10123,12 +11413,10 @@ export default {
   buildCoachOrchestratorDashboard,
   clearCoachCaches,
 };
+``n
+## $f
 
-```
-
-## `src/utils/coachSafe.js`
-
-```javascript
+`javascript
 /**
  * coachSafe.js
  *
@@ -10212,11 +11500,85 @@ export function hashString64(str) {
   }
   return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
 }
-```
+``n
+## $f
 
-## `src/utils/coachText.js`
+`javascript
+/**
+ * coachStorage.js
+ * Wrapper seguro para localStorage com tratamento de quota.
+ */
+const QUOTA_WARNING_THRESHOLD = 0.9; // 90%
 
-```javascript
+function getStorage() {
+  try { return globalThis?.localStorage || null; }
+  catch { return null; }
+}
+
+function estimateUsage(storage) {
+  try {
+    let total = 0;
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      total += (key.length + (storage.getItem(key)?.length || 0)) * 2;
+    }
+    return total;
+  } catch { return 0; }
+}
+
+export function safeSetItem(key, value) {
+  const storage = getStorage();
+  if (!storage) return false;
+  try {
+    storage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    return true;
+  } catch (err) {
+    if (err?.name === 'QuotaExceededError') {
+      console.warn(`[CoachStorage] Quota excedida ao salvar "${key}". Tentando limpeza.`);
+      try {
+        // Tenta limpar chaves antigas do Coach
+        const coachKeys = [];
+        for (let i = 0; i < storage.length; i++) {
+          const k = storage.key(i);
+          if (k && k.startsWith('coach_')) coachKeys.push(k);
+        }
+        // Remove a mais antiga
+        if (coachKeys.length > 1) {
+          storage.removeItem(coachKeys[0]);
+          storage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+          return true;
+        }
+      } catch { /* fallback failed */ }
+    }
+    console.error(`[CoachStorage] Falha ao salvar "${key}":`, err?.message);
+    return false;
+  }
+}
+
+export function safeGetItem(key, fallback = null) {
+  const storage = getStorage();
+  if (!storage) return fallback;
+  try {
+    return storage.getItem(key) ?? fallback;
+  } catch { return fallback; }
+}
+
+export function safeGetJSON(key, fallback = null) {
+  const raw = safeGetItem(key, null);
+  if (raw === null) return fallback;
+  try { return JSON.parse(raw); }
+  catch { return fallback; }
+}
+
+export function safeRemoveItem(key) {
+  const storage = getStorage();
+  if (!storage) return;
+  try { storage.removeItem(key); } catch { /* ignore */ }
+}
+``n
+## $f
+
+`javascript
 /**
  * coachText.js
  *
@@ -10339,6 +11701,4 @@ export function parseCoachTask(task, categories = []) {
     isStudying: status === 'studying'
   };
 }
-
-```
-
+``n

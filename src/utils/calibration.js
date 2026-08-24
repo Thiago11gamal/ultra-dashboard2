@@ -247,8 +247,8 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
     let b = null;
     if (Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1)) {
       const rawP = Number(h.probability);
-      const isPercentScale = rawP > 1 && rawP <= 100;
-      // ✅ FIX: detecção de escala + clamp defensivo (bloqueia valores >100 corrompidos)
+      const isPercentScale = cfg.scale === 'pct' || (cfg.scale !== 'ratio' && rawP > 1 && rawP <= 100);
+      // ✅ FIX: detecção de escala suportada por flag explícita cfg.scale
       const p = Math.max(0, Math.min(1, isPercentScale ? rawP / 100 : rawP));
       b = (p - h.observed) ** 2;
     } else if (Number.isFinite(Number(h.avgBrier))) {

@@ -44,14 +44,12 @@ const BRIER_VISUAL_WARN = 0.18;
 const CALIBRATION_EVENTS_MAX = 300;
 const LEARNING_EVENT_STALE_MS = 6 * 3600000;
 
-// FIX: congelado só p/ retornos defensivos; STABLE_EMPTY p/ hooks que podem iterar/mutar
 const EMPTY_ARRAY = Object.freeze([]);
-const STABLE_EMPTY = [];
 
 function normalizeToArray(value) {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return Object.values(value);
-  return STABLE_EMPTY;
+  return EMPTY_ARRAY;
 }
 function sanitizeMaxScore(value) {
   const n = Number(value);
@@ -69,7 +67,8 @@ function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
   const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number(value) || 0));
   if (user?.targetScore != null && user.targetScore !== '' && Number.isFinite(Number(user.targetScore))) {
     let ts = Number(user.targetScore);
-    if (ts <= 100 && safeMax !== 100) {
+    const isPercent = user.targetScoreType === 'percent' || (!user.targetScoreType && ts <= 100 && safeMax !== 100);
+    if (isPercent) {
       ts = (ts / 100) * safeMax;
     }
     return clamp(ts);
@@ -110,11 +109,11 @@ export default function Coach() {
   const showToast = useToast();
   const showToastRef = useRef(showToast);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
-  const rawHistory = data?.simuladoRows || STABLE_EMPTY;
+  const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
   const history = useMemo(() => normalizeToArray(rawHistory), [rawHistory]);
-  const rawSimulados = data?.simulados || STABLE_EMPTY;
+  const rawSimulados = data?.simulados || EMPTY_ARRAY;
   const simulados = useMemo(() => normalizeToArray(rawSimulados), [rawSimulados]);
-  const rawCategories = data?.categories || STABLE_EMPTY;
+  const rawCategories = data?.categories || EMPTY_ARRAY;
   const categories = useMemo(() =>
     normalizeToArray(rawCategories).map(c => ({
       ...c,
@@ -122,9 +121,9 @@ export default function Coach() {
     })),
     [rawCategories]
   );
-  const rawFlashcardDecks = data?.flashcardDecks || STABLE_EMPTY;
+  const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
   const flashcardDecks = useMemo(() => normalizeToArray(rawFlashcardDecks), [rawFlashcardDecks]);
-  const rawStudyLogs = data?.studyLogs || STABLE_EMPTY;
+  const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
   const studyLogs = useMemo(() => normalizeToArray(rawStudyLogs), [rawStudyLogs]);
   const flashcardDue = useMemo(() => getFlashcardDueTodayCount(flashcardDecks), [flashcardDecks]);
   const { currentUser } = useAuth();
@@ -407,8 +406,8 @@ export default function Coach() {
     goalDate: userProfile?.goalDate,
     targetScore: targetScorePoints,
     timeIndex: -1,
-    // FIX: array estável não congelado (evita throw se o hook mutar)
-    timelineDates: STABLE_EMPTY,
+    // FIX: array estável congelado
+    timelineDates: EMPTY_ARRAY,
     minScore: data?.minScore ?? 0,
     maxScore: currentMaxScore,
     simuladoRows: history
@@ -442,8 +441,8 @@ export default function Coach() {
       }, 0);
       return;
     }
-    let metricsTimer = null;
-    const analysisTimer = setTimeout(() => {
+    const timers = { analysis: null, metrics: null };
+    timers.analysis = setTimeout(() => {
       try {
         const targetScore = targetScorePoints;
         const collectedMetrics = [];
@@ -497,7 +496,7 @@ export default function Coach() {
         }
         commitLearningCycle(rawEvents, backfilledEvents, newEvents);
         if (collectedMetrics.length > 0) {
-          metricsTimer = setTimeout(() => {
+          timers.metrics = setTimeout(() => {
             scheduleCalibrationPersist(collectedMetrics);
           }, 1000);
         }
@@ -510,8 +509,8 @@ export default function Coach() {
       }
     }, 0);
     return () => {
-      clearTimeout(analysisTimer);
-      if (metricsTimer) clearTimeout(metricsTimer);
+      clearTimeout(timers.analysis);
+      clearTimeout(timers.metrics);
     };
   }, [
     isHydrated, data?.user, data?.settings?.adaptiveCalibrationEnabled,

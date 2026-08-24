@@ -38,7 +38,8 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
     let dangerCandidates = [];
     let safeCandidates = [];
 
-    for (let cutoff = 0.10; cutoff <= 0.901; cutoff += 0.05) {
+    for (let cutoffInt = 10; cutoffInt <= 90; cutoffInt += 5) {
+      const cutoff = cutoffInt / 100;
       const below = sorted.filter(p => Number(p.probability) <= cutoff);
       const above = sorted.filter(p => Number(p.probability) > cutoff);
 
