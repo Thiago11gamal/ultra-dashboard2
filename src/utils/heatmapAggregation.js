@@ -61,28 +61,37 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
  * antes da divisão final, e aplica Shrinkage Bayesiano (K=5).
  */
 export const calculateSubjectMastery = (subtopics) => {
-    const safeSubtopics = Array.isArray(subtopics) ? subtopics : Object.values(subtopics || {});
-    if (!safeSubtopics || safeSubtopics.length === 0) return 0;
+    // ✅ BUG-24 FIX: blindagem contra array nulo, vazio ou mal formatado.
+    if (!subtopics) return 0;
+    let safeSubtopics = [];
+    if (Array.isArray(subtopics)) {
+        safeSubtopics = subtopics;
+    } else if (typeof subtopics === 'object' && subtopics.history && Array.isArray(subtopics.history)) {
+        // Suporte para quando passam o objeto simuladoStats inteiro
+        safeSubtopics = subtopics.history;
+    } else if (typeof subtopics === 'object') {
+        safeSubtopics = Object.values(subtopics);
+    }
+    
+    if (safeSubtopics.length === 0) return 0;
 
-    // BUG-01 FIX: Cálculo Agregado Bruto para eliminar o Paradoxo de Simpson.
-    // Nunca tire média de porcentagens ou aplique shrinkage por tópico na agregação macro.
-    // Agregamos os valores brutos (acertos/total) para garantir precisão real.
     let totalAcertos = 0;
     let totalQuestoes = 0;
 
     safeSubtopics.forEach(topic => {
-        // Suporte polimórfico para diferentes chaves de dados
-        const hits = Math.max(0, Number(topic.acertos ?? topic.hits ?? 0));
+        if (!topic) return;
+        const hits = Math.max(0, Number(topic.acertos ?? topic.hits ?? topic.correct ?? 0));
         const total = Math.max(0, Number(topic.total ?? topic.questoes ?? 0));
         
-        totalAcertos += hits;
-        totalQuestoes += total;
+        // Proteção contra NaN
+        if (Number.isFinite(hits) && Number.isFinite(total)) {
+            totalAcertos += hits;
+            totalQuestoes += total;
+        }
     });
 
     if (totalQuestoes === 0) return 0;
 
-    // BUG FIX: Aplicação autêntica do Shrinkage Bayesiano (K=5, Prior=0.5) 
-    // conforme documentado, para evitar anomalias de baixo volume (ex: 1/1 -> 100%).
     const K = 5;
     const prior = 0.5;
     return ((totalAcertos + K * prior) / (totalQuestoes + K)) * 100;

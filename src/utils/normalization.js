@@ -43,24 +43,26 @@ export const aliases = {
  * Verifica se duas matérias correspondem, considerando o nome normalizado e os aliases.
  */
 export const isSubjectMatch = (name1, name2) => {
-    if (!name1 || !name2) return false;
-    const n1 = normalize(name1);
-    const n2 = normalize(name2);
-    if (n1 === n2) return true;
-    
-    // Check if n2 is an alias of n1 (where n1 is a canonical key)
-    if (aliases[n1] && aliases[n1].some(a => normalize(a) === n2)) return true;
-    // Check if n1 is an alias of n2 (where n2 is a canonical key)
-    if (aliases[n2] && aliases[n2].some(a => normalize(a) === n1)) return true;
-    
-    // Check if both are aliases of the same canonical key
-    for (const [canonical, aliasList] of Object.entries(aliases)) {
-        const hasN1 = n1 === canonical || aliasList.some(a => normalize(a) === n1);
-        const hasN2 = n2 === canonical || aliasList.some(a => normalize(a) === n2);
-        if (hasN1 && hasN2) return true;
-    }
-    
-    return false;
+  if (!name1 || !name2) return false;
+  const n1 = normalize(name1);
+  const n2 = normalize(name2);
+
+  if (n1 === n2) return true;
+
+  // n2 é alias de n1 (n1 é chave canônica)
+  if (aliases[n1] && aliases[n1].some(a => normalize(a) === n2)) return true;
+
+  // n1 é alias de n2 (n2 é chave canônica)
+  if (aliases[n2] && aliases[n2].some(a => normalize(a) === n1)) return true;
+
+  // Ambos são aliases da mesma chave canônica
+  for (const [canonical, aliasList] of Object.entries(aliases)) {
+    const hasN1 = n1 === canonical || aliasList.some(a => normalize(a) === n1);
+    const hasN2 = n2 === canonical || aliasList.some(a => normalize(a) === n2);
+    if (hasN1 && hasN2) return true;
+  }
+
+  return false;
 };
 /**
  * Normaliza um valor evitando divisão por zero e garantindo limites entre 0 e 1.

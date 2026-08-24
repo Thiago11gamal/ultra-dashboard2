@@ -59,11 +59,13 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
       let weekVol = 0;
 
       visibleKeys.forEach(key => {
-        const meta = week[`meta_${key}`];
-
-        if (meta && meta.currTot > 0 && Number.isFinite(Number(week[key]))) {
-          weekSum += (Number(week[key]) * meta.currTot);
-          weekVol += meta.currTot;
+        // ✅ BUG-30 FIX: Proteção extra para garantir que meta exista antes do acesso
+        if (week && week[`meta_${key}`]) {
+          const meta = week[`meta_${key}`];
+          if (meta && meta.currTot > 0 && Number.isFinite(Number(week[key]))) {
+            weekSum += (Number(week[key]) * meta.currTot);
+            weekVol += meta.currTot;
+          }
         }
       });
 

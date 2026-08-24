@@ -64,10 +64,18 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
     }))
     .filter((entry) => Number.isFinite(entry.score))
     .sort((a, b) => {
-      if (Number.isFinite(a.time) && Number.isFinite(b.time)) {
-        return a.time - b.time;
+      const aFinite = Number.isFinite(a.time);
+      const bFinite = Number.isFinite(b.time);
+      
+      if (aFinite && bFinite) {
+        if (a.time !== b.time) return a.time - b.time;
+      } else if (aFinite && !bFinite) {
+        return -1; // a vem antes
+      } else if (!aFinite && bFinite) {
+        return 1;  // b vem antes
       }
-      return 0;
+      // Ambos inválidos: manter ordem original via _idx
+      return (a._idx || 0) - (b._idx || 0);
     });
 
   const scores = sorted.map((entry) => entry.score);

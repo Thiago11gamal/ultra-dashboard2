@@ -14,11 +14,16 @@ export function parseNoonLocal(input) {
   if (input == null) return null;
   const base = normalizeDate(input);
   if (!base || Number.isNaN(base.getTime())) return null;
-  const d = new Date(base.getTime());
-  d.setHours(12, 0, 0, 0);
-  // ✅ FIX: Validar que a data resultante é válida
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
+  
+  // ✅ FIX BUG-29: Construir string ISO local para evitar
+  // que addDaysNoon passe pelo construtor do motor JS de forma enviesada.
+  const y = base.getFullYear();
+  const m = String(base.getMonth() + 1).padStart(2, '0');
+  const d = String(base.getDate()).padStart(2, '0');
+  
+  // eslint-disable-next-line no-restricted-syntax
+  const dt = new Date(`${y}-${m}-${d}T12:00:00-04:00`);
+  return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
 /**
@@ -29,10 +34,18 @@ export function addDaysNoon(date, days) {
   if (!date || typeof date.getTime !== 'function' || Number.isNaN(date.getTime())) {
     return null;
   }
+  
+  // ✅ FIX BUG-29: Operar no calendário UTC interno e
+  // recriar string no fuso para blindagem total.
   const d = new Date(date.getTime());
   d.setDate(d.getDate() + (Number(days) || 0));
-  d.setHours(12, 0, 0, 0);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
+  
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  
+  // eslint-disable-next-line no-restricted-syntax
+  const result = new Date(`${y}-${m}-${dd}T12:00:00-04:00`);
+  return Number.isNaN(result.getTime()) ? null : result;
 }
 

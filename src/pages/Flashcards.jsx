@@ -40,6 +40,16 @@ export default function Flashcards() {
   const [studyIndex, setStudyIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [studyStats, setStudyStats] = useState({ reviewed: 0, known: 0 });
+  const [pendingClose, setPendingClose] = useState(false);
+
+  React.useEffect(() => {
+    if (!pendingClose) return;
+    const timer = setTimeout(() => {
+      closeStudy();
+      setPendingClose(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [pendingClose]);
 
   const selectedDeck = useMemo(() => decks.find(d => d.id === selectedDeckId), [decks, selectedDeckId]);
 
@@ -236,11 +246,27 @@ export default function Flashcards() {
       due: nextDue
     };
 
-    const newStats = {
-      reviewed: studyStats.reviewed + 1,
-      known: studyStats.known + (rating >= 2 ? 1 : 0)
-    };
-    setStudyStats(newStats);
+    const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
+    const isKnown = safeRating >= 2;
+    const projectedKnown = studyStats.known + (isKnown ? 1 : 0);
+    const projectedReviewed = studyStats.reviewed + 1;
+
+    setStudyStats(prev => {
+      const pSafeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
+      const pIsKnown = pSafeRating >= 2;
+      const newReviewed = prev.reviewed + 1;
+      const newKnown = prev.known + (pIsKnown ? 1 : 0);
+      
+      if (prev.reviewed === newReviewed && prev.known === newKnown) {
+        return prev;
+      }
+      
+      return {
+        ...prev,
+        reviewed: newReviewed,
+        known: newKnown,
+      };
+    });
 
     // Next card
     if (studyIndex + 1 < updatedStudyCards.length) {
@@ -249,17 +275,17 @@ export default function Flashcards() {
       setStudyDeck({ ...studyDeck, cardsToStudy: updatedStudyCards });
     } else {
       // Finished
-      showToast(`Sessão concluída! ${newStats.known}/${newStats.reviewed} dominados.`, 'success');
-      setTimeout(() => {
-        closeStudy();
-      }, 800);
+      showToast(`Sessão concluída! ${projectedKnown}/${projectedReviewed} dominados.`, 'success');
+      setPendingClose(true);
     }
   }
 
   const currentStudyCard = studyDeck?.cardsToStudy?.[studyIndex];
 
+  const pageTitle = studyDeck?.name || "Flashcards";
+
   return (
-    <PageErrorBoundary pageName="Flashcards">
+    <PageErrorBoundary pageName={pageTitle}>
     <div className="animate-fade-in pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">

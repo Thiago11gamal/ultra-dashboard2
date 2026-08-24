@@ -62,14 +62,20 @@ export const getLocalMidnight = (date = new Date()) => {
     if (!dateKey) {
       // Fallback: extrair componentes UTC e ancorar em Manaus (UTC-4)
       const utc = new Date(date);
-      return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
+      return new Date(
+        Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) +
+        4 * 3600000
+      );
     }
     // ✅ FIX: Offset fixo de Manaus (-04:00) em vez de timezone local
     // eslint-disable-next-line no-restricted-syntax
     return new Date(`${dateKey}T00:00:00-04:00`);
   } catch {
     const utc = new Date(date);
-    return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
+    return new Date(
+      Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) +
+      4 * 3600000
+    );
   }
 };
 
@@ -92,28 +98,33 @@ export const formatDisplayDate = (dateStr) => {
 export const normalizeDate = (raw) => {
   if (!raw) return null;
   let d;
-  const isDateOnly = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw);
-  
-  if (typeof raw === 'object' && (raw.seconds != null || raw._seconds != null)) {
+
+  const isDateOnly = typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw);
+
+  if (typeof raw === "object" && (raw.seconds != null || raw._seconds != null)) {
+    // Firebase Timestamp
     const secs = raw.seconds != null ? raw.seconds : raw._seconds;
     d = new Date(secs * 1000);
-  } else if (typeof raw === 'string' && raw.includes('/')) {
+  } else if (typeof raw === "string" && raw.includes("/")) {
+    // dd/mm/yyyy
     const parts = raw.split(/[/-]/);
     if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-      // ✅ FIX: Ancora ao meio-dia de Manaus
       // eslint-disable-next-line no-restricted-syntax
       d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
     } else {
       d = new Date(raw);
     }
-  } else if (typeof raw === 'string') {
-    // ✅ FIX: Strings YYYY-MM-DD ancoradas ao meio-dia de Manaus
+  } else if (typeof raw === "string") {
+    // ✅ FIX: YYYY-MM-DD → meio-dia de Manaus (UTC-4)
+    // ANTES: new Date("2025-01-15") = midnight UTC = dia anterior em Manaus
     // eslint-disable-next-line no-restricted-syntax
-    d = isDateOnly ? new Date(`${raw}T12:00:00-04:00`) : new Date(raw);
+    d = isDateOnly
+      ? new Date(`${raw}T12:00:00-04:00`)
+      : new Date(raw);
   } else {
     d = new Date(raw);
   }
-  
+
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
   return d;
 };

@@ -12,21 +12,34 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
   const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
   const lowerBound = Math.min(safeMinScore, safeMaxScore);
   const upperBound = Math.max(safeMinScore, safeMaxScore);
-  
-  // ✅ FIX: Bias proporcional à escala (maxScore), não ao range.
-  // Com minScore > 0, usar range distorcia o bias.
+
   const meanBias = (cfg.meanBiasFactor || 0) * safeMaxScore;
-  // BUG-GLOBAL-09 FIX: Ajuste de probabilidade deve ser baseado em 100 (%), não no maxScore.
-  // Antes: 0.045 * 200 = 9pp (errado). Agora: 0.045 * 100 = 4.5pp (correto).
   const probMult = (cfg.probMultFactor || 0) * 100;
+
   return (data || []).map((d) => {
     const mean = Math.max(lowerBound, Math.min(upperBound, (Number(d.mean) || 0) + meanBias));
-    const projectedMean = d.projectedMean !== undefined ? Math.max(lowerBound, Math.min(upperBound, (Number(d.projectedMean) || 0) + meanBias)) : mean;
+    const projectedMean = d.projectedMean !== undefined
+      ? Math.max(lowerBound, Math.min(upperBound, (Number(d.projectedMean) || 0) + meanBias))
+      : mean;
     const low = Math.max(lowerBound, Math.min(upperBound, mean - ((mean - (d?.ciRange?.[0] ?? mean)) * cfg.ciMult)));
     const high = Math.max(lowerBound, Math.min(upperBound, mean + (((d?.ciRange?.[1] ?? mean) - mean) * cfg.ciMult)));
-    const probBase = Number.isFinite(Number(d?.probability)) ? Number(d.probability) : 0;
-    const probAdj = Math.max(0, Math.min(100, probBase + (meanBias > 0 ? probMult : meanBias < 0 ? -probMult : 0)));
-    return { ...d, mean, projectedMean, probability: probAdj, ciRange: [Math.min(low, high), Math.max(low, high)] };
+
+    const rawProb = Number(d?.probability);
+    const probBase = Number.isFinite(rawProb) ? rawProb : 0;
+
+    const probAdj = Math.max(
+      0,
+      Math.min(100, probBase + (meanBias > 0 ? probMult : meanBias < 0 ? -probMult : 0))
+    );
+
+    // ✅ FIX: garantir que propability numérico finito não vire NaN
+    return {
+      ...d,
+      mean,
+      projectedMean,
+      probability: Number.isFinite(probAdj) ? probAdj : 0,
+      ciRange: [Math.min(low, high), Math.max(low, high)],
+    };
   });
 }
 

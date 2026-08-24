@@ -14,33 +14,44 @@ export function mulberry32(seed) {
 // ⚠️ ATENÇÃO: altera a sequência do RNG — seeds existentes produzirão valores diferentes.
 // Se reprodutibilidade de seeds históricas for crítica, manter o código antigo e comentar esta mudança.
 export function makeNormalRng(rng) {
-    let spare;
-    let hasSpare = false;
-    return () => {
-        if (hasSpare) {
-            hasSpare = false;
-            return spare;
-        }
-        let u = 0, v = 0;
-        let attempts = 0;
-        while (u === 0 && attempts < 100) {
-            u = rng();
-            attempts++;
-        }
-        if (u === 0) u = 1e-15;
-
-        attempts = 0;
-        while (v === 0 && attempts < 100) {
-            v = rng();
-            attempts++;
-        }
-        if (v === 0) v = 1e-15;
-
-        const mag = Math.sqrt(-2.0 * Math.log(u));
-        spare = mag * Math.sin(2.0 * Math.PI * v);
-        hasSpare = true;
-        return mag * Math.cos(2.0 * Math.PI * v);
-    };
+  let spare;
+  let hasSpare = false;
+  
+  const next = () => {
+    if (hasSpare) {
+      hasSpare = false;
+      return spare;
+    }
+    let u = 0, v = 0;
+    let attempts = 0;
+    while (u === 0 && attempts < 100) {
+      u = rng();
+      attempts++;
+    }
+    if (u === 0) u = 1e-15;
+    
+    attempts = 0;
+    while (v === 0 && attempts < 100) {
+      v = rng();
+      attempts++;
+    }
+    if (v === 0) v = 1e-15;
+    
+    const mag = Math.sqrt(-2.0 * Math.log(u));
+    spare = mag * Math.sin(2.0 * Math.PI * v);
+    hasSpare = true;
+    return mag * Math.cos(2.0 * Math.PI * v);
+  };
+  
+  // ✅ FIX: função reset para limpar estado interno quando seed muda
+  const reset = () => {
+    spare = undefined;
+    hasSpare = false;
+  };
+  
+  // Retorna função com propriedade reset anexada
+  next.reset = reset;
+  return next;
 }
 
 

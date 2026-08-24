@@ -223,6 +223,7 @@ function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
           title={`Zona segura a partir de ${Math.round(safe)}%`}
         />
         <Motion.div
+          key={`ci-range-${category.id}-${low}-${high}`}
           initial={{ width: 0 }}
           animate={{ left: `${low}%`, width: `${Math.max(0, high - low)}%` }}
           transition={{ duration: 1.5, ease: 'easeOut' }}

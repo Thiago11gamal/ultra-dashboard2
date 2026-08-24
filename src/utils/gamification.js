@@ -91,7 +91,12 @@ export const getLevelTitle = (level) => {
     if (level >= 30) return { title: 'Mestre', icon: '🔮', color: 'text-purple-400', barColor: 'from-purple-400' };
     if (level >= 20) return { title: 'Elite', icon: '💎', color: 'text-blue-400', barColor: 'from-blue-400' };
     if (level >= 10) return { title: 'Veterano', icon: '⚔️', color: 'text-red-500', barColor: 'from-red-500' };
-    if (level >= 5) return { title: 'Competidor', icon: '🔥', color: 'text-orange-400', barColor: 'from-orange-400' };
     return { title: 'Estudante', icon: '🌱', color: 'text-green-400', barColor: 'from-green-400' };
 };
 
+export function calculateMissionReward(baseReward = 50, completionRate = 1.0, quality = 1.0) {
+    const rawReward = baseReward * completionRate * quality;
+    // Garante que retorne um número finito e maior ou igual a zero
+    const finalReward = Number.isFinite(rawReward) ? Math.max(0, rawReward) : 0;
+    return Math.round(finalReward);
+}

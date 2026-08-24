@@ -33,24 +33,18 @@ export function analyzeProgressState(scores, config = {}) {
     const stagnation_threshold = raw_stagnation * scaleFactor * windowFactor;
     const trend_tolerance = raw_trend * scaleFactor * windowFactor;
 
-    // FIX 3: Escalonar limites de nível (Mastery/Low) para suportar escalas diferentes de 100
-    let scaled_low = low_level_limit * scaleFactor;
-    let scaled_high = high_level_limit * scaleFactor;
-    let scaled_mastery = mastery_limit * scaleFactor;
+  // ✅ FIX: Blindagem contra configs inválidas ou meta menor que limite baixo
+  let scaled_low     = low_level_limit  * scaleFactor;
+  let scaled_high    = high_level_limit * scaleFactor;
+  let scaled_mastery = mastery_limit    * scaleFactor;
 
-    // ✅ FIX: Blindagem contra configs inválidas ou meta menor que o limite baixo.
-    if (!Number.isFinite(scaled_low)) scaled_low = 60 * scaleFactor;
-    if (!Number.isFinite(scaled_high)) scaled_high = Math.max(scaled_low, 75 * scaleFactor);
-    if (!Number.isFinite(scaled_mastery)) scaled_mastery = Math.max(scaled_high, 80 * scaleFactor);
+  if (!Number.isFinite(scaled_low))     scaled_low     = 60 * scaleFactor;
+  if (!Number.isFinite(scaled_high))    scaled_high    = Math.max(scaled_low, 75 * scaleFactor);
+  if (!Number.isFinite(scaled_mastery)) scaled_mastery = Math.max(scaled_high, 80 * scaleFactor);
 
-    // Garantir ordem lógica: low <= high <= mastery
-    if (scaled_high < scaled_low) {
-        scaled_high = scaled_low;
-    }
-
-    if (scaled_mastery < scaled_high) {
-        scaled_mastery = scaled_high;
-    }
+  // Garantir ordem lógica: low ≤ high ≤ mastery
+  if (scaled_high    < scaled_low)    scaled_high    = scaled_low;
+  if (scaled_mastery < scaled_high)   scaled_mastery = scaled_high;
 
     // Safety: Window size must be at least 3 for meaningful variance and MAV calculation
     // (With only 2 points, variance = one single squared difference — not representative)
@@ -122,39 +116,32 @@ export function analyzeProgressState(scores, config = {}) {
     const variance = finiteRecentScores.reduce((acc, score) =>
         acc + Math.pow(score - mean, 2), 0) / (finiteRecentScores.length - 1);
 
-    // 5.4 Trend (Linear Regression Slope - TIME AWARE)
-    // 🎯 MATH BUG FIX: Transição da Regressão Linear do índice (Cego ao tempo) 
-    // para o eixo X de dias reais passados.
-    const n = finiteRecentScores.length;
-    const startTime = recentDates[0] || Date.now();
-    // CORREÇÃO: Forçar spread artificial mínimo (micro-passos) se os testes colidirem no mesmo dia (Bug 1.1 Fix)
-    const xDays = [];
-    recentDates.forEach((d, i) => {
-        let days = (d - startTime) / 86400000;
-        if (i > 0 && days <= xDays[i - 1]) {
-            days = xDays[i - 1] + 0.001; // Adiciona um micro-delta temporal (~1.4 minutos)
-        }
-        xDays.push(days);
-    });
-    const xMean = xDays.reduce((a, b) => a + b, 0) / n;
+  // 🎯 MATH BUG FIX: Regressão sobre eixo-X em dias reais (não índice)
+  const n = finiteRecentScores.length;
+  const startTime = recentDates[0] || Date.now();
 
-    let numerator = 0;
-    let denominator = 0;
-
-    for (let i = 0; i < n; i++) {
-        numerator += (xDays[i] - xMean) * (finiteRecentScores[i] - mean);
-        denominator += Math.pow(xDays[i] - xMean, 2);
+  // CORREÇÃO: Spread artificial mínimo se testes colidem no mesmo dia
+  const xDays = [];
+  recentDates.forEach((d, i) => {
+    let days = (d - startTime) / 86400000;
+    if (i > 0 && days <= xDays[i - 1]) {
+      days = xDays[i - 1] + 0.001; // micro-delta temporal (~1.4 min)
     }
+    xDays.push(days);
+  });
 
-    // FIX: Clamp do denominador para impedir distorção por "Time Crunch" (testes em curtos intervalos)
-    // Se o denominador for menor que 0.25 (1/4 de dia), assumimos um valor seguro para diluir o impacto
-    const safeDenominator = denominator < 0.25 ? 0.25 : denominator;
+  const xMean = xDays.reduce((a, b) => a + b, 0) / n;
+  let numerator = 0;
+  let denominator = 0;
+  for (let i = 0; i < n; i++) {
+    numerator += (xDays[i] - xMean) * (finiteRecentScores[i] - mean);
+    denominator += Math.pow(xDays[i] - xMean, 2);
+  }
 
-    // slope em pontos/dia.
-    const rawSlope = safeDenominator > 0 ? numerator / safeDenominator : 0; 
-    
-    // Normalização para 30 dias para alinhar com trend_tolerance (pp/30d)
-    const normalizedSlope = rawSlope * 30;
+  // ✅ FIX: Clamp do denominador para impedir distorção por "Time Crunch"
+  const safeDenominator = denominator < 0.25 ? 0.25 : denominator;
+  const rawSlope = safeDenominator > 0 ? numerator / safeDenominator : 0;
+  const normalizedSlope = rawSlope * 30; // alinhar com pp/30d
     // 6. Stagnation Detection
     const stagnated = delta <= stagnation_threshold && Math.abs(normalizedSlope) <= trend_tolerance;
 

@@ -278,15 +278,28 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
 export default function VerifiedStats({ categories = [], user, flashcardDecks: propFlashcardDecks }) {
     const safeCategories = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
 
+    // ✅ FIX: usar hash estável das categorias como dependência
+    const categoriesHash = useMemo(() => {
+      return JSON.stringify(
+        safeCategories.map(c => ({ 
+          id: c.id, 
+          maxScore: c.maxScore, 
+          minScore: c.minScore 
+        }))
+      );
+    }, [safeCategories]);
+
     // ✅ LOTE-02 FIX (M5): reduce em vez de spread — evita RangeError com muitas categorias
     const maxScore = useMemo(() => {
         const scores = safeCategories.map(c => Number(c.maxScore)).filter(s => Number.isFinite(s) && s > 0);
         return scores.length > 0 ? scores.reduce((a, b) => Math.max(a, b), -Infinity) : 100;
-    }, [safeCategories]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categoriesHash]);
     const minScore = useMemo(() => {
         const scores = safeCategories.map(c => Number(c.minScore)).filter(s => Number.isFinite(s));
         return scores.length > 0 ? scores.reduce((a, b) => Math.min(a, b), Infinity) : 0;
-    }, [safeCategories]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categoriesHash]);
 
     // T-039 FIX: estabilizar a prop unit para ajudar na memoização do gauge
     const gaugeUnit = useMemo(() => {
@@ -309,12 +322,18 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     // ✅ LOTE-02 FIX (A1): sem useShallow, Object.values criava um array NOVO a cada
     // snapshot da store → o componente re-renderizava em qualquer mudança global
     // (pomodoro, sessão, flashcard...). O useShallow compara os elementos.
-    const storeFlashcardDecks = useAppStore(useShallow(state => {
-        const activeId = state.appState?.activeId;
-        const contest = state.appState?.contests?.[activeId] || {};
-        const rawDecks = contest.flashcardDecks || [];
-        return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
-    }));
+    // ✅ CORREÇÃO — seletor que retorna referência estável
+    const activeId = useAppStore(state => state.appState?.activeId);
+    const storeFlashcardDecks = useAppStore(
+        React.useCallback(
+            state => {
+                const rawDecks = state.appState?.contests?.[activeId]?.flashcardDecks || [];
+                return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
+            },
+            [activeId]
+        ),
+        useShallow
+    );
     const flashcardDecks = propFlashcardDecks || storeFlashcardDecks;
 
     const flashcardIndicators = useMemo(() => {
@@ -617,41 +636,49 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 predictionSubtext = "Rumo aos 100%!";
                 predictionStatus = "excellence";
             } else {
+                // ✅ FIX BUG-50: proteger contra globalRange = 0
+                const safeGlobalRange = Math.max(1e-9, globalRange);
+                
                 const weeklyBaseSpeed = slope * 7;
-                const speedThreshold = 0.0001 * globalRange; // ✅ LOTE-02 FIX (C3)
+                const speedThreshold = 0.0001 * safeGlobalRange;
 
                 if (weeklyBaseSpeed <= speedThreshold) {
                     prediction = "Estagnado/Queda";
                     predictionSubtext = "Melhore sua tendência diária para gerar previsão.";
                     predictionStatus = "warning";
                 } else {
-                    // D-04 FIX: Curva contínua de dificuldade em vez de steps arbitrários.
-                    // f(50%)=0.90, f(70%)=0.80, f(80%)=0.74, f(95%)=0.64
-                    // Mais justa: não corta 40% da velocidade abruptamente em 80%.
-                    // B-07 FIX: Fator linear: penalidade proporcional desde o início
-                    // f(0)=1.0, f(50)=0.75, f(80)=0.60, f(100)=0.50
-                    // ✅ LOTE-02 FIX (C3): posição relativa no intervalo útil
-                    const difficultyFactor = Math.max(0.40, 1 - 0.5 * ((currentScore - minScore) / globalRange));
+                    // ✅ FIX BUG-50: difficultyFactor protegido contra globalRange = 0
+                    const scorePosition = safeGlobalRange > 0 
+                      ? (currentScore - minScore) / safeGlobalRange 
+                      : 0.5;
+                    const difficultyFactor = Math.max(0.40, 1 - 0.5 * scorePosition);
 
                     let quality = 0.8;
                     const totalDailyW = dailyHistory.reduce((acc, h) => acc + (h.weight || 1), 0);
                     const dailyMean = totalDailyW > 0 
                         ? dailyHistory.reduce((acc, h) => acc + h.score * (h.weight || 1), 0) / totalDailyW
-                        : dailyHistory.reduce((a, h) => a + h.score, 0) / (dailyHistory.length || 1);
+                        : currentScore;
                     
-                    const dailyVar = dailyHistory.length > 1 && totalDailyW > 1
-                        ? dailyHistory.reduce((acc, h) => acc + (h.weight || 1) * Math.pow(h.score - dailyMean, 2), 0) / (totalDailyW - 1)
-                        : (dailyHistory.length > 1 ? dailyHistory.reduce((a, h) => a + Math.pow(h.score - dailyMean, 2), 0) / (dailyHistory.length - 1) : 0);
+                    const dailyVar = totalDailyW > 0
+                        ? dailyHistory.reduce((acc, h) => {
+                            const diff = h.score - dailyMean;
+                            return acc + (diff * diff) * (h.weight || 1);
+                        }, 0) / totalDailyW
+                        : 0;
+                    
                     const dailySD = Math.sqrt(Math.max(0, dailyVar));
-
-                    quality = Math.max(0.5, 1 - (dailySD / (0.40 * globalRange))); // ✅ LOTE-02 FIX (C3)
+                    quality = Math.max(0.5, 1 - (dailySD / (0.40 * safeGlobalRange)));
 
                     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
                     const adjustedSpeed = safe(weeklyBaseSpeed * difficultyFactor * quality);
 
-                    // DIV-01 FIX: Prevenir divisão por zero ou velocidade negativa absurda
-                    const minSpeed = 0.00001 * globalRange; // ✅ LOTE-02 FIX (C3)
-                    const weeksEstimated = adjustedSpeed > minSpeed ? (distance / adjustedSpeed) : 999;
+                    // ✅ FIX BUG-41: minSpeed proporcional ao range + cap em weeksEstimated
+                    const minSpeed = 0.00001 * safeGlobalRange;
+                    let weeksEstimated = adjustedSpeed > minSpeed ? (distance / adjustedSpeed) : 999;
+                    
+                    // ✅ FIX BUG-41: cap máximo para evitar "Infinity semanas"
+                    weeksEstimated = Math.min(weeksEstimated, 520); // máx 10 anos
+                    
                     const daysEstimated = weeksEstimated * 7;
 
                     if (daysEstimated > 365 * 2) {
@@ -661,9 +688,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         const nowTime = new Date().getTime();
 
                         // FIX Bug 2: Margin calculated via error propagation
-                        // σ_days = σ_scores / pointsPerDay
                         const pointsPerDay = adjustedSpeed / 7;
-                        const minPointsPerDay = 0.00001 * globalRange; // ✅ LOTE-02 FIX (C3)
+                        const minPointsPerDay = 0.00001 * safeGlobalRange;
                         const sdDays = pointsPerDay > minPointsPerDay ? (dailySD / pointsPerDay) : 0;
 
                         // Limit margin to 50% of total time to avoid explosive intervals

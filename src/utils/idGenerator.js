@@ -51,3 +51,13 @@ export const getSafeId = (task) => {
     return newId;
 };
 
+export function generateLocalId() {
+    // Math.random() é pseudo-aleatório fraco.
+    // Combinar timestamp de alta precisão (performance.now se disponível) com random longo.
+    const time = (typeof performance !== 'undefined' && performance.now) 
+        ? performance.now() 
+        : Date.now();
+    
+    // UUID v4 simplificado local (fallback) ou prefixo _loc_ (ajuda o sync a distinguir)
+    return `_loc_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 9)}_${Math.floor(time)}`;
+}

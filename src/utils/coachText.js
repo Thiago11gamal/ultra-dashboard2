@@ -114,8 +114,19 @@ export function parseCoachTask(task, categories = []) {
     action,
     status,
     priority,
-    isCompleted: status === 'completed',
-    isStudying: status === 'studying'
-  };
 }
 
+export function getFeedbackColor(score, limits = { low: 70, mastery: 85 }) {
+    if (!Number.isFinite(score)) return "text-gray-400";
+    if (!limits) return "text-gray-400";
+    
+    // Normalizar limites caso venham errados (ex: meta menor que min)
+    let low = Number.isFinite(Number(limits.low)) ? Number(limits.low) : 70;
+    let mast = Number.isFinite(Number(limits.mastery)) ? Number(limits.mastery) : Math.max(low, 85);
+    
+    if (mast < low) mast = low;
+    
+    if (score >= mast) return "text-emerald-500";
+    if (score >= low) return "text-amber-500";
+    return "text-rose-500";
+}

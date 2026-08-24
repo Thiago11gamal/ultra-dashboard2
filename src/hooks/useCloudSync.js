@@ -48,11 +48,16 @@ const safeguardContest = (contest) => {
       ...cat,
       simuladoStats: {
         ...cat.simuladoStats,
-        history: toArray(cat.simuladoStats.history).slice(-100),
+        history: toArray(cat.simuladoStats.history)
+          .sort((a, b) => new Date(a.date || a.createdAt || 0).getTime() - new Date(b.date || b.createdAt || 0).getTime())
+          .slice(-100),
         historyByMatter: cat.simuladoStats.historyByMatter 
           ? Object.fromEntries(
               Object.entries(cat.simuladoStats.historyByMatter).map(([mId, h]) => [
-                mId, toArray(h).slice(-50)
+                mId, 
+                toArray(h)
+                  .sort((a, b) => new Date(a.date || a.createdAt || 0).getTime() - new Date(b.date || b.createdAt || 0).getTime())
+                  .slice(-50)
               ])
             )
           : cat.simuladoStats.historyByMatter

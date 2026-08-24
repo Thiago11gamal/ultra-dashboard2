@@ -2459,19 +2459,44 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         }
     });
 
-    // FIX: dedupe estável por id (evita tarefas duplicadas no planner)
-    const seenIds = new Set();
-    const dedupedTasks = allGeneratedTasks.filter(t => {
-        if (!t || seenIds.has(t.id)) return false;
-        seenIds.add(t.id);
-        return true;
-    });
+    // ✅ CORREÇÃO — manter a versão mais recente de cada ID
+    const taskMap = new Map();
+    for (const t of allGeneratedTasks) {
+      if (!t || !t.id) continue;
+      
+      const existing = taskMap.get(t.id);
+      if (!existing) {
+        taskMap.set(t.id, t);
+        continue;
+      }
+      
+      // Se já existe, manter o mais recente (por lastUpdated ou createdAt)
+      const toTime = (d) => (normalizeDate(d) || new Date(0)).getTime();
+      const existingTime = toTime(existing.lastUpdated || existing.createdAt);
+      const newTime = toTime(t.lastUpdated || t.createdAt);
+      
+      if (newTime > existingTime) {
+        taskMap.set(t.id, t); // substitui pela versão mais nova
+      }
+    }
+
+    const dedupedTasks = Array.from(taskMap.values());
 
     return dedupedTasks;
 };
 
 export const getCognitiveState = (studyLogs = [], options = {}) => {
-    const safeLogs = safeArray(studyLogs);
+    // ✅ FIX BUG-43: filtrar elementos inválidos ANTES de processar
+    const safeLogs = safeArray(studyLogs).filter(log => {
+        if (!log || typeof log !== 'object') return false;
+        // Requer pelo menos uma data válida
+        const hasDate = log.date || log.createdAt || log.lastUpdated;
+        if (!hasDate) return false;
+        // Data deve ser parseável
+        const parsed = normalizeDate(hasDate);
+        return parsed && !Number.isNaN(parsed.getTime());
+    });
+
     const referenceDate = options.now ? (normalizeDate(options.now) || new Date()) : new Date();
     const nowMs = referenceDate.getTime();
     const todayKey = getDateKey(referenceDate);
@@ -2541,25 +2566,48 @@ export const getBestTask = (categories = [], excludeTaskId = null) => {
 };
 
 export const getCoachInsight = (category, simulados = [], studyLogs = [], options = {}) => {
-    try {
-        const urgency = calculateUrgency(category, simulados, studyLogs, options);
-        const details = urgency?.details || {};
-        const mc = details.monteCarlo;
-        const trend = Number(details.trend) || 0;
-        const vol = Number(details.mssdVolatility) || 0;
-
-        const parts = [];
-        if (mc && Number.isFinite(mc.probability)) {
-            parts.push(`chance de meta em ${Math.round(mc.probability)}%`);
-        }
-        parts.push(trend > 0.5 ? 'tendência de alta' : trend < -0.5 ? 'tendência de queda' : 'tendência estável');
-        parts.push(`volatilidade ±${vol.toFixed(1)} pts`);
-
-        return `${details.humanReadable?.['Média'] ?? '—'} de média | ${parts.join(' | ')}. ${urgency?.recommendation ?? ''}`.trim();
-    } catch (err) {
-        console.warn('[CoachLogic] getCoachInsight failed:', err);
-        return null;
+  const fallback = {
+    text: "Dados insuficientes para análise.",
+    parts: [],
+    trend: 0,
+    volatility: 0,
+    probability: null,
+    error: false,
+  };
+  
+  try {
+    const urgency = calculateUrgency(category, simulados, studyLogs, options);
+    if (!urgency) return { ...fallback, error: true, text: "Erro ao calcular urgência." };
+    
+    const details = urgency?.details || {};
+    const mc = details.monteCarlo;
+    const trend = Number(details.trend) || 0;
+    const vol = Number(details.mssdVolatility) || 0;
+    
+    const parts = [];
+    if (mc && Number.isFinite(mc.probability)) {
+      parts.push(`chance de meta em ${Math.round(mc.probability)}%`);
     }
+    parts.push(trend > 0.5 ? "tendência positiva" : trend < -0.5 ? "tendência negativa" : "estável");
+    
+    if (vol > 15) parts.push("alta volatilidade");
+    
+    return {
+      text: parts.join(" · "),
+      parts,
+      trend,
+      volatility: vol,
+      probability: mc?.probability ?? null,
+      error: false,
+    };
+  } catch (err) {
+    console.error("[getCoachInsight] Erro:", err);
+    return { 
+      ...fallback, 
+      error: true, 
+      text: "Erro ao gerar insight. Verifique console." 
+    };
+  }
 };
 
 export function getCombinedHistory(history, simulados, maxScore = 100) {

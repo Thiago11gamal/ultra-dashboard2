@@ -309,19 +309,38 @@ export default function Simulados() {
     // 3. Estratégia A: batchId (Simulado IA)
     if (lastRef.batchId) {
       resultRows = simuladoRowsArray.filter((r) => r.batchId === lastRef.batchId);
-    } else {
+      // ✅ FIX BUG-49: fallback se batchId não encontrar nada
+      if (resultRows.length === 0) {
+        console.warn(`[SimuladoFilter] batchId ${lastRef.batchId} não encontrou rows. Fallback para data.`);
+        // Cai para estratégia B
+      }
+    }
+    
+    if (!lastRef.batchId || (lastRef.batchId && resultRows.length === 0)) {
       // 4. Estratégia B: mesma data + mesma origem (manual)
       const refDateKey = getDateKey(normalizeDate(
         lastRef.date || lastRef.lastUpdated || lastRef.createdAt || new Date()
       ));
+      
+      // ✅ FIX BUG-36: cache de dateKey por row (evita N chamadas de normalizeDate)
+      const dateKeyCache = new WeakMap();
+      const getRowDateKey = (r) => {
+        if (dateKeyCache.has(r)) return dateKeyCache.get(r);
+        const key = getDateKey(normalizeDate(r.date || r.createdAt));
+        dateKeyCache.set(r, key);
+        return key;
+      };
+      
       resultRows = simuladoRowsArray.filter((r) => {
         // Não misturar IA com manual — exclui rows de IA quando lastRef é manual
         if (r.batchId) return false;
-        const rowDateKey = getDateKey(normalizeDate(
-          r.date || r.lastUpdated || r.createdAt || ''
-        ));
-        return rowDateKey === refDateKey;
+        return getRowDateKey(r) === refDateKey;
       });
+      
+      // ✅ FIX BUG-49: fallback final se nada encontrado
+      if (resultRows.length === 0) {
+        console.warn(`[SimuladoFilter] Data ${refDateKey} não encontrou rows manual.`);
+      }
     }
 
     return {

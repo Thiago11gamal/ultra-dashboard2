@@ -39,10 +39,17 @@ export function clampFinite(value, min, max, fallback = min) {
  * Domínio seguro da prova/matéria.
  */
 export function safeDomain(maxScore, minScore = 0) {
-  const max = clampFinite(maxScore, 1, 1_000_000, 100);
-  const min = clampFinite(minScore, 0, max, 0);
-  const range = Math.max(1e-9, max - min);
+  let max = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+  let min = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
 
+  // ✅ FIX: trocar se invertidos (dados corrompidos)
+  if (min > max) {
+    const tmp = min;
+    min = max;
+    max = tmp;
+  }
+
+  const range = Math.max(1e-9, max - min);
   return { min, max, range };
 }
 
@@ -178,15 +185,17 @@ export function latestByDate(rows, getDate = (row) => row?.date || row?.createdA
 }
 
 export function resolveTargetPoints(value, domainOrMax, minScore = 0, unit = "auto") {
-  const actualUnit = typeof minScore === "string" && unit === "auto" ? minScore : unit;
+  const actualUnit = typeof minScore === "string" && unit === "auto"
+    ? minScore
+    : unit;
   const safeMinScore = typeof minScore === "number" ? minScore : 0;
   const domain = asDomain(domainOrMax, safeMinScore);
 
+  // Objeto com points ou pct explícitos
   if (value && typeof value === "object") {
     if (Number.isFinite(value.points)) {
       return clampFinite(value.points, domain.min, domain.max, domain.min);
     }
-
     if (Number.isFinite(value.pct)) {
       return pctToPoints(value.pct, domain);
     }
@@ -198,13 +207,11 @@ export function resolveTargetPoints(value, domainOrMax, minScore = 0, unit = "au
   if (actualUnit === "points") {
     return clampFinite(n, domain.min, domain.max, domain.min);
   }
-
   if (actualUnit === "pct") {
     return pctToPoints(n, domain);
   }
 
-  // FIX: Removida auto-detecção também daqui para manter coerência com normalizeScoreValue.
-  // Valores ambíguos são tratados como pontos por segurança.
+  // ✅ FIX: Sem auto-detecção. Tratar como pontos.
   return clampFinite(n, domain.min, domain.max, domain.min);
 }
 
@@ -218,12 +225,10 @@ export function resolveTargetPoints(value, domainOrMax, minScore = 0, unit = "au
 export function normalizeScoreValue(row, maxScore, minScore = 0) {
   const r = row && typeof row === "object" ? row : {};
   const domain = safeDomain(maxScore, minScore);
-
   const totalRaw = Number(r.total);
   const total = Number.isFinite(totalRaw) ? Math.max(0, Math.trunc(totalRaw)) : 0;
 
   let correct = 0;
-
   if (total > 0) {
     const correctRaw = Number(r.correct);
     correct = Number.isFinite(correctRaw)
@@ -231,9 +236,9 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
       : 0;
   }
 
+  // ── 1) total/correct ──────────────────────────────────────
   if (total > 0) {
     const ratio = correct / total;
-
     return {
       points: domain.min + ratio * domain.range,
       pct: ratio * 100,
@@ -243,159 +248,102 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
       totalValid: true,
       domain,
       ambiguous: false,
-      source: "total-correct"
+      source: "total-correct",
     };
   }
 
+  // ── 2) scorePoints explícito ──────────────────────────────
   const scorePointsRaw = r.scorePoints == null ? NaN : Number(r.scorePoints);
-
   if (Number.isFinite(scorePointsRaw)) {
     const points = clampFinite(scorePointsRaw, domain.min, domain.max, domain.min);
     const pct = pointsToPct(points, domain);
-
     return {
-      points,
-      pct,
+      points, pct,
       ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
-      total,
-      correct,
-      totalValid: false,
-      domain,
-      ambiguous: false,
-      source: "scorePoints"
+      total, correct, totalValid: false, domain,
+      ambiguous: false, source: "scorePoints",
     };
   }
 
+  // ── 3) scorePct explícito ─────────────────────────────────
   const scorePctRaw = r.scorePct == null ? NaN : Number(r.scorePct);
-
   if (Number.isFinite(scorePctRaw)) {
     const pct = clampFinite(scorePctRaw, 0, 100, 0);
     const points = pctToPoints(pct, domain);
-
     return {
-      points,
-      pct,
+      points, pct,
       ratio: clampFinite(pct / 100, 0, 1, 0),
-      total,
-      correct,
-      totalValid: false,
-      domain,
-      ambiguous: false,
-      source: "scorePct"
+      total, correct, totalValid: false, domain,
+      ambiguous: false, source: "scorePct",
     };
   }
 
+  // ── 4) campo score ────────────────────────────────────────
   const scoreRaw = r.score == null ? NaN : Number(r.score);
-
   if (Number.isFinite(scoreRaw)) {
     const unit = r.unit || r.scoreUnit;
-    const explicitPct = unit === "pct" || r.isPercentage === true;
+    const explicitPct    = unit === "pct"    || r.isPercentage === true;
     const explicitPoints = unit === "points" || r.isPercentage === false;
 
     if (explicitPct) {
       const pct = clampFinite(scoreRaw, 0, 100, 0);
       const points = pctToPoints(pct, domain);
-
       return {
-        points,
-        pct,
+        points, pct,
         ratio: clampFinite(pct / 100, 0, 1, 0),
-        total,
-        correct,
-        totalValid: false,
-        domain,
-        ambiguous: false,
-        source: "score-explicit-pct"
+        total, correct, totalValid: false, domain,
+        ambiguous: false, source: "score-explicit-pct",
       };
     }
-
     if (explicitPoints) {
       const points = clampFinite(scoreRaw, domain.min, domain.max, domain.min);
       const pct = pointsToPct(points, domain);
-
       return {
-        points,
-        pct,
+        points, pct,
         ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
-        total,
-        correct,
-        totalValid: false,
-        domain,
-        ambiguous: false,
-        source: "score-explicit-points"
+        total, correct, totalValid: false, domain,
+        ambiguous: false, source: "score-explicit-points",
       };
     }
 
-    // ✅ FIX: Auto-detecção removida. Tratar sempre como pontos quando não
-    // há indicação explícita de unidade. A auto-detecção causava conversão
-    // incorreta de notas brutas (ex: 85/1000 virava 85% = 850 pts).
-    const looksPercentAmbiguous =
+    // ✅ FIX: SEM auto-detecção. Tratar como PONTOS.
+    // Marcar ambíguo para o consumidor exibir aviso.
+    const looksAmbiguous =
       domain.max > 100 &&
       scoreRaw >= 0 &&
       scoreRaw <= 100 &&
       r.isPercentage !== false;
 
-    if (looksPercentAmbiguous) {
-      // Marcar como ambíguo mas tratar como PONTOS (mais seguro)
-      const points = clampFinite(scoreRaw, domain.min, domain.max, domain.min);
-      const pct = pointsToPct(points, domain);
-      return {
-        points,
-        pct,
-        ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
-        total,
-        correct,
-        totalValid: false,
-        domain,
-        ambiguous: true,
-        source: "score-ambiguous-treated-as-points"
-      };
-    }
-
     const points = clampFinite(scoreRaw, domain.min, domain.max, domain.min);
     const pct = pointsToPct(points, domain);
-
     return {
-      points,
-      pct,
+      points, pct,
       ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
-      total,
-      correct,
-      totalValid: false,
-      domain,
-      ambiguous: false,
-      source: "score-auto-points"
+      total, correct, totalValid: false, domain,
+      ambiguous: looksAmbiguous,
+      source: looksAmbiguous
+        ? "score-ambiguous-as-points"
+        : "score-auto-points",
     };
   }
 
-  // Fallback para campo `value` (dados legados)
+  // ── 5) fallback campo value (dados legados) ───────────────
   const valueRaw = r.value == null ? NaN : Number(r.value);
   if (Number.isFinite(valueRaw)) {
-      const points = clampFinite(valueRaw, domain.min, domain.max, domain.min);
-      const pct = pointsToPct(points, domain);
-      return {
-          points,
-          pct,
-          ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
-          total,
-          correct,
-          totalValid: false,
-          domain,
-          ambiguous: false,
-          source: "value-field"
-      };
+    const points = clampFinite(valueRaw, domain.min, domain.max, domain.min);
+    const pct = pointsToPct(points, domain);
+    return {
+      points, pct,
+      ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
+      total, correct, totalValid: false, domain,
+      ambiguous: false, source: "value-field",
+    };
   }
 
   return {
-    points: domain.min,
-    pct: 0,
-    ratio: 0,
-    total,
-    correct,
-    totalValid: false,
-    domain,
-    ambiguous: false,
-    source: "missing"
+    points: domain.min, pct: 0, ratio: 0,
+    total, correct, totalValid: false, domain,
+    ambiguous: false, source: "missing",
   };
 }
 
@@ -403,28 +351,33 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
  * Para motores matemáticos, retorne SEMPRE pontos.
  */
 export function getSafeScore(row, maxScore, minScore = 0) {
-    if (!row) return minScore;
-    
-    // FIX: Tratar todos os formatos possíveis
-    let score;
-    if (typeof row === 'number') {
-        score = row;
-    } else if (row.score != null) {
-        score = Number(row.score);
-    } else if (row.value != null) {
-        score = Number(row.value);
-    } else if (row.correct != null && row.total != null) {
-        const total = Number(row.total);
-        const correct = Number(row.correct);
-        if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
-            score = (correct / total) * maxScore;
-        }
+  if (!row) return minScore;
+
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0
+    ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore))
+    ? Math.min(Number(minScore), safeMax) : 0;
+
+  let score;
+
+  if (typeof row === "number") {
+    score = row;
+  } else if (row.score != null) {
+    score = Number(row.score);
+  } else if (row.value != null) {
+    score = Number(row.value);
+  } else if (row.correct != null && row.total != null) {
+    const total = Number(row.total);
+    const correct = Number(row.correct);
+    // ✅ FIX: proteger contra total=0 → divisão por zero
+    if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
+      score = (Math.max(0, Math.min(total, correct)) / total) * safeMax;
     }
-    
-    // FIX: Garantir que score nunca é NaN
-    if (!Number.isFinite(score)) return minScore;
-    
-    return Math.max(minScore, Math.min(maxScore, score));
+  }
+
+  // ✅ FIX: NaN nunca sobrevive
+  if (!Number.isFinite(score)) return safeMin;
+  return Math.max(safeMin, Math.min(safeMax, score));
 }
 
 export function clampCorrectToTotal(correct, total) {
@@ -478,6 +431,15 @@ export function sanitizeSimuladoRow(row, maxScore = 100, minScore = 0) {
     warnings.push("data inválida");
   }
 
+  // ✅ PATCH-04: expor ambiguidade para o consumidor
+  const hasAmbiguousWarning = norm.ambiguous && norm.source.startsWith("score-ambiguous");
+  if (hasAmbiguousWarning && !warnings.includes("score-ambiguous")) {
+    warnings.push(
+      `Score "${r.score}" ambíguo na escala [${domain.min}–${domain.max}]. ` +
+      `Tratado como pontos. Defina "unit" ou "isPercentage" explicitamente.`
+    );
+  }
+
   return {
     ...r,
     date: Number.isFinite(t) && t > 0 ? rawDate : null,
@@ -485,17 +447,12 @@ export function sanitizeSimuladoRow(row, maxScore = 100, minScore = 0) {
     correct: norm.correct,
     scorePoints: norm.points,
     scorePct: norm.pct,
-
-    // Interno: motores devem usar scorePoints.
-    score: norm.points,
-
-    // Depois da normalização, o campo score deixa de ser percentual.
-    isPercentage: false,
+    score: norm.points,          // motores internos usam pontos
+    isPercentage: false,         // após normalização nunca é pct
     originalIsPercentage: Boolean(r.isPercentage),
     scoreUnit: "points",
-
     ambiguousScore: norm.ambiguous,
-    warnings
+    warnings,
   };
 }
 
