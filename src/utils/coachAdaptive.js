@@ -116,7 +116,7 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
   const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE || 90));
   const maxDangerBoost = (Number(cfg.MC_BOOST_DANGER_BASE) || 12) + (Number(cfg.MC_BOOST_DANGER_RANGE) || 13);
   const baseDangerBoost = Number(cfg.MC_BOOST_DANGER_BASE) || 12;
-  const minBoost = toFiniteNumber(cfg.MC_BOOST_SAFE_PENALTY, -8);
+  const minBoost = Math.min(0, toFiniteNumber(cfg.MC_BOOST_SAFE_PENALTY, -8));
   const smoothstep = (x) => x * x * (3 - 2 * x);
 
   let boost = 0;

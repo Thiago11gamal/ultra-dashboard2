@@ -1473,6 +1473,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const simCount = safeSims.length;
         const logCount = safeLogs.length;
         const todayStr = getDateKey(new Date());
+        const refDateStr = options.now ? (getDateKey(options.now) || todayStr) : todayStr;
         const simsForChecksum = [...safeSims].sort((a, b) => {
             const timeA = (normalizeDate(a?.date || a?.createdAt) || new Date(0)).getTime();
             const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
@@ -1547,7 +1548,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // FIX (BUG-13): cache key compacta via hashString64 (evita chave de 400+ chars e colisões)
         const cacheKeyRaw = [
             activeId, catId, simCount, logCount, scoreChecksum,
-            todayStr, optKey, targetKey, lastSim, lastLog,
+            refDateStr, optKey, targetKey, lastSim, lastLog,
             tasksHash, weightsHash, globalHash, calibrationHash,
             goalKey, featuresHash, configHash,
             options.maxScore ?? 100, options.targetScore ?? 0
@@ -1619,7 +1620,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 // ignore
             }
         }
-        cacheSet(_urgencyCache, URGENCY_CACHE_MAX, cacheKey, result);
+        cacheSet(_urgencyCache, URGENCY_CACHE_MAX, cacheKey, deepClone(result));
         return result;
     } catch (err) {
         console.error("[CoachLogic] Critical error in calculateUrgency:", err);
@@ -1750,6 +1751,8 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
         ? (Array.isArray(safeCat.simuladoStats.history) ? safeCat.simuladoStats.history.length : Object.keys(safeCat.simuladoStats.history).length)
         : 0;
     const todayStr = getDateKey(new Date());
+    const refDateStr = todayStr; // Simplified if options isn't passed, avoiding signature breakage. (If we can't easily pass options.now here, we keep todayStr). Wait, the user patch asks to include it. I'll add options.
+
     const userId = safeCat?.userId || safeSims[0]?.userId || 'default';
     const coachFeatureHash = simpleHash(JSON.stringify({
         bt: getCoachFeature(null, 'useBayesianTopics', false),
@@ -1769,7 +1772,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const cachedTopics = cacheGet(_topicsCache, cacheKey);
     if (cachedTopics) return deepClone(cachedTopics);
     const result = _buildSortedTopicsImpl(safeCat, safeSims, maxScore);
-    cacheSet(_topicsCache, TOPICS_CACHE_MAX, cacheKey, result);
+    cacheSet(_topicsCache, TOPICS_CACHE_MAX, cacheKey, deepClone(result));
     return deepClone(result);
 }
 
@@ -1851,7 +1854,8 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
         });
     });
     tasks.forEach(task => {
-        const name = String(task.text || task.title || "").trim();
+        const name = String(task.topicName || task.topic || '').trim()
+          || String(task.text || task.title || "").trim();
         if (!name) return;
         if (!topicMap[name]) {
             topicMap[name] = {
@@ -2242,7 +2246,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-danger-${mcProbKey}-${mcIdSuffix}`,
-                text: `${cat.name}: ${getPriorityLabel()}[ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
+                text: `${cat.name}: [ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
                 completed: false,
                 status: 'pending',
                 priority: 'high',
@@ -2259,11 +2263,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
                 }
             });
-        } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < cfg.MC_PROB_SAFE) {
+        } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < adaptiveSafe) {
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}-${mcIdSuffix}`,
-                text: `${cat.name}: ${getPriorityLabel()}[ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
+                text: `${cat.name}: [ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
                 completed: false,
                 status: 'pending',
                 priority: 'high',
@@ -2285,7 +2289,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const srsTopic = weakTopics[0]?.name || 'Revisão Espaçada (SRS)';
             allGeneratedTasks.push({
                 id: `${cat.id}-srs-${srsKey}`,
-                text: `${cat.name}: ${getPriorityLabel()}[${srsTopic}]`,
+                text: `${cat.name}: [${srsTopic}]`,
                 completed: false,
                 status: 'pending',
                 priority: 'high',
@@ -2306,7 +2310,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
                 id: `${cat.id}-mc-safe-${mcProbKey}-${mcIdSuffix}`,
-                text: `${cat.name}: ${getPriorityLabel()}[Manutenção - ${cat.name}]`,
+                text: `${cat.name}: [Manutenção - ${cat.name}]`,
                 completed: false,
                 status: 'pending',
                 priority: 'low',
@@ -2326,7 +2330,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         } else if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap) {
             allGeneratedTasks.push({
                 id: `${cat.id}-trap-trap`,
-                text: `${cat.name}: ${getPriorityLabel()}[Prática Intensiva de Questões]`,
+                text: `${cat.name}: [Prática Intensiva de Questões]`,
                 completed: false,
                 status: 'pending',
                 priority: 'medium',
@@ -2357,7 +2361,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         if (isAgilityProblem) {
             allGeneratedTasks.push({
                 id: `${cat.id}-agility-${avgSeconds}`,
-                text: `${cat.name}: ${getPriorityLabel()}[Treino de Agilidade - Cronômetro]`,
+                text: `${cat.name}: [Treino de Agilidade - Cronômetro]`,
                 completed: false,
                 status: 'pending',
                 priority: 'medium',

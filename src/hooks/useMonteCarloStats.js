@@ -69,7 +69,8 @@ export function useMonteCarloStats({
   maxScore,
   effectiveSimulateToday,
   simuladoRows: propSimuladoRows,
-  // T-040 FIX: permite adiar o cálculo pesado de probabilidades por matéria
+  // T-040 FIX: permite adiar o cálculo pesado de probabilidades por matéria.
+  // enablePerSubject = false é intencional — apenas documente que o painel de matérias só calcula quando aberto.
   enablePerSubject = false
 }) {
   const activeId = useAppStore(state => state.appState?.activeId);

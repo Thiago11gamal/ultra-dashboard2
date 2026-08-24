@@ -14,6 +14,8 @@
 const OPTIMIZER_STATE_KEY = 'coach_flag_optimizer_state_v1';
 const ACTIVE_FLAGS_KEY = 'coach_active_flags_v1';
 
+import { writeFlags, readFlags } from '../../utils/coachFeatureStore.js';
+
 export const EXPERIMENTAL_MATH_FLAGS = [
   'useStateSpace',
   'useStateSpaceAverage',
@@ -152,13 +154,10 @@ export function loadPersistedCoachFlags() {
   const persisted = loadJson(ACTIVE_FLAGS_KEY, null);
 
   if (persisted && typeof persisted === 'object') {
-    globalThis.__COACH_FEATURES__ = {
-      ...(globalThis.__COACH_FEATURES__ || {}),
-      ...persisted,
-    };
+    writeFlags(persisted);
   }
 
-  return globalThis.__COACH_FEATURES__ || {};
+  return readFlags();
 }
 
 /**
@@ -522,7 +521,7 @@ export function recommendFlagConfig(input = {}) {
   const currentFeatures =
     input.currentFeatures && typeof input.currentFeatures === 'object'
       ? input.currentFeatures
-      : globalThis.__COACH_FEATURES__ || {};
+      : readFlags();
 
   const minImprovement = clampFinite(input.minImprovement, 0, 1, 0.02);
 
@@ -623,13 +622,13 @@ export function applyRecommendedFlags(recommendation, options = {}) {
 
   const allowAuto =
     options.force === true ||
-    globalThis.__COACH_FEATURES__?.useAutoFlagApplication === true;
+    readFlags().useAutoFlagApplication === true;
 
   if (!allowAuto) return false;
 
   if (recommendation.action === 'keep') return false;
 
-  const current = globalThis.__COACH_FEATURES__ || {};
+  const current = readFlags();
   const safeBaseline = getSafeBaselineFeatures();
 
   let next = { ...current };
@@ -655,7 +654,7 @@ export function applyRecommendedFlags(recommendation, options = {}) {
     return false;
   }
 
-  globalThis.__COACH_FEATURES__ = next;
+  writeFlags(next);
   persistCoachFlags(next);
 
   return true;

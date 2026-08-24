@@ -2,22 +2,9 @@
  * coachStorage.js
  * Wrapper seguro para localStorage com tratamento de quota.
  */
-const QUOTA_WARNING_THRESHOLD = 0.9; // 90%
-
 function getStorage() {
   try { return globalThis?.localStorage || null; }
   catch { return null; }
-}
-
-function estimateUsage(storage) {
-  try {
-    let total = 0;
-    for (let i = 0; i < storage.length; i++) {
-      const key = storage.key(i);
-      total += (key.length + (storage.getItem(key)?.length || 0)) * 2;
-    }
-    return total;
-  } catch { return 0; }
 }
 
 export function safeSetItem(key, value) {

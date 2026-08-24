@@ -304,7 +304,13 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const alerts = coachPlanRaw.filter(task => isSystemAlertTask(task?.text || task?.title || ''));
     const uniqueAlertsMap = new Map();
     alerts.forEach(alert => {
-      const key = alert.categoryId || alert.subjectName || alert.id;
+      const cleanText = alert.text || alert.title || '';
+      let type = 'info';
+      if (/VETOR CRÍTICO/i.test(cleanText)) type = 'danger';
+      else if (/OSCILAÇÃO/i.test(cleanText)) type = 'warning';
+      else if (/CRUZEIRO SEGURO/i.test(cleanText)) type = 'success';
+      
+      const key = `${alert.categoryId || alert.subjectName || alert.id}-${type}`;
       if (!uniqueAlertsMap.has(key)) {
         uniqueAlertsMap.set(key, alert);
       }

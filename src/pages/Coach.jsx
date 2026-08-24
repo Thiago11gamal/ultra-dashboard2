@@ -14,6 +14,7 @@ import MonteCarloDebugger from '../components/MonteCarloDebugger';
 import ReliabilityCurveChart from '../components/charts/ReliabilityCurveChart';
 import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { useSubscription } from '../hooks/useSubscription';
+import { getSafeId } from '../utils/idGenerator';
 import { useAuth } from '../context/useAuth';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import {
@@ -67,7 +68,7 @@ function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
   const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number(value) || 0));
   if (user?.targetScore != null && user.targetScore !== '' && Number.isFinite(Number(user.targetScore))) {
     let ts = Number(user.targetScore);
-    const isPercent = user.targetScoreType === 'percent' || (!user.targetScoreType && ts <= 100 && safeMax !== 100);
+    const isPercent = user.targetScoreType === 'percent';
     if (isPercent) {
       ts = (ts / 100) * safeMax;
     }
@@ -569,10 +570,21 @@ export default function Coach() {
           }
         );
         if (Array.isArray(newTasks) && newTasks.length) {
-          setData(() => ({
-            coachPlan: newTasks,
-            coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
-          }));
+          setData((prev) => {
+            const nextPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+            const prevPlanner = prev?.coachPlanner || {};
+            const availableNewIds = new Set(newTasks.map(t => getSafeId(t)).filter(Boolean));
+            
+            Object.keys(nextPlanner).forEach(day => {
+              nextPlanner[day] = (Array.isArray(prevPlanner[day]) ? prevPlanner[day] : Object.values(prevPlanner[day] || {}))
+                .filter(t => availableNewIds.has(getSafeId(t)));
+            });
+
+            return {
+              coachPlan: newTasks,
+              coachPlanner: nextPlanner
+            };
+          });
           showToastRef.current('Sugestões geradas!', 'success');
         } else {
           showToastRef.current('Nenhuma sugestão necessária.', 'info');
@@ -780,7 +792,7 @@ export default function Coach() {
 function CalibrationAuditPopover({ categoryId = null }) {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef(null);
-  const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId]);
+  const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;

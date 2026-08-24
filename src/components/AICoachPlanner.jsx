@@ -185,7 +185,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   const deriveColumns = useCallback((plan, planner) => {
     const assigned = new Set();
     DAYS.forEach(d => (planner?.[d.id] || []).forEach(t => {
-      const sid = getSafeId(t);
+      const sid = getSafeId(ensureCoachTaskId(t));
       if (sid) assigned.add(sid);
     }));
     const seen = new Set(); // FIX (BUG-08): dedupe de draggableId entre colunas
@@ -311,10 +311,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       );
       const startList = [...(cur[source.droppableId] || [])];
       
-      // FIX: Guard contra bounds errados
-      if (source.index < 0 || source.index >= startList.length) return prev;
+      // FIX: Guard contra bounds errados e busca pelo draggableId real
+      const realSourceIndex = startList.findIndex(t => getSafeId(t) === result.draggableId || t.id === result.draggableId);
+      if (realSourceIndex === -1) return prev;
 
-      const [moved] = startList.splice(source.index, 1);
+      const [moved] = startList.splice(realSourceIndex, 1);
       if (!moved) return prev;
       
       const finishList = (source.droppableId === destination.droppableId)

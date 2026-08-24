@@ -29,15 +29,15 @@ const ORCHESTRATOR_VERSION = '12.0.0';
 // FIX (BUG-34): timeout padrão para não pendurar a UI em operações longas
 const DEFAULT_TIMEOUT_MS = 30000;
 
-const OPTIONAL_MODULE_PATHS = {
-  coachOptimizer: '../../utils/coachOptimizer.js',
-  coachObservability: '../../utils/coachObservability.js',
-  coachCausal: '../../utils/coachCausal.js',
-  explanationAgent: '../../llm/explanationAgent.js',
-};
+import * as coachOptimizerMod from '../../utils/coachOptimizer.js';
+import * as coachObservabilityMod from '../../utils/coachObservability.js';
+import * as coachCausalMod from '../../utils/coachCausal.js';
 
-// FIX (BUG-11): whitelist explícita de paths permitidos no import dinâmico
-const ALLOWED_PATHS = new Set(Object.values(OPTIONAL_MODULE_PATHS));
+const STATIC_MODULES = {
+  coachOptimizer: coachOptimizerMod,
+  coachObservability: coachObservabilityMod,
+  coachCausal: coachCausalMod,
+};
 
 function safeArray(value) {
   if (Array.isArray(value)) return value;
@@ -67,12 +67,9 @@ function getFeature(features, key, fallback = false) {
 }
 
 /**
- * Carrega módulos opcionais com fallback seguro.
- *
- * FIX (BUG-11): valida o path contra ALLOWED_PATHS antes do import.
+ * Carrega módulos opcionais com fallback seguro (agora usando registro estático).
  */
 async function loadOptionalModule(name, meta) {
-  let timeoutId;
   try {
     if (
       typeof globalThis !== 'undefined' &&
@@ -82,26 +79,15 @@ async function loadOptionalModule(name, meta) {
       meta.modules[name] = 'registry';
       return globalThis.__COACH_MODULES__[name];
     }
-    const path = OPTIONAL_MODULE_PATHS[name];
-    if (!path || !ALLOWED_PATHS.has(path)) {
-      meta.modules[name] = false;
-      return null;
+    if (STATIC_MODULES[name]) {
+      meta.modules[name] = true;
+      return STATIC_MODULES[name];
     }
-    const importPromise = import(/* @vite-ignore */ path);
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error(`Import timeout: ${name}`)), 3000);
-    });
-    const module = await Promise.race([importPromise, timeoutPromise]);
-    clearTimeout(timeoutId);
-    meta.modules[name] = true;
-    return module;
-  } catch (err) {
-    if (timeoutId) clearTimeout(timeoutId);
     meta.modules[name] = false;
-    meta.errors.push({
-      module: name,
-      message: err?.message || String(err),
-    });
+    return null;
+  } catch (err) {
+    meta.modules[name] = false;
+    meta.errors.push({ module: name, message: err?.message || String(err) });
     return null;
   }
 }
