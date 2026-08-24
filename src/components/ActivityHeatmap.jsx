@@ -321,3 +321,4 @@ function ActivityHeatmap({ studyLogs = [] }) {
 }
 
 export default React.memo(ActivityHeatmap);
+

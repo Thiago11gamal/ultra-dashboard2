@@ -29,7 +29,7 @@ export default function WelcomeScreen({ onDismiss }) {
         };
     }, []);
 
-    // FIX 5.4b: Fechar com tecla Enter
+    // FIX 5.4b: Fechar com tecla Escape
     const handleNext = useCallback(() => {
         if (isExiting) return; // FIX 5.4d: Prevenir dupla chamada
         setIsExiting(true);
@@ -45,7 +45,7 @@ export default function WelcomeScreen({ onDismiss }) {
 
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.key === 'Enter' && !isExiting) {
+            if (e.key === 'Escape' && !isExiting) {
                 e.preventDefault();
                 handleNext();
             }
@@ -170,7 +170,7 @@ export default function WelcomeScreen({ onDismiss }) {
                         
                         {/* FIX 5.4e: Dica para teclado */}
                         <p className="text-[10px] text-indigo-300/40 mt-2">
-                            Pressione <kbd className="px-1 py-0.5 bg-indigo-500/10 rounded text-indigo-300/60">Enter</kbd> para entrar
+                            Pressione <kbd className="px-1 py-0.5 bg-indigo-500/10 rounded text-indigo-300/60">Esc</kbd> para entrar
                         </p>
                     </div>
                 </motion.div>
@@ -178,3 +178,4 @@ export default function WelcomeScreen({ onDismiss }) {
         </AnimatePresence>
     );
 }
+

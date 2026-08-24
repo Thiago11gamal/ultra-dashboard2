@@ -38,3 +38,4 @@ export function isMenuItemActive(currentPath, itemPath) {
     if (normalizedItemPath === '/') return normalizedPath === '/' || isDashboardAlias;
     return normalizedPath === normalizedItemPath || normalizedPath.startsWith(`${normalizedItemPath}/`);
 }
+

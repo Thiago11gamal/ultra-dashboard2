@@ -368,6 +368,24 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
     };
   }
 
+  // Fallback para campo `value` (dados legados)
+  const valueRaw = r.value == null ? NaN : Number(r.value);
+  if (Number.isFinite(valueRaw)) {
+      const points = clampFinite(valueRaw, domain.min, domain.max, domain.min);
+      const pct = pointsToPct(points, domain);
+      return {
+          points,
+          pct,
+          ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
+          total,
+          correct,
+          totalValid: false,
+          domain,
+          ambiguous: false,
+          source: "value-field"
+      };
+  }
+
   return {
     points: domain.min,
     pct: 0,
@@ -631,3 +649,4 @@ export function migrateContestData(contest) {
 
   return next;
 }
+

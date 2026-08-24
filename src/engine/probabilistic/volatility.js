@@ -327,3 +327,4 @@ if (isDev) {
 export default {
   estimateDynamicVolatility,
 };
+

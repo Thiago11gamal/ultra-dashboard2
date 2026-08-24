@@ -76,3 +76,4 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
     sampledData.push(data[dataLength - 1]);
     return sampledData;
 }
+

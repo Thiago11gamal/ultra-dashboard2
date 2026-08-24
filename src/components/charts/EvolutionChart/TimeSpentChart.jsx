@@ -440,3 +440,4 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
         </div>
     );
 }
+

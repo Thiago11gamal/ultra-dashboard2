@@ -340,3 +340,4 @@ export function generateEvolutionInsights({
 
     return { type: 'info', icon: "✅", title: "++Rendimento de Mestre++", text: `Operando na zona de ++máxima eficiência++.`, advice: "Mantenha o ritmo." };
 }
+

@@ -35,7 +35,7 @@ const idbStorage = {
         }
     },
     setItem: (name, value) => {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             if (isStorageLocked) {
                 console.warn('[Storage] Operação ignorada. Lock de emergência ativo.');
                 return resolve();
@@ -50,7 +50,7 @@ const idbStorage = {
                 }
             }
             
-            savePromises[name] = { resolve };
+            savePromises[name] = { resolve, reject };
             
             saveTimeouts[name] = setTimeout(async () => {
                 try {
@@ -283,3 +283,4 @@ useAppStore.subscribe((state) => {
         clearCoachCaches();
     }
 });
+

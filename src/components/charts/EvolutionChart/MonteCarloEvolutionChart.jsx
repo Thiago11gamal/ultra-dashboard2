@@ -422,3 +422,4 @@ export const MonteCarloEvolutionChart = ({
         </div>
     );
 };
+

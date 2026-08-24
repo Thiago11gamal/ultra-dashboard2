@@ -85,3 +85,4 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
     );
 });
+

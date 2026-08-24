@@ -87,3 +87,4 @@ export const calculateSubjectMastery = (subtopics) => {
     const prior = 0.5;
     return ((totalAcertos + K * prior) / (totalQuestoes + K)) * 100;
 };
+

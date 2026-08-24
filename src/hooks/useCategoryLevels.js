@@ -26,3 +26,4 @@ export function useCategoryLevels(categories, timeline, activeEngine, maxScore =
     return map;
   }, [categories, timeline, activeEngine, maxScore, minScore]);
 }
+

@@ -1062,3 +1062,4 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         </div>
     );
 }
+

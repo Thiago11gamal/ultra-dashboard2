@@ -247,7 +247,7 @@ export function useMonteCarloStats({
       // T-025 FIX: evitar new Date('YYYY-MM-DD') diretamente.
       // normalizeDate costuma ancorar melhor a data no helper do projeto.
       const parsedTimelineDate = normalizeDate(timelineDates[timeIndex]) ||
-        new Date(timelineDates[timeIndex] + 'T12:00:00');
+        new Date(timelineDates[timeIndex] + 'T12:00:00Z');
 
       if (Number.isFinite(parsedTimelineDate?.getTime())) {
         currentDate = parsedTimelineDate;
@@ -1466,3 +1466,4 @@ function useMonteCarloHistoryRecorder({
     trendType
   ]);
 }
+

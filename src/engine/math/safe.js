@@ -135,3 +135,4 @@ export const normalizePercent = (value, fallback = 0) => {
 
   return clamp(p * 100, 0, 100);
 };
+

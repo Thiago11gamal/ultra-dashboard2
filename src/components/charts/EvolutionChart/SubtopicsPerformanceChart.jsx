@@ -541,3 +541,4 @@ export const SubtopicsPerformanceChart = React.memo(({
         </div>
     );
 });
+

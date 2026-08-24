@@ -285,3 +285,4 @@ export const __workerTesting = {
   sanitizeHistory,
   sanitizeOptions,
 };
+

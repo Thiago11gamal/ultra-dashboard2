@@ -590,3 +590,4 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 };
 
 export default React.memo(StatsCards);
+

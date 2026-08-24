@@ -197,3 +197,4 @@ function PersonalRanking({ categories = [] }) {
 
 export default React.memo(PersonalRanking);
 
+

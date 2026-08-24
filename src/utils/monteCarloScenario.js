@@ -50,3 +50,4 @@ export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) 
   }
   return { label: 'Sinal Médio', color: 'text-sky-300 border-sky-500/40 bg-sky-500/10' };
 }
+

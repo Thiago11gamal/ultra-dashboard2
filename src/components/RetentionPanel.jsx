@@ -523,3 +523,4 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
         </div>
     );
 }
+

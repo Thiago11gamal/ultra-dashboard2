@@ -94,3 +94,4 @@ export default function DueForecastChart({ data = [], height = 260 }) {
         </div>
     );
 }
+

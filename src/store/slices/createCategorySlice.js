@@ -401,3 +401,4 @@ export const createCategorySlice = (set) => ({
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 });
+

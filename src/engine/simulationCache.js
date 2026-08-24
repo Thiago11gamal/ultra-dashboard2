@@ -29,3 +29,4 @@ export function setCachedSimulation(seed, result) {
 export function clearSimulationCache() {
   simulationCache.clear();
 }
+

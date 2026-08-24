@@ -790,3 +790,4 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     );
 }
 
+

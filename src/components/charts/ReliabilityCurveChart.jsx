@@ -140,3 +140,4 @@ const ReliabilityCurveChart = ({ buckets }) => {
 };
 
 export default React.memo(ReliabilityCurveChart);
+

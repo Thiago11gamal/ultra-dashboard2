@@ -58,3 +58,4 @@ export function getFlag(key, fallback = false) {
   const registry = getRegistry();
   return typeof registry[key] === 'boolean' ? registry[key] : fallback;
 }
+

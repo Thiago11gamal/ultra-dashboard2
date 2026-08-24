@@ -524,3 +524,4 @@ export default function Flashcards() {
     </PageErrorBoundary>
   );
 }
+

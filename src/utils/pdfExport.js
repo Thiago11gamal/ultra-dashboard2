@@ -19,7 +19,7 @@ export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf'
             quality: 1.0,
             pixelRatio: 2.0, // Alta resolução (2x Retina)
             backgroundColor: bgColor,
-            fetchRequestInit: { cache: 'force-cache' }, // Acelera carregamento de fontes
+            fetchRequestInit: { cache: 'no-cache' }, // FIX: Força CSS e Fontes atualizadas no export (corrigia PDF desconfigurado)
             style: {
                 // Previne cortes se container rolar
                 overflowX: 'visible',
@@ -56,3 +56,4 @@ export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf'
         }, 500);
     }
 };
+

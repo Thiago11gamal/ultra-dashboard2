@@ -105,3 +105,4 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
       .sort((a, b) => b.questoes - a.questoes);
   }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore, timeWindow]);
 }
+

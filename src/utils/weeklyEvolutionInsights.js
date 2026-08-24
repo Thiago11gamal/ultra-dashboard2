@@ -96,3 +96,4 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
     previousN: previousWindow.length,
   };
 }
+

@@ -155,3 +155,4 @@ export default function ConfirmModal({
     if (typeof document === 'undefined') return modalContent;
     return createPortal(modalContent, document.body);
 }
+

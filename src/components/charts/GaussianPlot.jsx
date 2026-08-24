@@ -491,3 +491,4 @@ export const GaussianPlot = ({
 };
 
 export default GaussianPlot;
+

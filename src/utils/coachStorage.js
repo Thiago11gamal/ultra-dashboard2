@@ -56,3 +56,4 @@ export function safeRemoveItem(key) {
   if (!storage) return;
   try { storage.removeItem(key); } catch { /* ignore */ }
 }
+

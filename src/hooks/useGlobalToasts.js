@@ -29,3 +29,4 @@ export function useGlobalToasts() {
 
   return { toasts, removeToast };
 }
+

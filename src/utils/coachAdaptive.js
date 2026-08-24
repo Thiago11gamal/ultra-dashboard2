@@ -565,3 +565,4 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     return null;
   }
 }
+

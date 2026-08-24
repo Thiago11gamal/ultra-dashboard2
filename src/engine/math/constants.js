@@ -10,3 +10,4 @@ export const Z_95 = 1.959963984540054;
 
 // Minimal Standard Deviation to avoid division by zero in calculations
 export const MIN_SD_FLOOR = 0.0001;
+

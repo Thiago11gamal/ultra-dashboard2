@@ -67,3 +67,4 @@ export function useModalAccessibility(isOpen, onClose, modalRef) {
         };
     }, [isOpen, onClose, modalRef]);
 }
+

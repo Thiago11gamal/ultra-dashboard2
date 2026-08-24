@@ -168,3 +168,4 @@ export function detectRegimeTransition(scores = [], options = {}) {
 }
 
 export default { detectRegimeTransition };
+

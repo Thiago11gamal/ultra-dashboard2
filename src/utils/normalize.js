@@ -34,3 +34,4 @@ export function toSafeString(value, fallback = '') {
   if (value !== null && value !== undefined) return String(value);
   return fallback;
 }
+

@@ -107,3 +107,4 @@ export const createContestSlice = (set) => ({
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 });
+

@@ -1141,3 +1141,4 @@ export function calculateSlopePerDay(history, maxScore = 100) {
 export const calculateTrend = calculateSlopePerDay;
 
 
+

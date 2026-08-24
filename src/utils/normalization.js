@@ -68,13 +68,16 @@ export const isSubjectMatch = (name1, name2) => {
  * assume-se o percentil 50% (0.5) para evitar distorções no gráfico.
  */
 export const safeNormalize = (val, max, min) => {
-     if (typeof val !== 'number' || isNaN(val)) return 0;
-     if (!Number.isFinite(max) || !Number.isFinite(min)) return 0;
-     if (max === min) return 0.5;
-     const range = Math.abs(max - min); // ✅ amplitude absoluta
-     const normalized = (val - min) / range;
-     return Math.max(0, Math.min(1, normalized));
- };
+    // Tratamento de edge case crítico
+    if (typeof val !== 'number' || isNaN(val)) return 0;
+    if (!Number.isFinite(max) || !Number.isFinite(min)) return 0;
+    if (max === min) return 0.5; 
+    
+    const normalized = (val - min) / (max - min);
+    
+    // Clamping para evitar explodir a escala (valores > 1 ou < 0)
+    return Math.max(0, Math.min(1, normalized));
+};
 
 /**
  * Divisão segura global para evitar Infinity ou NaN.
@@ -84,3 +87,4 @@ export const safeDivide = (numerator, denominator, fallback = 0) => {
     const result = numerator / denominator;
     return Number.isFinite(result) ? result : fallback;
 };
+

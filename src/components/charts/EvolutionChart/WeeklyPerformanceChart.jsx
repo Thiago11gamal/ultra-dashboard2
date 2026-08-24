@@ -275,3 +275,4 @@ const WeeklyPerformanceChart = ({
 };
 
 export default WeeklyPerformanceChart;
+

@@ -82,7 +82,7 @@ const Header = React.memo(function Header({
         }
         
         debounceRef.current = setTimeout(() => {
-            if (isMountedRef.current && onUpdateName) {
+            if (isMountedRef.current && onUpdateName && typeof onUpdateName === 'function') {
                 onUpdateName(value);
             }
             debounceRef.current = null;
@@ -233,3 +233,4 @@ const Header = React.memo(function Header({
 });
 
 export default Header;
+

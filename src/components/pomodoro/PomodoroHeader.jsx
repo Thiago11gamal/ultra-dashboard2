@@ -28,3 +28,4 @@ export function PomodoroHeader({ mode, activeSubject }) {
         </div>
     );
 }
+

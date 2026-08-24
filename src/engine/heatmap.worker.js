@@ -12,3 +12,4 @@ self.onmessage = (e) => {
         self.postMessage({ id: e.data?.id, type: 'error', error: err.message });
     }
 };
+

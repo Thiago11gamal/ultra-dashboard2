@@ -111,3 +111,4 @@ export function useSubscription(user) {
 
     return { isPremium, loading };
 }
+

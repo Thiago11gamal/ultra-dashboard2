@@ -132,8 +132,7 @@ function buildPredictiveCompareData(
     };
 
     // Parse a data base UMA VEZ antes do loop
-    const baseParsed = normalizeDate(pts[lastIdx].date);
-    if (!baseParsed || Number.isNaN(baseParsed.getTime())) return pts;
+    const baseParsed = normalizeDate(pts[lastIdx].date) || new Date();
     const baseMs = new Date(baseParsed.getFullYear(), baseParsed.getMonth(), baseParsed.getDate(), 12, 0, 0, 0).getTime();
 
     const futurePoints = [];
@@ -999,3 +998,4 @@ export default React.memo(function EvolutionChart({
         </motion.div>
     );
 });
+

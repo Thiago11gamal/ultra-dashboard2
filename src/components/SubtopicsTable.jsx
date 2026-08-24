@@ -220,3 +220,4 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
 };
 
 export default SubtopicsTable;
+

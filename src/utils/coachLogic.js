@@ -468,8 +468,13 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const safeSimulados = Array.isArray(simulados) ? [...simulados] : Object.values(simulados || {});
     const safeStudyLogs = Array.isArray(studyLogs) ? [...studyLogs] : Object.values(studyLogs || {});
 
-    const relevantAll = safeSimulados
-        .filter(s => s && isSubjectMatch(s.subject || "", safeCategory?.name || ""))
+    const catName = safeCategory?.name || safeCategory?.id || '';
+
+    const relevantAllPreSort = catName
+        ? safeSimulados.filter(s => s && isSubjectMatch(s.subject || "", catName))
+        : safeSimulados;
+
+    const relevantAll = relevantAllPreSort
         .sort((a, b) => {
             const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
             const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
@@ -1768,7 +1773,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
         fsrsb: getCoachFeature(null, 'useFsrsForSrsBoost', false),
         fsrst: getCoachFeature(null, 'useFsrsTopicScheduling', false),
     }));
-    const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${todayStr}-${coachFeatureHash}`;
+    const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${coachFeatureHash}`;
     const cacheKey = `isolate_${catId}_${hash}`;
     const cachedTopics = cacheGet(_topicsCache, cacheKey);
     if (cachedTopics) return deepClone(cachedTopics);
@@ -1964,12 +1969,13 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
             const uncertainty = clamp(bayes.uncertainty, 0, 1);
             const evidence = clamp(bayes.evidence, 0, 1);
             const bayesianBoost = (weakness * 0.65 + uncertainty * 0.35) * 70;
-            let multiplier = 0.75 + 0.25 * evidence;
+            topic.urgencyScore =
+              topic.urgencyScore * (0.75 + 0.25 * evidence) +
+              bayesianBoost;
             if (topic.isUntested) {
               const explorationFactor = 0.40 + 0.35 * uncertainty;
-              multiplier *= explorationFactor;
+              topic.urgencyScore *= explorationFactor;
             }
-            topic.urgencyScore = (topic.urgencyScore * multiplier) + bayesianBoost;
           }
         });
       } catch (err) {
@@ -2132,17 +2138,13 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
         : b.percentage;
       let aBase = a.urgencyScore;
       let bBase = b.urgencyScore;
-      if (useDecisionSort) {
-        if (Number.isFinite(a.decisionScore)) {
-          aBase = (aBase * 0.55) + (a.decisionScore * 0.45);
-        } else if (Number.isFinite(a.decisionUtility)) {
-          aBase += a.decisionUtility * 0.20;
-        }
-        if (Number.isFinite(b.decisionScore)) {
-          bBase = (bBase * 0.55) + (b.decisionScore * 0.45);
-        } else if (Number.isFinite(b.decisionUtility)) {
-          bBase += b.decisionUtility * 0.20;
-        }
+      if (
+        useDecisionSort &&
+        Number.isFinite(a.decisionScore) &&
+        Number.isFinite(b.decisionScore)
+      ) {
+        aBase = (a.urgencyScore * 0.55) + (a.decisionScore * 0.45);
+        bBase = (b.urgencyScore * 0.55) + (b.decisionScore * 0.45);
       }
       let aScore = aBase + (aNeedsAction ? 50 : 0);
       let bScore = bBase + (bNeedsAction ? 50 : 0);
@@ -2160,6 +2162,12 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
       } else {
         if (a.total === 0) aScore -= 25;
         if (b.total === 0) bScore -= 25;
+      }
+      if (useDecisionSort) {
+        const aDecision = Number.isFinite(a.decisionUtility) ? a.decisionUtility : 0;
+        const bDecision = Number.isFinite(b.decisionUtility) ? b.decisionUtility : 0;
+        aScore += aDecision * 0.20;
+        bScore += bDecision * 0.20;
       }
       return bScore - aScore;
     });
@@ -2601,3 +2609,4 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
 }
 
 export { getWeakestTopic, getWeakestTopicsList };
+

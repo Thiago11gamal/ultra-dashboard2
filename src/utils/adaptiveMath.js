@@ -473,3 +473,4 @@ export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificulda
     
     return Math.max(baseline, finalRetention);
 };
+

@@ -808,3 +808,4 @@ function AnimatedProbability({ value }) {
 
     return <span>{display.toFixed(0)}%</span>;
 }
+

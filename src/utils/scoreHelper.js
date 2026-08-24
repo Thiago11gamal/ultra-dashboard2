@@ -61,9 +61,8 @@ export function formatValue(value, digits = 1) {
   }
 
   if (Math.abs(n) >= 1) {
-     const decimals = Math.max(0, safeDigits);
-     return n.toFixed(decimals).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-   }
+    return n.toFixed(Math.max(1, safeDigits)).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  }
 
   if (Math.abs(n) > 0) {
     return n.toFixed(Math.max(2, safeDigits + 1)).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
@@ -102,4 +101,5 @@ export {
   buildSimuladoDateSubjectKeys,
   migrateContestData
 } from "./measurement.js";
+
 

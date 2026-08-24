@@ -125,13 +125,13 @@ const repairContestHistory = (rawData) => {
 
       cat.simuladoStats = {
         history: rebuiltHistory,
-        average: Number(statsResult.mean.toFixed(2)),
-        trend: statsResult.trend || 'stable',
+        average: statsResult ? Number(statsResult.mean.toFixed(2)) : 0,
+        trend: statsResult?.trend || 'stable',
         lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
-        level: statsResult.level || (
-          statsResult.mean > 0.7 * maxScore
+        level: statsResult?.level || (
+          (statsResult?.mean || 0) > 0.7 * maxScore
             ? 'ALTO'
-            : statsResult.mean > 0.4 * maxScore
+            : (statsResult?.mean || 0) > 0.4 * maxScore
               ? 'MÉDIO'
               : 'BAIXO'
         )
@@ -349,3 +349,4 @@ export const validateAppState = (data) => {
     return { contests: { 'default': INITIAL_DATA }, activeId: 'default', lastUpdated: new Date().toISOString() };
   }
 };
+

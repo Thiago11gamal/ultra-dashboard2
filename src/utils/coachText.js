@@ -118,3 +118,4 @@ export function parseCoachTask(task, categories = []) {
     isStudying: status === 'studying'
   };
 }
+

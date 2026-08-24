@@ -185,3 +185,4 @@ export function validatePrediction({ probability, interval, confidenceTier }) {
     }
     return true;
 }
+

@@ -87,3 +87,4 @@ export function HorasDisciplinaChart({ data }) {
         </div>
     );
 }
+

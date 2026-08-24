@@ -290,3 +290,4 @@ const PerformanceTable = ({ categories = [] }) => {
 };
 
 export default PerformanceTable;
+

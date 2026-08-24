@@ -556,15 +556,15 @@ function Checklist({
 
     const handleOpenTaskModal = useCallback((catId) => {
         setTaskModalCatId(catId);
-    }, []);
+    }, [setTaskModalCatId]);
 
     const handleOpenDeleteCategoryModal = useCallback((catId, catName) => {
         setDeleteCatModal({ id: catId, name: catName });
-    }, []);
+    }, [setDeleteCatModal]);
 
     const handleOpenDeleteTaskModal = useCallback((catId, task) => {
         setDeleteTaskModal({ catId, task });
-    }, []);
+    }, [setDeleteTaskModal]);
 
     const bottomRef = useRef(null);
     const scrollTimerRef = useRef(null);
@@ -936,3 +936,4 @@ function Checklist({
 }
 
 export default React.memo(Checklist);
+

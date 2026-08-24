@@ -147,3 +147,4 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
         </div>
     );
 };
+

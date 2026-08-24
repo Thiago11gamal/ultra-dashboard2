@@ -8,3 +8,4 @@ export function resolveStatus({ status, error, output }) {
   if ((status ?? 1) !== 0 && shouldSkipForMissingBrowser(output)) return 0;
   return status ?? 1;
 }
+

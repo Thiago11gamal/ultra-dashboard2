@@ -131,3 +131,4 @@ const TrashModalContent = ({ isOpen, onClose }) => {
 
 const TrashModal = React.memo(TrashModalContent);
 export default TrashModal;
+

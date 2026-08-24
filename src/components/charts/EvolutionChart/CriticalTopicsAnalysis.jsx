@@ -304,3 +304,4 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         </div>
     );
 });
+

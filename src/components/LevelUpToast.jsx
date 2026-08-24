@@ -18,15 +18,17 @@ export default function LevelUpToast({ level, title, onClose }) {
         timersRef.current.forEach(clearTimeout);
         timersRef.current = [];
         const timer = setTimeout(() => {
-            if (typeof onCloseRef.current === 'function') {
+            if (isClosedRef.current && typeof onCloseRef.current === 'function') {
                 onCloseRef.current();
+                onCloseRef.current = null;
             }
         }, 300);
         timersRef.current.push(timer);
     }, []);
 
     useEffect(() => {
-        isClosedRef.current = false;
+        // Não resetar isClosedRef aqui — evita double-close quando `level`
+        // muda enquanto o toast está em animação de saída.
         const addTimer = (fn, delay) => {
             const id = setTimeout(fn, delay);
             timersRef.current.push(id);
@@ -93,3 +95,4 @@ export default function LevelUpToast({ level, title, onClose }) {
         </div>
     );
 }
+

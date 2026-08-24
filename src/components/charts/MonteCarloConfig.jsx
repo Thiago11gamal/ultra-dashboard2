@@ -499,3 +499,4 @@ export const MonteCarloConfig = ({
         </div>
     );
 };
+

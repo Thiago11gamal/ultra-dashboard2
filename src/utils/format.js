@@ -18,3 +18,4 @@ export const formatMinutes = (totalMinutes = 0) => {
 
     return `${h}h ${m}m`;
 };
+

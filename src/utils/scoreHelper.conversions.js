@@ -55,3 +55,4 @@ export function ratioToCorrect(ratio, total) {
   const t = Math.max(0, toNum(total, 0));
   return clamp(toNum(ratio, 0) * t, 0, t);
 }
+

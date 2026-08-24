@@ -97,3 +97,4 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         };
     }, [resetTimer, timeoutMs]);
 }
+

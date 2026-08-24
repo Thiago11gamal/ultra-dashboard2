@@ -354,3 +354,4 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         </div>
     );
 }
+

@@ -86,3 +86,4 @@ export const ageInHours = (date, reference = new Date()) => {
 
   return Number.isFinite(hours) && hours > 0 ? hours : 0;
 };
+

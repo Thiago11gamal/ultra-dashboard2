@@ -171,3 +171,4 @@ export function findScoreForPercentile(targetPercentile, minScore, maxScore, cdf
   return low + (high - low) / 2; // Retorna a melhor aproximação ao atingir maxIter
 }
 
+

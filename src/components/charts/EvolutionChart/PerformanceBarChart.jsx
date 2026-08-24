@@ -170,3 +170,4 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
         </div>
     );
 });
+

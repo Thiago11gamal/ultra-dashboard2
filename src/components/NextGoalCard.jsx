@@ -284,3 +284,4 @@ function NextGoalCard({
 }
 
 export default React.memo(NextGoalCard);
+

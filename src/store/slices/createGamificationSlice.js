@@ -77,3 +77,4 @@ export const createGamificationSlice = (set, get) => ({
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 });
+

@@ -126,3 +126,4 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
         </div>
     );
 }
+

@@ -9,3 +9,4 @@ export default {
     MAX_BACKUP_SIZE,
     DEBUG_MODE
 };
+

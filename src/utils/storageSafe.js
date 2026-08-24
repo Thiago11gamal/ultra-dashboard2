@@ -50,3 +50,4 @@ export function safeSetJSON(key, value) {
     return false;
   }
 }
+

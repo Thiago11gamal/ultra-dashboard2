@@ -113,3 +113,4 @@ export const createSimuladoSlice = (set) => ({
     localStorage.setItem('ultra-sync-dirty', 'true');
   }),
 });
+

@@ -446,3 +446,4 @@ export function buildCalibrationDashboardSeries(events = []) {
   }));
   return { trend, rolling7, controlLimits, driftSignals };
 }
+

@@ -190,3 +190,4 @@ export default function Paywall({ user, onLogout }) {
         </div>
     );
 }
+

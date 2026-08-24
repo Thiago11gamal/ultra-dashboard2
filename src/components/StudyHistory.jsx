@@ -671,3 +671,4 @@ const StudyHistory = React.memo(function StudyHistory({
 });
 
 export default StudyHistory;
+

@@ -68,3 +68,4 @@ export function parseTaskDisplay(rawText, categoryName = '') {
 
     return { displayTopic, secondaryText };
 }
+

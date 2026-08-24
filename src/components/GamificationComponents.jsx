@@ -129,3 +129,4 @@ export const XPHistory = ({ user }) => {
         </div>
     );
 };
+

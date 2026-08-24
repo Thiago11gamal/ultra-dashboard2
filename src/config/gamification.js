@@ -143,3 +143,4 @@ export const ACHIEVEMENTS = [
         condition: (stats) => (stats.flashcardReviews || 0) >= 100 && (stats.flashcardAccuracy || 0) >= 70 
     }
 ];
+

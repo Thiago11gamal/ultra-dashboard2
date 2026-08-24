@@ -133,3 +133,4 @@ export const parseImportedData = (content, currentAppState) => {
         throw new Error(`Erro ao importar: ${err.message}`);
     }
 };
+

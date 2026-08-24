@@ -132,7 +132,7 @@ export function analyzeProgressState(scores, config = {}) {
     recentDates.forEach((d, i) => {
         let days = (d - startTime) / 86400000;
         if (i > 0 && days <= xDays[i - 1]) {
-            days = xDays[i - 1] + 0.01; // Adiciona um micro-delta temporal (~14 minutos)
+            days = xDays[i - 1] + 0.001; // Adiciona um micro-delta temporal (~1.4 minutos)
         }
         xDays.push(days);
     });
@@ -191,7 +191,8 @@ export function analyzeProgressState(scores, config = {}) {
         // Impede que alunos iniciantes (com média baixa) sejam falsamente diagnosticados como "Erráticos"
         // apenas por causa do ruído normal da nota (ex: oscilar 3 pontos numa média de 15 dava CV = 20%).
         const cv = mean > 1e-6 ? Math.sqrt(variance) / Math.max(mean, 30 * scaleFactor) : 0;
-        const isVeryUnstable = cv > 0.15;
+        const cvThreshold = 0.15 * Math.sqrt(10 / Math.max(3, safeWindowSize));
+        const isVeryUnstable = cv > cvThreshold;
 
         // FIX 3.2 (Visual e Lógica): A instabilidade não deve proteger um aluno em queda livre.
         // Se a inclinação (slope) é fortemente negativa, é regressão, independentemente da variância.
@@ -240,3 +241,4 @@ export function getUIHints(state) {
 }
 
 export default { analyzeProgressState, getUIHints };
+

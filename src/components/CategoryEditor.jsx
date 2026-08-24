@@ -211,3 +211,4 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
         document.body
     );
 }
+

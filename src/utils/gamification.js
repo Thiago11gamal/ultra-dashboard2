@@ -54,13 +54,13 @@ export const getXPProgress = (xpInput) => {
     const safeRange = Math.max(1, range);
     const rawPercentage = ((safeXP - currentLevelXP) / safeRange) * 100;
     const percentage = Math.round(Math.max(0, Math.min(100, rawPercentage)));
-     return {
-         level,
-         current: Math.max(0, xp - currentLevelXP),
-         needed: Math.max(1, range),
-         percentage,
-         total: xp,
-     };
+    return {
+        level,
+        current: Math.max(0, xp - currentLevelXP),
+        needed: Math.max(1, range),
+        percentage: (percentage === 0 && xp > 0) ? 0.5 : percentage,
+        total: xp,
+    };
 };
 
 export const calculateProgress = (xp) => {
@@ -94,3 +94,4 @@ export const getLevelTitle = (level) => {
     if (level >= 5) return { title: 'Competidor', icon: '🔥', color: 'text-orange-400', barColor: 'from-orange-400' };
     return { title: 'Estudante', icon: '🌱', color: 'text-green-400', barColor: 'from-green-400' };
 };
+

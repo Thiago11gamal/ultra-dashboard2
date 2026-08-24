@@ -364,3 +364,4 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
 
     return { activeCategories, timeline, heatmapData, globalMetrics };
 }
+

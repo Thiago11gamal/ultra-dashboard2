@@ -13,3 +13,4 @@ export const safePercent = (value, fallback = 0) => {
 export const safeProbability = (value, fallback = 0) => {
   return clampFinite(value, 0, 1, fallback);
 };
+

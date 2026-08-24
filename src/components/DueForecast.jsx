@@ -133,3 +133,4 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
         </div>
     );
 }
+

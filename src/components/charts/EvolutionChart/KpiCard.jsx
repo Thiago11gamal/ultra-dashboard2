@@ -23,3 +23,4 @@ export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, 
         </div>
     );
 });
+

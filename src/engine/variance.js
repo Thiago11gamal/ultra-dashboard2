@@ -473,3 +473,4 @@ export default {
     calcularVariancia,
     buildCovarianceMatrix
 };
+

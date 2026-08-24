@@ -132,3 +132,4 @@ export async function secureLogout() {
 }
 
 export { app, db, auth, analytics };
+

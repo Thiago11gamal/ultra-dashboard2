@@ -379,6 +379,12 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   );
 
   // FIX (BUG-09): removido o gate `enabled` (flash de primeiro frame).
+  const [isDndReady, setIsDndReady] = useState(false);
+  useEffect(() => {
+      setIsDndReady(true);
+  }, []);
+
+  if (!isDndReady) return <div className="min-h-[500px]" />;
 
   return (
     <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>

@@ -98,3 +98,4 @@ export const createSettingsSlice = (set) => ({
     localStorage.setItem('ultra-sync-dirty', 'true');
   }),
 });
+

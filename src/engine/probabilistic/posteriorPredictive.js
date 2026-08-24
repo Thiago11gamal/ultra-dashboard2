@@ -344,3 +344,4 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
 export default {
   estimatePosteriorPredictive,
 };
+
