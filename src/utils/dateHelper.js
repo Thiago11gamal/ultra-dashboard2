@@ -43,35 +43,43 @@ export function parseGoalDateUnified(value) {
     return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
 
+const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 export const getDateKey = (rawDate) => {
-  if (!rawDate) return new Date().toISOString().split('T')[0];
-  try {
-    const d = normalizeDate(rawDate) || new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch {
-    return new Date().toISOString().split('T')[0];
-  }
-};
+   if (!rawDate) {
+     return dateKeyFormatter.format(new Date()); // 'en-CA' já devolve YYYY-MM-DD
+   }
+   try {
+     const d = normalizeDate(rawDate) || new Date();
+     if (Number.isNaN(d.getTime())) return dateKeyFormatter.format(new Date());
+     return dateKeyFormatter.format(d);
+   } catch {
+     return dateKeyFormatter.format(new Date());
+   }
+ };
 
 export const getLocalMidnight = (date = new Date()) => {
-  try {
-    const dateKey = getDateKey(date);
-    if (!dateKey) {
-      // Fallback: extrair componentes UTC e ancorar em Manaus (UTC-4)
-      const utc = new Date(date);
-      return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
-    }
-    // ✅ FIX: Offset fixo de Manaus (-04:00) em vez de timezone local
-    // eslint-disable-next-line no-restricted-syntax
-    return new Date(`${dateKey}T00:00:00-04:00`);
-  } catch {
-    const utc = new Date(date);
-    return new Date(Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) + 4 * 3600000);
-  }
-};
+   try {
+     const dateKey = getDateKey(date); // agora ancorado em APP_TIMEZONE (Patch 1)
+     // eslint-disable-next-line no-restricted-syntax
+     const anchored = new Date(`${dateKey}T00:00:00-04:00`);
+     if (Number.isNaN(anchored.getTime())) {
+       const fallback = normalizeDate(date) || new Date();
+       fallback.setHours(0, 0, 0, 0);
+       return fallback;
+     }
+     return anchored;
+   } catch {
+     const fallback = normalizeDate(date) || new Date();
+     fallback.setHours(0, 0, 0, 0);
+     return fallback;
+   }
+ };
 
 export const formatDisplayDate = (dateStr) => {
   if (!dateStr) return '';
@@ -212,11 +220,15 @@ export const getFlashcardTodayKey = () => getDateKey(new Date());
 
 export const getFlashcardNextDueKey = (intervalDays = 1) => {
    const raw = Number(intervalDays);
-   const safeDays = Number.isFinite(raw) ? Math.max(1, Math.min(3650, Math.floor(raw))) : 1;
-   const future = addDays(new Date(), safeDays);
+   const safeDays = Number.isFinite(raw)
+     ? Math.max(1, Math.min(3650, Math.floor(raw)))
+     : 1;
+   // Gera a data deslocada e deixa getDateKey resolver o fuso (Patch 1)
+   const future = new Date();
+   future.setDate(future.getDate() + safeDays);
    const key = getDateKey(future);
    return key || getFlashcardTodayKey();
-};
+ };
 
 export const isFlashcardDue = (cardDue, referenceKey = null) => {
   if (!cardDue) return true;

@@ -1964,13 +1964,12 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
             const uncertainty = clamp(bayes.uncertainty, 0, 1);
             const evidence = clamp(bayes.evidence, 0, 1);
             const bayesianBoost = (weakness * 0.65 + uncertainty * 0.35) * 70;
-            topic.urgencyScore =
-              topic.urgencyScore * (0.75 + 0.25 * evidence) +
-              bayesianBoost;
+            let multiplier = 0.75 + 0.25 * evidence;
             if (topic.isUntested) {
               const explorationFactor = 0.40 + 0.35 * uncertainty;
-              topic.urgencyScore *= explorationFactor;
+              multiplier *= explorationFactor;
             }
+            topic.urgencyScore = (topic.urgencyScore * multiplier) + bayesianBoost;
           }
         });
       } catch (err) {
@@ -2133,13 +2132,17 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
         : b.percentage;
       let aBase = a.urgencyScore;
       let bBase = b.urgencyScore;
-      if (
-        useDecisionSort &&
-        Number.isFinite(a.decisionScore) &&
-        Number.isFinite(b.decisionScore)
-      ) {
-        aBase = (a.urgencyScore * 0.55) + (a.decisionScore * 0.45);
-        bBase = (b.urgencyScore * 0.55) + (b.decisionScore * 0.45);
+      if (useDecisionSort) {
+        if (Number.isFinite(a.decisionScore)) {
+          aBase = (aBase * 0.55) + (a.decisionScore * 0.45);
+        } else if (Number.isFinite(a.decisionUtility)) {
+          aBase += a.decisionUtility * 0.20;
+        }
+        if (Number.isFinite(b.decisionScore)) {
+          bBase = (bBase * 0.55) + (b.decisionScore * 0.45);
+        } else if (Number.isFinite(b.decisionUtility)) {
+          bBase += b.decisionUtility * 0.20;
+        }
       }
       let aScore = aBase + (aNeedsAction ? 50 : 0);
       let bScore = bBase + (bNeedsAction ? 50 : 0);
@@ -2157,12 +2160,6 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
       } else {
         if (a.total === 0) aScore -= 25;
         if (b.total === 0) bScore -= 25;
-      }
-      if (useDecisionSort) {
-        const aDecision = Number.isFinite(a.decisionUtility) ? a.decisionUtility : 0;
-        const bDecision = Number.isFinite(b.decisionUtility) ? b.decisionUtility : 0;
-        aScore += aDecision * 0.20;
-        bScore += bDecision * 0.20;
       }
       return bScore - aScore;
     });

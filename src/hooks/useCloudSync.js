@@ -663,11 +663,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           } finally {
             applyingRemoteRef.current = false;
             isCloudPullRef.current = false;
+            lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
           }
         } else {
           isCloudPullRef.current = false;
         }
-        lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
         setHasConflict(false);
         if (!wasAlreadyValidated && showToastRef.current) {
           showToastRef.current('Sincronizado via Nuvem! ☁️✨', 'success');
