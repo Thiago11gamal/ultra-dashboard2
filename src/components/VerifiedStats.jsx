@@ -413,7 +413,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         return () => clearTimeout(timer);
     }, [targetScore]);
 
-    const activeId = useAppStore(state => state.appState?.activeId);
+
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || null);
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const equalWeightsMode = useAppStore(state => state.appState?.mcEqualWeights ?? true);

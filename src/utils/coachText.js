@@ -114,6 +114,7 @@ export function parseCoachTask(task, categories = []) {
     action,
     status,
     priority,
+  };
 }
 
 export function getFeedbackColor(score, limits = { low: 70, mastery: 85 }) {
