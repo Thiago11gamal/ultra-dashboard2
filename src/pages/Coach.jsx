@@ -792,6 +792,7 @@ export default function Coach() {
 function CalibrationAuditPopover({ categoryId = null }) {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId, isOpen]);
 
   useEffect(() => {

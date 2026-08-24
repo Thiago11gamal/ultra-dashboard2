@@ -1751,7 +1751,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
         ? (Array.isArray(safeCat.simuladoStats.history) ? safeCat.simuladoStats.history.length : Object.keys(safeCat.simuladoStats.history).length)
         : 0;
     const todayStr = getDateKey(new Date());
-    const refDateStr = todayStr; // Simplified if options isn't passed, avoiding signature breakage. (If we can't easily pass options.now here, we keep todayStr). Wait, the user patch asks to include it. I'll add options.
+
 
     const userId = safeCat?.userId || safeSims[0]?.userId || 'default';
     const coachFeatureHash = simpleHash(JSON.stringify({

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
   Play, BrainCircuit, CalendarDays, GripVertical, Sparkles, Inbox
@@ -238,7 +238,6 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   // Tracking global do ponteiro (acende colunas imediatamente, inclusive no header)
   useEffect(() => {
     if (!isDragging) {
-      setHoveredCol(null);
       return;
     }
     let animationFrameId;
@@ -296,6 +295,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   // ==========================================================
   const onDragEnd = useCallback((result) => {
     setIsDragging(false);
+    setHoveredCol(null); // Fix cascading render transferido do useEffect
     setDragColumns(null);
     setDragInfo(null);
 
@@ -373,10 +373,6 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     return Math.max(0, n);
   }, [dragInfo]);
 
-  const weekTotal = useMemo(
-    () => DAYS.reduce((acc, d) => acc + (columns[d.id] || []).length, 0),
-    [columns]
-  );
   const liveWeekTotal = useMemo(
     () => DAYS.reduce((acc, d) => acc + liveCount(d.id, (columns[d.id] || []).length), 0),
     [columns, liveCount]
