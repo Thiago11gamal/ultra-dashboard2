@@ -1002,6 +1002,7 @@ function RaioXDashboard({ data }) {
   }, [data?.calibrationHistoryByCategory, mountTime]);
 
   const toPercentLabel = (value) => {
+    if (value === null || value === undefined || value === '') return '-';
     const n = Number(value);
     if (!Number.isFinite(n)) return '-';
     return `${Math.max(0, Math.min(100, Math.round(n * 100)))}%`;

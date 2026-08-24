@@ -1454,6 +1454,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 timestamp: Date.now(),
                 avgBrier: result.details.monteCarlo.avgBrier,
                 ece: result.details.monteCarlo.ece,
+                probability: result.details.monteCarlo.probability != null ? result.details.monteCarlo.probability / 100 : null,
                 calibrationPenalty: result.details.monteCarlo.calibrationPenalty,
                 reliability: result.details.monteCarlo.reliability || [],
                 calibrationQuality: result.details.monteCarlo.explainability?.calibrationQuality || 'low'
