@@ -288,7 +288,7 @@ export const validateAppState = (data) => {
     let d = coreData || data;
 
     // Migração de formato Legado (único concurso) para Multi-Concurso
-    if (d.categories && Array.isArray(d.categories) && !d.contests) {
+    if (d.categories && !d.contests) {
       const contestData = { ...d };
       d = {
         contests: { 'default': contestData },
@@ -298,11 +298,16 @@ export const validateAppState = (data) => {
     }
 
     const validatedContests = {};
-    const rawContests = d.contests || { 'default': INITIAL_DATA };
+    const rawContests = (d.contests && typeof d.contests === 'object') ? d.contests : { 'default': INITIAL_DATA };
 
-    Object.entries(rawContests).forEach(([id, contestData]) => {
-      validatedContests[id] = sanitizeContest(contestData);
-    });
+    // ✅ PATCH 11 FIX: Sanitização das chaves do dicionário para assegurar formato adequado para Firebase e IndexedDB
+    Object.keys(rawContests).reduce((acc, id) => {
+      if (id !== 'length' && typeof rawContests[id] === 'object') {
+          const cleanId = String(id).replace(/[.#$\/\[\]]/g, '');
+          acc[cleanId || 'default'] = sanitizeContest(rawContests[id]);
+      }
+      return acc;
+    }, validatedContests);
 
     let activeId = d.activeId || 'default';
 
