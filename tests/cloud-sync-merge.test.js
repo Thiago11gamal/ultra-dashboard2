@@ -35,6 +35,8 @@ const mergeCategoryTasks = (localTasks = [], cloudTasks = []) => {
     return Array.from(taskMap.values());
 };
 
+import { toArray } from '../src/utils/normalize.js';
+
 describe('Cloud sync merge helpers', () => {
     it('mergeCategoryTasks preserva tarefa concluída local quando nuvem está desatualizada', () => {
         const local = [{ id: 't1', text: 'Task', completed: true, lastStudiedAt: '2026-06-25T12:00:00Z' }];
@@ -53,5 +55,28 @@ describe('Cloud sync merge helpers', () => {
         const merged = mergeArrays(local, cloud);
         expect(merged).toHaveLength(2);
         expect(merged.find(l => l.id === 'l1').minutes).toBe(30);
+    });
+
+    it('toArray com array congelado (Object.freeze) retorna cópia mutável e não quebra com sort()', () => {
+        const frozenArr = Object.freeze([
+            Object.freeze({ date: '2026-06-25', score: 80 }),
+            Object.freeze({ date: '2026-06-20', score: 90 }),
+            Object.freeze({ date: '2026-06-22', score: 85 })
+        ]);
+
+        const result = toArray(frozenArr);
+        expect(() => {
+            result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        }).not.toThrow();
+
+        expect(result[0].date).toBe('2026-06-20');
+        expect(result[2].date).toBe('2026-06-25');
+    });
+
+    it('toArray com null/undefined/objeto retorna arrays válidos', () => {
+        expect(toArray(null)).toEqual([]);
+        expect(toArray(undefined)).toEqual([]);
+        expect(toArray({ 0: 'a', 1: 'b' })).toEqual(['a', 'b']);
+        expect(toArray('single')).toEqual(['single']);
     });
 });
