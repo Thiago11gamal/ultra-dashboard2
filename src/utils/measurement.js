@@ -473,8 +473,9 @@ export function mergeQuestionResult(row, delta, maxScore, minScore = 0) {
   const oldTotal = Math.max(0, Math.trunc(Number(r.total) || 0));
   const oldCorrect = Math.min(oldTotal, Math.max(0, Math.trunc(Number(r.correct) || 0)));
 
-  const newTotal = oldTotal + addedTotal;
-  const newCorrect = Math.min(newTotal, oldCorrect + addedCorrect);
+  // ✅ BUG-12 FIX: Incremental merge to prevent runaway correct answers over multiple saves
+  const newTotal = Math.max(oldTotal, addedTotal);
+  const newCorrect = Math.min(newTotal, Math.max(oldCorrect, addedCorrect));
 
   const ratio = newTotal > 0 ? newCorrect / newTotal : 0;
   const points = domain.min + ratio * domain.range;

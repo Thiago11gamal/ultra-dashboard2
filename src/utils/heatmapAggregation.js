@@ -80,8 +80,10 @@ export const calculateSubjectMastery = (subtopics) => {
 
     safeSubtopics.forEach(topic => {
         if (!topic) return;
-        const hits = Math.max(0, Number(topic.acertos ?? topic.hits ?? topic.correct ?? 0));
         const total = Math.max(0, Number(topic.total ?? topic.questoes ?? 0));
+        const rawHits = Math.max(0, Number(topic.acertos ?? topic.hits ?? topic.correct ?? 0));
+        // ✅ FIX: Nunca permite mais acertos do que o total disponível
+        const hits = Math.min(total, rawHits);
         
         // Proteção contra NaN
         if (Number.isFinite(hits) && Number.isFinite(total)) {

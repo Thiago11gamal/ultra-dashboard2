@@ -40,16 +40,12 @@ const idbStorage = {
                 console.warn('[Storage] Operação ignorada. Lock de emergência ativo.');
                 return resolve();
             }
-            
-            // Rejeita a promise pendente anterior para evitar dangling promises (Memory Leak)
+            // ✅ FIX: Se existe um save pendente, salvar o valor ANTERIOR agora
             if (saveTimeouts[name]) {
                 clearTimeout(saveTimeouts[name]);
-                // Resolve a promise anterior em vez de rejeitar
-                if (savePromises[name]) {
-                    savePromises[name].resolve();
-                }
+                // Não resolve a promise anterior — ela será resolvida pelo save atual
+                // A promise anterior será sobrescrita abaixo
             }
-            
             savePromises[name] = { resolve, reject };
             
             saveTimeouts[name] = setTimeout(async () => {

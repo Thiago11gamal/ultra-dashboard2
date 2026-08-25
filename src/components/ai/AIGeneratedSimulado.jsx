@@ -577,11 +577,19 @@ export default function AIGeneratedSimulado() {
   }, [questions.length]);
 
   const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0, preventGlobalEvent = false) => {
-    setData(draft => {
-      if (!draft) return;
-      applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent);
-    });
-  }, [setData]);
+    // FIX: mutação atômica síncrona, desliga temporariamente os subscribers se preventGlobalEvent for true
+    useAppStore.setState(
+        (state) => {
+            const nextContests = { ...state.appState.contests };
+            const draft = nextContests[state.appState.activeId];
+            if (!draft) return state;
+            applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent);
+            return { appState: { ...state.appState, contests: nextContests, lastUpdated: new Date().toISOString() } };
+        },
+        false, 
+        preventGlobalEvent ? "AI_BACKGROUND_SAVE" : "AI_SIMULADO_SAVE"
+    );
+  }, []);
 
   const handleFinish = useCallback(async () => {
     const qList = latestQuestionsRef.current.length > 0 ? latestQuestionsRef.current : questions;
@@ -679,15 +687,19 @@ export default function AIGeneratedSimulado() {
         scoreUnit: 'points',
         isPercentage: false,
       };
-      setData(prev => {
-        if (!prev) return prev;
-        const existingSims = Array.isArray(prev.simulados) ? prev.simulados : [];
-        return {
-          ...prev,
-          simulados: [...existingSims, globalMixedEvent].slice(-100),
-          lastUpdated: new Date().toISOString()
-        };
-      });
+      useAppStore.setState(
+        (state) => {
+          const nextContests = { ...state.appState.contests };
+          const draft = nextContests[state.appState.activeId];
+          if (!draft) return state;
+          const existingSims = Array.isArray(draft.simulados) ? draft.simulados : [];
+          draft.simulados = [...existingSims, globalMixedEvent].slice(-100);
+          draft.lastUpdated = new Date().toISOString();
+          return { appState: { ...state.appState, contests: nextContests, lastUpdated: new Date().toISOString() } };
+        },
+        false,
+        "AI_MIXED_SIMULADO_SAVE"
+      );
     } else {
       await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, finalTimeSpent);
     }

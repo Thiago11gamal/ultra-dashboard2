@@ -2,6 +2,7 @@ import { kahanSum } from '../engine/math/kahan.js';
 import { getDateKey, normalizeDate } from './dateHelper.js';
 import { getSafeScore } from './scoreHelper.js';
 import { isSubjectMatch } from './normalization.js';
+import { generateId } from './idGenerator.js';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 
@@ -91,7 +92,11 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
     else if (!useQuantile) edges.push(i / bins);
     else edges.push(sorted[Math.floor((i / bins) * sorted.length)].probability);
   }
-  for (let i = 1; i < edges.length - 1; i++) edges[i] = Math.max(edges[i], edges[i - 1] + 1e-6);
+  for (let i = 1; i < edges.length; i++) {
+    if (edges[i] <= edges[i - 1]) {
+        edges[i] = edges[i - 1] + 1e-6;
+    }
+  }
   for (let i = 0; i < bins; i++) {
     const binMin = edges[i];
     const binMax = edges[i + 1];
@@ -123,6 +128,7 @@ export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct =
 export function recordPredictionEvent(prediction = {}) {
   const prob = clamp01(prediction.probability);
   return {
+    id: prediction.id || generateId('calib'),
     timestamp: Number.isFinite(Number(prediction.timestamp)) ? Number(prediction.timestamp) : Date.now(),
     probability: prob,
     probabilityRaw: Number.isFinite(Number(prediction.probabilityRaw)) ? clamp01(prediction.probabilityRaw) : prob,

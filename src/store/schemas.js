@@ -74,8 +74,9 @@ const repairContestHistory = (rawData) => {
       !h ||
       typeof h !== 'object' ||
       !h.date ||
-      (h.total === undefined && h.score === undefined && h.correct === undefined) ||
+      (h.total === undefined && h.score === undefined && h.correct === undefined && h.scorePoints === undefined) ||
       (h.score !== undefined && h.score !== null && Number.isNaN(Number(h.score))) ||
+      (h.scorePoints !== undefined && h.scorePoints !== null && Number.isNaN(Number(h.scorePoints))) ||
       (h.total !== undefined && h.total !== null && Number.isNaN(Number(h.total)))
     );
 
@@ -219,7 +220,9 @@ export const sanitizeContest = (data) => {
         history: (Array.isArray(cat.simuladoStats?.history) 
           ? cat.simuladoStats.history 
           : Object.values(cat.simuladoStats?.history || {}))
-          .filter(h => h && typeof h === 'object' && h.date && (h.total > 0 || h.score != null)),
+          .filter(h => h && typeof h === 'object' && h.date && (
+              h.total > 0 || h.score != null || h.scorePoints != null
+          )),
         average: Number(cat.simuladoStats?.average) || 0,
         lastAttempt: Number(cat.simuladoStats?.lastAttempt) || 0,
         trend: cat.simuladoStats?.trend || "stable",
@@ -315,12 +318,12 @@ export const validateAppState = (data) => {
         ...(d.pomodoro && typeof d.pomodoro === 'object' ? d.pomodoro : {}),
         activeSubject: d.pomodoro?.activeSubject || null,
         targetCycles: Math.max(1, Number(d.pomodoro?.targetCycles) || 1),
-        // 🛡️ [FIX-SCHEMA] Valida campos críticos do pomodoro para blindar contra
-        // estado corrompido/legado que poderia crashar o timer silenciosamente.
         mode: ['work', 'break', 'long_break'].includes(d.pomodoro?.mode) ? d.pomodoro.mode : 'work',
         sessions: Math.max(1, Number(d.pomodoro?.sessions) || 1),
         completedCycles: Math.max(0, Number(d.pomodoro?.completedCycles) || 0),
         accumulatedMinutes: Math.max(0, Number(d.pomodoro?.accumulatedMinutes) || 0),
+        neuralMode: Boolean(d.pomodoro?.neuralMode),
+        neuralQueue: Array.isArray(d.pomodoro?.neuralQueue) ? d.pomodoro.neuralQueue : [],
       },
 
       history: Array.isArray(d.history) ? d.history : [],

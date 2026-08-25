@@ -1552,13 +1552,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             ? simpleHash(JSON.stringify(options.config))
             : 'defcfg';
         // FIX (BUG-13): cache key compacta via hashString64 (evita chave de 400+ chars e colisões)
-        const cacheKeyRaw = [
+        const cacheKeyRaw = JSON.stringify([
             activeId, catId, simCount, logCount, scoreChecksum,
             refDateStr, optKey, targetKey, lastSim, lastLog,
             tasksHash, weightsHash, globalHash, calibrationHash,
             goalKey, featuresHash, configHash,
             options.maxScore ?? 100, options.targetScore ?? 0
-        ].join('|');
+        ]);
         const cacheKey = `urg_${hashString64(cacheKeyRaw)}`;
         const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
         if (cachedUrgency) {

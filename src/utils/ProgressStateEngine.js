@@ -103,7 +103,8 @@ export function analyzeProgressState(scores, config = {}) {
     }
 
     // 5.1 Mean (Absolute Level)
-    const mean = finiteRecentScores.reduce((a, b) => a + b, 0) / finiteRecentScores.length;
+    const nTotal = finiteRecentScores.length;
+    const mean = nTotal > 0 ? finiteRecentScores.reduce((a, b) => a + b, 0) / nTotal : 0;
 
     // 5.2 Delta (Mean Absolute Variation)
     let variationTotal = 0;

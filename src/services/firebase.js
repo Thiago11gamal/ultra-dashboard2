@@ -92,17 +92,26 @@ export async function secureLogout() {
         signOutFailed = true;
     } finally {
         const keysToRemove = [
-            'appState',
-            'contests',
-            'activeContest',
-            'pomodoro',
-            'gameState',
-            'userId',
-            'userPreferences',
-            'pomodoroState',
+            // Storage principal (IndexedDB via idb-keyval)
+            'ultra-dashboard-storage',
+            // Flags de sync e estado local
             'ultra-sync-dirty',
+            'pomodoroState',
             'focusPanelLocked',
             'pomodoroLayoutLocked',
+            // Sessão local
+            'ultra_local_session',
+            // Telemetria do Coach
+            'coach_calibration_events_v1',
+            'coach_flag_optimizer_state_v1',
+            'coach_causal_model_v1',
+            'coach_auto_tuner_history_v1',
+            'coach_evaluation_results_v1',
+            'coach_model_health_v1',
+            'coach_control_center_state_v1',
+            // UI
+            'hasSeenWelcomeScreen',
+            'page-has-been-force-refreshed',
         ];
         keysToRemove.forEach(key => {
             try {

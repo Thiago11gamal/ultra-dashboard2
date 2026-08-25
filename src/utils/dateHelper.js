@@ -44,16 +44,28 @@ export function parseGoalDateUnified(value) {
 }
 
 export const getDateKey = (rawDate) => {
-  if (!rawDate) return new Date().toISOString().split('T')[0];
-  try {
-    const d = normalizeDate(rawDate) || new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch {
-    return new Date().toISOString().split('T')[0];
-  }
+    if (!rawDate) return new Date().toISOString().split('T')[0];
+    
+    // ✅ FIX: Se for ISO string 'YYYY-MM-DD', extraia diretamente sem passar pelo timezone engine
+    if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim().substring(0, 10))) {
+        return rawDate.trim().substring(0, 10);
+    }
+    // Suporte ao _seconds do firebase que vem cru sem getter de objeto Date
+    if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
+        const secs = rawDate.seconds || rawDate._seconds;
+        const d = new Date(secs * 1000);
+        return d.toISOString().split('T')[0];
+    }
+    
+    try {
+        const d = normalizeDate(rawDate) || new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    } catch {
+        return new Date().toISOString().split('T')[0];
+    }
 };
 
 export const getLocalMidnight = (date = new Date()) => {
@@ -242,16 +254,11 @@ export const parseNoonLocal = (input) => {
     if (!key) {
       const fallback = normalizeDate(input);
       if (!fallback || Number.isNaN(fallback.getTime())) return null;
-      fallback.setHours(12, 0, 0, 0);
       return fallback;
     }
-    const [y, m, d] = key.split('-').map(Number);
-    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-    const fullYear = y >= 0 && y < 100 ? y + 2000 : y;
-    const date = new Date(0);
-    date.setFullYear(fullYear, m - 1, d);
-    date.setHours(12, 0, 0, 0);
-    return date;
+    // ✅ FIX: Constroi ISO com offset -04:00 e delega pro motor nativo (ignora timezone local do device)
+    const tzFixedString = `${key}T12:00:00-04:00`;
+    return new Date(tzFixedString);
   } catch {
     return null;
   }

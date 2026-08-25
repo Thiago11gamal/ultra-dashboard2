@@ -43,7 +43,7 @@ export const getSafeId = (task) => {
     }
     
     const text = (task.text || task.title || task.topic || 'task').trim();
-    const cat = task.subject || task.category || task.subjectId || '';
+    const cat = task.subject || task.categoryId || task.category || task.subjectId || '';
     const hash = hashString(`${cat}_${text}`);
     const cleanPrefix = text.replace(/[^a-zA-Z0-9]/g, '').substring(0, 12).toLowerCase() || 'tsk';
     const newId = `task-${cleanPrefix}-${hash}`;

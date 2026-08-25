@@ -102,6 +102,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const [parityTick, setParityTick] = useState(0);
   const lastLocalMutationRef = useRef(0);
   const isCloudPullRef = useRef(false);
+  const pendingWritesCountRef = useRef(0);
 
   // Safety net: resetar isCloudPullRef se ficar preso por mais de 10s
   useEffect(() => {
@@ -190,11 +191,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (item.text || item.title) {
           return `task:${item.text || item.title}`;
       }
+      if (item.subject && item.date) {
+          return `sim:${item.date}:${item.subject}:${item.score ?? item.scorePoints ?? ''}`;
+      }
       if (item.date || item.startTime) {
           return `${item.date || item.startTime}-${item.categoryId || ''}-${item.taskId || ''}`;
-      }
-      if (item.subject && item.date) {
-          return `sim:${item.date}:${item.subject}`;
       }
       return `unknown:${JSON.stringify(item).slice(0, 50)}`;
     };
@@ -227,7 +228,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           ...item,
           probability: Number.isFinite(item.probability) ? item.probability : 0
         };
-        mcMap.set(item.date, sanitized);
+        const key = `${item.date}|${item.categoryId || 'global'}`;
+        mcMap.set(key, sanitized);
       }
     });
     return Array.from(mcMap.values()).filter(Boolean).sort((a, b) => {
@@ -363,8 +365,16 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       coachPlanner: mergeCoachPlanner(localContest.coachPlanner, cloudContest.coachPlanner),
       flashcardDecks: mergeArrays(localContest.flashcardDecks, cloudContest.flashcardDecks),
       agenda: mergeArrays(localContest.agenda, cloudContest.agenda),
-      settings: { ...(cloudContest.settings || {}), ...(localContest.settings || {}) },
-      mcWeights: { ...(cloudContest.mcWeights || {}), ...(localContest.mcWeights || {}) },
+      ...(() => {
+        const localTime = new Date(localContest.lastUpdated || 0).getTime();
+        const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
+        const settingsSource = cloudTime > localTime ? cloudContest : localContest;
+        const otherSource = cloudTime > localTime ? localContest : cloudContest;
+        return {
+          settings: { ...(otherSource.settings || {}), ...(settingsSource.settings || {}) },
+          mcWeights: { ...(otherSource.mcWeights || {}), ...(settingsSource.mcWeights || {}) },
+        };
+      })(),
       historicalCutoffs: [...new Set([...(localContest.historicalCutoffs || []), ...(cloudContest.historicalCutoffs || [])])],
       calibrationEvents: mergeArrays(localContest.calibrationEvents, cloudContest.calibrationEvents),
     };
@@ -537,9 +547,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       const snapId = ++currentSnapshotId;
       if (docSnap.metadata.hasPendingWrites) {
-        logger.debug("[Sync] Ignorando snapshot: Escrita local pendente.");
+        pendingWritesCountRef.current += 1;
+        logger.debug(`[Sync] Ignorando snapshot: Escrita local pendente (${pendingWritesCountRef.current}).`);
+        if (pendingWritesCountRef.current >= 5 && !isParityValidatedRef.current) {
+            logger.warn("[Sync] Pending writes persistentes — forçando paridade com dados locais.");
+            confirmParity();
+        }
         return;
       }
+      pendingWritesCountRef.current = 0;
 
       setCloudStatus('connected');
       setCloudError(null);
