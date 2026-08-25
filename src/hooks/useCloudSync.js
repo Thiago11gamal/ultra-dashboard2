@@ -382,7 +382,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     }
     if (!local) return cloud;
 
-    const cloudHasContestsTree = !!(cloud && cloud.contests && typeof cloud.contests === 'object' && Object.keys(cloud.contests).length > 0);
+    const cloudHasContestsTree = !!(cloud && cloud.contests && typeof cloud.contests === 'object');
     if (!cloudHasContestsTree) {
       logger.warn('[Sync] Payload da nuvem sem `contests` válido. Mantendo estado local.');
       if (!local?.contests) return local;
@@ -565,6 +565,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           });
         } catch (err) {
           logger.error("[Sync] Erro ao buscar subcoleções no snapshot:", err);
+          return; // ABORT Sync to avoid corrupting state with missing data
         }
       }
       
@@ -906,6 +907,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           batch.set(doc(db, 'backups', currentUser.uid), coreState);
           for (const [cid, cData] of Object.entries(contestsToSave)) {
             batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
+          }
+
+          // FIX: Deletar órfãos usando os IDs conhecidos da nuvem
+          const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
+          const currentLocalIds = new Set(Object.keys(contestsToSave));
+          for (const oldId of knownCloudIds) {
+            if (!currentLocalIds.has(oldId)) {
+              batch.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
+            }
           }
 
           const commitWithTimeout = (batchToCommit, timeoutMs) => {
