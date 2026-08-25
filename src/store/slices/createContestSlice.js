@@ -102,6 +102,7 @@ export const createContestSlice = (set) => ({
         const trimmed = typeof newName === 'string' ? newName.trim() : '';
         if (!contest || !trimmed) return;
         contest.contestName = trimmed;
+        contest.lastUpdated = new Date().toISOString();
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');

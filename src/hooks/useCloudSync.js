@@ -415,8 +415,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           }
         }
       } else {
-        const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
-        const localTime = new Date(localContest.lastUpdated || 0).getTime();
+        const cloudTime = new Date(cloudContest.lastUpdated || cloud.lastUpdated || 0).getTime();
+        const localTime = new Date(localContest.lastUpdated || local.lastUpdated || 0).getTime();
         mergedContests[id] = mergeContestPayload(localContest, cloudContest, cloudTime > localTime);
       }
     });
@@ -425,7 +425,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     if (!options.nonDestructive) localIds.forEach(id => {
       if (id === 'default') return;
       if (!cloudContests[id]) {
-        const localTime = new Date(localContests[id]?.lastUpdated || 0).getTime();
+        const localTime = new Date(localContests[id]?.lastUpdated || local.lastUpdated || 0).getTime();
         if (cloudFullUpdate > localTime + 5000) {
           const alreadyInTrash = (local.trash || []).some(t => t.contestId === id);
           if (!alreadyInTrash) {
