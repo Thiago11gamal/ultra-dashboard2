@@ -288,6 +288,7 @@ function PomodoroTimer({
     }, [speed, postSync]);
 
     const transitionTimeoutRef = useRef(null);
+    const completionTimeoutRef = useRef(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const isTransitioningRef = useRef(false);
 
