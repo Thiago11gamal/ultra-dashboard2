@@ -1758,7 +1758,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const historyLen = (safeCat.simuladoStats && safeCat.simuladoStats.history)
         ? (Array.isArray(safeCat.simuladoStats.history) ? safeCat.simuladoStats.history.length : Object.keys(safeCat.simuladoStats.history).length)
         : 0;
-    const todayStr = getDateKey(new Date());
+
 
 
     const userId = safeCat?.userId || safeSims[0]?.userId || 'default';
