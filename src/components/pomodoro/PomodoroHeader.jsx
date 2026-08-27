@@ -9,6 +9,8 @@ export function PomodoroHeader({ mode, activeSubject }) {
                 <Motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
+                    role="status"
+                    aria-live="polite"
                     className={`relative flex items-center justify-center gap-4 w-full rounded-2xl py-5 border ${mode === 'long_break' ? 'bg-violet-900/30 border-violet-500/40' : 'bg-emerald-900/30 border-emerald-500/40'}`}
                 >
                     <Zap size={20} className={`${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'}`} />

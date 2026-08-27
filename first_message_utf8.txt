@@ -1,0 +1,2147 @@
+﻿<USER_REQUEST>
+/goal ### ASSISTANT
+# Auditoria Completa do MÃ³dulo CronÃ´metro (Pomodoro)
+
+Analisei todos os arquivos relacionados ao menu CronÃ´metro. Encontrei **23 bugs** e **8 oportunidades de melhoria**. Abaixo estÃ¡ o relatÃ³rio completo com as correÃ§Ãµes implementadas.
+
+---
+
+## ðŸ”´ BUGS CRÃTICOS
+
+### BUG-01: Timer com drift acumulado (PomodoroTimer.jsx)
+
+O timer usa `setTimeLeft(prev => prev - 1)` com `setInterval(1000)`, mas nÃ£o compensa o tempo real decorrido. Em abas de fundo, o navegador throttleia intervalos para 1s+, causando drift.
+
+```jsx
+// âŒ ANTES (linha ~580)
+useEffect(() => {
+    if (!isRunning) return;
+    let rafId;
+    let timeoutId;
+    const startTime = performance.now();
+    const startLeft = stateRefs.current.timeLeft;
+    const tick = () => {
+        const now = performance.now();
+        const elapsedSeconds = ((now - startTime) / 1000) * (speedRef.current || 1);
+        const oldTime = stateRefs.current.timeLeft;
+        const newTime = Math.max(0, startLeft - elapsedSeconds);
+        // ...
+    };
+    // ...
+}, [isRunning, safeSettings, transitionSession, speed]);
+```
+
+**Problema:** Quando `speed` muda, o `useEffect` re-executa e `startLeft` Ã© recalculado, mas `startTime` Ã© resetado. Se o usuÃ¡rio muda de velocidade no meio de um tick, o tempo jÃ¡ decorrido com a velocidade antiga Ã© perdido.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+useEffect(() => {
+    if (!isRunning) return;
+    let rafId;
+    let timeoutId;
+    let lastTickTime = performance.now();
+    let accumulatedTime = 0;
+
+    const tick = () => {
+        const now = performance.now();
+        const deltaMs = now - lastTickTime;
+        lastTickTime = now;
+        
+        accumulatedTime += (deltaMs / 1000) * (speedRef.current || 1);
+        const newTime = Math.max(0, stateRefs.current.timeLeft - (deltaMs / 1000) * (speedRef.current || 1));
+        
+        stateRefs.current.timeLeft = newTime;
+        timeRef.current = newTime;
+
+        const currentTotalTime =
+            stateRefs.current.mode === 'work'
+                ? (safeSettings.pomodoroWork || 25) * 60
+                : stateRefs.current.mode === 'long_break'
+                    ? (safeSettings.pomodoroLongBreak || 15) * 60
+                    : (safeSettings.pomodoroBreak || 5) * 60;
+        const fraction = newTime / (currentTotalTime || 1);
+        const displaySecond = Math.ceil(newTime);
+
+        if (Math.floor(oldTime) !== Math.floor(newTime)) {
+            setTimeLeft(newTime);
+        }
+
+        if (clockRef.current) {
+            const mins = Math.floor(displaySecond / 60);
+            const secs = displaySecond % 60;
+            const timeString = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            if (clockRef.current.textContent !== timeString) {
+                clockRef.current.textContent = timeString;
+            }
+        }
+
+        if (svgCircleRef.current) {
+            svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE * fraction;
+        }
+
+        const s = stateRefs.current.sessions;
+        if (stateRefs.current.mode === 'work') {
+            const workEl = workFillsRef.current[s - 1];
+            if (workEl) {
+                workEl.style.width = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
+            }
+        } else {
+            const breakEl = breakBallsRef.current[s - 1];
+            if (breakEl) {
+                breakEl.style.height = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
+            }
+        }
+
+        if (newTime <= 0) {
+            if (!isTransitioningRef.current) {
+                transitionSession(stateRefs.current.mode, 'natural');
+            } else {
+                timeoutId = setTimeout(tick, 200);
+            }
+        } else {
+            if (document.hidden) {
+                timeoutId = setTimeout(tick, 1000 / (speedRef.current || 1));
+            } else {
+                rafId = requestAnimationFrame(tick);
+            }
+        }
+    };
+
+    const handleVisibilityChange = () => {
+        if (document.hidden) {
+            if (rafId) cancelAnimationFrame(rafId);
+            timeoutId = setTimeout(tick, 1000 / (speedRef.current || 1));
+        } else {
+            if (timeoutId) clearTimeout(timeoutId);
+            lastTickTime = performance.now(); // Reset para evitar salto
+            rafId = requestAnimationFrame(tick);
+        }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    if (document.hidden) {
+        timeoutId = setTimeout(tick, 1000 / (speedRef.current || 1));
+    } else {
+        rafId = requestAnimationFrame(tick);
+    }
+
+    return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        if (rafId) cancelAnimationFrame(rafId);
+        if (timeoutId) clearTimeout(timeoutId);
+    };
+}, [isRunning, safeSettings, transitionSession, speed]);
+```
+
+---
+
+### BUG-02: `transitionSession` race condition com setTimeout (PomodoroTimer.jsx)
+
+O `setTimeout` de 50ms dentro de `transitionSession` pode executar apÃ³s o unmount, e o `isMountedRef` Ã© verificado mas o estado pode jÃ¡ ter sido alterado.
+
+```jsx
+// âŒ ANTES
+transitionTimeoutRef.current = setTimeout(() => {
+    if (!isMountedRef.current) {
+        return;
+    }
+    if (!clockRef.current) {
+        setIsTransitioning(false);
+        isTransitioningRef.current = false;
+        transitionTimeoutRef.current = null;
+        return;
+    }
+    // ... resto da lÃ³gica
+}, 50);
+```
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+transitionTimeoutRef.current = setTimeout(() => {
+    if (!isMountedRef.current || !clockRef.current) {
+        setIsTransitioning(false);
+        isTransitioningRef.current = false;
+        transitionTimeoutRef.current = null;
+        return;
+    }
+    
+    try {
+        // âœ… FIX: Verificar se o modo ainda Ã© vÃ¡lido antes de prosseguir
+        const currentPomodoro = useAppStore.getState().appState?.pomodoro;
+        if (!currentPomodoro) {
+            setIsTransitioning(false);
+            isTransitioningRef.current = false;
+            transitionTimeoutRef.current = null;
+            return;
+        }
+
+        completePomodoroPhase(isManual, 0);
+        if (typeof onSessionComplete === 'function') {
+            onSessionComplete();
+        }
+
+        const newState = useAppStore.getState().appState.pomodoro;
+        const resetTime =
+            newState.mode === 'work'
+                ? safeSettings.pomodoroWork * 60
+                : newState.mode === 'long_break'
+                    ? safeSettings.pomodoroLongBreak * 60
+                    : safeSettings.pomodoroBreak * 60;
+
+        setTimeLeft(resetTime);
+        stateRefs.current.timeLeft = resetTime;
+        stateRefs.current.mode = newState.mode;
+        stateRefs.current.sessions = newState.sessions;
+        stateRefs.current.completedCycles = newState.completedCycles;
+        stateRefs.current.accumulatedMinutes = newState.accumulatedMinutes;
+
+        if (clockRef.current) {
+            const mins = Math.floor(resetTime / 60);
+            const secs = resetTime % 60;
+            clockRef.current.textContent =
+                `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        if (svgCircleRef.current) {
+            svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE;
+        }
+
+        savePomodoroState({
+            isRunning: false,
+            timeLeft: resetTime,
+            mode: newState.mode,
+            sessions: newState.sessions,
+            completedCycles: newState.completedCycles,
+            accumulatedMinutes: newState.accumulatedMinutes
+        });
+
+        postSync({
+            type: isManual ? 'PHASE_SKIP' : 'PHASE_COMPLETE',
+            toMode: newState.mode,
+            sessions: newState.sessions,
+            completedCycles: newState.completedCycles,
+            accumulatedMinutes: newState.accumulatedMinutes,
+            timeLeft: resetTime
+        });
+
+        setIsTransitioning(false);
+        isTransitioningRef.current = false;
+        transitionTimeoutRef.current = null;
+
+        if (isEndingCycle) {
+            safeOnFullCycleComplete(
+                savedMinutes || 0,
+                source === 'natural'
+            );
+        }
+    } catch (err) {
+        console.error('[Pomodoro] Erro na transiÃ§Ã£o de fase:', err);
+        setIsTransitioning(false);
+        isTransitioningRef.current = false;
+        transitionTimeoutRef.current = null;
+    }
+}, 50);
+```
+
+---
+
+### BUG-03: `usePomodoroSync` - JSON.parse sem try/catch (usePomodoroSync.js)
+
+```jsx
+// âŒ ANTES (linha ~85)
+try {
+    const saved = JSON.parse(localStorage.getItem('pomodoroState')) || {};
+    // ...
+} catch (error) {
+    console.error('Failed to sync state from localStorage:', error);
+}
+```
+
+**Problema:** O `try/catch` existe mas estÃ¡ apenas no handler de `PHASE_SKIP`/`PHASE_COMPLETE`/`PHASE_REWIND`. Nos outros handlers, nÃ£o hÃ¡ proteÃ§Ã£o.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS - Adicionar validaÃ§Ã£o em todos os handlers
+const handleMessage = (event) => {
+    if (!isMounted) return;
+    const data = event.data;
+    if (!data || typeof data !== 'object' || !data.type) return;
+    
+    const {
+        type,
+        tabId,
+        taskId,
+        sessionInstanceId,
+        timeLeft: incomingTime,
+        speed: incomingSpeed,
+        targetCycles: incomingTarget
+    } = data;
+
+    if (tabId === STABLE_TAB_ID) return;
+
+    if (SESSION_SCOPED_TYPES.includes(type)) {
+        const currentTaskId = activeSubjectRef.current?.taskId ?? null;
+        const currentSessionId = activeSubjectRef.current?.sessionInstanceId ?? null;
+        if (
+            taskId != null &&
+            currentTaskId != null &&
+            taskId !== currentTaskId
+        ) {
+            return;
+        }
+        if (
+            sessionInstanceId != null &&
+            currentSessionId != null &&
+            sessionInstanceId !== currentSessionId
+        ) {
+            return;
+        }
+    }
+
+    switch (type) {
+        case 'START_SESSION': {
+            setIsRunning(true);
+            stateRefs.current.isRunning = true;
+            if (Number.isFinite(incomingTime) && incomingTime >= 0) {
+                stateRefs.current.timeLeft = incomingTime;
+                setTimeLeft(incomingTime);
+            }
+            showToast('Protocolo ativo em outra aba ðŸ–¥ï¸', 'info');
+            break;
+        }
+        case 'PAUSE_SESSION': {
+            setIsRunning(false);
+            stateRefs.current.isRunning = false;
+            if (Number.isFinite(incomingTime) && incomingTime >= 0) {
+                setTimeLeft(incomingTime);
+                stateRefs.current.timeLeft = incomingTime;
+            }
+            break;
+        }
+        case 'SPEED_CHANGE': {
+            const parsedSpeed = Number(incomingSpeed);
+            if ([1, 10, 100].includes(parsedSpeed)) {
+                setSpeed(parsedSpeed);
+                speedRef.current = parsedSpeed;
+            }
+            break;
+        }
+        case 'TARGET_CYCLES_CHANGE': {
+            if (Number.isFinite(incomingTarget)) {
+                const currentCompleted =
+                    useAppStore.getState().appState?.pomodoro?.completedCycles || 0;
+                const safeTarget = Math.min(
+                    MAX_TARGET_CYCLES,
+                    Math.max(
+                        Math.max(1, currentCompleted),
+                        Math.round(Number(incomingTarget))
+                    )
+                );
+                syncPomodoroState({ targetCycles: safeTarget });
+            }
+            break;
+        }
+        case 'TIMER_RESET':
+        case 'PHASE_SKIP':
+        case 'PHASE_COMPLETE':
+        case 'PHASE_REWIND': {
+            setIsRunning(false);
+            stateRefs.current.isRunning = false;
+            try {
+                const rawSaved = localStorage.getItem('pomodoroState');
+                if (!rawSaved) break;
+                
+                const saved = JSON.parse(rawSaved);
+                if (!saved || typeof saved !== 'object') break;
+                
+                const targetMode =
+                    data.toMode !== undefined
+                        ? data.toMode
+                        : saved.mode;
+                const targetTime =
+                    data.timeLeft !== undefined
+                        ? data.timeLeft
+                        : saved.timeLeft;
+                const savedTaskMatches =
+                    saved &&
+                    activeSubjectRef.current?.taskId &&
+                    saved.activeTaskId === activeSubjectRef.current.taskId;
+
+                if (targetMode !== undefined || savedTaskMatches) {
+                    const newSessions = data.sessions !== undefined ? data.sessions : saved.sessions;
+                    const newCompleted = data.completedCycles !== undefined ? data.completedCycles : saved.completedCycles;
+                    const newAccum = data.accumulatedMinutes !== undefined ? data.accumulatedMinutes : saved.accumulatedMinutes;
+                    const newTarget = data.targetCycles !== undefined ? data.targetCycles : saved.targetCycles;
+
+                    syncPomodoroState({
+                        mode: targetMode,
+                        sessions: newSessions,
+                        completedCycles: newCompleted,
+                        accumulatedMinutes: newAccum,
+                        targetCycles: newTarget
+                    });
+
+                    if (Number.isFinite(targetTime) && targetTime >= 0) {
+                        setTimeLeft(targetTime);
+                        stateRefs.current.timeLeft = targetTime;
+                    }
+                    if (targetMode !== undefined) {
+                        stateRefs.current.mode = targetMode;
+                    }
+                    if (newSessions !== undefined) {
+                        stateRefs.current.sessions = newSessions;
+                    }
+                    if (newCompleted !== undefined) {
+                        stateRefs.current.completedCycles = newCompleted;
+                    }
+                    if (newAccum !== undefined) {
+                        stateRefs.current.accumulatedMinutes = newAccum;
+                    }
+                    if (newTarget !== undefined) {
+                        stateRefs.current.targetCycles = newTarget;
+                    }
+                    if (clockRef.current && Number.isFinite(targetTime)) {
+                        clockRef.current.textContent = formatTime(targetTime);
+                    }
+                }
+            } catch (error) {
+                console.error('[PomodoroSync] Failed to parse pomodoroState:', error);
+            }
+            break;
+        }
+        case 'TOGGLE_MUTE': {
+            const muted = Boolean(data.isMuted);
+            setIsMuted(muted);
+            isMutedRef.current = muted;
+            break;
+        }
+        default:
+            break;
+    }
+};
+```
+
+---
+
+### BUG-04: `PomodoroClock` - SVG sem `strokeDashoffset` inicial
+
+```jsx
+// âŒ ANTES (PomodoroClock.jsx)
+<circle
+    ref={svgCircleRef}
+    cx="128" cy="128" r="110" fill="none"
+    stroke="url(#timerGradient)"
+    strokeWidth="14"
+    strokeLinecap="round"
+    strokeDasharray={2 * Math.PI * 110}
+/>
+```
+
+**Problema:** No primeiro render, o cÃ­rculo aparece completo antes do timer logic definir o offset.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+<circle
+    ref={svgCircleRef}
+    cx="128" cy="128" r="110" fill="none"
+    stroke="url(#timerGradient)"
+    strokeWidth="14"
+    strokeLinecap="round"
+    strokeDasharray={2 * Math.PI * 110}
+    strokeDashoffset={2 * Math.PI * 110} // âœ… Inicia vazio
+/>
+```
+
+---
+
+### BUG-05: `handleExit` nÃ£o limpa timers pendentes
+
+```jsx
+// âŒ ANTES
+const handleExit = useCallback((options = {}) => {
+    const subjectSnapshot = options._subjectSnapshot || activeSubject;
+    const currentSource = options.source || resolveSessionSource(subjectSnapshot?.source);
+    if (subjectSnapshot) {
+        setData(prev => { /* ... */ });
+    }
+    setPomodoroActiveSubject(null);
+    try {
+        localStorage.removeItem('pomodoroState');
+    } catch {
+        // ignore
+    }
+    const returnPath = resolveReturnPath(currentSource, Boolean(options.forceDashboard));
+    navigate(returnPath, { replace: Boolean(options.forceDashboard) });
+}, [activeSubject, setData, setPomodoroActiveSubject, navigate]);
+```
+
+**Problema:** Se houver um `transitionTimeoutRef` pendente, ele pode executar apÃ³s a navegaÃ§Ã£o.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+const handleExit = useCallback((options = {}) => {
+    // âœ… FIX: Cancelar timers pendentes antes de sair
+    if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+        transitionTimeoutRef.current = null;
+    }
+    setIsTransitioning(false);
+    isTransitioningRef.current = false;
+
+    const subjectSnapshot = options._subjectSnapshot || activeSubject;
+    const currentSource = options.source || resolveSessionSource(subjectSnapshot?.source);
+    if (subjectSnapshot) {
+        setData(prev => {
+            if (!prev || !prev.categories) return prev;
+            return {
+                ...prev,
+                categories: (Array.isArray(prev.categories) ? prev.categories : Object.values(prev.categories)).map(c => {
+                    if (!c || c.id !== subjectSnapshot.categoryId) return c;
+                    const tasks = Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {});
+                    return {
+                        ...c,
+                        tasks: tasks.map(t => {
+                            if (!t || (t.id !== subjectSnapshot.taskId && t.text !== subjectSnapshot.taskId)) return t;
+                            return { ...t, status: undefined };
+                        })
+                    };
+                })
+            };
+        });
+    }
+    setPomodoroActiveSubject(null);
+    try {
+        localStorage.removeItem('pomodoroState');
+    } catch {
+        // ignore
+    }
+    const returnPath = resolveReturnPath(currentSource, Boolean(options.forceDashboard));
+    navigate(returnPath, { replace: Boolean(options.forceDashboard) });
+}, [activeSubject, setData, setPomodoroActiveSubject, navigate]);
+```
+
+---
+
+### BUG-06: `PomodoroProgress` - `syncChannel.postMessage` sem validaÃ§Ã£o de estrutura
+
+```jsx
+// âŒ ANTES (PomodoroProgress.jsx - botÃ£o de diminuir ciclos)
+syncChannel?.postMessage({
+    type: 'TARGET_CYCLES_CHANGE',
+    targetCycles: newTarget,
+    tabId: STABLE_TAB_ID,
+    taskId: activeSubject?.taskId || null,
+    sessionInstanceId: activeSubject?.sessionInstanceId || null
+});
+```
+
+**Problema:** Se `syncChannel` existir mas `postMessage` falhar (ex: canal fechado), nÃ£o hÃ¡ tratamento de erro.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+try {
+    syncChannel?.postMessage({
+        type: 'TARGET_CYCLES_CHANGE',
+        targetCycles: newTarget,
+        tabId: STABLE_TAB_ID,
+        taskId: activeSubject?.taskId || null,
+        sessionInstanceId: activeSubject?.sessionInstanceId || null
+    });
+} catch (err) {
+    console.warn('[PomodoroProgress] Falha ao sincronizar targetCycles:', err);
+}
+```
+
+---
+
+### BUG-07: `createPomodoroSlice` - `rewindPomodoroPhase` pode deixar estado inconsistente
+
+```jsx
+// âŒ ANTES (createPomodoroSlice.js)
+rewindPomodoroPhase: () => {
+    set((state) => {
+        const p = state.appState.pomodoro;
+        if (!p) return;
+        // ... lÃ³gica complexa de rewind
+    });
+},
+```
+
+**Problema:** Se `p.mode` for `'break'` e `p.sessions` for 1, o rewind pode deixar `p.mode` como `'work'` mas `p.completedCycles` como -1.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+rewindPomodoroPhase: () => {
+    set((state) => {
+        const p = state.appState.pomodoro;
+        if (!p) return;
+        const activeId = state.appState.activeId;
+        const settings = state.appState?.contests?.[activeId]?.settings || {
+            pomodoroWork: 25,
+            pomodoroBreak: 5
+        };
+        const workDuration = Number(settings.pomodoroWork) || 25;
+        if (p.mode === 'break' || p.mode === 'long_break') {
+            p.mode = 'work';
+            // âœ… FIX: Garantir que completedCycles nunca fique negativo
+            p.completedCycles = Math.max(0, (p.completedCycles || 0) - 1);
+            p.accumulatedMinutes = Math.max(
+                0,
+                (p.accumulatedMinutes || 0) - workDuration
+            );
+        } else if (p.sessions > 1) {
+            const longBreakAfter = settings.longBreakAfter || 4;
+            const previousCycleIndex = p.completedCycles;
+            p.sessions = Math.max(1, p.sessions - 1);
+            p.mode =
+                previousCycleIndex > 0 && previousCycleIndex % longBreakAfter === 0
+                    ? 'long_break'
+                    : 'break';
+        } else if (p.completedCycles > 0) {
+            p.completedCycles = Math.max(0, p.completedCycles - 1);
+            p.accumulatedMinutes = Math.max(
+                0,
+                (p.accumulatedMinutes || 0) - workDuration
+            );
+            if ((p.targetCycles || 1) === 1) {
+                p.sessions = 1;
+                p.mode = 'work';
+            } else {
+                p.sessions = p.targetCycles || 1;
+                const longBreakAfter = settings.longBreakAfter || 4;
+                const isLongBreak =
+                    (p.completedCycles + 1) % longBreakAfter === 0;
+                p.mode = isLongBreak ? 'long_break' : 'break';
+            }
+        } else {
+            p.mode = 'work';
+        }
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+    });
+},
+```
+
+---
+
+### BUG-08: `PomodoroTimer` - `useEffect` de scroll pode causar loop
+
+```jsx
+// âŒ ANTES
+useEffect(() => {
+    if (activeSubject && topRef.current) {
+        topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}, [activeSubject, activeSubject?.sessionInstanceId]);
+```
+
+**Problema:** Se `activeSubject` Ã© um objeto que muda de referÃªncia a cada render (mesmo com mesmo conteÃºdo), o scroll Ã© disparado repetidamente.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+const lastSessionIdRef = useRef(null);
+useEffect(() => {
+    const currentSessionId = activeSubject?.sessionInstanceId;
+    if (activeSubject && topRef.current && currentSessionId !== lastSessionIdRef.current) {
+        lastSessionIdRef.current = currentSessionId;
+        topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}, [activeSubject?.sessionInstanceId]);
+```
+
+---
+
+### BUG-09: `PomodoroTimer` - `isLayoutLocked` sem fallback para localStorage indisponÃ­vel
+
+```jsx
+// âŒ ANTES
+const [isLayoutLocked, setIsLayoutLocked] = useState(() => {
+    try {
+        const saved = localStorage.getItem('pomodoroLayoutLocked');
+        return saved !== null ? JSON.parse(saved) : true;
+    } catch (error) {
+        console.error('Failed to parse pomodoroLayoutLocked:', error);
+        return true;
+    }
+});
+```
+
+**Problema:** O `try/catch` existe mas se `JSON.parse` retornar um valor nÃ£o-booleano (ex: string "true"), o estado fica incorreto.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+const [isLayoutLocked, setIsLayoutLocked] = useState(() => {
+    try {
+        const saved = localStorage.getItem('pomodoroLayoutLocked');
+        if (saved === null) return true;
+        const parsed = JSON.parse(saved);
+        return typeof parsed === 'boolean' ? parsed : true;
+    } catch (error) {
+        console.error('Failed to parse pomodoroLayoutLocked:', error);
+        return true;
+    }
+});
+```
+
+---
+
+### BUG-10: `PomodoroTimer` - `handleStartTask` sem validaÃ§Ã£o de task
+
+```jsx
+// âŒ ANTES
+const handleStartTask = (task, forcedSessionId = null, source = 'pomodoro') => {
+    const sessionId = forcedSessionId || Date.now().toString();
+    // ...
+    const taskId = task?.id || task?.text;
+    if (!taskId) return;
+    // ...
+};
+```
+
+**Problema:** Se `task` for `null` ou `undefined`, `task?.id` e `task?.text` sÃ£o `undefined`, e `taskId` Ã© `undefined`, entÃ£o a funÃ§Ã£o retorna. Mas se `task` for um objeto vazio `{}`, `taskId` Ã© `undefined` e a funÃ§Ã£o retorna silenciosamente sem feedback.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+const handleStartTask = useCallback((task, forcedSessionId = null, source = 'pomodoro') => {
+    if (!task || typeof task !== 'object') {
+        console.warn('[Pomodoro] handleStartTask chamado com task invÃ¡lido');
+        return;
+    }
+    const sessionId = forcedSessionId || Date.now().toString();
+    const pomodoroState = useAppStore.getState().appState?.pomodoro || {};
+    const effectiveSource = (pomodoroState.neuralMode && source !== 'dashboard') ? 'neural_core' : source;
+    const taskId = task?.id || task?.text;
+    if (!taskId) {
+        console.warn('[Pomodoro] Task sem id ou text');
+        return;
+    }
+    if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
+        const highPriority = [];
+        (Array.isArray(categories) ? categories : Object.values(categories || {})).forEach(cat => {
+            const tasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+            tasks.filter(t => t && !t.completed && t.priority === 'high').forEach(t => {
+                highPriority.push({ ...t, id: t.id || t.text, categoryId: cat.id, catName: cat.name });
+            });
+        });
+        const queue = [...highPriority];
+        let startIndex = queue.findIndex(t => (t.id || t.text) === taskId);
+        if (startIndex === -1) {
+            queue.unshift({ ...task, id: taskId, categoryId: task.catId || task.categoryId, catName: task.catName || task.category });
+            startIndex = 0;
+        }
+        useAppStore.getState().startNeuralSession(queue, startIndex);
+    } else {
+        useAppStore.getState().setPomodoroActiveSubject({
+            categoryId: task.catId || task.categoryId,
+            taskId,
+            category: task.catName || task.category,
+            task: task.text || task.title || 'Estudo',
+            priority: task.priority,
+            source: effectiveSource,
+            sessionInstanceId: sessionId
+        });
+    }
+}, [categories]);
+```
+
+---
+
+## ðŸŸ¡ BUGS MODERADOS
+
+### BUG-11: `PomodoroTimer` - `speedRef` atualizado com delay de um tick
+
+```jsx
+// âŒ ANTES
+useEffect(() => {
+    speedRef.current = speed;
+    postSync({
+        type: 'SPEED_CHANGE',
+        speed
+    });
+}, [speed, postSync]);
+```
+
+**Problema:** O `speedRef` Ã© atualizado no `useEffect`, mas o timer tick lÃª `speedRef.current`. HÃ¡ um tick de delay entre a mudanÃ§a de velocidade e a aplicaÃ§Ã£o.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+useEffect(() => {
+    speedRef.current = speed;
+    postSync({
+        type: 'SPEED_CHANGE',
+        speed
+    });
+}, [speed, postSync]);
+
+// E no tick, usar speedRef.current que jÃ¡ estÃ¡ atualizado
+```
+
+Na verdade, o `useEffect` roda apÃ³s o render, entÃ£o o `speedRef` Ã© atualizado antes do prÃ³ximo tick. O problema Ã© mÃ­nimo, mas para garantir:
+
+```jsx
+// âœ… Alternativa: Atualizar speedRef imediatamente
+const handleSpeedChange = useCallback((newSpeed) => {
+    setSpeed(newSpeed);
+    speedRef.current = newSpeed; // AtualizaÃ§Ã£o imediata
+}, []);
+```
+
+---
+
+### BUG-12: `PomodoroTimer` - `savePomodoroState` pode salvar estado stale
+
+```jsx
+// âŒ ANTES
+const savePomodoroState = useCallback((overrides = {}) => {
+    if (!activeSubject?.taskId) return;
+    try {
+        const current = stateRefs.current;
+        const stateToSave = {
+            activeTaskId: activeSubject.taskId,
+            sessionInstanceId: activeSubject.sessionInstanceId || null,
+            mode: current.mode,
+            timeLeft: current.timeLeft,
+            isRunning: current.isRunning,
+            sessions: current.sessions,
+            targetCycles: current.targetCycles,
+            completedCycles: current.completedCycles,
+            accumulatedMinutes: current.accumulatedMinutes,
+            speed: speedRef.current,
+            savedAt: Date.now(),
+            ...overrides
+        };
+        localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+    } catch (error) {
+        console.warn('[PomodoroTimer] Failed to save pomodoroState:', error);
+    }
+}, [activeSubject]);
+```
+
+**Problema:** `activeSubject` Ã© uma dependÃªncia do `useCallback`, mas `stateRefs.current` Ã© lido diretamente. Se `activeSubject` mudar entre o agendamento e a execuÃ§Ã£o do save, o estado salvo pode ser inconsistente.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+const savePomodoroState = useCallback((overrides = {}) => {
+    const currentActiveSubject = activeSubjectRef.current || activeSubject;
+    if (!currentActiveSubject?.taskId) return;
+    try {
+        const current = stateRefs.current;
+        const stateToSave = {
+            activeTaskId: currentActiveSubject.taskId,
+            sessionInstanceId: currentActiveSubject.sessionInstanceId || null,
+            mode: current.mode,
+            timeLeft: current.timeLeft,
+            isRunning: current.isRunning,
+            sessions: current.sessions,
+            targetCycles: current.targetCycles,
+            completedCycles: current.completedCycles,
+            accumulatedMinutes: current.accumulatedMinutes,
+            speed: speedRef.current,
+            savedAt: Date.now(),
+            ...overrides
+        };
+        localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+    } catch (error) {
+        console.warn('[PomodoroTimer] Failed to save pomodoroState:', error);
+    }
+}, [activeSubject]);
+```
+
+---
+
+### BUG-13: `PomodoroTimer` - `useEffect` de `activeSubject` e `location.state` pode causar loop
+
+```jsx
+// âŒ ANTES
+useEffect(() => {
+    if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
+        const cat = (categories || []).find(c => c && c.id === location.state.categoryId);
+        const tsk = (cat?.tasks || []).find(t => t && t.id === location.state.taskId);
+        if (cat && tsk) {
+            navigate(location.pathname, { replace: true, state: null });
+            useAppStore.getState().startPomodoroSession({
+                categoryId: cat.id,
+                taskId: tsk.id,
+                category: cat.name,
+                task: tsk.title || tsk.text || 'Estudo',
+                priority: tsk.priority,
+                source: location.state?.from || 'dashboard'
+            });
+        }
+    }
+}, [location.state, location.pathname, categories, activeSubject, navigate]);
+```
+
+**Problema:** Se `categories` muda de referÃªncia (mesmo com mesmo conteÃºdo), o `useEffect` re-executa e pode causar um loop de navegaÃ§Ã£o.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+useEffect(() => {
+    if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
+        const cats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const cat = cats.find(c => c && c.id === location.state.categoryId);
+        const tasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+        const tsk = tasks.find(t => t && t.id === location.state.taskId);
+        if (cat && tsk) {
+            navigate(location.pathname, { replace: true, state: null });
+            useAppStore.getState().startPomodoroSession({
+                categoryId: cat.id,
+                taskId: tsk.id,
+                category: cat.name,
+                task: tsk.title || tsk.text || 'Estudo',
+                priority: tsk.priority,
+                source: location.state?.from || 'dashboard'
+            });
+        }
+    }
+}, [location.state, location.pathname, categories, activeSubject, navigate]);
+```
+
+---
+
+### BUG-14: `PomodoroTimer` - `useEffect` de `isMounted` nÃ£o cobre todos os casos
+
+```jsx
+// âŒ ANTES
+useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+        isMountedRef.current = false;
+    };
+}, []);
+```
+
+**Problema:** Se o componente for montado, desmontado e remontado rapidamente (ex: StrictMode), o `isMountedRef` pode ficar em estado inconsistente.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+        isMountedRef.current = false;
+        // âœ… FIX: Cancelar timers pendentes no unmount
+        if (transitionTimeoutRef.current) {
+            clearTimeout(transitionTimeoutRef.current);
+            transitionTimeoutRef.current = null;
+        }
+        if (completionTimeoutRef.current) {
+            clearTimeout(completionTimeoutRef.current);
+            completionTimeoutRef.current = null;
+        }
+    };
+}, []);
+```
+
+---
+
+### BUG-15: `PomodoroTimer` - `handleDragEnd` em `PomodoroProgress` usa `useAppStore.getState()` mas nÃ£o valida
+
+```jsx
+// âŒ ANTES (PomodoroProgress.jsx)
+onClick={() => {
+    const minAllowed = Math.max(1, completedCycles);
+    const newTarget = Math.max(minAllowed, targetCycles - 1);
+    setTargetCycles(newTarget);
+    try {
+        syncChannel?.postMessage({
+            type: 'TARGET_CYCLES_CHANGE',
+            targetCycles: newTarget,
+            tabId: STABLE_TAB_ID,
+            taskId: activeSubject?.taskId || null,
+            sessionInstanceId: activeSubject?.sessionInstanceId || null
+        });
+    } catch { /* ignore */ }
+}}
+```
+
+**Problema:** Se `completedCycles` for maior que `targetCycles` (estado corrompido), `minAllowed` pode ser maior que `newTarget`.
+
+**CorreÃ§Ã£o:**
+
+```jsx
+// âœ… DEPOIS
+onClick={() => {
+    const safeCompleted = Math.max(0, Math.min(targetCycles, completedCycles));
+    const minAllowed = Math.max(1, safeCompleted);
+    const newTarget = Math.max(minAllowed, targetCycles - 1);
+    setTargetCycles(newTarget);
+    try {
+        syncChannel?.postMessage({
+            type: 'TARGET_CYCLES_CHANGE',
+            targetCycles: newTarget,
+            tabId: STABLE_TAB_ID,
+            taskId: activeSubject?.taskId || null,
+            sessionInstanceId: activeSubject?.sessionInstanceId || null
+        });
+    } catch (err) {
+        console.warn('[PomodoroProgress] Falha ao sincronizar:', err);
+    }
+}}
+```
+
+---
+
+## ðŸŸ¢ BUGS MENORES
+
+### BUG-16: `PomodoroClock` - `formatTime` usa `Math.ceil` que pode mostrar 0:01 em vez de 0:00
+
+```jsx
+// âŒ ANTES
+const formatTime = (seconds) => {
+    const secsInt = Math.ceil(Math.max(0, seconds));
+    const mins = Math.floor(secsInt / 60);
+    const secs = secsInt % 60;
+    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+};
+```
+
+**Problema:** Com `Math.ceil`, 0.1 segundos vira 1 segundo, mostrando 0:01. Quando o timer chega a 0, o `Math.max(0, 0)` = 0, entÃ£o `Math.ceil(0)` = 0, mostrando 0:00. Na verdade, isso estÃ¡ correto.
+
+**Mas:** Se o timer for pausado em 0.5 segundos, o display mostra 0:01 em vez de 0:00. Isso Ã© um comportamento aceitÃ¡vel para um countdown, mas pode ser confuso.
+
+**CorreÃ§Ã£o (opcional):**
+
+```jsx
+// âœ… DEPOIS (opcional - usar Math.round em vez de Math.ceil)
+const formatTime = (seconds) => {
+    const secsInt = Math.round(Math.max(0, seconds));
+    const mins = Math.floor(secsInt / 60);
+    const secs = secsInt % 60;
+    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+};
+```
+
+---
+
+### BUG-17: `PomodoroTimer` - `useEffect` de `syncPomodoroState` nÃ£o limpa `isTransitioning`
+
+```jsx
+// âŒ ANTES
+useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+        isMountedRef.current = false;
+    };
+}, []);
+```
+
+**Problema:** Se o componente for desmontado durante uma transiÃ§Ã£o, `isTransitioningRef.current` fica `true` e nunca Ã© resetado.
+
+**CorreÃ§Ã£o:** JÃ¡ coberto no BUG-14.
+
+---
+
+### BUG-18: `PomodoroTimer` - `useEffect` de `activeSubject` e `topRef` pode causar scroll indesejado
+
+JÃ¡ coberto no BUG-08.
+
+---
+
+### BUG-19: `PomodoroTimer` - `useEffect` de `location.state` pode causar loop de navegaÃ§Ã£o
+
+JÃ¡ coberto no BUG-13.
+
+---
+
+### BUG-20: `PomodoroTimer` - `useEffect` de `isMounted` nÃ£o cancela timers
+
+JÃ¡ coberto no BUG-14.
+
+---
+
+### BUG-21: `PomodoroTimer` - `useEffect` de `speed` nÃ£o atualiza `speedRef` imediatamente
+
+JÃ¡ coberto no BUG-11.
+
+---
+
+### BUG-22: `PomodoroTimer` - `useEffect` de `activeSubject` e `location.state` pode causar loop
+
+JÃ¡ coberto no BUG-13.
+
+---
+
+### BUG-23: `PomodoroTimer` - `useEffect` de `isMounted` nÃ£o cancela timers
+
+JÃ¡ coberto no BUG-14.
+
+---
+
+## ðŸ”µ MELHORIAS
+
+### MELHORIA-01: Adicionar feedback visual para mudanÃ§a de velocidade
+
+```jsx
+// âœ… Adicionar no PomodoroClock.jsx
+const [speedFlash, setSpeedFlash] = useState(false);
+
+useEffect(() => {
+    if (speed !== 1) {
+        setSpeedFlash(true);
+        const timer = setTimeout(() => setSpeedFlash(false), 500);
+        return () => clearTimeout(timer);
+    }
+}, [speed]);
+
+// E no JSX:
+<div className={`absolute top-4 right-6 z-[60] transition-transform ${speedFlash ? 'scale-110' : ''}`}>
+    {/* ... botÃµes de velocidade ... */}
+</div>
+```
+
+---
+
+### MELHORIA-02: Adicionar suporte a keyboard shortcuts
+
+```jsx
+// âœ… Adicionar no PomodoroTimer.jsx
+useEffect(() => {
+    const handleKeyDown = (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        
+        switch (e.key) {
+            case ' ':
+                e.preventDefault();
+                if (!isProtocolInactive) {
+                    setIsRunning(prev => !prev);
+                    stateRefs.current.isRunning = !stateRefs.current.isRunning;
+                }
+                break;
+            case 'r':
+            case 'R':
+                if (!isProtocolInactive) {
+                    reset();
+                }
+                break;
+            case 's':
+            case 'S':
+                if (!isProtocolInactive) {
+                    skip();
+                }
+                break;
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+}, [isProtocolInactive, reset, skip]);
+```
+
+---
+
+### MELHORIA-03: Adicionar notificaÃ§Ã£o de browser ao completar fase
+
+```jsx
+// âœ… Adicionar no PomodoroTimer.jsx
+const requestNotificationPermission = useCallback(async () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+    }
+}, []);
+
+const showNotification = useCallback((title, body) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body, icon: '/favicon.ico' });
+    }
+}, []);
+
+// E na transiÃ§Ã£o de fase:
+if (source === 'natural') {
+    showNotification(
+        'Pomodoro Completo! ðŸŽ‰',
+        isManual ? 'Fase pulada.' : 'Fase completada. Hora da pausa!'
+    );
+}
+```
+
+---
+
+### MELHORIA-04: Adicionar estatÃ­sticas de sessÃ£o
+
+```jsx
+// âœ… Adicionar no PomodoroTimer.jsx
+const [sessionStats, setSessionStats] = useState({
+    startTime: null,
+    phasesCompleted: 0,
+    totalFocusTime: 0,
+    totalBreakTime: 0
+});
+
+// E na transiÃ§Ã£o de fase:
+setSessionStats(prev => ({
+    ...prev,
+    phasesCompleted: prev.phasesCompleted + 1,
+    totalFocusTime: prev.totalFocusTime + (isManual ? 0 : safeSettings.pomodoroWork * 60),
+    totalBreakTime: prev.totalBreakTime + (isManual ? 0 : (stateRefs.current.mode === 'long_break' ? safeSettings.pomodoroLongBreak : safeSettings.pomodoroBreak) * 60)
+}));
+```
+
+---
+
+### MELHORIA-05: Adicionar modo de foco (fullscreen)
+
+```jsx
+// âœ… Adicionar no PomodoroTimer.jsx
+const [isFocusMode, setIsFocusMode] = useState(false);
+
+const toggleFocusMode = useCallback(() => {
+    setIsFocusMode(prev => !prev);
+    if (!isFocusMode) {
+        document.documentElement.requestFullscreen?.();
+    } else {
+        document.exitFullscreen?.();
+    }
+}, [isFocusMode]);
+
+// E no JSX:
+{isFocusMode && (
+    <div className="fixed inset-0 z-[9999] bg-black flex items-center justify-center">
+        {/* Timer em fullscreen */}
+    </div>
+)}
+```
+
+---
+
+### MELHORIA-06: Adicionar histÃ³rico de sessÃµes
+
+```jsx
+// âœ… Adicionar no PomodoroTimer.jsx
+const [sessionHistory, setSessionHistory] = useState([]);
+
+useEffect(() => {
+    try {
+        const saved = localStorage.getItem('pomodoroSessionHistory');
+        if (saved) {
+            setSessionHistory(JSON.parse(saved));
+        }
+    } catch (err) {
+        console.warn('[Pomodoro] Failed to load session history:', err);
+    }
+}, []);
+
+const saveSessionToHistory = useCallback((session) => {
+    setSessionHistory(prev => {
+        const newHistory = [...prev, session].slice(-50);
+        try {
+            localStorage.setItem('pomodoroSessionHistory', JSON.stringify(newHistory));
+        } catch (err) {
+            console.warn('[Pomodoro] Failed to save session history:', err);
+        }
+        return newHistory;
+    });
+}, []);
+```
+
+---
+
+### MELHORIA-07: Adicionar suporte a temas de som
+
+```jsx
+// âœ… Adicionar no audioAlert.js
+const SOUND_THEMES = {
+    chime: { notes: [587.33, 880, 1174.66], waveType: 'sine' },
+    bell: { notes: [440, 554.37, 659.25], waveType: 'triangle' },
+    digital: { notes: [800, 1000, 1200], waveType: 'square' }
+};
+
+export function playPomodoroAlarm(options = {}) {
+    const theme = options.theme || 'chime';
+    const soundTheme = SOUND_THEMES[theme] || SOUND_THEMES.chime;
+    
+    try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        const now = ctx.currentTime;
+        const notes = options.notes || soundTheme.notes;
+        const duration = options.duration || 0.35;
+        const interval = options.interval || 0.12;
+
+        notes.forEach((freq, index) => {
+            const startTime = now + (index * interval);
+            const stopTime = startTime + duration;
+
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.type = options.waveType || soundTheme.waveType;
+            osc.frequency.setValueAtTime(freq, startTime);
+
+            gain.gain.setValueAtTime(0.001, startTime);
+            gain.gain.linearRampToValueAtTime(0.3, startTime + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(startTime);
+            osc.stop(stopTime);
+        });
+    } catch (err) {
+        console.warn('[AudioAlert] Web Audio playback failed:', err);
+    }
+}
+```
+
+---
+
+### MELHORIA-08: Adicionar acessibilidade (ARIA)
+
+```jsx
+// âœ… Adicionar no PomodoroTimer.jsx
+<div
+    role="timer"
+    aria-label={`Timer Pomodoro: ${formatTime(timeLeft)} restante`}
+    aria-live="polite"
+>
+    {/* ... */}
+</div>
+
+// E nos controles:
+<button
+    onClick={onTogglePlay}
+    disabled={isProtocolInactive}
+    aria-label={isRunning ? 'Pausar timer' : 'Iniciar timer'}
+    aria-pressed={isRunning}
+>
+    {/* ... */}
+</button>
+```
+
+---
+
+## ðŸ“Š RESUMO
+
+| Categoria | Quantidade |
+|-----------|-----------|
+| Bugs CrÃ­ticos | 10 |
+| Bugs Moderados | 5 |
+| Bugs Menores | 8 |
+| Melhorias | 8 |
+| **Total** | **31** |
+
+Todos os bugs foram identificados e as correÃ§Ãµes implementadas. As melhorias sÃ£o opcionais mas recomendadas para uma melhor experiÃªncia do usuÃ¡rio.
+
+### USER
+patchs de correÃ§Ã£o de cada bug 
+
+### ASSISTANT
+# Patches de CorreÃ§Ã£o â€” Menu CronÃ´metro (Pomodoro)
+
+---
+
+## ðŸ“ `src/components/PomodoroTimer.jsx`
+
+### PATCH-01 Â· Efeito colateral dentro de updater de estado (`toggleMute`)
+
+**Bug:** `isMutedRef.current`, `localStorage.setItem` e `postSync` sÃ£o executados dentro do updater de `setIsMuted`. Em StrictMode o React chama updaters duas vezes â†’ side-effects duplicados.
+
+```diff
+ const toggleMute = () => {
+-    setIsMuted(prev => {
+-        const newVal = !prev;
+-        isMutedRef.current = newVal;
+-        try {
+-            localStorage.setItem('pomodoro_muted', String(newVal));
+-            postSync({
+-                type: 'TOGGLE_MUTE',
+-                isMuted: newVal
+-            });
+-        } catch (error) {
+-            console.error('Failed to set pomodoro_muted:', error);
+-        }
+-        return newVal;
+-    });
++    const newVal = !isMutedRef.current;
++    isMutedRef.current = newVal;
++    setIsMuted(newVal);
++    try {
++        localStorage.setItem('pomodoro_muted', String(newVal));
++    } catch (error) {
++        console.error('Failed to set pomodoro_muted:', error);
++    }
++    postSync({ type: 'TOGGLE_MUTE', isMuted: newVal });
+ };
+```
+
+---
+
+### PATCH-02 Â· `handleExit` nÃ£o cancela timeout de transiÃ§Ã£o pendente
+
+**Bug:** Se `handleExit` for chamado durante uma transiÃ§Ã£o de fase, o `setTimeout` de 50 ms dentro de `transitionSession` ainda dispara apÃ³s a navegaÃ§Ã£o, mutando estado de um componente desmontado.
+
+```diff
+ const handleExit = useCallback((options = {}) => {
++    // Cancelar transiÃ§Ã£o pendente antes de sair
++    if (transitionTimeoutRef.current) {
++        clearTimeout(transitionTimeoutRef.current);
++        transitionTimeoutRef.current = null;
++    }
++    setIsTransitioning(false);
++    isTransitioningRef.current = false;
++
+     const subjectSnapshot = options._subjectSnapshot || activeSubjectRef.current;
+     if (subjectSnapshot) {
+         flushPendingStudyTime(subjectSnapshot);
+     }
+     safeOnExit({ forceDashboard: true, source: 'dashboard' });
+ }, [flushPendingStudyTime, safeOnExit]);
+```
+
+---
+
+### PATCH-03 Â· `reset()` nÃ£o verifica `isMountedRef`
+
+**Bug:** `reset()` atualiza estado sem checar se o componente ainda estÃ¡ montado. Se chamado durante o unmount (ex.: `beforeunload`), gera warning e possÃ­vel corrupÃ§Ã£o.
+
+```diff
+ const reset = () => {
++    if (!isMountedRef.current) return;
+     if (isTransitioningRef.current) return;
+     const currentMode = stateRefs.current.mode;
+     // ... resto inalterado
+```
+
+---
+
+### PATCH-04 Â· `flushPendingStudyTime` nÃ£o valida valores de `stateRefs`
+
+**Bug:** `stateRefs.current.accumulatedMinutes` e `.timeLeft` podem ser `NaN` ou `Infinity` se o timer for interrompido em um estado inconsistente, propagando `NaN` para `handleUpdateStudyTime`.
+
+```diff
+ const flushPendingStudyTime = useCallback((subjectOverride = null) => {
+     const subjectSnapshot = subjectOverride || activeSubjectRef.current;
+     if (!subjectSnapshot) return;
+     const current = stateRefs.current;
+-    let minutes = Number(current.accumulatedMinutes) || 0;
++    let minutes = Number(current.accumulatedMinutes);
++    if (!Number.isFinite(minutes) || minutes <= 0) minutes = 0;
+     if (current.mode === 'work') {
+         const liveState = useAppStore.getState();
+         const liveSettings = liveState?.appState?.settings || liveState?.settings || {};
+         const livePomodoroWork = Math.max(1, Number(liveSettings.pomodoroWork || safeSettings.pomodoroWork || 25));
+         const totalWorkSeconds = livePomodoroWork * 60;
+-        const safePrevTime = Number.isFinite(Number(current.timeLeft))
+-            ? Number(current.timeLeft)
+-            : totalWorkSeconds;
++        const rawPrev = Number(current.timeLeft);
++        const safePrevTime = Number.isFinite(rawPrev) && rawPrev >= 0
++            ? rawPrev
++            : totalWorkSeconds;
+         minutes += Math.max(0, totalWorkSeconds - safePrevTime) / 60;
+     }
+-    minutes = Number(minutes.toFixed(2));
++    minutes = Number.isFinite(minutes) ? Number(minutes.toFixed(2)) : 0;
+     if (minutes > 0 && Number.isFinite(minutes)) {
+         safeOnUpdateStudyTime(
+             subjectSnapshot.categoryId,
+             minutes,
+             subjectSnapshot.taskId
+         );
+         // ... resto inalterado
+```
+
+---
+
+### PATCH-05 Â· `postSync` nÃ£o valida payload antes de `postMessage`
+
+**Bug:** Se o payload contiver valores nÃ£o-serializÃ¡veis (funÃ§Ãµes, `undefined` em posiÃ§Ãµes inesperadas), `postMessage` lanÃ§a `DataCloneError` nÃ£o tratado.
+
+```diff
+ const postSync = useCallback((payload) => {
+     try {
++        if (!payload || typeof payload !== 'object' || !payload.type) return;
+         syncChannel?.postMessage({
+             ...payload,
+             tabId: STABLE_TAB_ID,
+             taskId: activeSubjectRef.current?.taskId || null,
+             sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
+         });
+     } catch (error) {
+-        console.error('[PomodoroSync] Failed to post message:', error);
++        console.warn('[PomodoroSync] Failed to post message:', error);
+     }
+ }, [syncChannel]);
+```
+
+---
+
+### PATCH-06 Â· `useEffect` de cleanup do `syncChannel` duplicado
+
+**Bug:** O canal Ã© fechado tanto no cleanup de `usePomodoroSync` quanto no `useEffect` de `PomodoroTimer`. O segundo `close()` lanÃ§a `InvalidStateError` (silenciado, mas indica lÃ³gica errada).
+
+```diff
+ // Em PomodoroTimer.jsx â€” REMOVER este bloco:
+-useEffect(() => {
+-    return () => {
+-        try {
+-            syncChannel?.close();
+-        } catch {
+-            // jÃ¡ fechado
+-        }
+-    };
+-}, [syncChannel]);
++// O fechamento do canal Ã© responsabilidade exclusiva de usePomodoroSync.
++// Removido para evitar double-close.
+```
+
+---
+
+### PATCH-07 Â· `useLayoutEffect` nÃ£o inclui `timeLeft` nas dependÃªncias
+
+**Bug:** O efeito que sincroniza barras de progresso e cÃ­rculo SVG nÃ£o re-executa quando `timeLeft` muda via `setTimeLeft` (ex.: restore de sessÃ£o pausada). As barras ficam dessincronizadas atÃ© o prÃ³ximo tick.
+
+```diff
+ React.useLayoutEffect(() => {
+     if (!isMountedRef.current) return;
+     const currentMode = mode;
+     const currentSessions = sessions;
+     const currentTotalTime = /* ... */;
+-    const fraction = Math.max(0, Math.min(1, stateRefs.current.timeLeft / (currentTotalTime || 1)));
++    const fraction = Math.max(0, Math.min(1, timeLeft / (currentTotalTime || 1)));
+     // ... resto inalterado
+ }, [
+     mode,
+     sessions,
+     targetCycles,
++    timeLeft,
+     safeSettings.pomodoroWork,
+     safeSettings.pomodoroBreak,
+     safeSettings.pomodoroLongBreak
+ ]);
+```
+
+---
+
+### PATCH-08 Â· `savedState` lido no `useEffect` pode sobrescrever estado restaurado
+
+**Bug:** O `useEffect` que re-lÃª `savedState` tem `activeSubject?.taskId` nas deps. Se `activeSubject` mudar rapidamente (ex.: StrictMode), o efeito re-executa e pode sobrescrever o estado que acabou de ser restaurado.
+
+```diff
+ useEffect(() => {
+     const timer = setTimeout(() => {
+         if (activeSubject?.taskId) {
+             try {
+                 const saved = JSON.parse(localStorage.getItem('pomodoroState'));
+                 const matchesTask = saved?.activeTaskId === activeSubject.taskId;
+                 const matchesMode = saved?.mode === mode;
+                 const matchesSession = !activeSubject.sessionInstanceId ||
+                     saved?.sessionInstanceId === activeSubject.sessionInstanceId;
+-                if (saved && matchesTask && matchesMode && matchesSession) {
++                if (saved && matchesTask && matchesMode && matchesSession &&
++                    Number.isFinite(saved.timeLeft) && saved.timeLeft > 0) {
+                     setSavedState({ ...saved, isRunning: false });
+                 } else {
+                     setSavedState(null);
+                 }
+             } catch {
+                 setSavedState(null);
+             }
+         } else {
+             setSavedState(null);
+         }
+     }, 0);
+     return () => clearTimeout(timer);
+-}, [activeSubject?.taskId, activeSubject?.sessionInstanceId, mode]);
++}, [activeSubject?.taskId, activeSubject?.sessionInstanceId, mode]);
++// Nota: mode incluÃ­do para re-avaliar quando a fase muda
+```
+
+---
+
+### PATCH-09 Â· Cleanup de unmount nÃ£o cancela `transitionTimeoutRef`
+
+**Bug:** O `useEffect` de mount/unmount nÃ£o limpa `transitionTimeoutRef` nem `completionTimeoutRef`, permitindo que callbacks dispararem apÃ³s unmount.
+
+```diff
+ useEffect(() => {
+     isMountedRef.current = true;
+     return () => {
+         isMountedRef.current = false;
++        if (transitionTimeoutRef.current) {
++            clearTimeout(transitionTimeoutRef.current);
++            transitionTimeoutRef.current = null;
++        }
++        if (completionTimeoutRef.current) {
++            clearTimeout(completionTimeoutRef.current);
++            completionTimeoutRef.current = null;
++        }
+     };
+ }, []);
+```
+
+---
+
+### PATCH-10 Â· `transitionSession` nÃ£o valida `savedMinutes` antes de passar para `safeOnFullCycleComplete`
+
+**Bug:** `savedMinutes` pode ser `NaN` se `sessionMinutes` for calculado com valores corrompidos, propagando `NaN` para o callback de ciclo completo.
+
+```diff
+         if (isEndingCycle) {
+             safeOnFullCycleComplete(
+-                savedMinutes || 0,
++                Number.isFinite(savedMinutes) ? savedMinutes : 0,
+                 source === 'natural'
+             );
+         }
+```
+
+---
+
+## ðŸ“ `src/components/pomodoro/PomodoroClock.jsx`
+
+### PATCH-11 Â· CÃ­rculo SVG sem `strokeDashoffset` inicial
+
+**Bug:** No primeiro render, o cÃ­rculo de progresso aparece completamente cheio antes do timer definir o offset. Causa flash visual.
+
+```diff
+ <circle
+     ref={svgCircleRef}
+     cx="128" cy="128" r="110" fill="none"
+     stroke="url(#timerGradient)"
+     strokeWidth="14"
+     strokeLinecap="round"
+     strokeDasharray={2 * Math.PI * 110}
++    strokeDashoffset={2 * Math.PI * 110}
+ />
+```
+
+---
+
+### PATCH-12 Â· BotÃµes de velocidade sem `type="button"`
+
+**Bug:** Sem `type="button"`, se o componente estiver dentro de um `<form>`, o clique submete o formulÃ¡rio.
+
+```diff
+ {[1, 10, 100].map(s => (
+     <button
+         key={s}
++        type="button"
+         onClick={() => setSpeed(s)}
+         disabled={isProtocolInactive}
++        aria-label={`Velocidade ${s}x`}
+         className={`px-3 h-8 rounded-xl text-[11px] font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
+     >
+         {s}X
+     </button>
+ ))}
+```
+
+---
+
+### PATCH-13 Â· `formatTime` duplicado
+
+**Bug:** `formatTime` estÃ¡ definido tanto em `PomodoroClock.jsx` quanto em `pomodoroHelpers.js`. DivergÃªncia futura Ã© inevitÃ¡vel.
+
+```diff
+-import React from 'react';
+-
+-const formatTime = (seconds) => {
+-    const secsInt = Math.ceil(Math.max(0, seconds));
+-    const mins = Math.floor(secsInt / 60);
+-    const secs = secsInt % 60;
+-    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+-};
++import React from 'react';
++import { formatTime } from '../../utils/pomodoroHelpers';
+```
+
+---
+
+## ðŸ“ `src/components/pomodoro/PomodoroControls.jsx`
+
+### PATCH-14 Â· BotÃµes sem `type="button"` e sem `aria-label`
+
+```diff
+-<button onClick={onReset} disabled={isProtocolInactive} className="w-16 h-16 rounded-2xl ...">
++<button type="button" onClick={onReset} disabled={isProtocolInactive} aria-label="Reiniciar cronÃ´metro" className="w-16 h-16 rounded-2xl ...">
+     <RotateCcw size={24} />
+ </button>
+
+-<button onClick={onTogglePlay} disabled={isProtocolInactive} className={`w-28 h-28 sm:w-36 sm:h-36 ...`}>
++<button type="button" onClick={onTogglePlay} disabled={isProtocolInactive} aria-label={isRunning ? 'Pausar' : 'Iniciar'} className={`w-28 h-28 sm:w-36 sm:h-36 ...`}>
+
+-<button onClick={onSkip} disabled={isProtocolInactive} className="w-16 h-16 rounded-2xl ...">
++<button type="button" onClick={onSkip} disabled={isProtocolInactive} aria-label="Pular fase" className="w-16 h-16 rounded-2xl ...">
+```
+
+---
+
+### PATCH-15 Â· Layout shift no botÃ£o play/pause
+
+**Bug:** O botÃ£o muda de `w-28 h-28` para `sm:w-36 sm:h-36` entre estados, causando salto de layout.
+
+```diff
+ <button
+     onClick={onTogglePlay}
+     disabled={isProtocolInactive}
+-    className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full flex items-center justify-center border-4 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
++    className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full flex items-center justify-center border-4 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
+ >
+```
+
+---
+
+## ðŸ“ `src/components/pomodoro/PomodoroProgress.jsx`
+
+### PATCH-16 Â· Callback refs usando `delete` (desoptimizaÃ§Ã£o V8)
+
+**Bug:** `delete obj[key]` forÃ§a desoptimizaÃ§Ã£o no V8. Usar atribuiÃ§Ã£o `undefined` Ã© mais performÃ¡tico.
+
+```diff
+ <div
+     ref={el => {
+-        if (el) workFillsRef.current[i] = el;
+-        else delete workFillsRef.current[i];
++        workFillsRef.current[i] = el || undefined;
+     }}
+     className="h-full bg-blue-600 rounded-full shadow-sm"
+ />
+
+ <div
+     ref={el => {
+-        if (el) breakBallsRef.current[i] = el;
+-        else delete breakBallsRef.current[i];
++        breakBallsRef.current[i] = el || undefined;
+     }}
+     className="absolute bottom-0 w-full bg-emerald-500"
+ />
+```
+
+---
+
+### PATCH-17 Â· `onClick` dos botÃµes +/- nÃ£o valida payload do `syncChannel`
+
+```diff
+ onClick={() => {
+     const minAllowed = Math.max(1, completedCycles);
+     const newTarget = Math.max(minAllowed, targetCycles - 1);
+     setTargetCycles(newTarget);
+     try {
+-        syncChannel?.postMessage({
+-            type: 'TARGET_CYCLES_CHANGE',
+-            targetCycles: newTarget,
+-            tabId: STABLE_TAB_ID,
+-            taskId: activeSubject?.taskId || null,
+-            sessionInstanceId: activeSubject?.sessionInstanceId || null
+-        });
++        if (syncChannel && typeof syncChannel.postMessage === 'function') {
++            syncChannel.postMessage({
++                type: 'TARGET_CYCLES_CHANGE',
++                targetCycles: newTarget,
++                tabId: STABLE_TAB_ID,
++                taskId: activeSubject?.taskId || null,
++                sessionInstanceId: activeSubject?.sessionInstanceId || null
++            });
++        }
+     } catch { /* ignore */ }
+ }}
+```
+
+---
+
+### PATCH-18 Â· CondiÃ§Ã£o `disabled` do botÃ£o diminuir nÃ£o protege `completedCycles = 0`
+
+**Bug:** Quando `completedCycles` Ã© 0 e `targetCycles` Ã© 1, `Math.max(1, 0)` = 1, entÃ£o `targetCycles <= 1` â†’ botÃ£o desabilitado. Correto. Mas se `completedCycles` for `NaN` (estado corrompido), `Math.max(1, NaN)` = `NaN`, e a comparaÃ§Ã£o falha.
+
+```diff
+ disabled={!activeSubject || targetCycles <= Math.max(1, completedCycles)}
++// Substituir por:
++disabled={!activeSubject || !Number.isFinite(targetCycles) || !Number.isFinite(completedCycles) || targetCycles <= Math.max(1, Number(completedCycles) || 0)}
+```
+
+---
+
+## ðŸ“ `src/hooks/usePomodoroSync.js`
+
+### PATCH-19 Â· Handlers `PHASE_*` leem `localStorage` sem validar estrutura
+
+**Bug:** `JSON.parse(localStorage.getItem('pomodoroState'))` pode retornar um objeto com campos corrompidos. Os handlers usam `saved.mode`, `saved.sessions`, etc. sem validar tipos.
+
+```diff
+ case 'TIMER_RESET':
+ case 'PHASE_SKIP':
+ case 'PHASE_COMPLETE':
+ case 'PHASE_REWIND': {
+     setIsRunning(false);
+     stateRefs.current.isRunning = false;
+     try {
+-        const saved = JSON.parse(localStorage.getItem('pomodoroState')) || {};
++        const raw = localStorage.getItem('pomodoroState');
++        if (!raw) break;
++        const saved = JSON.parse(raw);
++        if (!saved || typeof saved !== 'object') break;
++
+         const targetMode =
+-            data.toMode !== undefined
++            data.toMode !== undefined && typeof data.toMode === 'string'
+                 ? data.toMode
+-                : saved.mode;
++                : (typeof saved.mode === 'string' ? saved.mode : undefined);
+         const targetTime =
+-            data.timeLeft !== undefined
++            data.timeLeft !== undefined && Number.isFinite(data.timeLeft)
+                 ? data.timeLeft
+-                : saved.timeLeft;
++                : (Number.isFinite(saved.timeLeft) ? saved.timeLeft : undefined);
+         // ... resto inalterado
+```
+
+---
+
+### PATCH-20 Â· Cleanup fecha canal compartilhado
+
+**Bug:** O cleanup do hook fecha o `BroadcastChannel`, mas o canal Ã© criado e mantido pelo componente pai. Se o hook for desmontado e remontado (StrictMode), o canal jÃ¡ estÃ¡ fechado.
+
+```diff
+ return () => {
+     isMounted = false;
+     syncChannel.removeEventListener('message', handleMessage);
+-    try {
+-        syncChannel.close();
+-    } catch (e) {
+-        console.warn('[usePomodoroSync] Erro ao fechar BroadcastChannel:', e);
+-    }
++    // O fechamento do canal Ã© responsabilidade do componente que o criou.
++    // NÃ£o fechar aqui para evitar double-close em StrictMode.
+ };
+```
+
+---
+
+### PATCH-21 Â· `SESSION_SCOPED_TYPES` nÃ£o trata `taskId` nulo com `sessionInstanceId` presente
+
+**Bug:** Se `taskId` Ã© `null` mas `sessionInstanceId` estÃ¡ definido, a verificaÃ§Ã£o `taskId != null` falha e a mensagem Ã© processada mesmo sendo de outra sessÃ£o.
+
+```diff
+ if (SESSION_SCOPED_TYPES.includes(type)) {
+     const currentTaskId = activeSubjectRef.current?.taskId ?? null;
+     const currentSessionId = activeSubjectRef.current?.sessionInstanceId ?? null;
+-    if (
+-        taskId != null &&
+-        currentTaskId != null &&
+-        taskId !== currentTaskId
+-    ) {
+-        return;
+-    }
+-    if (
+-        sessionInstanceId != null &&
+-        currentSessionId != null &&
+-        sessionInstanceId !== currentSessionId
+-    ) {
+-        return;
+-    }
++    // Se a mensagem tem taskId E nÃ³s temos taskId, devem bater
++    if (taskId != null && currentTaskId != null && taskId !== currentTaskId) {
++        return;
++    }
++    // Se a mensagem tem sessionInstanceId E nÃ³s temos, devem bater
++    if (sessionInstanceId != null && currentSessionId != null && sessionInstanceId !== currentSessionId) {
++        return;
++    }
++    // Se a mensagem tem sessionInstanceId mas nÃ³s NÃƒO temos sessÃ£o ativa, ignorar
++    if (sessionInstanceId != null && currentSessionId == null) {
++        return;
++    }
+ }
+```
+
+---
+
+### PATCH-22 Â· `TOGGLE_MUTE` handler nÃ£o verifica `isMounted`
+
+```diff
+ case 'TOGGLE_MUTE': {
++    if (!isMounted) break;
+     const muted = Boolean(data.isMuted);
+     setIsMuted(muted);
+     isMutedRef.current = muted;
+     break;
+ }
+```
+
+---
+
+## ðŸ“ `src/utils/pomodoroHelpers.js`
+
+### PATCH-23 Â· `toPositiveMinutes` nÃ£o valida `fallback`
+
+**Bug:** Se `fallback` for `NaN`, negativo ou `Infinity`, a funÃ§Ã£o retorna um valor invÃ¡lido.
+
+```diff
+ export function toPositiveMinutes(value, fallback) {
+     const n = Number(value);
+     if (!Number.isFinite(n) || n <= 0) {
+-        return fallback;
++        const fb = Number(fallback);
++        if (!Number.isFinite(fb) || fb <= 0) return 25; // default seguro
++        return Math.min(240, Math.max(1, Math.round(fb)));
+     }
+     return Math.min(240, Math.max(1, Math.round(n)));
+ }
+```
+
+---
+
+### PATCH-24 Â· `formatTime` duplicado em `PomodoroClock.jsx`
+
+**Bug:** A mesma funÃ§Ã£o existe em dois lugares. Se uma for alterada e a outra nÃ£o, o comportamento diverge.
+
+```diff
+ // Em pomodoroHelpers.js â€” manter como fonte Ãºnica:
+ export function formatTime(seconds) {
+     const secsInt = Math.ceil(Math.max(0, seconds));
+     const mins = Math.floor(secsInt / 60);
+     const secs = secsInt % 60;
+     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+ }
++
++// Adicionar validaÃ§Ã£o de entrada:
++export function formatTime(seconds) {
++    const safe = Number(seconds);
++    if (!Number.isFinite(safe) || safe < 0) return '00:00';
++    const secsInt = Math.ceil(safe);
++    const mins = Math.floor(secsInt / 60);
++    const secs = secsInt % 60;
++    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
++}
+```
+
+---
+
+## ðŸ“ `src/pages/Pomodoro.jsx`
+
+### PATCH-25 Â· `getBestTask` sort instÃ¡vel
+
+**Bug:** O comparador de sort nÃ£o tem tiebreaker para tarefas com mesmo peso de prioridade e mesma presenÃ§a de `analysis`. A ordem pode mudar entre renders.
+
+```diff
+ candidates.sort((a, b) => {
+     const pa = priorityWeight[a.priority] ?? 2;
+     const pb = priorityWeight[b.priority] ?? 2;
+     if (pb !== pa) return pb - pa;
+     const aa = a.analysis ? 1 : 0;
+     const ab = b.analysis ? 1 : 0;
+     if (ab !== aa) return ab - aa;
+-    return 0;
++    // Tiebreaker: ordem de inserÃ§Ã£o (Ã­ndice original)
++    return (a._originalIndex ?? 0) - (b._originalIndex ?? 0);
+ });
+```
+
+E antes do sort:
+```diff
+-const candidates = [];
++const candidates = [];
++let _idx = 0;
+ safeCategories.forEach(cat => {
+     const tasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+     tasks.forEach(task => {
+         if (!task || task.completed === true) return;
+         if (String(task.status || '').toLowerCase() === 'completed') return;
+         const id = task.id || task.text || '';
+         if (excludeTaskId && id === excludeTaskId) return;
+-        candidates.push({ ...task, id, catName: cat?.name || task.catName || '' });
++        candidates.push({ ...task, id, catName: cat?.name || task.catName || '', _originalIndex: _idx++ });
+     });
+ });
+```
+
+---
+
+### PATCH-26 Â· `generateDailyGoals` â€” IDs com `hashString` podem colidir
+
+**Bug:** `hashString` (FNV-1a 32-bit) tem espaÃ§o de 2Â³Â². Com muitas tarefas, colisÃµes sÃ£o possÃ­veis. O Planner deduplica por ID, entÃ£o uma colisÃ£o silently descarta uma tarefa.
+
+```diff
+-allGeneratedTasks.push({
+-    id: `${cat.id}-topic-${uniqueIdSuffix}`,
++allGeneratedTasks.push({
++    id: `${cat.id}-topic-${uniqueIdSuffix}-${i}`,
+     text: `${cat.name}: ${topicLabel}`,
+     // ... resto inalterado
+```
+
+---
+
+### PATCH-27 Â· `calculateUrgency` catch retorna objeto com `error: true` mas callers nÃ£o verificam
+
+**Bug:** `getSuggestedFocus` chama `calculateUrgency` e usa o resultado diretamente. Se `calculateUrgency` retornar o objeto de erro, `urgency.normalizedScore` Ã© 0 e a tarefa Ã© tratada como "sem urgÃªncia" em vez de propagar o erro.
+
+```diff
+ const ranked = categories.map(cat => ({
+     ...cat,
+     urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, { ...options, allCategories: categories })
+-})).sort((a, b) => {
++})).filter(cat => {
++    // Filtrar resultados de erro
++    if (cat.urgency?.error) {
++        console.warn('[CoachLogic] Urgency calculation failed for:', cat.name, cat.urgency.text);
++        return false;
++    }
++    return true;
++}).sort((a, b) => {
+     const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
+     const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
+     return valB - valA;
+ });
+```
+
+---
+
+### PATCH-28 Â· `getSuggestedFocus` nÃ£o desempata urgÃªncias iguais
+
+**Bug:** Se duas categorias tÃªm `normalizedScore` idÃªntico, a ordem do sort Ã© indefinida (implementaÃ§Ã£o-dependente).
+
+```diff
+ })).sort((a, b) => {
+     const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
+     const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
+-    return valB - valA;
++    if (valB !== valA) return valB - valA;
++    // Tiebreaker: mais dias desde Ãºltimo estudo = mais urgente
++    const daysA = a.urgency.details?.daysSinceLastStudy ?? 0;
++    const daysB = b.urgency.details?.daysSinceLastStudy ?? 0;
++    return daysB - daysA;
+ });
+```
+
+---
+
+### PATCH-29 Â· `getCognitiveState` nÃ£o valida `options.now`
+
+```diff
+ export const getCognitiveState = (studyLogs = [], options = {}) => {
+     const safeLogs = safeArray(studyLogs).filter(log => {
+         if (!log || typeof log !== 'object') return false;
+         const hasDate = log.date || log.createdAt || log.lastUpdated;
+         if (!hasDate) return false;
+         const parsed = normalizeDate(hasDate);
+         return parsed && !Number.isNaN(parsed.getTime());
+     });
+-    const referenceDate = options.now ? (normalizeDate(options.now) || new Date()) : new Date();
++    let referenceDate = new Date();
++    if (options.now) {
++        const parsed = normalizeDate(options.now);
++        if (parsed && !Number.isNaN(parsed.getTime())) {
++            referenceDate = parsed;
++        }
++    }
+     const nowMs = referenceDate.getTime();
+```
+
+---
+
+### PATCH-30 Â· `getCombinedHistory` â€” chave de dedup com `toFixed(2)` pode divergir por ponto flutuante
+
+**Bug:** `safeScore.toFixed(2)` pode produzir strings diferentes para valores matematicamente iguais devido a precisÃ£o de ponto flutuante (ex.: `70.00` vs `69.99999999`).
+
+```diff
+ const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${safeScoreStr}`;
++// Substituir por chave com arredondamento mais robusto:
++const safeScoreStr = Number.isFinite(safeScore) ? (Math.round(safeScore * 100) / 100).toString() : '0';
++const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${safeScoreStr}`;
+```
+
+---
+
+## ðŸ“ `src/components/pomodoro/PomodoroHeader.jsx`
+
+### PATCH-31 Â· Sem `aria-live` para mudanÃ§as de modo
+
+**Bug:** Quando o modo muda de "work" para "break", leitores de tela nÃ£o anunciam a mudanÃ§a.
+
+```diff
+ <div className="flex-1 flex justify-center bg-transparent">
+     {mode === 'break' || mode === 'long_break' ? (
+         <Motion.div
+             initial={{ opacity: 0, scale: 0.95 }}
+             animate={{ opacity: 1, scale: 1 }}
++            role="status"
++            aria-live="polite"
+             className={`relative flex items-center justify-center gap-4 w-full rounded-2xl py-5 border ${mode === 'long_break' ? 'bg-violet-900/30 border-violet-500/40' : 'bg-emerald-900/30 border-emerald-500/40'}`}
+         >
+```
+
+---
+
+## Resumo dos Patches
+
+| # | Arquivo | Severidade | DescriÃ§Ã£o |
+|---|---------|-----------|-----------|
+| 01 | PomodoroTimer | ðŸ”´ CrÃ­tico | Side-effect em updater de estado |
+| 02 | PomodoroTimer | ðŸ”´ CrÃ­tico | handleExit nÃ£o cancela timeout de transiÃ§Ã£o |
+| 03 | PomodoroTimer | ðŸŸ¡ Moderado | reset() sem verificaÃ§Ã£o de mount |
+| 04 | PomodoroTimer | ðŸ”´ CrÃ­tico | flushPendingStudyTime propaga NaN |
+| 05 | PomodoroTimer | ðŸŸ¡ Moderado | postSync sem validaÃ§Ã£o de payload |
+| 06 | PomodoroTimer | ðŸŸ¡ Moderado | Double-close do BroadcastChannel |
+| 07 | PomodoroTimer | ðŸŸ¡ Moderado | useLayoutEffect sem timeLeft nas deps |
+| 08 | PomodoroTimer | ðŸŸ¡ Moderado | savedState pode sobrescrever estado restaurado |
+| 09 | PomodoroTimer | ðŸ”´ CrÃ­tico | Cleanup nÃ£o cancela timeouts pendentes |
+| 10 | PomodoroTimer | ðŸŸ¡ Moderado | savedMinutes pode ser NaN |
+| 11 | PomodoroClock | ðŸŸ¢ Menor | Flash visual no primeiro render |
+| 12 | PomodoroClock | ðŸŸ¢ Menor | BotÃµes sem type="button" |
+| 13 | PomodoroClock | ðŸŸ¢ Menor | formatTime duplicado |
+| 14 | PomodoroControls | ðŸŸ¢ Menor | BotÃµes sem type/aria-label |
+| 15 | PomodoroControls | ðŸŸ¢ Menor | Layout shift no play/pause |
+| 16 | PomodoroProgress | ðŸŸ¢ Menor | delete em callback refs |
+| 17 | PomodoroProgress | ðŸŸ¡ Moderado | syncChannel sem validaÃ§Ã£o |
+| 18 | PomodoroProgress | ðŸŸ¡ Moderado | disabled com NaN |
+| 19 | usePomodoroSync | ðŸ”´ CrÃ­tico | localStorage sem validaÃ§Ã£o de estrutura |
+| 20 | usePomodoroSync | ðŸ”´ CrÃ­tico | Cleanup fecha canal compartilhado |
+| 21 | usePomodoroSync | ðŸŸ¡ Moderado | SESSION_SCOPED incompleto |
+| 22 | usePomodoroSync | ðŸŸ¢ Menor | TOGGLE_MUTE sem isMounted |
+| 23 | pomodoroHelpers | ðŸŸ¡ Moderado | fallback nÃ£o validado |
+| 24 | pomodoroHelpers | ðŸŸ¢ Menor | formatTime sem validaÃ§Ã£o de entrada |
+| 25 | Pomodoro.jsx | ðŸŸ¡ Moderado | Sort instÃ¡vel em getBestTask |
+| 26 | Pomodoro.jsx | ðŸŸ¢ Menor | ColisÃ£o de hash em IDs |
+| 27 | Pomodoro.jsx | ðŸ”´ CrÃ­tico | Erro de urgency silenciado |
+| 28 | Pomodoro.jsx | ðŸŸ¢ Menor | Sem tiebreaker em urgÃªncias iguais |
+| 29 | Pomodoro.jsx | ðŸŸ¡ Moderado | options.now nÃ£o validado |
+| 30 | Pomodoro.jsx | ðŸŸ¢ Menor | toFixed(2) com float impreciso |
+| 31 | PomodoroHeader | ðŸŸ¢ Menor | Sem aria-live | implemente as correÃ§Ãµes
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-27T14:50:47-04:00.
+
+The user's current state is as follows:
+Active Document: d:\Downloads\ultra-patched\todo_codigo_projeto.md (LANGUAGE_MARKDOWN)
+Cursor is on line: 1
+
+The user has mentioned some items in the form @[ITEM]. Here is extra information about the items that were mentioned by the user, in the order that they appear:
+
+/goal is a [Slash Command]:
+The user has marked this task with /goal, indicating that this task is intended to run for a long time without user input, e.g. overnight. You should be extra thorough and only stop when you are confident the goal has been completely fulfilled. The system will force you to continue execution, prompting you to audit your work until completion. Once complete, include <!-- GOAL_COMPLETE --> in your response. If the user explicitly asked to stop or cancel this goal, include <!-- GOAL_CANCELLED --> in your response to cancel the goal.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

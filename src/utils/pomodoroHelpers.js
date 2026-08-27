@@ -13,19 +13,20 @@ export function normalizeCategories(rawCategories) {
 
 export function toPositiveMinutes(value, fallback) {
     const n = Number(value);
-
     if (!Number.isFinite(n) || n <= 0) {
-        return fallback;
+        const fb = Number(fallback);
+        if (!Number.isFinite(fb) || fb <= 0) return 25; // default seguro
+        return Math.min(240, Math.max(1, Math.round(fb)));
     }
-
     return Math.min(240, Math.max(1, Math.round(n)));
 }
 
 export function formatTime(seconds) {
-    const secsInt = Math.ceil(Math.max(0, seconds));
+    const safe = Number(seconds);
+    if (!Number.isFinite(safe) || safe < 0) return '00:00';
+    const secsInt = Math.ceil(safe);
     const mins = Math.floor(secsInt / 60);
     const secs = secsInt % 60;
-
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 

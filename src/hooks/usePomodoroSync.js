@@ -72,19 +72,16 @@ export function usePomodoroSync({
                 const currentTaskId = activeSubjectRef.current?.taskId ?? null;
                 const currentSessionId = activeSubjectRef.current?.sessionInstanceId ?? null;
 
-                if (
-                    taskId != null &&
-                    currentTaskId != null &&
-                    taskId !== currentTaskId
-                ) {
+                // Se a mensagem tem taskId E nós temos taskId, devem bater
+                if (taskId != null && currentTaskId != null && taskId !== currentTaskId) {
                     return;
                 }
-
-                if (
-                    sessionInstanceId != null &&
-                    currentSessionId != null &&
-                    sessionInstanceId !== currentSessionId
-                ) {
+                // Se a mensagem tem sessionInstanceId E nós temos, devem bater
+                if (sessionInstanceId != null && currentSessionId != null && sessionInstanceId !== currentSessionId) {
+                    return;
+                }
+                // Se a mensagem tem sessionInstanceId mas nós NÃO temos sessão ativa, ignorar
+                if (sessionInstanceId != null && currentSessionId == null) {
                     return;
                 }
             }
@@ -150,17 +147,20 @@ export function usePomodoroSync({
                     stateRefs.current.isRunning = false;
 
                     try {
-                        const saved = JSON.parse(localStorage.getItem('pomodoroState')) || {};
+                        const raw = localStorage.getItem('pomodoroState');
+                        if (!raw) break;
+                        const saved = JSON.parse(raw);
+                        if (!saved || typeof saved !== 'object') break;
 
                         const targetMode =
-                            data.toMode !== undefined
+                            data.toMode !== undefined && typeof data.toMode === 'string'
                                 ? data.toMode
-                                : saved.mode;
+                                : (typeof saved.mode === 'string' ? saved.mode : undefined);
 
                         const targetTime =
-                            data.timeLeft !== undefined
+                            data.timeLeft !== undefined && Number.isFinite(data.timeLeft)
                                 ? data.timeLeft
-                                : saved.timeLeft;
+                                : (Number.isFinite(saved.timeLeft) ? saved.timeLeft : undefined);
 
                         const savedTaskMatches =
                             saved &&
@@ -214,6 +214,7 @@ export function usePomodoroSync({
                 }
 
                 case 'TOGGLE_MUTE': {
+                    if (!isMounted) break;
                     const muted = Boolean(data.isMuted);
 
                     setIsMuted(muted);
@@ -231,11 +232,8 @@ export function usePomodoroSync({
         return () => {
             isMounted = false;
             syncChannel.removeEventListener('message', handleMessage);
-            try {
-                syncChannel.close();
-            } catch (e) {
-                console.warn('[usePomodoroSync] Erro ao fechar BroadcastChannel:', e);
-            }
+            // O fechamento do canal é responsabilidade do componente que o criou.
+            // Não fechar aqui para evitar double-close em StrictMode.
         };
     }, [
         syncChannel,

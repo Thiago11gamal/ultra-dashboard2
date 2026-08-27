@@ -174,7 +174,8 @@ function PomodoroTimer({
                     const matchesMode = saved?.mode === mode;
                     const matchesSession = !activeSubject.sessionInstanceId || 
                         saved?.sessionInstanceId === activeSubject.sessionInstanceId;
-                    if (saved && matchesTask && matchesMode && matchesSession) {
+                    if (saved && matchesTask && matchesMode && matchesSession &&
+                        Number.isFinite(saved.timeLeft) && saved.timeLeft > 0) {
                         setSavedState({ ...saved, isRunning: false });
                     } else {
                         setSavedState(null);
@@ -253,15 +254,8 @@ function PomodoroTimer({
             : null;
     });
 
-    useEffect(() => {
-        return () => {
-            try {
-                syncChannel?.close();
-            } catch {
-                // já fechado
-            }
-        };
-    }, [syncChannel]);
+    // O fechamento do canal é responsabilidade exclusiva de usePomodoroSync.
+    // Removido para evitar double-close.
 
     const activeSubjectRef = useRef(activeSubject);
 
@@ -271,6 +265,7 @@ function PomodoroTimer({
 
     const postSync = useCallback((payload) => {
         try {
+            if (!payload || typeof payload !== 'object' || !payload.type) return;
             syncChannel?.postMessage({
                 ...payload,
                 tabId: STABLE_TAB_ID,
@@ -278,7 +273,7 @@ function PomodoroTimer({
                 sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
             });
         } catch (error) {
-            console.error('[PomodoroSync] Failed to post message:', error);
+            console.warn('[PomodoroSync] Failed to post message:', error);
         }
     }, [syncChannel]);
 
@@ -322,6 +317,14 @@ function PomodoroTimer({
 
         return () => {
             isMountedRef.current = false;
+            if (transitionTimeoutRef.current) {
+                clearTimeout(transitionTimeoutRef.current);
+                transitionTimeoutRef.current = null;
+            }
+            if (completionTimeoutRef.current) {
+                clearTimeout(completionTimeoutRef.current);
+                completionTimeoutRef.current = null;
+            }
         };
     }, []);
 
@@ -339,23 +342,15 @@ function PomodoroTimer({
     }, [targetCycles]);
 
     const toggleMute = () => {
-        setIsMuted(prev => {
-            const newVal = !prev;
-            isMutedRef.current = newVal;
-
-            try {
-                localStorage.setItem('pomodoro_muted', String(newVal));
-
-                postSync({
-                    type: 'TOGGLE_MUTE',
-                    isMuted: newVal
-                });
-            } catch (error) {
-                console.error('Failed to set pomodoro_muted:', error);
-            }
-
-            return newVal;
-        });
+        const newVal = !isMutedRef.current;
+        isMutedRef.current = newVal;
+        setIsMuted(newVal);
+        try {
+            localStorage.setItem('pomodoro_muted', String(newVal));
+        } catch (error) {
+            console.error('Failed to set pomodoro_muted:', error);
+        }
+        postSync({ type: 'TOGGLE_MUTE', isMuted: newVal });
     };
 
     const safeOnUpdateStudyTime = useCallback((...args) => {
@@ -402,7 +397,8 @@ function PomodoroTimer({
 
         const current = stateRefs.current;
 
-        let minutes = Number(current.accumulatedMinutes) || 0;
+        let minutes = Number(current.accumulatedMinutes);
+        if (!Number.isFinite(minutes) || minutes <= 0) minutes = 0;
 
         if (current.mode === 'work') {
             const liveState = useAppStore.getState();
@@ -410,14 +406,15 @@ function PomodoroTimer({
             const livePomodoroWork = Math.max(1, Number(liveSettings.pomodoroWork || safeSettings.pomodoroWork || 25));
             const totalWorkSeconds = livePomodoroWork * 60;
 
-            const safePrevTime = Number.isFinite(Number(current.timeLeft))
-                ? Number(current.timeLeft)
+            const rawPrev = Number(current.timeLeft);
+            const safePrevTime = Number.isFinite(rawPrev) && rawPrev >= 0
+                ? rawPrev
                 : totalWorkSeconds;
 
             minutes += Math.max(0, totalWorkSeconds - safePrevTime) / 60;
         }
 
-        minutes = Number(minutes.toFixed(2));
+        minutes = Number.isFinite(minutes) ? Number(minutes.toFixed(2)) : 0;
 
         if (minutes > 0 && Number.isFinite(minutes)) {
             safeOnUpdateStudyTime(
@@ -627,7 +624,7 @@ function PomodoroTimer({
                 ? (safeSettings.pomodoroLongBreak || 15) * 60
                 : (safeSettings.pomodoroBreak || 5) * 60;
 
-        const fraction = Math.max(0, Math.min(1, stateRefs.current.timeLeft / (currentTotalTime || 1)));
+        const fraction = Math.max(0, Math.min(1, timeLeft / (currentTotalTime || 1)));
         const currentPercent = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
 
         workFillsRef.current.forEach((el, i) => {
@@ -664,6 +661,7 @@ function PomodoroTimer({
         mode,
         sessions,
         targetCycles,
+        timeLeft,
         safeSettings.pomodoroWork,
         safeSettings.pomodoroBreak,
         safeSettings.pomodoroLongBreak
@@ -871,7 +869,7 @@ function PomodoroTimer({
 
             if (isEndingCycle) {
                 safeOnFullCycleComplete(
-                    savedMinutes || 0,
+                    Number.isFinite(savedMinutes) ? savedMinutes : 0,
                     source === 'natural'
                 );
             }
@@ -983,6 +981,7 @@ function PomodoroTimer({
     }, [isRunning, safeSettings, transitionSession, speed]);
 
     const reset = () => {
+        if (!isMountedRef.current) return;
         if (isTransitioningRef.current) return;
 
         const currentMode = stateRefs.current.mode;
@@ -1133,9 +1132,17 @@ function PomodoroTimer({
         });
     }, [activeSubject, isRunning, postSync, showToast]);
 
-    const handleManualExit = useCallback(() => {
+    const handleManualExit = useCallback((options = {}) => {
+        // Cancelar transição pendente antes de sair
+        if (transitionTimeoutRef.current) {
+            clearTimeout(transitionTimeoutRef.current);
+            transitionTimeoutRef.current = null;
+        }
+        setIsTransitioning(false);
+        isTransitioningRef.current = false;
+
         // FIX: Capturar snapshot ANTES de qualquer limpeza de estado
-        const subjectSnapshot = activeSubjectRef.current;
+        const subjectSnapshot = options._subjectSnapshot || activeSubjectRef.current;
         
         if (subjectSnapshot) {
             // FIX: Passar o snapshot explicitamente para flushPendingStudyTime

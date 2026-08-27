@@ -1,11 +1,5 @@
 import React from 'react';
-
-const formatTime = (seconds) => {
-    const secsInt = Math.ceil(Math.max(0, seconds));
-    const mins = Math.floor(secsInt / 60);
-    const secs = secsInt % 60;
-    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
-};
+import { formatTime } from '../../utils/pomodoroHelpers';
 
 export function PomodoroClock({
     speed,
@@ -24,8 +18,10 @@ export function PomodoroClock({
                     {[1, 10, 100].map(s => (
                         <button
                             key={s}
+                            type="button"
                             onClick={() => setSpeed(s)}
                             disabled={isProtocolInactive}
+                            aria-label={`Velocidade ${s}x`}
                             className={`px-3 h-8 rounded-xl text-[11px] font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
                         >
                             {s}X
@@ -59,6 +55,7 @@ export function PomodoroClock({
                         strokeWidth="14"
                         strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 110}
+                        strokeDashoffset={2 * Math.PI * 110}
                     />
                 </svg>
 

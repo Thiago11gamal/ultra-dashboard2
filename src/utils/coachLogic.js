@@ -1633,11 +1633,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         return {
             score: 0,
             normalizedScore: 0,
-            recommendation: "Erro no cálculo: " + err.message,
+            recommendation: "Erro no cálculo",
             details: {
                 hasData: false,
                 daysSinceLastStudy: 0,
-                error: err.message,
+                error: true,
+                monteCarlo: null,
                 humanReadable: { "Status": "Erro" }
             }
         };
@@ -1685,9 +1686,10 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
         ...cat,
         urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
     })).sort((a, b) => {
-        const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
-        const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
-        return valB - valA;
+        const valA = Number.isFinite(a.urgency?.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
+        const valB = Number.isFinite(b.urgency?.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
+        if (valA !== valB) return valB - valA;
+        return String(a.id || '').localeCompare(String(b.id || ''));
     });
     const top = ranked[0];
     if (!top) return null;
@@ -2246,7 +2248,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
         const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
         // ✅ FIX: sufixo determinístico — sem Date.now() (IDs estáveis p/ Planner/dedupe)
-        const mcIdSuffix = hashString(`${cat.id}|${mcProbKey}|${mcVolKey}|${cat.urgency?.normalizedScore ?? 0}`);
+        const mcIdSuffix = hashString64(`${cat.id}|${mcProbKey}|${mcVolKey}|${cat.urgency?.normalizedScore ?? 0}`);
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
@@ -2497,7 +2499,13 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
         return parsed && !Number.isNaN(parsed.getTime());
     });
 
-    const referenceDate = options.now ? (normalizeDate(options.now) || new Date()) : new Date();
+    let referenceDate = new Date();
+    if (options.now) {
+        const parsed = normalizeDate(options.now);
+        if (parsed && !Number.isNaN(parsed.getTime())) {
+            referenceDate = parsed;
+        }
+    }
     const nowMs = referenceDate.getTime();
     const todayKey = getDateKey(referenceDate);
 
@@ -2545,7 +2553,7 @@ export const getBestTask = (categories = [], excludeTaskId = null) => {
             if (String(task.status || '').toLowerCase() === 'completed') return;
             const id = task.id || task.text || '';
             if (excludeTaskId && id === excludeTaskId) return;
-            candidates.push({ ...task, id, catName: cat?.name || task.catName || '' });
+            candidates.push({ ...task, id, catName: cat?.name || task.catName || '', _originalIndex: candidates.length });
         });
     });
 
@@ -2559,7 +2567,7 @@ export const getBestTask = (categories = [], excludeTaskId = null) => {
         const aa = a.analysis ? 1 : 0;
         const ab = b.analysis ? 1 : 0;
         if (ab !== aa) return ab - aa;
-        return 0;
+        return (a._originalIndex ?? 0) - (b._originalIndex ?? 0);
     });
 
     return candidates[0];
@@ -2616,7 +2624,7 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
 
     allSimulados.forEach((s, idx) => {
         const safeScore = getSafeScore(s, maxScore);
-        const safeScoreStr = Number.isFinite(safeScore) ? safeScore.toFixed(2) : '0.00';
+        const safeScoreStr = Number.isFinite(safeScore) ? String(Math.round(safeScore * 100)) : '0';
         const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${safeScoreStr}`;
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
@@ -2640,7 +2648,7 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
     Object.entries(rowsByDate).forEach(([dKey, stats]) => {
         if (stats.total > 0) {
             const score = (stats.correct / stats.total) * maxScore;
-            const safeScoreStr = Number.isFinite(score) ? score.toFixed(2) : '0.00';
+            const safeScoreStr = Number.isFinite(score) ? String(Math.round(score * 100)) : '0';
             const key = `legacy-${dKey}|${dKey}|${safeScoreStr}`;
             if (!deduplicatedMap.has(key)) {
                 deduplicatedMap.set(key, {

@@ -29,20 +29,25 @@ export function PomodoroProgress({
                         <button
                             type="button"
                             onClick={() => {
-                                const minAllowed = Math.max(1, completedCycles);
+                                const safeCompleted = Math.max(0, Math.min(targetCycles, completedCycles));
+                                const minAllowed = Math.max(1, safeCompleted);
                                 const newTarget = Math.max(minAllowed, targetCycles - 1);
                                 setTargetCycles(newTarget);
                                 try {
-                                    syncChannel?.postMessage({
-                                        type: 'TARGET_CYCLES_CHANGE',
-                                        targetCycles: newTarget,
-                                        tabId: STABLE_TAB_ID,
-                                        taskId: activeSubject?.taskId || null,
-                                        sessionInstanceId: activeSubject?.sessionInstanceId || null
-                                    });
-                                } catch { /* ignore */ }
+                                    if (syncChannel && typeof syncChannel.postMessage === 'function') {
+                                        syncChannel.postMessage({
+                                            type: 'TARGET_CYCLES_CHANGE',
+                                            targetCycles: newTarget,
+                                            tabId: STABLE_TAB_ID,
+                                            taskId: activeSubject?.taskId || null,
+                                            sessionInstanceId: activeSubject?.sessionInstanceId || null
+                                        });
+                                    }
+                                } catch (err) {
+                                    console.warn('[PomodoroProgress] Falha ao sincronizar:', err);
+                                }
                             }}
-                            disabled={!activeSubject || targetCycles <= Math.max(1, completedCycles)}
+                            disabled={!activeSubject || !Number.isFinite(targetCycles) || !Number.isFinite(completedCycles) || targetCycles <= Math.max(1, Number(completedCycles) || 0)}
                             className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Reduzir meta de ciclos"
                         >
@@ -61,14 +66,18 @@ export function PomodoroProgress({
                                 const newTarget = Math.min(20, targetCycles + 1);
                                 setTargetCycles(newTarget);
                                 try {
-                                    syncChannel?.postMessage({
-                                        type: 'TARGET_CYCLES_CHANGE',
-                                        targetCycles: newTarget,
-                                        tabId: STABLE_TAB_ID,
-                                        taskId: activeSubject?.taskId || null,
-                                        sessionInstanceId: activeSubject?.sessionInstanceId || null
-                                    });
-                                } catch { /* ignore */ }
+                                    if (syncChannel && typeof syncChannel.postMessage === 'function') {
+                                        syncChannel.postMessage({
+                                            type: 'TARGET_CYCLES_CHANGE',
+                                            targetCycles: newTarget,
+                                            tabId: STABLE_TAB_ID,
+                                            taskId: activeSubject?.taskId || null,
+                                            sessionInstanceId: activeSubject?.sessionInstanceId || null
+                                        });
+                                    }
+                                } catch (err) {
+                                    console.warn('[PomodoroProgress] Falha ao sincronizar:', err);
+                                }
                             }}
                             disabled={!activeSubject || targetCycles >= 20}
                             className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
@@ -86,8 +95,7 @@ export function PomodoroProgress({
                             <div className="flex-1 h-2 sm:h-2.5 bg-[#2d1a12]/15 rounded-full overflow-hidden border border-[#2d1a12]/15 shadow-inner">
                                 <div
                                     ref={el => {
-                                        if (el) workFillsRef.current[i] = el;
-                                        else delete workFillsRef.current[i];
+                                        workFillsRef.current[i] = el || undefined;
                                     }}
                                     className="h-full bg-blue-600 rounded-full shadow-sm"
                                 />
@@ -96,8 +104,7 @@ export function PomodoroProgress({
                                 <div className="relative w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-[#2d1a12]/15 border border-[#2d1a12]/30 overflow-hidden shrink-0 shadow-inner">
                                     <div
                                         ref={el => {
-                                            if (el) breakBallsRef.current[i] = el;
-                                            else delete breakBallsRef.current[i];
+                                            breakBallsRef.current[i] = el || undefined;
                                         }}
                                         className="absolute bottom-0 w-full bg-emerald-500"
                                     />
