@@ -212,7 +212,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                     onClick={() => setSelectedWeekOffset(w.offset)}
                                     aria-pressed={isActive}   // ✅ LOTE-03
                                     className={`
-                                        relative px-3.5 py-1.5 text-[10px] sm:text-xs font-black tracking-widest rounded-full transition-all shrink-0
+                                        relative px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[8px] sm:text-xs font-black tracking-widest rounded-full transition-all shrink-0
                                         ${isActive
                                             ? 'bg-gradient-to-r from-[#9d4edd] to-[#7b2cbf] text-white shadow-[0_0_20px_rgba(157,78,221,0.8)] scale-105 border border-purple-400/30 ring-1 ring-purple-500/20'
                                             : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 shadow-sm'

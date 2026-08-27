@@ -429,9 +429,10 @@ export function EvolutionLineChart({
                     <Brush 
                         dataKey="date" 
                         height={30} 
-                        stroke="#64748b" 
-                        fill="rgba(15, 23, 42, 0.4)" 
+                        stroke="#475569" 
+                        fill="rgba(15, 23, 42, 0.6)" 
                         tickFormatter={formatDisplayDate}
+                        travellerWidth={8}
                     />
                 </ComposedChart>
                 </ResponsiveContainer>

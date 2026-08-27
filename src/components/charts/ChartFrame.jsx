@@ -59,7 +59,7 @@ export default function ChartFrame({
     <div
       ref={boxRef}
       style={{ minHeight }}
-      className={`relative w-full h-full overflow-hidden rounded-2xl ${className}`}
+      className={`relative w-full h-full overflow-visible rounded-2xl ${className}`}
     >
       {/* Placeholder vivo — só some quando o chart tem onde nascer */}
       <div

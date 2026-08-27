@@ -77,7 +77,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
             )}
             <h4 className={`text-slate-200 font-bold text-sm text-center mb-4 truncate w-full ${hasAbsolute && data.absoluteTotalTime != null ? 'pr-16 pl-6' : 'px-6'}`} title={data.fullName}>{data.fullName}</h4>
             
-            <div className="relative w-[200px] h-[110px]">
+            <div className="relative w-full max-w-[200px] h-[110px] mx-auto">
                 <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible" role="img" aria-label={`Gauge mostrando tempo médio de ${formatTime(data.displaySeconds)}`}>
                     {/* Track Background */}
                     <path d={makeArc(0, gaugeMax)} fill="none" stroke="#1e293b" strokeWidth={strokeWidth} strokeLinecap="round" />

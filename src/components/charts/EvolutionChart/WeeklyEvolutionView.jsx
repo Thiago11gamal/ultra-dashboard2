@@ -586,8 +586,8 @@ export const WeeklyEvolutionView = ({
                     {topRegressions.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             {topRegressions.map(item => (
-                                <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between">
-                                    <span className="truncate" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
+                                <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between min-w-0 gap-2">
+                                    <span className="truncate min-w-0" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
                                     <span className="font-mono font-black text-rose-300">{formatValue(item.delta)}{unit}</span>
                                 </div>
                             ))}

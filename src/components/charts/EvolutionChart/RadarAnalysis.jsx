@@ -94,6 +94,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             dot={false}
                             activeDot={false}
                             legendType="none"
+                            tooltipType="none"
                         />
                         {/* Top Layer: Actual Performance Radar */}
                         <Radar 
@@ -109,7 +110,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
 
                         {/* 🎯 FIX: Adição do formatValue e name dinâmico no formatter do Tooltip */}
                         <Tooltip 
-                            formatter={(v, name) => [`${formatValue(v)}${unit}`, name || 'Nível']} 
+                            formatter={(v, name) => [`${formatValue(v)}${unit}`, name?.replace('_glow', '') || 'Nível']} 
                             contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#e2e8f0', fontSize: '11px' }} 
                         />
                         <Legend 

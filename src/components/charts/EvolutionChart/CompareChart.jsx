@@ -203,7 +203,8 @@ export function CompareChart({
         }
         const boxWidth = Math.max(42, formatted.length * 7 + 14);
 
-        const chartHeight = viewBox?.height ?? (containerHeight > 40 ? containerHeight - 40 : 360);
+        // Bug 7 FIX: Prefere viewBox.height (sempre preciso) ao invés de containerHeight que pode não estar medido no primeiro render
+        const chartHeight = viewBox?.height ?? (containerHeight > 40 ? containerHeight - 40 : 320);
         const chartY = viewBox?.y ?? 20;
         const range = safeMaxScore - safeMinScore;
         const pxPerPct = chartHeight / (range || 1);
@@ -349,9 +350,10 @@ export function CompareChart({
                     <Brush 
                         dataKey="date" 
                         height={30} 
-                        stroke="#64748b" 
-                        fill="rgba(15, 23, 42, 0.4)" 
+                        stroke="#475569" 
+                        fill="rgba(15, 23, 42, 0.6)" 
                         tickFormatter={formatDisplayDate}
+                        travellerWidth={8}
                     />
                 </ComposedChart>
                 </ResponsiveContainer>

@@ -491,7 +491,7 @@ export default React.memo(function EvolutionChart({
                     >
                         {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                         <span className="hidden sm:inline">{isExporting ? 'Gerando PDF...' : 'Baixar PDF'}</span>
-                        <span className="sm:hidden">BAIXAR PDF</span>
+                        <span className="sm:hidden">{isExporting ? 'Gerando...' : 'Baixar PDF'}</span>
                     </button>
                     {exportError && (
                         <span className="text-[10px] text-rose-400 font-bold mt-1 animate-pulse">
@@ -524,22 +524,25 @@ export default React.memo(function EvolutionChart({
                 <p className="text-[10px] sm:text-xs text-slate-400 uppercase font-black tracking-[0.25em] leading-loose py-1 sm:py-2 mb-1 pl-1">
                     Nível Bayesiano por Disciplina • toque para focar
                 </p>
-                <div className="flex overflow-x-auto snap-x gap-4 px-2 py-4 no-scrollbar scroll-smooth">
-                    {activeCategories.map(cat => (
-                        <div key={cat.id} className={`snap-center shrink-0 w-[240px] sm:w-[280px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-30 grayscale-[50%] scale-95' : 'opacity-100 scale-100'}`}>
-                            <DisciplinaCard
-                                cat={cat}
-                                level={categoryLevels[cat.id] || 0}
-                                metrics={timeline.length > 0 ? timeline[timeline.length - 1] : null}
-                                target={targetScore}
-                                isFocused={focusCategory?.id === cat.id}
-                                onClick={() => setFocusSubjectId(cat.id)}
-                                unit={unit}
-                                maxScore={maxScore}
-                                minScore={minScore}
-                            />
-                        </div>
-                    ))}
+                {/* Bug 3 FIX: fade masks nas bordas para indicar scroll horizontal */}
+                <div className="relative" style={{ maskImage: 'linear-gradient(to right, transparent, black 3%, black 97%, transparent)', WebkitMaskImage: '-webkit-linear-gradient(left, transparent, black 3%, black 97%, transparent)' }}>
+                    <div className="flex overflow-x-auto snap-x gap-4 px-2 py-4 no-scrollbar scroll-smooth">
+                        {activeCategories.map(cat => (
+                            <div key={cat.id} className={`snap-center shrink-0 w-[240px] sm:w-[280px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-30 grayscale-[50%] scale-95' : 'opacity-100 scale-100'}`}>
+                                <DisciplinaCard
+                                    cat={cat}
+                                    level={categoryLevels[cat.id] || 0}
+                                    metrics={timeline.length > 0 ? timeline[timeline.length - 1] : null}
+                                    target={targetScore}
+                                    isFocused={focusCategory?.id === cat.id}
+                                    onClick={() => setFocusSubjectId(cat.id)}
+                                    unit={unit}
+                                    maxScore={maxScore}
+                                    minScore={minScore}
+                                />
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </motion.div>
 
@@ -564,7 +567,7 @@ export default React.memo(function EvolutionChart({
                                  ?
                              </button>
                          </div>
-                         <div className={`absolute top-10 left-0 sm:left-12 w-[280px] max-w-[min(90vw,280px)] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-300 z-[100] ${showEngineTooltip ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto'}`}>
+                         <div className={`absolute top-10 left-1/2 -translate-x-1/2 sm:left-12 sm:translate-x-0 w-[280px] max-w-[min(90vw,280px)] sm:w-72 p-4 bg-slate-800/95 backdrop-blur border border-slate-600 rounded-xl shadow-2xl transition-all duration-300 z-[100] ${showEngineTooltip ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto'}`}>
                              <p className="text-xs text-slate-200 mb-3 leading-relaxed">{engine.explain.simples}</p>
                              <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-700/50">
                                  <p className="text-[10px] text-amber-400 italic font-bold">💡 Dica Prática</p>
@@ -636,7 +639,7 @@ export default React.memo(function EvolutionChart({
                                         }
                                     }}
                                     aria-pressed={active}
-                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[118px] h-[78px] rounded-2xl transition-all duration-150 border will-change-transform ${active ? 'shadow-md scale-[1.03] z-10' : 'bg-white/[0.015] border-white/[0.04] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300 hover:border-white/15 hover:scale-[1.015]'}`}
+                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[100px] sm:w-[118px] h-[70px] sm:h-[78px] rounded-2xl transition-all duration-150 border will-change-transform ${active ? 'shadow-md scale-[1.03] z-10' : 'bg-white/[0.015] border-white/[0.04] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300 hover:border-white/15 hover:scale-[1.015]'}`}
                                     style={active ? { backgroundColor: `${eng.color}12`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}20, 0 4px 12px -2px rgba(0,0,0,0.3)` } : {}}
                                 >
                                     <span className="text-[22px] group-hover:scale-105 transition-transform duration-150" style={{ filter: active ? `drop-shadow(0 0 4px ${eng.color})` : 'none' }}>{eng.emoji}</span>
@@ -756,7 +759,6 @@ export default React.memo(function EvolutionChart({
                                 targetScore={targetScore}
                                 focusSubjectId={focusSubjectId}
                                 showOnlyFocus={showOnlyFocus}
-                                categories={categories}
                                 minScore={minScore}
                                 maxScore={maxScore}
                                 unit={unit}
@@ -913,7 +915,7 @@ export default React.memo(function EvolutionChart({
                                                 {renderInsightText(insight.title, colors.text)}
                                             </span>
                                             <div className="h-px w-6 sm:w-10 bg-white/10 hidden sm:block" />
-                                            <span className="px-2 py-0.5 rounded-full bg-white/5 text-[8px] font-black text-slate-500 border border-white/5 uppercase tracking-widest whitespace-nowrap">System Engine v4.0</span>
+                                            <span className="px-2 py-0.5 rounded-full bg-white/5 text-[8px] font-black text-slate-500 border border-white/5 uppercase tracking-widest whitespace-nowrap">Motor Analítico</span>
                                         </div>
                                         <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight break-words">
                                             {renderInsightText(insight.text, colors.text)}
@@ -979,7 +981,7 @@ export default React.memo(function EvolutionChart({
                     <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center px-2">Galeria de Análises Detalhadas</h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
                     <RadarAnalysis radarData={radarData} maxScore={maxScore} minScore={minScore} unit={unit} />
                     <PerformanceBarChart
                         subjectAggData={subjectAggData}

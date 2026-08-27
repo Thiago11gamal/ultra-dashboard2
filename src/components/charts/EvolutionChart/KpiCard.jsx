@@ -17,7 +17,7 @@ export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, 
                 )}
             </div>
             <div>
-                <p className="text-2xl sm:text-4xl font-mono font-black tracking-tighter truncate" style={{ color }}>{value}</p>
+                <p className="text-xl sm:text-3xl md:text-4xl font-mono font-black tracking-tighter min-w-0 break-all" style={{ color }}>{value}</p>
                 <p className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-[0.15em] mt-1 font-semibold">{label}</p>
             </div>
         </div>

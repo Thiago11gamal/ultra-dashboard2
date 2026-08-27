@@ -245,7 +245,7 @@ const MonteCarloGaugeBase = ({
         }
 
         return (
-            <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-slate-900 w-full min-h-[400px]">
+            <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-slate-900 w-full min-h-[300px]">
                 {waitingKind === 'empty' && <EmptyPredictionState />}
                 {waitingKind === 'zeroWeights' && <AllWeightsZeroState />}
                 {waitingKind === 'insufficient' && <InsufficientHistoryState />}

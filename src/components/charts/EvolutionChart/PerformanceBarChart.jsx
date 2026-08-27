@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { ChartFrame } from "../ChartFrame";
 
-export const PerformanceBarChart = React.memo(function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory }) {
+export const PerformanceBarChart = React.memo(function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit = '%', minScore = 0 }) {
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;
@@ -124,7 +124,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                                         </div>
                                                         <div className="flex justify-between items-center gap-4 mb-2">
                                                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Rendimento</span>
-                                                            <span className="text-[11px] font-black text-white">{rendPct}%</span>
+                                                            <span className="text-[11px] font-black text-white">{rendPct}{unit}</span>
                                                         </div>
                                                     </div>
                                                 </div>
