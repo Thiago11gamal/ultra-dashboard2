@@ -469,7 +469,7 @@ export const WeeklyEvolutionView = ({
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={true} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
+                                <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
                                 <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
 
@@ -560,7 +560,7 @@ export const WeeklyEvolutionView = ({
                                             dataKey={`delta_${key}`}
                                             name={`${activeKeys[key].name} (Var.)`}
                                             fill={activeKeys[key].color}
-                                            radius={[0, 0, 0, 0]}
+                                            radius={[4, 4, 0, 0]}
                                             hide={hiddenKeys[key]}
                                             fillOpacity={isOtherHovered ? 0.4 : 1}
                                             style={{ transition: 'all 0.3s ease' }}

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useId } from 'react';
 import { 
     ResponsiveContainer, PieChart, Pie, Cell, 
     ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
@@ -71,6 +71,7 @@ export function TodayVsGeneralChart({
     unit = '%',
     simuladoRows = []
  }) {
+    const neonGradInstanceId = useId().replace(/:/g, '');
     const rawCategories = propActiveCategories || categories;
     const activeCategories = useMemo(() => {
         if (focusCategory) return [focusCategory];
@@ -337,7 +338,7 @@ export function TodayVsGeneralChart({
                                 const arcVal = val - safeMin;
                                 const arcData = [
                                     { name: metric.label, value: arcVal, trueValue: metric.val, baseColor: arcColor },
-                                    { name: `${metric.label} (Restante)`, value: scaleRange - arcVal, trueValue: metric.val, baseColor: arcColor }
+                                    { name: `${metric.label} (Restante)`, value: scaleRange - arcVal, trueValue: null, baseColor: arcColor }
                                 ];
                                 return (
                                     <Pie
@@ -411,7 +412,7 @@ export function TodayVsGeneralChart({
                     </div>
                     <div className="flex flex-col text-right">
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Meta</span>
-                        <span className="text-sm font-bold text-slate-300">{targetScore}{unit}</span>
+                        <span className="text-sm font-bold text-slate-300">{formatValue(targetScore)}{unit}</span>
                     </div>
                 </div>
             </div>
@@ -430,7 +431,7 @@ export function TodayVsGeneralChart({
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
                             <defs>
-                                <linearGradient id="neonGradient" x1="0" y1="0" x2="1" y2="0">
+                                <linearGradient id={`neonGradient_${neonGradInstanceId}`} x1="0" y1="0" x2="1" y2="0">
                                     <stop offset="0%" stopColor={COLORS.neonLine} stopOpacity={0.4} />
                                     <stop offset="100%" stopColor={COLORS.neonLine} stopOpacity={1} />
                                 </linearGradient>
@@ -465,7 +466,7 @@ export function TodayVsGeneralChart({
                             <Line 
                                 type="monotoneX" 
                                 dataKey="accuracy" 
-                                stroke="url(#neonGradient)" 
+                                stroke={`url(#neonGradient_${neonGradInstanceId})`} 
                                 strokeWidth={3} 
                                 dot={{ fill: '#1e293b', stroke: COLORS.neonLine, strokeWidth: 2, r: 4 }}
                                 activeDot={{ fill: COLORS.neonLine, stroke: '#fff', strokeWidth: 2, r: 6 }}
@@ -476,7 +477,7 @@ export function TodayVsGeneralChart({
                                     dataKey="accuracy" 
                                     position="top" 
                                     offset={10} 
-                                    formatter={(v) => Math.round(v)} 
+                                    formatter={(v) => `${formatValue(v)}${unit}`} 
                                     fill="#94a3b8" 
                                     fontSize={10}
                                     fontWeight={700}
@@ -490,7 +491,7 @@ export function TodayVsGeneralChart({
                                     dataKey="lastTestAcc" 
                                     position="right" 
                                     offset={10} 
-                                    formatter={(v) => v ? Math.round(v) : ''} 
+                                    formatter={(v) => v ? `${formatValue(v)}` : ''} 
                                     fill="#fff" 
                                     fontSize={10}
                                     fontWeight={900}

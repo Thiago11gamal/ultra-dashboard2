@@ -85,7 +85,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
 
                         {/* Bottom Layer: Glow effect */}
                         <Radar 
-                            name="Seu Nível_glow" 
+                            name="_glow_Seu Nível" 
                             dataKey="nivel" 
                             stroke="#6366f1" 
                             strokeWidth={6} 

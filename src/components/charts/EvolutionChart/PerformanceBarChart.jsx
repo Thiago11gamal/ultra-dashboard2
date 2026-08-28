@@ -124,7 +124,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                                         </div>
                                                         <div className="flex justify-between items-center gap-4 mb-2">
                                                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Rendimento</span>
-                                                            <span className="text-[11px] font-black text-white">{rendPct}{unit}</span>
+                                                            <span className="text-[11px] font-black text-white">{rendPct}%</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -134,22 +134,25 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                     }}
                                 />
                                 
-                                <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} radius={[5, 5, 0, 0]} isAnimationActive={true} />
-                                
-                                <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[5, 5, 0, 0]} isAnimationActive={true}>
+                                <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} radius={[0, 0, 0, 0]} isAnimationActive={true}>
                                     <LabelList 
                                         dataKey="questoes" 
                                         content={(props) => {
-                                            const { x, y, width, value } = props;
+                                            const { x, width, value } = props;
                                             if (width < 15 || !value) return null;
+                                            const entry = chartData.find(d => d.questoes === value);
+                                            const errosH = entry ? entry.erros : 0;
+                                            const labelY = errosH > 0 ? props.y - 4 : props.y - 4;
                                             return (
-                                                <text x={x + width / 2} y={y - 4} fill="#94a3b8" fontSize={9} fontWeight="bold" textAnchor="middle">
+                                                <text x={x + width / 2} y={labelY} fill="#94a3b8" fontSize={9} fontWeight="bold" textAnchor="middle">
                                                     {value}
                                                 </text>
                                             );
                                         }}
                                     />
                                 </Bar>
+                                
+                                <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[5, 5, 0, 0]} isAnimationActive={true} />
                             </BarChart>
                             </ResponsiveContainer>
                         </ChartFrame>

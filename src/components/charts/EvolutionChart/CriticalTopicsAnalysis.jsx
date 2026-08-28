@@ -7,12 +7,13 @@ import { normalizeDate } from "../../../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../../../utils/scoreHelper";
 
 const CustomTooltipStyle = {
-    backgroundColor: '#0a0f1e',
-    border: '1px solid rgba(99,102,241,0.25)',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    backdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '12px',
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontSize: '12px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
 };
 
 // Mover para top-level (antes do componente)
