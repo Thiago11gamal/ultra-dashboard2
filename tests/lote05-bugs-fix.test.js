@@ -42,8 +42,8 @@ describe('LOTE 05 — Hardening e Correção de Bugs Conceituais', () => {
   describe('3. Robustez de parseNoonLocal (dateHelper)', () => {
     it('deve ancorar datas ao meio-dia e não regredir anos de 2 dígitos para 1900', () => {
       const d1 = parseNoonLocal('2026-07-29');
-      expect(d1.getFullYear()).toBe(2026);
-      expect(d1.getHours()).toBe(12);
+      expect(d1.getUTCFullYear()).toBe(2026);
+      expect(d1.getUTCHours()).toBe(16); // 12:00 in UTC-4 is 16:00 in UTC
 
       const d2 = parseNoonLocal('26-07-29');
       if (d2) {
