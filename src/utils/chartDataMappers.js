@@ -155,8 +155,15 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     // toLocaleDateString depende da localidade do browser e pode falhar o matching.
     // 🎯 STABILITY FIX: Inclui o Ano na chave para evitar colisão entre anos diferentes (Bug do Fantasma do Ano Passado)
     const getFullKey = (dateObj) => {
-      // ✅ Usa getDateKey (ancorado em America/Manaus) em vez de Intl genérico
-      return getDateKey(dateObj);
+      const key = getDateKey(dateObj);
+      if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        // Fallback: usar componentes UTC para evitar shift de timezone
+        const y = dateObj.getUTCFullYear();
+        const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      return key;
     };
 
     const getDisplayKey = (dateObj) => {

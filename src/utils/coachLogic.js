@@ -317,7 +317,14 @@ export const sanitizeNum = (val) => {
             str = str.replace(/,/g, '');
         }
     } else if (hasComma) {
-        str = str.replace(/\./g, '').replace(',', '.');
+        // Apenas vírgula: pode ser decimal (1,5) ou milhar (1.000)
+        // Se tem exatamente 3 dígitos após a vírgula, tratar como milhar
+        const afterComma = str.split(',')[1];
+        if (afterComma && afterComma.length === 3) {
+            str = str.replace(/\./g, '').replace(',', '');
+        } else {
+            str = str.replace(/\./g, '').replace(',', '.');
+        }
     } else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
         str = str.replace(/\./g, '');
     }

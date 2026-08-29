@@ -224,6 +224,11 @@ function MainLayout() {
         try {
           const currentAppState = useAppStore.getState().appState;
           const result = parseImportedData(e.target.result, currentAppState);
+          // FIX: Validar result.data antes de aplicar
+          if (!result || !result.data || typeof result.data !== 'object') {
+            showToast('Backup inválido ou corrompido.', 'error');
+            return;
+          }
           setAppState(result.data);
           showToast('Backup restaurado com sucesso! ✨', 'success');
         } catch (err) {
@@ -233,6 +238,11 @@ function MainLayout() {
           importTimeoutRef.current = null;
         }
       }, 350); // Delay de 350ms permite que a animação de entrada do Toast complete suavemente
+    };
+
+    // FIX: Adicionar handler de erro no FileReader
+    reader.onerror = () => {
+      showToast('Erro ao ler arquivo.', 'error');
     };
 
     reader.readAsText(file);

@@ -67,7 +67,8 @@ export default function Retention() {
         if (cat.selectedTask) {
             startPomodoroSession({
                 categoryId: cat.id,
-                taskId: cat.selectedTask.id || cat.selectedTask.text,
+                // FIX: Usar fallback seguro para taskId
+                taskId: cat.selectedTask.id || cat.selectedTask.text || `task-${cat.id}`,
                 category: cat.name,
                 task: taskName,
                 priority: cat.selectedTask.priority,
@@ -76,7 +77,7 @@ export default function Retention() {
         } else {
             startPomodoroSession({
                 categoryId: cat.id,
-                taskId: cat.id,
+                taskId: cat.id || `cat-${cat.name}`,
                 category: cat.name,
                 task: `${cat.name}: Revisão Geral`,
                 priority: 'normal',

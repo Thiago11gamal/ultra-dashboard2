@@ -373,7 +373,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     }
 
     const id = getSafeId(task);
-    const found = id ? taskLocationMap.get(id) : null;
+    const found = id && taskLocationMap.has(id) ? taskLocationMap.get(id) : null;
     if (found) {
       startWith(found.tasks, found.index, found.source);
       return;

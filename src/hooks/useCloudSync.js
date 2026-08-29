@@ -405,6 +405,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
     const localContests = local.contests || {};
     const cloudContests = cloud.contests || {};
+    // FIX: Validar cloudContests é um objeto
+    if (typeof cloudContests !== 'object' || Array.isArray(cloudContests)) {
+      logger.warn('[Sync] cloudContests inválido. Mantendo estado local.');
+      return local;
+    }
     const mergedContests = { ...localContests };
     const newTrashItems = [];
     const cloudFullUpdate = new Date(cloud.lastUpdated || 0).getTime();
