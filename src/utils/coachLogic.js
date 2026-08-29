@@ -199,7 +199,7 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
         if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
         const journeyDays = Math.max(0, refTime - firstTime) / 86400000;
         // ✅ FIX: Validar journeyDays antes de calcular totalJourneyDays
-        if (!Number.isFinite(journeyDays) || journeyDays <= 0) return 1.0;
+        if (!Number.isFinite(journeyDays)) return 1.0;
         const safeDays = Number.isFinite(daysToExam) ? Math.max(0, daysToExam) : 0;
         const totalJourneyDays = Math.max(1, journeyDays) + safeDays;
         criticalHorizon = Math.max(14, Math.min(35, totalJourneyDays * 0.08));

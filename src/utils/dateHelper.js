@@ -236,7 +236,8 @@ export const getFlashcardTodayKey = () => getDateKey(new Date());
 export const getFlashcardNextDueKey = (intervalDays = 1) => {
    const raw = Number(intervalDays);
    const safeDays = Number.isFinite(raw) ? Math.max(1, Math.min(3650, Math.floor(raw))) : 1;
-   const future = addDays(new Date(), safeDays);
+   const anchor = new Date(`${getDateKey(new Date())}T12:00:00-04:00`);
+   const future = addDays(anchor, safeDays);
    const key = getDateKey(future);
    return key || getFlashcardTodayKey();
 };
