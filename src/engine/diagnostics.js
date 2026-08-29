@@ -103,7 +103,8 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
     if (!rawDate) return;
     
     // Simplification for groupKey to avoid importing getDateKey if missing
-    const dayKey = typeof rawDate === 'string' ? rawDate.split('T')[0] : String(rawDate);
+    const d = rawDate instanceof Date ? rawDate : new Date(rawDate);
+    const dayKey = isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
     if (!dayKey) return;
   
     const groupKey = [

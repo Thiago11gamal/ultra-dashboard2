@@ -116,7 +116,7 @@ export default function Notes() {
 
     const maxScore = useMemo(() => {
         const scores = enhancedCategories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
-        return scores.length > 0 ? Math.max(...scores) : 100;
+        return scores.length > 0 ? scores.reduce((a, b) => Math.max(a, b), -Infinity) : 100;
     }, [enhancedCategories]);
 
     return (<PageErrorBoundary pageName="Notas">

@@ -23,19 +23,8 @@ export function makeNormalRng(rng) {
       return spare;
     }
     let u = 0, v = 0;
-    let attempts = 0;
-    while (u === 0 && attempts < 100) {
-      u = rng();
-      attempts++;
-    }
-    if (u === 0) u = 1e-15;
-    
-    attempts = 0;
-    while (v === 0 && attempts < 100) {
-      v = rng();
-      attempts++;
-    }
-    if (v === 0) v = 1e-15;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
     
     const mag = Math.sqrt(-2.0 * Math.log(u));
     spare = mag * Math.sin(2.0 * Math.PI * v);

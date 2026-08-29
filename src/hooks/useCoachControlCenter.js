@@ -85,6 +85,7 @@ export function useCoachControlCenter({
   // FIX: contador de execução para descartar resultados obsoletos
   const orchestratorRunIdRef = useRef(0);
   const tunerRunIdRef = useRef(0);
+  const tunerAbortControllerRef = useRef(null);
 
   useEffect(() => {
     isMounted.current = true;
@@ -190,6 +191,11 @@ export function useCoachControlCenter({
   // Executar AutoTuner
   // ==========================================================
   const runAutoTuner = useCallback(async (options = {}) => {
+    if (tunerAbortControllerRef.current) {
+      tunerAbortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    tunerAbortControllerRef.current = abortController;
     const runId = ++tunerRunIdRef.current;
     setLoading(true);
     setError(null);
@@ -201,6 +207,7 @@ export function useCoachControlCenter({
         forceApply: options.forceApply === true,
         exploration: options.exploration === true,
         minImprovement: options.minImprovement ?? 0.02,
+        signal: abortController.signal,
       });
       // FIX: valida mount + execução atual
       if (!isMounted.current || runId !== tunerRunIdRef.current) return null;

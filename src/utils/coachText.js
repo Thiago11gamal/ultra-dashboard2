@@ -14,7 +14,7 @@ export const RX_BOLD = /(\*\*.*?\*\*)/g;
 
 // FIX: Restauradas as âncoras ^...$ ou limites de palavra para evitar substituição destrutiva de substrings
 export const RX_NOISE_ACTION =
-  /^(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)|\(Prioridade\)|% de acerto)$/gi;
+  /(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)|\(Prioridade\)|% de acerto)/gi;
 
 export function isSystemAlertTask(value) {
   const text =

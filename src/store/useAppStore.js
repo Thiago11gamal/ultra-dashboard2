@@ -240,7 +240,7 @@ export const useAppStore = create(
                         localStorage.removeItem('ultra-dashboard-storage');
                         idbDel('ultra-dashboard-storage').catch(() => {});
                         targetId = 'default';
-                        targetContests = { 'default': { simulados: [], tasks: [] } };
+                        targetContests = { 'default': safeClone(INITIAL_DATA) };
                     }
 
                     // Atualização Atômica: ID e Hidratação juntos, sem mutação direta do estado persistido

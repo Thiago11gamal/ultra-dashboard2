@@ -74,7 +74,7 @@ export function detectCommonScales(categories) {
   return {
     isMixedScale: scales.size > 1,
     scales: Array.from(scales).sort((a,b) => b - a),
-    globalScale: scales.size > 0 ? Math.max(...scales) : 100
+    globalScale: scales.size > 0 ? Array.from(scales).reduce((a, b) => Math.max(a, b), -Infinity) : 100
   };
 }
 

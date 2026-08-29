@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ConfirmModal from './ConfirmModal';
+import { del as idbDel } from 'idb-keyval';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -168,7 +169,7 @@ function FactoryResetButton() {
             <ConfirmModal
                 isOpen={showConfirm}
                 onClose={() => setShowConfirm(false)}
-                onConfirm={() => {
+                onConfirm={async () => {
                     [
                         'ultra-dashboard-storage',
                         'ultra-dashboard-data',
@@ -176,6 +177,10 @@ function FactoryResetButton() {
                         'ultra-dashboard-storage-v8',
                         'ultra-dashboard-data-backup-safety'
                     ].forEach(key => localStorage.removeItem(key));
+                    sessionStorage.clear();
+                    try {
+                        await idbDel('ultra-dashboard-storage');
+                    } catch(e) {}
                     window.location.reload();
                 }}
                 title="Resetar App de Fábrica"

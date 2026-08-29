@@ -31,7 +31,7 @@ export default function Tasks() {
   // ✅ FIX: Calcular maxScore global das categorias
   const maxScore = React.useMemo(() => {
     const scores = categories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
-    return scores.length > 0 ? Math.max(...scores) : 100;
+    return scores.length > 0 ? scores.reduce((a, b) => Math.max(a, b), -Infinity) : 100;
   }, [categories]);
   
   const handleResetConfirm = () => {
