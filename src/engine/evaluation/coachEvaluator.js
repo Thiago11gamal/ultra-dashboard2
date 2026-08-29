@@ -422,8 +422,8 @@ export function summarizeCoachEvaluations(evaluations = [], options = {}) {
         avgProbabilityAbsoluteError === null
           ? null
           : Number(avgProbabilityAbsoluteError.toFixed(6)),
-      ece: Number(diagnostics.ece.toFixed(6)),
-      mce: Number(diagnostics.mce.toFixed(6)),
+      ece: diagnostics && Number.isFinite(diagnostics.ece) ? Number(diagnostics.ece.toFixed(6)) : null,
+      mce: diagnostics && Number.isFinite(diagnostics.mce) ? Number(diagnostics.mce.toFixed(6)) : null,
       reliability: diagnostics.reliability || [],
     },
     score: {

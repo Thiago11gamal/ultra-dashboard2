@@ -184,13 +184,13 @@ export function evaluateModelHealth(input = {}, options = {}) {
 
     metrics.currentCalibration = {
       count: probabilityPairs.length,
-      ece: Number(diagnostics.ece.toFixed(6)),
-      mce: Number(diagnostics.mce.toFixed(6)),
+      ece: Number.isFinite(diagnostics.ece) ? Number(diagnostics.ece.toFixed(6)) : 0,
+      mce: Number.isFinite(diagnostics.mce) ? Number(diagnostics.mce.toFixed(6)) : 0,
       reliability: diagnostics.reliability || [],
       brierDecomposition: diagnostics.brierDecomposition || null,
     };
 
-    if (diagnostics.ece > 0.15) {
+    if (diagnostics.ece !== null && diagnostics.ece > 0.15) {
       healthScore -= 15;
 
       alerts.push(

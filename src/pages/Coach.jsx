@@ -157,6 +157,8 @@ export default function Coach() {
       if ('cancelIdleCallback' in window) window.cancelIdleCallback(id);
     });
     idleCallbackIdsRef.current = [];
+    // ✅ FIX (BUG-CAL-2): cancelar RAFs pendentes para evitar persistência de métricas stale
+    rafIdsRef.current.forEach(id => cancelAnimationFrame(id));
     rafIdsRef.current = [];
     setTimeout(() => {
       if (isMountedRef.current) setCoachLoading(false);
@@ -252,11 +254,16 @@ export default function Coach() {
         const eceDelta = metricDelta(ece, lastEntry.ece);
         const penaltyDelta = Math.abs(Number(lastEntry.calibrationPenalty || 0) - calibrationPenalty);
         const probabilityDelta = metricDelta(probability, lastEntry.probability);
+        // ✅ FIX (BUG-CAL-4/5/10): validar campos do lastEntry contra null/NaN
+        // Quando lastEntry.avgBrier ou lastEntry.ece é null, o divisor Math.max(0.001, null)
+        // resulta em 0.001, magnifica micro-diferenças e causa re-persistência excessiva.
+        const safeLastBrier = (lastEntry.avgBrier !== null && lastEntry.avgBrier !== undefined && Number.isFinite(Number(lastEntry.avgBrier))) ? Number(lastEntry.avgBrier) : null;
+        const safeLastEce = (lastEntry.ece !== null && lastEntry.ece !== undefined && Number.isFinite(Number(lastEntry.ece))) ? Number(lastEntry.ece) : null;
         const reliabilitySignatureChanged =
           toReliabilitySignature(lastEntry?.reliability) !== toReliabilitySignature(reliability);
         const shouldSkipPersist =
-          (brierDelta < 0.001 && (brierDelta / Math.max(0.001, lastEntry.avgBrier)) < 0.05) &&
-          (eceDelta < 0.001 && (eceDelta / Math.max(0.001, lastEntry.ece)) < 0.05) &&
+          (brierDelta < 0.001 && (safeLastBrier === null || safeLastBrier < 0.001 || (brierDelta / safeLastBrier) < 0.05)) &&
+          (eceDelta < 0.001 && (safeLastEce === null || safeLastEce < 0.001 || (eceDelta / safeLastEce) < 0.05)) &&
           penaltyDelta < 0.001 &&
           probabilityDelta < 0.01 &&
           !reliabilitySignatureChanged;
@@ -792,8 +799,9 @@ export default function Coach() {
 function CalibrationAuditPopover({ categoryId = null }) {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef(null);
+  // ✅ FIX (BUG-CAL-11): recalcular summary apenas ao abrir o popover, não ao fechar
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId, isOpen]);
+  const summary = useMemo(() => getCalibrationTelemetrySummary(categoryId), [categoryId, isOpen && true]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1191,7 +1199,8 @@ function RaioXDashboard({ data }) {
                     </div>
                     {(() => {
                       const pen = toFiniteNumber(row.avgPenalty);
-                      if (pen < 0.005) return null;
+                      // ✅ FIX (BUG-CAL-9): threshold reduzido para consistência com audit log (> 0.001)
+                      if (pen < 0.001) return null;
                       return (
                         <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/20 bg-amber-500/10">
                           <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">

@@ -442,7 +442,9 @@ export function detectProbabilityCalibrationDrift(pairs = [], options = {}) {
   );
 
   const deltaBrier = recentBrier - baselineBrier;
-  const deltaEce = recentDiagnostics.ece - baselineDiagnostics.ece;
+  const safeRecentEce = Number.isFinite(recentDiagnostics.ece) ? recentDiagnostics.ece : 0;
+  const safeBaselineEce = Number.isFinite(baselineDiagnostics.ece) ? baselineDiagnostics.ece : 0;
+  const deltaEce = safeRecentEce - safeBaselineEce;
 
   let severity = 'none';
 
@@ -467,18 +469,21 @@ export function detectProbabilityCalibrationDrift(pairs = [], options = {}) {
     baseline: {
       count: baselinePairs.length,
       brier: Number(baselineBrier.toFixed(6)),
-      ece: Number(baselineDiagnostics.ece.toFixed(6)),
-      mce: Number(baselineDiagnostics.mce.toFixed(6)),
+      ece: Number.isFinite(baselineDiagnostics.ece) ? Number(baselineDiagnostics.ece.toFixed(6)) : null,
+      mce: Number.isFinite(baselineDiagnostics.mce) ? Number(baselineDiagnostics.mce.toFixed(6)) : null,
     },
     recent: {
       count: recentPairs.length,
       brier: Number(recentBrier.toFixed(6)),
-      ece: Number(recentDiagnostics.ece.toFixed(6)),
-      mce: Number(recentDiagnostics.mce.toFixed(6)),
+      ece: Number.isFinite(recentDiagnostics.ece) ? Number(recentDiagnostics.ece.toFixed(6)) : null,
+      mce: Number.isFinite(recentDiagnostics.mce) ? Number(recentDiagnostics.mce.toFixed(6)) : null,
     },
-    delta: {
+    deltas: {
       brier: Number(deltaBrier.toFixed(6)),
       ece: Number(deltaEce.toFixed(6)),
+      mce: (Number.isFinite(recentDiagnostics.mce) && Number.isFinite(baselineDiagnostics.mce)) 
+             ? Number((recentDiagnostics.mce - baselineDiagnostics.mce).toFixed(6)) 
+             : null,
     },
     isBadDrift: severity !== 'none',
   };

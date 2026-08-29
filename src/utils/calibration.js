@@ -67,14 +67,16 @@ export function summarizeCalibration(scores = [], options = {}) {
 
 export function computeCalibrationDiagnostics(pairs = [], options = {}) {
   const bins = Math.max(2, Number(options.bins) || 5);
-  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
+  // ✅ FIX (BUG-CAL-6): retornar null para ece/mce quando não há dados,
+  // em vez de 0 que sinaliza falsamente "calibração perfeita"
+  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
   const cleanPairs = pairs
     .map((p) => ({
       probability: Math.max(0, Math.min(1, Number(p?.probability))),
       observed: Math.max(0, Math.min(1, Number(p?.observed)))
     }))
     .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
-  if (cleanPairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
+  if (cleanPairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
   const sorted = [...cleanPairs].sort((a, b) => a.probability - b.probability);
   let ece = 0;
   let mce = 0;
@@ -145,7 +147,7 @@ export function computeCalibrationSummary(events = [], options = {}) {
     Number.isFinite(e?.probability) && (e?.observed === 0 || e?.observed === 1)
   );
   if (clean.length < 3) {
-    return { n: clean.length, ece: 0, avgBrier: 0, reliability: [], trend: 'insufficient_data' };
+    return { n: clean.length, ece: null, avgBrier: null, reliability: [], trend: 'insufficient_data' };
   }
   const diag = computeCalibrationDiagnostics(clean.map(e => ({ probability: e.probability, observed: e.observed })), { bins: options.bins || 6 });
   const briers = clean.map(e => computeBrierScore(e.probability, e.observed));

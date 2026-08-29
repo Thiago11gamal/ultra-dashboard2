@@ -434,9 +434,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
           maxPenalty: adaptive?.calibrationMaxPenalty ?? safeCfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25
         });
 
+        // ✅ FIX (BUG-CAL-3): tratar avgBrier null como "sem dados" em vez de 0
+        // (0 sinaliza falsamente "calibração perfeita", o que elimina penalidades)
         // PATCH-16: Validar imediatamente após receber do summarizeCalibration
         calibrationPenalty = Number.isFinite(summary.calibrationPenalty) ? summary.calibrationPenalty : 0;
-        avgBrier = Number.isFinite(summary.avgBrier) ? summary.avgBrier : 0;
+        avgBrier = summary.avgBrier === null ? null : (Number.isFinite(summary.avgBrier) ? summary.avgBrier : null);
 
         const adaptiveBins = predObsPairs.length >= 10
           ? (Number(safeCfg.MC_ECE_BINS_MAX) || 6)
@@ -446,7 +448,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         ece = diagnostics.ece;
         reliability = diagnostics.reliability;
 
-        const eceScaled = Math.max(0, Math.min(1, ece / 0.25));
+        // ✅ FIX (BUG-CAL-6 downstream): ece/mce agora podem ser null se cleanPairs ficou vazio
+        const safeEce = Number.isFinite(ece) ? ece : 0;
+        const eceScaled = Math.max(0, Math.min(1, safeEce / 0.25));
         const mceScaled = Math.max(0, Math.min(1, Number(diagnostics.mce || 0) / 0.4));
         const penaltyCap = adaptive?.calibrationMaxPenalty ?? safeCfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25;
         const meanLL = rawPreds.length > 0
