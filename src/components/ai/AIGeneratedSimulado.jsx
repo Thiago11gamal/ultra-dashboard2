@@ -600,6 +600,9 @@ export default function AIGeneratedSimulado() {
       return;
     }
 
+    // FIX: Garantir que latestTimePerQuestionRef está sincronizado
+    const timePerQ = latestTimePerQuestionRef.current || {};
+
     const absoluteElapsedSecs = simStartMsRef.current ? Math.round((Date.now() - simStartMsRef.current) / 1000) : 0;
     const totalAllowedTime = qList.length * 3 * 60;
     const fallbackTimeSpent = Math.max(absoluteElapsedSecs, totalAllowedTime - latestTimeLeftRef.current);
@@ -621,7 +624,7 @@ export default function AIGeneratedSimulado() {
 
     const total = qList.length;
     const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
-    const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (latestTimePerQuestionRef.current[q.id] || 0), 0);
+    const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (timePerQ[q.id] || 0), 0);
     const finalTimeSpent = exactTotalTime > 0 ? exactTotalTime : fallbackTimeSpent;
 
     if (f.categoryId === 'mixed') {
@@ -632,7 +635,7 @@ export default function AIGeneratedSimulado() {
         groups[key].qs.push(q);
         groups[key].total++;
         if (q.isCorrect) groups[key].correct++;
-        const spent = latestTimePerQuestionRef.current[q.id] || 0;
+        const spent = timePerQ[q.id] || 0;
         groups[key].timeSpent += spent;
       });
       const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];

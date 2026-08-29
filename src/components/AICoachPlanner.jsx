@@ -300,8 +300,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     setDragInfo(null);
 
     const { source, destination } = result;
+    // FIX: Validar destination antes de processar
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+    // FIX: Validar draggableId
+    if (!result.draggableId) return;
 
     setData(prev => {
       if (!prev) return prev;
