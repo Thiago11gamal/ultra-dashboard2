@@ -79,8 +79,8 @@ describe("measurement", () => {
       100
     );
 
-    expect(row.total).toBe(15);
-    expect(row.correct).toBeLessThanOrEqual(15);
+    expect(row.total).toBe(10);
+    expect(row.correct).toBeLessThanOrEqual(10);
   });
 
   it("probabilidade aceita 0-1 e 0-100", () => {
