@@ -46,9 +46,19 @@ export function parseGoalDateUnified(value) {
 export const getDateKey = (rawDate) => {
     if (!rawDate) return new Date().toISOString().split('T')[0];
     
-    // ✅ FIX: Se for ISO string 'YYYY-MM-DD', extraia diretamente sem passar pelo timezone engine
-    if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
-        return rawDate.trim();
+    if (typeof rawDate === 'string') {
+        const trimmed = rawDate.trim();
+        // ✅ FIX: Se for ISO string 'YYYY-MM-DD', extraia diretamente sem passar pelo timezone engine
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+            return trimmed;
+        }
+        // ✅ FIX: Handle YY-MM-DD strings to prevent year 1900 regression
+        if (/^\d{2}-\d{2}-\d{2}$/.test(trimmed)) {
+            const parts = trimmed.split('-');
+            const year = parseInt(parts[0], 10);
+            const fullYear = year < 100 ? 2000 + year : year;
+            return `${fullYear}-${parts[1]}-${parts[2]}`;
+        }
     }
     // Suporte ao _seconds do firebase que vem cru sem getter de objeto Date
     if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
@@ -113,7 +123,20 @@ export const normalizeDate = (raw) => {
   if (!raw) return null;
   let d;
 
-  const isDateOnly = typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  let isDateOnly = false;
+  let normalizedRaw = raw;
+
+  if (typeof raw === "string") {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      isDateOnly = true;
+    } else if (/^\d{2}-\d{2}-\d{2}$/.test(raw)) {
+      isDateOnly = true;
+      const parts = raw.split('-');
+      const year = parseInt(parts[0], 10);
+      const fullYear = year < 100 ? 2000 + year : year;
+      normalizedRaw = `${fullYear}-${parts[1]}-${parts[2]}`;
+    }
+  }
 
   if (typeof raw === "object" && (raw.seconds != null || raw._seconds != null)) {
     // Firebase Timestamp
@@ -133,7 +156,7 @@ export const normalizeDate = (raw) => {
     // ANTES: new Date("2025-01-15") = midnight UTC = dia anterior em Manaus
     // eslint-disable-next-line no-restricted-syntax
     d = isDateOnly
-      ? new Date(`${raw}T12:00:00-04:00`)
+      ? new Date(`${normalizedRaw}T12:00:00-04:00`)
       : new Date(raw);
   } else {
     d = new Date(raw);
