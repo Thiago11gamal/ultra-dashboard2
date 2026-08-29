@@ -34,6 +34,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             p.accumulatedMinutes = 0;
             p.completedCycles = 0;
+            p.mode = 'work';
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();

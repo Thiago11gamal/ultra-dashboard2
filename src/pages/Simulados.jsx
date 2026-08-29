@@ -304,7 +304,7 @@ export default function Simulados() {
     const lastRef = sorted[0];
     if (!lastRef) return { rows: [], source: null, timestamp: null };
 
-    let resultRows;
+    let resultRows = [];
 
     // 3. Estratégia A: batchId (Simulado IA)
     if (lastRef.batchId) {
