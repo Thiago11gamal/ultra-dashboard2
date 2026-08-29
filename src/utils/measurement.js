@@ -39,7 +39,8 @@ export function clampFinite(value, min, max, fallback = min) {
  * Domínio seguro da prova/matéria.
  */
 export function safeDomain(maxScore, minScore = 0) {
-  let max = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+  let rawMax = Number(maxScore);
+  let max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
   let min = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
 
   // ✅ FIX: trocar se invertidos (dados corrompidos)
@@ -315,12 +316,14 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
       r.isPercentage !== false;
 
     const points = clampFinite(scoreRaw, domain.min, domain.max, domain.min);
+    // Marcar ambiguidade para o consumidor exibir aviso
+    const ambiguous = looksAmbiguous && !r.isPercentage;
     const pct = pointsToPct(points, domain);
     return {
       points, pct,
       ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
       total, correct, totalValid: false, domain,
-      ambiguous: looksAmbiguous,
+      ambiguous,
       source: looksAmbiguous
         ? "score-ambiguous-as-points"
         : "score-auto-points",

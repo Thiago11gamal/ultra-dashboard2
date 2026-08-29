@@ -354,7 +354,7 @@ export const validateAppState = (data) => {
     return finalState;
   } catch (err) {
     console.error("[Validate] Erro catastrófico, retornando inicial:", err);
-    return { contests: { 'default': INITIAL_DATA }, activeId: 'default', lastUpdated: new Date().toISOString() };
+    return { contests: { 'default': safeClone(INITIAL_DATA) }, activeId: 'default', lastUpdated: new Date().toISOString() };
   }
 };
 
