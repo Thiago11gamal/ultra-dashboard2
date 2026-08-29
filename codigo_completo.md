@@ -1,4 +1,1380 @@
+# Código Completo
 
+## docs/reports/math-audit-2026-05-07T15-47-30-858Z.json
+
+```json
+{
+  "startedAt": "2026-05-07T15:47:30.858Z",
+  "finishedAt": "2026-05-07T15:47:31.477Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.09351065126921597  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 1                    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 67.93484204303962    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 37.625               │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '53.63..82.49'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.08873469387755101 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────┬──────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐\n│ (index) │ name                                       │ pass │ details                                                                                                                                                                                                │\n├─────────┼────────────────────────────────────────────┼──────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤\n│ 0       │ 'bayes safeMaxScore fallback finite'       │ true │ '{\"mean\":88.46,\"sd\":6.03,\"ciLow\":73.76,\"ciHigh\":97.4,\"unclampedLow\":73.76231851174197,\"unclampedHigh\":97.40414823943732,\"alpha\":42.01217972218647,\"beta\":5.479849528980845,\"n\":47.49202925116731}'     │\n│ 1       │ 'bayes scale invariance (normalized mean)' │ true │ '0.6526000000000001 vs 0.6539'                                                                                                                                                                         │\n│ 2       │ 'standardDeviation finite + positive'      │ true │ 16.540245325085117                                                                                                                                                                                     │\n│ 3       │ 'monte carlo probability [0,100]'          │ true │ 100                                                                                                                                                                                                    │\n│ 4       │ 'monte carlo ci ordered & bounded'         │ true │ '64.3..64.3'                                                                                                                                                                                           │\n│ 5       │ 'invalid inputs do not explode'            │ true │ '{\"mean\":4.55,\"sd\":6.99,\"ciLow\":0,\"ciHigh\":25,\"unclampedLow\":-2.3920687124135345,\"unclampedHigh\":24.99748014204637,\"alpha\":1,\"beta\":21,\"n\":22}'                                                        │\n│ 6       │ 'bayes edges n=0 finite'                   │ true │ '{\"mean\":50,\"sd\":21.28,\"ciLow\":8.29,\"ciHigh\":91.71,\"unclampedLow\":8.28537285584406,\"unclampedHigh\":91.71462714415594,\"alpha\":1,\"beta\":1,\"n\":2}'                                                        │\n│ 7       │ 'bayes edges n=1 finite'                   │ true │ '{\"mean\":50,\"sd\":7.13,\"ciLow\":36.03,\"ciHigh\":63.97,\"unclampedLow\":36.03392370241804,\"unclampedHigh\":63.96607629758196,\"alpha\":46.57872099633717,\"beta\":46.57872099633717,\"n\":93.15744199267434}'       │\n│ 8       │ 'bayes edges n=2 finite'                   │ true │ '{\"mean\":54.99,\"sd\":6.15,\"ciLow\":42.83,\"ciHigh\":66.94,\"unclampedLow\":42.834862741013126,\"unclampedHigh\":66.93967994561466,\"alpha\":102.21171113827465,\"beta\":83.66738109096217,\"n\":185.87909222923682}' │\n│ 9       │ 'bayes ci ordered under noisy data'        │ true │ '43.59..66.61'                                                                                                                                                                                         │\n└─────────┴────────────────────────────────────────────┴──────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘\n\nRigorous math checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬───────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                               │\n├─────────┼────────────────────────────────────┼──────┼───────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '58.51..69.49..79.88'                 │\n│ 1       │ 'mc output bounded'                │ true │ 100                                   │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 55                                    │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":7.5,\"b\":0}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'              │\n└─────────┴────────────────────────────────────┴──────┴───────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-09T20-53-16-715Z.json
+
+```json
+{
+  "startedAt": "2026-05-09T20:53:16.715Z",
+  "finishedAt": "2026-05-09T20:53:16.967Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13524659286777266  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889572    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 70.63833669426853    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 25.624999999999996   │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '47.66..81.43'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.08873469387755101 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────┬──────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐\n│ (index) │ name                                       │ pass │ details                                                                                                                                                                                           │\n├─────────┼────────────────────────────────────────────┼──────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤\n│ 0       │ 'bayes safeMaxScore fallback finite'       │ true │ '{\"mean\":88.46,\"sd\":6.1,\"ciLow\":73.54,\"ciHigh\":97.46,\"unclampedLow\":73.54267403580482,\"unclampedHigh\":97.46072476208587,\"alpha\":40.76126707095836,\"beta\":5.31668700925544,\"n\":46.0779540802138}'  │\n│ 1       │ 'bayes scale invariance (normalized mean)' │ true │ '0.6526000000000001 vs 0.6539'                                                                                                                                                                    │\n│ 2       │ 'standardDeviation finite + positive'      │ true │ 16.540245325085117                                                                                                                                                                                │\n│ 3       │ 'monte carlo probability [0,100]'          │ true │ 100                                                                                                                                                                                               │\n│ 4       │ 'monte carlo ci ordered & bounded'         │ true │ '68.82..68.82'                                                                                                                                                                                    │\n│ 5       │ 'invalid inputs do not explode'            │ true │ '{\"mean\":4.55,\"sd\":6.99,\"ciLow\":0,\"ciHigh\":25,\"unclampedLow\":-2.3920687124135345,\"unclampedHigh\":24.99748014204637,\"alpha\":1,\"beta\":21,\"n\":22}'                                                   │\n│ 6       │ 'bayes edges n=0 finite'                   │ true │ '{\"mean\":50,\"sd\":21.28,\"ciLow\":8.29,\"ciHigh\":91.71,\"unclampedLow\":8.28537285584406,\"unclampedHigh\":91.71462714415594,\"alpha\":1,\"beta\":1,\"n\":2}'                                                   │\n│ 7       │ 'bayes edges n=1 finite'                   │ true │ '{\"mean\":50,\"sd\":7.18,\"ciLow\":35.93,\"ciHigh\":64.07,\"unclampedLow\":35.929963098506036,\"unclampedHigh\":64.07003690149396,\"alpha\":45.19183957867123,\"beta\":45.19183957867123,\"n\":90.38367915734246}' │\n│ 8       │ 'bayes edges n=2 finite'                   │ true │ '{\"mean\":54.99,\"sd\":6.18,\"ciLow\":42.77,\"ciHigh\":67,\"unclampedLow\":42.76941491819533,\"unclampedHigh\":66.99905756272574,\"alpha\":99.16835743913252,\"beta\":81.17618481897877,\"n\":180.3445422581113}'  │\n│ 9       │ 'bayes ci ordered under noisy data'        │ true │ '43.59..66.61'                                                                                                                                                                                    │\n└─────────┴────────────────────────────────────────────┴──────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘\n\nRigorous math checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬───────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                               │\n├─────────┼────────────────────────────────────┼──────┼───────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '58.51..69.49..79.88'                 │\n│ 1       │ 'mc output bounded'                │ true │ 100                                   │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 65                                    │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":7.5,\"b\":0}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'              │\n└─────────┴────────────────────────────────────┴──────┴───────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-10T14-23-25-756Z.json
+
+```json
+{
+  "startedAt": "2026-05-10T14:23:25.756Z",
+  "finishedAt": "2026-05-10T14:23:26.038Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.1352465928677717   │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889572    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 70.63833669426869    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 26.125               │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '48.19..82.66'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.08873469387755101 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────┬──────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐\n│ (index) │ name                                       │ pass │ details                                                                                                                                                                                              │\n├─────────┼────────────────────────────────────────────┼──────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤\n│ 0       │ 'bayes safeMaxScore fallback finite'       │ true │ '{\"mean\":88.46,\"sd\":6.14,\"ciLow\":73.43,\"ciHigh\":97.49,\"unclampedLow\":73.43096730556351,\"unclampedHigh\":97.48931887606872,\"alpha\":40.14984806489398,\"beta\":5.236936704116608,\"n\":45.38678476901059}'  │\n│ 1       │ 'bayes scale invariance (normalized mean)' │ true │ '0.6526000000000001 vs 0.6539'                                                                                                                                                                       │\n│ 2       │ 'standardDeviation finite + positive'      │ true │ 16.540245325085117                                                                                                                                                                                   │\n│ 3       │ 'monte carlo probability [0,100]'          │ true │ 100                                                                                                                                                                                                  │\n│ 4       │ 'monte carlo ci ordered & bounded'         │ true │ '68.82..68.82'                                                                                                                                                                                       │\n│ 5       │ 'invalid inputs do not explode'            │ true │ '{\"mean\":4.55,\"sd\":6.99,\"ciLow\":0,\"ciHigh\":25,\"unclampedLow\":-2.3920687124135345,\"unclampedHigh\":24.99748014204637,\"alpha\":1,\"beta\":21,\"n\":22}'                                                      │\n│ 6       │ 'bayes edges n=0 finite'                   │ true │ '{\"mean\":50,\"sd\":21.28,\"ciLow\":8.29,\"ciHigh\":91.71,\"unclampedLow\":8.28537285584406,\"unclampedHigh\":91.71462714415594,\"alpha\":1,\"beta\":1,\"n\":2}'                                                      │\n│ 7       │ 'bayes edges n=1 finite'                   │ true │ '{\"mean\":50,\"sd\":7.21,\"ciLow\":35.88,\"ciHigh\":64.12,\"unclampedLow\":35.87718499701599,\"unclampedHigh\":64.12281500298401,\"alpha\":44.513961984991155,\"beta\":44.513961984991155,\"n\":89.02792396998231}'   │\n│ 8       │ 'bayes edges n=2 finite'                   │ true │ '{\"mean\":54.99,\"sd\":6.2,\"ciLow\":42.74,\"ciHigh\":67.03,\"unclampedLow\":42.736096274162975,\"unclampedHigh\":67.02927451270473,\"alpha\":97.68083207754553,\"beta\":79.95854204669409,\"n\":177.63937412423962}' │\n│ 9       │ 'bayes ci ordered under noisy data'        │ true │ '43.59..66.61'                                                                                                                                                                                       │\n└─────────┴────────────────────────────────────────────┴──────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘\n\nRigorous math checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬───────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                               │\n├─────────┼────────────────────────────────────┼──────┼───────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '58.51..69.49..79.88'                 │\n│ 1       │ 'mc output bounded'                │ true │ 100                                   │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 66                                    │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":7.5,\"b\":0}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'              │\n└─────────┴────────────────────────────────────┴──────┴───────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-11T17-32-03-827Z.json
+
+```json
+{
+  "startedAt": "2026-05-11T17:32:03.827Z",
+  "finishedAt": "2026-05-11T17:32:04.073Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.1352465928677743   │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889572    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 70.6383366942686     │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 22.75                │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '47.37..81.03'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.08873469387755101 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────┬──────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐\n│ (index) │ name                                       │ pass │ details                                                                                                                                                                                             │\n├─────────┼────────────────────────────────────────────┼──────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤\n│ 0       │ 'bayes safeMaxScore fallback finite'       │ true │ '{\"mean\":88.46,\"sd\":6.17,\"ciLow\":73.32,\"ciHigh\":97.52,\"unclampedLow\":73.31798990998647,\"unclampedHigh\":97.51811678589996,\"alpha\":39.54760034392057,\"beta\":5.158382653554859,\"n\":44.70598299747543}' │\n│ 1       │ 'bayes scale invariance (normalized mean)' │ true │ '0.6526000000000001 vs 0.6539'                                                                                                                                                                      │\n│ 2       │ 'standardDeviation finite + positive'      │ true │ 16.540245325085117                                                                                                                                                                                  │\n│ 3       │ 'monte carlo probability [0,100]'          │ true │ 100                                                                                                                                                                                                 │\n│ 4       │ 'monte carlo ci ordered & bounded'         │ true │ '68.82..68.82'                                                                                                                                                                                      │\n│ 5       │ 'invalid inputs do not explode'            │ true │ '{\"mean\":4.55,\"sd\":6.99,\"ciLow\":0,\"ciHigh\":25,\"unclampedLow\":-2.3920687124135345,\"unclampedHigh\":24.99748014204637,\"alpha\":1,\"beta\":21,\"n\":22}'                                                     │\n│ 6       │ 'bayes edges n=0 finite'                   │ true │ '{\"mean\":50,\"sd\":21.28,\"ciLow\":8.29,\"ciHigh\":91.71,\"unclampedLow\":8.28537285584406,\"unclampedHigh\":91.71462714415594,\"alpha\":1,\"beta\":1,\"n\":2}'                                                     │\n│ 7       │ 'bayes edges n=1 finite'                   │ true │ '{\"mean\":50,\"sd\":7.23,\"ciLow\":35.82,\"ciHigh\":64.18,\"unclampedLow\":35.82387075198602,\"unclampedHigh\":64.17612924801398,\"alpha\":43.84625255521629,\"beta\":43.84625255521629,\"n\":87.69250511043258}'    │\n│ 8       │ 'bayes edges n=2 finite'                   │ true │ '{\"mean\":54.99,\"sd\":6.21,\"ciLow\":42.7,\"ciHigh\":67.06,\"unclampedLow\":42.702376179879494,\"unclampedHigh\":67.0598476932929,\"alpha\":96.21561959638235,\"beta\":78.75916391599368,\"n\":174.97478351237604}' │\n│ 9       │ 'bayes ci ordered under noisy data'        │ true │ '43.59..66.61'                                                                                                                                                                                      │\n└─────────┴────────────────────────────────────────────┴──────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘\n\nRigorous math checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬───────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                               │\n├─────────┼────────────────────────────────────┼──────┼───────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '58.51..69.49..79.88'                 │\n│ 1       │ 'mc output bounded'                │ true │ 100                                   │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 66                                    │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":7.5,\"b\":0}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'              │\n└─────────┴────────────────────────────────────┴──────┴───────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-15T23-32-49-802Z.json
+
+```json
+{
+  "startedAt": "2026-05-15T23:32:49.802Z",
+  "finishedAt": "2026-05-15T23:32:50.180Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13524637720475788  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.21855616633421    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 42.625               │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.51..85.56'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.08873469387755101 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬─────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                             │\n├─────────┼────────────────────────────────────┼──────┼─────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '46.35..58.3..70.25'                │\n│ 1       │ 'mc output bounded'                │ true │ 100                                 │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 66                                  │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'            │\n└─────────┴────────────────────────────────────┴──────┴─────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-15T23-47-11-020Z.json
+
+```json
+{
+  "startedAt": "2026-05-15T23:47:11.020Z",
+  "finishedAt": "2026-05-15T23:47:11.387Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13524637714004617  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.21858606332762    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 42.625               │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.51..85.56'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.08873469387755101 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬─────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                             │\n├─────────┼────────────────────────────────────┼──────┼─────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '46.35..58.3..70.25'                │\n│ 1       │ 'mc output bounded'                │ true │ 100                                 │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 66                                  │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'            │\n└─────────┴────────────────────────────────────┴──────┴─────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-17T22-45-12-464Z.json
+
+```json
+{
+  "startedAt": "2026-05-17T22:45:12.464Z",
+  "finishedAt": "2026-05-17T22:45:12.787Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13524636386184713  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.22428330489797    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 43.75                │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.67..85.71'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.08873469387755101 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬────────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                                │\n├─────────┼────────────────────────────────────┼──────┼────────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '58.37..69.56..80.76'                  │\n│ 1       │ 'mc output bounded'                │ true │ 100                                    │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 61                                     │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0.53}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'               │\n└─────────┴────────────────────────────────────┴──────┴────────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-25T15-57-37-427Z.json
+
+```json
+{
+  "startedAt": "2026-05-25T15:57:37.427Z",
+  "finishedAt": "2026-05-25T15:57:37.844Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13524629858965628  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.24370709239831    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 43.75                │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.67..85.71'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.06292517006802721 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬────────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                                │\n├─────────┼────────────────────────────────────┼──────┼────────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '57.96..69.34..80.72'                  │\n│ 1       │ 'mc output bounded'                │ true │ 100                                    │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 81                                     │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0.53}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'               │\n└─────────┴────────────────────────────────────┴──────┴────────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-26T18-44-11-060Z.json
+
+```json
+{
+  "startedAt": "2026-05-26T18:44:11.060Z",
+  "finishedAt": "2026-05-26T18:44:11.397Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.50000014990049     │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13524628715327489  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.24615537422858    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 43.75                │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.67..85.71'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.06292517006802721 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬────────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                                │\n├─────────┼────────────────────────────────────┼──────┼────────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '57.85..69.28..80.72'                  │\n│ 1       │ 'mc output bounded'                │ true │ 100                                    │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 81                                     │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0.53}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'               │\n└─────────┴────────────────────────────────────┴──────┴────────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-26T18-46-45-703Z.json
+
+```json
+{
+  "startedAt": "2026-05-26T18:46:45.703Z",
+  "finishedAt": "2026-05-26T18:46:46.122Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.5000001744636429   │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13502998556543844  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.24547015165777    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 43.5                 │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.63..85.68'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.06292517006802721 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬────────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                                │\n├─────────┼────────────────────────────────────┼──────┼────────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '57.85..69.28..80.72'                  │\n│ 1       │ 'mc output bounded'                │ true │ 100                                    │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 81                                     │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0.53}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'               │\n└─────────┴────────────────────────────────────┴──────┴────────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-05-29T15-41-02-987Z.json
+
+```json
+{
+  "startedAt": "2026-05-29T15:41:02.987Z",
+  "finishedAt": "2026-05-29T15:41:03.322Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.5000001744636429   │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13502998556543622  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.25140087983966    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 43.5                 │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.63..85.68'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.06292517006802721 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬────────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                                │\n├─────────┼────────────────────────────────────┼──────┼────────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '57.74..69.23..80.72'                  │\n│ 1       │ 'mc output bounded'                │ true │ 100                                    │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 81                                     │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0.53}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'               │\n└─────────┴────────────────────────────────────┴──────┴────────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-06-15T15-27-27-062Z.json
+
+```json
+{
+  "startedAt": "2026-06-15T15:27:27.062Z",
+  "finishedAt": "2026-06-15T15:27:27.480Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.5000001744636429   │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.1350299855654359   │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.27756715682901    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 43.5                 │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.63..85.68'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.06292517006802721 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬────────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                                │\n├─────────┼────────────────────────────────────┼──────┼────────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '56.87..69.39..80.84'                  │\n│ 1       │ 'mc output bounded'                │ true │ 100                                    │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 82                                     │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0.53}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'               │\n└─────────┴────────────────────────────────────┴──────┴────────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-06-25T20-22-54-383Z.json
+
+```json
+{
+  "startedAt": "2026-06-25T20:22:54.383Z",
+  "finishedAt": "2026-06-25T20:22:54.957Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬──────────────────────┐\n│ (index) │ name                                                                       │ pass │ details              │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼──────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.5000001744636429   │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                    │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                  │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                    │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13502998556543772  │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571    │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.28785259296392    │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 43.5                 │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '49.63..85.68'       │\n│ 10      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.06292517006802721 │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴──────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬────────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                                │\n├─────────┼────────────────────────────────────┼──────┼────────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '56.34..69.27..81.01'                  │\n│ 1       │ 'mc output bounded'                │ true │ 100                                    │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 82                                     │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0.53}' │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'               │\n└─────────┴────────────────────────────────────┴──────┴────────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## docs/reports/math-audit-2026-07-03T04-12-42-210Z.json
+
+```json
+{
+  "startedAt": "2026-07-03T04:12:42.210Z",
+  "finishedAt": "2026-07-03T04:12:45.933Z",
+  "ok": true,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────────────────────────────────────────────┬──────┬───────────────────────────────────────┐\n│ (index) │ name                                                                       │ pass │ details                               │\n├─────────┼────────────────────────────────────────────────────────────────────────────┼──────┼───────────────────────────────────────┤\n│ 0       │ 'gaussian.normalCDF_complement(0) ~= 0.5'                                  │ true │ 0.5000001744636429                    │\n│ 1       │ 'monteCarlo deterministic clamp target'                                    │ true │ 0                                     │\n│ 2       │ 'monteCarlo simulation cap applied'                                        │ true │ 300                                   │\n│ 3       │ 'monteCarlo sanitizes inverted domain'                                     │ true │ 0                                     │\n│ 4       │ 'monteCarlo clamps huge simulations to cap'                                │ true │ 50000                                 │\n│ 5       │ 'projection.calculateSlope finite'                                         │ true │ 0.13503005565519516                   │\n│ 6       │ 'projection.calculateVolatility finite+positive'                           │ true │ 6.013872850889571                     │\n│ 7       │ 'projection.projectScore bounded [0,100]'                                  │ true │ 68.29353261210734                     │\n│ 8       │ 'projection.monteCarloSimulation probability [0,100]'                      │ true │ 28.125                                │\n│ 9       │ 'projection.monteCarloSimulation ci ordered'                               │ true │ '52.42564089430704..75.4485892735125' │\n│ 10      │ 'projection.calculateRobustVolatility finite+positive'                     │ true │ 3.104422705478951                     │\n│ 11      │ 'projection.calculateMSSD finite+positive'                                 │ true │ 1.0910119218931504                    │\n│ 12      │ 'projection.computeNonLinearTrend valid object'                            │ true │ 6.814748047747244                     │\n│ 13      │ 'projection.calculateDynamicEMA finite'                                    │ true │ 76.65289256198346                     │\n│ 14      │ 'variance.estimateInterSubjectCorrelation preserves negative correlations' │ true │ -0.06292517006802721                  │\n└─────────┴────────────────────────────────────────────────────────────────────────────┴──────┴───────────────────────────────────────┘\n\nAll math engine checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "🧪 Iniciando Testes Rigorosos de Precisão Matemática...\n\n✅ Cálculo de Média: OK\n✅ Cálculo de Desvio Padrão: OK\n\n🚀 Todos os testes rigorosos passaram com sucesso.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬────────────────────────────────────┬──────┬───────────────────────────────────────────────────────────┐\n│ (index) │ name                               │ pass │ details                                                   │\n├─────────┼────────────────────────────────────┼──────┼───────────────────────────────────────────────────────────┤\n│ 0       │ 'bayes output finite/ordered'      │ true │ '55.99585919345851..69.21511661327845..81.15115716881039' │\n│ 1       │ 'mc output bounded'                │ true │ 100                                                       │\n│ 2       │ 'urgency normalized in [0,100]'    │ true │ 76                                                        │\n│ 3       │ 'urgency exposes bridge fields'    │ true │ '{\"completionRate\":50,\"e\":0,\"b\":0.53}'                    │\n│ 4       │ 'suggested focus returns category' │ true │ 'Direito Constitucional'                                  │\n└─────────┴────────────────────────────────────┴──────┴───────────────────────────────────────────────────────────┘\n\nMath integration checks passed.\n",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+## eslint.config.js
+
+```js
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist', 'build', 'coverage', 'test-results', 'playwright-report', 'ultra-patched/**', '**/*.min.js', 'scripts/legacy_migrations/**', 'move*.js', 'move*.cjs', 'script.js']),
+  {
+    files: ['**/*.{js,jsx}'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: {
+        ...globals.browser,
+        ...globals.node, // RIGOR FIX: Suporte a process e require em scripts de config
+      },
+      parserOptions: {
+        ecmaVersion: 'latest',
+        ecmaFeatures: { jsx: true },
+        sourceType: 'module',
+      },
+    },
+    extends: [
+      js.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.0.type='TemplateLiteral']",
+          message: 'Use parseNoonLocal()/normalizeDate() — nunca concatene timezone manualmente.',
+        },
+      ],
+    },
+  },
+])
+
+
+```
+
+## generate_md.js
+
+```js
+const fs = require('fs');
+const path = require('path');
+
+const rootDir = 'd:\\\\Downloads\\\\ultra-patched';
+const outputFile = path.join(rootDir, 'codigo_completo.md');
+
+const excludeDirs = ['node_modules', '.git', 'build', 'dist', 'coverage', '.cache'];
+const includeExts = ['.js', '.jsx', '.ts', '.tsx', '.css', '.html', '.json'];
+
+function isTestFile(filename) {
+    return filename.includes('.test.') || filename.includes('.spec.') || filename.includes('__tests__') || filename.includes('setupTests');
+}
+
+function scanDir(dir, fileList = []) {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+        const fullPath = path.join(dir, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+            if (!excludeDirs.includes(file)) {
+                scanDir(fullPath, fileList);
+            }
+        } else {
+            const ext = path.extname(fullPath);
+            if (includeExts.includes(ext) && !isTestFile(file) && !fullPath.includes('package-lock.json')) {
+                fileList.push(fullPath);
+            }
+        }
+    }
+    return fileList;
+}
+
+const allFiles = scanDir(rootDir);
+let markdownContent = '# Código Completo\n\n';
+
+for (const file of allFiles) {
+    const relativePath = path.relative(rootDir, file);
+    if (relativePath === 'generate_md.js' || relativePath === 'codigo_completo.md') continue;
+    
+    const ext = path.extname(file).substring(1);
+    const content = fs.readFileSync(file, 'utf8');
+    
+    markdownContent += '## ' + relativePath + '\n\n';
+    markdownContent += '```' + (ext === 'jsx' ? 'jsx' : ext) + '\n';
+    markdownContent += content + '\n';
+    markdownContent += '```\n\n';
+}
+
+fs.writeFileSync(outputFile, markdownContent);
+console.log('Successfully generated ' + outputFile);
+
+```
+
+## index.html
+
+```html
+<!doctype html>
+<html lang="pt-BR" translate="no">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1157/1157077.png" />
+  <title>MÉTODO ARRAIA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    /* Loading Screen Styles - Shown while React loads */
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+
+    .initial-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: white;
+    }
+
+    .loader-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(139, 92, 246, 0.3);
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loader-text {
+      margin-top: 1rem;
+      font-size: 1.1rem;
+      color: #94a3b8;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.6;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+  </style>
+  <script>
+    window.addEventListener('error', (event) => {
+      const loaderText = document.querySelector('.loader-text');
+
+      if (!loaderText) return;
+
+      loaderText.textContent = 'Erro de carregamento: ' + event.message;
+      loaderText.style.color = '#f87171';
+      loaderText.style.animation = 'none';
+    });
+
+    const BUILD_VERSION = typeof __APP_VERSION__ !== 'undefined'
+      ? __APP_VERSION__
+      : 'dev';
+    const buildVersion = typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : (window.__BUILD_VERSION__ || 'dev');
+    console.log("[Build] Versão:", buildVersion);
+
+    setTimeout(() => {
+      const loaderText = document.querySelector('.loader-text');
+      if (!loaderText) return;
+
+      const currentText = loaderText.textContent || "";
+      if (!currentText.includes("Carregando")) return;
+
+      loaderText.textContent = "";
+
+      const title = document.createElement("div");
+      title.textContent = "Carregamento lento detectado...";
+
+      const version = document.createElement("small");
+      version.style.opacity = "0.5";
+      version.textContent = `Versão: ${buildVersion} | Verifique o painel VITE_.`;
+
+      const btn = document.createElement("button");
+      btn.textContent = "Limpar dados e reiniciar";
+      btn.style.marginTop = "20px";
+      btn.style.background = "rgba(248, 113, 113, 0.2)";
+      btn.style.border = "1px solid #f87171";
+      btn.style.color = "#f87171";
+      btn.style.padding = "8px 16px";
+      btn.style.borderRadius = "8px";
+      btn.style.cursor = "pointer";
+      btn.style.fontSize = "12px";
+
+      async function clearAllLocalData() {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+
+          if ('serviceWorker' in navigator) {
+            try {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (let registration of registrations) {
+                await registration.unregister();
+              }
+            } catch (swErr) {
+              console.error('Erro ao remover Service Worker:', swErr);
+            }
+          }
+
+          if ('indexedDB' in window && typeof indexedDB.databases === 'function') {
+            const dbs = await indexedDB.databases();
+
+            if (Array.isArray(dbs)) {
+              const allowedPrefixes = [
+                'ultra-dashboard',
+                'firestore/',
+              ];
+
+              dbs.forEach(db => {
+                if (!db.name) return;
+
+                const canDelete = allowedPrefixes.some(prefix =>
+                  String(db.name).startsWith(prefix)
+                );
+
+                if (canDelete) {
+                  indexedDB.deleteDatabase(db.name);
+                }
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Erro ao limpar dados locais:', error);
+        } finally {
+          location.reload();
+        }
+      }
+
+      btn.addEventListener("click", async () => {
+        const ok = window.confirm(
+          "Isso apagará os dados locais deste navegador. Deseja continuar?"
+        );
+
+        if (ok) {
+          await clearAllLocalData();
+        }
+      });
+
+      loaderText.appendChild(title);
+      loaderText.appendChild(document.createElement("br"));
+      loaderText.appendChild(version);
+      loaderText.appendChild(document.createElement("br"));
+      loaderText.appendChild(btn);
+    }, 8000);
+  </script>
+</head>
+
+<body>
+  <div id="root">
+    <!-- Initial loader - replaced by React when app loads -->
+    <div class="initial-loader">
+      <div class="loader-spinner"></div>
+      <p class="loader-text">Carregando...</p>
+    </div>
+  </div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>
+
+```
+
+## package.json
+
+```json
+{
+  "name": "ultra-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "kill-port": "npx kill-port 5173 5174",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:math": "node scripts/test-math-engines.mjs",
+    "test:unit": "node scripts/test-unit-safe.mjs",
+    "test:all": "npm run test:math && npm run test:rigorous-math && npm run test:unit",
+    "test:math-rigor": "node scripts/test-math-rigorous.mjs",
+    "test:rigorous-math": "node scripts/test-math-rigorous.mjs",
+    "test:bootstrap": "node scripts/test-bootstrap-ci.mjs",
+    "test:integration-math": "node scripts/test-math-integration.mjs",
+    "test:math-stress": "node scripts/test-math-stress.mjs",
+    "test:coach-regression": "vitest run tests/coach-math-regressions.test.js",
+    "test:all-math": "npm run test:math-rigor && npm run test:math-stress && npm run test:coach-regression",
+    "audit:math": "node scripts/run-math-audit.mjs",
+    "test:mc-scenarios": "node scripts/test-mc-scenarios.mjs",
+    "mc:parallel": "node scripts/run-mc-parallel.mjs",
+    "test:heatmap-aggregation": "node scripts/test-heatmap-aggregation.mjs",
+    "test:weekly-insights": "node scripts/test-weekly-insights.mjs",
+    "test:evolution-suite": "node scripts/test-evolution-suite.mjs",
+    "test:projection-scenario": "node scripts/test-projection-scenario.mjs",
+    "test:evolution-all": "npm run test:unit && npm run test:evolution-suite",
+    "test:evolution-ui": "node scripts/test-evolution-ui-contracts.mjs",
+    "test:evolution-components": "vitest run src/components/charts/EvolutionChart/__tests__/evolutionComponents.test.jsx",
+    "test:evolution-e2e": "node scripts/test-evolution-e2e.mjs",
+    "test:unit:safe": "node scripts/test-unit-safe.mjs",
+    "lint:safe": "node scripts/lint-safe.mjs",
+    "build:safe": "node scripts/build-safe.mjs",
+    "verify:evolution": "node scripts/verify-evolution-stack.mjs",
+    "test:coach-unit": "vitest run tests/coach-math-regressions.test.js src/utils/__tests__/coachLogic.regression.test.js src/utils/__tests__/coachBacktest.test.js",
+    "test:coach-integration": "vitest run tests/coach-logic.integration.test.js",
+    "test:coach-suite": "node scripts/test-coach-suite.mjs"
+  },
+  "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
+    "@stripe/stripe-js": "^8.9.0",
+    "date-fns": "^4.1.0",
+    "dompurify": "^3.4.12",
+    "firebase": "^12.6.0",
+    "framer-motion": "^12.23.25",
+    "html-to-image": "^1.11.13",
+    "idb-keyval": "^6.2.2",
+    "immer": "^11.1.4",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^0.556.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-is": "^19.2.4",
+    "react-joyride": "^2.9.3",
+    "react-router-dom": "^7.13.0",
+    "recharts": "^3.5.1",
+    "zundo": "^2.3.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.58.1",
+    "@tailwindcss/vite": "^4.1.17",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-v8": "^4.1.6",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^7.0.2",
+    "vite": "^7.2.4",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10"
+  }
+}
+
+```
+
+## playwright.config.js
+
+```js
+import { defineConfig, devices } from '@playwright/test';
+import os from 'os';
+
+// Fix for Windows where HOME might not be set for some tools
+if (process.platform === 'win32' && !process.env.HOME) {
+    process.env.HOME = process.env.USERPROFILE || os.homedir();
+}
+
+// Remove hardcode para previnir quebras se o Vite pular para 5174
+const baseURL = process.env.BASE_URL || 'http://localhost:5173';
+
+export default defineConfig({
+    testDir: './e2e',
+    fullyParallel: true,
+    forbidOnly: !!process.env.CI,
+    retries: process.env.CI ? 2 : 0,
+    workers: process.env.CI ? 1 : undefined,
+    reporter: 'html',
+    use: {
+        baseURL: baseURL,
+        trace: 'on-first-retry',
+    },
+    projects: [
+        {
+            name: 'chromium',
+            use: { ...devices['Desktop Chrome'] },
+        },
+        {
+            name: 'firefox',
+            use: { ...devices['Desktop Firefox'] },
+        },
+        {
+            name: 'webkit',
+            use: { ...devices['Desktop Safari'] },
+        },
+    ],
+    webServer: {
+        command: 'npm run dev -- --strictPort',
+        url: 'http://localhost:5173',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120 * 1000,
+        env: {
+            VITE_LOCAL_MODE: 'true'
+        }
+    },
+});
+
+
+```
+
+## scripts/legacy_migrations/move.js
+
+```js
+const fs = require('fs'); const file = 'c:/Users/antun.BOOK-201QO8FPFE/Downloads/ultra-patched/ultra-patched/src/components/AICoachView.jsx'; const lines = fs.readFileSync(file, 'utf8').split('\n'); const s = lines.findIndex(l => l.includes('{systemAlerts.length > 0 && (')); const e = lines.findIndex((l, i) => i > s && l.trim() === ')}' && lines[i-1].includes('</div>')); if(s>=0 && e>s){ const block = lines.splice(s, e-s+1); const p = lines.findIndex(l => l.includes('<AICoachPlanner />')); lines.splice(p, 0, ...block); fs.writeFileSync(file, lines.join('\n')); console.log('OK'); }
+
+
+```
+
+## scripts/lib/evolutionE2E.js
+
+```js
+export function shouldSkipForMissingBrowser(output = '') {
+  return output.includes("Executable doesn't exist")
+    || output.includes('Please run the following command to download new browsers');
+}
+
+export function resolveStatus({ status, error, output }) {
+  if (error) return 1;
+  if ((status ?? 1) !== 0 && shouldSkipForMissingBrowser(output)) return 0;
+  return status ?? 1;
+}
+
+
+```
+
+## scripts/mc-parallel-result.json
+
+```json
+{
+  "meta": {
+    "simulationCount": 100,
+    "empiricalProbabilityCombined": 100,
+    "analyticalProbabilityCombined": 100,
+    "empiricalStdErr": 0.0001,
+    "parts": 12,
+    "timestamp": "2026-07-03T20:31:47.577Z"
+  },
+  "raw": [
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 75.14603700125433,
+      "projectedMean": 75.14603700125433,
+      "sd": 13.474511787075583,
+      "ci95Low": 55.65836885737957,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 55.65836885737957,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 9,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 75.14603700125433,
+      "projectedMean": 75.14603700125433,
+      "sd": 13.474511787075583,
+      "ci95Low": 55.65836885737957,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 55.65836885737957,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 9,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 75.14603700125433,
+      "projectedMean": 75.14603700125433,
+      "sd": 13.474511787075583,
+      "ci95Low": 55.65836885737957,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 55.65836885737957,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 9,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 75.14603700125433,
+      "projectedMean": 75.14603700125433,
+      "sd": 13.474511787075583,
+      "ci95Low": 55.65836885737957,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 55.65836885737957,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 9,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 74.09145312683809,
+      "projectedMean": 74.09145312683809,
+      "sd": 14.002168957147013,
+      "ci95Low": 53.549201108547095,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 53.549201108547095,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 8,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 74.09145312683809,
+      "projectedMean": 74.09145312683809,
+      "sd": 14.002168957147013,
+      "ci95Low": 53.549201108547095,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 53.549201108547095,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 8,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 74.09145312683809,
+      "projectedMean": 74.09145312683809,
+      "sd": 14.002168957147013,
+      "ci95Low": 53.549201108547095,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 53.549201108547095,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 8,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 74.09145312683809,
+      "projectedMean": 74.09145312683809,
+      "sd": 14.002168957147013,
+      "ci95Low": 53.549201108547095,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 53.549201108547095,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 8,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 74.09145312683809,
+      "projectedMean": 74.09145312683809,
+      "sd": 14.002168957147013,
+      "ci95Low": 53.549201108547095,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 53.549201108547095,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 8,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 74.09145312683809,
+      "projectedMean": 74.09145312683809,
+      "sd": 14.002168957147013,
+      "ci95Low": 53.549201108547095,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 53.549201108547095,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 8,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 74.09145312683809,
+      "projectedMean": 74.09145312683809,
+      "sd": 14.002168957147013,
+      "ci95Low": 53.549201108547095,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 53.549201108547095,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 8,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    },
+    {
+      "probability": 100,
+      "analyticalProbability": 100,
+      "timePenaltyApplied": false,
+      "timePenaltyScoreDrop": 0,
+      "projectedTotalTimeSeconds": 0,
+      "examDurationMinutes": 0,
+      "mean": 74.09145312683809,
+      "projectedMean": 74.09145312683809,
+      "sd": 14.002168957147013,
+      "ci95Low": 53.549201108547095,
+      "ci95High": 94.63370514512908,
+      "currentMean": 67.65866666666666,
+      "drift": 0,
+      "volatility": 4.668623717613861,
+      "confidence": "medium",
+      "trendType": "linear",
+      "ciConformalLow": 53.549201108547095,
+      "ciConformalHigh": 94.63370514512908,
+      "diagnostics": {
+        "trendType": "linear",
+        "effectiveDriftSlope": 0,
+        "conformalCoverage": 0.9,
+        "simulationCount": 8,
+        "historicalMean": 65.8,
+        "effectiveN": 5
+      }
+    }
+  ]
+}
+```
 
 ## src/App.jsx
 
@@ -229,6 +1605,11 @@ function MainLayout() {
         try {
           const currentAppState = useAppStore.getState().appState;
           const result = parseImportedData(e.target.result, currentAppState);
+          // FIX: Validar result.data antes de aplicar
+          if (!result || !result.data || typeof result.data !== 'object') {
+            showToast('Backup inválido ou corrompido.', 'error');
+            return;
+          }
           setAppState(result.data);
           showToast('Backup restaurado com sucesso! ✨', 'success');
         } catch (err) {
@@ -238,6 +1619,11 @@ function MainLayout() {
           importTimeoutRef.current = null;
         }
       }, 350); // Delay de 350ms permite que a animação de entrada do Toast complete suavemente
+    };
+
+    // FIX: Adicionar handler de erro no FileReader
+    reader.onerror = () => {
+      showToast('Erro ao ler arquivo.', 'error');
     };
 
     reader.readAsText(file);
@@ -427,7 +1813,6 @@ export default App;
 
 
 ```
-
 
 ## src/components/ActivityHeatmap.jsx
 
@@ -758,7 +2143,6 @@ export default React.memo(ActivityHeatmap);
 
 
 ```
-
 
 ## src/components/ai/AIGeneratedSimulado.jsx
 
@@ -1365,6 +2749,9 @@ export default function AIGeneratedSimulado() {
       return;
     }
 
+    // FIX: Garantir que latestTimePerQuestionRef está sincronizado
+    const timePerQ = latestTimePerQuestionRef.current || {};
+
     const absoluteElapsedSecs = simStartMsRef.current ? Math.round((Date.now() - simStartMsRef.current) / 1000) : 0;
     const totalAllowedTime = qList.length * 3 * 60;
     const fallbackTimeSpent = Math.max(absoluteElapsedSecs, totalAllowedTime - latestTimeLeftRef.current);
@@ -1386,7 +2773,7 @@ export default function AIGeneratedSimulado() {
 
     const total = qList.length;
     const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
-    const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (latestTimePerQuestionRef.current[q.id] || 0), 0);
+    const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (timePerQ[q.id] || 0), 0);
     const finalTimeSpent = exactTotalTime > 0 ? exactTotalTime : fallbackTimeSpent;
 
     if (f.categoryId === 'mixed') {
@@ -1397,7 +2784,7 @@ export default function AIGeneratedSimulado() {
         groups[key].qs.push(q);
         groups[key].total++;
         if (q.isCorrect) groups[key].correct++;
-        const spent = latestTimePerQuestionRef.current[q.id] || 0;
+        const spent = timePerQ[q.id] || 0;
         groups[key].timeSpent += spent;
       });
       const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
@@ -1632,7 +3019,6 @@ export default function AIGeneratedSimulado() {
 
 ```
 
-
 ## src/components/ai/SimuladoPlayer.jsx
 
 ```jsx
@@ -1848,7 +3234,6 @@ return (
 
 
 ```
-
 
 ## src/components/ai/SimuladoResults.jsx
 
@@ -2122,7 +3507,6 @@ return (
 
 
 ```
-
 
 ## src/components/ai/SimuladoSetup.jsx
 
@@ -2503,7 +3887,6 @@ return (
 
 ```
 
-
 ## src/components/AICoachPlanner.jsx
 
 ```jsx
@@ -2809,8 +4192,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     setDragInfo(null);
 
     const { source, destination } = result;
+    // FIX: Validar destination antes de processar
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+    // FIX: Validar draggableId
+    if (!result.draggableId) return;
 
     setData(prev => {
       if (!prev) return prev;
@@ -3036,7 +4422,6 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 }
 
 ```
-
 
 ## src/components/AICoachView.jsx
 
@@ -3416,7 +4801,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     }
 
     const id = getSafeId(task);
-    const found = id ? taskLocationMap.get(id) : null;
+    const found = id && taskLocationMap.has(id) ? taskLocationMap.get(id) : null;
     if (found) {
       startWith(found.tasks, found.index, found.source);
       return;
@@ -3742,7 +5127,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 }
 
 ```
-
 
 ## src/components/AICoachWidget.jsx
 
@@ -4261,7 +5645,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
 ```
 
-
 ## src/components/CategoryEditor.jsx
 
 ```jsx
@@ -4482,7 +5865,6 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
 ```
 
-
 ## src/components/charts/Analytics/AnaliseRetencaoChart.jsx
 
 ```jsx
@@ -4669,7 +6051,6 @@ export function AnaliseRetencaoChart({ data }) {
 
 ```
 
-
 ## src/components/charts/Analytics/EvolucaoFocoChart.jsx
 
 ```jsx
@@ -4751,7 +6132,6 @@ export function EvolucaoFocoChart({ data }) {
 
 
 ```
-
 
 ## src/components/charts/Analytics/HorasDisciplinaChart.jsx
 
@@ -4848,7 +6228,6 @@ export function HorasDisciplinaChart({ data }) {
 
 
 ```
-
 
 ## src/components/charts/ChartFrame.jsx
 
@@ -4968,7 +6347,6 @@ export { ChartFrame };
 
 
 ```
-
 
 ## src/components/charts/ChartTooltip.jsx
 
@@ -5126,7 +6504,6 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
 
 ```
 
-
 ## src/components/charts/DueForecastChart.jsx
 
 ```jsx
@@ -5229,7 +6606,6 @@ export default function DueForecastChart({ data = [], height = 260 }) {
 
 
 ```
-
 
 ## src/components/charts/EvolutionChart/CompareChart.jsx
 
@@ -5601,7 +6977,6 @@ export function CompareChart({
 
 ```
 
-
 ## src/components/charts/EvolutionChart/CriticalTopicsAnalysis.jsx
 
 ```jsx
@@ -5916,7 +7291,6 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
 ```
 
-
 ## src/components/charts/EvolutionChart/DisciplinaCard.jsx
 
 ```jsx
@@ -6010,7 +7384,6 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
 
 ```
-
 
 ## src/components/charts/EvolutionChart/EvolutionLineChart.jsx
 
@@ -6461,7 +7834,6 @@ export function EvolutionLineChart({
 
 ```
 
-
 ## src/components/charts/EvolutionChart/KpiCard.jsx
 
 ```jsx
@@ -6493,7 +7865,6 @@ export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, 
 
 
 ```
-
 
 ## src/components/charts/EvolutionChart/MonteCarloEvolutionChart.jsx
 
@@ -6926,7 +8297,6 @@ export const MonteCarloEvolutionChart = ({
 
 ```
 
-
 ## src/components/charts/EvolutionChart/PerformanceBarChart.jsx
 
 ```jsx
@@ -7109,7 +8479,6 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
 
 ```
 
-
 ## src/components/charts/EvolutionChart/RadarAnalysis.jsx
 
 ```jsx
@@ -7245,7 +8614,6 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
 
 
 ```
-
 
 ## src/components/charts/EvolutionChart/SubtopicsPerformanceChart.jsx
 
@@ -7797,7 +9165,6 @@ export const SubtopicsPerformanceChart = React.memo(({
 
 ```
 
-
 ## src/components/charts/EvolutionChart/TimeSpentChart.jsx
 
 ```jsx
@@ -8246,7 +9613,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
 
 ```
-
 
 ## src/components/charts/EvolutionChart/TodayVsGeneralChart.jsx
 
@@ -8760,7 +10126,6 @@ export function TodayVsGeneralChart({
 
 
 ```
-
 
 ## src/components/charts/EvolutionChart/WeeklyEvolutionView.jsx
 
@@ -9379,7 +10744,6 @@ export const WeeklyEvolutionView = ({
 
 ```
 
-
 ## src/components/charts/EvolutionChart/WeeklyPerformanceChart.jsx
 
 ```jsx
@@ -9663,716 +11027,6 @@ export default WeeklyPerformanceChart;
 
 
 ```
-
-
-## src/components/charts/EvolutionChart/__tests__/evolution-menu-bugs-audit.test.jsx
-
-```jsx
-import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { renderToStaticMarkup } from 'react-dom/server';
-
-import { PerformanceBarChart } from '../PerformanceBarChart';
-import { SubtopicsPerformanceChart } from '../SubtopicsPerformanceChart';
-import { TodayVsGeneralChart } from '../TodayVsGeneralChart';
-import { DisciplinaCard } from '../DisciplinaCard';
-import { WeeklyEvolutionView } from '../WeeklyEvolutionView';
-import { KpiCard } from '../KpiCard';
-import { RadarAnalysis } from '../RadarAnalysis';
-import { GaussianPlot } from '../../GaussianPlot';
-import { 
-  safeDomain, 
-  clampScore, 
-  scoreToRatio, 
-  scoreToPct, 
-  pctToScore, 
-  formatUnitValue 
-} from '../../../../utils/scoreDomain';
-import { aggregateHeatmap, calculateSubjectMastery } from '../../../../utils/heatmapAggregation';
-
-vi.mock('recharts', async () => {
-  const actual = await vi.importActual('recharts');
-  return {
-    ...actual,
-    ResponsiveContainer: ({ children }) => <div style={{ width: 800, height: 320 }}>{children}</div>,
-  };
-});
-
-describe('Menu Evolução - Full 60 Bug Audit & Regression Suite', () => {
-  describe('scoreDomain.js - Unidade Central de Domínio', () => {
-    it('calcula limites seguros de domínio com minScore negativo e arbitrário', () => {
-      const dom = safeDomain(120, 20);
-      expect(dom.min).toBe(20);
-      expect(dom.max).toBe(120);
-      expect(dom.range).toBe(100);
-    });
-
-    it('clampa notas respeitando minScore e maxScore', () => {
-      expect(clampScore(10, { minScore: 20, maxScore: 120 })).toBe(20);
-      expect(clampScore(130, { minScore: 20, maxScore: 120 })).toBe(120);
-      expect(clampScore(70, { minScore: 20, maxScore: 120 })).toBe(70);
-    });
-
-    it('converte pontuação para razão e percentual com amplitude [minScore, maxScore]', () => {
-      const ratio = scoreToRatio(70, { minScore: 20, maxScore: 120 });
-      expect(ratio).toBe(0.5);
-      expect(scoreToPct(70, { minScore: 20, maxScore: 120 })).toBe(50);
-      expect(pctToScore(50, { minScore: 20, maxScore: 120 })).toBe(70);
-    });
-
-    it('formata valores de acordo com a unidade (%, pts, horas)', () => {
-      expect(formatUnitValue(50, '%')).toBe('50%');
-      expect(formatUnitValue(70, 'pts')).toBe('70pts');
-      expect(formatUnitValue(1.5, 'horas')).toBe('1h30');
-    });
-  });
-
-  describe('Bug 1 & 35: SubtopicsPerformanceChart safeMinScore & Recharts topic keys', () => {
-    it('renderiza sem crash quando minScore != 0 e não lança ReferenceError para safeMinScore', () => {
-      const categories = [
-        {
-          id: '1',
-          name: 'Direito Administrativo',
-          simuladoStats: {
-            history: [
-              {
-                date: '2026-08-14',
-                total: 10,
-                score: 80,
-                topics: [
-                  { name: 'Art. 5º da CF', total: 10, correct: 8, score: 80 },
-                  { name: 'Poder de Polícia', total: 0, score: 90 } // synthetic volume test
-                ]
-              }
-            ]
-          }
-        }
-      ];
-
-      const html = renderToStaticMarkup(
-        <SubtopicsPerformanceChart
-          categories={categories}
-          focusSubjectId="1"
-          showOnlyFocus={true}
-          timeWindow="all"
-          targetScore={80}
-          minScore={20}
-          maxScore={120}
-        />
-      );
-      expect(html).toContain('Raio-X de Tópicos');
-      expect(html).toContain('Ranking (Barras)');
-    });
-  });
-
-  describe('Bug 13, 49, 50: GaussianPlot - Defesa contra KDE vazio, limites e bounds', () => {
-    it('renderiza com segurança sem crash quando KDE ou pointsForArea está vazio', () => {
-      const html = renderToStaticMarkup(
-        <GaussianPlot
-          mean={70}
-          targetScore={80}
-          prob={65}
-          minScore={20}
-          maxScore={120}
-          unit="pts"
-          kdeData={[]}
-        />
-      );
-      expect(html).toContain('<svg');
-    });
-
-    it('clampa meanVal dentro de [domainMin, domainMax]', () => {
-      const html = renderToStaticMarkup(
-        <GaussianPlot
-          mean={150} // out of bounds
-          targetScore={80}
-          prob={90}
-          minScore={20}
-          maxScore={120}
-          unit="pts"
-        />
-      );
-      expect(html).toContain('<svg');
-    });
-  });
-
-  describe('Bug 14, 15, 16: TodayVsGeneralChart - Datas futuras, scale e NaN latestAcc', () => {
-    it('renderiza corretamente sem ser afetado por datas futuras ou scores NaN', () => {
-      const now = Date.now();
-      const futureDate = new Date(now + 10 * 24 * 60 * 60 * 1000).toISOString();
-      const pastDate = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
-
-      const activeCategories = [
-        {
-          id: '1',
-          name: 'Direito Penal',
-          simuladoStats: {
-            history: [
-              { date: pastDate, total: 10, correct: 7, score: 70 },
-              { date: futureDate, total: 20, correct: 20, score: 100 }
-            ]
-          }
-        }
-      ];
-
-      const html = renderToStaticMarkup(
-        <TodayVsGeneralChart
-          activeCategories={activeCategories}
-          globalMetrics={{ globalAccuracy: 70, totalQuestions: 10, totalCorrect: 7 }}
-          targetScore={80}
-          maxScore={100}
-          minScore={0}
-          unit="%"
-        />
-      );
-      expect(html).toContain('Histórico Recente');
-    });
-  });
-
-  describe('Bug 21, 36, 37: WeeklyEvolutionView - Sanitização de chaves e totalQ', () => {
-    it('renderiza tópicos com pontos e caracteres especiais como dataKeys seguras', () => {
-      const categories = [
-        {
-          id: 'cat_1',
-          name: 'Processo Penal',
-          color: '#3b82f6',
-          simuladoStats: {
-            history: [
-              {
-                date: '2026-08-10',
-                total: 10,
-                score: 80,
-                topics: [{ name: 'Art. 155. Furto Qualificado', total: 10, score: 80 }]
-              }
-            ]
-          }
-        }
-      ];
-
-      const html = renderToStaticMarkup(
-        <WeeklyEvolutionView
-          categories={categories}
-          showOnlyFocus={false}
-          maxScore={120}
-          minScore={20}
-          unit="pts"
-        />
-      );
-      expect(html).toContain('Semanas por Matéria');
-      expect(html).toContain('Raio-X Temporal Avançado');
-    });
-  });
-
-  describe('Bug 45 & 46: heatmapAggregation & Subject Mastery', () => {
-    it('clampa pct em [0, 100]', () => {
-      const filtered = {
-        dates: [{ key: '2026-08-10', label: '10/08' }],
-        rows: [{
-          cells: [{ total: 10, correct: 10, pct: 100 }]
-        }]
-      };
-      const agg = aggregateHeatmap(filtered, 'daily', 100);
-      expect(agg.rows[0].cells[0].pct).toBe(100);
-    });
-
-    it('calculateSubjectMastery previne acertos ou totais negativos', () => {
-      const subtopics = [
-        { acertos: -5, total: -10 },
-        { acertos: 8, total: 10 }
-      ];
-      const mastery = calculateSubjectMastery(subtopics);
-      expect(mastery).toBeGreaterThan(0);
-      expect(Number.isFinite(mastery)).toBe(true);
-    });
-  });
-
-  describe('Bug 55: KpiCard - Sem +0.00', () => {
-    it('exibe traço quando safeSub arredondado for 0.00', () => {
-      const html = renderToStaticMarkup(
-        <KpiCard
-          value="85%"
-          label="Acurácia"
-          color="#10b981"
-          icon="🎯"
-          sub={0.0001} // Rounds to 0.00
-        />
-      );
-      expect(html).toContain('—');
-      expect(html).not.toContain('+0.00');
-    });
-  });
-
-  describe('Bug 54: RadarAnalysis - Degeneração de domínio quando minScore === maxScore', () => {
-    it('mantém polar radius axis seguro mesmo se minScore e maxScore forem iguais', () => {
-      const html = renderToStaticMarkup(
-        <RadarAnalysis
-          radarData={[{ subject: 'Português', nivel: 70, meta: 80 }]}
-          maxScore={100}
-          minScore={100}
-          unit="%"
-        />
-      );
-      expect(html).toContain('Raio-X das Disciplinas');
-    });
-  });
-});
-
-```
-
-
-## src/components/charts/EvolutionChart/__tests__/evolution-stats-bugs.test.jsx
-
-```jsx
-import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { mapRetentionData } from '../../../../utils/chartDataMappers';
-import { SubtopicsPerformanceChart } from '../SubtopicsPerformanceChart';
-
-// Mock recharts assim como nos outros testes de componentes de gráficos
-vi.mock('recharts', async () => {
-  const actual = await vi.importActual('recharts');
-  return {
-    ...actual,
-    ResponsiveContainer: ({ children }) => <div style={{ width: 800, height: 320 }}>{children}</div>,
-  };
-});
-
-describe('Evolution & Stats Bugs Audit', () => {
-    it('Bug C: SubtopicsPerformanceChart deve se proteger contra Divisão por Zero (maxScore === minScore)', () => {
-        const today = new Date().toISOString();
-        const categories = [{
-            id: '1', 
-            name: 'CatZeroDivision', 
-            simuladoStats: { 
-                history: [{ 
-                    date: today, 
-                    total: 10, 
-                    correct: 5, 
-                    score: 5, 
-                    topics: [{ name: 'Top1', total: 10, correct: 5, score: 5 }] 
-                }] 
-            }
-        }];
-        
-        // Passando maxScore igual a minScore para forçar divisão por zero caso a proteção (range = Math.max(1e-9...)) falhe
-        const html = renderToStaticMarkup(
-            <SubtopicsPerformanceChart categories={categories} maxScore={100} minScore={100} viewMode="lines" instanceId="test" />
-        );
-        
-        // Deve renderizar sem lançar erro de divisão por zero (Infinity/NaN no Recharts)
-        expect(html).toContain('Raio-X de Tópicos');
-    });
-
-    it('Bug D: mapRetentionData deve ler simuladoStats.average quando bayesianStats.mean não existir (Amnésia Bayesiana)', () => {
-        const now = Date.now();
-        const pastDate = new Date(now - 14 * 24 * 60 * 60 * 1000); // 14 dias atrás
-        
-        // Categoria 1: Com Alto Average no simulado (deve ter decaimento mais lento/melhor retenção)
-        const catWithHighAverage = {
-            id: '1',
-            name: 'Cat1',
-            lastStudiedAt: pastDate.toISOString(),
-            maxScore: 100,
-            simuladoStats: { totalQuestions: 100, average: 90 }, // Alta precisão de fallback
-            // Sem bayesianStats.mean
-        };
-        
-        // Categoria 2: Com Baixo Average no simulado
-        const catWithLowAverage = {
-            id: '2',
-            name: 'Cat2',
-            lastStudiedAt: pastDate.toISOString(),
-            maxScore: 100,
-            simuladoStats: { totalQuestions: 100, average: 0 }, // Baixa precisão de fallback
-        };
-        
-        const resultHigh = mapRetentionData([catWithHighAverage]);
-        const resultLow = mapRetentionData([catWithLowAverage]);
-        
-        // Como o Bug D foi corrigido, o accuracy agora usa simuladoStats.average quando a bayesiana falha.
-        // Portanto, a retenção do que tem 90 de average deve ser MAIOR, o que significa que o Nível Crítico (100 - retention) deve ser MENOR do que a do que tem 0.
-        expect(resultHigh[0].nivelCritico).toBeLessThan(resultLow[0].nivelCritico);
-        expect(resultHigh[0].nivelCritico).toBeLessThan(100);
-    });
-});
-
-```
-
-
-## src/components/charts/EvolutionChart/__tests__/evolutionComponents.test.jsx
-
-```jsx
-import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { MonteCarloEvolutionChart } from '../MonteCarloEvolutionChart';
-import { EvolutionHeatmap } from '../../EvolutionHeatmap';
-import { CriticalTopicsAnalysis } from '../CriticalTopicsAnalysis';
-import { RadarAnalysis } from '../RadarAnalysis';
-import { TimeSpentChart } from '../TimeSpentChart';
-import { PerformanceBarChart } from '../PerformanceBarChart';
-import { EvolutionLineChart } from '../EvolutionLineChart';
-import { TodayVsGeneralChart } from '../TodayVsGeneralChart';
-import { WeeklyEvolutionView } from '../WeeklyEvolutionView';
-import { generateEvolutionInsights } from '../../../../engine/insightGenerator';
-
-vi.mock('recharts', async () => {
-  const actual = await vi.importActual('recharts');
-  return {
-    ...actual,
-    ResponsiveContainer: ({ children }) => <div style={{ width: 800, height: 320 }}>{children}</div>,
-  };
-});
-
-describe('evolution components render contracts', () => {
-  it('renders MonteCarloEvolutionChart shell with scenario controls', () => {
-    const html = renderToStaticMarkup(
-      <MonteCarloEvolutionChart
-        data={[{ date: '2026-05-01', probability: 50, mean: 70, ci95Low: 65, ci95High: 75 }]}
-        targetScore={75}
-        unit="%"
-        maxScore={100}
-      />
-    );
-    expect(html).toContain('Evolução da Projeção');
-    expect(html).toContain('Conserv.');
-    expect(html).toContain('Base');
-    expect(html).toContain('Otim.');
-  });
-
-  it('renders EvolutionHeatmap controls', () => {
-    const heatmapData = {
-      dates: [{ key: '2026-05-01', label: '01/05', dayName: 'SEX', isWeekend: false }],
-      rows: [{ cat: { id: 'cat1', name: 'Matemática', icon: '📘', color: '#fff' }, cells: [{ pct: 80, correct: 8, total: 10 }] }]
-    };
-    const html = renderToStaticMarkup(<EvolutionHeatmap heatmapData={heatmapData} targetScore={70} unit="%" />);
-    expect(html).toContain('Diário');
-    expect(html).toContain('Semanal');
-    expect(html).toContain('Mensal');
-  });
-
-  it('renders CriticalTopicsAnalysis', () => {
-    const today = new Date().toISOString().split('T')[0];
-    const categories = [{
-      id: 'cat1', name: 'Física', icon: '⚛️', color: '#fff',
-      simuladoStats: {
-        history: [{
-          date: today,
-          total: 10,
-          correct: 2,
-          score: 20,
-          topics: [{ name: 'Cinemática', total: 10, correct: 2, score: 20 }]
-        }]
-      }
-    }];
-    const html = renderToStaticMarkup(<CriticalTopicsAnalysis categories={categories} maxScore={100} />);
-    expect(html).toContain('Índice de Criticidade');
-  });
-
-  it('renders RadarAnalysis', () => {
-    const radarData = [{
-      subject: 'Matemática', score: 80, target: 70
-    }];
-    const html = renderToStaticMarkup(<RadarAnalysis radarData={radarData} maxScore={100} />);
-    expect(html).toContain('Equilíbrio Geral');
-  });
-
-  it('renders TimeSpentChart', () => {
-    const subjectAggData = [{
-      fullName: 'Química', timeSpent: 120, questoes: 10, timedQuestoes: 10
-    }];
-    const html = renderToStaticMarkup(<TimeSpentChart subjectAggData={subjectAggData} />);
-    expect(html).toContain('Tempo M');
-    expect(html).toContain('Última Média');
-  });
-
-  it('renders CriticalTopicsAnalysis com suporte a synthetic total (nova matematica)', () => {
-    const today = new Date().toISOString().split('T')[0];
-    const categories = [{
-      id: 'cat1', name: 'Física', icon: '⚛️', color: '#fff',
-      simuladoStats: {
-        history: [{
-          date: today,
-          total: 0,
-          correct: 0,
-          score: 500,
-          topics: [{ name: 'Cinemática', total: 0, correct: 0, score: 500 }]
-        }]
-      }
-    }];
-    const html = renderToStaticMarkup(<CriticalTopicsAnalysis categories={categories} maxScore={1000} />);
-    expect(html).toContain('Índice de Criticidade');
-  });
-
-  it('renders RadarAnalysis com suporte a minScore dinamico (nova matematica)', () => {
-    const radarData = [{
-      subject: 'Matemática', score: 800, target: 700
-    }];
-    const html = renderToStaticMarkup(<RadarAnalysis radarData={radarData} minScore={200} maxScore={1000} unit="pts" />);
-    expect(html).toContain('Equilíbrio Geral');
-  });
-
-  it('renders PerformanceBarChart com suporte a units (nova matematica)', () => {
-    const subjectAggData = [{
-      fullName: 'Química', questoes: 10, erros: 2, scoreNorm: 800
-    }];
-    const html = renderToStaticMarkup(<PerformanceBarChart subjectAggData={subjectAggData} unit="pts" maxScore={1000} />);
-    expect(html).toContain('Questões Resolvidas vs Acertos');
-  });
-
-  it('renders EvolutionLineChart without isLineClicked reference errors', () => {
-    const categories = [{ id: 'cat1', name: 'Direito Constitucional', color: '#6366f1' }];
-    const chartData = [{ date: '2026-05-01', displayDate: '01/05', raw_cat1: 80, bay_cat1: 78, stats_cat1: 75 }];
-    const html = renderToStaticMarkup(
-      <EvolutionLineChart
-        activeCategories={categories}
-        filteredChartData={chartData}
-        engine={{ id: 'bayesian', prefix: 'bay_' }}
-        targetScore={70}
-        maxScore={100}
-        minScore={0}
-        unit="%"
-      />
-    );
-    expect(html).toContain('Traçando evolução');
-  });
-
-  it('renders TodayVsGeneralChart with negative delta formatting correctly', () => {
-    const today = new Date().toISOString().split('T')[0];
-    const categories = [{
-      id: 'cat1', name: 'Português',
-      simuladoStats: {
-        history: [
-          { date: '2026-05-01', total: 10, correct: 9, score: 90 },
-          { date: today, total: 10, correct: 8, score: 80 }
-        ]
-      }
-    }];
-    const simuladoRows = [
-      { date: today, categoryId: 'cat1', subject: 'Português', total: 10, correct: 4, score: 40 }
-    ];
-    const html = renderToStaticMarkup(
-      <TodayVsGeneralChart
-        categories={categories}
-        simuladoRows={simuladoRows}
-        globalMetrics={{ globalAccuracy: 70 }}
-        targetScore={70}
-        maxScore={100}
-        minScore={0}
-        unit="%"
-      />
-    );
-    expect(html).toContain('Ritmo (Hoje)');
-    expect(html).toContain('−40.0%');
-  });
-
-  it('generates burnout and dynamic engine insights in insightGenerator', () => {
-    const today = new Date().toISOString().split('T')[0];
-    const cat = {
-      id: 'cat1', name: 'Biologia',
-      simuladoStats: {
-        history: [
-          { date: today, total: 50, correct: 20, score: 40 }
-        ]
-      }
-    };
-    const timeline = [
-      { date: today, raw_cat1: 40, bay_cat1: 75, stats_cat1: 70 }
-    ];
-    const insight = generateEvolutionInsights({
-      timeline,
-      focusCategory: cat,
-      activeEngine: 'compare',
-      categories: [cat],
-      unit: '%',
-      maxScore: 100,
-      minScore: 0
-    });
-    expect(insight).toBeDefined();
-    expect(insight.title).toContain('Alerta de Burnout');
-  });
-
-  it('renders PerformanceBarChart with 100% correct answers (erros === 0) without breaking stack', () => {
-    const subjectAggData = [{
-      name: 'Direito Penal', fullName: 'Direito Penal', questoes: 10, acertos: 10, erros: 0
-    }];
-    const html = renderToStaticMarkup(<PerformanceBarChart subjectAggData={subjectAggData} unit="%" maxScore={100} />);
-    expect(html).toContain('Questões Resolvidas vs Acertos');
-    expect(html).toContain('Acertos');
-    expect(html).toContain('Erros');
-  });
-
-  it('renders EvolutionHeatmap with non-standard scale (ENEM 200-1000) correctly', () => {
-    const heatmapData = {
-      dates: [{ key: '2026-05-01', label: '01/05', dayName: 'SEX', isWeekend: false }],
-      rows: [{ cat: { id: 'cat1', name: 'Redação', icon: '📝', color: '#fff' }, cells: [{ pct: 85, correct: 850, total: 1000 }] }]
-    };
-    const html = renderToStaticMarkup(
-      <EvolutionHeatmap
-        heatmapData={heatmapData}
-        targetScore={750}
-        minScore={200}
-        maxScore={1000}
-        unit="pts"
-      />
-    );
-    expect(html).toContain('Diário');
-    expect(html).toContain('meta');
-  });
-});
-
-```
-
-
-## src/components/charts/EvolutionChart/__tests__/TimeSpentChart.test.jsx
-
-```jsx
-import React from 'react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { TimeSpentChart } from '../TimeSpentChart';
-
-vi.mock('recharts', async () => {
-  const actual = await vi.importActual('recharts');
-  return {
-    ...actual,
-    ResponsiveContainer: ({ children }) => <div style={{ width: 800, height: 320 }}>{children}</div>,
-  };
-});
-
-describe('TimeSpentChart bug fixes', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('inclui histórico de hoje na média recente mesmo de manhã (comparação por getDateKey)', () => {
-    vi.useFakeTimers();
-    // 10:00 em Manaus (UTC-4) = 14:00 UTC — antes do meio-dia ancorado (16:00 UTC)
-    vi.setSystemTime(new Date('2026-05-08T14:00:00.000Z'));
-
-    const subjectAggData = [{
-      id: 'cat1',
-      fullName: 'Física',
-      timeSpent: 600,
-      timedQuestoes: 10,
-    }];
-
-    const activeCategories = [{
-      id: 'cat1',
-      simuladoStats: {
-        history: [{
-          date: '2026-05-08',
-          timeSpent: 120,
-          total: 10,
-        }],
-      },
-    }];
-
-    const html = renderToStaticMarkup(
-      <TimeSpentChart subjectAggData={subjectAggData} activeCategories={activeCategories} />
-    );
-
-    // Média recente de hoje: 12s/questão — não deve cair para a média geral de 60s
-    expect(html).toContain('Média: 12s');
-    expect(html).not.toContain('Média: 1m');
-  });
-
-  it('exclui entradas com data futura via chave YYYY-MM-DD', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-08T14:00:00.000Z'));
-
-    const subjectAggData = [{
-      id: 'cat1',
-      fullName: 'Física',
-      timeSpent: 600,
-      timedQuestoes: 10,
-    }];
-
-    const activeCategories = [{
-      id: 'cat1',
-      simuladoStats: {
-        history: [
-          { date: '2026-04-20', timeSpent: 200, total: 10 },
-          { date: '2026-05-09', timeSpent: 30, total: 10 },
-        ],
-      },
-    }];
-
-    const html = renderToStaticMarkup(
-      <TimeSpentChart subjectAggData={subjectAggData} activeCategories={activeCategories} />
-    );
-
-    // Sem dados recentes válidos (futuro excluído, antigo fora da janela), usa média geral (60s)
-    expect(html).toContain('Média: 1m');
-    expect(html).not.toContain('Média: 3s');
-    expect(html).not.toContain('Média: 20s');
-  });
-
-  it('usa vermelho para acima da média e verde para abaixo da média na legenda', () => {
-    const subjectAggData = [{
-      id: 'cat1',
-      fullName: 'Física',
-      timeSpent: 300,
-      timedQuestoes: 10,
-    }];
-
-    const activeCategories = [{
-      id: 'cat1',
-      simuladoStats: {
-        history: [{
-          date: '2026-05-01',
-          timeSpent: 450,
-          total: 10,
-        }],
-      },
-    }];
-
-    const html = renderToStaticMarkup(
-      <TimeSpentChart subjectAggData={subjectAggData} activeCategories={activeCategories} />
-    );
-
-    const aboveIdx = html.indexOf('ACIMA DA MÉDIA');
-    const belowIdx = html.indexOf('ABAIXO DA MÉDIA');
-    expect(aboveIdx).toBeGreaterThan(-1);
-    expect(belowIdx).toBeGreaterThan(-1);
-    expect(html.indexOf('text-rose-400', aboveIdx)).toBeGreaterThan(-1);
-    expect(html.indexOf('text-emerald-400', belowIdx)).toBeGreaterThan(-1);
-  });
-
-  it('não distorce média da legenda quando latestSeconds é null', () => {
-    const subjectAggData = [
-      { id: 'cat1', fullName: 'Física A', timeSpent: 300, timedQuestoes: 10 },
-      { id: 'cat2', fullName: 'Física B', timeSpent: 300, timedQuestoes: 10 },
-    ];
-
-    const activeCategories = [
-      {
-        id: 'cat1',
-        simuladoStats: {
-          history: [{ date: '2026-05-01', timeSpent: 90, total: 10 }],
-        },
-      },
-      {
-        id: 'cat2',
-        simuladoStats: {
-          history: [{ date: '2026-05-01', timeSpent: 0, total: 10 }],
-        },
-      },
-    ];
-
-    const html = renderToStaticMarkup(
-      <TimeSpentChart subjectAggData={subjectAggData} activeCategories={activeCategories} />
-    );
-
-    // Apenas cat1 tem último tempo (9s); cat2 com null não deve puxar a média para 5s
-    expect(html).toContain('ÚLTIMO GERAL: <span class="font-bold text-slate-300">9s</span>');
-    expect(html).not.toContain('ÚLTIMO GERAL: <span class="font-bold text-slate-300">5s</span>');
-  });
-});
-
-```
-
 
 ## src/components/charts/EvolutionHeatmap.jsx
 
@@ -10688,7 +11342,6 @@ export const EvolutionHeatmap = ({
 
 
 ```
-
 
 ## src/components/charts/GaussianPlot.jsx
 
@@ -11189,7 +11842,6 @@ export default GaussianPlot;
 
 
 ```
-
 
 ## src/components/charts/MonteCarloConfig.jsx
 
@@ -11699,7 +12351,6 @@ export const MonteCarloConfig = ({
 
 ```
 
-
 ## src/components/charts/ReliabilityCurveChart.jsx
 
 ```jsx
@@ -11848,7 +12499,6 @@ export default React.memo(ReliabilityCurveChart);
 
 
 ```
-
 
 ## src/components/Checklist.jsx
 
@@ -12795,7 +13445,6 @@ export default React.memo(Checklist);
 
 ```
 
-
 ## src/components/coach/CoachControlCenter.jsx
 
 ```jsx
@@ -13628,7 +14277,6 @@ export default function CoachControlCenter({
 
 ```
 
-
 ## src/components/coach/CoachMenuNav.jsx
 
 ```jsx
@@ -13789,7 +14437,6 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
 
 
 ```
-
 
 ## src/components/ConfirmModal.jsx
 
@@ -13955,7 +14602,6 @@ export default function ConfirmModal({
 
 ```
 
-
 ## src/components/DueForecast.jsx
 
 ```jsx
@@ -14098,12 +14744,12 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
 
 ```
 
-
 ## src/components/ErrorBoundary.jsx
 
 ```jsx
 import React, { useState } from 'react';
 import ConfirmModal from './ConfirmModal';
+import { del as idbDel } from 'idb-keyval';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -14272,7 +14918,7 @@ function FactoryResetButton() {
             <ConfirmModal
                 isOpen={showConfirm}
                 onClose={() => setShowConfirm(false)}
-                onConfirm={() => {
+                onConfirm={async () => {
                     [
                         'ultra-dashboard-storage',
                         'ultra-dashboard-data',
@@ -14280,6 +14926,10 @@ function FactoryResetButton() {
                         'ultra-dashboard-storage-v8',
                         'ultra-dashboard-data-backup-safety'
                     ].forEach(key => localStorage.removeItem(key));
+                    sessionStorage.clear();
+                    try {
+                        await idbDel('ultra-dashboard-storage');
+                    } catch(e) {}
                     window.location.reload();
                 }}
                 title="Resetar App de Fábrica"
@@ -14320,7 +14970,6 @@ export class FeatureErrorBoundary extends React.Component {
 
 
 ```
-
 
 ## src/components/EvolutionChart.jsx
 
@@ -15331,7 +15980,6 @@ export default React.memo(function EvolutionChart({
 
 ```
 
-
 ## src/components/GamificationComponents.jsx
 
 ```jsx
@@ -15470,7 +16118,6 @@ export const XPHistory = ({ user }) => {
 
 ```
 
-
 ## src/components/header/PageHeader.jsx
 
 ```jsx
@@ -15501,7 +16148,6 @@ export default PageHeader;
 
 
 ```
-
 
 ## src/components/Header.jsx
 
@@ -15744,7 +16390,6 @@ export default Header;
 
 
 ```
-
 
 ## src/components/HelpGuide.jsx
 
@@ -16082,7 +16727,6 @@ export default function HelpGuide({ isOpen, onClose }) {
 
 ```
 
-
 ## src/components/LevelUpToast.jsx
 
 ```jsx
@@ -16187,7 +16831,6 @@ export default function LevelUpToast({ level, title, onClose }) {
 
 ```
 
-
 ## src/components/Loading.css
 
 ```css
@@ -16238,7 +16881,6 @@ export default function LevelUpToast({ level, title, onClose }) {
 }
 
 ```
-
 
 ## src/components/Login.css
 
@@ -16534,7 +17176,6 @@ canvas {
 
 
 ```
-
 
 ## src/components/Login.jsx
 
@@ -16854,7 +17495,6 @@ export default function Login() {
 
 ```
 
-
 ## src/components/MonteCarloDebugger.jsx
 
 ```jsx
@@ -16959,7 +17599,6 @@ export default function MonteCarloDebugger({ stats }) {
 
 
 ```
-
 
 ## src/components/MonteCarloGauge.jsx
 
@@ -17778,7 +18417,6 @@ function AnimatedProbability({ value }) {
 
 ```
 
-
 ## src/components/NextGoalCard.jsx
 
 ```jsx
@@ -18071,7 +18709,6 @@ export default React.memo(NextGoalCard);
 
 
 ```
-
 
 ## src/components/OnboardingTour.jsx
 
@@ -18438,7 +19075,6 @@ export default function OnboardingTour() {
 
 ```
 
-
 ## src/components/ParetoAnalysis.jsx
 
 ```jsx
@@ -18656,7 +19292,6 @@ export default function ParetoAnalysis({ categories = [] }) {
 
 ```
 
-
 ## src/components/Paywall.jsx
 
 ```jsx
@@ -18855,7 +19490,6 @@ export default function Paywall({ user, onLogout }) {
 
 
 ```
-
 
 ## src/components/PerformanceTable.jsx
 
@@ -19156,7 +19790,6 @@ export default PerformanceTable;
 
 ```
 
-
 ## src/components/PersonalRanking.jsx
 
 ```jsx
@@ -19363,7 +19996,6 @@ export default React.memo(PersonalRanking);
 
 ```
 
-
 ## src/components/pomodoro/PomodoroClock.jsx
 
 ```jsx
@@ -19442,7 +20074,6 @@ export function PomodoroClock({
 
 ```
 
-
 ## src/components/pomodoro/PomodoroControls.jsx
 
 ```jsx
@@ -19490,7 +20121,6 @@ export function PomodoroControls({
 
 ```
 
-
 ## src/components/pomodoro/PomodoroHeader.jsx
 
 ```jsx
@@ -19529,7 +20159,6 @@ export function PomodoroHeader({ mode, activeSubject }) {
 
 
 ```
-
 
 ## src/components/pomodoro/PomodoroProgress.jsx
 
@@ -19656,7 +20285,6 @@ export function PomodoroProgress({
 
 
 ```
-
 
 ## src/components/PomodoroTimer.jsx
 
@@ -20940,7 +21568,6 @@ export default function ProtectedPomodoro(props) {
 
 ```
 
-
 ## src/components/PriorityProgress.jsx
 
 ```jsx
@@ -21167,7 +21794,6 @@ export default function PriorityProgress({ categories = [] }) {
 
 ```
 
-
 ## src/components/PromptModal.jsx
 
 ```jsx
@@ -21375,7 +22001,6 @@ export default function PromptModal({
 
 
 ```
-
 
 ## src/components/RetentionPanel.jsx
 
@@ -21909,7 +22534,6 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
 ```
 
-
 ## src/components/Sidebar.css
 
 ```css
@@ -22331,7 +22955,6 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 }
 
 ```
-
 
 ## src/components/Sidebar.jsx
 
@@ -22857,10 +23480,9 @@ export default Sidebar;
 
 ```
 
-
 ## src/components/sidebarUtils.js
 
-```javascript
+```js
 export function handleMenuKeyDown(e, items, currentIndex, onSelect) {
     switch (e.key) {
         case 'ArrowDown':
@@ -22904,7 +23526,6 @@ export function isMenuItemActive(currentPath, itemPath) {
 
 
 ```
-
 
 ## src/components/SimuladoAnalysis.jsx
 
@@ -23705,7 +24326,6 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
 ```
 
-
 ## src/components/StatsCards.jsx
 
 ```jsx
@@ -24304,7 +24924,6 @@ export default React.memo(StatsCards);
 
 
 ```
-
 
 ## src/components/StudyHistory.jsx
 
@@ -24986,7 +25605,6 @@ export default StudyHistory;
 
 ```
 
-
 ## src/components/SubtopicsTable.jsx
 
 ```jsx
@@ -25216,7 +25834,6 @@ export default SubtopicsTable;
 
 ```
 
-
 ## src/components/Toast.jsx
 
 ```jsx
@@ -25263,7 +25880,6 @@ export default function Toast({ toast, onClose }) {
 
 
 ```
-
 
 ## src/components/TopicPerformance.jsx
 
@@ -25458,7 +26074,6 @@ export default function TopicPerformance({ categories = [] }) {
 
 ```
 
-
 ## src/components/TrashModal.jsx
 
 ```jsx
@@ -25598,7 +26213,6 @@ export default TrashModal;
 
 
 ```
-
 
 ## src/components/VerifiedStats.jsx
 
@@ -26697,7 +27311,6 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
 ```
 
-
 ## src/components/VolumeRanking.jsx
 
 ```jsx
@@ -26879,7 +27492,6 @@ export default React.memo(VolumeRanking);
 
 
 ```
-
 
 ## src/components/WeeklyAnalysis.jsx
 
@@ -27244,7 +27856,6 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
 ```
 
-
 ## src/components/WelcomeScreen.jsx
 
 ```jsx
@@ -27432,199 +28043,9 @@ export default function WelcomeScreen({ onDismiss }) {
 
 ```
 
-
-## src/components/__tests__/sidebar.logic.test.js
-
-```javascript
-import { describe, expect, it } from 'vitest';
-import { getContestDisplayName, isMenuItemActive } from '../sidebarUtils';
-
-describe('Sidebar menu logic', () => {
-  it('prefers contestName/name and never falls back to user name', () => {
-    expect(getContestDisplayName('Concurso A')).toBe('Concurso A');
-    expect(getContestDisplayName({ contestName: 'Concurso B', user: { name: 'João' } })).toBe('Concurso B');
-    expect(getContestDisplayName({ name: 'Concurso C', user: { name: 'Maria' } })).toBe('Concurso C');
-    expect(getContestDisplayName({ user: { name: 'Pessoa' } })).toBe('Sem nome');
-  });
-
-  it('marks menu active for direct, nested and dashboard alias paths', () => {
-    expect(isMenuItemActive('/', '/')).toBe(true);
-    expect(isMenuItemActive('/dashboard', '/')).toBe(true);
-    expect(isMenuItemActive('/stats', '/stats')).toBe(true);
-    expect(isMenuItemActive('/stats/daily', '/stats')).toBe(true);
-    expect(isMenuItemActive('/statistics', '/stats')).toBe(false);
-  });
-});
-
-```
-
-
-## src/components/__tests__/stats-menu-bugs.test.jsx
-
-```jsx
-import { describe, it, expect } from 'vitest';
-import { mapFocusEvolutionData, mapSubjectHoursData } from '../../utils/chartDataMappers';
-import { detectPerformanceDrift } from '../../utils/explanationEngine';
-import { generateAnalyticsStats } from '../../engine/analyticsStats';
-import { getSafeScore } from '../../utils/scoreHelper';
-
-describe('Stats Menu - Bugs & Logic Regression Suite', () => {
-    describe('Bug 1: Chart Data Mappers fallback with minutes: 0 and duration > 0', () => {
-        it('mapFocusEvolutionData correctly maps study log when minutes is 0 but duration is present', () => {
-            const { getDateKey } = require('../../utils/dateHelper');
-            const today = getDateKey(new Date());
-            const logs = [
-                { id: '1', date: today, minutes: 0, duration: 60, subject: 'Matemática' }
-            ];
-
-            const result = mapFocusEvolutionData(logs);
-            const todayData = result[result.length - 1];
-            expect(todayData.horasEstudadas).toBe(1);
-        });
-
-        it('mapSubjectHoursData correctly includes subject hours when minutes is 0 but duration is 90', () => {
-            const logs = [
-                { id: '1', date: '2026-08-15', minutes: 0, duration: 90, categoryName: 'Física' }
-            ];
-            const categories = [{ id: 'cat-1', name: 'Física' }];
-
-            const result = mapSubjectHoursData(logs, categories);
-            expect(result).toHaveLength(1);
-            expect(result[0].disciplina).toBe('Física');
-            expect(result[0].horas).toBe(1.5);
-        });
-    });
-
-    describe('Bug 2: Target Normalization and Scale Stability', () => {
-        const createNormalizeTarget = (maxScore) => (raw) => {
-            const n = Number(raw);
-            const fallback = maxScore === 100 ? 70 : Math.round(maxScore * 0.7);
-            if (!Number.isFinite(n) || n <= 0) return fallback;
-            return Math.max(0, Math.min(maxScore, n));
-        };
-
-        it('preserves target score on scale 120 without recursive multiplication', () => {
-            const normalize = createNormalizeTarget(120);
-            let target = 80;
-            // Simulate multiple render cycles
-            for (let i = 0; i < 5; i++) {
-                target = normalize(target);
-            }
-            expect(target).toBe(80);
-        });
-
-        it('preserves target score on scale 50 without collapsing to 0', () => {
-            const normalize = createNormalizeTarget(50);
-            let target = 35;
-            for (let i = 0; i < 5; i++) {
-                target = normalize(target);
-            }
-            expect(target).toBe(35);
-        });
-
-        it('preserves target score on scale 1000', () => {
-            const normalize = createNormalizeTarget(1000);
-            let target = 750;
-            for (let i = 0; i < 5; i++) {
-                target = normalize(target);
-            }
-            expect(target).toBe(750);
-        });
-
-        it('falls back to 70% of maxScore when target is null or invalid', () => {
-            const normalize100 = createNormalizeTarget(100);
-            const normalize120 = createNormalizeTarget(120);
-            const normalize50 = createNormalizeTarget(50);
-
-            expect(normalize100(null)).toBe(70);
-            expect(normalize120(undefined)).toBe(84);
-            expect(normalize50(NaN)).toBe(35);
-        });
-    });
-
-    describe('Bug 3: Performance Drift Scale Sensitivity', () => {
-        it('does not trigger false alarm on scale 1000 for a 13-point drop (1.3%)', () => {
-            const alerts = detectPerformanceDrift({
-                recentMean: 787,
-                baselineMean: 800,
-                recentVolatility: 30,
-                maxScore: 1000
-            });
-            const dropAlert = alerts.find(a => a.type === 'performance_drop');
-            expect(dropAlert).toBeUndefined();
-        });
-
-        it('triggers alert on scale 1000 when drop exceeds 120 points (12%)', () => {
-            const alerts = detectPerformanceDrift({
-                recentMean: 670,
-                baselineMean: 800,
-                recentVolatility: 30,
-                maxScore: 1000
-            });
-            const dropAlert = alerts.find(a => a.type === 'performance_drop');
-            expect(dropAlert).toBeDefined();
-        });
-
-        it('triggers alert on scale 50 when drop exceeds 6 points (12%)', () => {
-            const alerts = detectPerformanceDrift({
-                recentMean: 33,
-                baselineMean: 40,
-                recentVolatility: 2,
-                maxScore: 50
-            });
-            const dropAlert = alerts.find(a => a.type === 'performance_drop');
-            expect(dropAlert).toBeDefined();
-        });
-    });
-
-    describe('Bug 4: Analytics Stats Default Weight', () => {
-        it('assigns default weight 1 to unmapped categories', () => {
-            const categories = [
-                {
-                    id: 'cat-1',
-                    name: 'Química',
-                    maxScore: 100,
-                    simuladoStats: {
-                        history: [
-                            { date: '2026-08-10', score: 80, total: 10 },
-                            { date: '2026-08-12', score: 85, total: 10 },
-                            { date: '2026-08-14', score: 90, total: 10 }
-                        ]
-                    }
-                }
-            ];
-
-            const result = generateAnalyticsStats({
-                categories,
-                debouncedWeights: {}, // No weights specified
-                timeIndex: -1,
-                timelineDates: ['2026-08-10', '2026-08-12', '2026-08-14'],
-                minScore: 0,
-                maxScore: 100
-            });
-
-            expect(result.totalWeight).toBe(1);
-            expect(result.globalHistory.length).toBeGreaterThan(0);
-            expect(result.categoryStats[0].weight).toBe(1);
-        });
-    });
-
-    describe('Bug 5: Topic Safe Score and Scale Handling', () => {
-        it('correctly calculates safe score for category-scaled topics', () => {
-            const topic = { name: 'Álgebra', score: 40, total: 50 };
-            const catMaxScore = 50;
-            const safeScore = getSafeScore(topic, catMaxScore);
-            expect(safeScore).toBe(40);
-        });
-    });
-});
-
-```
-
-
 ## src/config/gamification.js
 
-```javascript
+```js
 export const XP_CONFIG = {
     task: {
         high: 200,      // Tarefas prioritárias valem mais
@@ -27774,10 +28195,9 @@ export const ACHIEVEMENTS = [
 
 ```
 
-
 ## src/config.js
 
-```javascript
+```js
 // Global application configuration and constants
 
 export const SYNC_LOG_CAP = 500;
@@ -27792,7 +28212,6 @@ export default {
 
 
 ```
-
 
 ## src/context/AuthContext.jsx
 
@@ -27961,7 +28380,6 @@ export function AuthProvider({ children }) {
 
 ```
 
-
 ## src/context/AuthContextValue.jsx
 
 ```jsx
@@ -27971,7 +28389,6 @@ export const AuthContext = createContext();
 
 
 ```
-
 
 ## src/context/useAuth.jsx
 
@@ -27986,10 +28403,9 @@ export function useAuth() {
 
 ```
 
-
 ## src/data/initialData.js
 
-```javascript
+```js
 // Initial data structure for the dashboard
 // Theme: Study/Exam Preparation (Ultra-Premium Version)
 
@@ -28087,10 +28503,9 @@ export const exportData = (state) => {
 
 ```
 
-
 ## src/engine/analyticsStats.js
 
-```javascript
+```js
 import {
     computeCategoryStats,
     computeBayesianLevel,
@@ -28609,401 +29024,9 @@ export function generateAnalyticsStats({
 
 ```
 
-
-## src/engine/bugfix.regression.test.js
-
-```javascript
-// bugfix.regression.test.js
-import { describe, it, expect } from 'vitest';
-
-import { generateEvolutionInsights } from './insightGenerator.js';
-import { buildCovarianceMatrix } from './variance.js';
-import {
-  computeCategoryStats,
-  calculateTrend,
-  calculateEMA,
-  computeBayesianLevel,
-} from './stats.js';
-import {
-  simulateNormalDistribution,
-  runMonteCarloAnalysis,
-} from './monteCarlo.js';
-
-function isFiniteNumber(x) {
-  return Number.isFinite(x);
-}
-
-function jsonHasNaN(obj) {
-  try {
-    const s = JSON.stringify(obj, (_, v) =>
-      Number.isNaN(v) ? '__NaN__' : v
-    );
-    return s.includes('__NaN__');
-  } catch {
-    return true;
-  }
-}
-
-describe('Regression: bugs críticos', () => {
-
-  // -------------------------------------------------------
-  // insightGenerator.js
-  // -------------------------------------------------------
-  describe('insightGenerator', () => {
-
-    it('raw_weekly não deve propagar NaN quando há score inválido', () => {
-      const result = generateEvolutionInsights({
-        timeline: [{}],
-        focusCategory: { id: 'matematica' },
-        activeEngine: 'raw_weekly',
-        categories: [
-          {
-            simuladoStats: {
-              history: [
-                { date: '2026-07-01', score: NaN, total: 20 },
-                { date: '2026-07-02', score: 80, total: 20 },
-                { date: '2026-07-03', score: 70, total: 20 },
-                null,
-              ],
-            },
-          },
-        ],
-        unit: '%',
-        maxScore: 100,
-      });
-
-      expect(result).toBeTruthy();
-      expect(result.type).toBeTruthy();
-      expect(jsonHasNaN(result)).toBe(false);
-    });
-
-    it('stats não deve quebrar quando statsVal vem como string', () => {
-      const result = generateEvolutionInsights({
-        timeline: [
-          {
-            stats_matematica: '82.5',
-          },
-        ],
-        focusCategory: { id: 'matematica' },
-        activeEngine: 'stats',
-        categories: [],
-        unit: '%',
-        maxScore: 100,
-      });
-
-      expect(result).toBeTruthy();
-      expect(result.type).toBeTruthy();
-      expect(jsonHasNaN(result)).toBe(false);
-    });
-
-    it('bayesian não deve quebrar quando bayesian vem inválido', () => {
-      const result = generateEvolutionInsights({
-        timeline: [
-          {
-            bay_matematica: NaN,
-          },
-        ],
-        focusCategory: { id: 'matematica' },
-        activeEngine: 'bayesian',
-        categories: [],
-        unit: '%',
-        maxScore: 100,
-      });
-
-      expect(result).toBeTruthy();
-      expect(result.type).toBeTruthy();
-      expect(jsonHasNaN(result)).toBe(false);
-    });
-
-  });
-
-  // -------------------------------------------------------
-  // variance.js
-  // -------------------------------------------------------
-  describe('variance', () => {
-
-    it('buildCovarianceMatrix não deve quebrar com history em formato de objeto', () => {
-      const stats = [
-        {
-          sd: 5,
-          simuladoStats: {
-            history: {
-              a: { date: '2026-01-01', score: 70 },
-              b: { date: '2026-01-02', score: 72 },
-            },
-          },
-        },
-        {
-          sd: 6,
-          simuladoStats: {
-            history: {
-              c: { date: '2026-01-01', score: 65 },
-              d: { date: '2026-01-02', score: 68 },
-            },
-          },
-        },
-      ];
-
-      let matrix = null;
-
-      expect(() => {
-        matrix = buildCovarianceMatrix(stats, null, 0.25, null);
-      }).not.toThrow();
-
-      expect(Array.isArray(matrix)).toBe(true);
-      expect(matrix.length).toBe(2);
-      expect(isFiniteNumber(matrix[0][0])).toBe(true);
-      expect(isFiniteNumber(matrix[1][1])).toBe(true);
-      expect(matrix[0][0]).toBeGreaterThanOrEqual(0);
-      expect(matrix[1][1]).toBeGreaterThanOrEqual(0);
-    });
-
-    it('buildCovarianceMatrix deve tolerar sd negativo/NaN sem corromper a diagonal', () => {
-      const stats = [
-        { sd: -4 },
-        { sd: NaN },
-        { sd: 3 },
-      ];
-
-      const matrix = buildCovarianceMatrix(stats, null, 0.25, null);
-
-      expect(Array.isArray(matrix)).toBe(true);
-      expect(matrix.length).toBe(3);
-
-      expect(isFiniteNumber(matrix[0][0])).toBe(true);
-      expect(isFiniteNumber(matrix[1][0])).toBe(true);
-      expect(isFiniteNumber(matrix[2][2])).toBe(true);
-
-      expect(matrix[0][0]).toBeGreaterThanOrEqual(0);
-      expect(matrix[1][1]).toBeGreaterThanOrEqual(0);
-      expect(matrix[2][2]).toBeGreaterThanOrEqual(0);
-    });
-
-  });
-
-  // -------------------------------------------------------
-  // stats.js
-  // -------------------------------------------------------
-  describe('stats', () => {
-
-    it('computeCategoryStats deve aceitar history como objeto e com itens nulos', () => {
-      const history = {
-        0: { date: '2026-01-01', score: 70, total: 20 },
-        1: null,
-        2: { date: '2026-01-02', score: 80, total: 20 },
-        3: undefined,
-        4: { date: '2026-01-03', score: 65, total: 20 },
-      };
-
-      let result = null;
-
-      expect(() => {
-        result = computeCategoryStats(history, 1, 60, 100);
-      }).not.toThrow();
-
-      expect(result).toBeTruthy();
-      expect(isFiniteNumber(result.mean)).toBe(true);
-      expect(isFiniteNumber(result.sd)).toBe(true);
-      expect(result.sd).toBeGreaterThanOrEqual(0);
-      expect(jsonHasNaN(result)).toBe(false);
-    });
-
-    it('computeCategoryStats não deve gerar sd NaN com peso negativo', () => {
-      const history = [
-        { date: '2026-01-01', score: 70, total: 20, weight: -2 },
-        { date: '2026-01-02', score: 80, total: 20, weight: 1 },
-        { date: '2026-01-03', score: 65, total: 20, weight: 1 },
-      ];
-
-      const result = computeCategoryStats(history, 1, 60, 100);
-
-      expect(result).toBeTruthy();
-      expect(isFiniteNumber(result.sd)).toBe(true);
-      expect(Number.isNaN(result.sd)).toBe(false);
-      expect(result.sd).toBeGreaterThanOrEqual(0);
-    });
-
-    it('computeCategoryStats deve retornar null apenas quando não houver histórico aproveitável', () => {
-      const result = computeCategoryStats([], 1, 60, 100);
-      expect(result).toBeNull();
-    });
-
-    it('calculateTrend não deve quebrar com primeira data inválida', () => {
-      const history = [
-        { date: 'invalid-date', score: 50 },
-        { date: '2026-01-01', score: 60 },
-        { date: '2026-01-02', score: 70 },
-      ];
-
-      let trend = null;
-
-      expect(() => {
-        trend = calculateTrend(history, 100);
-      }).not.toThrow();
-
-      expect(isFiniteNumber(trend)).toBe(true);
-    });
-
-    it('calculateEMA deve filtrar NaN e retornar valor finito', () => {
-      const ema = calculateEMA([NaN, 70, undefined, 80, null, 90], 0.25);
-      expect(isFiniteNumber(ema)).toBe(true);
-    });
-
-    it('computeBayesianLevel deve tolerar itens nulos no histórico', () => {
-      const history = [
-        null,
-        { date: '2026-01-01', score: 70, total: 20 },
-        undefined,
-        { date: '2026-01-02', score: 80, total: 20 },
-        { date: '2026-01-03', score: 65, total: 20 },
-      ];
-
-      let result = null;
-
-      expect(() => {
-        result = computeBayesianLevel(history, 1, 1, 100, {});
-      }).not.toThrow();
-
-      expect(result).toBeTruthy();
-      expect(isFiniteNumber(result.mean)).toBe(true);
-      expect(isFiniteNumber(result.sd)).toBe(true);
-      expect(isFiniteNumber(result.ciLow)).toBe(true);
-      expect(isFiniteNumber(result.ciHigh)).toBe(true);
-      expect(jsonHasNaN(result)).toBe(false);
-    });
-
-  });
-
-  // -------------------------------------------------------
-  // monteCarlo.js
-  // -------------------------------------------------------
-  describe('monteCarlo', () => {
-
-    it('simulateNormalDistribution não deve produzir NaN quando targetScore é undefined', () => {
-      const result = simulateNormalDistribution({
-        mean: 70,
-        sd: 5,
-        simulations: 200,
-        minScore: 0,
-        maxScore: 100,
-        // targetScore omitido de propósito
-      });
-
-      expect(result).toBeTruthy();
-      expect(isFiniteNumber(result.probability)).toBe(true);
-      expect(isFiniteNumber(result.analyticalProbability)).toBe(true);
-      expect(isFiniteNumber(result.recommendedProbability)).toBe(true);
-      expect(jsonHasNaN(result)).toBe(false);
-    });
-
-    it('simulateNormalDistribution deve tolerar seed NaN', () => {
-      const result = simulateNormalDistribution({
-        mean: 70,
-        sd: 5,
-        targetScore: 80,
-        simulations: 200,
-        seed: NaN,
-        minScore: 0,
-        maxScore: 100,
-      });
-
-      expect(result).toBeTruthy();
-      expect(isFiniteNumber(result.probability)).toBe(true);
-      expect(isFiniteNumber(result.projectedMean)).toBe(true);
-      expect(isFiniteNumber(result.projectedSD)).toBe(true);
-    });
-
-    it('simulateNormalDistribution não deve quebrar com subject sd = 0', () => {
-      const result = simulateNormalDistribution({
-        mean: 70,
-        sd: 5,
-        targetScore: 80,
-        simulations: 200,
-        minScore: 0,
-        maxScore: 100,
-        subjects: [
-          {
-            name: 'Matematica',
-            mean: 70,
-            sd: 0,
-            minCutoff: 60,
-            minScore: 0,
-            maxScore: 100,
-            immunityFactor: 1,
-          },
-        ],
-      });
-
-      expect(result).toBeTruthy();
-      expect(isFiniteNumber(result.probability)).toBe(true);
-      expect(jsonHasNaN(result)).toBe(false);
-    });
-
-    it('simulateNormalDistribution deve tolerar subjects com sd NaN', () => {
-      const result = simulateNormalDistribution({
-        mean: 70,
-        sd: 5,
-        targetScore: 80,
-        simulations: 200,
-        minScore: 0,
-        maxScore: 100,
-        subjects: [
-          {
-            name: 'Direito',
-            mean: 70,
-            sd: NaN,
-            minCutoff: 60,
-            minScore: 0,
-            maxScore: 100,
-            immunityFactor: 1,
-          },
-        ],
-      });
-
-      expect(result).toBeTruthy();
-      expect(isFiniteNumber(result.probability)).toBe(true);
-    });
-
-    it('runMonteCarloAnalysis deve extrair score de objetos em values', () => {
-      const result = runMonteCarloAnalysis({
-        values: [
-          { score: 70 },
-          { value: 80 },
-          65,
-          null,
-          undefined,
-          NaN,
-        ],
-        dates: [
-          '2026-01-01',
-          '2026-01-02',
-          '2026-01-03',
-          '2026-01-04',
-          '2026-01-05',
-          '2026-01-06',
-        ],
-        targetScore: 80,
-        simulations: 200,
-        projectionDays: 30,
-        minScore: 0,
-        maxScore: 100,
-      });
-
-      expect(result).toBeTruthy();
-      // O formato exato depende do projection.js, mas o resultado não pode ser NaN generalizado.
-      expect(jsonHasNaN(result)).toBe(false);
-    });
-
-  });
-
-});
-
-```
-
-
 ## src/engine/causal/policyEngine.js
 
-```javascript
+```js
 /**
  * policyEngine.js
  *
@@ -29359,10 +29382,9 @@ export default {
 
 ```
 
-
 ## src/engine/causal/upliftModel.js
 
-```javascript
+```js
 /**
  * upliftModel.js
  *
@@ -30273,10 +30295,9 @@ export default {
 
 ```
 
-
 ## src/engine/diagnostics.js
 
-```javascript
+```js
 /**
  * DIAGNOSTICS ENGINE v1.0 — Motor de Diagnóstico Avançado
  * Análises estatísticas avançadas para diagnóstico de performance.
@@ -30382,7 +30403,8 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
     if (!rawDate) return;
     
     // Simplification for groupKey to avoid importing getDateKey if missing
-    const dayKey = typeof rawDate === 'string' ? rawDate.split('T')[0] : String(rawDate);
+    const d = rawDate instanceof Date ? rawDate : new Date(rawDate);
+    const dayKey = isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
     if (!dayKey) return;
   
     const groupKey = [
@@ -31018,10 +31040,9 @@ export function computeCategoryDiagnostics({
 
 ```
 
-
 ## src/engine/evaluation/coachEvaluator.js
 
-```javascript
+```js
 /**
  * coachEvaluator.js
  *
@@ -31689,10 +31710,9 @@ export default {
 
 ```
 
-
 ## src/engine/evaluation/strategyBacktester.js
 
-```javascript
+```js
 /**
  * strategyBacktester.js
  *
@@ -32132,10 +32152,9 @@ export default {
 
 ```
 
-
 ## src/engine/heatmap.worker.js
 
-```javascript
+```js
 import { aggregateHeatmap } from '../utils/heatmapAggregation.js';
 
 self.onmessage = (e) => {
@@ -32154,10 +32173,9 @@ self.onmessage = (e) => {
 
 ```
 
-
 ## src/engine/index.js
 
-```javascript
+```js
 /**
  * Monte Carlo Engine - Unified Export
  */
@@ -32178,10 +32196,9 @@ export * from './math/bootstrap.js';
 
 ```
 
-
 ## src/engine/insightGenerator.js
 
-```javascript
+```js
 import { normalizeDate, toDateMs } from "../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper";
 import { pointsToRatio } from "../utils/scoreHelper.conversions";
@@ -32528,10 +32545,9 @@ export function generateEvolutionInsights({
 
 ```
 
-
 ## src/engine/math/bootstrap.js
 
-```javascript
+```js
 import { kahanSum } from './kahan.js';
 
 /**
@@ -32651,10 +32667,9 @@ export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointE
 
 ```
 
-
 ## src/engine/math/constants.js
 
-```javascript
+```js
 /**
  * Monte Carlo Engine - Math Constants
  * 
@@ -32671,10 +32686,9 @@ export const MIN_SD_FLOOR = 0.0001;
 
 ```
 
-
 ## src/engine/math/date.js
 
-```javascript
+```js
 export const safeDate = (value) => {
   if (!value) return null;
 
@@ -32767,10 +32781,9 @@ export const ageInHours = (date, reference = new Date()) => {
 
 ```
 
-
 ## src/engine/math/gaussian.js
 
-```javascript
+```js
 // src/engine/math/gaussian.js
 import { getPercentile } from './percentile.js';
 import { MIN_SD_FLOOR } from './constants.js';
@@ -33260,10 +33273,9 @@ export function applyCovariance(choleskyLower, zVector, targetVector) {
 
 ```
 
-
 ## src/engine/math/kahan.js
 
-```javascript
+```js
 /**
  * Helper: verifica se o valor é um array-like iterável com .length
  * Suporta Array, Float64Array, Float32Array, Int32Array, etc.
@@ -33332,10 +33344,9 @@ export function kahanMean(arr) {
 
 ```
 
-
 ## src/engine/math/percentile.js
 
-```javascript
+```js
 // ==========================================
 // SHARED STATISTICAL UTILITIES
 // ==========================================
@@ -33513,10 +33524,9 @@ export function findScoreForPercentile(targetPercentile, minScore, maxScore, cdf
 
 ```
 
-
 ## src/engine/math/safe.js
 
-```javascript
+```js
 export const isFiniteNumber = (value) =>
   typeof value === 'number' && Number.isFinite(value);
 
@@ -33658,10 +33668,9 @@ export const normalizePercent = (value, fallback = 0) => {
 
 ```
 
-
 ## src/engine/mc.worker.js
 
-```javascript
+```js
 import { monteCarloSimulation } from './projection.js';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from './monteCarlo.js';
 import { resetGaussianCache } from './math/gaussian.js';
@@ -33953,10 +33962,9 @@ export const __workerTesting = {
 
 ```
 
-
 ## src/engine/monteCarlo.js
 
-```javascript
+```js
 import { mulberry32 } from './random.js';
 import {
     normalCDF_complement,
@@ -34751,10 +34759,9 @@ export default {
 
 ```
 
-
 ## src/engine/observability/driftMonitor.js
 
-```javascript
+```js
 /**
  * driftMonitor.js
  *
@@ -35259,10 +35266,9 @@ export default {
 
 ```
 
-
 ## src/engine/observability/modelHealth.js
 
-```javascript
+```js
 /**
  * modelHealth.js
  *
@@ -35831,10 +35837,9 @@ export default {
 
 ```
 
-
 ## src/engine/optimization/autoTuner.js
 
-```javascript
+```js
 /**
  * autoTuner.js
  *
@@ -36216,10 +36221,9 @@ export default {
 
 ```
 
-
 ## src/engine/optimization/flagOptimizer.js
 
-```javascript
+```js
 /**
  * flagOptimizer.js
  *
@@ -36902,10 +36906,9 @@ export default {
 
 ```
 
-
 ## src/engine/orchestrator/coachOrchestrator.js
 
-```javascript
+```js
 /**
  * coachOrchestrator.js
  *
@@ -37536,10 +37539,9 @@ export default {
 
 ```
 
-
 ## src/engine/probabilistic/bayesianTopics.js
 
-```javascript
+```js
 /**
  * bayesianTopics.js
  *
@@ -37889,10 +37891,9 @@ export default {
 
 ```
 
-
 ## src/engine/probabilistic/decisionEngine.js
 
-```javascript
+```js
 /**
  * decisionEngine.js
  *
@@ -38250,10 +38251,9 @@ export default {
 
 ```
 
-
 ## src/engine/probabilistic/fsrs.js
 
-```javascript
+```js
 // src/engine/probabilistic/fsrs.js
 // ============================================================================
 // FSRS — Free Spaced Repetition Scheduler (núcleo probabilístico)
@@ -38429,10 +38429,9 @@ export default {
 
 ```
 
-
 ## src/engine/probabilistic/knowledgeGraph.js
 
-```javascript
+```js
 /**
  * knowledgeGraph.js
  *
@@ -38729,10 +38728,9 @@ export default {
 
 ```
 
-
 ## src/engine/probabilistic/posteriorPredictive.js
 
-```javascript
+```js
 /**
  * posteriorPredictive.js
  *
@@ -39083,10 +39081,9 @@ export default {
 
 ```
 
-
 ## src/engine/probabilistic/stateSpace.js
 
-```javascript
+```js
 /**
  * stateSpace.js
  *
@@ -39441,10 +39438,9 @@ export default {
 
 ```
 
-
 ## src/engine/probabilistic/volatility.js
 
-```javascript
+```js
 /**
  * volatility.js
  *
@@ -39778,10 +39774,9 @@ export default {
 
 ```
 
-
 ## src/engine/projection.js
 
-```javascript
+```js
 // ==========================================
 // PROJECTION ENGINE - Versão Institucional 9.5
 // Seed fixa para estabilidade visual
@@ -40080,8 +40075,9 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
   }
   
   // ✅ FIX: Clamp proporcional à amplitude real (maxScore - minScore) da prova
-  const safeMax = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
-  const safeMin = Number.isFinite(options?.minScore) ? options.minScore : 0;
+  const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
+  const safeMax = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
+  const safeMin = Number.isFinite(opts?.minScore) ? opts.minScore : 0;
   const range = Math.max(1e-9, safeMax - safeMin);
   // 0.4% do range por dia como limite máximo
   const absoluteMax = 0.004 * range;
@@ -40816,10 +40812,9 @@ export function monteCarloSimulation(
 
 ```
 
-
 ## src/engine/random.js
 
-```javascript
+```js
 export function mulberry32(seed) {
     return function () {
         seed = (seed + 0x6D2B79F5) | 0;
@@ -40845,19 +40840,8 @@ export function makeNormalRng(rng) {
       return spare;
     }
     let u = 0, v = 0;
-    let attempts = 0;
-    while (u === 0 && attempts < 100) {
-      u = rng();
-      attempts++;
-    }
-    if (u === 0) u = 1e-15;
-    
-    attempts = 0;
-    while (v === 0 && attempts < 100) {
-      v = rng();
-      attempts++;
-    }
-    if (v === 0) v = 1e-15;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
     
     const mag = Math.sqrt(-2.0 * Math.log(u));
     spare = mag * Math.sin(2.0 * Math.PI * v);
@@ -40880,10 +40864,9 @@ export function makeNormalRng(rng) {
 
 ```
 
-
 ## src/engine/simulationCache.js
 
-```javascript
+```js
 export const simulationCache = new Map();
 const MAX_CACHE_SIZE = 1000;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
@@ -40919,10 +40902,9 @@ export function clearSimulationCache() {
 
 ```
 
-
 ## src/engine/stats.js
 
-```javascript
+```js
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
 import { normalizeDate, safeDateParse } from '../utils/dateHelper.js';
 import { calculateSlope } from './projection.js';
@@ -42070,10 +42052,9 @@ export const calculateTrend = calculateSlopePerDay;
 
 ```
 
-
 ## src/engine/variance.js
 
-```javascript
+```js
 /**
  * Monte Carlo Engine - Variance Module
  * 
@@ -42553,601 +42534,9 @@ export default {
 
 ```
 
-
-## src/engine/__tests__/monteCarlo.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { simulateNormalDistribution, runMonteCarloAnalysis } from '../monteCarlo';
-import { monteCarloSimulation } from '../projection';
-
-describe('simulateNormalDistribution', () => {
-  it('prob ∈ [0,100] e CI ⊂ domínio (varredura)', () => {
-    for (const [mean, sd, target] of [[80, 8, 85], [30, 15, 90], [95, 5, 20], [50, 0.0001, 50]]) {
-      const r = simulateNormalDistribution({ mean, sd, targetScore: target, simulations: 2000, minScore: 0, maxScore: 100 });
-      expect(r.probability).toBeGreaterThanOrEqual(0);
-      expect(r.probability).toBeLessThanOrEqual(100);
-      expect(r.ci95Low).toBeGreaterThanOrEqual(0);
-      expect(r.ci95High).toBeLessThanOrEqual(100);
-      expect(Number.isFinite(r.projectedMean)).toBe(true);
-    }
-  });
-
-  it('LOTE-02 · sujeitos com escalas diferentes não vazam do domínio', () => {
-    const r = simulateNormalDistribution({
-      mean: 70, sd: 10, targetScore: 75, simulations: 1500, minScore: 0, maxScore: 100,
-      subjects: [
-        { name: 'A', mean: 40, sd: 5, minCutoff: 30, minScore: 0, maxScore: 50, weight: 1 },
-        { name: 'B', mean: 80, sd: 5, minCutoff: 60, minScore: 0, maxScore: 100, weight: 2 }
-      ]
-    });
-    expect(r.projectedMean).toBeGreaterThanOrEqual(0);
-    expect(r.projectedMean).toBeLessThanOrEqual(100);
-    expect(Number.isFinite(r.probability)).toBe(true);
-  });
-});
-
-describe('monteCarloSimulation — invariância de escala', () => {
-  it('LOTE-02 · 0-100 vs 0-200 produzem probabilidades próximas', () => {
-    const dates = i => new Date(2026, 4, 1 + i * 4).toISOString().slice(0, 10);
-    const h100 = Array.from({ length: 12 }, (_, i) => ({ score: 70 + (i % 3), total: 20, date: dates(i) }));
-    const h200 = h100.map(h => ({ ...h, score: h.score * 2, total: 40 }));
-    const r100 = monteCarloSimulation(h100, 80, 60, 3000, { minScore: 0, maxScore: 100 });
-    const r200 = monteCarloSimulation(h200, 160, 60, 3000, { minScore: 0, maxScore: 200 });
-    expect(Math.abs(r100.probability - r200.probability)).toBeLessThan(15);
-  });
-});
-
-describe('runMonteCarloAnalysis', () => {
-  it('LOTE-02 · projectionDays=0 é aceito (simular hoje)', () => {
-    const values = Array.from({ length: 8 }, (_, i) => ({ score: 70 + i, date: new Date(2026, 5, 1 + i).toISOString().slice(0, 10) }));
-    const r = runMonteCarloAnalysis({
-      values, dates: values.map(v => v.date), meta: 75,
-      simulations: 800, projectionDays: 0, minScore: 0, maxScore: 100
-    });
-    expect(Number.isFinite(r.probability)).toBe(true);
-    expect(r.probability).toBeGreaterThanOrEqual(0);
-    expect(r.probability).toBeLessThanOrEqual(100);
-  });
-});
-
-```
-
-
-## src/engine/__tests__/numeric-robustness.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition } from '../math/gaussian.js';
-import { getPercentile } from '../math/percentile.js';
-
-describe('Numeric robustness: sampleTruncatedNormal fallback RNG', () => {
-  it('falls back to Math.random when rng not provided and stays within bounds', () => {
-    for (let i = 0; i < 1000; i++) {
-      const s = sampleTruncatedNormal(50, 10, 0, 100);
-      expect(s).toBeGreaterThanOrEqual(0);
-      expect(s).toBeLessThanOrEqual(100);
-      expect(Number.isFinite(s)).toBe(true);
-    }
-  });
-});
-
-describe('Numeric robustness: ensurePositiveSemiDefinite iterative jitter', () => {
-  it('returns a matrix that Cholesky can decompose (diagonal finite and > 0)', () => {
-    const base = [[1e-9, 1e-9],[1e-9, 1e-9]]; // near-singular
-    const psd = ensurePositiveSemiDefinite(base);
-    const L = choleskyDecomposition(psd);
-    expect(L[0][0]).toBeGreaterThan(0);
-    expect(L[1][1]).toBeGreaterThan(0);
-    expect(Number.isFinite(L[0][0])).toBe(true);
-    expect(Number.isFinite(L[1][1])).toBe(true);
-  });
-});
-
-describe('Numeric robustness: getPercentile with TypedArray containing NaN', () => {
-  it('computes median ignoring NaNs when isAlreadySorted=true', () => {
-    const arr = new Float64Array([NaN, 1, 2, 3, NaN]);
-    const p = getPercentile(arr, 0.5, true);
-    expect(Number.isFinite(p)).toBe(true);
-    expect(p).toBeGreaterThanOrEqual(1);
-    expect(p).toBeLessThanOrEqual(3);
-  });
-});
-
-```
-
-
-## src/engine/__tests__/projection.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { calculateSlope } from '../projection';
-
-describe('calculateSlope (LOTE-02)', () => {
-  it('clamp proporcional à amplitude real (não ao teto)', () => {
-    expect(calculateSlope(10, 1000, { minScore: 400 })).toBeCloseTo(2.4);
-    expect(calculateSlope(-10, 1000, { minScore: 400 })).toBeCloseTo(-2.4);
-  });
-
-  it('não clampa slopes dentro do limite', () => {
-    expect(calculateSlope(1, 1000, { minScore: 400 })).toBeCloseTo(1);
-  });
-
-  it('escala 0-100 mantém o comportamento anterior', () => {
-    expect(calculateSlope(10, 100, { minScore: 0 })).toBeCloseTo(0.4);
-  });
-});
-
-```
-
-
-## src/engine/__tests__/regression.test.js
-
-```javascript
-// src/engine/__tests__/regression.test.js
-//
-// Testes de regressão para bugs corrigidos no ultra-dashboard2.
-// Objetivo: qualquer regressão nos fixes documentados quebra aqui antes
-// de chegar à produção.
-//
-// Para rodar:
-//   npm test                  ← suíte matemática padrão do projeto (offline-friendly)
-//   npx vitest run            ← opcional (quando vitest estiver disponível no ambiente)
-//   npx vitest --coverage     ← relatório de cobertura (opcional)
-//
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { describe, it, expect } from 'vitest';
-import { getSafeScore } from '../../utils/scoreHelper.js';
-import { computeBayesianLevel, standardDeviation } from '../stats.js';
-import { calculateVolatility, calculateSlope, monteCarloSimulation, computeAdaptiveDampingBase } from '../projection.js';
-import { simulateNormalDistribution } from '../monteCarlo.js';
-import { normalCDF_complement, sampleTruncatedNormal } from '../math/gaussian.js';
-import { mulberry32 } from '../random.js';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS DE FIXTURE
-// ─────────────────────────────────────────────────────────────────────────────
-
-function makeHistory(scores, maxScore = 100) {
-    const today = Date.now();
-    return scores.map((s, i) => ({
-        score: s,
-        correct: Math.round((s / maxScore) * 10),
-        total: 10,
-        date: new Date(today - (scores.length - i) * 86400000).toISOString().slice(0, 10),
-    }));
-}
-
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: isPercentage — score nunca excede maxScore
-// Histórico: flag `isPercentage=true` com maxScore≠100 inflava score para >100%
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: isPercentage — getSafeScore', () => {
-    it('score percentual em prova base-120 nunca excede 120', () => {
-        const entry = { score: 75, isPercentage: true, total: 0, correct: 0 };
-        const result = getSafeScore(entry, 120);
-        expect(result).toBeLessThanOrEqual(120);
-        expect(result).toBeGreaterThanOrEqual(0);
-        // 75% de 120 = 90
-        expect(result).toBe(90); 
-    });
-
-    it('score numérico sem isPercentage permanece clampado em [0, maxScore]', () => {
-        const entry = { score: 150, total: 0, correct: 0 };
-        expect(getSafeScore(entry, 100)).toBe(100);
-        expect(getSafeScore(entry, 120)).toBe(120);
-    });
-
-    it('score derivado de correct/total respeita maxScore', () => {
-        const entry = { correct: 18, total: 20 }; // 90%
-        expect(getSafeScore(entry, 100)).toBe(90);
-        expect(getSafeScore(entry, 180)).toBe(162);
-    });
-
-    it('entry nulo retorna NaN para evitar viés estatístico', () => {
-        expect(getSafeScore(null, 100)).toBeNaN();
-        expect(getSafeScore(undefined, 100)).toBeNaN();
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: MC_PROB_DANGER/SAFE em escala 0-100 (não 0-1)
-// Histórico: limiares eram verificados em 0-1, comparados com prob 0-100 → sempre "safe"
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: monteCarloSimulation retorna probabilidade em escala 0-100', () => {
-    const history = makeHistory([60, 65, 62, 68, 70]);
-
-    it('probabilidade está entre 0 e 100, não entre 0 e 1', () => {
-        const result = monteCarloSimulation(history, 80, 90, 500);
-        expect(result.probability).toBeGreaterThanOrEqual(0);
-        expect(result.probability).toBeLessThanOrEqual(100);
-        // Se estivesse em 0-1 e a prob fosse ~0.35, o check abaixo pegaria a regressão
-        expect(result.probability).not.toBeLessThan(0.01);
-    });
-
-    it('analyticalProbability também em escala 0-100', () => {
-        const result = monteCarloSimulation(history, 80, 90, 500);
-        expect(result.analyticalProbability).toBeGreaterThanOrEqual(0);
-        expect(result.analyticalProbability).toBeLessThanOrEqual(100);
-    });
-
-    it('meta impossível retorna probabilidade próxima de 0', () => {
-        const result = monteCarloSimulation(history, 200, 90, 500, { maxScore: 100 });
-        expect(result.probability).toBeLessThan(5);
-    });
-
-    it('meta trivial retorna probabilidade próxima de 100', () => {
-        const result = monteCarloSimulation(history, 0, 90, 500);
-        expect(result.probability).toBeGreaterThan(90);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: Welford dual accumulator — CI nunca extrapola [minScore, maxScore]
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: Welford — CI dentro de [minScore, maxScore]', () => {
-    it('simulateNormalDistribution: ci95 dentro do domínio', () => {
-        const result = simulateNormalDistribution({
-            mean: 75,
-            sd: 12,
-            targetScore: 80,
-            simulations: 1000,
-            minScore: 0,
-            maxScore: 100,
-        });
-        expect(result.ci95Low).toBeGreaterThanOrEqual(0);
-        expect(result.ci95High).toBeLessThanOrEqual(100);
-    });
-
-    it('domínio não padrão (ex: 0-180) — ci95 respeita os limites', () => {
-        const result = simulateNormalDistribution({
-            mean: 120,
-            sd: 20,
-            targetScore: 140,
-            simulations: 1000,
-            minScore: 0,
-            maxScore: 180,
-        });
-        expect(result.ci95Low).toBeGreaterThanOrEqual(0);
-        expect(result.ci95High).toBeLessThanOrEqual(180);
-    });
-
-    it('monteCarloSimulation: ci95 dentro do domínio para histórico real', () => {
-        const history = makeHistory([55, 60, 58, 63, 67, 65, 70]);
-        const result = monteCarloSimulation(history, 80, 90, 500, { minScore: 0, maxScore: 100 });
-        expect(result.ci95Low).toBeGreaterThanOrEqual(0);
-        expect(result.ci95High).toBeLessThanOrEqual(100);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: Boundary condition — normalCDF_complement sinal correto
-// Histórico: z negativo retornava probabilidade simétrica errada
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: normalCDF_complement — sinal correto', () => {
-    it('normalCDF_complement(0) ≈ 0.5 (cauda direita de z=0)', () => {
-        expect(normalCDF_complement(0)).toBeCloseTo(0.5, 2);
-    });
-
-    it('normalCDF_complement(1.96) ≈ 0.025 (IC 95% cauda direita)', () => {
-        expect(normalCDF_complement(1.96)).toBeCloseTo(0.025, 2);
-    });
-
-    it('normalCDF_complement(-1.96) ≈ 0.975 (cauda esquerda)', () => {
-        expect(normalCDF_complement(-1.96)).toBeCloseTo(0.975, 2);
-    });
-
-    it('simetria: complement(z) + complement(-z) ≈ 1', () => {
-        [0.5, 1.0, 2.0, 3.0].forEach(z => {
-            expect(normalCDF_complement(z) + normalCDF_complement(-z)).toBeCloseTo(1.0, 5);
-        });
-    });
-
-    it('meta acima da média tem prob < 50%; meta abaixo tem prob > 50%', () => {
-        const aboveMean = simulateNormalDistribution({ mean: 60, sd: 10, targetScore: 80, simulations: 2000, minScore: 0, maxScore: 100 });
-        const belowMean = simulateNormalDistribution({ mean: 60, sd: 10, targetScore: 40, simulations: 2000, minScore: 0, maxScore: 100 });
-        expect(aboveMean.analyticalProbability).toBeLessThan(50);
-        expect(belowMean.analyticalProbability).toBeGreaterThan(50);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: Bayesian shrinkage — sem dupla aplicação
-// Histórico: shrinkage era aplicado tanto no computeBayesianLevel quanto no
-// monteCarloSimulation com forcedBaseline, gerando média bayesiana encolhida 2x
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: Bayesian — média posterior sensível ao histórico', () => {
-    it('aluno com todas as notas 90% tem média Bayesiana > 80', () => {
-        const history = makeHistory([90, 90, 90, 90, 90]);
-        const result = computeBayesianLevel(history, 1, 1, 100);
-        expect(result.mean).toBeGreaterThan(80);
-    });
-
-    it('aluno com notas baixas (30%) tem média Bayesiana < 50', () => {
-        const history = makeHistory([30, 30, 30, 30, 30]);
-        const result = computeBayesianLevel(history, 1, 1, 100);
-        expect(result.mean).toBeLessThan(50);
-    });
-
-    it('média Bayesiana para maxScore=180 escala proporcionalmente', () => {
-        const h100 = makeHistory([60, 60, 60, 60, 60], 100);
-        const h180 = makeHistory([108, 108, 108, 108, 108], 180); // mesmo 60% em base 180
-        const r100 = computeBayesianLevel(h100, 1, 1, 100);
-        const r180 = computeBayesianLevel(h180, 1, 1, 180);
-        // Razão deve ser próxima de 1.8
-        expect(r180.mean / r100.mean).toBeCloseTo(1.8, 0);
-    });
-
-    it('CI nunca extrapola [0, maxScore]', () => {
-        const history = makeHistory([5, 5, 5, 5, 5]); // notas muito baixas
-        const result = computeBayesianLevel(history, 1, 1, 100);
-        expect(result.ciLow).toBeGreaterThanOrEqual(0);
-        expect(result.ciHigh).toBeLessThanOrEqual(100);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: Volatilidade MSSD — escala invariante
-// Histórico: calculateVolatility retornava valores fora de escala para maxScore≠100
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: calculateVolatility — escala invariante', () => {
-    it('volatilidade de histórico estável é baixa (< 10% do maxScore)', () => {
-        const history = makeHistory([70, 71, 70, 72, 71, 70], 100);
-        const vol = calculateVolatility(history, 100);
-        expect(vol).toBeLessThan(10);
-    });
-
-    it('volatilidade de histórico caótico é maior que a estável', () => {
-        const stable = makeHistory([70, 71, 70, 72, 71], 100);
-        const chaotic = makeHistory([40, 90, 35, 95, 30], 100);
-        const volStable = calculateVolatility(stable, 100);
-        const volChaotic = calculateVolatility(chaotic, 100);
-        expect(volChaotic).toBeGreaterThan(volStable);
-    });
-
-    it('volatilidade para 1 ponto retorna fallback sem lançar exceção', () => {
-        const history = makeHistory([70]);
-        expect(() => calculateVolatility(history, 100)).not.toThrow();
-        const vol = calculateVolatility(history, 100);
-        expect(Number.isFinite(vol)).toBe(true);
-        expect(vol).toBeGreaterThan(0);
-    });
-
-    it('história de exatamente 2 pontos não produz NaN', () => {
-        const history = makeHistory([60, 80]);
-        const vol = calculateVolatility(history, 100);
-        expect(Number.isFinite(vol)).toBe(true);
-        expect(vol).toBeGreaterThan(0);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: slopeStdError — invariância de escala
-// Histórico: slopeStdError com maxScore≠100 gerava incerteza desproporcionalmente alta
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: calculateSlope — monotônico e escalonado', () => {
-    it('slope positivo para histórico crescente', () => {
-        const history = makeHistory([50, 55, 60, 65, 70]);
-        expect(calculateSlope(history, 100)).toBeGreaterThan(0);
-    });
-
-    it('slope negativo para histórico decrescente', () => {
-        const history = makeHistory([80, 75, 70, 65, 60]);
-        expect(calculateSlope(history, 100)).toBeLessThan(0);
-    });
-
-    it('slope próximo de zero para histórico estável', () => {
-        const history = makeHistory([70, 71, 70, 70, 71]);
-        expect(Math.abs(calculateSlope(history, 100))).toBeLessThan(0.5);
-    });
-
-    it('1 ponto retorna 0 sem erro', () => {
-        expect(calculateSlope(makeHistory([70]), 100)).toBe(0);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: Cache seed hash — inclui score fracionário
-// Histórico: seed baseada apenas em integers ignorava scores como 72.5 vs 72
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: Reprodutibilidade do Monte Carlo (seed estável)', () => {
-    it('mesma entrada → mesma probabilidade (seed determinístico)', () => {
-        const history = makeHistory([60, 65, 70, 68, 72]);
-        const r1 = monteCarloSimulation(history, 80, 90, 1000);
-        const r2 = monteCarloSimulation(history, 80, 90, 1000);
-        // FIX: toBeCloseTo em vez de toBe estrito.
-        // Após remoção de toFixed prematuro (Fix #2), valores brutos de ponto flutuante
-        // podem diferir em ~1e-13 devido a acúmulo de FP em 90k operações.
-        // A reprodutibilidade lógica (semente + caminho) continua intacta.
-        expect(r1.probability).toBeCloseTo(r2.probability, 10);
-        expect(r1.mean).toBeCloseTo(r2.mean, 10);
-    });
-
-    it('entrada diferente → resultado diferente', () => {
-        const h1 = makeHistory([60, 65, 70]);
-        const h2 = makeHistory([60, 65, 75]); // último ponto diferente
-        const r1 = monteCarloSimulation(h1, 80, 90, 1000);
-        const r2 = monteCarloSimulation(h2, 80, 90, 1000);
-        expect(r1.probability).not.toBe(r2.probability);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: standardDeviation — escala Bayesiana proporcional ao maxScore
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: standardDeviation — prior proporcional ao maxScore', () => {
-    it('SD para maxScore=180 é proporcional ao de maxScore=100', () => {
-        const arr100 = [60, 65, 70, 58, 72];
-        const arr180 = arr100.map(s => s * 1.8);
-        const sd100 = standardDeviation(arr100, 100);
-        const sd180 = standardDeviation(arr180, 180);
-        // Razão deve ser ~1.8 (escala linear)
-        expect(sd180 / sd100).toBeCloseTo(1.8, 0);
-    });
-
-    it('array com 1 elemento não retorna NaN', () => {
-        expect(Number.isFinite(standardDeviation([70], 100))).toBe(true);
-    });
-
-    it('array vazio retorna 0', () => {
-        expect(standardDeviation([], 100)).toBe(0);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUG-FIXED: sampleTruncatedNormal — nunca sai do domínio [min, max]
-// ─────────────────────────────────────────────────────────────────────────────
-describe('BUG-FIXED: sampleTruncatedNormal — dentro do domínio', () => {
-    it('10000 amostras sempre dentro de [0, 100]', () => {
-        const rng = mulberry32(42);
-        for (let i = 0; i < 10000; i++) {
-            const s = sampleTruncatedNormal(50, 15, 0, 100, rng);
-            expect(s).toBeGreaterThanOrEqual(0);
-            expect(s).toBeLessThanOrEqual(100);
-        }
-    });
-
-    it('média muito próxima do teto — amostras ainda dentro do domínio', () => {
-        const rng = mulberry32(99);
-        for (let i = 0; i < 5000; i++) {
-            const s = sampleTruncatedNormal(98, 10, 0, 100, rng);
-            expect(s).toBeGreaterThanOrEqual(0);
-            expect(s).toBeLessThanOrEqual(100);
-        }
-    });
-
-    it('domínio personalizado [40, 120]', () => {
-        const rng = mulberry32(7);
-        for (let i = 0; i < 5000; i++) {
-            const s = sampleTruncatedNormal(80, 20, 40, 120, rng);
-            expect(s).toBeGreaterThanOrEqual(40);
-            expect(s).toBeLessThanOrEqual(120);
-        }
-    });
-});
-
-describe('MATH-07: computeAdaptiveDampingBase — contínuo e estável', () => {
-    it('sempre retorna dentro de [30, 60]', () => {
-        const values = [
-            computeAdaptiveDampingBase({ sampleSize: 0, drift: 0, driftUncertainty: 999, normalizedVol: 200, scaleFactor: 1 }),
-            computeAdaptiveDampingBase({ sampleSize: 10, drift: 0.2, driftUncertainty: 0.3, normalizedVol: 10, scaleFactor: 1 }),
-            computeAdaptiveDampingBase({ sampleSize: 200, drift: 3, driftUncertainty: 0.05, normalizedVol: 2, scaleFactor: 1 }),
-        ];
-        values.forEach(v => {
-            expect(v).toBeGreaterThanOrEqual(30);
-            expect(v).toBeLessThanOrEqual(60);
-        });
-    });
-
-    it('cresce com evidência (mais N e melhor SNR)', () => {
-        const low = computeAdaptiveDampingBase({ sampleSize: 4, drift: 0.02, driftUncertainty: 0.8, normalizedVol: 20, scaleFactor: 1 });
-        const high = computeAdaptiveDampingBase({ sampleSize: 40, drift: 0.8, driftUncertainty: 0.2, normalizedVol: 6, scaleFactor: 1 });
-        expect(high).toBeGreaterThan(low);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NOVO: BUG-C2 guard — MC_SIMULATIONS acessível via config
-// Garante que se alguém mudar de volta para 5000, o teste avisa
-// (requer que DEFAULT_CONFIG seja exportada de coachLogic.js)
-// ─────────────────────────────────────────────────────────────────────────────
-import { DEFAULT_CONFIG } from '../../utils/coachLogic.js';
-describe('BUG-C2 guard: MC_SIMULATIONS deve ser 800 no coach', () => {
-    it('MC_SIMULATIONS <= 1000 (coach leve)', () => {
-        expect(DEFAULT_CONFIG.MC_SIMULATIONS).toBeLessThanOrEqual(1000);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NOVO: Verificação de Integridade Matemática — Rodada 9
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('NOVO: Processo Estocástico AR(1) — Persistência de Choque', () => {
-    it('deve apresentar decaimento AR(1) correto (persistência > ruído puro)', () => {
-        const history = makeHistory([70, 70, 70, 70, 70]);
-        // Simulamos 30 dias. Em RW puro, SD ≈ Vol * sqrt(30/7) ≈ Vol * 2.
-        // Com AR(1) (phi=0.5), SD aumenta significativamente.
-        const result = monteCarloSimulation(history, 80, 30, 1000);
-        
-        expect(result.sd).toBeGreaterThan(result.volatility * 1.2); 
-        expect(Number.isFinite(result.sd)).toBe(true);
-    });
-});
-
-describe('NOVO: Bayesian Variance Clamp — Prevenção de Colapso', () => {
-    it('variância nunca deve ser zero absoluto (piso 1e-6)', () => {
-        const history = makeHistory([100, 100, 100, 100, 100]); // Proficiência máxima
-        const result = computeBayesianLevel(history, 1, 1, 100);
-        
-        // Mesmo com 100% de acertos, a incerteza (SD) deve ser positiva devido ao clamp 1e-6
-        expect(result.sd).toBeGreaterThan(0);
-        // O unclampedHigh e Low devem existir para auditoria
-        expect(result.unclampedLow).toBeDefined();
-    });
-});
-
-
-```
-
-
-## src/engine/__tests__/stats.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { computeBayesianLevel, calculateSlopePerDay, calculateTrend } from '../stats';
-
-const day = (i) => new Date(2026, 0, 1 + i).toISOString().slice(0, 10);
-
-describe('computeBayesianLevel', () => {
-  it('não produz NaN com histórico vazio', () => {
-    const r = computeBayesianLevel([], 1, 1, 100, {});
-    expect(Number.isFinite(r.mean)).toBe(true);
-    expect(Number.isFinite(r.ciLow)).toBe(true);
-    expect(Number.isFinite(r.ciHigh)).toBe(true);
-  });
-
-  it('LOTE-02 · runningPriors alinhado com >2000 entradas', () => {
-    const big = Array.from({ length: 2100 }, (_, i) => {
-      const s = 60 + (i % 5);
-      return { score: s, total: 20, correct: Math.round(s / 5), date: day(i) };
-    });
-    const r = computeBayesianLevel(big, 1, 1, 100, {});
-    expect(Number.isFinite(r.mean)).toBe(true);
-    expect(r.mean).toBeGreaterThan(50);
-    expect(r.mean).toBeLessThan(75);
-    expect(r.ciLow).toBeGreaterThanOrEqual(0);
-    expect(r.ciHigh).toBeLessThanOrEqual(100);
-  });
-
-  it('escala 0-200 · média coerente e CI dentro do domínio', () => {
-    const h = [150, 160, 170].map((s, i) => ({ score: s, total: 40, correct: Math.round(s / 5), date: day(i * 3) }));
-    const r = computeBayesianLevel(h, 1, 1, 200, {});
-    expect(r.mean).toBeGreaterThan(100);
-    expect(r.ciHigh).toBeLessThanOrEqual(200);
-  });
-});
-
-describe('calculateSlopePerDay (LOTE-02 + LOTE-05)', () => {
-  it('retorna slope por dia (sem o ×10)', () => {
-    const h = Array.from({ length: 10 }, (_, i) => ({ score: 50 + i, total: 20, date: day(i) }));
-    expect(calculateSlopePerDay(h, 100)).toBeCloseTo(1, 1);
-  });
-
-  it('alias calculateTrend permanece disponível e idêntico', () => {
-    const h = Array.from({ length: 10 }, (_, i) => ({ score: 50 + i, total: 20, date: day(i) }));
-    expect(calculateTrend(h, 100)).toBeCloseTo(1, 1);
-  });
-});
-
-```
-
-
 ## src/hooks/useCategoryLevels.js
 
-```javascript
+```js
 import { useMemo } from 'react';
 import { computeCategoryStats } from '../engine';
 
@@ -43180,10 +42569,9 @@ export function useCategoryLevels(categories, timeline, activeEngine, maxScore =
 
 ```
 
-
 ## src/hooks/useChartData.js
 
-```javascript
+```js
 import { useMemo, useCallback } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
@@ -43554,10 +42942,9 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
 
 ```
 
-
 ## src/hooks/useClock.js
 
-```javascript
+```js
 import { useEffect, useState } from 'react';
 
 /**
@@ -43651,10 +43038,9 @@ export default useClock;
 
 ```
 
-
 ## src/hooks/useCloudSync.js
 
-```javascript
+```js
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { db, isLocalMode } from '../services/firebase';
 import { doc, onSnapshot, writeBatch, collection, getDocs } from 'firebase/firestore';
@@ -44062,6 +43448,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
     const localContests = local.contests || {};
     const cloudContests = cloud.contests || {};
+    // FIX: Validar cloudContests é um objeto
+    if (typeof cloudContests !== 'object' || Array.isArray(cloudContests)) {
+      logger.warn('[Sync] cloudContests inválido. Mantendo estado local.');
+      return local;
+    }
     const mergedContests = { ...localContests };
     const newTrashItems = [];
     const cloudFullUpdate = new Date(cloud.lastUpdated || 0).getTime();
@@ -44685,10 +44076,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
 ```
 
-
 ## src/hooks/useCoachControlCenter.js
 
-```javascript
+```js
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   runCoachOrchestrator,
@@ -44776,6 +44166,7 @@ export function useCoachControlCenter({
   // FIX: contador de execução para descartar resultados obsoletos
   const orchestratorRunIdRef = useRef(0);
   const tunerRunIdRef = useRef(0);
+  const tunerAbortControllerRef = useRef(null);
 
   useEffect(() => {
     isMounted.current = true;
@@ -44881,6 +44272,11 @@ export function useCoachControlCenter({
   // Executar AutoTuner
   // ==========================================================
   const runAutoTuner = useCallback(async (options = {}) => {
+    if (tunerAbortControllerRef.current) {
+      tunerAbortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    tunerAbortControllerRef.current = abortController;
     const runId = ++tunerRunIdRef.current;
     setLoading(true);
     setError(null);
@@ -44892,6 +44288,7 @@ export function useCoachControlCenter({
         forceApply: options.forceApply === true,
         exploration: options.exploration === true,
         minImprovement: options.minImprovement ?? 0.02,
+        signal: abortController.signal,
       });
       // FIX: valida mount + execução atual
       if (!isMounted.current || runId !== tunerRunIdRef.current) return null;
@@ -45035,10 +44432,9 @@ export default useCoachControlCenter;
 
 ```
 
-
 ## src/hooks/useEvolutionMC.js
 
-```javascript
+```js
 import { useState, useMemo, useEffect } from 'react';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { useAppStore } from '../store/useAppStore';
@@ -45211,10 +44607,9 @@ export function useEvolutionMC({
 
 ```
 
-
 ## src/hooks/useGlobalToasts.js
 
-```javascript
+```js
 import { useState, useEffect } from 'react';
 
 /**
@@ -45250,10 +44645,9 @@ export function useGlobalToasts() {
 
 ```
 
-
 ## src/hooks/useIdleLogout.js
 
-```javascript
+```js
 import { useEffect, useRef, useCallback } from 'react';
 import { logger } from '../utils/logger';
 
@@ -45357,10 +44751,9 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
 
 ```
 
-
 ## src/hooks/useLevelUp.js
 
-```javascript
+```js
 import { useState, useEffect } from 'react';
 
 /**
@@ -45390,10 +44783,9 @@ export function useLevelUp() {
 
 ```
 
-
 ## src/hooks/useModalAccessibility.js
 
-```javascript
+```js
 import { useEffect } from 'react';
 
 export function useModalAccessibility(isOpen, onClose, modalRef) {
@@ -45467,10 +44859,9 @@ export function useModalAccessibility(isOpen, onClose, modalRef) {
 
 ```
 
-
 ## src/hooks/useMonteCarloStats.js
 
-```javascript
+```js
 // ✅ LOTE-04 FIX: default import React removido (não há JSX neste hook)
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
@@ -46943,10 +46334,9 @@ function useMonteCarloHistoryRecorder({
 
 ```
 
-
 ## src/hooks/useMonteCarloWorker.js
 
-```javascript
+```js
 /**
  * useMonteCarloWorker — Hook para offload Monte Carlo para Web Worker
  * 
@@ -47126,10 +46516,9 @@ export function useMonteCarloWorker() {
 
 ```
 
-
 ## src/hooks/usePomodoroSync.js
 
-```javascript
+```js
 import { useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
@@ -47387,10 +46776,9 @@ export function usePomodoroSync({
 
 ```
 
-
 ## src/hooks/useSubjectAggData.js
 
-```javascript
+```js
 import { useMemo } from 'react';
 import { toDateMs, getDateKey } from '../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
@@ -47502,10 +46890,9 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
 
 ```
 
-
 ## src/hooks/useSubscription.js
 
-```javascript
+```js
 import { useState, useEffect, useRef } from 'react';
 import { db, isLocalMode } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
@@ -47623,10 +47010,9 @@ export function useSubscription(user) {
 
 ```
 
-
 ## src/hooks/useThemeSync.js
 
-```javascript
+```js
 import { useEffect } from 'react';
 
 /**
@@ -47680,10 +47066,9 @@ export function useThemeSync(darkModeSetting) {
 
 ```
 
-
 ## src/hooks/useToast.js
 
-```javascript
+```js
 import { useCallback } from 'react';
 
 export function useToast() {
@@ -47705,56 +47090,6 @@ export function useToast() {
 
 
 ```
-
-
-## src/hooks/__tests__/useChartData.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { renderHook } from '@testing-library/react';
-import { useChartData } from '../useChartData';
-
-const mkCat = (history) => ({ id: 'mat', name: 'Matemática', simuladoStats: { history } });
-
-const assertNoNaN = (timeline) => {
-  timeline.forEach(point => {
-    Object.values(point).forEach(v => {
-      if (typeof v === 'number') expect(Number.isNaN(v)).toBe(false);
-    });
-  });
-};
-
-describe('useChartData — blindagem NaN (BATCH-01)', () => {
-  it('timeline 100% livre de NaN com entradas corrompidas', () => {
-    const categories = [mkCat([
-      { date: '2026-07-01', score: null, total: 0 },
-      { date: '2026-07-02', score: 'lixo', total: 10 },
-      { date: '2026-07-03', score: 80, total: 20, correct: 16 }
-    ])];
-    const { result } = renderHook(() => useChartData(categories, {}, 100));
-    expect(result.current.timeline.length).toBeGreaterThan(0);
-    assertNoNaN(result.current.timeline);
-    expect(Number.isFinite(result.current.globalMetrics.globalAccuracy)).toBe(true);
-  });
-
-  it('não produz NaN quando compTotal é 0 (divisão por zero)', () => {
-    const categories = [mkCat([{ date: '2026-07-01', score: 0, total: 0 }])];
-    const { result } = renderHook(() => useChartData(categories, {}, 100));
-    assertNoNaN(result.current.timeline);
-  });
-
-  it('correct nunca excede total (clamp no acumulado bayesiano)', () => {
-    const categories = [mkCat([
-      { date: '2026-07-01', score: 100, total: 10, correct: 999 }
-    ])];
-    const { result } = renderHook(() => useChartData(categories, {}, 100));
-    assertNoNaN(result.current.timeline);
-    expect(Number.isFinite(result.current.globalMetrics.globalAccuracy)).toBe(true);
-  });
-});
-
-```
-
 
 ## src/index.css
 
@@ -48715,10 +48050,9 @@ input[type=range].custom-slider::-moz-range-thumb:active {
 
 ```
 
-
 ## src/llm/coachLLMIntegration.js
 
-```javascript
+```js
 /**
  * coachLLMIntegration.js
  *
@@ -48808,10 +48142,9 @@ export default {
 
 ```
 
-
 ## src/llm/explanationAgent.js
 
-```javascript
+```js
 /**
  * explanationAgent.js
  *
@@ -49221,10 +48554,9 @@ export default {
 
 ```
 
-
 ## src/llm/llmClient.js
 
-```javascript
+```js
 /**
  * llmClient.js
  *
@@ -49369,10 +48701,9 @@ export default {
 
 ```
 
-
 ## src/llm/llmPrompts.js
 
-```javascript
+```js
 /**
  * llmPrompts.js
  *
@@ -49451,10 +48782,9 @@ export default {
 
 ```
 
-
 ## src/llm/llmSchema.js
 
-```javascript
+```js
 /**
  * llmSchema.js
  *
@@ -49561,7 +48891,6 @@ export default {
 
 ```
 
-
 ## src/main.jsx
 
 ```jsx
@@ -49589,7 +48918,6 @@ createRoot(rootElement).render(
 
 
 ```
-
 
 ## src/pages/Activity.jsx
 
@@ -49777,7 +49105,6 @@ export default function Activity() {
 
 
 ```
-
 
 ## src/pages/Agenda.jsx
 
@@ -50125,7 +49452,6 @@ export default function Agenda() {
 
 
 ```
-
 
 ## src/pages/Coach.jsx
 
@@ -51565,7 +50891,6 @@ function RaioXDashboard({ data }) {
 
 ```
 
-
 ## src/pages/Dashboard.jsx
 
 ```jsx
@@ -51815,7 +51140,6 @@ export default function Dashboard() {
 
 ```
 
-
 ## src/pages/Evolution.jsx
 
 ```jsx
@@ -51928,7 +51252,6 @@ export default function Evolution() {
 
 
 ```
-
 
 ## src/pages/Flashcards.jsx
 
@@ -52489,7 +51812,6 @@ export default function Flashcards() {
 
 ```
 
-
 ## src/pages/History.jsx
 
 ```jsx
@@ -52525,7 +51847,6 @@ export default function History() {
 
 
 ```
-
 
 ## src/pages/Notes.jsx
 
@@ -52648,7 +51969,7 @@ export default function Notes() {
 
     const maxScore = useMemo(() => {
         const scores = enhancedCategories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
-        return scores.length > 0 ? Math.max(...scores) : 100;
+        return scores.length > 0 ? scores.reduce((a, b) => Math.max(a, b), -Infinity) : 100;
     }, [enhancedCategories]);
 
     return (<PageErrorBoundary pageName="Notas">
@@ -52661,7 +51982,6 @@ export default function Notes() {
 
 
 ```
-
 
 ## src/pages/Pomodoro.jsx
 
@@ -53703,7 +53023,6 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
 
 ```
 
-
 ## src/pages/Retention.jsx
 
 ```jsx
@@ -53776,7 +53095,8 @@ export default function Retention() {
         if (cat.selectedTask) {
             startPomodoroSession({
                 categoryId: cat.id,
-                taskId: cat.selectedTask.id || cat.selectedTask.text,
+                // FIX: Usar fallback seguro para taskId
+                taskId: cat.selectedTask.id || cat.selectedTask.text || `task-${cat.id}`,
                 category: cat.name,
                 task: taskName,
                 priority: cat.selectedTask.priority,
@@ -53785,7 +53105,7 @@ export default function Retention() {
         } else {
             startPomodoroSession({
                 categoryId: cat.id,
-                taskId: cat.id,
+                taskId: cat.id || `cat-${cat.name}`,
                 category: cat.name,
                 task: `${cat.name}: Revisão Geral`,
                 priority: 'normal',
@@ -53891,7 +53211,6 @@ export default function Retention() {
 
 ```
 
-
 ## src/pages/Sessions.jsx
 
 ```jsx
@@ -53941,7 +53260,6 @@ export default function Sessions() {
 
 
 ```
-
 
 ## src/pages/Simulados.jsx
 
@@ -54252,7 +53570,7 @@ export default function Simulados() {
     const lastRef = sorted[0];
     if (!lastRef) return { rows: [], source: null, timestamp: null };
 
-    let resultRows;
+    let resultRows = [];
 
     // 3. Estratégia A: batchId (Simulado IA)
     if (lastRef.batchId) {
@@ -54641,7 +53959,6 @@ export default function Simulados() {
 
 ```
 
-
 ## src/pages/Stats.jsx
 
 ```jsx
@@ -54805,7 +54122,6 @@ export default function Stats() {
 
 ```
 
-
 ## src/pages/Tasks.jsx
 
 ```jsx
@@ -54842,7 +54158,7 @@ export default function Tasks() {
   // ✅ FIX: Calcular maxScore global das categorias
   const maxScore = React.useMemo(() => {
     const scores = categories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
-    return scores.length > 0 ? Math.max(...scores) : 100;
+    return scores.length > 0 ? scores.reduce((a, b) => Math.max(a, b), -Infinity) : 100;
   }, [categories]);
   
   const handleResetConfirm = () => {
@@ -54910,10 +54226,9 @@ export default function Tasks() {
 
 ```
 
-
 ## src/services/aiQuestionService.js
 
-```javascript
+```js
 // 🔒 [SECURITY] Chave Gemini NUNCA deve ser usada no frontend.
 // Todas as chamadas passam por um backend proxy autenticado.
 // ROTA OBRIGATÓRIA: rotacione a chave Gemini atual imediatamente.
@@ -55114,10 +54429,9 @@ export default {
 
 ```
 
-
 ## src/services/firebase.js
 
-```javascript
+```js
 // 🔒 [SECURITY] Sem fallback hardcoded para projeto real.
 // Se faltar config, entra em modo local estrito.
 
@@ -55265,35 +54579,9 @@ export { app, db, auth, analytics };
 
 ```
 
-
-## src/services/__tests__/firebase.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { db, auth, isLocalMode, getAppAnalytics, firebaseConfig } from '../firebase.js';
-
-describe('Firebase Service Connection & liquita-67764 Configuration', () => {
-  it('deve estar configurado para o projeto liquita-67764', () => {
-    expect(firebaseConfig).toBeDefined();
-    expect(firebaseConfig.projectId).toBe('liquita-67764');
-    expect(firebaseConfig.authDomain).toBe('liquita-67764.firebaseapp.com');
-  });
-
-  it('deve exportar as instâncias db, auth, getAppAnalytics e isLocalMode', () => {
-    expect(isLocalMode).toBeDefined();
-    expect(typeof isLocalMode).toBe('boolean');
-    expect(db).toBeDefined();
-    expect(auth).toBeDefined();
-    expect(typeof getAppAnalytics).toBe('function');
-  });
-});
-
-```
-
-
 ## src/store/safeClone.js
 
-```javascript
+```js
 /**
  * Utilitário de clonagem estrutural ultra-resiliente.
  * Protege a store contra DataCloneError limpando objetos não-serializáveis.
@@ -55370,10 +54658,9 @@ export function safeClone(value, fallback = null) {
 
 ```
 
-
 ## src/store/schemas.js
 
-```javascript
+```js
 import { safeClone } from './safeClone.js';
 import { INITIAL_DATA } from '../data/initialData';
 import { generateId } from '../utils/idGenerator';
@@ -55730,17 +55017,16 @@ export const validateAppState = (data) => {
     return finalState;
   } catch (err) {
     console.error("[Validate] Erro catastrófico, retornando inicial:", err);
-    return { contests: { 'default': INITIAL_DATA }, activeId: 'default', lastUpdated: new Date().toISOString() };
+    return { contests: { 'default': safeClone(INITIAL_DATA) }, activeId: 'default', lastUpdated: new Date().toISOString() };
   }
 };
 
 
 ```
 
-
 ## src/store/slices/createCategorySlice.js
 
-```javascript
+```js
 import { generateId } from '../../utils/idGenerator';
 import { normalize } from '../../utils/normalization';
 import { safeClone } from '../safeClone.js';
@@ -56148,10 +55434,9 @@ export const createCategorySlice = (set) => ({
 
 ```
 
-
 ## src/store/slices/createContestSlice.js
 
-```javascript
+```js
 import { generateId } from '../../utils/idGenerator';
 import { INITIAL_DATA } from '../../data/initialData';
 import { safeClone } from '../safeClone.js';
@@ -56266,10 +55551,9 @@ export const createContestSlice = (set) => ({
 
 ```
 
-
 ## src/store/slices/createGamificationSlice.js
 
-```javascript
+```js
 import { calculateLevel } from '../../utils/gamification';
 import { buildAchievementStats } from '../../utils/analytics';
 import { ACHIEVEMENTS } from '../../config/gamification';
@@ -56353,10 +55637,9 @@ export const createGamificationSlice = (set, get) => ({
 
 ```
 
-
 ## src/store/slices/createMonteCarloSlice.js
 
-```javascript
+```js
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
 import { safeClone } from '../safeClone.js';
 
@@ -56523,10 +55806,9 @@ export const createMonteCarloSlice = (set) => ({
 
 ```
 
-
 ## src/store/slices/createPomodoroSlice.js
 
-```javascript
+```js
 import { cleanTaskTitle } from '../../utils/taskTitleHelper.js';
 
 const extractCategoryFromTask = (task) => {
@@ -56563,6 +55845,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             p.accumulatedMinutes = 0;
             p.completedCycles = 0;
+            p.mode = 'work';
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
@@ -56963,10 +56246,9 @@ export const createPomodoroSlice = (set, get) => ({
 
 ```
 
-
 ## src/store/slices/createSettingsSlice.js
 
-```javascript
+```js
 import { validateAppState } from '../schemas';
 
 const applyDarkModeToggle = (state) => {
@@ -57071,10 +56353,9 @@ export const createSettingsSlice = (set) => ({
 
 ```
 
-
 ## src/store/slices/createSimuladoSlice.js
 
-```javascript
+```js
 import { computeCategoryStats } from '../../engine/stats.js';
 import { getSafeScore } from '../../utils/scoreHelper.js';
 
@@ -57194,10 +56475,9 @@ export const createSimuladoSlice = (set) => ({
 
 ```
 
-
 ## src/store/slices/createStudySlice.js
 
-```javascript
+```js
 import { generateId } from '../../utils/idGenerator';
 import { XP_CONFIG } from '../../config/gamification';
 import { SYNC_LOG_CAP } from '../../config';
@@ -57426,10 +56706,9 @@ export const createStudySlice = (set, get) => ({
 
 ```
 
-
 ## src/store/slices/createTaskSlice.js
 
-```javascript
+```js
 import { generateId } from '../../utils/idGenerator';
 import { getTaskXP } from '../../utils/gamification';
 
@@ -57590,10 +56869,9 @@ export const createTaskSlice = (set, get) => ({
 
 ```
 
-
 ## src/store/slices/createTrashSlice.js
 
-```javascript
+```js
 import { generateId } from '../../utils/idGenerator';
 import { safeClone } from '../safeClone.js';
 
@@ -57671,10 +56949,9 @@ export const createTrashSlice = (set) => ({
 
 ```
 
-
 ## src/store/useAppStore.js
 
-```javascript
+```js
 import { safeClone } from './safeClone.js';
 import { create, useStore } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -57917,7 +57194,7 @@ export const useAppStore = create(
                         localStorage.removeItem('ultra-dashboard-storage');
                         idbDel('ultra-dashboard-storage').catch(() => {});
                         targetId = 'default';
-                        targetContests = { 'default': { simulados: [], tasks: [] } };
+                        targetContests = { 'default': safeClone(INITIAL_DATA) };
                     }
 
                     // Atualização Atômica: ID e Hidratação juntos, sem mutação direta do estado persistido
@@ -57960,10 +57237,9 @@ useAppStore.subscribe((state) => {
 
 ```
 
-
 ## src/store/useSelectors.js
 
-```javascript
+```js
 import { useAppStore } from './useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -58024,10 +57300,9 @@ export const useUIState = () => {
 
 ```
 
-
 ## src/utils/adaptiveEngine.js
 
-```javascript
+```js
 /**
  * adaptiveEngine.js — Adaptive Analytics Engine
  * 
@@ -58202,10 +57477,9 @@ export default { detectRegimeTransition };
 
 ```
 
-
 ## src/utils/adaptiveMath.js
 
-```javascript
+```js
 /**
  * Utilitários de Matemática Adaptativa para o Motor Estatístico
  */
@@ -58685,10 +57959,9 @@ export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificulda
 
 ```
 
-
 ## src/utils/aiSaveHelper.js
 
-```javascript
+```js
 import { getDateKey, normalizeDate } from './dateHelper.js';
 import { generateId } from './idGenerator.js';
 import { normalize } from './normalization.js';
@@ -58898,10 +58171,9 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
 
 ```
 
-
 ## src/utils/analytics.js
 
-```javascript
+```js
 import { getXPProgress } from './gamification.js';
 import { normalizeDate, getLocalMidnight, getDateKey, parseNoonLocal, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
@@ -59992,10 +59264,9 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
 
 ```
 
-
 ## src/utils/audioAlert.js
 
-```javascript
+```js
 /**
  * ============================================================================
  * WEB AUDIO API POMODORO ALARM SYNTHESIZER
@@ -60061,10 +59332,9 @@ export function playPomodoroAlarm(options = {}) {
 
 ```
 
-
 ## src/utils/autoTunerGate.js
 
-```javascript
+```js
 /**
  * Gate de significância para promoção de estratégias (AutoTuner).
  * Bootstrap em BLOCOS sobre ΔBrier pareado (respeita autocorrelação
@@ -60099,10 +59369,9 @@ export function bootstrapPromotionGate(pairedDeltas, {
 
 ```
 
-
 ## src/utils/backupManager.js
 
-```javascript
+```js
 import { generateId } from './idGenerator';
 import DOMPurify from 'dompurify';
 
@@ -60242,10 +59511,9 @@ export const parseImportedData = (content, currentAppState) => {
 
 ```
 
-
 ## src/utils/calibration.js
 
-```javascript
+```js
 import { kahanSum } from '../engine/math/kahan.js';
 import { getDateKey, normalizeDate } from './dateHelper.js';
 import { getSafeScore } from './scoreHelper.js';
@@ -60652,7 +59920,7 @@ export function computeStackingWeights(candidateProbs = [], observed = [], compl
   const maxLoss = Math.max(...logLoss);
   const isSeverePenalty = maxLoss > 2.0;
   // ✅ FIX: regularização mais forte para amostras mínimas (antes lambda=0.5 em n=4)
-  const regularization = n < 8 ? 8 : (isSeverePenalty ? 0.2 : 4);
+  const regularization = isSeverePenalty ? 0.2 : (n < 8 ? 8 : 4);
   const lambda = Math.min(1, Math.max(0, n / (n + regularization)));
   return raw.map(w => lambda * (w / z) + (1 - lambda) / k);
 }
@@ -60706,10 +59974,9 @@ export function buildCalibrationDashboardSeries(events = []) {
 
 ```
 
-
 ## src/utils/calibrationTelemetry.js
 
-```javascript
+```js
 const TELEMETRY_KEY = 'coach_calibration_events_v1';
 const TELEMETRY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
 
@@ -60802,10 +60069,9 @@ export function clearCalibrationTelemetry() {
 
 ```
 
-
 ## src/utils/chartConfig.js
 
-```javascript
+```js
 /**
  * Centralized Configuration for Charts
  */
@@ -60868,10 +60134,9 @@ export const CHART_DEFAULTS = {
 
 ```
 
-
 ## src/utils/chartDataMappers.js
 
-```javascript
+```js
 /**
  * Mapper functions to transform application state into chart-ready data
  */
@@ -61029,8 +60294,15 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     // toLocaleDateString depende da localidade do browser e pode falhar o matching.
     // 🎯 STABILITY FIX: Inclui o Ano na chave para evitar colisão entre anos diferentes (Bug do Fantasma do Ano Passado)
     const getFullKey = (dateObj) => {
-      // ✅ Usa getDateKey (ancorado em America/Manaus) em vez de Intl genérico
-      return getDateKey(dateObj);
+      const key = getDateKey(dateObj);
+      if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        // Fallback: usar componentes UTC para evitar shift de timezone
+        const y = dateObj.getUTCFullYear();
+        const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      return key;
     };
 
     const getDisplayKey = (dateObj) => {
@@ -61115,10 +60387,9 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
 
 ```
 
-
 ## src/utils/coachAdaptive.js
 
-```javascript
+```js
 /**
  * coachAdaptive.js
  *
@@ -61694,10 +60965,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
 ```
 
-
 ## src/utils/coachBacktest.js
 
-```javascript
+```js
 /**
  * coachBacktest.js
  *
@@ -61801,10 +61071,9 @@ export function compareStrategyRuns(runA = {}, runB = {}, metrics = ['ndcg']) {
 
 ```
 
-
 ## src/utils/coachCausal.js
 
-```javascript
+```js
 /**
  * coachCausal.js
  *
@@ -62256,10 +61525,9 @@ export default {
 
 ```
 
-
 ## src/utils/coachEvaluation.js
 
-```javascript
+```js
 /**
  * coachEvaluation.js
  *
@@ -62354,10 +61622,9 @@ export default {
 
 ```
 
-
 ## src/utils/coachFeatures.js
 
-```javascript
+```js
 /**
  * coachFeatures.js
  *
@@ -62474,10 +61741,9 @@ export default {
 
 ```
 
-
 ## src/utils/coachFeatureStore.js
 
-```javascript
+```js
 /**
  * coachFeatureStore.js
  * Store singleton para feature flags com API atômica.
@@ -62542,10 +61808,9 @@ export function getFlag(key, fallback = false) {
 
 ```
 
-
 ## src/utils/coachLogic.js
 
-```javascript
+```js
 // ==================== CONSTANTES ====================
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { getSortedHistory } from '../engine/stats.js';
@@ -62747,7 +62012,7 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
         if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
         const journeyDays = Math.max(0, refTime - firstTime) / 86400000;
         // ✅ FIX: Validar journeyDays antes de calcular totalJourneyDays
-        if (!Number.isFinite(journeyDays) || journeyDays <= 0) return 1.0;
+        if (!Number.isFinite(journeyDays)) return 1.0;
         const safeDays = Number.isFinite(daysToExam) ? Math.max(0, daysToExam) : 0;
         const totalJourneyDays = Math.max(1, journeyDays) + safeDays;
         criticalHorizon = Math.max(14, Math.min(35, totalJourneyDays * 0.08));
@@ -62865,7 +62130,14 @@ export const sanitizeNum = (val) => {
             str = str.replace(/,/g, '');
         }
     } else if (hasComma) {
-        str = str.replace(/\./g, '').replace(',', '.');
+        // Apenas vírgula: pode ser decimal (1,5) ou milhar (1.000)
+        // Se tem exatamente 3 dígitos após a vírgula, tratar como milhar
+        const afterComma = str.split(',')[1];
+        if (afterComma && afterComma.length === 3) {
+            str = str.replace(/\./g, '').replace(',', '');
+        } else {
+            str = str.replace(/\./g, '').replace(',', '.');
+        }
     } else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
         str = str.replace(/\./g, '');
     }
@@ -65217,10 +64489,9 @@ export { getWeakestTopic, getWeakestTopicsList };
 
 ```
 
-
 ## src/utils/coachObservability.js
 
-```javascript
+```js
 /**
  * coachObservability.js
  *
@@ -65428,10 +64699,9 @@ export default {
 
 ```
 
-
 ## src/utils/coachOptimizer.js
 
-```javascript
+```js
 /**
  * coachOptimizer.js
  *
@@ -65528,10 +64798,9 @@ export default {
 
 ```
 
-
 ## src/utils/coachPipeline.js
 
-```javascript
+```js
 /**
  * coachPipeline.js
  *
@@ -65585,10 +64854,9 @@ export default {
 
 ```
 
-
 ## src/utils/coachSafe.js
 
-```javascript
+```js
 /**
  * coachSafe.js
  *
@@ -65675,10 +64943,9 @@ export function hashString64(str) {
 
 ```
 
-
 ## src/utils/coachStorage.js
 
-```javascript
+```js
 /**
  * coachStorage.js
  * Wrapper seguro para localStorage com tratamento de quota.
@@ -65741,10 +65008,9 @@ export function safeRemoveItem(key) {
 
 ```
 
-
 ## src/utils/coachText.js
 
-```javascript
+```js
 /**
  * coachText.js
  *
@@ -65761,7 +65027,7 @@ export const RX_BOLD = /(\*\*.*?\*\*)/g;
 
 // FIX: Restauradas as âncoras ^...$ ou limites de palavra para evitar substituição destrutiva de substrings
 export const RX_NOISE_ACTION =
-  /^(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)|\(Prioridade\)|% de acerto)$/gi;
+  /(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)|\(Prioridade\)|% de acerto)/gi;
 
 export function isSystemAlertTask(value) {
   const text =
@@ -65881,10 +65147,9 @@ export function getFeedbackColor(score, limits = { low: 70, mastery: 85 }) {
 
 ```
 
-
 ## src/utils/dateHelper.js
 
-```javascript
+```js
 import { addDays } from 'date-fns';
 
 export const APP_TIMEZONE = 'America/Manaus';
@@ -65933,9 +65198,19 @@ export function parseGoalDateUnified(value) {
 export const getDateKey = (rawDate) => {
     if (!rawDate) return new Date().toISOString().split('T')[0];
     
-    // ✅ FIX: Se for ISO string 'YYYY-MM-DD', extraia diretamente sem passar pelo timezone engine
-    if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim().substring(0, 10))) {
-        return rawDate.trim().substring(0, 10);
+    if (typeof rawDate === 'string') {
+        const trimmed = rawDate.trim();
+        // ✅ FIX: Se for ISO string 'YYYY-MM-DD', extraia diretamente sem passar pelo timezone engine
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+            return trimmed;
+        }
+        // ✅ FIX: Handle YY-MM-DD strings to prevent year 1900 regression
+        if (/^\d{2}-\d{2}-\d{2}$/.test(trimmed)) {
+            const parts = trimmed.split('-');
+            const year = parseInt(parts[0], 10);
+            const fullYear = year < 100 ? 2000 + year : year;
+            return `${fullYear}-${parts[1]}-${parts[2]}`;
+        }
     }
     // Suporte ao _seconds do firebase que vem cru sem getter de objeto Date
     if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
@@ -65946,9 +65221,11 @@ export const getDateKey = (rawDate) => {
     
     try {
         const d = normalizeDate(rawDate) || new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
+        // Ajusta para o fuso de Manaus (UTC-4) para obter a data correta lá
+        const manausDate = new Date(d.getTime() - (4 * 3600000));
+        const year = manausDate.getUTCFullYear();
+        const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(manausDate.getUTCDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     } catch {
         return new Date().toISOString().split('T')[0];
@@ -65998,7 +65275,20 @@ export const normalizeDate = (raw) => {
   if (!raw) return null;
   let d;
 
-  const isDateOnly = typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  let isDateOnly = false;
+  let normalizedRaw = raw;
+
+  if (typeof raw === "string") {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      isDateOnly = true;
+    } else if (/^\d{2}-\d{2}-\d{2}$/.test(raw)) {
+      isDateOnly = true;
+      const parts = raw.split('-');
+      const year = parseInt(parts[0], 10);
+      const fullYear = year < 100 ? 2000 + year : year;
+      normalizedRaw = `${fullYear}-${parts[1]}-${parts[2]}`;
+    }
+  }
 
   if (typeof raw === "object" && (raw.seconds != null || raw._seconds != null)) {
     // Firebase Timestamp
@@ -66018,7 +65308,7 @@ export const normalizeDate = (raw) => {
     // ANTES: new Date("2025-01-15") = midnight UTC = dia anterior em Manaus
     // eslint-disable-next-line no-restricted-syntax
     d = isDateOnly
-      ? new Date(`${raw}T12:00:00-04:00`)
+      ? new Date(`${normalizedRaw}T12:00:00-04:00`)
       : new Date(raw);
   } else {
     d = new Date(raw);
@@ -66123,7 +65413,8 @@ export const getFlashcardTodayKey = () => getDateKey(new Date());
 export const getFlashcardNextDueKey = (intervalDays = 1) => {
    const raw = Number(intervalDays);
    const safeDays = Number.isFinite(raw) ? Math.max(1, Math.min(3650, Math.floor(raw))) : 1;
-   const future = addDays(new Date(), safeDays);
+   const anchor = new Date(`${getDateKey(new Date())}T12:00:00-04:00`);
+   const future = addDays(anchor, safeDays);
    const key = getDateKey(future);
    return key || getFlashcardTodayKey();
 };
@@ -66156,10 +65447,9 @@ export const parseNoonLocal = (input) => {
 
 ```
 
-
 ## src/utils/displaySubject.js
 
-```javascript
+```js
 import { normalize } from './normalization';
 
 const SUBJECT_MAP = {
@@ -66264,10 +65554,9 @@ export const displayTopic = (name) => {
 
 ```
 
-
 ## src/utils/downsample.js
 
-```javascript
+```js
 import { toDateMs } from './dateHelper.js';
 
 /**
@@ -66350,10 +65639,9 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
 
 ```
 
-
 ## src/utils/explanationEngine.js
 
-```javascript
+```js
 // ==========================================
 // HUMAN EXPLANATION ENGINE
 // Traduz telemetria matemática em linguagem natural
@@ -66545,10 +65833,9 @@ export function validatePrediction({ probability, interval, confidenceTier }) {
 
 ```
 
-
 ## src/utils/format.js
 
-```javascript
+```js
 export const formatMinutes = (totalMinutes = 0) => {
     const minutes = Math.max(0, Math.round(Number(totalMinutes) || 0));
 
@@ -66573,10 +65860,9 @@ export const formatMinutes = (totalMinutes = 0) => {
 
 ```
 
-
 ## src/utils/gamification.js
 
-```javascript
+```js
 import { XP_CONFIG } from '../config/gamification';
 // XP_CONFIG movido para src/config/gamification.js para centralização de verdade (Bug 1).
 
@@ -66670,6 +65956,7 @@ export const getLevelTitle = (level) => {
     if (level >= 30) return { title: 'Mestre', icon: '🔮', color: 'text-purple-400', barColor: 'from-purple-400' };
     if (level >= 20) return { title: 'Elite', icon: '💎', color: 'text-blue-400', barColor: 'from-blue-400' };
     if (level >= 10) return { title: 'Veterano', icon: '⚔️', color: 'text-red-500', barColor: 'from-red-500' };
+    if (level >= 5) return { title: 'Competidor', icon: '🔥', color: 'text-orange-400', barColor: 'from-orange-400' };
     return { title: 'Estudante', icon: '🌱', color: 'text-green-400', barColor: 'from-green-400' };
 };
 
@@ -66682,10 +65969,9 @@ export function calculateMissionReward(baseReward = 50, completionRate = 1.0, qu
 
 ```
 
-
 ## src/utils/heatmapAggregation.js
 
-```javascript
+```js
 import { normalizeDate } from './dateHelper.js';
 
 export function getMondayKey(rawKey = '') {
@@ -66790,10 +66076,9 @@ export const calculateSubjectMastery = (subtopics) => {
 
 ```
 
-
 ## src/utils/idGenerator.js
 
-```javascript
+```js
 /**
  * Generates a robust unique ID with a prefix
  * format: prefix-timestamp-random
@@ -66860,10 +66145,9 @@ export function generateLocalId() {
 
 ```
 
-
 ## src/utils/lazyRetry.js
 
-```javascript
+```js
 import { lazy } from 'react';
 
 /**
@@ -66898,10 +66182,9 @@ export const lazyWithRetry = (componentImport) =>
 
 ```
 
-
 ## src/utils/logger.js
 
-```javascript
+```js
 import { DEBUG_MODE } from '../config.js';
 
 /**
@@ -66936,10 +66219,9 @@ export default logger;
 
 ```
 
-
 ## src/utils/measurement.js
 
-```javascript
+```js
 const safeArray = (value) => {
   if (Array.isArray(value)) return value;
   if (value && typeof value === "object") return Object.values(value);
@@ -66981,7 +66263,8 @@ export function clampFinite(value, min, max, fallback = min) {
  * Domínio seguro da prova/matéria.
  */
 export function safeDomain(maxScore, minScore = 0) {
-  let max = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+  let rawMax = Number(maxScore);
+  let max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
   let min = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
 
   // ✅ FIX: trocar se invertidos (dados corrompidos)
@@ -67257,12 +66540,14 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
       r.isPercentage !== false;
 
     const points = clampFinite(scoreRaw, domain.min, domain.max, domain.min);
+    // Marcar ambiguidade para o consumidor exibir aviso
+    const ambiguous = looksAmbiguous && !r.isPercentage;
     const pct = pointsToPct(points, domain);
     return {
       points, pct,
       ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
       total, correct, totalValid: false, domain,
-      ambiguous: looksAmbiguous,
+      ambiguous,
       source: looksAmbiguous
         ? "score-ambiguous-as-points"
         : "score-auto-points",
@@ -67293,7 +66578,7 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
  * Para motores matemáticos, retorne SEMPRE pontos.
  */
 export function getSafeScore(row, maxScore, minScore = 0) {
-  if (!row) return minScore;
+  if (row == null) return NaN;
 
   const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0
     ? Number(maxScore) : 100;
@@ -67302,12 +66587,26 @@ export function getSafeScore(row, maxScore, minScore = 0) {
 
   let score;
 
+  const parseNum = (val) => {
+    if (typeof val === 'string') {
+      const clean = val.replace(/\./g, '').replace(',', '.');
+      return Number(clean);
+    }
+    return Number(val);
+  };
+
   if (typeof row === "number") {
     score = row;
   } else if (row.score != null) {
-    score = Number(row.score);
+    score = parseNum(row.score);
+    if (row.isPercentage && Number.isFinite(score)) {
+      score = (score / 100) * safeMax;
+    }
   } else if (row.value != null) {
-    score = Number(row.value);
+    score = parseNum(row.value);
+    if (row.isPercentage && Number.isFinite(score)) {
+      score = (score / 100) * safeMax;
+    }
   } else if (row.correct != null && row.total != null) {
     const total = Number(row.total);
     const correct = Number(row.correct);
@@ -67317,8 +66616,8 @@ export function getSafeScore(row, maxScore, minScore = 0) {
     }
   }
 
-  // ✅ FIX: NaN nunca sobrevive
-  if (!Number.isFinite(score)) return safeMin;
+  // ✅ FIX: NaN nunca sobrevive, retorna NaN para evitar viés estatístico
+  if (!Number.isFinite(score)) return NaN;
   return Math.max(safeMin, Math.min(safeMax, score));
 }
 
@@ -67553,10 +66852,9 @@ export function migrateContestData(contest) {
 
 ```
 
-
 ## src/utils/monteCarloScenario.js
 
-```javascript
+```js
 export const SCENARIO_CONFIG = {
   // BUG-5 FIX: meanBiasFactor é percentual da escala (0.025 = 2.5% do maxScore)
   // Antes era absoluto (±2.5 pts), distorcendo provas fora da escala 0-100.
@@ -67626,10 +66924,9 @@ export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) 
 
 ```
 
-
 ## src/utils/normalization.js
 
-```javascript
+```js
 /**
  * Normalizes a string for consistent matching across the application.
  * Removes accents, converts to lowercase, trims whitespace, and removes common prefixes.
@@ -67725,10 +67022,9 @@ export const safeDivide = (numerator, denominator, fallback = 0) => {
 
 ```
 
-
 ## src/utils/normalize.js
 
-```javascript
+```js
 // src/utils/normalize.js
 
 /**
@@ -67769,10 +67065,9 @@ export function toSafeString(value, fallback = '') {
 
 ```
 
-
 ## src/utils/number.js
 
-```javascript
+```js
 export const clampFinite = (value, min, max, fallback = min) => {
   const n = Number(value);
 
@@ -67792,10 +67087,9 @@ export const safeProbability = (value, fallback = 0) => {
 
 ```
 
-
 ## src/utils/parseNoonLocal.js
 
-```javascript
+```js
 import { normalizeDate } from './dateHelper';
 
 /**
@@ -67850,10 +67144,9 @@ export function addDaysNoon(date, days) {
 
 ```
 
-
 ## src/utils/pdfExport.js
 
-```javascript
+```js
 import { toPng } from 'html-to-image';
 
 export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf', orientation = 'landscape') => {
@@ -67916,10 +67209,9 @@ export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf'
 
 ```
 
-
 ## src/utils/pomodoroHelpers.js
 
-```javascript
+```js
 export const asArray = (value) =>
     Array.isArray(value) ? value : Object.values(value || {});
 
@@ -67955,10 +67247,9 @@ export function formatTime(seconds) {
 
 ```
 
-
 ## src/utils/ProgressStateEngine.js
 
-```javascript
+```js
 /**
  * ProgressStateEngine
  * 
@@ -68194,12 +67485,15 @@ export default { analyzeProgressState, getUIHints };
 
 ```
 
-
 ## src/utils/safeClone.js
 
-```javascript
-export const safeClone = (value) => {
+```js
+export const safeClone = (value, cache = new WeakMap()) => {
   if (value == null) return value;
+  // ✅ FIX BUG-22: Quebra loops infinitos em objetos com referências circulares
+  if (typeof value === 'object' && cache.has(value)) {
+    return cache.get(value);
+  }
 
   try {
     if (typeof structuredClone === 'function') {
@@ -68211,8 +67505,9 @@ export const safeClone = (value) => {
   try {
     return JSON.parse(JSON.stringify(value));
   } catch {
-    if (Array.isArray(value)) return [...value];
-    if (typeof value === 'object') return { ...value };
+    // Retorna estrutura vazia em vez de null para evitar crash downstream
+    if (Array.isArray(value)) return [];
+    if (typeof value === 'object') return {};
     return value;
   }
 };
@@ -68220,10 +67515,9 @@ export const safeClone = (value) => {
 
 ```
 
-
 ## src/utils/scoreDomain.js
 
-```javascript
+```js
 export function safeDomain(maxScore = 100, minScore = 0) {
   let max = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
   let min = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
@@ -68300,17 +67594,16 @@ export function detectCommonScales(categories) {
   return {
     isMixedScale: scales.size > 1,
     scales: Array.from(scales).sort((a,b) => b - a),
-    globalScale: scales.size > 0 ? Math.max(...scales) : 100
+    globalScale: scales.size > 0 ? Array.from(scales).reduce((a, b) => Math.max(a, b), -Infinity) : 100
   };
 }
 
 
 ```
 
-
 ## src/utils/scoreHelper.conversions.js
 
-```javascript
+```js
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const toNum = (v, fb = 0) => (Number.isFinite(Number(v)) ? Number(v) : fb);
 
@@ -68367,14 +67660,14 @@ export function formatUnitValue(val, unit = "%") {
 
 ```
 
-
 ## src/utils/scoreHelper.js
 
-```javascript
+```js
 /**
  * Utilitários de sanitização de scores e linhas de simulado.
  * Centraliza invariantes matemáticos para evitar dados impossíveis.
  */
+import { pointsToPct } from './measurement.js';
 
 export const SYNTHETIC_PERCENT_ONLY_TRIALS = 5;
 
@@ -68417,6 +67710,10 @@ export function toPoints(score, maxScore = 100, minScore = 0, mode = 'raw') {
   return clamp(rawScore, finalMin, finalMax);
 }
 
+export function toPct(score, maxScore = 100, minScore = 0) {
+  const points = toPoints(score, maxScore, minScore, 'raw');
+  return pointsToPct(points, maxScore, minScore);
+}
 
 
 export function formatValue(value, digits = 1) {
@@ -68479,10 +67776,9 @@ export {
 
 ```
 
-
 ## src/utils/stableHash.js
 
-```javascript
+```js
 const stableStringify = (value) => {
   const seen = new WeakSet();
 
@@ -68521,10 +67817,9 @@ export const stableHash = (value) => {
 
 ```
 
-
 ## src/utils/storageSafe.js
 
-```javascript
+```js
 const QUARANTINE_PREFIX = 'quarantine:';
 
 export function quarantineRaw(key, raw, reason = null) {
@@ -68581,10 +67876,9 @@ export function safeSetJSON(key, value) {
 
 ```
 
-
 ## src/utils/taskTitleHelper.js
 
-```javascript
+```js
 /**
  * ============================================================================
  * UNIFIED TASK TITLE HELPER
@@ -68659,10 +67953,9 @@ export function parseTaskDisplay(rawText, categoryName = '') {
 
 ```
 
-
 ## src/utils/weeklyEvolutionInsights.js
 
-```javascript
+```js
 import { toDateMs } from './dateHelper.js';
 
 export function computeTopRegressions({ viewMode, chartData = [], keys = [], activeKeys = {}, hiddenKeys = {} }) {
@@ -68767,2134 +68060,152 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
 
 ```
 
+## tsconfig.json
 
-## src/utils/__tests__/architecturalHardening.test.js
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
 
-```javascript
-/**
- * architecturalHardening.test.js — Testes para as Correções Matemáticas e Lógicas Recentes
- * 
- * Cobre as melhorias das Rodadas 6, 7 e 8:
- * - Micro-stepping (Zero-Spread Flattening)
- * - Modular Reflection (RBM)
- * - Thousand-Separator Parsing
- * - Root Date Preservation (Avalanche Pruning)
- * - Scale Inference Resiliency
- * - Burnout Active Weeks for New Users
- * - Exact Hours Rotation Penalty
- * - Variance Epsilon (Regime Transition)
- */
-import { describe, test, expect } from 'vitest';
-import { calculateUrgency } from '../coachLogic.js';
-import { calculateMSSD, monteCarloSimulation } from '../../engine/projection.js';
-import { getSafeScore } from '../scoreHelper.js';
-import { detectRegimeTransition } from '../adaptiveEngine.js';
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
 
-describe('Architectural Hardening: Rodadas 6-8', () => {
-
-    // ─────────────────────────────────────────────────────────────────
-    // 1. Micro-stepping for Same-Day Events (Bug 1.1 - Rodada 6)
-    // ─────────────────────────────────────────────────────────────────
-    test('Micro-stepping: Eventos no mesmo dia não devem colapsar o slope para zero', () => {
-        const history = [
-            { score: 50, date: '2026-01-01T10:00:00' },
-            { score: 55, date: '2026-01-01T11:00:00' },
-            { score: 60, date: '2026-01-01T12:00:00' },
-            { score: 65, date: '2026-01-01T13:00:00' },
-            { score: 70, date: '2026-01-01T14:00:00' },
-            { score: 75, date: '2026-01-01T15:00:00' },
-            { score: 80, date: '2026-01-01T16:00:00' }
-        ];
-        
-        // detectRegimeTransition usa analyzeProgressState internamente.
-        // [CORREÇÃO] Passar minHistory=5 e os OBJETOS completos (não apenas scores) para habilitar o micro-stepping (Bug-Fix no Teste)
-        const result = detectRegimeTransition(history, { maxScore: 100, windowSize: 5, minHistory: 5 });
-        
-        // Sem o fix (micro-delta), o slope seria 0 porque todos os x seriam iguais após normalizeDate
-        // Com o fix, o slope deve ser positivo e finito
-        expect(result.velocity.currentSlope).toBeGreaterThan(0);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // 2. Modular Reflected Brownian Motion (Bug 1.2 - Rodada 6)
-    // ─────────────────────────────────────────────────────────────────
-    test('Modular RBM: Choques massivos devem rebater modularmente em vez de colapsar', () => {
-        const history = [
-            { score: 95, date: '2026-01-01' },
-            { score: 96, date: '2026-01-02' }
-        ];
-        
-        // Simulação com drift agressivo que forçará estouro de 100%
-        const options = { maxScore: 100, minScore: 0, forcedVolatility: 10 };
-        const result = monteCarloSimulation(history, 99, 30, 500, options);
-        
-        // A média projetada e o CI devem ser saudáveis, não 0 ou NaN
-        expect(result.mean).toBeGreaterThan(0);
-        expect(result.ci95Low).toBeGreaterThan(0);
-        expect(result.ci95High).toBeLessThanOrEqual(100);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // 3. Thousand-Separator Parsing (Bug 2.1 - Rodada 6)
-    // ─────────────────────────────────────────────────────────────────
-    test('Parsing: Deve tratar corretamente pontos de milhar e vírgulas decimais', () => {
-        const row = { score: '1.250,50', total: 2000 };
-        const score = getSafeScore(row, 2000);
-        
-        // 1.250,50 -> 1250.5
-        expect(score).toBe(1250.5);
-        
-        const row2 = { score: '1.000', total: 1000 };
-        expect(getSafeScore(row2, 1000)).toBe(1000);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // 4. Root Activity Date Preservation (Bug 1.1 - Rodada 7)
-    // ─────────────────────────────────────────────────────────────────
-    test('Root Date: Deve preservar a data de início após poda de 50 simulados', () => {
-        const manySims = [];
-        const baseDate = new Date('2024-01-01').getTime();
-        for (let i = 0; i < 100; i++) {
-            manySims.push({
-                subject: 'Matematica',
-                score: 70,
-                date: new Date(baseDate + i * 86400000).toISOString()
-            });
-        }
-        
-        const category = { id: 'c1', name: 'Matematica', weight: 5 };
-        const result = calculateUrgency(category, manySims, [], { maxScore: 100 });
-        
-        // Se a poda funcionou corretamente mas preservou a rootActivityDate, 
-        // o crunchMultiplier deve ser calculado com base na jornada de 100 dias, não 50.
-        expect(Number.isFinite(result.score)).toBe(true);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // 5. Scale Inference Resiliency (Bug 1.2 - Rodada 7)
-    // ─────────────────────────────────────────────────────────────────
-    test('Scale Inference: Deve detectar escala 100 mesmo se a última nota for 0', () => {
-        const history = [
-            { score: 80, date: '2026-01-01' },
-            { score: 0, date: '2026-01-02' } // Última nota 0
-        ];
-        
-        const result = monteCarloSimulation(history, 85, 7, 500, { maxScore: 100 });
-        // Com o fix global do projection.js, a média projetada não deve desabar instantaneamente para o zero absoluto.
-        expect(result.mean).toBeGreaterThan(0.05);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // 6. NaN-Safe MSSD (Bug 1.3 - Rodada 7)
-    // ─────────────────────────────────────────────────────────────────
-    test('MSSD: Deve ser resiliente a datas inválidas no histórico', () => {
-        const history = [
-            { score: 50, date: '2026-01-01' },
-            { score: 60, date: 'Invalid Date' }, // Lixo
-            { score: 70, date: '2026-01-15' }
-        ];
-        
-        const mssd = calculateMSSD(history, 100);
-        expect(Number.isFinite(mssd)).toBe(true);
-        expect(mssd).toBeGreaterThan(0);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // 7. Burnout Baseline for New Users (Bug 1.1 - Rodada 8)
-    // ─────────────────────────────────────────────────────────────────
-    test('Burnout: Deve calcular baseline realista para novos utilizadores', () => {
-        const now = new Date();
-        const logs = [
-            { categoryId: 'c1', minutes: 120, date: now.toISOString() }, // 2h hoje
-            { categoryId: 'c1', minutes: 120, date: new Date(now.getTime() - 86400000).toISOString() } // 2h ontem
-        ];
-        
-        const category = { id: 'c1', name: 'Matematica', weight: 5 };
-        const result = calculateUrgency(category, [], logs, { maxScore: 100 });
-        
-        // Com o fix, activeWeeks será ~0.28 (2 dias / 7). 
-        // BaselineHoursPerWeek = 4h / 0.28 = 14.2h/semana.
-        expect(result.recommendation).not.toContain('Estafa');
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // 8. Exact Hours Rotation Penalty (Bug 2.1 - Rodada 8)
-    // ─────────────────────────────────────────────────────────────────
-    test('Rotation Penalty: Deve usar horas exatas para cool-down de 24h', () => {
-        const now = new Date();
-        const cat = { id: 'c1', name: 'Matematica' };
-        
-        // 1. Estudo há 23 horas (deve ter penalidade)
-        const logsRecent = [{ categoryId: 'c1', minutes: 60, date: new Date(now.getTime() - 23 * 3600000).toISOString() }];
-        const resRecent = calculateUrgency(cat, [], logsRecent, { maxScore: 100 });
-        
-        // 2. Estudo há 25 horas (não deve ter penalidade máxima de rotação)
-        const logsOld = [{ categoryId: 'c1', minutes: 60, date: new Date(now.getTime() - 25 * 3600000).toISOString() }];
-        const resOld = calculateUrgency(cat, [], logsOld, { maxScore: 100 });
-        
-        expect(resRecent.score).toBeLessThan(resOld.score);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // 9. Variance Epsilon (Bug 3.1 - Rodada 8)
-    // ─────────────────────────────────────────────────────────────────
-    test('Variance Epsilon: Não deve disparar instabilidade para variações atómicas irrelevantes', () => {
-        // Salto de variância de 0 para 0.1 (muito pequeno)
-        const scores = [70, 70, 70, 70, 70, 70.1, 70.1, 70.1, 70.1, 70.1];
-        const result = detectRegimeTransition(scores, { maxScore: 100, windowSize: 5 });
-        
-        const instFlags = result.flags.filter(f => f.msg.includes('Instabilidade'));
-        expect(instFlags).toHaveLength(0);
-    });
-
-});
-
-```
-
-
-## src/utils/__tests__/coachBacktest.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { computeNDCGAtK, computeUplift, computeCalibratedError, compareStrategyRuns } from '../coachBacktest.js';
-
-describe('coach offline backtest metrics', () => {
-  it('computes ndcg@k in [0,1]', () => {
-    const predicted = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
-    const actual = [{ id: 'a', relevance: 3 }, { id: 'b', relevance: 2 }, { id: 'c', relevance: 1 }];
-    const ndcg = computeNDCGAtK(predicted, actual, 3);
-    expect(ndcg).toBeGreaterThanOrEqual(0);
-    expect(ndcg).toBeLessThanOrEqual(1);
-  });
-
-  it('computes uplift as treatment-control mean delta', () => {
-    expect(computeUplift([1, 2, 3], [2, 3, 4])).toBeCloseTo(1, 6);
-  });
-
-  it('computes calibrated error and compares candidate vs baseline', () => {
-    const ce1 = computeCalibratedError(0.8, true);
-    expect(ce1).toBeCloseTo(0.2, 5);
-
-    const cmp = compareStrategyRuns(
-      { predicted: [{ id: 'b' }, { id: 'a' }], actual: [{ id: 'a', relevance: 2 }, { id: 'b', relevance: 0 }] }, // runA (mis-sorted)
-      { predicted: [{ id: 'a' }, { id: 'b' }], actual: [{ id: 'a', relevance: 2 }, { id: 'b', relevance: 0 }] }  // runB (correctly sorted)
-    );
-    expect(cmp.winner).toBe('B');
-  });
-});
-
-```
-
-
-## src/utils/__tests__/coachLogic.regression.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import {
-  runCoachMonteCarlo,
-  deriveAdaptiveRiskThresholds,
-  computeContinuousMcBoost,
-  deriveBacktestWeights,
-  DEFAULT_CONFIG,
-  calculateUrgency,
-  extractMetrics,
-  generateDailyGoals,
-  getCombinedHistory,
-  sanitizeNum,
-  computeRobustVolatilityForCoach,
-  getCrunchMultiplier,
-} from '../coachLogic.js';
-import { computeCalibrationDiagnostics } from '../calibration.js';
-
-function makeSimulados(scores) {
-  const now = Date.now();
-  return scores.map((score, idx) => ({
-    score,
-    subject: 'Matemática',
-    date: new Date(now - (scores.length - idx) * 86400000).toISOString().slice(0, 10),
-    total: 10,
-    correct: Math.round((score / 100) * 10)
-  }));
+    /* Linting */
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    
+    /* Allow JS */
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }
 
-describe('Coach math regressions — low sample MC safeguards', () => {
-  it('aplica lowSampleAdjustment > 0 quando n < 10 e mantém CI válido', () => {
-    const sims = makeSimulados([55, 58, 60, 57, 61, 59]);
-    const res = runCoachMonteCarlo(sims, 75, DEFAULT_CONFIG, 'cat-math', 100, null, 90);
-    expect(res).not.toBeNull();
-    expect(res.sampleSize).toBe(6);
-    expect(res.lowSampleAdjustment).toBeGreaterThan(0);
-    expect(res.ci95Low).toBeGreaterThanOrEqual(0);
-    expect(res.ci95High).toBeLessThanOrEqual(100);
-    expect(res.ci95High).toBeGreaterThanOrEqual(res.ci95Low);
-  });
-});
+```
 
-describe('Coach math regressions — adaptive thresholds', () => {
-  it('retorna thresholds adaptativos dentro dos limites esperados', () => {
-    const thr = deriveAdaptiveRiskThresholds([40, 50, 60, 70, 80, 90], 4, DEFAULT_CONFIG);
-    expect(thr.danger).toBeGreaterThanOrEqual(12);
-    expect(thr.safe).toBeLessThanOrEqual(97);
-    expect(thr.safe - thr.danger).toBeGreaterThanOrEqual(25);
-  });
-});
+## tsconfig.node.json
 
-describe('Coach math regressions — continuous sigmoid boost', () => {
-  it('boost diminui de forma suave quando probabilidade sobe', () => {
-    const low = computeContinuousMcBoost(20, 30, 90, 3, 100, DEFAULT_CONFIG).boost;
-    const mid = computeContinuousMcBoost(55, 30, 90, 3, 100, DEFAULT_CONFIG).boost;
-    const high = computeContinuousMcBoost(90, 30, 90, 3, 100, DEFAULT_CONFIG).boost;
-    expect(low).toBeGreaterThan(mid);
-    expect(mid).toBeGreaterThan(high);
-  });
-});
-
-describe('Coach math regressions — adaptive ECE buckets', () => {
-  it('calcula ECE e reliability com bins adaptativos sem sair de [0,1]', () => {
-    const preds = Array.from({ length: 12 }, (_, i) => ({
-      probability: (i + 1) / 13,
-      observed: i % 2 === 0
-    }));
-    const d = computeCalibrationDiagnostics(preds, { bins: 6 });
-    expect(d.ece).toBeGreaterThanOrEqual(0);
-    expect(d.ece).toBeLessThanOrEqual(1);
-    expect(d.reliability.length).toBeGreaterThan(0);
-  });
-});
-
-describe('Coach math regressions — backtest weights bounded', () => {
-  it('pesos derivados do backtest permanecem nos limites definidos', () => {
-    const w = deriveBacktestWeights([40, 42, 45, 47, 50, 53, 55, 57, 60, 62], 100);
-    expect(w.scoreWeight).toBeGreaterThanOrEqual(0.8);
-    expect(w.scoreWeight).toBeLessThanOrEqual(1.2);
-    expect(w.recencyWeight).toBeGreaterThanOrEqual(0.75);
-    expect(w.recencyWeight).toBeLessThanOrEqual(1.25);
-    expect(w.instabilityWeight).toBeGreaterThanOrEqual(0.8);
-    expect(w.instabilityWeight).toBeLessThanOrEqual(1.25);
-  });
-});
-
-// ===== NOVOS TESTES (lacunas identificadas na auditoria) =====
-
-describe('BUG-01: pastSimulados exclui o simulado mais recente', () => {
-  it('averageScore usa nota anterior correta (sem incluir a mais recente)', () => {
-    const sims = makeSimulados([40, 50, 60, 70, 80]);
-    const category = { id: 'math', name: 'Matemática', weight: 5, tasks: [] };
-    const metrics = extractMetrics(category, sims, [], { maxScore: 100 });
-    // A média deve refletir a tendência, não ser igual à última nota
-    expect(metrics.averageScore).not.toBe(80);
-    expect(metrics.averageScore).toBeGreaterThan(40);
-    expect(metrics.averageScore).toBeLessThan(85);
-  });
-});
-
-describe('calculateUrgencyScore — robustez', () => {
-  it('não retorna NaN quando todos os inputs são zero', () => {
-    const category = { id: 'test', name: 'Teste', weight: 5, tasks: [] };
-    const result = calculateUrgency(category, [], [], { maxScore: 100 });
-    expect(Number.isFinite(result.normalizedScore)).toBe(true);
-    expect(result.normalizedScore).toBeGreaterThanOrEqual(0);
-    expect(result.normalizedScore).toBeLessThanOrEqual(100);
-  });
-
-  it('normalização fica em [0, 100] para inputs extremos', () => {
-    const sims = makeSimulados([5, 5, 5, 5, 5]);
-    const category = { id: 'hard', name: 'Difícil', weight: 10, tasks: [] };
-    const result = calculateUrgency(category, sims, [], { maxScore: 100, targetScore: 95 });
-    expect(result.normalizedScore).toBeGreaterThanOrEqual(0);
-    expect(result.normalizedScore).toBeLessThanOrEqual(100);
-  });
-});
-
-describe('getCrunchMultiplier — limites', () => {
-  it('não excede 2.0', () => {
-    expect(getCrunchMultiplier(0)).toBe(2.0);
-    expect(getCrunchMultiplier(1)).toBeLessThanOrEqual(2.0);
-    expect(getCrunchMultiplier(365)).toBeLessThanOrEqual(2.0);
-  });
-
-  it('retorna 1.0 para dias negativos ou null', () => {
-    expect(getCrunchMultiplier(-5)).toBe(1.0);
-    expect(getCrunchMultiplier(null)).toBe(1.0);
-    expect(getCrunchMultiplier(undefined)).toBe(1.0);
-  });
-
-  it('timeDivisor é limitado a 60 para veteranos (FIX-LOGIC-02)', () => {
-    const oldDate = new Date(Date.now() - 1000 * 86400000).toISOString();
-    const result = getCrunchMultiplier(500, oldDate);
-    expect(result).toBeLessThanOrEqual(2.0);
-    expect(result).toBeGreaterThan(1.0);
-  });
-});
-
-describe('sanitizeNum — robustez (FIX-LOGIC-07)', () => {
-  it('trata porcentagem', () => {
-    expect(sanitizeNum('75%')).toBe(75);
-    expect(sanitizeNum(' 80 % ')).toBe(80);
-  });
-
-  it('trata formato PT-BR', () => {
-    expect(sanitizeNum('1.234,56')).toBeCloseTo(1234.56);
-    expect(sanitizeNum('1,5')).toBe(1.5);
-  });
-
-  it('retorna NaN para null/undefined/vazio', () => {
-    expect(Number.isNaN(sanitizeNum(null))).toBe(true);
-    expect(Number.isNaN(sanitizeNum(undefined))).toBe(true);
-    expect(Number.isNaN(sanitizeNum(''))).toBe(true);
-  });
-});
-
-describe('computeRobustVolatilityForCoach — shrinkage (FIX-LOGIC-03)', () => {
-  it('retorna fallback para n < 2', () => {
-    expect(computeRobustVolatilityForCoach([], 100)).toBe(8);
-    expect(computeRobustVolatilityForCoach([{ score: 50 }], 100)).toBe(8);
-  });
-
-  it('combina empírico e prior para amostras pequenas', () => {
-    const history = [{ score: 50 }, { score: 60 }];
-    const vol = computeRobustVolatilityForCoach(history, 100);
-    expect(vol).toBeGreaterThan(0);
-    expect(vol).toBeLessThan(20);
-  });
-});
-
-describe('generateDailyGoals — limites', () => {
-  it('não gera mais que 12 tarefas', () => {
-    const categories = Array.from({ length: 15 }, (_, i) => ({
-      id: `cat-${i}`, name: `Matéria ${i}`, weight: 5, tasks: [],
-      simuladoStats: { history: [] }
-    }));
-    const tasks = generateDailyGoals(categories, [], [], { maxScore: 100 });
-    expect(tasks.length).toBeLessThanOrEqual(12);
-  });
-
-  it('IDs são únicos entre tarefas', () => {
-    const categories = [
-      { id: 'a', name: 'A', weight: 5, tasks: [], simuladoStats: { history: [] } },
-      { id: 'b', name: 'B', weight: 5, tasks: [], simuladoStats: { history: [] } },
-    ];
-    const tasks = generateDailyGoals(categories, [], [], { maxScore: 100 });
-    const ids = tasks.map(t => t.id);
-    const uniqueIds = new Set(ids);
-    expect(uniqueIds.size).toBe(ids.length);
-  });
-});
-
-describe('getCombinedHistory — deduplicação', () => {
-  it('não duplica entradas com mesma data', () => {
-    const history = [
-      { date: '2025-01-01', correct: 5, total: 10 },
-      { date: '2025-01-01', correct: 3, total: 10 },
-    ];
-    const simulados = [
-      { id: 's1', date: '2025-01-01', score: 70, subject: 'Math' },
-    ];
-    const combined = getCombinedHistory(history, simulados);
-    // Deve ter no máximo 1 entrada para 2025-01-01 (simulado tem prioridade)
-    const jan1 = combined.filter(h => (h.date || '').startsWith('2025-01-01'));
-    expect(jan1.length).toBeLessThanOrEqual(1);
-  });
-});
+```json
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true
+  },
+  "include": ["vite.config.js"]
+}
 
 ```
 
-
-## src/utils/__tests__/dateHelper.test.js
-
-```javascript
-import { describe, expect, it, vi, afterEach } from 'vitest';
-import { normalizeDate, formatTimeAgo, getDateKey, toDateMs } from '../dateHelper';
-
-describe('dateHelper normalizeDate', () => {
-  it('preserva hora para timestamps completos', () => {
-    const d = normalizeDate('2026-05-08T03:45:10Z');
-    expect(d).not.toBeNull();
-    expect(d.toISOString()).toBe('2026-05-08T03:45:10.000Z');
-  });
-
-  it('normaliza data pura para meio-dia local absoluto (Manaus)', () => {
-    const d = normalizeDate('2026-05-08');
-    expect(d).not.toBeNull();
-    // 12:00 em Manaus (UTC-4) é 16:00 no fuso UTC.
-    // Isto garante que o agrupamento será sempre fiel à região.
-    expect(d.toISOString()).toBe('2026-05-08T16:00:00.000Z');
-  });
-
-  it('não reaplica setHours local em datas YYYY-MM-DD (evita drift em UTC)', () => {
-    const d = normalizeDate('2026-05-08');
-    expect(d.toISOString()).toBe('2026-05-08T16:00:00.000Z');
-    expect(d.getUTCHours()).toBe(16);
-  });
-
-  it('normaliza DD/MM/YYYY para meio-dia Manaus', () => {
-    const d = normalizeDate('08/05/2026');
-    expect(d).not.toBeNull();
-    expect(d.toISOString()).toBe('2026-05-08T16:00:00.000Z');
-  });
-});
-
-describe('dateHelper getDateKey', () => {
-  it('ancora YYYY-MM-DD ao dia de calendário em Manaus', () => {
-    expect(getDateKey('2026-05-08')).toBe('2026-05-08');
-  });
-
-  it('converte timestamp UTC para chave no fuso Manaus', () => {
-    // 02:00 UTC = 22:00 do dia anterior em Manaus (UTC-4)
-    expect(getDateKey('2026-05-08T02:00:00.000Z')).toBe('2026-05-07');
-  });
-});
-
-describe('dateHelper toDateMs', () => {
-  it('retorna instante UTC correto para data pura', () => {
-    expect(toDateMs('2026-05-08')).toBe(Date.parse('2026-05-08T16:00:00.000Z'));
-  });
-});
-
-describe('dateHelper formatTimeAgo', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('retorna Agora há pouco para skew futuro de até 60s', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-08T12:00:00.000Z'));
-    expect(formatTimeAgo('2026-05-08T12:00:30.000Z')).toBe('Agora há pouco');
-  });
-
-  it('não mascara data futura real acima de 60s', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-08T12:00:00.000Z'));
-    expect(formatTimeAgo('2026-05-08T12:02:00.000Z')).toBe('No futuro');
-  });
-});
-
-```
-
-
-## src/utils/__tests__/dueForecast.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { computeFlashcardDueForecast, getFlashcardDueTodayCount, getFlashcardMasteryPct } from '../analytics';
-import { getFlashcardTodayKey, getFlashcardNextDueKey } from '../dateHelper';
-
-describe('Due Forecast + Flashcard date helpers', () => {
-  const todayKey = getFlashcardTodayKey();
-  const tomorrowKey = getFlashcardNextDueKey(1);
-
-  const sampleDecks = [
-    {
-      id: 'd1',
-      cards: [
-        { id: 'c1', due: todayKey, reviews: 5, interval: 10 }, // due today
-        { id: 'c2', due: '1999-01-01', reviews: 1, interval: 1 }, // overdue -> today
-        { id: 'c3', due: tomorrowKey, reviews: 0, interval: 1 },
-        { id: 'c4', due: getFlashcardNextDueKey(5), reviews: 4, interval: 7 }, // mastered-ish
-      ]
-    },
-    { id: 'd2', cards: [] }
-  ];
-
-  it('getFlashcardTodayKey returns valid YYYY-MM-DD', () => {
-    expect(todayKey).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-  });
-
-  it('getFlashcardNextDueKey returns future consistent key', () => {
-    expect(tomorrowKey).not.toBe(todayKey);
-    expect(tomorrowKey).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-  });
-
-  it('computeFlashcardDueForecast buckets overdue into today and produces horizon days', () => {
-    const res = computeFlashcardDueForecast(sampleDecks, 5);
-    expect(res.forecast.length).toBe(5);
-    expect(res.forecast[0].count).toBeGreaterThanOrEqual(2); // today + overdue
-    expect(res.maxDaily).toBeGreaterThanOrEqual(0); // 0 is allowed
-    expect(res.totalDueInHorizon).toBeGreaterThan(0);
-    expect(res.horizon).toBe(5);
-  });
-
-  it('getFlashcardDueTodayCount counts correctly (includes overdue)', () => {
-    expect(getFlashcardDueTodayCount(sampleDecks)).toBe(2);
-  });
-
-  it('getFlashcardMasteryPct uses >=3 reviews && interval >=6', () => {
-    // c1 (5r/10i) and c4 (4r/7i) qualify
-    expect(getFlashcardMasteryPct(sampleDecks)).toBe(50); // 2 out of 4
-  });
-
-  it('handles empty decks gracefully', () => {
-    const empty = computeFlashcardDueForecast([], 3);
-    expect(empty.forecast.length).toBe(3);
-    expect(empty.totalDueInHorizon).toBe(0);
-    expect(empty.maxDaily).toBe(0);
-  });
-
-  it('horizon=0 returns empty forecast array', () => {
-    const res = computeFlashcardDueForecast(sampleDecks, 0);
-    expect(Array.isArray(res.forecast)).toBe(true);
-    expect(res.forecast.length).toBe(0);
-    expect(res.horizon).toBe(0);
-    expect(res.maxDaily).toBe(0);
-  });
-});
-
-```
-
-
-## src/utils/__tests__/evolutionUtils.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { applyScenarioAdjustments, classifyScenarioSignal } from '../monteCarloScenario';
-import { aggregateHeatmap, getMondayKey } from '../heatmapAggregation';
-import { computeTopRegressions, computeTrendKpi } from '../weeklyEvolutionInsights';
-
-describe('evolution utils', () => {
-  it('applies scenario ordering for mean', () => {
-    const base = [{ mean: 70, probability: 50, ciRange: [60, 80] }];
-    const cons = applyScenarioAdjustments(base, 'conservative', 100)[0];
-    const mid = applyScenarioAdjustments(base, 'base', 100)[0];
-    const opt = applyScenarioAdjustments(base, 'optimistic', 100)[0];
-    expect(cons.mean).toBeLessThanOrEqual(mid.mean);
-    expect(mid.mean).toBeLessThanOrEqual(opt.mean);
-  });
-
-  it('respects non-zero minimum score when adjusting scenarios', () => {
-    const base = [{ mean: 56, probability: 52, ciRange: [54, 58] }];
-    const adjusted = applyScenarioAdjustments(base, 'conservative', 80, 55)[0];
-    expect(adjusted.mean).toBeGreaterThanOrEqual(55);
-    expect(adjusted.ciRange[0]).toBeGreaterThanOrEqual(55);
-    expect(adjusted.ciRange[1]).toBeGreaterThanOrEqual(55);
-  });
-
-  it('aggregates heatmap weekly and monthly', () => {
-    expect(getMondayKey('2026-05-10')).toBe('2026-05-04');
-    const filtered = {
-      dates: [{ key: '2026-05-04', label: '04/05' }, { key: '2026-05-05', label: '05/05' }, { key: '2026-05-12', label: '12/05' }],
-      rows: [{ cells: [{ total: 10, correct: 7 }, { total: 10, correct: 9 }, { total: 20, correct: 10 }] }]
-    };
-    const weekly = aggregateHeatmap(filtered, 'weekly');
-    expect(weekly.dates.length).toBe(2);
-    const monthly = aggregateHeatmap(filtered, 'monthly');
-    expect(monthly.dates.length).toBe(1);
-  });
-
-  it('computes weekly insights', () => {
-    const chartData = [
-      { week: '2026-01-01', displayDate: '01/01', a: 60, b: 55, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: null, delta_b: null },
-      { week: '2026-01-08', displayDate: '08/01', a: 62, b: 54, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: 2, delta_b: -1 },
-      { week: '2026-01-15', displayDate: '15/01', a: 59, b: 50, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -3, delta_b: -4 },
-      { week: '2026-01-22', displayDate: '22/01', a: 58, b: 52, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: 2 },
-      { week: '2026-01-29', displayDate: '29/01', a: 57, b: 48, meta_a: { currTot: 10 }, meta_b: { currTot: 10 }, delta_a: -1, delta_b: -4 },
-    ];
-    const keys = ['a', 'b'];
-    const activeKeys = { a: { name: 'A' }, b: { name: 'B' } };
-    const hiddenKeys = { a: false, b: false };
-
-    const regs = computeTopRegressions({ viewMode: 'variation', chartData, keys, activeKeys, hiddenKeys });
-    expect(regs[0].key).toBe('b');
-
-    const trend = computeTrendKpi({ chartData, keys, hiddenKeys });
-    expect(Number.isFinite(trend.delta)).toBe(true);
-  });
-
-  it('evaluates T-EMA (Time-Weighted Moving Average) weekly evolution trend correctly', () => {
-    // Cenário: Uma semana recente (2026-02-15) com nota muito alta deve influenciar
-    // o T-EMA de forma mais forte do que semanas anteriores (relação decrescente).
-    const chartData = [
-      { week: '2026-01-01', displayDate: '01/01', a: 50, meta_a: { currTot: 10 } },
-      { week: '2026-01-08', displayDate: '08/01', a: 50, meta_a: { currTot: 10 } },
-      { week: '2026-01-15', displayDate: '15/01', a: 50, meta_a: { currTot: 10 } },
-      { week: '2026-01-22', displayDate: '22/01', a: 50, meta_a: { currTot: 10 } },
-      { week: '2026-01-29', displayDate: '29/01', a: 50, meta_a: { currTot: 10 } },
-      { week: '2026-02-05', displayDate: '05/02', a: 50, meta_a: { currTot: 10 } },
-      { week: '2026-02-12', displayDate: '12/02', a: 50, meta_a: { currTot: 10 } },
-      { week: '2026-02-19', displayDate: '19/02', a: 80, meta_a: { currTot: 10 } }, // Salto na última semana
-    ];
-    const trend = computeTrendKpi({ chartData, keys: ['a'], hiddenKeys: { a: false } });
-    
-    expect(trend).not.toBeNull();
-    // A média recente (EMA dos últimos 4 pontos, incluindo o 80) deve ser sensivelmente superior a 50.
-    expect(trend.recentAvg).toBeGreaterThan(50);
-    // A média prévia (EMA dos 4 pontos anteriores, todos 50) deve ser exatamente 50.
-    expect(trend.previousAvg).toBeCloseTo(50, 5);
-    expect(trend.delta).toBeGreaterThan(0);
-  });
-
-  it('handles invalid heatmap date keys without breaking aggregation', () => {
-    const filtered = {
-      dates: [{ key: 'invalid-date', label: '??' }, { key: '2026-05-06', label: '06/05' }],
-      rows: [{ cells: [{ total: 0, correct: 0 }, { total: 10, correct: 8 }] }]
-    };
-
-    const weekly = aggregateHeatmap(filtered, 'weekly');
-    expect(weekly.dates.length).toBe(2);
-    expect(weekly.rows[0].cells[0]).toEqual({ total: 0, correct: 0, pct: null });
-    expect(weekly.rows[0].cells[1]).toEqual({ total: 10, correct: 8, pct: 80 });
-  });
-
-  it('returns null trend KPI when there are not enough prior windows', () => {
-    const chartData = [
-      { week: '2026-01-01', displayDate: '01/01', a: 60, meta_a: { currTot: 10 } },
-      { week: '2026-01-08', displayDate: '08/01', a: 62, meta_a: { currTot: 10 } },
-      { week: '2026-01-15', displayDate: '15/01', a: 63, meta_a: { currTot: 10 } },
-      { week: '2026-01-22', displayDate: '22/01', a: 64, meta_a: { currTot: 10 } },
-    ];
-
-    const trend = computeTrendKpi({ chartData, keys: ['a'], hiddenKeys: { a: false } });
-    expect(trend).toBeNull();
-  });
-
-  it('classifies signal', () => {
-    const signal = classifyScenarioSignal([{ ciRange: [70, 73] }, { ciRange: [70, 74] }, { ciRange: [70, 72] }, { ciRange: [70, 72] }], 100);
-    expect(signal).not.toBeNull();
-  });
-
-  it('falls back safely when maxScore is invalid in signal classification', () => {
-    const signal = classifyScenarioSignal(
-      [{ ciRange: [70, 73] }, { ciRange: [71, 74] }, { ciRange: [72, 75] }, { ciRange: [73, Number.NaN] }],
-      Number.NaN
-    );
-    expect(signal?.label).toBe('Sinal Fraco');
-  });
-
-});
-
-```
-
-
-## src/utils/__tests__/gamification.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { 
-    calculateLevel, 
-    getLevelFromXP, 
-    getXpRemainingToNextLevel, 
-    getXpThresholdForLevel, 
-    getXPProgress, 
-    calculateProgress, 
-    getTaskXP, 
-    getLevelTitle 
-} from '../gamification.js';
-
-describe('Gamification Mathematics - Progressive & Exploitation-Safe Leveling', () => {
-
-    describe('calculateLevel (Non-linear Progressive Formula)', () => {
-        it('deve retornar Nível 1 para 0 XP ou valores inválidos/negativos', () => {
-            expect(calculateLevel(0)).toBe(1);
-            expect(calculateLevel(-50)).toBe(1);
-            expect(calculateLevel(null)).toBe(1);
-            expect(calculateLevel(undefined)).toBe(1);
-            expect(calculateLevel('invalid')).toBe(1);
-        });
-
-        it('deve calcular corretamente os limiares exatos de nível', () => {
-            // Nível 1: 0 XP a 99 XP
-            expect(calculateLevel(0)).toBe(1);
-            expect(calculateLevel(99)).toBe(1);
-
-            // Nível 2: 100 XP a 399 XP
-            expect(calculateLevel(100)).toBe(2);
-            expect(calculateLevel(399)).toBe(2);
-
-            // Nível 3: 400 XP a 899 XP
-            expect(calculateLevel(400)).toBe(3);
-            expect(calculateLevel(899)).toBe(3);
-
-            // Nível 4: 900 XP a 1599 XP
-            expect(calculateLevel(900)).toBe(4);
-            expect(calculateLevel(1599)).toBe(4);
-
-            // Nível 5: 1600 XP+
-            expect(calculateLevel(1600)).toBe(5);
-        });
-
-        it('getLevelFromXP deve ser um alias de calculateLevel', () => {
-            expect(getLevelFromXP).toBe(calculateLevel);
-        });
-    });
-
-    describe('getXpThresholdForLevel (Minimum XP per Level)', () => {
-        it('deve retornar o XP mínimo necessário para atingir cada nível', () => {
-            expect(getXpThresholdForLevel(1)).toBe(0);
-            expect(getXpThresholdForLevel(2)).toBe(100);
-            expect(getXpThresholdForLevel(3)).toBe(400);
-            expect(getXpThresholdForLevel(4)).toBe(900);
-            expect(getXpThresholdForLevel(5)).toBe(1600);
-        });
-
-        it('deve lidar graciosamente com níveis inválidos ou menores que 1', () => {
-            expect(getXpThresholdForLevel(0)).toBe(0);
-            expect(getXpThresholdForLevel(-5)).toBe(0);
-        });
-    });
-
-    describe('getXpRemainingToNextLevel (XP to Next Level)', () => {
-        it('deve retornar XP restante até o limiar do próximo nível', () => {
-            // XP = 0 -> Nível 1 -> Próximo nível = 2 (100 XP) -> Resta 100
-            expect(getXpRemainingToNextLevel(0)).toBe(100);
-
-            // XP = 50 -> Nível 1 -> Próximo nível = 2 (100 XP) -> Resta 50
-            expect(getXpRemainingToNextLevel(50)).toBe(50);
-
-            // XP = 100 -> Nível 2 -> Próximo nível = 3 (400 XP) -> Resta 300
-            expect(getXpRemainingToNextLevel(100)).toBe(300);
-
-            // XP = 399 -> Nível 2 -> Próximo nível = 3 (400 XP) -> Resta 1
-            expect(getXpRemainingToNextLevel(399)).toBe(1);
-
-            // XP = 400 -> Nível 3 -> Próximo nível = 4 (900 XP) -> Resta 500
-            expect(getXpRemainingToNextLevel(400)).toBe(500);
-        });
-
-        it('deve retornar valor positivo mesmo com entradas inválidas ou negativas', () => {
-            expect(getXpRemainingToNextLevel(-10)).toBe(100);
-            expect(getXpRemainingToNextLevel(null)).toBe(100);
-        });
-    });
-
-    describe('getXPProgress & calculateProgress (Visual Feedback & Edge Cases)', () => {
-        it('deve retornar estrutura correta de progresso', () => {
-            const prog = getXPProgress(50);
-            expect(prog).toEqual({
-                level: 1,
-                current: 50,
-                needed: 100,
-                percentage: 50,
-                total: 50
-            });
-        });
-
-        it('deve aplicar correção visual de 0.5% quando progresso é zero após subir de nível', () => {
-            // XP = 100 é o limiar exato do Nível 2. Progresso raw = 0%.
-            // Deve aplicar correção visual de 0.5% para melhor UX na barra.
-            const prog = getXPProgress(100);
-            expect(prog.percentage).toBe(0.5);
-
-            // Se XP = 0, porcentagem deve continuar 0 (pois o usuário nunca ganhou nada)
-            const progZero = getXPProgress(0);
-            expect(progZero.percentage).toBe(0);
-        });
-
-        it('deve calcular porcentagem corretamente para valores intermediários', () => {
-            // Nível 2: 100 XP a 400 XP (range = 300).
-            // XP = 250 -> 150/300 = 50%
-            expect(calculateProgress(250)).toBe(50);
-
-            // XP = 175 -> 75/300 = 25%
-            expect(calculateProgress(175)).toBe(25);
-        });
-    });
-
-    describe('getTaskXP (Deduction & Exploit Prevention)', () => {
-        it('deve conceder XP com base na prioridade ao completar tarefa', () => {
-            const taskHigh = { priority: 'high' };
-            const taskMedium = { priority: 'medium' };
-            const taskLow = { priority: 'low' };
-
-            expect(getTaskXP(taskHigh, true)).toBe(200);
-            expect(getTaskXP(taskMedium, true)).toBe(150);
-            expect(getTaskXP(taskLow, true)).toBe(100);
-        });
-
-        it('deve deduzir XP proporcional à prioridade se awardedXP não estiver definido ao desmarcar', () => {
-            const taskMedium = { priority: 'medium' };
-            expect(getTaskXP(taskMedium, false)).toBe(-150);
-        });
-
-        it('deve prevenir exploit de alteração de prioridade deduzindo exatamente task.awardedXP ao desmarcar', () => {
-            // Se o usuário completou uma tarefa de alta prioridade (ganhou 200 XP),
-            // depois a mudou para baixa e desmarcou, o sistema deve deduzir os 200 XP
-            // originais usando a propriedade task.awardedXP.
-            const exploitedTask = { priority: 'low', awardedXP: 200 };
-            expect(getTaskXP(exploitedTask, false)).toBe(-200);
-        });
-    });
-
-    describe('getLevelTitle (Title Progression Hierarchy)', () => {
-        it('deve retornar título e cores corretos baseados na progressão de nível', () => {
-            // Estudante: Nível 1 - 4
-            expect(getLevelTitle(1).title).toBe('Estudante');
-            expect(getLevelTitle(4).title).toBe('Estudante');
-
-            // Competidor: Nível 5 - 9
-            expect(getLevelTitle(5).title).toBe('Competidor');
-            expect(getLevelTitle(9).title).toBe('Competidor');
-
-            // Veterano: Nível 10 - 19
-            expect(getLevelTitle(10).title).toBe('Veterano');
-            expect(getLevelTitle(19).title).toBe('Veterano');
-
-            // Elite: Nível 20 - 29
-            expect(getLevelTitle(20).title).toBe('Elite');
-            expect(getLevelTitle(29).title).toBe('Elite');
-
-            // Mestre: Nível 30 - 49
-            expect(getLevelTitle(30).title).toBe('Mestre');
-            expect(getLevelTitle(49).title).toBe('Mestre');
-
-            // Lenda: Nível 50+
-            expect(getLevelTitle(50).title).toBe('Lenda');
-            expect(getLevelTitle(100).title).toBe('Lenda');
-        });
-    });
-
-});
-
-```
-
-
-## src/utils/__tests__/hardeningAudit.test.js
-
-```javascript
-/**
- * hardeningAudit.test.js — Testes para as Correções Arquiteturais (Hardening) do Coach AI
- * 
- * Cobre os erros 37 a 48:
- * Erro 37: "Vírus de Concatenação" no Prior Bayesiano
- * Erro 38: Penalização de Tópicos Concluídos
- * Erro 39: Fugas de NaNs em Matrizes Tipadas (Percentis)
- * Erro 40: Implosão Assintótica da "Bandwidth" (KDE)
- * Erro 41: Fuga de "NaN" no Nível do Aluno (getCognitiveState)
- * Erro 42: "Vírus da Vírgula" na Volatilidade
- * Erro 43: Ordenação de Tópicos por Invalid Date
- * Erro 44: Envenenamento Cruzado por Amnésia Temporal
- * Erro 45: Type Mismatch no Desvio Padrão Bayesiano
- * Erro 46: Vírus da Vírgula na Extração de Tópicos
- * Erro 47: Envenenamento do Baseline Global
- * Erro 48: Colapso dos Pesos de Edital
- */
-import { describe, test, expect } from 'vitest';
-import { getCoachPriorities, calculateUrgency, getCognitiveState, computeRobustVolatilityForCoach, analisarDesempenhoHistorico } from '../coachLogic.js';
-import { getPercentile } from '../../engine/math/percentile.js';
-import { generateKDE } from '../../engine/math/gaussian.js';
-import { standardDeviation, calcularAssimetria } from '../../engine/stats.js';
-import { weightedRegression, logisticRegression } from '../../engine/projection.js';
-import { bootstrapCI } from '../../engine/math/bootstrap.js';
-
-describe('Hardening Audit: Erros 37-48', () => {
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 37: Vírus de Concatenação
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 37: getCoachPriorities deve tratar strings e aplicar clamp', () => {
-        const topicsData = [
-            { id: 't1', acertos: '10', total: '20' }, // 50%
-            { id: 't2', acertos: '5', total: '5' }    // 100%
-        ];
-        const result = getCoachPriorities(topicsData);
-        expect(result).toHaveLength(2);
-        result.forEach(t => {
-            expect(typeof t.realProficiency).toBe('number');
-            expect(t.realProficiency).toBeGreaterThanOrEqual(0);
-            expect(t.realProficiency).toBeLessThanOrEqual(1);
-        });
-    });
-
-    test('Erro 37b: getCoachPriorities deve tratar separadores de milhar brasileiros como "1.000,50"', () => {
-        const topicsData = [
-            { id: 't1', acertos: '1.000,50', total: '2.000,00' }, // ~50%
-        ];
-        const result = getCoachPriorities(topicsData);
-        expect(result).toHaveLength(1);
-        expect(result[0].realProficiency).toBeCloseTo(0.5, 2);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 39: NaNs em TypedArrays (Percentile)
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 39: getPercentile deve filtrar NaNs em Float32Array', () => {
-        const data = new Float32Array([10, NaN, 20, 30, NaN, 40]);
-        const p50 = getPercentile(data, 50);
-        // Sem o fix, NaNs na ordenação de TypedArrays podem corromper o resultado
-        expect(Number.isFinite(p50)).toBe(true);
-        expect(p50).toBeGreaterThanOrEqual(10);
-        expect(p50).toBeLessThanOrEqual(40);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 40: Bandwidth Floor (KDE)
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 40: generateKDE deve ter bandwidth mínimo de 1.5', () => {
-        const data = new Float32Array([50, 50, 50, 50, 50]); // Variância zero
-        const kde = generateKDE(data, 50, 0, 5, 0, 100);
-        // Sem o fix, o bandwidth colapsaria para ~0, gerando sobreflow/underflow
-        // O loop do KDE usa plotSteps = 200, então retorna 201 pontos
-        expect(kde.length).toBeGreaterThan(100);
-        kde.forEach(p => {
-            expect(Number.isFinite(p.y)).toBe(true);
-        });
-        // Deve haver alguma densidade distribuída
-        const sumY = kde.reduce((acc, p) => acc + p.y, 0);
-        expect(sumY).toBeGreaterThan(0);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 41: getCognitiveState Level Validation
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 41: getCognitiveState deve lidar com nível não numérico', () => {
-        const stats = {
-            consecutiveMinutes: 60,
-            user: { level: 'Iniciante' } // String não numérica
-        };
-        const fatigue = getCognitiveState(stats);
-        // Sem o fix, retornaria NaN
-        expect(Number.isFinite(fatigue)).toBe(true);
-        expect(fatigue).toBeGreaterThan(0);
-        expect(fatigue).toBeLessThanOrEqual(100);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 42: Volatilidade "Vírus da Vírgula"
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 42: computeRobustVolatilityForCoach deve tratar vírgulas', () => {
-        const history = [
-            { score: '85,5' },
-            { score: '90,0' },
-            { score: '80,2' }
-        ];
-        const vol = computeRobustVolatilityForCoach(history, 100);
-        // Sem o fix, "85,5" viraria 0, fazendo a volatilidade explodir
-        expect(vol).toBeLessThan(15); // Esperado < 15% para notas próximas
-        expect(Number.isFinite(vol)).toBe(true);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 45: Type Mismatch no Desvio Padrão
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 45: standardDeviation deve aceitar array de números nus', () => {
-        const data = [80, 85, 90, 82, 88, 85];
-        const sd = standardDeviation(data, 100);
-        // Sem o fix, getDynamicPriorSD tentaria ler .score de números e retornaria NaN
-        expect(Number.isFinite(sd)).toBe(true);
-        expect(sd).toBeGreaterThan(0);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 47: Global Baseline NaN Poisoning
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 47: calculateUrgency deve filtrar NaNs no baseline global', () => {
-        const category = { id: 'c1', name: 'Matematica', weight: 5 };
-        const simulados = [
-            { subject: 'Matematica', score: 80, date: '2026-01-01' },
-            { subject: 'Portugues', score: NaN, date: '2026-01-01' } // Simulado corrompido
-        ];
-        const result = calculateUrgency(category, simulados, [], { 
-            allCategories: [category, { id: 'c2', name: 'Portugues' }] 
-        });
-        expect(Number.isFinite(result.normalizedScore)).toBe(true);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 48: Peso de Edital com Vírgula
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 48: calculateUrgency deve aceitar peso com vírgula', () => {
-        const category = { id: 'c1', name: 'Matematica', weight: '7,5' };
-        const result = calculateUrgency(category, [], [], { 
-            allCategories: [category] 
-        });
-        // Sem o fix, '7,5' viraria 5 (fallback). Com o fix, vira 7.5
-        // weight no retorno é boundedWeight * 20 -> 7.5 * 20 = 150
-        expect(result.details.weight).toBe(150);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 49: Invalid Date RangeError
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 49: analisarDesempenhoHistorico deve evitar RangeError com datas inválidas', () => {
-        const history = [
-            { acertos: 80, diasRevisao: '10,5' } // Vírgula causava NaN -> Invalid Date
-        ];
-        // Sem o fix, chamar toISOString() lançaria RangeError
-        expect(() => analisarDesempenhoHistorico(history)).not.toThrow();
-        const result = analisarDesempenhoHistorico(history);
-        expect(result.projecaoRetencao).toBeDefined();
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 51: KDE NaN Poisoning
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 51: generateKDE deve ser resiliente a projectedSD=NaN', () => {
-        const data = new Float32Array([50, 60, 70]);
-        // projectedMean=NaN, projectedSD=NaN
-        const kde = generateKDE(data, NaN, NaN, 3, 0, 100);
-        expect(kde.length).toBeGreaterThan(0);
-        expect(Number.isFinite(kde[0].x)).toBe(true);
-        expect(Number.isFinite(kde[0].y)).toBe(true);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 52: Skewness Underflow
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 52: calcularAssimetria deve evitar NaN em distribuições quase uniformes', () => {
-        // Notas quase idênticas podem gerar SD muito pequeno e underflow no cubo
-        const data = [80.0000001, 80.0, 80.00000005];
-        const skew = calcularAssimetria(data);
-        expect(Number.isFinite(skew)).toBe(true);
-        expect(skew).toBe(0); // Para SD muito pequeno, assume simetria
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 53: Regression NaN Poisoning
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 53: weightedRegression deve ignorar pontos NaN', () => {
-        const history = [
-            { score: 50, date: '2024-01-01' },
-            { score: NaN, date: '2024-01-02' },
-            { score: 70, date: '2024-01-03' }
-        ];
-        // Definir data de referência próxima dos dados para evitar underflow do peso (Math.exp)
-        const result = weightedRegression(history, 0.08, 100, { 
-            referenceDate: new Date('2024-01-04').getTime() 
-        });
-        expect(Number.isFinite(result.slope)).toBe(true);
-        expect(result.slope).toBeGreaterThan(0);
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 55: Logistic Derivative NaN Poisoning
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 55: logisticRegression deve ser resiliente a NaNs nas derivadas', () => {
-        const history = [
-            { score: 50, date: '2024-01-01' },
-            { score: 55, date: '2024-01-02' },
-            { score: NaN, date: '2024-01-03' },
-            { score: 65, date: '2024-01-04' },
-            { score: 70, date: '2024-01-05' },
-            { score: 75, date: '2024-01-06' },
-            { score: 80, date: '2024-01-07' }
-        ];
-        const result = logisticRegression(history);
-        // Mesmo com um NaN no meio, se tivermos 6 pontos válidos, ele deve tentar o ajuste
-        expect(result).toBeDefined();
-    });
-
-    // ─────────────────────────────────────────────────────────────────
-    // Erro 56: Bootstrap Sort Failure
-    // ─────────────────────────────────────────────────────────────────
-    test('Erro 56: bootstrapCI deve ordenar corretamente mesmo com NaNs na distribuição', () => {
-        const data = [10, 20, 30];
-        // statFn que devolve NaN em certas condições
-        const statFn = (bag) => bag.includes(20) ? 50 : NaN;
-        
-        const result = bootstrapCI(data, statFn, { iterations: 200 });
-        expect(Number.isFinite(result.low)).toBe(true);
-        expect(Number.isFinite(result.high)).toBe(true);
-        expect(result.high).toBeGreaterThanOrEqual(result.low);
-    });
-
-});
-
-```
-
-
-## src/utils/__tests__/learningLoop.sanity.test.js
-
-```javascript
-import { describe, it, expect, vi } from 'vitest';
-
-// Motor externo mockado (determinístico) para o teste de integração
-vi.mock('../../engine/monteCarlo.js', () => ({
-  monteCarloSimulation: () => ({
-    probability: 70, mean: 75, ci95Low: 65, ci95High: 85,
-    volatility: 5, diagnostics: { simulationCount: 300 }
-  }),
-  clearEngineMcCache: () => {}
-}));
-vi.mock('../../engine/diagnostics.js', () => ({ detectDataAnomalies: () => [] }));
-vi.mock('../../engine/stats.js', () => ({ pruneHistoryForMemory: (h) => h }));
-
-import {
-  recordPredictionEvent, backfillObservedFromSimulados, computeRollingCalibrationParams,
-  conformalizedCalibrationInterval, computeStackingWeights, summarizeCalibration,
-  fitIsotonicCalibration, predictIsotonicProbability
-} from '../calibration.js';
-import { runCoachMonteCarlo } from '../coachAdaptive.js';
-
-const DAY = 86400000;
-
-describe('Lote 1 — recordPredictionEvent', () => {
-  it('funciona SEM storeUpdateFn e clampa probabilidade', () => {
-    const ev = recordPredictionEvent({ probability: 1.7, observed: null, category: 'mat' });
-    expect(ev.probability).toBe(1);
-    expect(ev.observed).toBeNull();
-    expect(ev.category).toBe('mat');
-    expect(Number.isFinite(ev.timestamp)).toBe(true);
-  });
-});
-
-describe('Lote 1 — backfillObservedFromSimulados', () => {
-  const makeEvent = () => recordPredictionEvent({
-    timestamp: Date.parse('2024-03-10T12:00:00Z'),
-    probability: 0.8, targetScore: 70, category: 'mat'
-  });
-  it('é causal: simulado ANTES do evento não preenche observed', () => {
-    const ev = makeEvent();
-    const before = { date: '2024-03-01', subject: 'MAT', score: 90 };
-    const out = backfillObservedFromSimulados([ev], [before], [], 100);
-    expect(out[0].observed).toBeNull();
-  });
-  it('preenche com o primeiro simulado >= timestamp e respeita a meta', () => {
-    const ev = makeEvent();
-    const after = { date: '2024-03-12', subject: 'MAT', score: 60 };
-    const out = backfillObservedFromSimulados([ev], [after], [], 100);
-    expect(out[0].observed).toBe(0); // 60 < 70
-    expect(out[0].backfilled).toBe(true);
-  });
-  it('é imutável: não muta o evento original', () => {
-    const ev = makeEvent();
-    backfillObservedFromSimulados([ev], [{ date: '2024-03-12', subject: 'MAT', score: 95 }], [], 100);
-    expect(ev.observed).toBeNull();
-  });
-});
-
-describe('Lote 1 — computeRollingCalibrationParams (FIX F1)', () => {
-  const now = Date.now();
-  it('baseline aprende o Brier empírico (série calibrada)', () => {
-    const events = Array.from({ length: 14 }, (_, i) => ({
-      timestamp: now - i * DAY, probability: 0.8, observed: 1
-    }));
-    const r = computeRollingCalibrationParams(events, {});
-    // Brier individual = 0.04; posterior com prior 0.2 → entre 0.04 e ~0.12
-    expect(r.confidenceFactor).toBe(1);
-    expect(r.baseline).toBeGreaterThan(0.04);
-    expect(r.baseline).toBeLessThan(0.12);
-  });
-  it('entradas sem sinal NÃO contaminam o denominador', () => {
-    const signal = Array.from({ length: 14 }, (_, i) => ({
-      timestamp: now - i * DAY, probability: 0.8, observed: 1
-    }));
-    const noise = Array.from({ length: 10 }, (_, i) => ({
-      timestamp: now - i * DAY, probability: 0.5, observed: null
-    }));
-    const a = computeRollingCalibrationParams(signal, {});
-    const b = computeRollingCalibrationParams([...signal, ...noise], {});
-    expect(Math.abs(a.baseline - b.baseline)).toBeLessThan(1e-9);
-  });
-  it('fallback h.avgBrier alimenta a baseline (métricas persistidas)', () => {
-    const agg = Array.from({ length: 14 }, (_, i) => ({
-      timestamp: now - i * DAY, avgBrier: 0.25
-    }));
-    const r = computeRollingCalibrationParams(agg, {});
-    expect(r.baseline).toBeGreaterThan(0.2);
-  });
-});
-
-describe('Lote 1 — conformalizedCalibrationInterval (FIX F4)', () => {
-  it('miscalibração extrema → intervalo largo (teto 0.35)', () => {
-    const bad = Array.from({ length: 12 }, () => ({ probability: 0.9, observed: 0 }));
-    const c = conformalizedCalibrationInterval(0.9, bad, 0.1);
-    expect(c.qHat).toBeCloseTo(0.35, 5);
-    expect(c.high - c.low).toBeCloseTo(0.7, 5);
-  });
-  it('resíduos zero → nunca abaixo do ruído amostral', () => {
-    const perfect = Array.from({ length: 12 }, (_, i) => ({
-      probability: i % 2, observed: i % 2
-    }));
-    const c = conformalizedCalibrationInterval(0.5, perfect, 0.1);
-    expect(c.qHat).toBeGreaterThan(0.1);   // ~0.24 (SE·z), não ~0
-    expect(c.qHat).toBeLessThan(0.35);
-  });
-});
-
-describe('Lote 1 — computeStackingWeights (FIX F3)', () => {
-  it('soma 1 e favorece o candidato melhor; shrink p/ uniforme com n pequeno', () => {
-    const obs = [1, 1, 0, 1, 0, 1, 1, 0, 1, 1];
-    const good = obs.map(y => (y === 1 ? 0.9 : 0.1));
-    const bad = obs.map(y => (y === 1 ? 0.4 : 0.6));
-    const w = computeStackingWeights([good, bad], obs, [0, 0]);
-    expect(w[0] + w[1]).toBeCloseTo(1, 6);
-    expect(w[0]).toBeGreaterThan(w[1]);
-    const w2 = computeStackingWeights([good.slice(0, 3), bad.slice(0, 3)], obs.slice(0, 3), [0, 0]);
-    expect(Math.abs(w2[0] - 0.5)).toBeLessThan(0.25);
-  });
-});
-
-describe('Lote 1 — summarizeCalibration (FIX M5)', () => {
-  it('entrada vazia → avgBrier null (não "perfeito")', () => {
-    expect(summarizeCalibration([], {}).avgBrier).toBeNull();
-  });
-});
-
-describe('Lote 1 — isotonic interpolado', () => {
-  it('monotônico e interpola lacunas entre blocos', () => {
-    const model = fitIsotonicCalibration([
-      { probability: 0.1, observed: 0 }, { probability: 0.2, observed: 0 },
-      { probability: 0.8, observed: 1 }, { probability: 0.9, observed: 1 }
-    ]);
-    const a = predictIsotonicProbability(0.15, model);
-    const b = predictIsotonicProbability(0.5, model);
-    const c = predictIsotonicProbability(0.85, model);
-    expect(b).toBeGreaterThanOrEqual(a);
-    expect(c).toBeGreaterThanOrEqual(b);
-    expect(b).toBeGreaterThan(a); // interpolou, não degrau
-  });
-});
-
-describe('Lote 2 — runCoachMonteCarlo (FIX F2/M1)', () => {
-  it('propaga thresholds/explainability e volatilidade crua', () => {
-    const rows = Array.from({ length: 12 }, (_, i) => ({
-      date: `2024-0${1 + Math.floor(i / 4)}-1${i % 4}`,
-      subject: 'MAT',
-      score: 60 + (i % 3) * 10
-    }));
-    const res = runCoachMonteCarlo(rows, 80, { MC_ENABLE_ADAPTIVE_CALIBRATION: true }, 'mat', 100,
-      { calibrationBaseline: 0.2, calibrationMaxPenalty: 0.25 }, 90, 0);
-    expect(res).not.toBeNull();
-    expect(res.thresholds).toHaveProperty('danger');
-    expect(res.thresholds).toHaveProperty('safe');
-    expect(res.explainability).toHaveProperty('note');
-    expect(Number.isFinite(res.effectiveMCTarget)).toBe(true);
-    expect(res.volatility).toBe(5);                 // crua (FIX M1)
-    expect(res.volatilityAdjusted).toBeGreaterThanOrEqual(5);
-  });
-});
-
-```
-
-
-## src/utils/__tests__/mathAudit.test.js
-
-```javascript
-/**
- * mathAudit.test.js — Testes para a Auditoria Matemática do Coach AI
- * 
- * Cobre todos os 12 bugs/melhorias identificados:
- * BUG-MATH-01: MSSD vs SD
- * BUG-MATH-02: O-U mean reversion target
- * BUG-MATH-03: Adaptive risk thresholds com backtest
- * BUG-MATH-04: Bayesian amnesia floor cap
- * IMP-MATH-05: decayK temporal adaptation
- * IMP-MATH-06: Adaptive lambda WLS
- * IMP-MATH-07: computeAdaptiveCoachWeight
- * IMP-MATH-08: Topic urgency normalization  
- * IMP-MATH-09: Balance bridge proportional
- * ADAPT-01: Bayesian Online thresholds
- * ADAPT-02: Regime detection
- * ADAPT-03: Unified confidence shrinkage
- */
-import { describe, test, expect } from 'vitest';
-
-// Engine imports
-import { calculateVolatility, calculateMSSD, calculateSlope, monteCarloSimulation } from '../../engine/projection.js';
-import { computeBayesianLevel } from '../../engine/stats.js';
-
-// Coach imports  
-import { deriveAdaptiveRiskThresholds, deriveCoachAdaptiveParams, deriveBacktestWeights } from '../coachAdaptive.js';
-import { calculateUrgency, DEFAULT_CONFIG } from '../coachLogic.js';
-
-// Adaptive imports
-import { adaptiveConfidenceShrinkage, computeAdaptiveCoachWeight } from '../adaptiveMath.js';
-import { detectRegimeTransition } from '../adaptiveEngine.js';
-
-// ─────────────────────────────────────────────────────────────────
-// BUG-MATH-01: MSSD deve não penalizar crescimento monotônico
-// ─────────────────────────────────────────────────────────────────
-describe('BUG-MATH-01: MSSD vs SD', () => {
-    test('série monotônica crescente: MSSD < SD', () => {
-        const history = [
-            { score: 50, date: '2026-01-01' },
-            { score: 55, date: '2026-01-08' },
-            { score: 60, date: '2026-01-15' },
-            { score: 65, date: '2026-01-22' },
-            { score: 70, date: '2026-01-29' },
-        ];
-        const sd = calculateVolatility(history, 100);
-        const mssd = calculateMSSD(history, 100);
-        // SD penaliza o spread total (50-70), MSSD apenas as diferenças consecutivas (5 cada)
-        expect(mssd).toBeLessThan(sd);
-        // O MSSD detrended de uma reta perfeita deve ser zero (que bate no piso de segurança 0.001)
-        expect(mssd).toBeCloseTo(0.001, 3);
-    });
-
-    test('série oscilante: MSSD > SD', () => {
-        const history = [
-            { score: 50, date: '2026-01-01' },
-            { score: 80, date: '2026-01-08' },
-            { score: 50, date: '2026-01-15' },
-            { score: 80, date: '2026-01-22' },
-        ];
-        const sd = calculateVolatility(history, 100);
-        const mssd = calculateMSSD(history, 100);
-        // Oscilação forte: MSSD captura as diferenças de 30 pontos
-        expect(mssd).toBeGreaterThan(sd);
-    });
-
-    test('série estável: MSSD ≈ SD', () => {
-        const history = [
-            { score: 70, date: '2026-01-01' },
-            { score: 72, date: '2026-01-08' },
-            { score: 69, date: '2026-01-15' },
-            { score: 71, date: '2026-01-22' },
-        ];
-        const sd = calculateVolatility(history, 100);
-        const mssd = calculateMSSD(history, 100);
-        // Ambos devem ser pequenos e próximos
-        expect(Math.abs(mssd - sd)).toBeLessThan(3);
-    });
-
-    test('MSSD com menos de 2 pontos retorna fallback', () => {
-        expect(calculateMSSD([{ score: 50 }], 100)).toBeCloseTo(5, 0);
-        expect(calculateMSSD([], 100)).toBeCloseTo(5, 0);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// BUG-MATH-02: O-U mean reversion target
-// ─────────────────────────────────────────────────────────────────
-describe('BUG-MATH-02: Monte Carlo O-U mean reversion', () => {
-    test('projeção com reversion à média histórica produz resultados válidos', () => {
-        // Aluno que caiu de 80 para 60: baseline=60, mean histórica=70
-        const history = [
-            { score: 80, date: '2026-01-01' },
-            { score: 78, date: '2026-01-15' },
-            { score: 75, date: '2026-02-01' },
-            { score: 70, date: '2026-02-15' },
-            { score: 65, date: '2026-03-01' },
-            { score: 60, date: '2026-03-15' },
-        ];
-        const result = monteCarloSimulation(history, 80, 90, 1000, { maxScore: 100 });
-        expect(result).not.toBeNull();
-        // A probabilidade, média e volatilidade devem ser finitos
-        expect(Number.isFinite(result.probability)).toBe(true);
-        expect(Number.isFinite(result.mean)).toBe(true);
-        expect(Number.isFinite(result.volatility)).toBe(true);
-        // Média projetada deve estar entre 0 e maxScore
-        expect(result.mean).toBeGreaterThanOrEqual(0);
-        expect(result.mean).toBeLessThanOrEqual(100);
-        // Com O-U revertendo para a média histórica (~71) com peso reduzido (Audit Fix), 
-        // a projeção deve ser mais conservadora mas ainda finita e válida.
-        expect(result.mean).toBeGreaterThan(40); // Ajustado para 40 (Audit Fix + Dynamic OU Reversion + AR(1) Persistence)
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// BUG-MATH-03 + ADAPT-01: Risk thresholds com backtest
-// ─────────────────────────────────────────────────────────────────
-describe('BUG-MATH-03: Adaptive risk thresholds', () => {
-    test('com backtest pairs, thresholds devem ser empiricamente derivados', () => {
-        const scores = [40, 50, 60, 70, 80, 90];
-        const pairs = [
-            { probability: 0.2, observed: 0 },
-            { probability: 0.25, observed: 0 },
-            { probability: 0.3, observed: 0 },
-            { probability: 0.5, observed: 1 },
-            { probability: 0.7, observed: 1 },
-            { probability: 0.85, observed: 1 },
-            { probability: 0.9, observed: 1 },
-            { probability: 0.95, observed: 1 },
-        ];
-        const result = deriveAdaptiveRiskThresholds(scores, 5, {}, 100, pairs);
-        expect(result.danger).toBeGreaterThanOrEqual(15);
-        expect(result.danger).toBeLessThanOrEqual(50);
-        expect(result.safe).toBeGreaterThanOrEqual(65);
-        expect(result.safe).toBeLessThanOrEqual(97);
-        expect(result.safe - result.danger).toBeGreaterThanOrEqual(20);
-    });
-
-    test('sem backtest pairs, usa fallback de quantis', () => {
-        const scores = [40, 50, 60, 70, 80];
-        const result = deriveAdaptiveRiskThresholds(scores, 5, {}, 100);
-        expect(result.danger).toBeGreaterThanOrEqual(15);
-        expect(result.safe).toBeLessThanOrEqual(97);
-    });
-
-    test('com poucos scores retorna defaults', () => {
-        const result = deriveAdaptiveRiskThresholds([50, 60], 5, {});
-        expect(result.danger).toBe(30);
-        expect(result.safe).toBe(90);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// BUG-MATH-04: Bayesian amnesia floor
-// ─────────────────────────────────────────────────────────────────
-describe('BUG-MATH-04: Bayesian amnesia cap', () => {
-    test('alpha deve ser limitado a dynamicAlphaCap após longo histórico', () => {
-        // [CORREÇÃO] Usar datas recentes para evitar que a Regressão por Amnésia (Bug 1.1 Fix) puxe tudo para 50%
-        const today = new Date();
-        const history = [];
-        for (let i = 0; i < 100; i++) {
-            history.push({
-                date: new Date(today.getTime() - (100 - i) * 3600000).toISOString(),
-                total: 100,
-                correct: 80, // 80% consistente
-            });
+## vercel.json
+
+```json
+{
+    "rewrites": [
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
-        const result = computeBayesianLevel(history, 1, 1, 100);
-        // [CORREÇÃO] O teto agora é dinâmico e adapta-se ao volume do aluno (Rodada 7 Fix)
-        // Antes era fixo em 250, agora pode ser maior se o volume diário for alto.
-        expect(result.n).toBeGreaterThan(100);
-        expect(Number.isFinite(result.n)).toBe(true);
-        // A média deve refletir os 80% de acerto
-        expect(result.mean).toBeGreaterThan(60);
-        expect(result.mean).toBeLessThan(95);
-    });
-
-    test('após 2 anos sem estudar, alpha deve decair significativamente', () => {
-        const history = [
-            { date: '2024-01-01', total: 50, correct: 40 },
-            { date: '2024-01-15', total: 50, correct: 42 },
-        ];
-        const result = computeBayesianLevel(history, 1, 1, 100);
-        // Dois anos depois (Date.now ≈ 2026), o decaimento deve ser forte
-        // O CI deve ser mais largo que sem decaimento
-        expect(result.ciHigh - result.ciLow).toBeGreaterThan(0);
-    });
-
-    test('BUG 1: Provas normais com score 0 não devem ser infladas para 66%', () => {
-        const history = [
-            { date: new Date().toISOString(), total: 100, correct: 0, score: 0 }
-        ];
-        const result = computeBayesianLevel(history, 1, 1, 100);
-        // Sem o fix, isso voltava ~66. Com o fix, deve ser baixo (perto de 0, com laplace smoothing)
-        // alpha=1+0=1, beta=1+100=101 -> mean = 1/102 * 100 = ~0.98
-        expect(result.mean).toBeLessThan(5); 
-    });
-
-    test('BUG 1: Provas penalizadas com score 0 devem ser convertidas para 50%', () => {
-        const history = [
-            { date: '2024-01-01', total: 100, correct: 0, score: 0 }
-        ];
-        const result = computeBayesianLevel(history, 1, 1, 100, { isPenalizedFormat: true });
-        // Score 0 em penalizada -> rawPct = (0+1)/2 = 0.5
-        // alpha=1+50=51, beta=1+50=51 -> mean = 51/104 * 100 = ~49
-        expect(result.mean).toBeGreaterThan(40);
-        expect(result.mean).toBeLessThan(60);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// IMP-MATH-05: decayK temporal adaptation
-// ─────────────────────────────────────────────────────────────────
-describe('IMP-MATH-05: Temporal decayK', () => {
-    test('sessões frequentes geram decayK mais alto', () => {
-        const frequent = Array.from({ length: 10 }, (_, i) => ({
-            score: 70 + Math.random() * 10,
-            date: new Date(Date.now() - (10 - i) * 86400000).toISOString().slice(0, 10)
-        }));
-        const spaced = Array.from({ length: 10 }, (_, i) => ({
-            score: 70 + Math.random() * 10,
-            date: new Date(Date.now() - (10 - i) * 86400000 * 14).toISOString().slice(0, 10)
-        }));
-        const freqParams = deriveCoachAdaptiveParams(frequent, 100, {});
-        const spacedParams = deriveCoachAdaptiveParams(spaced, 100, {});
-        // Sessões frequentes (gap pequeno) = memória consolidada = decayK MENOR
-        expect(freqParams.decayK).toBeLessThan(spacedParams.decayK);
-    });
-
-    test('medianGapDays é retornado na saída', () => {
-        const history = [
-            { score: 70, date: '2026-01-01' },
-            { score: 75, date: '2026-01-08' },
-            { score: 72, date: '2026-01-15' },
-        ];
-        const result = deriveCoachAdaptiveParams(history, 100, {});
-        expect(result.medianGapDays).toBeDefined();
-        expect(result.medianGapDays).toBeCloseTo(7, 0);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// IMP-MATH-06: Adaptive lambda
-// ─────────────────────────────────────────────────────────────────
-describe('IMP-MATH-06: Adaptive lambda in calculateSlope', () => {
-    test('slope retorna valor finito com dados válidos', () => {
-        const history = [
-            { score: 50, date: '2026-01-01' },
-            { score: 55, date: '2026-01-15' },
-            { score: 60, date: '2026-02-01' },
-        ];
-        const slope = calculateSlope(history, 100);
-        expect(Number.isFinite(slope)).toBe(true);
-        expect(slope).toBeGreaterThan(0); // tendência de alta
-    });
-
-    test('slope é limitado ao cap de 1.5%/dia', () => {
-        const history = [
-            { score: 10, date: '2026-01-01' },
-            { score: 90, date: '2026-01-02' }, // salto extremo
-        ];
-        const slope = calculateSlope(history, 100);
-        expect(Math.abs(slope)).toBeLessThanOrEqual(1.5); // 1.5% de 100
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// IMP-MATH-07: computeAdaptiveCoachWeight
-// ─────────────────────────────────────────────────────────────────
-describe('IMP-MATH-07: Adaptive coach weight', () => {
-    test('n alto + série estável = confiança alta', () => {
-        const scores = Array.from({ length: 20 }, () => 70 + Math.random() * 2);
-        const result = computeAdaptiveCoachWeight(scores);
-        expect(result.confidenceWeight).toBeGreaterThan(0.7);
-    });
-
-    test('n baixo = confiança baixa', () => {
-        const scores = [50, 60, 70];
-        const result = computeAdaptiveCoachWeight(scores);
-        expect(result.confidenceWeight).toBeLessThan(0.6);
-    });
-
-    test('trend forte = confiança reduzida', () => {
-        const scores = [30, 45, 60, 75, 90]; // tendência muito forte
-        const result = computeAdaptiveCoachWeight(scores);
-        expect(result.trendStrength).toBeGreaterThan(0);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// IMP-MATH-08: Topic urgency normalization (teste indireto via coachLogic)
-// ─────────────────────────────────────────────────────────────────
-describe('IMP-MATH-08: Topic urgency normalization', () => {
-    test('calculateUrgency retorna score normalizado entre 0-100', () => {
-        const category = {
-            id: 'test-cat',
-            name: 'Direito Constitucional',
-            weight: 8,
-            tasks: []
-        };
-        const simulados = [
-            { subject: 'Direito Constitucional', score: 60, total: 10, date: '2026-01-01' },
-            { subject: 'Direito Constitucional', score: 65, total: 10, date: '2026-01-15' },
-            { subject: 'Direito Constitucional', score: 70, total: 10, date: '2026-02-01' },
-        ];
-        const result = calculateUrgency(category, simulados, [], { maxScore: 100 });
-        const norm = Number(result.normalizedScore);
-        expect(Number.isFinite(norm)).toBe(true);
-        expect(norm).toBeGreaterThanOrEqual(0);
-        expect(norm).toBeLessThanOrEqual(100);
-        expect(result.details.hasData).toBe(true);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// ADAPT-02: Regime detection
-// ─────────────────────────────────────────────────────────────────
-describe('ADAPT-02: Regime detection', () => {
-    test('detecta desaceleração em série crescente que freia', () => {
-        // Crescimento forte seguido de desaceleração
-        const scores = [40, 45, 50, 56, 63, 70, 78, 79, 79.5, 80, 80.1, 80.2, 80.3, 80.4, 80.5, 80.5, 80.5, 80.5, 80.5, 80.5];
-        const result = detectRegimeTransition(scores, { maxScore: 100, windowSize: 10 });
-        expect(result.currentState).not.toBe('insufficient_data');
-    });
-
-    test('detecta instabilidade crônica', () => {
-        const scores = [40, 70, 30, 80, 35, 75, 40, 70, 35, 80, 40, 70, 30, 80, 35, 75, 40, 70, 35, 80];
-        const result = detectRegimeTransition(scores, { maxScore: 100, windowSize: 10 });
-        expect(result.currentState).toBeDefined();
-    });
-
-    test('dados insuficientes retorna estado correto', () => {
-        const result = detectRegimeTransition([50, 60], { maxScore: 100 });
-        expect(result.currentState).toBe('insufficient_data');
-        expect(result.flags).toHaveLength(0);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// ADAPT-03: Unified confidence shrinkage
-// ─────────────────────────────────────────────────────────────────
-describe('ADAPT-03: Unified confidence shrinkage', () => {
-    test('n baixo gera shrinkage forte', () => {
-        const result = adaptiveConfidenceShrinkage({ sampleSize: 3, neutralValue: 50 });
-        expect(result.shrinkFactor).toBeGreaterThan(0.2);
-    });
-
-    test('n alto + boa calibração gera shrinkage mínimo', () => {
-        const result = adaptiveConfidenceShrinkage({
-            sampleSize: 50,
-            calibrationPenalty: 0,
-            trendStrength: 0,
-            neutralValue: 50
-        });
-        expect(result.shrinkFactor).toBeLessThan(0.15);
-    });
-
-    test('apply() puxa valor para o neutro', () => {
-        const result = adaptiveConfidenceShrinkage({
-            sampleSize: 3,
-            calibrationPenalty: 0.1,
-            neutralValue: 50
-        });
-        const adjusted = result.apply(90);
-        expect(adjusted).toBeLessThan(90);
-        expect(adjusted).toBeGreaterThan(50);
-    });
-
-    test('calibração ruim aumenta shrinkage', () => {
-        const good = adaptiveConfidenceShrinkage({ sampleSize: 10, calibrationPenalty: 0 });
-        const bad = adaptiveConfidenceShrinkage({ sampleSize: 10, calibrationPenalty: 0.3 });
-        expect(bad.shrinkFactor).toBeGreaterThan(good.shrinkFactor);
-    });
-
-    test('maxShrink é respeitado', () => {
-        const result = adaptiveConfidenceShrinkage({
-            sampleSize: 1,
-            calibrationPenalty: 1,
-            trendStrength: 5,
-            maxShrink: 0.4
-        });
-        expect(result.shrinkFactor).toBeLessThanOrEqual(0.4);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// Regressão geral: output do pipeline não é NaN/undefined
-// ─────────────────────────────────────────────────────────────────
-describe('Regression: Pipeline output sanity', () => {
-    test('calculateUrgency sem dados retorna valores válidos', () => {
-        const result = calculateUrgency({ id: 'x', name: 'Teste' }, [], []);
-        expect(Number.isFinite(result.normalizedScore)).toBe(true);
-        expect(result.details.hasData).toBe(false);
-    });
-
-    test('calculateUrgency com dados completos não retorna NaN', () => {
-        const cat = { id: 'cat1', name: 'Portugues', weight: 7, tasks: [{ text: 'Estudar', completed: false, priority: 'high' }] };
-        const sims = [
-            { subject: 'Portugues', score: 55, total: 20, date: '2026-01-01' },
-            { subject: 'Portugues', score: 60, total: 20, date: '2026-02-01' },
-            { subject: 'Portugues', score: 65, total: 20, date: '2026-03-01' },
-            { subject: 'Portugues', score: 70, total: 20, date: '2026-04-01' },
-        ];
-        const result = calculateUrgency(cat, sims, [], { maxScore: 100 });
-        expect(Number.isFinite(result.normalizedScore)).toBe(true);
-        expect(Number.isFinite(result.details.averageScore)).toBe(true);
-        expect(Number.isFinite(result.details.mssdVolatility)).toBe(true);
-        expect(Number.isFinite(result.details.trend)).toBe(true);
-        // Monte Carlo deve ter executado
-        if (result.details.monteCarlo) {
-            expect(Number.isFinite(result.details.monteCarlo.probability)).toBe(true);
-            expect(Number.isFinite(result.details.monteCarlo.meanProjected)).toBe(true);
-        }
-        if (result.globalProjectedMean != null) {
-            expect(Number.isFinite(result.globalProjectedMean)).toBe(true);
-        }
-    });
-
-    test('deriveBacktestWeights com 2+ scores retorna pesos válidos', () => {
-        const result = deriveBacktestWeights([50, 60, 70], 100);
-        expect(Number.isFinite(result.scoreWeight)).toBe(true);
-        expect(Number.isFinite(result.recencyWeight)).toBe(true);
-        expect(Number.isFinite(result.instabilityWeight)).toBe(true);
-        expect(result.scoreWeight).toBeGreaterThan(0);
-    });
-});
-
+    ]
+}
 ```
 
+## vite.config.js
 
-## src/utils/__tests__/measurement.test.js
+```js
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
-```javascript
-import { describe, it, expect } from "vitest";
-import {
-  safeDomain,
-  normalizeScoreValue,
-  sanitizeSimuladoRow,
-  mergeQuestionResult,
-  toProb01,
-  toProbPct,
-  resolveTargetPoints,
-  deduplicateSimulados,
-  latestByDate,
-  pointsToPct,
-  pctToPoints
-} from "../measurement.js";
+import { VitePWA } from 'vite-plugin-pwa'
 
-describe("measurement", () => {
-  it("cria domínio seguro", () => {
-    const d = safeDomain(1000, 200);
-
-    expect(d.min).toBe(200);
-    expect(d.max).toBe(1000);
-    expect(d.range).toBe(800);
-  });
-
-  it("converte pct para points com minScore", () => {
-    expect(pctToPoints(50, 1000, 200)).toBe(600);
-  });
-
-  it("converte points para pct com minScore", () => {
-    expect(pointsToPct(600, 1000, 200)).toBe(50);
-  });
-
-  it("normaliza percentual explícito", () => {
-    const norm = normalizeScoreValue(
-      { score: 80, isPercentage: true },
-      1000,
-      0
-    );
-
-    expect(norm.points).toBe(800);
-    expect(norm.pct).toBe(80);
-  });
-
-  it("total/correct manda mais que score", () => {
-    const norm = normalizeScoreValue(
-      { total: 10, correct: 8, score: 10 },
-      1000,
-      0
-    );
-
-    expect(norm.points).toBe(800);
-    expect(norm.pct).toBe(80);
-  });
-
-  it("sanitize zera correct quando total é zero", () => {
-    const row = sanitizeSimuladoRow(
-      { total: 0, correct: 5 },
-      100
-    );
-
-    expect(row.total).toBe(0);
-    expect(row.correct).toBe(0);
-  });
-
-  it("sanitize clamp correct > total", () => {
-    const row = sanitizeSimuladoRow(
-      { total: 10, correct: 20 },
-      100
-    );
-
-    expect(row.correct).toBe(10);
-    expect(row.total).toBe(10);
-  });
-
-  it("mergeQuestionResult nunca deixa correct maior que total", () => {
-    const row = mergeQuestionResult(
-      { total: 10, correct: 8 },
-      { total: 5, correct: 10 },
-      100
-    );
-
-    expect(row.total).toBe(15);
-    expect(row.correct).toBeLessThanOrEqual(15);
-  });
-
-  it("probabilidade aceita 0-1 e 0-100", () => {
-    expect(toProb01(0.7)).toBe(0.7);
-    expect(toProb01(70)).toBe(0.7);
-    expect(toProb01(70, "pct")).toBe(0.7);
-    expect(toProbPct(0.7)).toBe(70);
-  });
-
-  it("resolve meta percentual para pontos", () => {
-    const domain = safeDomain(1000, 0);
-    expect(resolveTargetPoints(70, domain, "pct")).toBe(700);
-  });
-
-  it("deduplicação preserva matérias diferentes na mesma data", () => {
-    const rows = [
-      {
-        subject: "Português",
-        date: "2026-01-01",
-        score: 80,
-        isPercentage: true
-      },
-      {
-        subject: "Matemática",
-        date: "2026-01-01",
-        score: 80,
-        isPercentage: true
+export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || 'dev'),
+  },
+  plugins: [
+    react(), 
+    tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      devOptions: { enabled: false },
+      manifest: {
+        name: 'Ultra Dashboard 2',
+        short_name: 'Ultra',
+        description: 'Plataforma inteligente de estudos e simulados',
+        theme_color: '#0f172a',
+        background_color: '#020617',
+        display: 'standalone',
+        icons: [
+          {
+            src: '/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          }
+        ]
       }
-    ];
+    })
+  ],
+  envPrefix: ['VITE_'],
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
+  build: {
+    target: 'es2022',
+    minify: 'esbuild',
+    chunkSizeWarningLimit: 1000,
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
+          charts: ['recharts'],
+          pdf: ['html-to-image', 'jspdf'],
+          motion: ['framer-motion'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
+        },
+      },
+    },
+  },
 
-    const unique = deduplicateSimulados(rows, {
-      maxScore: 1000,
-      minScore: 0,
-      getDateKey: (d) => String(d).slice(0, 10)
-    });
+  // ─── VITEST ───────────────────────────────────────────────────────────────
+  test: {
+    // FIX 6: Transição para jsdom, libertando o acesso a APIs de browser (window, document)
+    // requeridas imperativamente por ficheiros 'src/**/*.test.jsx' que testam componentes React.
+    environment: 'jsdom',        
+    globals: true,              
+    include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'src/**/*.spec.js', 'tests/**/*.test.js'],
+    globalTeardown: './tests/teardown.js',
+    testTimeout: 20000,
+    coverage: {
+      provider: 'v8',
+      include: ['src/engine/**', 'src/utils/coachLogic.js'],
+    },
+  },
+  // ──────────────────────────────────────────────────────────────────────────
+})
 
-    expect(unique).toHaveLength(2);
-  });
-
-  it("latestByDate retorna o mais recente por data real", () => {
-    const rows = [
-      { date: "2026-01-01", id: "a" },
-      { date: "2026-02-01", id: "b" },
-      { date: "2026-01-15", id: "c" }
-    ];
-
-    const latest = latestByDate(rows);
-    expect(latest.id).toBe("b");
-  });
-});
 
 ```
 
-
-## src/utils/__tests__/scoreConversions.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import {
-  ratioToPoints, pctToPoints, pointsToRatio, pointsToPct,
-  toAccuracyRatio, ratioToCorrect
-} from '../scoreHelper.conversions';
-
-describe('scoreHelper.conversions — unidades explícitas (BATCH-01)', () => {
-  it('ratioToPoints respeita piso não-nulo', () => {
-    expect(ratioToPoints(0, 1000, 400)).toBe(400);
-    expect(ratioToPoints(1, 1000, 400)).toBe(1000);
-    expect(ratioToPoints(0.5, 1000, 400)).toBe(700);
-  });
-
-  it('pctToPoints não confunde percentual com razão', () => {
-    expect(pctToPoints(1, 100, 0)).toBeCloseTo(1);
-    expect(pctToPoints(80, 200, 0)).toBeCloseTo(160);
-  });
-
-  it('pointsToRatio é o inverso de ratioToPoints', () => {
-    expect(pointsToRatio(700, 1000, 400)).toBeCloseTo(0.5);
-    expect(pointsToRatio(400, 1000, 400)).toBe(0);
-    expect(pointsToRatio(1000, 1000, 400)).toBe(1);
-  });
-
-  it('a nota bruta 1 em escala 0-10 NÃO vira 100% (bug original do toPoints)', () => {
-    expect(pointsToPct(1, 10, 0)).toBeCloseTo(10);
-  });
-
-  it('toAccuracyRatio ≡ pointsToRatio (fração de aproveitamento)', () => {
-    expect(toAccuracyRatio(700, 1000, 400)).toBeCloseTo(pointsToRatio(700, 1000, 400));
-  });
-
-  it('ratioToCorrect clampa em [0, total]', () => {
-    expect(ratioToCorrect(0.7, 20)).toBeCloseTo(14);
-    expect(ratioToCorrect(1.5, 20)).toBe(20);
-    expect(ratioToCorrect(-0.2, 20)).toBe(0);
-  });
-});
-
-```
-
-
-## src/utils/__tests__/statsMenuAudit.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { mapFocusEvolutionData, mapSubjectHoursData } from '../chartDataMappers.js';
-import { analyzeProgressState } from '../ProgressStateEngine.js';
-import { getDateKey, normalizeDate, APP_TIMEZONE } from '../dateHelper.js';
-import { computeFlashcardDueForecast, getFlashcardTotalCards } from '../analytics.js';
-
-describe('Stats Menu Audit & Regression Tests', () => {
-    describe('mapFocusEvolutionData', () => {
-        it('deve gerar exatamente 14 dias sem shift de fuso', () => {
-            const result = mapFocusEvolutionData([]);
-            expect(result).toHaveLength(14);
-            expect(result[13].horasEstudadas).toBe(0);
-        });
-
-        it('deve acumular horas estudadas corretamente com minutes e duration', () => {
-            const todayMidday = normalizeDate(getDateKey(new Date()));
-            const logs = [
-                { date: todayMidday.toISOString(), minutes: 60, categoryId: '1' },
-                { date: todayMidday.toISOString(), duration: 30, categoryId: '2' },
-            ];
-
-            const result = mapFocusEvolutionData(logs);
-            expect(result[13].horasEstudadas).toBe(1.5);
-        });
-    });
-
-    describe('mapSubjectHoursData', () => {
-        it('deve agrupar por id e por nome de matéria com fallback', () => {
-            const categories = [
-                { id: '1', name: 'Direito Constitucional' },
-                { id: '2', name: 'Direito Administrativo' }
-            ];
-
-            const logs = [
-                { categoryId: '1', minutes: 120 },
-                { categoryId: '2', duration: 60 },
-                { subject: 'Direito Constitucional', minutes: 30 }, // match por subject
-                { categoryName: 'Informática', minutes: 45 } // matéria nova sem id
-            ];
-
-            const result = mapSubjectHoursData(logs, categories);
-            expect(result).toHaveLength(3);
-            
-            const constItem = result.find(r => r.disciplina === 'Direito Constitucional');
-            expect(constItem.horas).toBe(2.5); // (120 + 30) / 60
-
-            const admItem = result.find(r => r.disciplina === 'Direito Administrativo');
-            expect(admItem.horas).toBe(1.0); // 60 / 60
-
-            const infoItem = result.find(r => r.disciplina === 'Informática');
-            expect(infoItem.horas).toBe(0.75); // 45 / 60
-        });
-    });
-
-    describe('Flashcards Indicators Resilience', () => {
-        it('deve processar decks e cards estruturados como arrays ou mapas de objetos sem crash', () => {
-            const decksAsMap = {
-                deck1: {
-                    id: 'deck1',
-                    cards: {
-                        c1: { id: 'c1', due: '2026-08-14', reviews: 4, interval: 10 },
-                        c2: { id: 'c2', due: '2026-08-15', reviews: 2, interval: 2 }
-                    }
-                },
-                deck2: {
-                    id: 'deck2',
-                    cards: [
-                        { id: 'c3', due: '2026-08-14', reviews: 5, interval: 25 }
-                    ]
-                }
-            };
-
-            const total = getFlashcardTotalCards(decksAsMap);
-            expect(total).toBe(3);
-
-            const forecast = computeFlashcardDueForecast(decksAsMap, 7);
-            expect(forecast.forecast).toHaveLength(7);
-            expect(forecast.totalDueInHorizon).toBeGreaterThanOrEqual(2);
-        });
-    });
-
-    describe('ProgressStateEngine Scale Invariance', () => {
-        it('deve produzir os mesmos estados proporcionais em maxScore=100 e maxScore=1000', () => {
-            const scores100 = [
-                { score: 80, date: new Date('2026-08-01T12:00:00-04:00').getTime() },
-                { score: 82, date: new Date('2026-08-02T12:00:00-04:00').getTime() },
-                { score: 85, date: new Date('2026-08-03T12:00:00-04:00').getTime() },
-                { score: 88, date: new Date('2026-08-04T12:00:00-04:00').getTime() },
-                { score: 90, date: new Date('2026-08-05T12:00:00-04:00').getTime() }
-            ];
-
-            const scores1000 = scores100.map(s => ({
-                score: s.score * 10,
-                date: s.date
-            }));
-
-            const analysis100 = analyzeProgressState(scores100, {
-                window_size: 5,
-                stagnation_threshold: 4,
-                low_level_limit: 60,
-                high_level_limit: 70,
-                mastery_limit: 70,
-                maxScore: 100
-            });
-
-            const analysis1000 = analyzeProgressState(scores1000, {
-                window_size: 5,
-                stagnation_threshold: 4,
-                low_level_limit: 60,
-                high_level_limit: 70,
-                mastery_limit: 70,
-                maxScore: 1000
-            });
-
-            expect(analysis100.state).toBe(analysis1000.state);
-            expect(analysis1000.mean_score).toBeCloseTo(analysis100.mean_score * 10, 1);
-        });
-    });
-});
-
-```
-
-
-## src/utils/__tests__/weightSensitivity.test.js
-
-```javascript
-import { describe, test, expect } from 'vitest';
-import { calculateUrgency } from '../coachLogic.js';
-
-describe('Fix 1: Scale Invariance Audit (Weight Sensitivity)', () => {
-    test('Subjects with same performance but different weights MUST have different urgency', () => {
-        const categoryHigh = { id: 'high-w', name: 'Direito Penal', weight: 10 };
-        const categoryLow = { id: 'low-w', name: 'Cultura Geral', weight: 1 };
-        
-        // Both have the same mediocre performance (60% average, 80% target)
-        const simulados = [
-            { subject: 'Direito Penal', score: 60, total: 10, date: '2026-01-01' },
-            { subject: 'Cultura Geral', score: 60, total: 10, date: '2026-01-01' }
-        ];
-
-        const options = {
-            maxScore: 100,
-            targetScore: 80,
-            allCategories: [categoryHigh, categoryLow]
-        };
-
-        const urgencyHigh = calculateUrgency(categoryHigh, simulados, [], options);
-        const urgencyLow = calculateUrgency(categoryLow, simulados, [], options);
-
-        // THE FIX: High weight subject MUST have significantly higher urgency
-        // Previous buggy logic made them identical or very similar due to scale cancellation.
-        console.log(`Urgency High Weight (10): ${urgencyHigh.normalizedScore}`);
-        console.log(`Urgency Low Weight (1): ${urgencyLow.normalizedScore}`);
-        
-        expect(urgencyHigh.normalizedScore).toBeGreaterThan(urgencyLow.normalizedScore);
-        
-        // Check if the ratio is significant (at least 1.5x difference in the raw-to-normalized impact)
-        // With weightMultiplier 1.4 for High and 0.6 for Low, the raw scores should differ by ~2.3x
-        expect(urgencyHigh.normalizedScore / urgencyLow.normalizedScore).toBeGreaterThan(1.5);
-    });
-
-    test('Weight amplification should not be canceled by the normalization threshold', () => {
-        const catHigh = { id: 'h', name: 'X', weight: 10 };
-        const catMid = { id: 'm', name: 'Y', weight: 5 };
-        
-        const sims = [{ subject: 'X', score: 40, date: '2026-01-01' }, { subject: 'Y', score: 40, date: '2026-01-01' }];
-        
-        const uHigh = calculateUrgency(catHigh, sims, [], { maxScore: 100 });
-        const uMid = calculateUrgency(catMid, sims, [], { maxScore: 100 });
-
-        expect(uHigh.normalizedScore).toBeGreaterThan(uMid.normalizedScore);
-    });
-});
-
-```
-
-
-## src/__tests__/escala.test.js
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import { simulateNormalDistribution } from '../engine/monteCarlo';
-import { ratioToPoints, pointsToRatio } from '../utils/scoreHelper.conversions';
-
-const ESCALAS = [
-  { nome: 'curta 0-10',              min: 0,    max: 10 },
-  { nome: 'percentual 0-100',        min: 0,    max: 100 },
-  { nome: 'estendida 0-200',         min: 0,    max: 200 },
-  { nome: 'CESPE 0-120',             min: 0,    max: 120 },
-  { nome: 'com piso 400-1000',       min: 400,  max: 1000 },
-  { nome: 'com penalidade -30..100', min: -30,  max: 100 },
-];
-
-describe('Matriz de escalas — invariância para qualquer concurso', () => {
-  ESCALAS.forEach(({ nome, min, max }) => {
-    it(`conversões respeitam o domínio em ${nome}`, () => {
-      expect(pointsToRatio(min, max, min)).toBe(0);
-      expect(pointsToRatio(max, max, min)).toBe(1);
-      expect(ratioToPoints(0, max, min)).toBe(min);
-      expect(ratioToPoints(1, max, min)).toBe(max);
-    });
-
-    it(`Monte Carlo permanece dentro do domínio em ${nome}`, () => {
-      const range = max - min;
-      const r = simulateNormalDistribution({
-        mean: min + range * 0.7,
-        sd: range * 0.08,
-        targetScore: min + range * 0.75,
-        simulations: 1500,
-        minScore: min,
-        maxScore: max
-      });
-      expect(r.probability).toBeGreaterThanOrEqual(0);
-      expect(r.probability).toBeLessThanOrEqual(100);
-      expect(r.projectedMean).toBeGreaterThanOrEqual(min);
-      expect(r.projectedMean).toBeLessThanOrEqual(max);
-      expect(r.ci95Low).toBeGreaterThanOrEqual(min);
-      expect(r.ci95High).toBeLessThanOrEqual(max);
-      expect(r.ci95Low).toBeLessThanOrEqual(r.ci95High);
-    });
-  });
-});
-
-```

@@ -75,7 +75,8 @@ export const calculateStudyStreak = (studyLogs) => {
   // ✅ Usa getDateKey (ancorado em America/Manaus) para TODAS as comparações
   const daySet = new Set(
     logsArray
-      .filter(log => log && log.date)
+      // ✅ FIX: Filtrar apenas logs com minutos > 0 para evitar streaks falsos
+      .filter(log => log && log.date && getStudyMinutes(log) > 0)
       .map(log => getDateKey(log.date))
       .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
   );

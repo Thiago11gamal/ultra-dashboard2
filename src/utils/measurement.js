@@ -354,12 +354,12 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
  * Para motores matemáticos, retorne SEMPRE pontos.
  */
 export function getSafeScore(row, maxScore, minScore = 0) {
-  if (row == null) return NaN;
-
   const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0
     ? Number(maxScore) : 100;
   const safeMin = Number.isFinite(Number(minScore))
     ? Math.min(Number(minScore), safeMax) : 0;
+
+  if (row == null) return safeMin;
 
   let score;
 
@@ -393,7 +393,7 @@ export function getSafeScore(row, maxScore, minScore = 0) {
   }
 
   // ✅ FIX: NaN nunca sobrevive, retorna NaN para evitar viés estatístico
-  if (!Number.isFinite(score)) return NaN;
+  if (!Number.isFinite(score)) return safeMin;
   return Math.max(safeMin, Math.min(safeMax, score));
 }
 
@@ -443,8 +443,9 @@ export function sanitizeSimuladoRow(row, maxScore = 100, minScore = 0) {
 
   const rawDate = r.date || r.createdAt || null;
   const t = safeTime(rawDate, NaN);
+  const hasValidDate = Number.isFinite(t) && t > 0;
 
-  if (!Number.isFinite(t)) {
+  if (!hasValidDate) {
     warnings.push("data inválida");
   }
 
@@ -459,7 +460,8 @@ export function sanitizeSimuladoRow(row, maxScore = 100, minScore = 0) {
 
   return {
     ...r,
-    date: Number.isFinite(t) && t > 0 ? rawDate : null,
+    date: hasValidDate ? rawDate : null,
+    createdAt: hasValidDate ? (r.createdAt || rawDate) : null,
     total: norm.total,
     correct: norm.correct,
     scorePoints: norm.points,

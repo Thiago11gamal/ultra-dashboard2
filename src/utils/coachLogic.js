@@ -422,10 +422,13 @@ export const getCoachPriorities = (topicsData) => {
 
 // ==================== FUNÇÃO PRINCIPAL ====================
 export const extractMetrics = (category, simulados = [], studyLogs = [], options = {}) => {
-    const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
+    // ✅ FIX: Garantir que options é objeto
+    const safeOptions = options && typeof options === 'object' ? options : {};
+
+    const cfg = { ...DEFAULT_CONFIG, ...(safeOptions.config || {}) };
     const safeCategory = category || {};
     const categoryId = safeCategory.id;
-    const calibrationHistory = options.calibrationHistoryByCategory?.[getCalibrationKey(categoryId)] || [];
+    const calibrationHistory = safeOptions.calibrationHistoryByCategory?.[getCalibrationKey(categoryId)] || [];
     const rollingCalibration = computeRollingCalibrationParams(calibrationHistory, {
         baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
         maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY,
@@ -434,20 +437,21 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         maxSamples: cfg.MC_CALIB_MAX_SAMPLES
     });
 
-    const referenceDate = options.now ? (normalizeDate(options.now) || new Date()) : new Date();
+    const referenceDate = safeOptions.now ? (normalizeDate(safeOptions.now) || new Date()) : new Date();
     const referenceNow = referenceDate.getTime();
 
-    const rawMaxScore = Number(options.maxScore ?? 100);
+    // ✅ FIX: Validar maxScore, minScore, targetScore
+    const rawMaxScore = Number(safeOptions.maxScore ?? 100);
     const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
 
-    const rawMinScore = Number(options.minScore ?? 0);
+    const rawMinScore = Number(safeOptions.minScore ?? 0);
     const minScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, maxScore) : 0;
 
-    const rawTargetScore = Number(options.targetScore ?? (maxScore * 0.8));
+    const rawTargetScore = Number(safeOptions.targetScore ?? (maxScore * 0.8));
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
-    const targetScoreLabel = options.targetScoreLabel ?? Math.round((targetScore / maxScore) * 100);
+    const targetScoreLabel = safeOptions.targetScoreLabel ?? Math.round((targetScore / maxScore) * 100);
 
     let rawWeightVal = safeCategory.weight;
     if (typeof rawWeightVal === 'string') {
@@ -460,15 +464,16 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const weightLabel = boundedWeight <= 3 ? '1 — Baixa' : boundedWeight <= 7 ? '2 — Média' : '3 — Alta';
 
     let daysToExam = null;
-    if (options && options.user && options.user.goalDate) {
+    // ✅ FIX: Verificar se safeOptions.user existe antes de acessar goalDate
+    if (safeOptions.user && safeOptions.user.goalDate) {
         try {
-            const examDate = normalizeDate(options.user.goalDate);
+            const examDate = normalizeDate(safeOptions.user.goalDate);
             if (examDate && !isNaN(examDate.getTime())) {
                 const today = normalizeDate(referenceDate) || referenceDate;
                 daysToExam = Math.round((examDate.getTime() - today.getTime()) / MS_PER_DAY);
             }
         } catch {
-            console.warn("[CoachLogic] Invalid goalDate:", options.user.goalDate);
+            console.warn("[CoachLogic] Invalid goalDate:", safeOptions.user.goalDate);
         }
     }
 
@@ -580,8 +585,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         }
     } else {
         const domain = Math.max(1e-6, maxScore - minScore);
-        const globalAnchor = Number.isFinite(options.globalMcStats?.currentMean)
-            ? options.globalMcStats.currentMean
+        const globalAnchor = Number.isFinite(safeOptions.globalMcStats?.currentMean)
+            ? safeOptions.globalMcStats.currentMean
             : (globalBaselinePct !== 50
                 ? (globalBaselinePct / 100) * maxScore
                 : minScore + 0.5 * domain);
@@ -743,8 +748,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         }
     }
 
-    const globalProjectedMean = options.globalMcStats && Number.isFinite(options.globalMcStats.projectedMean)
-        ? options.globalMcStats.projectedMean
+    // ✅ FIX: Verificar se safeOptions.globalMcStats existe antes de acessar
+    const globalProjectedMean = safeOptions.globalMcStats && Number.isFinite(safeOptions.globalMcStats.projectedMean)
+        ? safeOptions.globalMcStats.projectedMean
         : null;
 
     if (globalProjectedMean != null && globalProjectedMean < effectiveMCTarget && globalProjectedMean > averageScore) {
@@ -1086,7 +1092,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(b.date) || new Date(0)).getTime()
     );
     const rollingWindowMs = 28 * MS_PER_DAY;
-    const nowMs = metrics.referenceNow;
+    // ✅ FIX: Verificar se metrics.referenceNow existe antes de usar
+    const nowMs = Number.isFinite(metrics.referenceNow) ? metrics.referenceNow : Date.now();
     const recentBaselineLogs = sortedLogsForBurnout.filter(log =>
         (nowMs - (normalizeDate(log.date) || new Date(0)).getTime()) <= rollingWindowMs
     );
@@ -1458,7 +1465,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         }
     };
     // FIX: try/catch para o callback de calibração nunca quebrar o fluxo
-    if (result.details?.monteCarlo && typeof options.onCalibrationMetric === 'function') {
+    // ✅ FIX: Verificar se options.onCalibrationMetric é função antes de chamar e options é válido
+    if (result.details?.monteCarlo && options && typeof options.onCalibrationMetric === 'function') {
         try {
             options.onCalibrationMetric({
                 categoryId: metrics.categoryId || null,
@@ -1626,7 +1634,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             // observability must never break the Coach
           }
         }
-        if (typeof options.logger === 'function') {
+        // ✅ FIX: Verificar se options.logger é função antes de chamar e options é válido
+        if (options && typeof options.logger === 'function') {
             try {
                 options.logger({ categoryId: metrics.categoryId, name: metrics.safeCategory?.name, urgency: result });
             } catch {
@@ -1708,14 +1717,16 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
         urgency: clonedUrgency,
         weakestTopic: getWeakestTopic(top, simulados, maxScore)
     };
-    if (options.flashcardDue > 0) {
-        result.flashcardDue = options.flashcardDue;
-        result.srsRecommendation = `Revisar ${options.flashcardDue} flashcards hoje para reforçar retenção e consistência.`;
+    // ✅ FIX: Verificar se options.flashcardDue é número antes de comparar
+    if (options && Number.isFinite(Number(options.flashcardDue)) && Number(options.flashcardDue) > 0) {
+        result.flashcardDue = Number(options.flashcardDue);
+        result.srsRecommendation = `Revisar ${Number(options.flashcardDue)} flashcards hoje para reforçar retenção e consistência.`;
         if (result.urgency) {
-            result.urgency.srsDue = options.flashcardDue;
+            result.urgency.srsDue = Number(options.flashcardDue);
         }
     }
-    if (options.globalMcStats && Number.isFinite(options.globalMcStats.projectedMean)) {
+    // ✅ FIX: Verificar se options.globalMcStats existe antes de acessar
+    if (options && options.globalMcStats && Number.isFinite(options.globalMcStats.projectedMean)) {
         const globalMean = Number(options.globalMcStats.projectedMean);
         if (result.urgency && result.urgency.details) {
             result.urgency.details.globalMcContext = {
@@ -2210,27 +2221,40 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const baseDate = options.now ? (normalizeDate(options.now) || new Date()) : new Date();
         const thirtyDaysAgo = new Date(baseDate.getTime() - 30 * 24 * 60 * 60 * 1000);
         const cutoffTime = thirtyDaysAgo.getTime();
-        const recentLogs = safeStudyLogs.filter(l =>
-            l.categoryId === category.id &&
-            (normalizeDate(l.date) || new Date(0)).getTime() >= cutoffTime
-        );
-        const catNormalized = normalize(category.name);
-        const recentSims = safeSimulados.filter(s =>
-            normalize(s.subject) === catNormalized &&
-            (normalizeDate(s.date || s.createdAt) || new Date(0)).getTime() >= cutoffTime
-        );
-        const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l.minutes), 0) / 60;
-        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || getSyntheticTotal(maxScore)), 0);
+
+        // ✅ FIX: Verificar se category.id existe antes de filtrar
+        const categoryId = category?.id;
+        const recentLogs = categoryId
+            ? safeStudyLogs.filter(l =>
+                l?.categoryId === categoryId &&
+                (normalizeDate(l?.date) || new Date(0)).getTime() >= cutoffTime
+              )
+            : [];
+
+        // ✅ FIX: Verificar se category.name existe antes de normalizar
+        const catName = category?.name;
+        const catNormalized = catName ? normalize(catName) : '';
+        const recentSims = catNormalized
+            ? safeSimulados.filter(s =>
+                normalize(s?.subject) === catNormalized &&
+                (normalizeDate(s?.date || s?.createdAt) || new Date(0)).getTime() >= cutoffTime
+              )
+            : [];
+
+        const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l?.minutes), 0) / 60;
+        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s?.total) || getSyntheticTotal(maxScore)), 0);
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
         const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
+
         // ✅ FIX: Validar averageScore antes de calcular normalizedScore
         const safeAverageScore = Number.isFinite(averageScore) ? averageScore : 0;
-        const normalizedScore = (safeAverageScore / maxScore) * 100;
+        const normalizedScore = maxScore > 0 ? (safeAverageScore / maxScore) * 100 : 0;
         const isFormingBase = normalizedScore < 45;
+
         if (totalHours > 5 && questionsPerHour < dynamicThreshold && !isFormingBase) {
             return {
                 isTrap: true,
-                msg: `⚠️ Alerta de Método: Estudou ${totalHours.toFixed(1)}h de ${category.name} mas resolveu poucas questões (${questionsPerHour.toFixed(1)}/h). O seu nível atual exige prática >${dynamicThreshold}/h.`
+                msg: `⚠️ Alerta de Método: Estudou ${totalHours.toFixed(1)}h de ${catName || 'matéria'} mas resolveu poucas questões (${questionsPerHour.toFixed(1)}/h). O seu nível atual exige prática >${dynamicThreshold}/h.`
             };
         }
         return { isTrap: false };
