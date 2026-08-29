@@ -229,8 +229,8 @@ const ENGINES = [
         explain: { titulo: "Auditoria Cirúrgica de Subtópicos", simples: "Desça ao nível molecular do seu aprendizado. Quebra o desempenho disciplinar e expõe a taxa real de acertos e o volume de questões feitas por cada assunto específico.", dica: "O Segredo da Eficiência: Pare de revisar a matéria inteira. Identifique os blocos vermelhos (subtópicos fracos) e direcione todo o seu esforço cirurgicamente para eles." },
     },
     {
-        id: "mc_density", label: "Densidade MC", emoji: "📉", color: "#60a5fa", prefix: null, style: "monotoneX",
-        explain: { titulo: "Rastreador de Sucesso (Projeção Temporal)", simples: "Registra a flutuação do seu percentual projetado (Monte Carlo) no momento exato em que você finalizou cada simulado no passado.", dica: "A métrica definitiva de convergência. Se essa linha estiver subindo, sua probabilidade matemática de cruzar a nota de corte e conquistar a aprovação está cada vez maior." },
+        id: "mc_density", label: "Rastreador MC", emoji: "🚀", color: "#60a5fa", prefix: null, style: "monotoneX",
+        explain: { titulo: "O Seu Rastreador de Aprovação", simples: "Esta linha mostra se o seu ritmo de estudos está te aproximando ou te afastando da aprovação. Ela calcula qual era a sua projeção de nota (Monte Carlo) no final de cada simulado que você já fez.", dica: "A métrica definitiva de convergência. Se a linha está subindo, continue o que está fazendo! Se ela estagnou ou caiu, é hora de mudar a estratégia na aba Foco." },
     },
     {
         id: "weekly_diff", label: "Semanal", emoji: "📆", color: "#10b981", prefix: null, style: "linear",

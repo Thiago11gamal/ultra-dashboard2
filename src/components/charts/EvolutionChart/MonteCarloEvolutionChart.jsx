@@ -34,6 +34,11 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                         <span className={`text-3xl font-black leading-none ${isGood ? 'text-green-400' : 'text-blue-400'}`}>
                             {unit === 'horas' ? formatDuration(pointMean) : unit === '%' ? formatValue(pointMean) : pointMean} <span className="text-sm text-slate-500 ml-1">{unit}</span>
                         </span>
+                        {isGood && (
+                            <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest mt-1 animate-pulse flex items-center gap-1">
+                                🚀 Na Zona de Aprovação
+                            </span>
+                        )}
                     </div>
                     <div className="mt-2 bg-black/40 rounded-lg border border-white/5 p-2">
                         <div className="flex justify-between items-center mb-1">
@@ -219,8 +224,8 @@ export const MonteCarloEvolutionChart = ({
                         <TrendingUp size={16} className="text-blue-400" />
                     </div>
                     <div>
-                        <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest">Evolução da Projeção</h4>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Trajetória de Notas e Incerteza</p>
+                        <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest">Rastreador de Aprovação</h4>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sua trajetória rumo à aprovação</p>
                     </div>
                 </div>
 
