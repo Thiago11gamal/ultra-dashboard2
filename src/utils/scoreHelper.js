@@ -2,6 +2,7 @@
  * Utilitários de sanitização de scores e linhas de simulado.
  * Centraliza invariantes matemáticos para evitar dados impossíveis.
  */
+import { pointsToPct } from './measurement.js';
 
 export const SYNTHETIC_PERCENT_ONLY_TRIALS = 5;
 
@@ -44,6 +45,10 @@ export function toPoints(score, maxScore = 100, minScore = 0, mode = 'raw') {
   return clamp(rawScore, finalMin, finalMax);
 }
 
+export function toPct(score, maxScore = 100, minScore = 0) {
+  const points = toPoints(score, maxScore, minScore, 'raw');
+  return pointsToPct(points, maxScore, minScore);
+}
 
 
 export function formatValue(value, digits = 1) {

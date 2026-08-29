@@ -404,7 +404,7 @@ export function computeStackingWeights(candidateProbs = [], observed = [], compl
   const maxLoss = Math.max(...logLoss);
   const isSeverePenalty = maxLoss > 2.0;
   // ✅ FIX: regularização mais forte para amostras mínimas (antes lambda=0.5 em n=4)
-  const regularization = n < 8 ? 8 : (isSeverePenalty ? 0.2 : 4);
+  const regularization = isSeverePenalty ? 0.2 : (n < 8 ? 8 : 4);
   const lambda = Math.min(1, Math.max(0, n / (n + regularization)));
   return raw.map(w => lambda * (w / z) + (1 - lambda) / k);
 }

@@ -296,8 +296,9 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
   }
   
   // ✅ FIX: Clamp proporcional à amplitude real (maxScore - minScore) da prova
-  const safeMax = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : 100;
-  const safeMin = Number.isFinite(options?.minScore) ? options.minScore : 0;
+  const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
+  const safeMax = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
+  const safeMin = Number.isFinite(opts?.minScore) ? opts.minScore : 0;
   const range = Math.max(1e-9, safeMax - safeMin);
   // 0.4% do range por dia como limite máximo
   const absoluteMax = 0.004 * range;
