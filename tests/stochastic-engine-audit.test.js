@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { 
     monteCarloSimulation, 
-    getSortedHistory, 
-    weightedRegression,
     projectScore
 } from '../src/engine/projection.js';
+import { getSortedHistory, weightedRegression } from '../src/engine/stats.js';
 
 describe('Stochastic Engine - High Precision Audit (Versão 9.5)', () => {
 

@@ -19,8 +19,8 @@ import { describe, test, expect } from 'vitest';
 import { getCoachPriorities, calculateUrgency, getCognitiveState, computeRobustVolatilityForCoach, analisarDesempenhoHistorico } from '../coachLogic.js';
 import { getPercentile } from '../../engine/math/percentile.js';
 import { generateKDE } from '../../engine/math/gaussian.js';
-import { standardDeviation, calcularAssimetria } from '../../engine/stats.js';
-import { weightedRegression, logisticRegression } from '../../engine/projection.js';
+import { standardDeviation, calcularAssimetria, weightedRegression } from '../../engine/stats.js';
+import { logisticRegression } from '../../engine/projection.js';
 import { bootstrapCI } from '../../engine/math/bootstrap.js';
 
 describe('Hardening Audit: Erros 37-48', () => {
@@ -84,11 +84,11 @@ describe('Hardening Audit: Erros 37-48', () => {
     // Erro 41: getCognitiveState Level Validation
     // ─────────────────────────────────────────────────────────────────
     test('Erro 41: getCognitiveState deve lidar com nível não numérico', () => {
-        const stats = {
-            consecutiveMinutes: 60,
-            user: { level: 'Iniciante' } // String não numérica
-        };
-        const fatigue = getCognitiveState(stats);
+        const stats = [{
+            minutes: 60,
+            date: new Date().toISOString()
+        }];
+        const { fatigue } = getCognitiveState(stats);
         // Sem o fix, retornaria NaN
         expect(Number.isFinite(fatigue)).toBe(true);
         expect(fatigue).toBeGreaterThan(0);

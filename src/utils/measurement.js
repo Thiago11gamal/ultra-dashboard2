@@ -354,7 +354,7 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
  * Para motores matemáticos, retorne SEMPRE pontos.
  */
 export function getSafeScore(row, maxScore, minScore = 0) {
-  if (!row) return minScore;
+  if (row == null) return NaN;
 
   const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0
     ? Number(maxScore) : 100;
@@ -363,12 +363,26 @@ export function getSafeScore(row, maxScore, minScore = 0) {
 
   let score;
 
+  const parseNum = (val) => {
+    if (typeof val === 'string') {
+      const clean = val.replace(/\./g, '').replace(',', '.');
+      return Number(clean);
+    }
+    return Number(val);
+  };
+
   if (typeof row === "number") {
     score = row;
   } else if (row.score != null) {
-    score = Number(row.score);
+    score = parseNum(row.score);
+    if (row.isPercentage && Number.isFinite(score)) {
+      score = (score / 100) * safeMax;
+    }
   } else if (row.value != null) {
-    score = Number(row.value);
+    score = parseNum(row.value);
+    if (row.isPercentage && Number.isFinite(score)) {
+      score = (score / 100) * safeMax;
+    }
   } else if (row.correct != null && row.total != null) {
     const total = Number(row.total);
     const correct = Number(row.correct);
@@ -378,8 +392,8 @@ export function getSafeScore(row, maxScore, minScore = 0) {
     }
   }
 
-  // ✅ FIX: NaN nunca sobrevive
-  if (!Number.isFinite(score)) return safeMin;
+  // ✅ FIX: NaN nunca sobrevive, retorna NaN para evitar viés estatístico
+  if (!Number.isFinite(score)) return NaN;
   return Math.max(safeMin, Math.min(safeMax, score));
 }
 

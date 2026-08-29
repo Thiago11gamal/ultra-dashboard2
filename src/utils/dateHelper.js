@@ -47,8 +47,8 @@ export const getDateKey = (rawDate) => {
     if (!rawDate) return new Date().toISOString().split('T')[0];
     
     // ✅ FIX: Se for ISO string 'YYYY-MM-DD', extraia diretamente sem passar pelo timezone engine
-    if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim().substring(0, 10))) {
-        return rawDate.trim().substring(0, 10);
+    if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
+        return rawDate.trim();
     }
     // Suporte ao _seconds do firebase que vem cru sem getter de objeto Date
     if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
@@ -59,9 +59,11 @@ export const getDateKey = (rawDate) => {
     
     try {
         const d = normalizeDate(rawDate) || new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
+        // Ajusta para o fuso de Manaus (UTC-4) para obter a data correta lá
+        const manausDate = new Date(d.getTime() - (4 * 3600000));
+        const year = manausDate.getUTCFullYear();
+        const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(manausDate.getUTCDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     } catch {
         return new Date().toISOString().split('T')[0];

@@ -24,7 +24,10 @@ describe('evolution components render contracts', () => {
   it('renders MonteCarloEvolutionChart shell with scenario controls', () => {
     const html = renderToStaticMarkup(
       <MonteCarloEvolutionChart
-        data={[{ date: '2026-05-01', probability: 50, mean: 70, ci95Low: 65, ci95High: 75 }]}
+        data={[
+          { date: '2026-05-01', probability: 50, mean: 70, ci95Low: 65, ci95High: 75 },
+          { date: '2026-05-02', probability: 55, mean: 72, ci95Low: 67, ci95High: 77 }
+        ]}
         targetScore={75}
         unit="%"
         maxScore={100}
