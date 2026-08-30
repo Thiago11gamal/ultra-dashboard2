@@ -20,7 +20,6 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
     if (!buckets.has(key)) buckets.set(key, { key, indices: [], label: d.label });
     buckets.get(key).indices.push(index);
   });
-
   const dates = [...buckets.values()].map((b, i) => ({
     key: b.key,
     label: granularity === 'monthly' ? b.key : b.label,
@@ -28,30 +27,27 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
     count: b.indices.length,
     isWeekend: false,
   }));
-
   const rows = (filtered?.rows || []).map((row) => ({
     ...row,
     cells: [...buckets.values()].map(({ indices }) => {
       const samples = indices.map(i => row.cells?.[i]).filter(Boolean);
       if (!samples.length) return null;
-      // CORREÇÃO: Normalizar strings de dados legados com vírgulas ANTES de tentar somar
+      // ✅ FIX: Normalizar strings de dados legados com vírgulas
       const total = samples.reduce((a, c) => {
-          let val = c.total;
-          if (typeof val === 'string') val = val.replace(',', '.');
-          return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
+        let val = c.total;
+        if (typeof val === 'string') val = val.replace(',', '.');
+        return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
       }, 0);
-      
       const correct = samples.reduce((a, c) => {
-          let val = c.correct;
-          if (typeof val === 'string') val = val.replace(',', '.');
-          return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
+        let val = c.correct;
+        if (typeof val === 'string') val = val.replace(',', '.');
+        return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
       }, 0);
-      // ✅ FIX: pct é SEMPRE percentual [0,100], invariante à escala.
+      // ✅ FIX: pct é SEMPRE percentual [0,100], invariante à escala
       const pct = total > 0 ? Math.max(0, Math.min(100, (correct / total) * 100)) : null;
       return { total, correct, pct };
     })
   }));
-
   return { dates, rows };
 }
 
@@ -61,41 +57,34 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
  * antes da divisão final, e aplica Shrinkage Bayesiano (K=5).
  */
 export const calculateSubjectMastery = (subtopics) => {
-    // ✅ BUG-24 FIX: blindagem contra array nulo, vazio ou mal formatado.
-    if (!subtopics) return 0;
-    let safeSubtopics = [];
-    if (Array.isArray(subtopics)) {
-        safeSubtopics = subtopics;
-    } else if (typeof subtopics === 'object' && subtopics.history && Array.isArray(subtopics.history)) {
-        // Suporte para quando passam o objeto simuladoStats inteiro
-        safeSubtopics = subtopics.history;
-    } else if (typeof subtopics === 'object') {
-        safeSubtopics = Object.values(subtopics);
+  // ✅ FIX: Blindagem contra array nulo, vazio ou mal formatado
+  if (!subtopics) return 0;
+  let safeSubtopics = [];
+  if (Array.isArray(subtopics)) {
+    safeSubtopics = subtopics;
+  } else if (typeof subtopics === 'object' && subtopics.history && Array.isArray(subtopics.history)) {
+    safeSubtopics = subtopics.history;
+  } else if (typeof subtopics === 'object') {
+    safeSubtopics = Object.values(subtopics);
+  }
+  if (safeSubtopics.length === 0) return 0;
+
+  let totalAcertos = 0;
+  let totalQuestoes = 0;
+  safeSubtopics.forEach(topic => {
+    if (!topic || typeof topic !== 'object') return;
+    const total = Math.max(0, Number(topic.total ?? topic.questoes ?? 0));
+    const rawHits = Math.max(0, Number(topic.acertos ?? topic.hits ?? topic.correct ?? 0));
+    // ✅ FIX: Nunca permite mais acertos do que o total disponível
+    const hits = Math.min(total, rawHits);
+    if (Number.isFinite(hits) && Number.isFinite(total)) {
+      totalAcertos += hits;
+      totalQuestoes += total;
     }
-    
-    if (safeSubtopics.length === 0) return 0;
-
-    let totalAcertos = 0;
-    let totalQuestoes = 0;
-
-    safeSubtopics.forEach(topic => {
-        if (!topic) return;
-        const total = Math.max(0, Number(topic.total ?? topic.questoes ?? 0));
-        const rawHits = Math.max(0, Number(topic.acertos ?? topic.hits ?? topic.correct ?? 0));
-        // ✅ FIX: Nunca permite mais acertos do que o total disponível
-        const hits = Math.min(total, rawHits);
-        
-        // Proteção contra NaN
-        if (Number.isFinite(hits) && Number.isFinite(total)) {
-            totalAcertos += hits;
-            totalQuestoes += total;
-        }
-    });
-
-    if (totalQuestoes === 0) return 0;
-
-    const K = 5;
-    const prior = 0.5;
-    return ((totalAcertos + K * prior) / (totalQuestoes + K)) * 100;
+  });
+  if (totalQuestoes === 0) return 0;
+  const K = 5;
+  const prior = 0.5;
+  return ((totalAcertos + K * prior) / (totalQuestoes + K)) * 100;
 };
 

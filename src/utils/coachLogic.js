@@ -188,7 +188,7 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
     if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
     if (daysToExam < 0) return 1.0;
     if (daysToExam === 0) return 2.0;
-    // A curva logística já converge para ~2.0 naturalmente
+
     let criticalHorizon = 21;
     let timeDivisor = 7;
     const safeFirstActivity = normalizeDate(firstActivityDate);
@@ -196,9 +196,10 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
         const referenceDate = now ? (normalizeDate(now) || new Date()) : new Date();
         const refTime = referenceDate.getTime();
         const firstTime = safeFirstActivity.getTime();
+        // ✅ FIX: Validar timestamps
         if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
         const journeyDays = Math.max(0, refTime - firstTime) / 86400000;
-        // ✅ FIX: Validar journeyDays antes de calcular totalJourneyDays
+        // ✅ FIX: Validar journeyDays
         if (!Number.isFinite(journeyDays)) return 1.0;
         const safeDays = Number.isFinite(daysToExam) ? Math.max(0, daysToExam) : 0;
         const totalJourneyDays = Math.max(1, journeyDays) + safeDays;
@@ -300,43 +301,39 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
 }
 
 export const sanitizeNum = (val) => {
-    // ✅ FIX: Tratar todos os tipos de entrada inválida
-    if (val === null || val === undefined || val === '') return NaN;
-    if (typeof val === 'boolean') return NaN;
-    if (typeof val === 'object') return NaN;
-    
-    let str = String(val).trim();
-    str = str.replace(/[%\s]/g, '');
-    if (!str) return NaN;
-    
-    // ✅ FIX: Rejeitar strings que são apenas sinais
-    if (/^[+-]?$/.test(str)) return NaN;
-    const hasComma = str.includes(',');
-    const hasDot = str.includes('.');
-    if (hasComma && hasDot) {
-        const lastComma = str.lastIndexOf(',');
-        const lastDot = str.lastIndexOf('.');
-        if (lastComma > lastDot) {
-            // BR: 1.234,56
-            str = str.replace(/\./g, '').replace(',', '.');
-        } else {
-            // US: 1,234.56
-            str = str.replace(/,/g, '');
-        }
-    } else if (hasComma) {
-        // Apenas vírgula: pode ser decimal (1,5) ou milhar (1.000)
-        // Se tem exatamente 3 dígitos após a vírgula, tratar como milhar
-        const afterComma = str.split(',')[1];
-        if (afterComma && afterComma.length === 3) {
-            str = str.replace(/\./g, '').replace(',', '');
-        } else {
-            str = str.replace(/\./g, '').replace(',', '.');
-        }
-    } else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
-        str = str.replace(/\./g, '');
+  if (val === null || val === undefined || val === '') return NaN;
+  // ✅ FIX: Rejeitar boolean e object
+  if (typeof val === 'boolean') return NaN;
+  if (typeof val === 'object') return NaN;
+
+  let str = String(val).trim();
+  str = str.replace(/[%\s]/g, '');
+  if (!str) return NaN;
+  // ✅ FIX: Rejeitar strings que são apenas sinais
+  if (/^[+-]?$/.test(str)) return NaN;
+
+  const hasComma = str.includes(',');
+  const hasDot = str.includes('.');
+  if (hasComma && hasDot) {
+    const lastComma = str.lastIndexOf(',');
+    const lastDot = str.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      str = str.replace(/,/g, '');
     }
-    const n = Number(str);
-    return Number.isFinite(n) ? n : NaN;
+  } else if (hasComma) {
+    const afterComma = str.split(',')[1];
+    if (afterComma && afterComma.length === 3) {
+      str = str.replace(/\./g, '').replace(',', '');
+    } else {
+      str = str.replace(/\./g, '').replace(',', '.');
+    }
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+    str = str.replace(/\./g, '');
+  }
+  const n = Number(str);
+  return Number.isFinite(n) ? n : NaN;
 };
 
 export const getCoachPriorities = (topicsData) => {

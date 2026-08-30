@@ -66,70 +66,57 @@ const distributeRoundingRemainder = (items, targetSum = 100) => {
     return withRemainders;
 };
 
-export const calculateStudyStreak = (studyLogs) => {
-    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    if (!logsArray || logsArray.length === 0) {
-        return { current: 0, best: 0, longest: 0, isActive: false };
-    }
-
-    // ✅ FIX N-15: Usar getDateKey (ancorado em America/Manaus) para TODAS as comparações
-    const daySet = new Set(
-        logsArray
-            .filter(log => log && log.date && getStudyMinutes(log) > 0)
-            .map(log => getDateKey(log.date))
-            .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
-    );
-
-    const sortedDays = Array.from(daySet).sort((a, b) =>
-        parseNoonLocal(b) - parseNoonLocal(a)
-    );
-
-    if (sortedDays.length === 0) {
-        return { current: 0, best: 0, longest: 0, isActive: false };
-    }
-
-    const todayStr = getDateKey(new Date());
-    const lastDayStr = sortedDays[0];
-
-    // ✅ FIX N-15: Comparação via strings YYYY-MM-DD (imune a timezone)
-    const t = parseNoonLocal(todayStr);
-    const l = parseNoonLocal(lastDayStr);
-    
-    // ✅ FIX: Validar que as datas são válidas antes de calcular
-    if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
-        return { current: 0, best: 0, longest: 0, isActive: false };
-    }
-    const diffDays = Math.round((t.getTime() - l.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // ✅ FIX: diffDays negativo significa data futura — tratar como ativo
-    if (diffDays < 0) {
-        return { current: 1, best: 1, longest: 1, isActive: true };
-    }
-
-    if (diffDays >= 2) {
-        const longest = calculateLongest(sortedDays);
-        return { current: 0, best: longest, longest, isActive: false };
-    }
-
-    let streak = 0;
-    // ✅ FIX N-15: Iteração por chave de data ancorada (Manaus não tem DST — seguro)
-    let cursorKey = lastDayStr;
-    const maxIterations = Math.min(sortedDays.length + 2, 3660);
-    for (let i = 0; i < maxIterations; i++) {
-        if (!cursorKey || !daySet.has(cursorKey)) break;
-        streak++;
-        // ✅ FIX N-15: Usar construtor local em vez de offset hardcoded
-        const [y, m, d] = cursorKey.split('-').map(Number);
-        const anchored = new Date(y, m - 1, d, 12, 0, 0, 0);
-        anchored.setDate(anchored.getDate() - 1);
-        const nextKey = getDateKey(anchored);
-        if (nextKey === cursorKey) break;
-        cursorKey = nextKey;
-    }
-
+export function calculateStudyStreak(studyLogs) {
+  const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+  if (!logsArray || logsArray.length === 0) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
+  // ✅ FIX N-15: Usar getDateKey (ancorado em America/Manaus) para TODAS as comparações
+  const daySet = new Set(
+    logsArray
+      .filter(log => log && log.date && getStudyMinutes(log) > 0)
+      .map(log => getDateKey(log.date))
+      .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
+  );
+  const sortedDays = Array.from(daySet).sort((a, b) =>
+    parseNoonLocal(b) - parseNoonLocal(a)
+  );
+  if (sortedDays.length === 0) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
+  const todayStr = getDateKey(new Date());
+  const lastDayStr = sortedDays[0];
+  const t = parseNoonLocal(todayStr);
+  const l = parseNoonLocal(lastDayStr);
+  // ✅ FIX: Validar datas antes de calcular
+  if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
+  const diffDays = Math.round((t.getTime() - l.getTime()) / (1000 * 60 * 60 * 24));
+  // ✅ FIX: diffDays negativo = data futura → tratar como ativo
+  if (diffDays < 0) {
+    return { current: 1, best: 1, longest: 1, isActive: true };
+  }
+  if (diffDays >= 2) {
     const longest = calculateLongest(sortedDays);
-    return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
-};
+    return { current: 0, best: longest, longest, isActive: false };
+  }
+  let streak = 0;
+  let cursorKey = lastDayStr;
+  const maxIterations = Math.min(sortedDays.length + 2, 3660);
+  for (let i = 0; i < maxIterations; i++) {
+    if (!cursorKey || !daySet.has(cursorKey)) break;
+    streak++;
+    const [y, m, d] = cursorKey.split('-').map(Number);
+    const anchored = new Date(y, m - 1, d, 12, 0, 0, 0);
+    anchored.setDate(anchored.getDate() - 1);
+    const nextKey = getDateKey(anchored);
+    if (nextKey === cursorKey) break;
+    cursorKey = nextKey;
+  }
+  const longest = calculateLongest(sortedDays);
+  return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
+}
 
 
 const calculateLongest = (uniqueDays) => {
@@ -937,24 +924,13 @@ export const getCompleteReport = (data) => {
  */
 export function getFlashcardDueTodayCount(decks = []) {
   const todayKey = getFlashcardTodayKey();
-  if (!todayKey || !/^\d{4}-\d{2}-\d{2}$/.test(todayKey)) return 0;
-  
   let due = 0;
   const decksArray = toArray(decks);
   decksArray.forEach(deck => {
-    if (!deck || typeof deck !== 'object') return;
+    if (!deck || typeof deck !== 'object') return; // ✅ FIX: validar deck
     toArray(deck?.cards).forEach(card => {
-      if (!card || typeof card !== 'object') return;
-      // ✅ FIX: Validar formato de due antes de comparar
-      if (!card.due || typeof card.due !== 'string') {
-        due++; // Sem due = vencido
-        return;
-      }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(card.due)) {
-        due++; // Formato inválido = tratar como vencido
-        return;
-      }
-      if (card.due <= todayKey) due++;
+      if (!card || typeof card !== 'object') return; // ✅ FIX: validar card
+      if (!card?.due || card.due <= todayKey) due++;
     });
   });
   return due;
@@ -964,7 +940,9 @@ export function getFlashcardMasteryPct(decks = []) {
   let total = 0, mastered = 0;
   const decksArray = toArray(decks);
   decksArray.forEach(deck => {
+    if (!deck || typeof deck !== 'object') return;
     toArray(deck?.cards).forEach(card => {
+      if (!card || typeof card !== 'object') return;
       total++;
       if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 6) mastered++;
     });

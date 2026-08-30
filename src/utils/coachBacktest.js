@@ -14,21 +14,19 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
   const safePredicted = safeArray(predicted);
   const safeActual = safeArray(actual);
 
-  // PATCH-26: Early return para arrays vazios
   if (safePredicted.length === 0 || safeActual.length === 0) return 0;
-
   const topK = Math.max(1, Math.min(k, safePredicted.length));
 
+  // ✅ FIX: garantir leitura de 'id' (strings) e 'relevance' (numérico)
   const actualMap = new Map(
-    safeActual.map((x) => [x?.id, Number(x?.relevance) || 0])
+    safeActual.map((x) => [String(x?.id || ''), Number(x?.relevance) || 0])
   );
 
   const dcg = safePredicted.slice(0, topK).reduce((acc, item, idx) => {
-    const rel = actualMap.get(item?.id) || 0;
+    const rel = actualMap.get(String(item?.id || '')) || 0;
     return acc + ((2 ** rel - 1) / Math.log2(idx + 2));
   }, 0);
 
-  // FIX: sort com tie-breaker para estabilizar IDCG em caso de empates de relevância
   const ideal = [...safeActual].sort((a, b) => {
     const diff = (Number(b?.relevance) || 0) - (Number(a?.relevance) || 0);
     if (diff !== 0) return diff;
@@ -42,9 +40,9 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
     return acc + ((2 ** rel - 1) / Math.log2(idx + 2));
   }, 0);
 
-  // FIX: se todos os relevance são 0, idcg = 0 → retornar 0 em vez de NaN
   if (idcg <= 0) return 0;
-  return dcg / idcg;
+  // ✅ FIX: Garantir teto de 1.0 e tratar floating-point noise
+  return Math.min(1.0, Math.max(0.0, dcg / idcg));
 }
 
 /**

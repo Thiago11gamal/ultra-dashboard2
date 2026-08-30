@@ -51,15 +51,17 @@ export function computeLogLoss(probability01, observedBinary) {
 export function summarizeCalibration(scores = [], options = {}) {
   const maxPenalty = Math.max(0, Math.min(1, Number(options.maxPenalty) || 0.25));
   const baseline = Number.isFinite(options.baseline) ? options.baseline : 0.18;
-  // FIX M5: entrada vazia NÃO retorna mais "Brier 0 = perfeito"
   if (!Array.isArray(scores) || scores.length === 0) {
     return { avgBrier: null, calibrationPenalty: 0, sampleSize: 0 };
   }
   const finiteScores = scores.map(v => Number(v)).filter(Number.isFinite);
   if (finiteScores.length === 0) return { avgBrier: null, calibrationPenalty: 0, sampleSize: 0 };
   const sorted = [...finiteScores].sort((a, b) => a - b);
+  // ✅ FIX: se sampleSize for muito pequeno, desativar trim
   const trim = sorted.length >= 8 ? Math.floor(sorted.length * 0.1) : 0;
   const core = trim > 0 ? sorted.slice(trim, sorted.length - trim) : sorted;
+  // ✅ FIX: proteção extra
+  if (core.length === 0) return { avgBrier: null, calibrationPenalty: 0, sampleSize: finiteScores.length };
   const avgBrier = kahanSum(core) / core.length;
   const calibrationPenalty = Math.min(maxPenalty, Math.max(0, avgBrier - baseline));
   return { avgBrier, calibrationPenalty, sampleSize: finiteScores.length };

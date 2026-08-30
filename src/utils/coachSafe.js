@@ -22,16 +22,13 @@ export function toFiniteNumber(value, fallback = 0) {
 export function clampFinite(value, min, max, fallback = min) {
   let safeMin = Number(min);
   let safeMax = Number(max);
-
   if (!Number.isFinite(safeMin)) safeMin = 0;
   if (!Number.isFinite(safeMax)) safeMax = safeMin;
-
   if (safeMin > safeMax) {
     const tmp = safeMin;
     safeMin = safeMax;
     safeMax = tmp;
   }
-
   const n = Number(value);
   if (!Number.isFinite(n)) {
     const fb = Number(fallback);
@@ -39,7 +36,6 @@ export function clampFinite(value, min, max, fallback = min) {
       ? Math.min(safeMax, Math.max(safeMin, fb))
       : safeMin;
   }
-
   return Math.min(safeMax, Math.max(safeMin, n));
 }
 
@@ -63,8 +59,7 @@ export function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-// PATCH-NOVO (BUG-32): hash de 64 bits (dois FNV combinados) para cache keys críticas,
-// reduzindo colisões em relação ao hash de 32 bits.
+// PATCH-NOVO (BUG-32): hash de 64 bits (dois FNV combinados) para cache keys críticas
 export function hashString64(str) {
   let h1 = 0x811c9dc5;
   let h2 = 0x01000193;
@@ -79,5 +74,8 @@ export function hashString64(str) {
     h1 = Math.imul(h1 ^ c, 0x01000193);
     h2 = Math.imul(h2 ^ c, 0x85ebca6b);
   }
-  return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
+  // ✅ FIX: garantir padding de zero à esquerda para hashes curtos (manter tamanho constante)
+  const hex1 = (h1 >>> 0).toString(16).padStart(8, '0');
+  const hex2 = (h2 >>> 0).toString(16).padStart(8, '0');
+  return hex1 + hex2;
 }

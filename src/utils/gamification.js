@@ -10,7 +10,7 @@ import { XP_CONFIG } from '../config/gamification';
  * Nível 5: 1,600 XP (+700)
  */
 export const calculateLevel = (xpInput) => {
-    // FIX: garantir XP como inteiro não-negativo para evitar comportamentos
+    // ✅ FIX: garantir XP como inteiro não-negativo para evitar comportamentos
     // bizarros de ponto flutuante perto dos limites de nível.
     const safeXp = Math.max(0, Math.trunc(Number(xpInput) || 0));
     const level = Math.floor(Math.sqrt(safeXp / 100)) + 1;
@@ -43,7 +43,7 @@ export const getXpThresholdForLevel = (level) => {
 };
 
 export const getXPProgress = (xpInput) => {
-    const xp = Math.max(0, Math.trunc(Number(xpInput) || 0));
+    const xp = Math.max(0, Number(xpInput) || 0);
     const level = calculateLevel(xp);
     const currentLevelXP = Math.pow(level - 1, 2) * 100;
     const nextLevelXP = Math.pow(level, 2) * 100;
