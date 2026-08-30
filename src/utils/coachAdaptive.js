@@ -439,6 +439,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         // PATCH-16: Validar imediatamente após receber do summarizeCalibration
         calibrationPenalty = Number.isFinite(summary.calibrationPenalty) ? summary.calibrationPenalty : 0;
         avgBrier = summary.avgBrier === null ? null : (Number.isFinite(summary.avgBrier) ? summary.avgBrier : null);
+        
+        // ✅ FIX: Se avgBrier é null, não aplicar penalidade baseada nele
+        if (avgBrier === null) {
+            calibrationPenalty = 0;
+        }
 
         const adaptiveBins = predObsPairs.length >= 10
           ? (Number(safeCfg.MC_ECE_BINS_MAX) || 6)

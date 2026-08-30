@@ -67,7 +67,10 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
                     const stored = localStorage.getItem('ultra-last-activity');
                     if (stored) {
                         const storedTime = parseInt(stored, 10);
-                        if (storedTime > lastAct) lastAct = storedTime;
+                        // ✅ FIX: Validar que o valor é um número finito
+                        if (Number.isFinite(storedTime) && storedTime > 0 && storedTime > lastAct) {
+                            lastAct = storedTime;
+                        }
                     }
                 } catch (e) {
                     console.debug('[IdleLogout] localStorage.getItem failed:', e.message);

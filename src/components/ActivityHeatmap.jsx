@@ -115,10 +115,11 @@ function ActivityHeatmap({ studyLogs = [] }) {
     const [tooltipState, setTooltipState] = useState({ visible: false, day: null, index: null });
     const containerRef = useRef(null);
 
+    // ✅ FIX: Só atualizar a cada 5 minutos — suficiente para heatmap
     useEffect(() => {
         const id = setInterval(() => {
             setNow(new Date());
-        }, 60 * 1000);
+        }, 5 * 60 * 1000); // 5 minutos em vez de 1
         return () => clearInterval(id);
     }, []);
 

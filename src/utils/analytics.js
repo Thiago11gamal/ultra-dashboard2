@@ -94,7 +94,17 @@ export const calculateStudyStreak = (studyLogs) => {
     // ✅ FIX N-15: Comparação via strings YYYY-MM-DD (imune a timezone)
     const t = parseNoonLocal(todayStr);
     const l = parseNoonLocal(lastDayStr);
-    const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
+    
+    // ✅ FIX: Validar que as datas são válidas antes de calcular
+    if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
+        return { current: 0, best: 0, longest: 0, isActive: false };
+    }
+    const diffDays = Math.round((t.getTime() - l.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // ✅ FIX: diffDays negativo significa data futura — tratar como ativo
+    if (diffDays < 0) {
+        return { current: 1, best: 1, longest: 1, isActive: true };
+    }
 
     if (diffDays >= 2) {
         const longest = calculateLongest(sortedDays);

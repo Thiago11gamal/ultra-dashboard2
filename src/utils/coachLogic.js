@@ -2156,15 +2156,16 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
       const bProf = useBayesianSort && Number.isFinite(b.bayesianProficiency)
         ? b.bayesianProficiency
         : b.percentage;
-      let aBase = a.urgencyScore;
-      let bBase = b.urgencyScore;
+      // ✅ FIX: Validar urgencyScore antes de usar
+      let aBase = Number.isFinite(a.urgencyScore) ? a.urgencyScore : 0;
+      let bBase = Number.isFinite(b.urgencyScore) ? b.urgencyScore : 0;
       if (
         useDecisionSort &&
         Number.isFinite(a.decisionScore) &&
         Number.isFinite(b.decisionScore)
       ) {
-        aBase = (a.urgencyScore * 0.55) + (a.decisionScore * 0.45);
-        bBase = (b.urgencyScore * 0.55) + (b.decisionScore * 0.45);
+        aBase = (aBase * 0.55) + (a.decisionScore * 0.45);
+        bBase = (bBase * 0.55) + (b.decisionScore * 0.45);
       }
       let aScore = aBase + (aNeedsAction ? 50 : 0);
       let bScore = bBase + (bNeedsAction ? 50 : 0);
@@ -2189,7 +2190,10 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
         aScore += aDecision * 0.20;
         bScore += bDecision * 0.20;
       }
-      return bScore - aScore;
+      // ✅ FIX: Garantir que scores não são NaN/Infinity
+      const finalAScore = Number.isFinite(aScore) ? aScore : 0;
+      const finalBScore = Number.isFinite(bScore) ? bScore : 0;
+      return finalBScore - finalAScore;
     });
     return topics;
 };

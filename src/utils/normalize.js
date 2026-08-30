@@ -35,3 +35,35 @@ export function toSafeString(value, fallback = '') {
   return fallback;
 }
 
+
+/**
+ * Remove sessões neurais duplicadas mantendo a com maior taxa de conclusão
+ */
+export const dedupeSubjects = (subjects = []) => {
+    if (!Array.isArray(subjects)) return [];
+    
+    const seenMap = new Map();
+    subjects.forEach(sub => {
+        if (!sub || typeof sub !== 'object') return;
+        
+        // Critério de unicidade: taskId (primário) ou subject/text (fallback)
+        const key = sub.taskId || sub.subject || sub.text;
+        if (!key) return; // Ignora se não tiver nenhum identificador válido
+
+        // Se já existe, mantemos o mais recente/com mais dados (ex: com completion rate maior)
+        if (seenMap.has(key)) {
+            const existing = seenMap.get(key);
+            const exRate = Number.isFinite(existing.completionRate) ? existing.completionRate : 0;
+            const newRate = Number.isFinite(sub.completionRate) ? sub.completionRate : 0;
+            
+            // Substitui se o novo tiver uma taxa de conclusão maior
+            if (newRate > exRate) {
+                seenMap.set(key, sub);
+            }
+        } else {
+            seenMap.set(key, sub);
+        }
+    });
+
+    return Array.from(seenMap.values());
+};

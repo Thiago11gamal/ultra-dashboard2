@@ -1056,9 +1056,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
   const forcePull = useCallback(() => {
     if (latestCloudDataRef.current && setAppState && isMountedRef.current) {
-      const merged = mergeAppState(useAppStore.getState().appState, latestCloudDataRef.current);
-      setAppState(() => merged);
-      lastSyncedRef.current = stateStringForSync(merged);
+      let nextState;
+      setAppState(() => {
+        const freshState = useAppStore.getState().appState;
+        nextState = mergeAppState(freshState, latestCloudDataRef.current);
+        return nextState;
+      });
+      if (nextState) lastSyncedRef.current = stateStringForSync(nextState);
       setHasConflict(false);
       if (showToastRef.current) showToastRef.current('Paridade forçada com sucesso! 💎', 'success');
     }

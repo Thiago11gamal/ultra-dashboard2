@@ -224,12 +224,26 @@ function MainLayout() {
         try {
           const currentAppState = useAppStore.getState().appState;
           const result = parseImportedData(e.target.result, currentAppState);
-          // FIX: Validar result.data antes de aplicar
           if (!result || !result.data || typeof result.data !== 'object') {
             showToast('Backup inválido ou corrompido.', 'error');
             return;
           }
-          setAppState(result.data);
+          // ✅ FIX: Validar estrutura mínima antes de aplicar
+          const importedData = result.data;
+          if (!importedData.contests || typeof importedData.contests !== 'object') {
+            showToast('Backup sem estrutura de concursos. Verifique o arquivo.', 'error');
+            return;
+          }
+          // ✅ FIX: Garantir que activeId aponta para um concurso existente
+          const contestIds = Object.keys(importedData.contests);
+          if (contestIds.length === 0) {
+            showToast('Backup sem concursos.', 'error');
+            return;
+          }
+          if (!importedData.activeId || !importedData.contests[importedData.activeId]) {
+            importedData.activeId = contestIds[0];
+          }
+          setAppState(importedData);
           showToast('Backup restaurado com sucesso! ✨', 'success');
         } catch (err) {
           console.error("Import Error:", err);

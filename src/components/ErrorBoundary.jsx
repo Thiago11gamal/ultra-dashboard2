@@ -22,12 +22,15 @@ class ErrorBoundary extends React.Component {
             (error.message.includes('Failed to fetch dynamically imported module') ||
                 error.message.includes('Importing a module script failed'))
         ) {
-            const hasReloaded = sessionStorage.getItem('chunk_force_reload');
-            if (!hasReloaded) {
-                sessionStorage.setItem('chunk_force_reload', 'true');
+            const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0', 10);
+            // ✅ FIX: Máximo de 2 tentativas para evitar loop infinito
+            if (reloadCount < 2) {
+                sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
                 window.location.reload();
                 return;
             }
+            // ✅ FIX: Se já recarregou 2 vezes, limpar flag e mostrar erro normalmente
+            sessionStorage.removeItem('chunk_reload_count');
         }
 
         this.setState({ errorInfo });
@@ -67,7 +70,10 @@ class ErrorBoundary extends React.Component {
                             Tentar Recuperar ↩️
                         </button>
                         <button
-                            onClick={() => window.location.reload()}
+                            onClick={() => {
+                                sessionStorage.removeItem('chunk_reload_count');
+                                window.location.reload();
+                            }}
                             className="px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-blue-500/50"
                         >
                             Recarregar Página

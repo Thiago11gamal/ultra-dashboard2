@@ -180,10 +180,13 @@ export const formatTimeAgo = (date) => {
   if (!date) return 'Nunca';
   const timeMs = toDateMs(date);
   if (Number.isNaN(timeMs)) return 'Data inválida';
-  
   const rawDiff = Date.now() - timeMs;
+  // ✅ FIX: Validar que timeMs é positivo (não é timestamp corrompido)
+  if (timeMs <= 0) return 'Data inválida';
   if (rawDiff < 0) {
     if (Math.abs(rawDiff) <= 60_000) return 'Agora há pouco';
+    // ✅ FIX: Se a data está muito no futuro (> 1 ano), provavelmente é dado corrompido
+    if (Math.abs(rawDiff) > 365 * 24 * 60 * 60 * 1000) return 'Data inválida';
     return 'No futuro';
   }
   

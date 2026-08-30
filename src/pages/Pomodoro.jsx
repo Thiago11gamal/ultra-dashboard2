@@ -909,6 +909,8 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
                     minutesToSave,
                     currentSubject.taskId
                 );
+                // ✅ FIX: Resetar accumulatedMinutes após salvar
+                store.setPomodoroAccumulatedMinutes(0);
                 showToast(`Sessão encerrada manualmente. ${minutesToSave} minutos salvos no histórico.`, 'info');
             } else {
                 showToast('Sessão encerrada manualmente.', 'info');
