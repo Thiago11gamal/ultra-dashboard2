@@ -135,11 +135,17 @@ export const useAppStore = create(
           const currentData = state.appState.contests[contestId];
           if (!currentData) return;
 
+          // 🔥 BUGFIX 1 (STATE CORRUPTION): Impedir que callbacks mal formados destruam o estado silenciosamente.
           const nextData = typeof newDataCallback === 'function'
             ? newDataCallback(currentData)
             : newDataCallback;
 
-          if (nextData !== undefined && nextData !== null && typeof nextData === 'object') {
+          if (nextData === undefined) {
+            console.warn("[Store] setData callback retornou undefined. Mutação abortada para evitar corrupção de estado.");
+            return;
+          }
+
+          if (nextData !== null && typeof nextData === 'object') {
             Object.assign(state.appState.contests[contestId], nextData);
           }
 

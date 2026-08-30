@@ -56,55 +56,30 @@ export const createMonteCarloSlice = (set) => ({
 
       try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
 
-      return {
-        appState: {
-          ...state.appState,
-          contests: {
-            ...state.appState.contests,
-            [activeId]: {
-              ...activeData,
-              monteCarloHistory: newHistory
-            }
-          },
-          version: (state.appState.version || 0) + 1,
-          lastUpdated: new Date().toISOString()
-        }
-      };
+      state.appState.contests[activeId].monteCarloHistory = newHistory;
+      state.appState.version = (state.appState.version || 0) + 1;
+      state.appState.lastUpdated = new Date().toISOString();
+      try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
     } catch (e) {
       console.warn('Error saving MC snapshot:', e);
     }
   }),
 
   setMcEqualWeights: (enabled) => set((state) => {
+    state.appState.mcEqualWeights = Boolean(enabled);
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
     try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
-    return {
-      appState: {
-        ...state.appState,
-        mcEqualWeights: Boolean(enabled),
-        version: (state.appState.version || 0) + 1,
-        lastUpdated: new Date().toISOString()
-      }
-    };
   }),
 
   setHistoricalCutoffs: (cutoffs) => set((state) => {
     const activeId = state.appState?.activeId;
     if (!activeId || !state.appState.contests?.[activeId]) return;
+    
+    state.appState.contests[activeId].historicalCutoffs = safeClone(cutoffs);
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
     try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
-    return {
-      appState: {
-        ...state.appState,
-        contests: {
-          ...state.appState.contests,
-          [activeId]: {
-            ...state.appState.contests[activeId],
-            historicalCutoffs: safeClone(cutoffs)
-          }
-        },
-        version: (state.appState.version || 0) + 1,
-        lastUpdated: new Date().toISOString()
-      }
-    };
   }),
 
   updateCoachScore: (score) => set((state) => {
@@ -113,21 +88,11 @@ export const createMonteCarloSlice = (set) => ({
     const currentScore = state.appState.contests[activeId].coachScore;
     const newScore = safeNumber(score, currentScore);
     if (Object.is(currentScore, newScore)) return;
+    
+    state.appState.contests[activeId].coachScore = newScore;
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
     try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
-    return {
-      appState: {
-        ...state.appState,
-        contests: {
-          ...state.appState.contests,
-          [activeId]: {
-            ...state.appState.contests[activeId],
-            coachScore: newScore
-          }
-        },
-        version: (state.appState.version || 0) + 1,
-        lastUpdated: new Date().toISOString()
-      }
-    };
   }),
 
   setExamConfig: (durationMinutes, totalQuestions) => set((state) => {
@@ -135,22 +100,12 @@ export const createMonteCarloSlice = (set) => ({
     if (!activeId || !state.appState.contests?.[activeId]) return;
     const dMin = safeNumber(durationMinutes, 240);
     const tQ = safeNumber(totalQuestions, 100);
+    
+    state.appState.contests[activeId].examDurationMinutes = dMin;
+    state.appState.contests[activeId].examTotalQuestions = tQ;
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
     try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
-    return {
-      appState: {
-        ...state.appState,
-        contests: {
-          ...state.appState.contests,
-          [activeId]: {
-            ...state.appState.contests[activeId],
-            examDurationMinutes: dMin,
-            examTotalQuestions: tQ
-          }
-        },
-        version: (state.appState.version || 0) + 1,
-        lastUpdated: new Date().toISOString()
-      }
-    };
   }),
 
   recordCalibrationMetric: (categoryId, metric) => set((state) => {
@@ -166,24 +121,13 @@ export const createMonteCarloSlice = (set) => ({
       timestamp: new Date().toISOString()
     }].slice(-50);
 
-    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+    if (!activeData.calibrationMetrics) {
+      activeData.calibrationMetrics = {};
+    }
+    activeData.calibrationMetrics[categoryId] = newMetrics;
     
-    return {
-      appState: {
-        ...state.appState,
-        contests: {
-          ...state.appState.contests,
-          [activeId]: {
-            ...activeData,
-            calibrationMetrics: {
-              ...currentMetrics,
-              [categoryId]: newMetrics
-            }
-          }
-        },
-        version: (state.appState.version || 0) + 1,
-        lastUpdated: new Date().toISOString()
-      }
-    };
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
   })
 });
