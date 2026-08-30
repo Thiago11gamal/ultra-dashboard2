@@ -820,12 +820,15 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         return () => { if (timeoutId) clearTimeout(timeoutId); };
     }, [isHydrated, navigate, showToast]);
 
+    const activeSubjectRef = useRef(activeSubject);
+    useEffect(() => { activeSubjectRef.current = activeSubject; }, [activeSubject]);
+
     useEffect(() => {
         return () => { if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current); };
     }, []);
 
     const handleExit = useCallback((options = {}) => {
-        const subjectSnapshot = options._subjectSnapshot || activeSubject;
+        const subjectSnapshot = options._subjectSnapshot || activeSubjectRef.current;
         const currentSource = options.source || resolveSessionSource(subjectSnapshot?.source);
 
         if (subjectSnapshot) {
@@ -852,7 +855,7 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         }
         const returnPath = resolveReturnPath(currentSource, Boolean(options.forceDashboard));
         navigate(returnPath, { replace: Boolean(options.forceDashboard) });
-    }, [activeSubject, setData, setPomodoroActiveSubject, navigate]);
+    }, [setData, setPomodoroActiveSubject, navigate]);
 
     const handleStartTask = (task, forcedSessionId = null, source = 'pomodoro') => {
         const sessionId = forcedSessionId || Date.now().toString();

@@ -22,15 +22,19 @@ class ErrorBoundary extends React.Component {
             (error.message.includes('Failed to fetch dynamically imported module') ||
                 error.message.includes('Importing a module script failed'))
         ) {
-            const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0', 10);
-            // ✅ FIX: Máximo de 2 tentativas para evitar loop infinito
-            if (reloadCount < 2) {
-                sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
+            try {
+                const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0', 10);
+                if (reloadCount < 2) {
+                    sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
+                    window.location.reload();
+                    return;
+                }
+                sessionStorage.removeItem('chunk_reload_count');
+            } catch {
+                console.warn('[ErrorBoundary] sessionStorage indisponível, tentando reload simples.');
                 window.location.reload();
                 return;
             }
-            // ✅ FIX: Se já recarregou 2 vezes, limpar flag e mostrar erro normalmente
-            sessionStorage.removeItem('chunk_reload_count');
         }
 
         this.setState({ errorInfo });

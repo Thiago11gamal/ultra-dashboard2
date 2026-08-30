@@ -9,7 +9,10 @@ export function useLevelUp() {
 
   useEffect(() => {
     const handleLevelUp = (e) => {
-      setQueue(prev => [...prev, e.detail]);
+      setQueue(prev => {
+        if (prev.some(item => item.level === e.detail.level)) return prev;
+        return [...prev, e.detail];
+      });
     };
 
     window.addEventListener('level-up', handleLevelUp);

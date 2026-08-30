@@ -18,7 +18,7 @@ export default function Tasks() {
   }));
 
   const categories = React.useMemo(() => {
-    const list = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
+    const list = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean);
     return list.map(c => ({
       ...c,
       tasks: Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {})

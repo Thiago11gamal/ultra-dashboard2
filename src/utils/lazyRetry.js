@@ -7,19 +7,22 @@ import { lazy } from 'react';
  */
 export const lazyWithRetry = (componentImport) =>
     lazy(async () => {
-        const pageHasAlreadyBeenForceRefreshed = JSON.parse(
-            window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
-        );
+        let pageHasAlreadyBeenForceRefreshed = false;
+        try {
+            pageHasAlreadyBeenForceRefreshed = JSON.parse(
+                window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+            );
+        } catch { /* ignore private mode error */ }
 
         try {
             const component = await componentImport();
-            window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
+            try { window.sessionStorage.setItem('page-has-been-force-refreshed', 'false'); } catch {}
             return component;
         } catch (error) {
             if (!pageHasAlreadyBeenForceRefreshed) {
                 // Log the error and force a refresh to get the latest manifest
                 console.warn('Chunk load failed. Forcing page refresh for latest assets...', error);
-                window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+                try { window.sessionStorage.setItem('page-has-been-force-refreshed', 'true'); } catch {}
                 window.location.reload();
                 return new Promise(() => { }); // Manter a promessa "pendente" enquanto o reload acontece
             }

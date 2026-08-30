@@ -268,6 +268,6 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     return Object.entries(hoursMap).map(([name, minutes]) => ({
         disciplina: name,
         horas: parseFloat((minutes / 60).toFixed(2))
-    })).sort((a, b) => b.horas - a.horas);
+    })).sort((a, b) => Number(b.horas) - Number(a.horas));
 };
 

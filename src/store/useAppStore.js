@@ -40,11 +40,11 @@ const idbStorage = {
                 console.warn('[Storage] Operação ignorada. Lock de emergência ativo.');
                 return resolve();
             }
-            // ✅ FIX: Se existe um save pendente, salvar o valor ANTERIOR agora
             if (saveTimeouts[name]) {
                 clearTimeout(saveTimeouts[name]);
-                // Não resolve a promise anterior — ela será resolvida pelo save atual
-                // A promise anterior será sobrescrita abaixo
+                if (savePromises[name]) {
+                    savePromises[name].resolve();
+                }
             }
             savePromises[name] = { resolve, reject };
             
@@ -55,7 +55,6 @@ const idbStorage = {
                 } catch (e) {
                     console.error('[Storage] Falha crítica ao escrever no IDB:', e);
                     try {
-                        // Fallback emergencial para evitar perda total
                         localStorage.setItem(name, value);
                         console.warn('[Storage] Fallback localStorage usado para:', name);
                         savePromises[name]?.resolve();
@@ -72,7 +71,10 @@ const idbStorage = {
     },
     removeItem: async (name) => {
         if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
-        if (savePromises[name]) savePromises[name].reject(new Error('Removed'));
+        if (savePromises[name]) {
+            savePromises[name].resolve();
+            delete savePromises[name];
+        }
         try {
             await idbDel(name);
         } catch (e) {

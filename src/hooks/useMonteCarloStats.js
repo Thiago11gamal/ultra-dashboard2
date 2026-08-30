@@ -273,11 +273,8 @@ export function useMonteCarloStats({
     const utcGoal = Date.UTC(goal.getUTCFullYear(), goal.getUTCMonth(), goal.getUTCDate());
     const utcCurrent = Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), currentDate.getUTCDate());
 
-    const diffTime = utcGoal - utcCurrent;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const safeDays = diffDays > 0 ? diffDays : 0;
-
-    return Math.min(3650, safeDays);
+    const diffDays = Math.ceil((utcGoal - utcCurrent) / (1000 * 60 * 60 * 24));
+    return Math.min(3650, Math.max(0, diffDays));
   }, [goalDate, effectiveSimulateToday, timeIndex, timelineDates]);
 
   const pureStatsData = useMemo(() => {
@@ -506,12 +503,14 @@ useEffect(() => {
 
           const projectedTotalTimeSeconds = examQuestionsRef.current * globalAvgSeconds;
 
+          const effectiveDays = projectDaysRef.current === 0 ? 1 : projectDaysRef.current;
+
           result = await runAnalysis({
             values: pureStatsData.globalHistory,
             dates: pureStatsData.globalHistory.map(h => h.date),
             meta: debouncedTarget,
             simulations: dynamicSimulationsRef.current,
-            projectionDays: projectDaysRef.current,
+            projectionDays: effectiveDays,
             forcedVolatility: regularizedSD,
             forcedBaseline: pureStatsData.bayesianMean,
             currentMean: pureStatsData.bayesianMean,
@@ -521,10 +520,7 @@ useEffect(() => {
             projectedTotalTimeSeconds,
             examDurationMinutes: examDurationRef.current,
             flashcardImmunity: globalImmunityFactor,
-            // T-014 FIX: cortes históricos também no caminho principal
             historicalCutoffs: historicalCutoffsRef.current,
-            // ✅ LOTE-04 FIX (A4): chave estável evita re-serialização do payload
-            // ✅ LOTE-06 FIX (BUG-C05): cacheKey deve incluir debouncedTarget
             cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${dynamicSimulationsRef.current}-tgt${debouncedTarget}`
           });
         } else {
@@ -656,12 +652,14 @@ useEffect(() => {
               };
             });
 
+            const effectiveDays = projectDaysRef.current === 0 ? 1 : projectDaysRef.current;
+
             result = runMonteCarloAnalysis({
               values: pureStatsData.globalHistory,
               dates: pureStatsData.globalHistory.map(h => h.date),
               meta: debouncedTarget,
               simulations: Math.min(dynamicSimulationsRef.current, 2000),
-              projectionDays: projectDaysRef.current,
+              projectionDays: effectiveDays,
               forcedVolatility: regularizedSD,
               forcedBaseline: pureStatsData.bayesianMean,
               currentMean: pureStatsData.bayesianMean,
@@ -671,7 +669,6 @@ useEffect(() => {
               simuladoRows: rawSimuladoRowsRef.current,
               categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key),
               flashcardImmunity: globalImmunityFactor,
-              // T-014 FIX: cortes históricos também no fallback futuro
               historicalCutoffs: historicalCutoffsRef.current
             });
           } else {

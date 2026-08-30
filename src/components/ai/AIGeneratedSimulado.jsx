@@ -641,35 +641,44 @@ export default function AIGeneratedSimulado() {
       const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
       const cats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
       const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
+      const totalCorrectInMixed = Object.values(groups).reduce((acc, g) => acc + g.correct, 0);
 
+      const failedGroups = [];
       for (const [groupKey, g] of Object.entries(groups)) {
-        const [materia, assunto] = groupKey.split('|');
+        try {
+            const [materia, assunto] = groupKey.split('|');
 
-        const cat = cats.find(c =>
-          String(c?.name || '').trim().toLowerCase() === String(materia || '').trim().toLowerCase()
-        );
+            const cat = cats.find(c =>
+              String(c?.name || '').trim().toLowerCase() === String(materia || '').trim().toLowerCase()
+            );
 
-        const catTasks = cat?.tasks ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks)) : [];
-        const tsk = catTasks.find(t =>
-          String(t?.title || t?.text || '').trim().toLowerCase() === String(assunto || '').trim().toLowerCase()
-        );
+            const catTasks = cat?.tasks ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks)) : [];
+            const tsk = catTasks.find(t =>
+              String(t?.title || t?.text || '').trim().toLowerCase() === String(assunto || '').trim().toLowerCase()
+            );
 
-        const subForm = {
-          ...f, materia: g.materia, assunto: g.assunto,
-          categoryId: cat ? cat.id : null, taskId: tsk ? tsk.id : null,
-        };
-        const topicTime =
-          g.timeSpent > 0
-            ? g.timeSpent
-            : Math.round(fallbackTimeSpent * (g.total / Math.max(1, totalQuestionsInMixed)));
-        await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true);
+            const subForm = {
+              ...f, materia: g.materia, assunto: g.assunto,
+              categoryId: cat ? cat.id : null, taskId: tsk ? tsk.id : null,
+            };
+            const topicTime =
+              g.timeSpent > 0
+                ? g.timeSpent
+                : Math.round(fallbackTimeSpent * (g.total / Math.max(1, totalQuestionsInMixed)));
+            await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true);
+        } catch (err) {
+            console.error(`[AI Sim] Falha ao salvar grupo ${groupKey}:`, err);
+            failedGroups.push(groupKey);
+        }
+      }
+      if (failedGroups.length > 0) {
+          showToast(`⚠️ ${failedGroups.length} grupo(s) não salvos: ${failedGroups.join(', ')}`, 'warning');
       }
 
-      // FIX: todayKey agora é definido corretamente
       const nowIso = new Date().toISOString();
       const todayKey = getDateKey(new Date()) || new Date().toISOString().slice(0, 10);
       const mixedDomain = safeDomain(Number(f.maxScore) || 100, Number(f.minScore) || 0);
-      const mixedRatio = totalQuestionsInMixed > 0 ? correctCount / totalQuestionsInMixed : 0;
+      const mixedRatio = totalQuestionsInMixed > 0 ? totalCorrectInMixed / totalQuestionsInMixed : 0;
       const mixedScorePoints = mixedDomain.min + mixedRatio * mixedDomain.range;
       const mixedScorePct = mixedRatio * 100;
       const globalMixedEvent = {
@@ -681,7 +690,7 @@ export default function AIGeneratedSimulado() {
         scorePct: mixedScorePct,
         score: mixedScorePoints,
         total: totalQuestionsInMixed,
-        correct: correctCount,
+        correct: totalCorrectInMixed,
         type: 'ai-simulado',
         subject: 'Simulado Misto (IA)',
         categoryId: 'mixed',

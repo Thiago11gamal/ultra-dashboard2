@@ -699,10 +699,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           shouldPullCloud = false;
         }
       } else {
-        // ✅ FIX: Verificar se a nuvem tem dados mais recentes que o local
-        const cloudUpdateTime = new Date(cloudData?.lastUpdated || 0).getTime();
-        const localUpdateTime = new Date(appStateRef.current?.lastUpdated || 0).getTime();
-        shouldPullCloud = cloudUpdateTime > localUpdateTime + 5000; // 5s tolerance
+        const localState = useAppStore.getState().appState;
+        const localUpdated = new Date(localState?.lastUpdated || 0).getTime();
+        const cloudUpdated = latestCloudDataRef.current
+            ? new Date(latestCloudDataRef.current.lastUpdated || 0).getTime()
+            : 0;
+        const localWasJustEdited = (Date.now() - lastLocalMutationRef.current) < 15000;
+        shouldPullCloud = !localWasJustEdited && cloudUpdated > localUpdated + 5000;
+        mergeMode = "merge";
       }
 
       const wasAlreadyValidated = isParityValidatedRef.current;

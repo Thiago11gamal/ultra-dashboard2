@@ -30,7 +30,16 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         if (timerRef.current) {
             clearTimeout(timerRef.current);
         }
-        timerRef.current = setTimeout(() => {
+        timerRef.current = setTimeout(async () => {
+            try {
+                const { useAppStore } = await import('../store/useAppStore');
+                const pomodoroActive = useAppStore.getState()?.appState?.pomodoro?.activeSubject;
+                if (pomodoroActive) {
+                    logger.log('[IdleLogout] Pomodoro ativo — adiando logout.');
+                    resetTimer();
+                    return;
+                }
+            } catch { /* se falhar, prossegue com logout */ }
             logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
             logoutRef.current?.();
         }, timeoutMs);
