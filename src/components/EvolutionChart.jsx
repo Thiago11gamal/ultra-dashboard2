@@ -524,11 +524,11 @@ export default React.memo(function EvolutionChart({
                 <p className="text-[10px] sm:text-xs text-slate-400 uppercase font-black tracking-[0.25em] leading-loose py-1 sm:py-2 mb-1 pl-1">
                     Nível Bayesiano por Disciplina • toque para focar
                 </p>
-                {/* Bug 3 FIX: fade masks nas bordas para indicar scroll horizontal */}
-                <div className="relative" style={{ maskImage: 'linear-gradient(to right, transparent, black 3%, black 97%, transparent)', WebkitMaskImage: '-webkit-linear-gradient(left, transparent, black 3%, black 97%, transparent)' }}>
+                {/* Máscara CSS removida: ela estava causando um gradiente que apagava o início do primeiro card e o fim do último. */}
+                <div className="relative">
                     <div className="flex overflow-x-auto snap-x gap-4 px-2 py-4 no-scrollbar scroll-smooth">
                         {activeCategories.map(cat => (
-                            <div key={cat.id} className={`snap-center shrink-0 w-[240px] sm:w-[280px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-60 hover:opacity-80 grayscale-[20%] scale-[0.98]' : 'opacity-100 scale-100'}`}>
+                            <div key={cat.id} className={`snap-center shrink-0 w-[240px] sm:w-[280px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-85 hover:opacity-100 grayscale-[10%] scale-[0.96]' : 'opacity-100 scale-100'}`}>
                                 <DisciplinaCard
                                     cat={cat}
                                     level={categoryLevels[cat.id] || 0}
