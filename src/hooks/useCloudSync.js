@@ -186,46 +186,74 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
   const mergeArrays = (arr1, arr2) => {
     const map = new Map();
+
     const getStableKey = (item) => {
       if (!item || typeof item !== 'object') return null;
-      if (item.id) return String(item.id);
+
+      // Prioridade 1: id explícito
+      if (item.id) return `id:${String(item.id)}`;
+
+      // Prioridade 2: task com texto/título
       if (item.text || item.title) {
-          return `task:${item.text || item.title}`;
+        return `task:${String(item.text || item.title)}`;
       }
+
+      // Prioridade 3: simulado com subject+date
       if (item.subject && item.date) {
-          return `sim:${item.date}:${item.subject}:${item.score ?? item.scorePoints ?? ''}`;
+        return `sim:${item.date}:${item.subject}:${item.score ?? item.scorePoints ?? ''}`;
       }
+
+      // Prioridade 4: sessão com date+categoryId+taskId
       if (item.date || item.startTime) {
-          return `${item.date || item.startTime}-${item.categoryId || ''}-${item.taskId || ''}`;
+        return `${item.date || item.startTime}-${item.categoryId || ''}-${item.taskId || ''}`;
       }
-      return `unknown:${JSON.stringify(item).slice(0, 50)}`;
+
+      // ✅ FIX T-05: Fallback robusto — usar hash completo do JSON em vez de
+      // slice(0, 50) que causa colisões entre itens diferentes.
+      // hashString64 do coachSafe.js gera hash de 64 bits com colisão mínima.
+      try {
+        const fullJson = JSON.stringify(item);
+        // Gerar hash simples de 64 bits inline (sem dependência externa)
+        let h1 = 0x811c9dc5;
+        let h2 = 0x01000193;
+        for (let i = 0; i < fullJson.length; i++) {
+          const c = fullJson.charCodeAt(i);
+          h1 = Math.imul(h1 ^ c, 0x01000193);
+          h2 = Math.imul(h2 ^ c, 0x85ebca6b);
+        }
+        return `unknown:${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
+      } catch {
+        // Se JSON.stringify falhar (circular, etc.), gerar chave baseada em posição
+        return `unknown:unserializable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      }
     };
-    
+
     const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
     const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
-    
+
     safeArr1.forEach(item => {
       const key = getStableKey(item);
       if (key && !map.has(key)) map.set(key, item);
     });
+
     safeArr2.forEach(item => {
       const key = getStableKey(item);
       if (key) {
         const existing = map.get(key);
         if (!existing) {
-            map.set(key, item);
+          map.set(key, item);
         } else {
-            // ✅ FIX: Converter strings ISO para timestamp e comparar números para evitar NaN/Invalid Date
-            const timeNew = new Date(item.lastUpdated || item.createdAt || 0).getTime();
-            const timeOld = new Date(existing.lastUpdated || existing.createdAt || 0).getTime();
-            const validNew = Number.isFinite(timeNew) ? timeNew : 0;
-            const validOld = Number.isFinite(timeOld) ? timeOld : 0;
-            if (validNew > validOld) {
-                map.set(key, item);
-            }
+          const timeNew = new Date(item.lastUpdated || item.createdAt || 0).getTime();
+          const timeOld = new Date(existing.lastUpdated || existing.createdAt || 0).getTime();
+          const validNew = Number.isFinite(timeNew) ? timeNew : 0;
+          const validOld = Number.isFinite(timeOld) ? timeOld : 0;
+          if (validNew > validOld) {
+            map.set(key, item);
+          }
         }
       }
     });
+
     return Array.from(map.values()).filter(Boolean);
   };
 
