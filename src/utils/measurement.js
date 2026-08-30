@@ -359,7 +359,7 @@ export function getSafeScore(row, maxScore, minScore = 0) {
   const safeMin = Number.isFinite(Number(minScore))
     ? Math.min(Number(minScore), safeMax) : 0;
 
-  if (row == null) return safeMin;
+  if (row == null) return NaN; // ✅ NaN para dados nulos
 
   let score;
 
@@ -392,8 +392,9 @@ export function getSafeScore(row, maxScore, minScore = 0) {
     }
   }
 
-  // ✅ FIX: NaN nunca sobrevive, retorna NaN para evitar viés estatístico
-  if (!Number.isFinite(score)) return safeMin;
+  // ✅ NaN é propagado para o consumidor filtrar
+  // (evita tratar dado corrompido como "nota zero")
+  if (!Number.isFinite(score)) return NaN;
   return Math.max(safeMin, Math.min(safeMax, score));
 }
 

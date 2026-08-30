@@ -95,6 +95,7 @@ const safeguardContest = (contest) => {
 export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const showToastRef = useRef(showToast);
   const applyingRemoteRef = useRef(false);
+  const syncMutexRef = useRef(false);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
 
   const lastSyncedRef = useRef(null);
@@ -211,9 +212,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       const key = getStableKey(item);
       if (key) {
         const existing = map.get(key);
-        if (!existing || (item.lastUpdated && existing.lastUpdated && 
-            new Date(item.lastUpdated) > new Date(existing.lastUpdated))) {
+        if (!existing) {
             map.set(key, item);
+        } else {
+            // ✅ FIX: Converter strings ISO para timestamp e comparar números para evitar NaN/Invalid Date
+            const timeNew = new Date(item.lastUpdated || item.createdAt || 0).getTime();
+            const timeOld = new Date(existing.lastUpdated || existing.createdAt || 0).getTime();
+            const validNew = Number.isFinite(timeNew) ? timeNew : 0;
+            const validOld = Number.isFinite(timeOld) ? timeOld : 0;
+            if (validNew > validOld) {
+                map.set(key, item);
+            }
         }
       }
     });
@@ -816,7 +825,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   useEffect(() => {
     if (!currentUser?.uid || !db) return;
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
+      // ✅ FIX: Nunca disparar emergency sync se um pull estiver ocorrendo
+      if (document.visibilityState === 'hidden' && !isCloudPullRef.current) {
         performEmergencySync();
       } else if (document.visibilityState === 'visible') {
         setIsInternalSyncing(false);
@@ -860,7 +870,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   }, [currentUser?.uid, performEmergencySync]);
 
   useEffect(() => {
-    if (applyingRemoteRef.current) {
+    if (applyingRemoteRef.current || syncMutexRef.current) {
       applyingRemoteRef.current = false;
       return;
     }
@@ -894,9 +904,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       let lastError = null;
 
 
+      syncMutexRef.current = true;
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;
 
+      try {
       while (attempt < MAX_RETRIES) {
         try {
           const freshState = useAppStore.getState().appState;
@@ -985,6 +997,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         } else {
           syncReentryCountRef.current = 0;
         }
+      }
+      } finally {
+        syncMutexRef.current = false;
       }
     };
 

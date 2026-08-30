@@ -15,13 +15,14 @@ export const generateId = (prefix = 'id') => {
 const stableIdMap = new WeakMap();
 
 export function hashString(str) {
+  if (typeof str !== 'string') return '0';
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; 
+    hash = Math.trunc(hash); // ✅ Força int32-like em JS, evitando overflow de float
   }
-  return Math.abs(hash).toString(36);
+  return Math.abs(hash).toString(36) + str.length.toString(36); // Anti-colisão extra
 }
 
 export function makeTaskId(catId, text) {

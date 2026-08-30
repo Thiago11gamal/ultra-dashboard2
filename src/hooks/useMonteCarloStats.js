@@ -333,7 +333,7 @@ export function useMonteCarloStats({
   }, [pureStatsData, calibrationPenalty, maxScore]);
 
   // ✅ PATCH-04: Hash deve incluir o timeIndex para forçar re-cálculo quando muda o range de datas
-  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}`;
+  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}-ms${minScore}-ms${maxScore}`;
 
   const pureStatsDataRef = useRef(pureStatsData);
   useEffect(() => {
@@ -588,6 +588,8 @@ useEffect(() => {
           }
 
           setSimulationData({ status: 'ready', data: result });
+
+          if (!isMountedRef.current) return; // ✅ FIX: Prevents state updates on unmounted component
 
           try {
             const setDataFn = useAppStore.getState().setData;

@@ -231,8 +231,22 @@ export const sanitizeContest = (data) => {
     })),
     simuladoRows: (Array.isArray(source.simuladoRows) ? source.simuladoRows : Object.values(source.simuladoRows || {})).filter(r => r && r.id),
     simulados: (Array.isArray(source.simulados) ? source.simulados : Object.values(source.simulados || {})).filter(s => s && s.id),
-    studyLogs: (Array.isArray(source.studyLogs) ? source.studyLogs : Object.values(source.studyLogs || {})).filter(l => l && l.id),
-    studySessions: (Array.isArray(source.studySessions) ? source.studySessions : Object.values(source.studySessions || {})).filter(s => s && s.id),
+    studyLogs: (Array.isArray(source.studyLogs) ? source.studyLogs : [])
+        .filter(l => l && typeof l === 'object')
+        .map(l => ({
+            ...l,
+            id: String(l.id || generateId('log')),
+            minutes: Math.max(0, Number(l.minutes) || 0),
+            date: l.date || l.createdAt || new Date().toISOString()
+        })),
+    studySessions: (Array.isArray(source.studySessions) ? source.studySessions : [])
+        .filter(s => s && typeof s === 'object')
+        .map(s => ({
+            ...s,
+            id: String(s.id || generateId('session')),
+            duration: Math.max(0, Number(s.duration) || 0),
+            startTime: s.startTime || s.date || new Date().toISOString()
+        })),
     notes: typeof source.notes === 'string' ? source.notes : "",
     // NEW TOOLS
     flashcardDecks: Array.isArray(source.flashcardDecks) ? source.flashcardDecks : [],
@@ -301,13 +315,15 @@ export const validateAppState = (data) => {
     const rawContests = (d.contests && typeof d.contests === 'object') ? d.contests : { 'default': INITIAL_DATA };
 
     // ✅ PATCH 11 FIX: Sanitização das chaves do dicionário para assegurar formato adequado para Firebase e IndexedDB
-    Object.keys(rawContests).reduce((acc, id) => {
-      if (id !== 'length' && typeof rawContests[id] === 'object') {
-          const cleanId = String(id).replace(/[.#$\/\[\]]/g, '');
-          acc[cleanId || 'default'] = sanitizeContest(rawContests[id]);
-      }
-      return acc;
-    }, validatedContests);
+    Object.keys(rawContests).forEach((id) => {
+        // ✅ Filtrar chaves inválidas ANTES de sanitizar
+        if (id === 'length' || typeof rawContests[id] !== 'object') return;
+        const cleanId = String(id).replace(/[.#$\/\[\]]/g, '').trim() || 'default';
+        const sanitized = sanitizeContest(rawContests[id]);
+        if (sanitized) {
+            validatedContests[cleanId] = sanitized;
+        }
+    });
 
     let activeId = d.activeId || 'default';
 

@@ -23,23 +23,42 @@ const validateFullBackup = (data) => {
 // RIGOR-SEC: Camada de limpeza para remover campos potencialmente perigosos ou inválidos mantendo propriedades essenciais
 const sanitizeCategory = (cat) => {
     if (!cat || typeof cat !== 'object') return null;
+
+    const rawName = String(cat.name || "Sem Nome");
+    const sanitizedName = DOMPurify.sanitize(rawName).trim() || "Sem Nome";
+
+    // ✅ Validar maxScore e weight antes do spread
+    const rawMaxScore = Number(cat.maxScore);
+    const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
+    const rawWeight = Number(cat.weight);
+    const weight = Number.isFinite(rawWeight) && rawWeight > 0 ? rawWeight : 10;
+
     return {
         ...cat,
         id: String(cat.id || generateId('cat')),
-        name: DOMPurify.sanitize(String(cat.name || "Sem Nome")).substring(0, 50),
-        // PRESERVE: Mantemos propriedades inerentes (maxScore, weight, simuladoStats, etc) através do spread acima
+        name: sanitizedName.substring(0, 100), // ✅ 100 chars, não 50
+        maxScore,
+        weight,
+        minCutoff: Number.isFinite(Number(cat.minCutoff)) ? Number(cat.minCutoff) : 0,
+        // PRESERVE: Mantemos propriedades inerentes através do spread acima
         priority: cat.priority || 'medium',
         completedAt: cat.completedAt || null,
         lastStudiedAt: cat.lastStudiedAt || null,
         awardedXP: !!cat.awardedXP,
         status: cat.status || 'active',
+        totalMinutes: Math.max(0, Number(cat.totalMinutes) || 0),
+        simuladoStats: cat.simuladoStats && typeof cat.simuladoStats === 'object'
+            ? cat.simuladoStats
+            : { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
         tasks: Array.isArray(cat.tasks) ? cat.tasks.map(t => {
             if (!t || typeof t !== 'object') return null;
+            const taskText = DOMPurify.sanitize(String(t.text || "")).trim();
+            const taskTitle = DOMPurify.sanitize(String(t.title || t.text || "")).trim();
             return {
                 ...t,
                 id: String(t.id || generateId('task')),
-                text: DOMPurify.sanitize(String(t.text || "")),
-                title: DOMPurify.sanitize(String(t.title || t.text || "")),
+                text: taskText || "Nova Tarefa",
+                title: taskTitle || taskText || "Nova Tarefa",
                 completed: !!t.completed,
                 // PRESERVE: Metadados da tarefa
                 priority: t.priority || 'medium',
