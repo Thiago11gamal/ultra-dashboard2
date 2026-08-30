@@ -57,7 +57,7 @@ export function generateEvolutionInsights({
             case "subtopics":
                 return { type: 'info', icon: "🔬", title: "Visão Global: Auditoria de Assuntos", text: "Mapeamento completo de todos os seus subtópicos.", details: "Selecione uma disciplina acima para auditar pontos fracos." };
             case "mc_density":
-                return { type: 'info', icon: "📉", title: "Visão Global: Densidade MC", text: "Acompanhamento global das suas projeções no tempo.", details: "Selecione uma disciplina acima para ver convergência específica." };
+                return { type: 'info', icon: "🚀", title: "Visão Global: Rastreador de Aprovação", text: "Acompanhamento global das suas projeções de sucesso.", details: "Selecione uma disciplina acima para ver como ela afeta a sua aprovação." };
             case "time_spent":
                 return { type: 'info', icon: "⏳", title: "Visão Global: Agilidade AI", text: "Visão geral da sua velocidade de resolução.", details: "Selecione uma disciplina acima para mapear gargalos de tempo específicos." };
             case "weekly_diff":
@@ -289,11 +289,11 @@ export function generateEvolutionInsights({
         const ciWidth = (Number.isFinite(ciHigh) && Number.isFinite(ciLow)) ? (ciHigh - ciLow) : null;
         return { 
             type: 'info', 
-            icon: "📉", 
-            title: "Densidade de Convergência", 
-            text: ciWidth != null ? `Faixa de incerteza atual: ±${(ciWidth / 2).toFixed(1)}${unit}.` : "Histórico das suas projeções Monte Carlo.", 
-            details: "Mostra como a margem de erro e a precisão do algoritmo evoluíram com seus simulados.",
-            advice: "Se a linha estiver ++subindo++, você está matematicamente mais próximo da aprovação." 
+            icon: "🚀", 
+            title: "Rastreador de Aprovação", 
+            text: ciWidth != null ? `Incerteza na sua aprovação: ±${(ciWidth / 2).toFixed(1)}${unit}.` : "Histórico das suas chances reais de aprovação.", 
+            details: "Mede o quanto cada simulado aproxima ou afasta você da sua nota de corte.",
+            advice: "Se a linha estiver ++subindo++, sua rotina de estudos está funcionando. Mantenha!" 
         };
     }
 
