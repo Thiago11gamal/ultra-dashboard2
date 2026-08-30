@@ -14,7 +14,7 @@ import {
     computeAdaptiveSignal
 } from '../utils/adaptiveMath.js';
 
-export const VOLATILITY_REGULARIZATION_FACTOR = 0.35;
+export const VOLATILITY_REGULARIZATION_FACTOR = 0.035;
 export const INFORMATIVE_PRIOR_MAX_STRENGTH = 5.0;
 export const MAX_CALIBRATION_PENALTY = 0.15;
 export const CALIBRATION_LAMBDA_DAYS = 30; // Meia-vida de decaimento (30 dias)
