@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
 import { computeNonLinearTrend } from '../engine/projection';
-import { getDateKey, normalizeDate } from '../utils/dateHelper';
+import { getDateKey, normalizeDate, parseNoonLocal } from '../utils/dateHelper';
 import { normalCDF_complement } from '../engine/math/gaussian.js';
 import {
   shrinkProbabilityToNeutral,
@@ -240,39 +240,40 @@ export function useMonteCarloStats({
     if (effectiveSimulateToday) return 0;
     if (!goalDate) return 30;
 
-    let currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
+    let currentDate = parseNoonLocal(getDateKey(new Date())) || new Date();
 
     if (timeIndex >= 0 && timeIndex < timelineDates.length) {
       // T-025 FIX: evitar new Date('YYYY-MM-DD') diretamente.
       // normalizeDate costuma ancorar melhor a data no helper do projeto.
-      const parsedTimelineDate = normalizeDate(timelineDates[timeIndex]) ||
-        new Date(timelineDates[timeIndex] + 'T12:00:00Z');
+      const parsedTimelineDate = parseNoonLocal(timelineDates[timeIndex]) || 
+        normalizeDate(timelineDates[timeIndex]);
 
-      if (Number.isFinite(parsedTimelineDate?.getTime())) {
+      if (parsedTimelineDate && Number.isFinite(parsedTimelineDate.getTime())) {
         currentDate = parsedTimelineDate;
-        currentDate.setHours(0, 0, 0, 0);
       }
     }
 
     let goal;
     if (typeof goalDate === 'string') {
-      goal = normalizeDate(goalDate);
+      goal = parseNoonLocal(goalDate) || normalizeDate(goalDate);
+    } else if (goalDate instanceof Date) {
+      goal = parseNoonLocal(getDateKey(goalDate));
     } else {
       goal = new Date(goalDate);
     }
 
-    goal.setHours(0, 0, 0, 0);
-
-    if (!Number.isFinite(goal.getTime())) return 30;
+    if (!goal || !Number.isFinite(goal.getTime())) return 30;
 
     // T-024/T-025 FIX: fallback para data corrente inválida
-    if (!Number.isFinite(currentDate.getTime())) {
-      currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
+    if (!currentDate || !Number.isFinite(currentDate.getTime())) {
+      currentDate = parseNoonLocal(getDateKey(new Date())) || new Date();
     }
 
-    const diffTime = goal.getTime() - currentDate.getTime();
+    // Force exact day boundaries in UTC to avoid DST or local timezone drift
+    const utcGoal = Date.UTC(goal.getUTCFullYear(), goal.getUTCMonth(), goal.getUTCDate());
+    const utcCurrent = Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), currentDate.getUTCDate());
+
+    const diffTime = utcGoal - utcCurrent;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const safeDays = diffDays > 0 ? diffDays : 0;
 
