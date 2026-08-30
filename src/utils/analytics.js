@@ -937,11 +937,24 @@ export const getCompleteReport = (data) => {
  */
 export function getFlashcardDueTodayCount(decks = []) {
   const todayKey = getFlashcardTodayKey();
+  if (!todayKey || !/^\d{4}-\d{2}-\d{2}$/.test(todayKey)) return 0;
+  
   let due = 0;
   const decksArray = toArray(decks);
   decksArray.forEach(deck => {
+    if (!deck || typeof deck !== 'object') return;
     toArray(deck?.cards).forEach(card => {
-      if (!card?.due || card.due <= todayKey) due++;
+      if (!card || typeof card !== 'object') return;
+      // ✅ FIX: Validar formato de due antes de comparar
+      if (!card.due || typeof card.due !== 'string') {
+        due++; // Sem due = vencido
+        return;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(card.due)) {
+        due++; // Formato inválido = tratar como vencido
+        return;
+      }
+      if (card.due <= todayKey) due++;
     });
   });
   return due;

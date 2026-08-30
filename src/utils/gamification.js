@@ -43,7 +43,7 @@ export const getXpThresholdForLevel = (level) => {
 };
 
 export const getXPProgress = (xpInput) => {
-    const xp = Math.max(0, Number(xpInput) || 0);
+    const xp = Math.max(0, Math.trunc(Number(xpInput) || 0));
     const level = calculateLevel(xp);
     const currentLevelXP = Math.pow(level - 1, 2) * 100;
     const nextLevelXP = Math.pow(level, 2) * 100;
@@ -68,13 +68,13 @@ export const calculateProgress = (xp) => {
 };
 
 export const getTaskXP = (task, completed) => {
-    const baseXP = XP_CONFIG.task[task.priority] || XP_CONFIG.task.medium;
+    const baseXP = XP_CONFIG.task[task?.priority] || XP_CONFIG.task.medium;
     if (completed) {
         return baseXP;
     }
     // ✅ FIX N-03: Ao desmarcar, usar o XP que foi realmente concedido (recibo).
     // Isso impede o exploit de mudar prioridade após completar para ganhar XP extra.
-    const rawAwarded = task.awardedXP !== undefined ? Number(task.awardedXP) : baseXP;
+    const rawAwarded = task?.awardedXP !== undefined ? Number(task.awardedXP) : baseXP;
     const deduction = Number.isFinite(rawAwarded) ? rawAwarded : baseXP;
     // Limita a dedução a um teto razoável (2x o XP base) para evitar perdas/ganhos bizarros
     const maxDeduction = baseXP * 2;

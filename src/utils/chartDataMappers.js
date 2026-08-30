@@ -200,15 +200,19 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
-        const logDate = toSafeDate(log.date);
-        if (!logDate) return;
+        const logDate = normalizeDate(log.date);
+        if (!logDate || Number.isNaN(logDate.getTime())) return;
+        
         const logFullKey = getFullKey(logDate);
+        if (!logFullKey) return;
         
         const dayMatch = last14Days.find(d => d.fullKey === logFullKey);
         if (dayMatch) {
-            // BUGFIX: Suporte a minutes ou duration com fallback robusto quando minutes === 0
             const minutes = getStudyLogMinutes(log);
-            dayMatch.horasEstudadas += minutes / 60;
+            // ✅ FIX: Validar minutes antes de dividir
+            if (Number.isFinite(minutes) && minutes > 0) {
+                dayMatch.horasEstudadas += minutes / 60;
+            }
         }
     });
 
@@ -230,13 +234,35 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
     const safeCategories = Array.isArray(categories) ? categories : [];
     
+    // ✅ FIX: Pré-indexar categorias por ID para lookup O(1)
+    const categoriesById = new Map();
+    safeCategories.forEach(c => {
+        if (c && c.id != null) {
+            categoriesById.set(String(c.id), c);
+        }
+    });
+
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
-        const cat = safeCategories.find(c => String(c.id) === String(log.categoryId) || (log.subject && c.name === log.subject) || (log.categoryName && c.name === log.categoryName));
+        
+        let cat = null;
+        if (log.categoryId != null) {
+            cat = categoriesById.get(String(log.categoryId));
+        }
+        if (!cat) {
+            cat = safeCategories.find(c =>
+                (log.subject && c.name === log.subject) ||
+                (log.categoryName && c.name === log.categoryName)
+            );
+        }
+        
         const name = cat ? cat.name : (log.categoryName || log.subject || 'Outros');
         const actualMinutes = getStudyLogMinutes(log);
-        if (actualMinutes <= 0) return;
-        hoursMap[name] = (hoursMap[name] || 0) + actualMinutes;
+        
+        // ✅ FIX: Validar minutes antes de acumular
+        if (Number.isFinite(actualMinutes) && actualMinutes > 0) {
+            hoursMap[name] = (hoursMap[name] || 0) + actualMinutes;
+        }
     });
 
     return Object.entries(hoursMap).map(([name, minutes]) => ({

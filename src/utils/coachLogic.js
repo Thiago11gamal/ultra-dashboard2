@@ -300,10 +300,17 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
 }
 
 export const sanitizeNum = (val) => {
+    // ✅ FIX: Tratar todos os tipos de entrada inválida
     if (val === null || val === undefined || val === '') return NaN;
+    if (typeof val === 'boolean') return NaN;
+    if (typeof val === 'object') return NaN;
+    
     let str = String(val).trim();
     str = str.replace(/[%\s]/g, '');
     if (!str) return NaN;
+    
+    // ✅ FIX: Rejeitar strings que são apenas sinais
+    if (/^[+-]?$/.test(str)) return NaN;
     const hasComma = str.includes(',');
     const hasDot = str.includes('.');
     if (hasComma && hasDot) {

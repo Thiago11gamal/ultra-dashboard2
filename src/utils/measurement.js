@@ -290,46 +290,43 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
     const explicitPoints = unit === "points" || r.isPercentage === false;
 
     if (explicitPct) {
+      // ✅ FIX: Clamp no domínio de porcentagem ANTES de converter
       const pct = clampFinite(scoreRaw, 0, 100, 0);
       const points = pctToPoints(pct, domain);
+      // ✅ FIX: Garantir que points está dentro do domínio
+      const safePoints = clampFinite(points, domain.min, domain.max, domain.min);
+      const ratio = clampFinite((safePoints - domain.min) / domain.range, 0, 1, 0);
       return {
-        points, pct,
-        ratio: clampFinite(pct / 100, 0, 1, 0),
+        points: safePoints,
+        pct,
+        ratio,
         total, correct, totalValid: false, domain,
         ambiguous: false, source: "score-explicit-pct",
       };
     }
     if (explicitPoints) {
+      // ✅ FIX: Clamp direto no domínio
       const points = clampFinite(scoreRaw, domain.min, domain.max, domain.min);
       const pct = pointsToPct(points, domain);
+      const ratio = clampFinite((points - domain.min) / domain.range, 0, 1, 0);
       return {
-        points, pct,
-        ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
+        points, pct, ratio,
         total, correct, totalValid: false, domain,
         ambiguous: false, source: "score-explicit-points",
       };
     }
 
     // ✅ FIX: SEM auto-detecção. Tratar como PONTOS.
-    // Marcar ambíguo para o consumidor exibir aviso.
-    const looksAmbiguous =
-      domain.max > 100 &&
-      scoreRaw >= 0 &&
-      scoreRaw <= 100 &&
-      r.isPercentage !== false;
-
     const points = clampFinite(scoreRaw, domain.min, domain.max, domain.min);
-    // Marcar ambiguidade para o consumidor exibir aviso
-    const ambiguous = looksAmbiguous && !r.isPercentage;
     const pct = pointsToPct(points, domain);
+    const ratio = clampFinite((points - domain.min) / domain.range, 0, 1, 0);
+    const ambiguous = domain.max > 100 && scoreRaw >= 0 && scoreRaw <= 100 && r.isPercentage !== false;
+    
     return {
-      points, pct,
-      ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
+      points, pct, ratio,
       total, correct, totalValid: false, domain,
       ambiguous,
-      source: looksAmbiguous
-        ? "score-ambiguous-as-points"
-        : "score-auto-points",
+      source: ambiguous ? "score-ambiguous-as-points" : "score-auto-points",
     };
   }
 

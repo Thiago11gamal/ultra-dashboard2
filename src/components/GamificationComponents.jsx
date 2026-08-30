@@ -5,7 +5,7 @@ import { ACHIEVEMENTS } from '../config/gamification';
 
 import { calculateLevel, calculateProgress, getLevelTitle } from '../utils/gamification';
 
-export const StreakDisplay = ({ studyLogs }) => {
+export const StreakDisplay = React.memo(({ studyLogs }) => {
     const { current, best } = useMemo(() => calculateStudyStreak(studyLogs), [studyLogs]);
     const bonus = Math.min(500, current * 50);
 
@@ -39,7 +39,7 @@ export const StreakDisplay = ({ studyLogs }) => {
             </div>
         </div>
     );
-};
+});
 
 export const AchievementsGrid = ({ unlockedIds = [], stats = {} }) => {
     const unlockedArray = Array.isArray(unlockedIds) ? unlockedIds : Object.values(unlockedIds || {});

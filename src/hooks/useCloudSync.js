@@ -699,7 +699,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           shouldPullCloud = false;
         }
       } else {
-        shouldPullCloud = !localWasJustEdited;
+        // ✅ FIX: Verificar se a nuvem tem dados mais recentes que o local
+        const cloudUpdateTime = new Date(cloudData?.lastUpdated || 0).getTime();
+        const localUpdateTime = new Date(appStateRef.current?.lastUpdated || 0).getTime();
+        shouldPullCloud = cloudUpdateTime > localUpdateTime + 5000; // 5s tolerance
       }
 
       const wasAlreadyValidated = isParityValidatedRef.current;

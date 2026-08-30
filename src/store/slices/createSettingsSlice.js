@@ -78,19 +78,25 @@ export const createSettingsSlice = (set) => ({
     const currentData = state.appState.contests[contestId];
     if (!currentData) return;
     
-    const nextData = typeof newDataCallback === 'function'
-      ? newDataCallback(currentData)
-      : newDataCallback;
-    
-    if (nextData !== undefined && nextData !== null && typeof nextData === 'object') {
-      // ✅ FIX: Object.assign preserva o Proxy Immer. sanitizeContest criaria
-      // um novo objeto plain, quebrando a tracking de mutação do Immer.
-      Object.assign(state.appState.contests[contestId], nextData);
+    // 🔥 BUGFIX 1 (STATE CORRUPTION): Impedir que callbacks mal formados destruam o estado silenciosamente.
+    const nextData = typeof newDataCallback === 'function' 
+        ? newDataCallback(currentData) 
+        : newDataCallback;
+        
+    // Se o callback retornar undefined (ex: esqueceu o 'return'),
+    // nós abortamos a mutação para não corromper.
+    if (nextData === undefined) {
+        console.warn("[Store] setData callback retornou undefined. Mutação abortada para evitar corrupção de estado.");
+        return;
     }
     
+    if (nextData !== null && typeof nextData === 'object') {
+        Object.assign(state.appState.contests[contestId], nextData);
+    }
+
     const nowIso = new Date().toISOString();
     if (state.appState.contests[contestId]) {
-      state.appState.contests[contestId].lastUpdated = nowIso;
+        state.appState.contests[contestId].lastUpdated = nowIso;
     }
     
     state.appState.version = (state.appState.version || 0) + 1;
