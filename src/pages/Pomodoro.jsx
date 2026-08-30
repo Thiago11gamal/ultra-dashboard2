@@ -926,6 +926,10 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         if (currentSubject) {
             showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
 
+            // ✅ FIX: Resetar accumulatedMinutes após salvar
+            // para evitar contagem dupla no próximo ciclo
+            store.setPomodoroAccumulatedMinutes(0);
+
             const activeData = store.appState.contests[store.appState.activeId];
 
             if (neuralMode || currentSubject.source === 'neural_core') {

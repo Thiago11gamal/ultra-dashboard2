@@ -1577,8 +1577,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const cacheKey = `urg_${hashString64(cacheKeyRaw)}`;
         const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
         if (cachedUrgency) {
-            // FIX (BUG-14): deepClone robusto (preserva Date/Map/Set/undefined)
-            return deepClone(cachedUrgency);
+            // ✅ FIX: Validar que o cache não está stale verificando se a categoria ainda existe
+            const categoryStillExists = options.allCategories ? options.allCategories.some(c => c && (c.id === catId || c.name === catId)) : true;
+            if (!categoryStillExists) {
+                _urgencyCache.delete(cacheKey);
+            } else {
+                // FIX (BUG-14): deepClone robusto (preserva Date/Map/Set/undefined)
+                return deepClone(cachedUrgency);
+            }
         }
         const metrics = extractMetrics(safeCat, safeSims, safeLogs, options);
         const scoreInfo = calculateUrgencyScore(metrics, options);

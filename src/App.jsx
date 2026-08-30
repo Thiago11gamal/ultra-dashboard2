@@ -243,6 +243,13 @@ function MainLayout() {
           if (!importedData.activeId || !importedData.contests[importedData.activeId]) {
             importedData.activeId = contestIds[0];
           }
+          // ✅ FIX: Validar que cada concurso tem estrutura mínima
+          for (const [id, contest] of Object.entries(importedData.contests)) {
+            if (!contest || typeof contest !== 'object') {
+              showToast(`Concurso "${id}" inválido no backup.`, 'error');
+              return;
+            }
+          }
           setAppState(importedData);
           showToast('Backup restaurado com sucesso! ✨', 'success');
         } catch (err) {

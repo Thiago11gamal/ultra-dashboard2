@@ -82,9 +82,10 @@ export function formatValue(value, digits = 1) {
   }
 
   if (Math.abs(n) > 0) {
-    // ✅ FIX: Garantir mínimo de 2 dígitos decimais para valores pequenos
+    // ✅ FIX: Limitar a 4 dígitos decimais para evitar resultados estranhos
     const minDecimals = Math.max(2, safeDigits);
-    const formatted = n.toFixed(minDecimals).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+    const maxDecimals = Math.min(4, minDecimals + 1);
+    const formatted = n.toFixed(maxDecimals).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
     // ✅ FIX: Se ainda for "0" ou "0.0", usar notação científica para valores muito pequenos
     if (parseFloat(formatted) === 0 && n !== 0) {
         return n.toExponential(2);

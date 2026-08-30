@@ -23,16 +23,19 @@ const mapCollection = (collection, mapper) => {
  */
 export function clampFinite(value, min, max, fallback = min) {
   const n = Number(value);
+  // ✅ FIX: Number.isFinite já rejeita NaN e Infinity
   if (!Number.isFinite(n)) return fallback;
-
-  const lo = Number(min);
-  const hi = Number(max);
-
-  if (!Number.isFinite(lo) && !Number.isFinite(hi)) return n;
-  if (!Number.isFinite(lo)) return Math.min(n, hi);
-  if (!Number.isFinite(hi)) return Math.max(n, lo);
-
-  return Math.min(hi, Math.max(lo, n));
+  let safeMin = Number(min);
+  let safeMax = Number(max);
+  if (!Number.isFinite(safeMin)) safeMin = 0;
+  if (!Number.isFinite(safeMax)) safeMax = safeMin;
+  // ✅ FIX: Trocar se invertidos (dados corrompidos)
+  if (safeMin > safeMax) {
+    const tmp = safeMin;
+    safeMin = safeMax;
+    safeMax = tmp;
+  }
+  return Math.min(safeMax, Math.max(safeMin, n));
 }
 
 /**
