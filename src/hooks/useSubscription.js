@@ -2,50 +2,53 @@ import { useState, useEffect, useRef } from 'react';
 import { db, isLocalMode } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
-const ADMIN_UIDS = [
-    'F4Py5tJoRjQmXTSPE6vQUX3th662',
-    'local-user',
-];
-
-const ADMIN_EMAILS = [
-    'antunest040@gmail.com',
-    'thiago11gamal@gmail.com',
-    'thiagogamal@gmail.com',
-    'thiago@gmail.com',
-    'local@example.com',
-];
-
 export function useSubscription(user) {
-    const isAdmin = Boolean(
-        (user?.uid && ADMIN_UIDS.includes(user.uid)) ||
-        (user?.email && ADMIN_EMAILS.includes(String(user.email).trim().toLowerCase())) ||
-        user?.isAdmin === true ||
-        user?.role === 'admin' ||
-        user?.plan === 'vitalicio' ||
-        user?.isPremium === true
-    );
-    const isDevBypass = import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true';
-    const shouldBypassBilling = Boolean(isAdmin || isDevBypass);
+  const isDevBypass = import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true';
+
+  const [isPremium, setIsPremium] = useState(isDevBypass);
+  const [loading, setLoading] = useState(!isDevBypass);
+  const fallbackUnsubRef = useRef(null);
+
+  useEffect(() => {
+    if (isDevBypass) {
+        setIsPremium(true);
+        setLoading(false);
+        return;
+    }
     
-    useEffect(() => {
-        if (isLocalMode && !isAdmin && !isDevBypass) {
-            console.warn('[Subscription] Modo local sem bypass premium. Usuário não terá acesso premium.');
+    if (!user?.uid) { 
+        setIsPremium(false); 
+        setLoading(false); 
+        return; 
+    }
+    
+    let unsub = null;
+    let isMounted = true;
+
+    try {
+      // Ler claims do token JWT (definidas server-side via Cloud Functions)
+      user.getIdTokenResult(true).then((tokenResult) => {
+        if (!isMounted) return;
+        const claims = tokenResult.claims || {};
+        const isAdminClaim = Boolean(claims.admin || claims.premium || claims.plan === 'vitalicio');
+        
+        if (isAdminClaim) {
+            setIsPremium(true);
+            setLoading(false);
+            return;
         }
-    }, [isAdmin, isDevBypass]);
 
-    const [isPremium, setIsPremium] = useState(shouldBypassBilling);
-    const [loading, setLoading] = useState(!shouldBypassBilling);
-    const fallbackUnsubRef = useRef(null);
-
-    useEffect(() => {
-        if (shouldBypassBilling || !user?.uid || !db) return;
+        // Se não for admin claim, verificar pagamentos (Stripe)
+        if (!db) {
+            setIsPremium(false);
+            setLoading(false);
+            return;
+        }
 
         const paymentsRef = collection(db, 'customers', user.uid, 'payments');
         const q = query(paymentsRef, where('status', '==', 'succeeded'));
 
-        let isMounted = true;
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        unsub = onSnapshot(q, (snapshot) => {
             if (!isMounted) return;
             if (snapshot.empty) {
                 setIsPremium(false);
@@ -81,7 +84,6 @@ export function useSubscription(user) {
                     setLoading(false);
                 }, (profileErr) => {
                     if (!isMounted) return;
-                    console.error('[Stripe] Falha no fallback de perfil:', profileErr);
                     setIsPremium(false);
                     setLoading(false);
                 });
@@ -92,23 +94,34 @@ export function useSubscription(user) {
             setLoading(false);
         });
 
-        return () => {
-            isMounted = false;
-            unsubscribe();
-            if (fallbackUnsubRef.current) {
-                fallbackUnsubRef.current();
-                fallbackUnsubRef.current = null;
-            }
-        };
-    }, [shouldBypassBilling, user?.uid]);
-
-    if (shouldBypassBilling) return { isPremium: true, loading: false };
-    if (!user?.uid) return { isPremium: false, loading: false };
-    if (!db) {
-        console.warn('[Stripe] Firestore indisponível. Mantendo modo não premium.');
-        return { isPremium: false, loading: false };
+      }).catch(() => { 
+          if (!isMounted) return;
+          setIsPremium(false); 
+          setLoading(false); 
+      });
+    } catch {
+      if (!isMounted) return;
+      setIsPremium(false);
+      setLoading(false);
     }
 
-    return { isPremium, loading };
+    return () => { 
+        isMounted = false;
+        if (unsub) unsub(); 
+        if (fallbackUnsubRef.current) {
+            fallbackUnsubRef.current();
+            fallbackUnsubRef.current = null;
+        }
+    };
+  }, [user?.uid, isDevBypass]);
+
+  if (isDevBypass) return { isPremium: true, loading: false };
+  if (!user?.uid) return { isPremium: false, loading: false };
+  if (!db) {
+      console.warn('[Stripe] Firestore indisponível. Mantendo modo não premium.');
+      return { isPremium: false, loading: false };
+  }
+
+  return { isPremium, loading };
 }
 

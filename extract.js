@@ -1,5 +1,17 @@
 const fs = require('fs');
-const lines = fs.readFileSync('C:\\Users\\antun.BOOK-201QO8FPFE\\.gemini\\antigravity-ide\\brain\\19255546-a74b-47f2-bed3-f36e522c3d84\\.system_generated\\logs\\transcript.jsonl', 'utf8').split('\n');
+const path = require('path');
+const inputPath = process.argv[2];
+if (!inputPath) {
+  console.error('Uso: node extract.js <caminho-do-arquivo>');
+  process.exit(1);
+}
+const resolvedPath = path.resolve(inputPath);
+if (!fs.existsSync(resolvedPath)) {
+  console.error(`Arquivo não encontrado: ${resolvedPath}`);
+  process.exit(1);
+}
+const lines = fs.readFileSync(resolvedPath, 'utf8').split('\n');
+
 let extracted = '';
 for (const line of lines) {
     if (line.includes('Abaixo estão os códigos de correção completos')) {

@@ -13,9 +13,26 @@ import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/mon
 let sharedWorker = null;
 let sharedRequestId = 0;
 const sharedPendingRequests = new Map();
+const REQUEST_MAX_AGE_MS = 60_000;
+
+// Cleanup periódico para requests órfãos
+let cleanupInterval = null;
+function startCleanup() {
+    if (cleanupInterval) return;
+    cleanupInterval = setInterval(() => {
+        const now = Date.now();
+        for (const [id, pending] of sharedPendingRequests) {
+            if (pending.createdAt && now - pending.createdAt > REQUEST_MAX_AGE_MS) {
+                clearTimeout(pending.timeoutId);
+                sharedPendingRequests.delete(id);
+            }
+        }
+    }, 30_000);
+}
 
 function initSharedWorker() {
     if (sharedWorker) return;
+    startCleanup(); // ✅ iniciar cleanup
     try {
         sharedWorker = new Worker(
             new URL('../engine/mc.worker.js', import.meta.url),
@@ -67,20 +84,8 @@ export function useMonteCarloWorker() {
         // The worker lives for the lifetime of the application.
     }, []);
 
-    // Adicionar cleanup periódico para requests órfãos
-    useEffect(() => {
-        const cleanupInterval = setInterval(() => {
-            const now = Date.now();
-            for (const [id, pending] of sharedPendingRequests) {
-                if (pending.createdAt && now - pending.createdAt > 60000) {
-                    clearTimeout(pending.timeoutId);
-                    sharedPendingRequests.delete(id);
-                }
-            }
-        }, 30000);
-        return () => clearInterval(cleanupInterval);
-    }, []);
-
+    // O cleanup periódico de requests órfãos agora é feito no nível do módulo (singleton)
+    
     const runAnalysis = useCallback(async (...args) => {
         if (!sharedWorker) {
             initSharedWorker();

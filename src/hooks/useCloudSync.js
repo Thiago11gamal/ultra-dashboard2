@@ -1034,19 +1034,19 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         // ✅ LOTE-03: resetar o contador para permitir retries futuros
         syncReentryCountRef.current = 0;
       }
-
-      if (isMountedRef.current) {
-        setIsInternalSyncing(false);
-        isInternalSyncingRef.current = false;
-        if (needsSyncRef.current && syncReentryCountRef.current < MAX_SYNC_REENTRY) {
-          syncReentryCountRef.current++;
-          syncToCloud();
-        } else {
-          syncReentryCountRef.current = 0;
-        }
-      }
       } finally {
+        // ✅ SEMPRE liberar o mutex
         syncMutexRef.current = false;
+        if (isMountedRef.current) {
+          setIsInternalSyncing(false);
+          isInternalSyncingRef.current = false;
+          if (needsSyncRef.current && syncReentryCountRef.current < MAX_SYNC_REENTRY) {
+            syncReentryCountRef.current++;
+            syncToCloud();
+          } else {
+            syncReentryCountRef.current = 0;
+          }
+        }
       }
     };
 
