@@ -89,7 +89,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const t0_vol = (d0 && !Number.isNaN(d0.getTime())) ? d0.getTime() : Date.now();
     
     // OTIMIZAÇÃO DE PERFORMANCE: Fusão de loops O(5N) para O(N)
-    let sumWeights = 0, sumResidualsWeighted = 0, sumSw = 0, sumSw2 = 0;
+    let sumWeights = 0, sumResidualsWeighted = 0, sumSw = 0;
 
     const residualSamples = validSorted.map(h => {
         const hDate = h.date || h.createdAt;
@@ -105,7 +105,6 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         sumWeights += w;
         sumResidualsWeighted += val * w;
         sumSw += val * val * w;
-        sumSw2 += w * w;
 
         return { value: val, weight: w }; 
     }).filter(Boolean);
@@ -114,18 +113,14 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     // evitamos a divisão por zero para que o aluno mantenha um cone de projeção conservador.
     const safeWeights = sumWeights > 1e-15 ? sumWeights : 1;
     const expectedResidual = sumWeights > 1e-15 ? (sumResidualsWeighted / safeWeights) : 0;
-    
-    // CORREÇÃO: Calcular o Tamanho Efetivo de Amostra (Kish) dos pesos exponenciais
-    const effectiveN = sumSw2 > 1e-15 ? (sumWeights * sumWeights) / sumSw2 : 1;
-    
-    // O bessel deve responder ao Effective N, não à contagem bruta temporal (n_res)
-    const bessel = effectiveN > 1.5 ? effectiveN / (effectiveN - 1) : 1;
-    const mssdVariance = sumWeights > 1e-15 ? Math.max(0, ((sumSw / safeWeights) - (expectedResidual * expectedResidual)) * bessel) : 0;
+    const n_res = validSorted.length - 1;
+    const bessel = n_res > 1 ? n_res / (n_res - 1) : 1;
+    const mssdVariance = ((sumSw / safeWeights) - (expectedResidual * expectedResidual)) * bessel;
 
     const weightedMedian = (arr) => {
         if (!arr.length) return 0;
         const sortedArr = [...arr].sort((a, b) => a.value - b.value);
-        const totalW = kahanSum(sortedArr.map(it => it.weight));
+        const totalW = sortedArr.reduce((acc, it) => acc + it.weight, 0);
         if (totalW < 1e-15) return sortedArr[Math.floor(sortedArr.length / 2)].value;
         let accW = 0;
         for (const it of sortedArr) {
@@ -138,8 +133,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const medianResidual = weightedMedian(residualSamples);
     const absDev = residualSamples.map(it => ({ value: Math.abs(it.value - medianResidual), weight: it.weight }));
     const mad = weightedMedian(absDev);
-    const robustSigma = 1.4826 * mad;
-    const robustVariance = robustSigma * robustSigma;
+    const robustVariance = Math.pow(1.4826 * mad, 2);
     const blendedVariance = (0.75 * mssdVariance) + (0.25 * robustVariance);
 
     // O PULO DO GATO: Shrinkage Bayesiano para Volatilidade (Bug 1 Fix)

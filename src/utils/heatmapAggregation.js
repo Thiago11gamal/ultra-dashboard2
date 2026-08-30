@@ -57,7 +57,6 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
  * antes da divisão final, e aplica Shrinkage Bayesiano (K=5).
  */
 export const calculateSubjectMastery = (subtopics) => {
-  // ✅ FIX: Blindagem contra array nulo, vazio ou mal formatado
   if (!subtopics) return 0;
   let safeSubtopics = [];
   if (Array.isArray(subtopics)) {
@@ -72,10 +71,9 @@ export const calculateSubjectMastery = (subtopics) => {
   let totalAcertos = 0;
   let totalQuestoes = 0;
   safeSubtopics.forEach(topic => {
-    if (!topic || typeof topic !== 'object') return;
+    if (!topic) return;
     const total = Math.max(0, Number(topic.total ?? topic.questoes ?? 0));
     const rawHits = Math.max(0, Number(topic.acertos ?? topic.hits ?? topic.correct ?? 0));
-    // ✅ FIX: Nunca permite mais acertos do que o total disponível
     const hits = Math.min(total, rawHits);
     if (Number.isFinite(hits) && Number.isFinite(total)) {
       totalAcertos += hits;

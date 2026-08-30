@@ -1,4 +1,4 @@
-import { safeClone } from './safeClone.js';
+import { safeClone } from '../utils/safeClone.js';
 import { INITIAL_DATA } from '../data/initialData';
 import { generateId } from '../utils/idGenerator';
 import { normalize, aliases } from '../utils/normalization';

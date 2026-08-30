@@ -1,9 +1,8 @@
+// ✅ FIX: meanBiasFactor é PERCENTUAL da escala (0.025 = 2.5% do maxScore)
 export const SCENARIO_CONFIG = {
-  // BUG-5 FIX: meanBiasFactor é percentual da escala (0.025 = 2.5% do maxScore)
-  // Antes era absoluto (±2.5 pts), distorcendo provas fora da escala 0-100.
   conservative: { meanBiasFactor: -0.015, ciMult: 1.5, probMultFactor: 0.045 },
-  base: { meanBiasFactor: 0, ciMult: 1, probMultFactor: 0 },
-  optimistic: { meanBiasFactor: 0.025, ciMult: 0.85, probMultFactor: 0.045 },
+  base:         { meanBiasFactor: 0,      ciMult: 1,   probMultFactor: 0 },
+  optimistic:   { meanBiasFactor: 0.025,  ciMult: 0.85, probMultFactor: 0.045 },
 };
 
 export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore = 100, minScore = 0) {
@@ -12,7 +11,6 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
   const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
   const lowerBound = Math.min(safeMinScore, safeMaxScore);
   const upperBound = Math.max(safeMinScore, safeMaxScore);
-
   const meanBias = (cfg.meanBiasFactor || 0) * safeMaxScore;
   const probMult = (cfg.probMultFactor || 0) * 100;
 
@@ -23,16 +21,9 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
       : mean;
     const low = Math.max(lowerBound, Math.min(upperBound, mean - ((mean - (d?.ciRange?.[0] ?? mean)) * cfg.ciMult)));
     const high = Math.max(lowerBound, Math.min(upperBound, mean + (((d?.ciRange?.[1] ?? mean) - mean) * cfg.ciMult)));
-
     const rawProb = Number(d?.probability);
     const probBase = Number.isFinite(rawProb) ? rawProb : 0;
-
-    const probAdj = Math.max(
-      0,
-      Math.min(100, probBase + (meanBias > 0 ? probMult : meanBias < 0 ? -probMult : 0))
-    );
-
-    // ✅ FIX: garantir que propability numérico finito não vire NaN
+    const probAdj = Math.max(0, Math.min(100, probBase + (meanBias > 0 ? probMult : meanBias < 0 ? -probMult : 0)));
     return {
       ...d,
       mean,
@@ -48,13 +39,11 @@ export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) 
   const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
   const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
   const range = Math.max(1e-9, safeMaxScore - safeMinScore);
-  
   const latest = data[data.length - 1];
   const high = Number(latest?.ciRange?.[1]);
   const low = Number(latest?.ciRange?.[0]);
   const width = Number.isFinite(high) && Number.isFinite(low) ? Math.max(0, high - low) : Number.POSITIVE_INFINITY;
 
-  // CORREÇÃO: Eliminar os valores estáticos (12, 6) e usar proporções matemáticas do range (12% e 6%)
   if (data.length < 4 || width >= (range * 0.18)) {
     return { label: 'Sinal Fraco', color: 'text-amber-300 border-amber-500/40 bg-amber-500/10' };
   }
@@ -63,4 +52,3 @@ export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) 
   }
   return { label: 'Sinal Médio', color: 'text-sky-300 border-sky-500/40 bg-sky-500/10' };
 }
-

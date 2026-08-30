@@ -80,8 +80,15 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
 export function computeEffectiveSampleSizeFromWeights(weights = []) {
     const clean = Array.isArray(weights) ? weights.map(w => Number(w)).filter(w => Number.isFinite(w) && w > 0) : [];
     if (clean.length === 0) return 0;
-    const sumW = kahanSum(clean);
-    const sumW2 = kahanSum(clean.map(w => w * w));
+    
+    // Normalizar pesos localmente ANTES de calcular o Kish
+    const rawSumW = clean.reduce((sum, w) => sum + w, 0);
+    if (rawSumW <= 0) return 0;
+    const normalized = clean.map(w => w / rawSumW);
+    
+    const sumW = normalized.reduce((sum, w) => sum + w, 0); // ~1.0
+    const sumW2 = normalized.reduce((sum, w) => sum + w * w, 0);
+    
     return sumW2 > 0 ? (sumW * sumW) / sumW2 : 0;
 }
 

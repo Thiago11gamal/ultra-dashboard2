@@ -22,18 +22,17 @@ const mapCollection = (collection, mapper) => {
  * Clamp seguro que NÃO propaga NaN.
  */
 export function clampFinite(value, min, max, fallback = min) {
-  const n = Number(value);
-  // ✅ FIX: Number.isFinite já rejeita NaN e Infinity
-  if (!Number.isFinite(n)) return fallback;
   let safeMin = Number(min);
   let safeMax = Number(max);
   if (!Number.isFinite(safeMin)) safeMin = 0;
   if (!Number.isFinite(safeMax)) safeMax = safeMin;
-  // ✅ FIX: Trocar se invertidos (dados corrompidos)
-  if (safeMin > safeMax) {
-    const tmp = safeMin;
-    safeMin = safeMax;
-    safeMax = tmp;
+  if (safeMin > safeMax) { const tmp = safeMin; safeMin = safeMax; safeMax = tmp; }
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    const fb = Number(fallback);
+    return Number.isFinite(fb)
+      ? Math.min(safeMax, Math.max(safeMin, fb))
+      : safeMin;
   }
   return Math.min(safeMax, Math.max(safeMin, n));
 }
@@ -45,14 +44,7 @@ export function safeDomain(maxScore, minScore = 0) {
   let rawMax = Number(maxScore);
   let max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
   let min = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-
-  // ✅ FIX: trocar se invertidos (dados corrompidos)
-  if (min > max) {
-    const tmp = min;
-    min = max;
-    max = tmp;
-  }
-
+  if (min > max) { const tmp = min; min = max; max = tmp; }
   const range = Math.max(1e-9, max - min);
   return { min, max, range };
 }
@@ -189,33 +181,17 @@ export function latestByDate(rows, getDate = (row) => row?.date || row?.createdA
 }
 
 export function resolveTargetPoints(value, domainOrMax, minScore = 0, unit = "auto") {
-  const actualUnit = typeof minScore === "string" && unit === "auto"
-    ? minScore
-    : unit;
-  const safeMinScore = typeof minScore === "number" ? minScore : 0;
-  const domain = asDomain(domainOrMax, safeMinScore);
+  const domain = asDomain(domainOrMax, typeof minScore === "number" ? minScore : 0);
+  const actualUnit = typeof minScore === "string" && unit === "auto" ? minScore : unit;
 
-  // Objeto com points ou pct explícitos
   if (value && typeof value === "object") {
-    if (Number.isFinite(value.points)) {
-      return clampFinite(value.points, domain.min, domain.max, domain.min);
-    }
-    if (Number.isFinite(value.pct)) {
-      return pctToPoints(value.pct, domain);
-    }
+    if (Number.isFinite(value.points)) return clampFinite(value.points, domain.min, domain.max, domain.min);
+    if (Number.isFinite(value.pct)) return pctToPoints(value.pct, domain);
   }
-
   const n = Number(value);
   if (!Number.isFinite(n)) return domain.min;
-
-  if (actualUnit === "points") {
-    return clampFinite(n, domain.min, domain.max, domain.min);
-  }
-  if (actualUnit === "pct") {
-    return pctToPoints(n, domain);
-  }
-
-  // ✅ FIX: Sem auto-detecção. Tratar como pontos.
+  if (actualUnit === "points") return clampFinite(n, domain.min, domain.max, domain.min);
+  if (actualUnit === "pct") return pctToPoints(n, domain);
   return clampFinite(n, domain.min, domain.max, domain.min);
 }
 

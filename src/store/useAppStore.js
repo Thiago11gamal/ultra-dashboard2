@@ -1,4 +1,4 @@
-import { safeClone } from './safeClone.js';
+import { safeClone } from '../utils/safeClone.js';
 import { create, useStore } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
@@ -18,267 +18,234 @@ import { createSettingsSlice } from './slices/createSettingsSlice.js';
 import { createMonteCarloSlice } from './slices/createMonteCarloSlice.js';
 import { clearCoachCaches } from '../utils/coachPipeline.js';
 
-// --- IndexedDB Adapter (Clean & Async) ---
+// --- IndexedDB Adapter ---
 const saveTimeouts = {};
-const savePromises = {}; // Novo rastreador de promises
+const savePromises = {};
 let isStorageLocked = false;
 
 const idbStorage = {
-    getItem: async (name) => {
-        try {
-            const val = await idbGet(name);
-            return val || null;
-        } catch (e) {
-            console.error('[Storage] Falha CRÍTICA ao ler IDB. Ativando LOCK de emergência:', e);
-            isStorageLocked = true;
-            return null;
-        }
-    },
-    setItem: (name, value) => {
-        return new Promise((resolve, reject) => {
-            if (isStorageLocked) {
-                console.warn('[Storage] Operação ignorada. Lock de emergência ativo.');
-                return resolve();
-            }
-            if (saveTimeouts[name]) {
-                clearTimeout(saveTimeouts[name]);
-                if (savePromises[name]) {
-                    savePromises[name].resolve();
-                }
-            }
-            savePromises[name] = { resolve, reject };
-            
-            saveTimeouts[name] = setTimeout(async () => {
-                try {
-                    await idbSet(name, value);
-                    savePromises[name]?.resolve();
-                } catch (e) {
-                    console.error('[Storage] Falha crítica ao escrever no IDB:', e);
-                    try {
-                        localStorage.setItem(name, value);
-                        console.warn('[Storage] Fallback localStorage usado para:', name);
-                        savePromises[name]?.resolve();
-                    } catch (fallbackErr) {
-                        console.error('[Storage] Fallback localStorage também falhou:', fallbackErr);
-                        savePromises[name]?.reject?.(fallbackErr);
-                    }
-                } finally {
-                    delete savePromises[name];
-                    delete saveTimeouts[name];
-                }
-            }, 250);
-        });
-    },
-    removeItem: async (name) => {
-        if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
-        if (savePromises[name]) {
-            savePromises[name].resolve();
-            delete savePromises[name];
-        }
-        try {
-            await idbDel(name);
-        } catch (e) {
-            console.warn('[Storage] Falha ao remover do IDB:', e);
-        }
-    },
-};
-
-export const useAppStore = create(
-    persist(
-        temporal(
-            immer((set, get) => ({
-                appState: {
-                    contests: { 'default': safeClone(INITIAL_DATA) },
-                    activeId: 'default',
-                    trash: [],
-                    version: 0,
-                    dashboardFilter: 'all',
-                    hasSeenTour: false,
-                    isHydrated: false, // Flag reativa de hidratação
-                    pomodoro: { 
-                        activeSubject: null, 
-                        sessions: 1, 
-                        targetCycles: 1, 
-                        completedCycles: 0, 
-                        accumulatedMinutes: 0,
-                        mode: 'work',
-                        neuralQueue: [],
-                        neuralMode: false
-                    },
-                    lastUpdated: "1970-01-01T00:00:00.000Z"
-                },
- 
-                // BUG-01 FIX: setDashboardFilter is defined exclusively in createSettingsSlice.js
-                // (spread below). Removed duplicate inline definition that lacked version/sync tracking.
- 
-                // 🎯 DATA LEAK PROTECTION: Limpeza absoluta da RAM no Logout.
-                resetStore: () => {
-                    localStorage.removeItem('pomodoroState');
-                    // MATH-03 / LEAK-01 FIX: Clear module-level MC cache on logout
-                    clearCoachCaches();
-
-                    // ✅ FIX: Limpar sessionStorage também
-                    try {
-                        sessionStorage.removeItem('hasSeenWelcomeScreen');
-                        sessionStorage.removeItem('ultra-sync-dirty');
-                        sessionStorage.removeItem('page-has-been-force-refreshed');
-                    } catch { /* ignore */ }
-
-                    // ✅ FIX: Notificar outras abas para encerrar Pomodoro
-                    try {
-                        const channel = new BroadcastChannel('pomodoro_sync');
-                        channel.postMessage({ type: 'TIMER_RESET', tabId: 'reset-all' });
-                        channel.close();
-                    } catch { /* BroadcastChannel indisponível */ }
-
-                    // ✅ Limpar temporal PRIMEIRO para evitar subscribers lendo estado inconsistente
-                    if (useAppStore.temporal) {
-                        useAppStore.temporal.getState().clear();
-                    }
-
-                    set((state) => {
-                        // Preservamos configurações de UI (tema, etc) mas limpamos dados sensíveis
-                        const settings = state.appState.settings;
-                        state.appState = {
-                            contests: { 'default': safeClone(INITIAL_DATA) },
-                            activeId: 'default',
-                            trash: [],
-                            version: 0,
-                            dashboardFilter: 'all',
-                            hasSeenTour: false,
-                            // ✅ FIX: Restaurar campos de data isolation global
-                            lastReviewSummary: null,
-                            lastReviewTime: null,
-                            activeWorkspace: 'default', // Para isolamento futuro
-                            pomodoro: { 
-                                activeSubject: null, 
-                                sessions: 1, 
-                                targetCycles: 1, 
-                                completedCycles: 0, 
-                                accumulatedMinutes: 0,
-                                mode: 'work',
-                                neuralQueue: [],
-                                neuralMode: false
-                            },
-                            lastUpdated: "1970-01-01T00:00:00.000Z",
-                            isHydrated: true,
-                            settings: settings // Preserva o tema escolhido
-                        };
-                    });
-                },
-
-                // Injetar os Slices
-                ...createPomodoroSlice(set, get),
-                ...createTaskSlice(set, get),
-                ...createCategorySlice(set, get),
-                ...createStudySlice(set, get),
-                ...createContestSlice(set, get),
-                ...createGamificationSlice(set, get),
-                ...createSimuladoSlice(set, get),
-                ...createTrashSlice(set, get),
-                ...createSettingsSlice(set, get),
-                ...createMonteCarloSlice(set, get),
-            })),
-            {
-                // Zundo Options: Limit history to 20 states
-                limit: 20,
-                // PERFORMANCE FIX: Ignora atualizações do Pomodoro e da UI. O histórico só é salvo se a base de dados (contests) mudar! O(1)
-                equality: (past, current) => past.appState?.contests === current.appState?.contests,
-                // BUG 1 FIX: Restringe o histórico do Zundo omitindo arrays massivos
-                // CORREÇÃO: Limpar também a Lixeira (trash) e o Histórico de Monte Carlo para evitar Memory Leak nas 20 instâncias de Undo
-                partialize: (state) => ({
-                    appState: {
-                        ...state.appState,
-                        trash: (state.appState.trash || []).slice(-10),
-                        contests: Object.keys(state.appState.contests || {}).reduce((acc, id) => {
-                            const c = state.appState.contests[id];
-                            acc[id] = {
-                                ...c,
-                                // Preserva últimos 50 registros para undo/redo funcional
-                                simulados: (c.simulados || []).slice(-50),
-                                studyLogs: (c.studyLogs || []).slice(-50),
-                                monteCarloHistory: (c.monteCarloHistory || []).slice(-30),
-                                simuladoRows: (c.simuladoRows || []).slice(-50),
-                            };
-                            return acc;
-                        }, {})
-                    }
-                }),
-            }
-        ),
-        {
-            name: 'ultra-dashboard-storage',
-            version: 5, // Forçar bump de versão
-            storage: createJSONStorage(() => idbStorage),
-            // Don't persist the history/temporal state itself, just the app state
-            partialize: (state) => ({ appState: state.appState }),
-
-            onRehydrateStorage: () => {
-                return (state, error) => {
-                    // Em caso de erro, libera a UI para mostrar estado vazio/erro em vez de travar
-                    if (error || !state) {
-                        useAppStore.setState((prev) => ({
-                            appState: { ...prev.appState, isHydrated: true }
-                        }));
-                        return;
-                    }
- 
-                    // Resolução Síncrona do ActiveId para evitar Flash of Empty State (FOES)
-                    const appState = state.appState || {};
-                    const contestsList = Object.keys(appState.contests || {});
-                    let targetId = appState.activeId;
-                    let targetContests = appState.contests;
-                    
-                    try {
-                        if ((!targetId || !targetContests?.[targetId]) && contestsList.length > 0) {
-                            targetId = contestsList[0];
-                        } else if (contestsList.length === 0) {
-                            targetId = 'default';
-                            targetContests = { 'default': safeClone(INITIAL_DATA) };
-                        }
-                    } catch (e) {
-                        console.error("[Zustand] Falha estrutural CRÍTICA na reconstrução do estado base.", e);
-                        // Solução absoluta: Purgar armazenamento corrompido para que a app respire no próximo reload
-                        localStorage.removeItem('ultra-dashboard-storage');
-                        idbDel('ultra-dashboard-storage').catch(() => {});
-                        targetId = 'default';
-                        targetContests = { 'default': safeClone(INITIAL_DATA) };
-                    }
-
-                    // Atualização Atômica: ID e Hidratação juntos, sem mutação direta do estado persistido
-                    useAppStore.setState((prev) => {
-                        const currentAppState = prev.appState || {};
-                        const validatedState = validateAppState({
-                            ...currentAppState,
-                            contests: targetContests || currentAppState.contests || { 'default': { simulados: [], tasks: [] } },
-                            activeId: targetId
-                        });
-                        
-                        return {
-                            appState: {
-                                ...validatedState,
-                                isHydrated: true
-                            }
-                        };
-                    });
-                };
-            }
-        }
-    )
-);
-
-// Helper to access temporal store easily
-export const useTemporalStore = (selector) => {
-    return useStore(useAppStore.temporal, selector);
-};
-
-// MATH-03 / LEAK-01 FIX: Invalidate cache when activeId changes
-let previousActiveId = useAppStore.getState().appState.activeId;
-useAppStore.subscribe((state) => {
-    const currentActiveId = state.appState.activeId;
-    if (currentActiveId !== previousActiveId) {
-        previousActiveId = currentActiveId;
-        clearCoachCaches();
+  getItem: async (name) => {
+    try {
+      const val = await idbGet(name);
+      return val || null;
+    } catch (e) {
+      console.error('[Storage] Falha CRÍTICA ao ler IDB. Ativando LOCK:', e);
+      isStorageLocked = true;
+      return null;
     }
+  },
+  setItem: (name, value) => {
+    return new Promise((resolve, reject) => {
+      if (isStorageLocked) {
+        console.warn('[Storage] Operação ignorada. Lock ativo.');
+        return resolve();
+      }
+      if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
+      savePromises[name] = { resolve, reject };
+      saveTimeouts[name] = setTimeout(async () => {
+        try {
+          await idbSet(name, value);
+          savePromises[name]?.resolve();
+        } catch (e) {
+          console.error('[Storage] Falha ao escrever no IDB:', e);
+          try {
+            localStorage.setItem(name, value);
+            savePromises[name]?.resolve();
+          } catch (fallbackErr) {
+            savePromises[name]?.reject?.(fallbackErr);
+          }
+        } finally {
+          delete savePromises[name];
+          delete saveTimeouts[name];
+        }
+      }, 250);
+    });
+  },
+  removeItem: async (name) => {
+    if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
+    if (savePromises[name]) savePromises[name].reject(new Error('Removed'));
+    try { await idbDel(name); } catch { /* ignore */ }
+  },
+};
+
+// ✅ FIX: ESTADO INICIAL COMPLETO — inclui TODOS os campos que componentes acessam
+const getFullInitialState = () => ({
+  contests: { 'default': safeClone(INITIAL_DATA) },
+  activeId: 'default',
+  trash: [],
+  version: 0,
+  dashboardFilter: 'all',
+  hasSeenTour: false,
+  isHydrated: false,
+  // ✅ Campos que faltavam e causavam crashes pós-reset
+  lastReviewSummary: null,
+  lastReviewTime: null,
+  activeWorkspace: 'default',
+  pomodoro: {
+    activeSubject: null,
+    sessions: 1,
+    targetCycles: 1,
+    completedCycles: 0,
+    accumulatedMinutes: 0,
+    mode: 'work',
+    neuralQueue: [],
+    neuralMode: false
+  },
+  lastUpdated: "1970-01-01T00:00:00.000Z"
 });
 
+export const useAppStore = create(
+  persist(
+    temporal(
+      immer((set, get) => ({
+        appState: getFullInitialState(),
+
+        // ✅ FIX: resetStore COMPLETO — limpa TODOS os campos
+        resetStore: () => {
+          localStorage.removeItem('pomodoroState');
+          clearCoachCaches();
+          try {
+            sessionStorage.removeItem('hasSeenWelcomeScreen');
+            sessionStorage.removeItem('ultra-sync-dirty');
+            sessionStorage.removeItem('page-has-been-force-refreshed');
+          } catch { /* ignore */ }
+          try {
+            const channel = new BroadcastChannel('pomodoro_sync');
+            channel.postMessage({ type: 'TIMER_RESET', tabId: 'reset-all' });
+            channel.close();
+          } catch { /* ignore */ }
+
+          if (useAppStore.temporal) {
+            useAppStore.temporal.getState().clear();
+          }
+
+          set((state) => {
+            const settings = state.appState.settings;
+            state.appState = {
+              ...getFullInitialState(),
+              isHydrated: true,
+              settings: settings
+            };
+          });
+        },
+
+        // ✅ FIX: setData usa Object.assign para preservar Proxy Immer
+        setData: (newDataCallback) => set((state) => {
+          const contestId = state.appState.activeId;
+          const currentData = state.appState.contests[contestId];
+          if (!currentData) return;
+
+          const nextData = typeof newDataCallback === 'function'
+            ? newDataCallback(currentData)
+            : newDataCallback;
+
+          if (nextData !== undefined && nextData !== null && typeof nextData === 'object') {
+            Object.assign(state.appState.contests[contestId], nextData);
+          }
+
+          const nowIso = new Date().toISOString();
+          if (state.appState.contests[contestId]) {
+            state.appState.contests[contestId].lastUpdated = nowIso;
+          }
+          state.appState.version = (state.appState.version || 0) + 1;
+          state.appState.lastUpdated = nowIso;
+          try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+        }),
+
+        ...createPomodoroSlice(set, get),
+        ...createTaskSlice(set, get),
+        ...createCategorySlice(set, get),
+        ...createStudySlice(set, get),
+        ...createContestSlice(set, get),
+        ...createGamificationSlice(set, get),
+        ...createSimuladoSlice(set, get),
+        ...createTrashSlice(set, get),
+        ...createSettingsSlice(set, get),
+        ...createMonteCarloSlice(set, get),
+      })),
+      {
+        limit: 20,
+        equality: (past, current) => past.appState?.contests === current.appState?.contests,
+        partialize: (state) => ({
+          appState: {
+            ...state.appState,
+            trash: (state.appState.trash || []).slice(-10),
+            contests: Object.keys(state.appState.contests || {}).reduce((acc, id) => {
+              const c = state.appState.contests[id];
+              acc[id] = {
+                ...c,
+                simulados: (c.simulados || []).slice(-50),
+                studyLogs: (c.studyLogs || []).slice(-50),
+                monteCarloHistory: (c.monteCarloHistory || []).slice(-30),
+                simuladoRows: (c.simuladoRows || []).slice(-50),
+              };
+              return acc;
+            }, {})
+          }
+        }),
+      }
+    ),
+    {
+      name: 'ultra-dashboard-storage',
+      version: 5,
+      storage: createJSONStorage(() => idbStorage),
+      partialize: (state) => ({ appState: state.appState }),
+      onRehydrateStorage: () => {
+        return (state, error) => {
+          if (error || !state) {
+            useAppStore.setState((prev) => ({
+              appState: { ...prev.appState, isHydrated: true }
+            }));
+            return;
+          }
+          const appState = state.appState || {};
+          const contestsList = Object.keys(appState.contests || {});
+          let targetId = appState.activeId;
+          let targetContests = appState.contests;
+          try {
+            if ((!targetId || !targetContests?.[targetId]) && contestsList.length > 0) {
+              targetId = contestsList[0];
+            } else if (contestsList.length === 0) {
+              targetId = 'default';
+              targetContests = { 'default': safeClone(INITIAL_DATA) };
+            }
+          } catch (e) {
+            console.error("[Zustand] Falha estrutural CRÍTICA:", e);
+            try { localStorage.removeItem('ultra-dashboard-storage'); } catch { /* ignore */ }
+            try { idbDel('ultra-dashboard-storage').catch(() => {}); } catch { /* ignore */ }
+            targetId = 'default';
+            targetContests = { 'default': safeClone(INITIAL_DATA) };
+          }
+          useAppStore.setState((prev) => {
+            const currentAppState = prev.appState || {};
+            const validatedState = validateAppState({
+              ...currentAppState,
+              contests: targetContests || currentAppState.contests || { 'default': { simulados: [], tasks: [] } },
+              activeId: targetId
+            });
+            return {
+              appState: {
+                ...validatedState,
+                isHydrated: true
+              }
+            };
+          });
+        };
+      }
+    }
+  )
+);
+
+export const useTemporalStore = (selector) => {
+  return useStore(useAppStore.temporal, selector);
+};
+
+// MATH-03: Invalidate cache quando activeId muda
+let previousActiveId = useAppStore.getState().appState.activeId;
+useAppStore.subscribe((state) => {
+  const currentActiveId = state.appState.activeId;
+  if (currentActiveId !== previousActiveId) {
+    previousActiveId = currentActiveId;
+    clearCoachCaches();
+  }
+});

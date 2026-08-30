@@ -66,33 +66,19 @@ export function toPct(score, maxScore = 100, minScore = 0) {
 export function formatValue(value, digits = 1) {
   const n = Number(value);
   if (!Number.isFinite(n)) return '0';
-
   const safeDigits = Number.isFinite(Number(digits)) ? Math.max(0, Math.min(4, Number(digits))) : 1;
-
   if (Math.abs(n) >= 1000) {
     return n.toLocaleString('pt-BR', { maximumFractionDigits: safeDigits, minimumFractionDigits: 0 });
   }
-
   if (Math.abs(n) >= 10) {
     return n.toFixed(Math.min(safeDigits, 1)).replace(/\.0$/, '').replace(/(\.\d*?)0+$/, '$1');
   }
-
   if (Math.abs(n) >= 1) {
     return n.toFixed(Math.max(1, safeDigits)).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
   }
-
   if (Math.abs(n) > 0) {
-    // ✅ FIX: Limitar a 4 dígitos decimais para evitar resultados estranhos
-    const minDecimals = Math.max(2, safeDigits);
-    const maxDecimals = Math.min(4, minDecimals + 1);
-    const formatted = n.toFixed(maxDecimals).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-    // ✅ FIX: Se ainda for "0" ou "0.0", usar notação científica para valores muito pequenos
-    if (parseFloat(formatted) === 0 && n !== 0) {
-        return n.toExponential(2);
-    }
-    return formatted;
+    return n.toFixed(Math.min(4, Math.max(2, safeDigits + 1))).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
   }
-
   return '0';
 }
 

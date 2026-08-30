@@ -1,5 +1,6 @@
 import { getXPProgress } from './gamification.js';
-import { normalizeDate, getLocalMidnight, getDateKey, parseNoonLocal, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
+import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
+import { parseNoonLocal } from './parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
 import { safeDate } from '../engine/math/date.js';
 import { format } from 'date-fns';
@@ -66,12 +67,11 @@ const distributeRoundingRemainder = (items, targetSum = 100) => {
     return withRemainders;
 };
 
-export function calculateStudyStreak(studyLogs) {
+export const calculateStudyStreak = (studyLogs) => {
   const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
   if (!logsArray || logsArray.length === 0) {
     return { current: 0, best: 0, longest: 0, isActive: false };
   }
-  // ✅ FIX N-15: Usar getDateKey (ancorado em America/Manaus) para TODAS as comparações
   const daySet = new Set(
     logsArray
       .filter(log => log && log.date && getStudyMinutes(log) > 0)
@@ -88,15 +88,7 @@ export function calculateStudyStreak(studyLogs) {
   const lastDayStr = sortedDays[0];
   const t = parseNoonLocal(todayStr);
   const l = parseNoonLocal(lastDayStr);
-  // ✅ FIX: Validar datas antes de calcular
-  if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
-    return { current: 0, best: 0, longest: 0, isActive: false };
-  }
-  const diffDays = Math.round((t.getTime() - l.getTime()) / (1000 * 60 * 60 * 24));
-  // ✅ FIX: diffDays negativo = data futura → tratar como ativo
-  if (diffDays < 0) {
-    return { current: 1, best: 1, longest: 1, isActive: true };
-  }
+  const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
   if (diffDays >= 2) {
     const longest = calculateLongest(sortedDays);
     return { current: 0, best: longest, longest, isActive: false };
@@ -107,8 +99,8 @@ export function calculateStudyStreak(studyLogs) {
   for (let i = 0; i < maxIterations; i++) {
     if (!cursorKey || !daySet.has(cursorKey)) break;
     streak++;
-    const [y, m, d] = cursorKey.split('-').map(Number);
-    const anchored = new Date(y, m - 1, d, 12, 0, 0, 0);
+    const anchoredIso = `${cursorKey}T12:00:00-04:00`;
+    const anchored = new Date(anchoredIso);
     anchored.setDate(anchored.getDate() - 1);
     const nextKey = getDateKey(anchored);
     if (nextKey === cursorKey) break;
@@ -116,7 +108,7 @@ export function calculateStudyStreak(studyLogs) {
   }
   const longest = calculateLongest(sortedDays);
   return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
-}
+};
 
 
 const calculateLongest = (uniqueDays) => {
@@ -156,26 +148,26 @@ export const getStudyMinutes = (entry) => {
  * extraCompletedCycles cobre blocos de foco da sessão ativa ainda não persistidos em log.
  */
 export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompletedCycles = 0) => {
-    const logsArray = toArray(studyLogs);
-    const workDuration = Math.max(1, Number(pomodoroWork) || 25);
-    const todayKey = getDateKey(new Date());
+  const logsArray = toArray(studyLogs);
+  const workDuration = Math.max(1, Number(pomodoroWork) || 25);
+  const todayRange = getManausDayRange(new Date());
+  const todayKey = getDateKey(new Date());
 
-    const minutesToday = logsArray.reduce((sum, log) => {
-        // ✅ FIX N-02: Ignorar logs de flashcard
-        if (log?.type === 'flashcard') return sum;
+  const minutesToday = logsArray.reduce((sum, log) => {
+    const d = safeDate(log?.date);
+    if (!d) return sum;
+    if (getDateKey(d) === todayKey) return sum + getStudyMinutes(log);
+    const t = d.getTime();
+    if (todayRange && t >= todayRange.start && t < todayRange.end) {
+      return sum + getStudyMinutes(log);
+    }
+    return sum;
+  }, 0);
 
-        const logKey = getDateKey(log?.date);
-        if (logKey === todayKey) {
-            return sum + getStudyMinutes(log);
-        }
-        return sum;
-    }, 0);
-
-    const pomodorosFromLogs = Number.isFinite(minutesToday)
-        ? Math.floor(minutesToday / workDuration)
-        : 0;
-    const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
-    return pomodorosFromLogs + safeExtra;
+  const pomodorosFromLogs = Number.isFinite(minutesToday)
+    ? Math.floor(minutesToday / workDuration) : 0;
+  const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
+  return pomodorosFromLogs + safeExtra;
 };
 
 /** Total de pomodoros (vida útil) baseado em minutos reais, não contagem de sessões. */

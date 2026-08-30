@@ -1,6 +1,6 @@
 import { generateId } from '../../utils/idGenerator';
 import { INITIAL_DATA } from '../../data/initialData';
-import { safeClone } from '../safeClone.js';
+import { safeClone } from '../../utils/safeClone.js';
 import { current } from 'immer';
 
 // BUG-FIX: Pomodoro reset shape estava incompleto (mode/neuralQueue/neuralMode ausentes),

@@ -1,12 +1,7 @@
 export function safeDomain(maxScore = 100, minScore = 0) {
   let max = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
   let min = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  // FIX: trocar min/max se invertidos (dados corrompidos)
-  if (min > max) {
-      const tmp = min;
-      min = max;
-      max = tmp;
-  }
+  if (min > max) { const tmp = min; min = max; max = tmp; }
   const range = Math.max(1e-9, max - min);
   return { min, max, range };
 }

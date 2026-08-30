@@ -12,88 +12,74 @@ export const safeDateParse = (dateInput, fallback = null) => {
 };
 
 export function parseGoalDateUnified(value) {
-    if (!value) return null;
-
-    if (value instanceof Date) {
-        return Number.isNaN(value.getTime()) ? null : value;
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [year, month, day] = value.split('-').map(Number);
+      const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+      return Number.isNaN(date.getTime()) ? null : date;
     }
-
-    if (typeof value === 'string') {
-        // Formato yyyy-mm-dd
-        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-            const [year, month, day] = value.split('-').map(Number);
-
-            const date = new Date(year, month - 1, day, 12, 0, 0, 0);
-
-            return Number.isNaN(date.getTime()) ? null : date;
-        }
-
-        // Se for datetime sem T, tenta normalizar
-        const normalized = value.includes('T')
-            ? value
-            : `${value}T12:00:00`;
-
-        const date = new Date(normalized);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const fallback = new Date(value);
-
-    return Number.isNaN(fallback.getTime()) ? null : fallback;
+    const normalized = value.includes('T') ? value : `${value}T12:00:00`;
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const fallback = new Date(value);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
 
+// ✅ FIX: getDateKey com suporte a YY-MM-DD e extração direta de ISO
 export const getDateKey = (rawDate) => {
-    if (!rawDate) return new Date().toISOString().split('T')[0];
-    
-    if (typeof rawDate === 'string') {
-        const trimmed = rawDate.trim();
-        // ✅ FIX: Se for ISO string 'YYYY-MM-DD', extraia diretamente sem passar pelo timezone engine
-        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-            return trimmed;
-        }
-        // ✅ FIX: Handle YY-MM-DD strings to prevent year 1900 regression
-        if (/^\d{2}-\d{2}-\d{2}$/.test(trimmed)) {
-            const parts = trimmed.split('-');
-            const year = parseInt(parts[0], 10);
-            const fullYear = year < 100 ? 2000 + year : year;
-            return `${fullYear}-${parts[1]}-${parts[2]}`;
-        }
+  if (!rawDate) return new Date().toISOString().split('T')[0];
+
+  if (typeof rawDate === 'string') {
+    const trimmed = rawDate.trim();
+    // ISO 'YYYY-MM-DD' → extração direta
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
     }
-    // Suporte ao _seconds do firebase que vem cru sem getter de objeto Date
-    if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
-        const secs = rawDate.seconds || rawDate._seconds;
-        const d = new Date(secs * 1000);
-        return d.toISOString().split('T')[0];
+    // YY-MM-DD → previne regressão para ano 1900
+    if (/^\d{2}-\d{2}-\d{2}$/.test(trimmed)) {
+      const parts = trimmed.split('-');
+      const year = parseInt(parts[0], 10);
+      const fullYear = year < 100 ? 2000 + year : year;
+      return `${fullYear}-${parts[1]}-${parts[2]}`;
     }
-    
-    try {
-        const d = normalizeDate(rawDate) || new Date();
-        // Ajusta para o fuso de Manaus (UTC-4) para obter a data correta lá
-        const manausDate = new Date(d.getTime() - (4 * 3600000));
-        const year = manausDate.getUTCFullYear();
-        const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(manausDate.getUTCDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    } catch {
-        return new Date().toISOString().split('T')[0];
-    }
+  }
+
+  if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
+    const secs = rawDate.seconds || rawDate._seconds;
+    const d = new Date(secs * 1000);
+    return d.toISOString().split('T')[0];
+  }
+
+  try {
+    const d = normalizeDate(rawDate) || new Date();
+    const manausDate = new Date(d.getTime() - (4 * 3600000));
+    const year = manausDate.getUTCFullYear();
+    const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(manausDate.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
 };
 
 export const getLocalMidnight = (date = new Date()) => {
   try {
     const dateKey = getDateKey(date);
     if (!dateKey) {
-      // Fallback: extrair componentes UTC e ancorar em Manaus (UTC-4)
       const utc = new Date(date);
       return new Date(
         Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) +
         4 * 3600000
       );
     }
-    // ✅ FIX: Offset fixo de Manaus (-04:00) em vez de timezone local
-    // eslint-disable-next-line no-restricted-syntax
-    return new Date(`${dateKey}T00:00:00-04:00`);
+    // ✅ FIX: Offset fixo de Manaus (-04:00)
+    const isoMidnight = `${dateKey}T00:00:00-04:00`;
+    return new Date(isoMidnight);
   } catch {
     const utc = new Date(date);
     return new Date(
@@ -119,10 +105,10 @@ export const formatDisplayDate = (dateStr) => {
   return `${parts[2]}/${parts[1]}`;
 };
 
+// ✅ FIX: normalizeDate com offset -04:00 para YYYY-MM-DD
 export const normalizeDate = (raw) => {
   if (!raw) return null;
   let d;
-
   let isDateOnly = false;
   let normalizedRaw = raw;
 
@@ -139,24 +125,21 @@ export const normalizeDate = (raw) => {
   }
 
   if (typeof raw === "object" && (raw.seconds != null || raw._seconds != null)) {
-    // Firebase Timestamp
     const secs = raw.seconds != null ? raw.seconds : raw._seconds;
     d = new Date(secs * 1000);
   } else if (typeof raw === "string" && raw.includes("/")) {
-    // dd/mm/yyyy
     const parts = raw.split(/[/-]/);
     if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-      // eslint-disable-next-line no-restricted-syntax
-      d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
+      const isoBr = `${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`;
+      d = new Date(isoBr);
     } else {
       d = new Date(raw);
     }
   } else if (typeof raw === "string") {
     // ✅ FIX: YYYY-MM-DD → meio-dia de Manaus (UTC-4)
-    // ANTES: new Date("2025-01-15") = midnight UTC = dia anterior em Manaus
-    // eslint-disable-next-line no-restricted-syntax
+    const isoNoon = `${normalizedRaw}T12:00:00-04:00`;
     d = isDateOnly
-      ? new Date(`${normalizedRaw}T12:00:00-04:00`)
+      ? new Date(isoNoon)
       : new Date(raw);
   } else {
     d = new Date(raw);
@@ -181,21 +164,15 @@ export const formatTimeAgo = (date) => {
   const timeMs = toDateMs(date);
   if (Number.isNaN(timeMs)) return 'Data inválida';
   const rawDiff = Date.now() - timeMs;
-  // ✅ FIX: Validar que timeMs é positivo (não é timestamp corrompido)
-  if (timeMs <= 0) return 'Data inválida';
   if (rawDiff < 0) {
     if (Math.abs(rawDiff) <= 60_000) return 'Agora há pouco';
-    // ✅ FIX: Se a data está muito no futuro (> 1 ano), provavelmente é dado corrompido
-    if (Math.abs(rawDiff) > 365 * 24 * 60 * 60 * 1000) return 'Data inválida';
     return 'No futuro';
   }
-  
   const diff = rawDiff;
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const days = Math.floor(hours / 24);
   const weeks = Math.floor(days / 7);
   const months = Math.floor(days / 30);
-  
   if (hours < 1) return 'Agora há pouco';
   if (hours < 24) return `${hours}h atrás`;
   if (days === 1) return 'Ontem';
@@ -209,12 +186,7 @@ export const formatDuration = (decimalHours) => {
   const normalized = Math.max(0, safe);
   let hours = Math.floor(normalized);
   let minutes = Math.round((normalized - hours) * 60);
-  
-  if (minutes >= 60) {
-    hours += 1;
-    minutes = 0;
-  }
-  
+  if (minutes >= 60) { hours += 1; minutes = 0; }
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '0h00';
   return `${hours}h${String(Math.max(0, minutes)).padStart(2, '0')}`;
 };
@@ -262,12 +234,13 @@ export const formatWeekdayShortPtBR = (date) => {
 export const getFlashcardTodayKey = () => getDateKey(new Date());
 
 export const getFlashcardNextDueKey = (intervalDays = 1) => {
-   const raw = Number(intervalDays);
-   const safeDays = Number.isFinite(raw) ? Math.max(1, Math.min(3650, Math.floor(raw))) : 1;
-   const anchor = new Date(`${getDateKey(new Date())}T12:00:00-04:00`);
-   const future = addDays(anchor, safeDays);
-   const key = getDateKey(future);
-   return key || getFlashcardTodayKey();
+  const raw = Number(intervalDays);
+  const safeDays = Number.isFinite(raw) ? Math.max(1, Math.min(3650, Math.floor(raw))) : 1;
+  const anchorIso = `${getDateKey(new Date())}T12:00:00-04:00`;
+  const anchor = new Date(anchorIso);
+  const future = addDays(anchor, safeDays);
+  const key = getDateKey(future);
+  return key || getFlashcardTodayKey();
 };
 
 export const isFlashcardDue = (cardDue, referenceKey = null) => {
@@ -276,22 +249,5 @@ export const isFlashcardDue = (cardDue, referenceKey = null) => {
   return cardDue <= todayKey;
 };
 
-export const parseNoonLocal = (input) => {
-  if (!input) return null;
-  try {
-    const key = getDateKey(input);
-    if (!key) {
-      const fallback = normalizeDate(input);
-      if (!fallback || Number.isNaN(fallback.getTime())) return null;
-      return fallback;
-    }
-    // ✅ FIX: Constroi ISO com offset -04:00 e delega pro motor nativo (ignora timezone local do device)
-    const tzFixedString = `${key}T12:00:00-04:00`;
-    return new Date(tzFixedString);
-  } catch {
-    return null;
-  }
-};
 
-
-
+export { parseNoonLocal } from './parseNoonLocal.js';

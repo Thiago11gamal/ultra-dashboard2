@@ -5,7 +5,7 @@ import { SYNC_LOG_CAP } from '../config';
 import { logger } from '../utils/logger';
 import { useAppStore } from '../store/useAppStore';
 import { normalize } from '../utils/normalization';
-import { safeClone } from '../store/safeClone.js';
+import { safeClone } from '../utils/safeClone.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { toArray } from '../utils/normalize.js';
 

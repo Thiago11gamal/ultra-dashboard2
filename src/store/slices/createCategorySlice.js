@@ -1,6 +1,6 @@
 import { generateId } from '../../utils/idGenerator';
 import { normalize } from '../../utils/normalization';
-import { safeClone } from '../safeClone.js';
+import { safeClone } from '../../utils/safeClone.js';
 
 export const createCategorySlice = (set) => ({
     addCategory: (name) => set((state) => {
