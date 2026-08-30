@@ -1,0 +1,499 @@
+# src\components\charts\GaussianPlot.jsx
+
+```jsx
+import React, { useMemo, useState, useId, useRef, useEffect } from 'react';
+import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian.js';
+import { formatDuration } from '../../utils/dateHelper';
+import { formatValue } from '../../utils/scoreHelper';
+
+/**
+ * GaussianPlot
+ * 
+ * Renders a probability density function (PDF) based on Monte Carlo results.
+ * Supports asymmetric distributions and Kernel Density Estimation (KDE) data.
+ * Hardened with defensive boundary checks and non-zero scoring floor support.
+ */
+export const GaussianPlot = ({ 
+    mean, 
+    sd, 
+    low95, 
+    high95, 
+    targetScore, 
+    currentMean, 
+    prob, 
+    sdLeft: propSdLeft, 
+    sdRight: propSdRight, 
+    kdeData, 
+    projectedMean, 
+    minScore = 0, 
+    maxScore = 100, 
+    unit = '%' 
+}) => {
+    const [hover, setHover] = useState(null);
+    const hoverRafRef = useRef(null);
+    const pendingHoverRef = useRef(null);
+
+    // LEAK-FIX: Cleanup de requestAnimationFrame pendente se o componente desmontar durante o hover
+    useEffect(() => {
+        return () => {
+            if (hoverRafRef.current != null) {
+                cancelAnimationFrame(hoverRafRef.current);
+                hoverRafRef.current = null;
+            }
+            pendingHoverRef.current = null; // ✅ Limpar pending também
+        };
+    }, []);
+
+    const instanceId = useId().replace(/:/g, '');
+    const ID = {
+        curveGrad: `gpCurveGradient_${instanceId}`,
+        areaGrad: `gpAreaGradient_${instanceId}`,
+        failGrad: `gpFailAreaGradient_${instanceId}`,
+        glow: `gpGlow_${instanceId}`,
+        chartClip: `chartClip_${instanceId}`
+    };
+
+    const successColor = '#22c55e';
+
+    const {
+        pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp,
+        domainMin, domainMax, curveY
+    } = useMemo(() => {
+        const domainMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const rawTargetVal = targetScore ?? 70;
+        const rawMean = Number.isFinite(Number(mean)) ? Number(mean) : domainMin;
+
+        // Ajuste dinâmico do teto visual para comportar escalas ENEM ou maiores
+        let rawMax = unit === '%' 
+            ? Math.max(domainMin + 1, Number(maxScore) || 100) 
+            : Math.max(Number(maxScore) || 100, rawTargetVal * 1.05, rawMean * 1.05);
+
+        const domainMax = Math.max(domainMin + 1e-9, rawMax);
+        const meanVal = Math.max(domainMin, Math.min(domainMax, rawMean));
+        const xMin = domainMin;
+        const range = domainMax - domainMin;
+        const safeRange = Math.max(1e-9, range);
+        
+        // Clamp do Alvo contra corrupções nos bounds visuais
+        const targetVal = Math.max(domainMin, Math.min(domainMax, rawTargetVal));
+
+        const sdFloor = safeRange * 0.001;
+        let vizSdLeft = Math.max(sdFloor, propSdLeft ?? sd ?? sdFloor);
+        let vizSdRight = Math.max(sdFloor, propSdRight ?? sd ?? sdFloor);
+
+        const hasValidKDE = kdeData && kdeData.length > 5;
+
+        // Se estivermos simulando uma Gaussiana Assimétrica para bater com a probabilidade real do motor
+        if (!hasValidKDE && prob != null && prob > 0 && prob < 100) {
+            const targetProb = prob / 100;
+            const m = meanVal;
+            const t = targetVal;
+
+            const getGeomProb = (tVal, mVal, sl, sr) => {
+                const normFactor = 2 / (sl + sr);
+                const pUnderflow = normFactor * sl * normalCDF_complement((mVal - domainMin) / sl);
+                const pOverflow = normFactor * sr * normalCDF_complement((domainMax - mVal) / sr);
+                const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
+
+                let pSuccess;
+                if (tVal >= mVal) {
+                    const pRightSuccess = normFactor * sr * normalCDF_complement((tVal - mVal) / sr);
+                    pSuccess = Math.max(0, pRightSuccess - pOverflow);
+                } else {
+                    const pLeftFail = normFactor * sl * normalCDF_complement((mVal - tVal) / sl);
+                    const totalLeftArea = normFactor * sl * 0.5;
+                    const totalRightArea = normFactor * sr * 0.5;
+                    pSuccess = Math.max(0, (totalLeftArea - pLeftFail) + (totalRightArea - pOverflow));
+                }
+                return pSuccess / truncatedTotal;
+            };
+
+            let sl = vizSdLeft, sr = vizSdRight;
+            for (let i = 0; i < 12; i++) {
+                const pg = getGeomProb(t, m, sl, sr);
+                if (isNaN(pg) || Math.abs(targetProb - pg) <= 0.002) break;
+
+                const r = targetProb / Math.max(0.005, pg);
+                const adjustment = t < m ? (1 / r) : r;
+                const damp = 0.85 * Math.pow(0.93, i);
+                const appliedAdj = 1 + (adjustment - 1) * damp;
+
+                const safeR = Math.min(1.5, Math.max(0.66, appliedAdj));
+                const currentCap = targetProb > 0.95 ? 8 : 4;
+
+                if (t < m) {
+                    sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * safeR));
+                } else {
+                    sr = Math.min(vizSdRight * currentCap, Math.max(1, sr * safeR));
+                }
+            }
+            vizSdLeft = sl; vizSdRight = sr;
+        }
+
+        const baseHeightFactor = 0.65;
+        const xp = (v) => 2 + (((v - xMin) / safeRange) * 96);
+        const yp = (yVal) => 100 - (yVal * 90);
+
+        let path;
+        let pointsForArea = [];
+
+        if (hasValidKDE) {
+            const points = [];
+            // FIX: Defesa Ativa contra Boundary Leaks no KDE recebido
+            const safeX = (val) => Math.max(domainMin, Math.min(domainMax, val));
+
+            points.push({ x: xp(safeX(kdeData[0].x)), y: 100 });
+            kdeData.forEach(p => {
+                points.push({ x: xp(safeX(p.x)), y: yp(p.y * baseHeightFactor) });
+            });
+            points.push({ x: xp(safeX(kdeData[kdeData.length - 1].x)), y: 100 });
+            path = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
+            pointsForArea = points;
+        } else {
+            const pts = generateGaussianPoints(xMin, domainMax, 100, meanVal, vizSdLeft, vizSdRight, baseHeightFactor, xp, yp);
+            path = `M ${pts.map(p => `${p.x},${p.y}`).join(' L ')}`;
+            pointsForArea = pts;
+        }
+
+        if (!pointsForArea || pointsForArea.length === 0) {
+            return {
+                pathData: '',
+                areaPathData: '',
+                failAreaPathData: '',
+                range: safeRange,
+                xMin,
+                targetVal,
+                xp,
+                domainMin,
+                domainMax,
+                curveY: () => 100
+            };
+        }
+
+        // ✅ LOTE-04 FIX (M4): busca binária O(log N) em vez de varredura linear O(N).
+        // Resolvido BUG-015: Uso de objetos em vez de strings evita garbage collection e CPU overhead de split() no hover.
+        const getYAtX = (pts, xTarget) => {
+            const n = pts.length;
+            if (n === 0) return 100;
+            const getX = (p) => p.x;
+            const getY = (p) => p.y;
+            // pts já está ordenado por x (KDE e generateGaussianPoints ordenam)
+            let loIdx = -1;
+            let lo = 0, hi = n - 1;
+            while (lo <= hi) {
+                const mid = (lo + hi) >> 1;
+                if (getX(pts[mid]) <= xTarget) {
+                    loIdx = mid;
+                    lo = mid + 1;
+                } else {
+                    hi = mid - 1;
+                }
+            }
+            if (loIdx === -1) return getY(pts[0]);
+            if (loIdx === n - 1) return getY(pts[n - 1]);
+            const loP = pts[loIdx];
+            const hiP = pts[loIdx + 1];
+            const lx = getX(loP);
+            const hx = getX(hiP);
+            if (hx === lx) return getY(loP);
+            const t = (xTarget - lx) / (hx - lx);
+            return getY(loP) + t * (getY(hiP) - getY(loP));
+        };
+
+        const successStart = Math.max(xMin, targetVal);
+        const yAtTargetVisual = hasValidKDE ? getYAtX(pointsForArea, xp(successStart)) : yp(asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, baseHeightFactor));
+
+        const areaPoints = [];
+        const failPoints = [];
+
+        const startXP = xp(successStart);
+
+        areaPoints.push({ x: startXP, y: yAtTargetVisual });
+        pointsForArea.forEach(p => {
+            if (p.x > startXP) areaPoints.push(p);
+        });
+        if (areaPoints.length > 0) {
+            const lastP = areaPoints[areaPoints.length - 1];
+            areaPoints.push({ x: lastP.x, y: 100 });
+            areaPoints.push({ x: startXP, y: 100 });
+        }
+
+        failPoints.push({ x: pointsForArea[0].x, y: 100 });
+        pointsForArea.forEach(p => {
+            if (p.x <= startXP) failPoints.push(p);
+        });
+        failPoints.push({ x: startXP, y: yAtTargetVisual });
+        failPoints.push({ x: startXP, y: 100 });
+
+        const areaPath = areaPoints.length > 2 ? `M ${areaPoints.map(p => `${p.x},${p.y}`).join(' L ')} Z` : '';
+        const failPath = failPoints.length > 2 ? `M ${failPoints.map(p => `${p.x},${p.y}`).join(' L ')} Z` : '';
+
+        const calculateCurveY = (x) => {
+            const safeXVal = Math.max(domainMin, Math.min(domainMax, Number(x) || domainMin));
+            if (hasValidKDE) return getYAtX(pointsForArea, xp(safeXVal));
+            return yp(asymmetricGaussian(safeXVal, meanVal, vizSdLeft, vizSdRight, baseHeightFactor));
+        };
+
+        return {
+            pathData: path, areaPathData: areaPath, failAreaPathData: failPath,
+            range, xMin, targetVal, xp,
+            domainMin, domainMax, curveY: calculateCurveY
+        };
+    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, minScore, maxScore, unit]);
+
+    const targetPos = xp(targetVal);
+    const targetY = curveY(targetVal);
+
+    const rawMeanVal = projectedMean ?? mean ?? 0;
+    const safeMean = Math.max(domainMin, Math.min(domainMax, rawMeanVal));
+    const meanPos = xp(safeMean);
+    const meanY = curveY(safeMean);
+
+    const boundedCurrent = currentMean != null && Number.isFinite(Number(currentMean))
+        ? Math.max(domainMin, Math.min(domainMax, Number(currentMean)))
+        : null;
+    const currentPos = boundedCurrent != null ? xp(boundedCurrent) : 0;
+    const currentY = boundedCurrent != null ? curveY(boundedCurrent) : 100;
+
+    const safeLow95 = Number.isFinite(Number(low95)) ? Number(low95) : (mean ?? 0);
+    const safeHigh95 = Number.isFinite(Number(high95)) ? Number(high95) : (mean ?? 0);
+    const ciLowBound = Math.max(domainMin, Math.min(domainMax, Math.min(safeLow95, safeHigh95)));
+    const ciHighBound = Math.max(domainMin, Math.min(domainMax, Math.max(safeLow95, safeHigh95)));
+    const ciHighPx = xp(ciHighBound);
+    const ciLowPx = xp(ciLowBound);
+
+    const isTargetVisible = targetPos >= 2 && targetPos <= 98;
+    const isMeanVisible = meanPos >= 2 && meanPos <= 98;
+    const isCurrentVisible = boundedCurrent != null && currentPos >= 2 && currentPos <= 98;
+
+    const resolvedLabels = useMemo(() => {
+        const items = [];
+        if (isTargetVisible) items.push({ id: 'target', x: targetPos });
+
+        const hideMean = isCurrentVisible && isMeanVisible && Math.abs(currentPos - meanPos) < 2.0;
+        if (!hideMean && isMeanVisible) items.push({ id: 'mean', x: meanPos });
+        if (isCurrentVisible) items.push({ id: 'today', x: currentPos });
+
+        const sorted = [...items].sort((a, b) => a.x - b.x);
+        const THRESHOLD = 14;
+
+        sorted.forEach((item, i) => {
+            item.level = 0;
+            if (i > 0) {
+                const prev = sorted[i - 1];
+                if (Math.abs(item.x - prev.x) < THRESHOLD) {
+                    item.level = prev.level + 1;
+                }
+            }
+        });
+
+        const res = { hideMean };
+        sorted.forEach(item => res[item.id] = item.level);
+        return res;
+    }, [targetPos, meanPos, currentPos, isTargetVisible, isMeanVisible, isCurrentVisible]);
+
+    const getLabelTop = (yPercent, level) => {
+        return `calc(${Math.max(12, yPercent)}% - ${34 + level * 28}px)`;
+    };
+
+    const getLabelLeft = (pos, id) => {
+        if (isTargetVisible && isMeanVisible && !resolvedLabels.hideMean && Math.abs(targetPos - meanPos) < 6) {
+            if (id === 'target') return Math.max(4, Math.min(96, targetPos <= meanPos ? pos - 2.5 : pos + 2.5));
+            if (id === 'mean') return Math.max(4, Math.min(96, meanPos >= targetPos ? pos + 2.5 : pos - 2.5));
+        }
+        return Math.max(4, Math.min(pos, 96));
+    };
+
+    const formatUnitValue = (val, u) => {
+        if (u === 'horas') return formatDuration(val);
+        if (u === '%') return `${formatValue(val)}%`;
+        return `${Number.isInteger(val) ? val : Number(val).toFixed(2)}${u || ''}`;
+    };
+
+    // T-041 FIX: suporte a touch para tooltip em mobile.
+    const updateHoverFromClientX = (clientX, el) => {
+        if (!el) return;
+
+        const rect = el.getBoundingClientRect();
+        const percentage = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+
+        const hoverRange = Math.max(1e-6, range);
+        const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * hoverRange));
+
+        pendingHoverRef.current = { x: xp(val), val };
+
+        if (hoverRafRef.current != null) return;
+
+        hoverRafRef.current = requestAnimationFrame(() => {
+            hoverRafRef.current = null;
+            setHover(pendingHoverRef.current);
+        });
+    };
+
+    const clearHover = () => {
+        if (hoverRafRef.current != null) {
+            cancelAnimationFrame(hoverRafRef.current);
+            hoverRafRef.current = null;
+        }
+
+        pendingHoverRef.current = null;
+        setHover(null);
+    };
+
+    return (
+        <div
+            className="relative w-full h-[200px] mt-10 sm:mt-12 mb-2 pb-6 cursor-crosshair group/chart"
+            onMouseMove={(e) => updateHoverFromClientX(e.clientX, e.currentTarget)}
+            onMouseLeave={clearHover}
+            onTouchStart={(e) => {
+                if (e.touches && e.touches[0]) {
+                    updateHoverFromClientX(e.touches[0].clientX, e.currentTarget);
+                }
+            }}
+            onTouchMove={(e) => {
+                if (e.touches && e.touches[0]) {
+                    updateHoverFromClientX(e.touches[0].clientX, e.currentTarget);
+                }
+            }}
+            onTouchEnd={clearHover}
+        >
+            {/* ... Gradientes laterais e SVG defs continuam iguais ... */}
+            <div style={{
+                position: 'absolute', width: '40px', top: 0, bottom: 0, pointerEvents: 'none', zIndex: 10, left: 0,
+                background: 'linear-gradient(to right, rgb(15, 23, 42), transparent)'
+            }} />
+            <div style={{
+                position: 'absolute', width: '40px', top: 0, bottom: 0, pointerEvents: 'none', zIndex: 10, right: 0,
+                background: 'linear-gradient(to left, rgb(15, 23, 42), transparent)'
+            }} />
+
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
+                <defs>
+                    <linearGradient id={ID.curveGrad} x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#6366f1" />
+                        <stop offset="50%" stopColor="#3b82f6" />
+                        <stop offset="100%" stopColor="#2dd4bf" />
+                    </linearGradient>
+                    <linearGradient id={ID.areaGrad} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={successColor} stopOpacity={0.7} />
+                        <stop offset="100%" stopColor={successColor} stopOpacity={0.2} />
+                    </linearGradient>
+                    <linearGradient id={ID.failGrad} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(239, 68, 68, 0.5)" />
+                        <stop offset="100%" stopColor="rgba(239, 68, 68, 0.1)" />
+                    </linearGradient>
+                    <filter id={ID.glow} x="-20%" y="-20%" width="140%" height="140%">
+                        {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
+                    </filter>
+                    <clipPath id={ID.chartClip}>
+                        <rect x="0" y="-50" width="100" height="200" />
+                    </clipPath>
+                </defs>
+
+                <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+
+                {low95 != null && high95 != null && (
+                    <rect x={ciLowPx} y="0" width={Math.max(0, ciHighPx - ciLowPx)} height="100" fill="rgba(59, 130, 246, 0.05)" className="transition-opacity duration-300 group-hover/chart:opacity-80" clipPath={`url(#${ID.chartClip})`} />
+                )}
+
+                <path d={failAreaPathData} fill={`url(#${ID.failGrad})`} stroke="#ef4444" strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-70 transition-all duration-1000" clipPath={`url(#${ID.chartClip})`} />
+                <path d={areaPathData} fill={`url(#${ID.areaGrad})`} stroke={successColor} strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-80 transition-all duration-1000" clipPath={`url(#${ID.chartClip})`} />
+
+                {/* Bottom Layer: Glow effect */}
+                <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="7" strokeOpacity="0.3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
+                {/* Top Layer: Main curve */}
+                <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
+
+                {isTargetVisible && <line x1={targetPos} y1="100" x2={targetPos} y2={targetY} stroke="#ef4444" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
+                {!resolvedLabels.hideMean && isMeanVisible && <line x1={meanPos} y1="100" x2={meanPos} y2={meanY} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
+                {isCurrentVisible && <line x1={currentPos} y1="100" x2={currentPos} y2={currentY} stroke="#ffffff" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
+            </svg>
+
+            <div className="absolute inset-0 pointer-events-none">
+                {isTargetVisible && (
+                    <div className="absolute w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(244,63,94,0.8)] transition-all duration-500"
+                        style={{ left: `${targetPos}%`, top: `${targetY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
+                )}
+                {!resolvedLabels.hideMean && isMeanVisible && (
+                    <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(59,130,246,0.8)] transition-all duration-500"
+                        style={{ left: `${meanPos}%`, top: `${meanY}%`, transform: 'translate(-50%, -50%)', zIndex: 16 }} />
+                )}
+                {isCurrentVisible && (
+                    <div className="absolute w-3 h-3 rounded-full bg-white border-2 border-slate-900 shadow-[0_0_12px_white] transition-all duration-500"
+                        style={{ left: `${currentPos}%`, top: `${currentY}%`, transform: 'translate(-50%, -50%)', zIndex: 25 }} />
+                )}
+            </div>
+
+            <div className="absolute inset-0 pointer-events-none">
+                {!resolvedLabels.hideMean && isMeanVisible && (
+                    <div className="absolute flex flex-col items-center transition-all duration-500"
+                        style={{ left: `${getLabelLeft(meanPos, 'mean')}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
+                        <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-blue-500/30 shadow-lg">
+                            <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(projectedMean ?? mean ?? 0, unit)}</span>
+                            <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
+                        </div>
+                        <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.mean || 0) * 28}px` }} />
+                    </div>
+                )}
+
+                {isTargetVisible && (
+                    <div className="absolute flex flex-col items-center transition-all duration-500"
+                        style={{ left: `${getLabelLeft(targetPos, 'target')}%`, top: getLabelTop(targetY, resolvedLabels.target || 0), transform: 'translateX(-50%)', zIndex: 20 }}>
+                        <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-rose-500/30 shadow-lg">
+                             <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(targetVal, unit)}</span>
+                            <span className="text-[7px] font-black text-rose-300 uppercase tracking-widest opacity-80">Meta</span>
+                        </div>
+                        <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.target || 0) * 28}px` }} />
+                    </div>
+                )}
+
+                {isCurrentVisible && (
+                    <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-40"
+                        style={{ left: `${getLabelLeft(currentPos, 'today')}%`, top: getLabelTop(currentY, resolvedLabels.today || 0), transform: 'translateX(-50%)', zIndex: 40 }}>
+                        <div className="flex flex-col items-center px-2 py-1 rounded-xl bg-slate-900/95 backdrop-blur-xl border border-white/20 shadow-xl">
+                            <span className="text-[11px] leading-none font-black text-white">{formatUnitValue(currentMean ?? 0, unit)}</span>
+                            {resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje/Projeção</span>}
+                            {!resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje</span>}
+                        </div>
+                        <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${10 + (resolvedLabels.today || 0) * 28}px` }} />
+                    </div>
+                )}
+            </div>
+
+            {hover && (
+                <div className="absolute inset-0 pointer-events-none z-50">
+                    <div className="absolute h-full w-px bg-white/10" style={{ left: `${hover.x}%` }} />
+                    <div className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_12px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, curveY(hover.val))}%`, transform: 'translate(-50%, -50%)' }} />
+                    
+                    {/* 🎯 FIX: Topo Seguro para a Tooltip, protegendo-a de sumir no topo da tela (Math.max(30)) */}
+                    <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 text-white px-2.5 py-1.5 rounded-xl shadow-2xl flex flex-col items-center min-w-[90px]" 
+                        style={{ left: `${Math.max(12, Math.min(88, hover.x))}%`, top: `${Math.max(30, curveY(hover.val) - 5)}%`, transform: 'translate(-50%, -100%)' }}>
+                        
+                        <span className="text-[15px] font-black tracking-tight leading-none">{formatUnitValue(hover.val, unit)}</span>
+                        <div className="flex items-center gap-1 mt-1">
+                            <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
+                            <span className={`text-[7.5px] font-black uppercase tracking-widest ${hover.val >= targetVal ? 'text-emerald-400' : 'text-slate-500'}`}>{hover.val >= targetVal ? 'Zona de Sucesso' : 'Abaixo da Meta'}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="absolute bottom-0 inset-x-0 h-4 pointer-events-none">
+                {[0, 0.25, 0.5, 0.75, 1.0].map(f => {
+                    const tickVal = domainMin + f * (domainMax - domainMin);
+                    const pct = 2 + f * 96;
+                    return (
+                        <span key={f} className="absolute text-[10px] font-black text-slate-400 uppercase tracking-tighter" style={{ left: `${pct}%`, transform: f === 0 ? 'translateX(0%)' : f === 1.0 ? 'translateX(-100%)' : 'translateX(-50%)' }}>
+                            {formatUnitValue(tickVal, unit)}
+                        </span>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+export default GaussianPlot;
+
+
+```

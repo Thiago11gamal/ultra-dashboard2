@@ -182,7 +182,11 @@ export function TodayVsGeneralChart({
                 }
                 corr = Math.max(0, Math.min(tot, corr));
                 if (tot === 0) return;
-                const isTodayDate = hDateKey === todayKey || (Math.abs(now - time) <= 86400000 && (new Date(time).toISOString().slice(0, 10) === new Date(now).toISOString().slice(0, 10) || new Date(time).getDate() === new Date(now).getDate()));
+                // ✅ FIX C05: isTodayDate deve usar APENAS a comparação de dateKey.
+                // A condição Math.abs(now - time) <= 86400000 verifica "últimas 24h",
+                // não "hoje". Um evento às 23h de ontem seria falsamente "hoje".
+                // A verificação por getDateKey já é suficiente e correta.
+                const isTodayDate = hDateKey === todayKey;
                 if (isTodayDate) { buckets.today.correct += corr; buckets.today.total += tot; }
                 if (now - time <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
                 if (now - time <= ms1Month) { buckets.month.correct += corr; buckets.month.total += tot; }

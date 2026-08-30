@@ -1,0 +1,916 @@
+<USER_REQUEST>
+Abaixo estão os códigos de correção completos, organizados por prioridade e arquivo.
+
+---
+
+## 🔴 CORREÇÕES CRÍTICAS
+
+---
+
+### FIX-C01 · `index.html` — Variável `allowedPrefixes` morta + `__APP_VERSION__` + `__BUILD_VERSION__`
+
+**Substitua todo o bloco `<script>` inline por este:**
+
+```html
+<script>
+  // ── FIX C01/C02/C03 ──────────────────────────────────────────────
+  // 1. Vite não substitui __APP_VERSION__ em scripts inline do HTML.
+  //    Usamos import.meta.env via módulo auxiliar injetado pelo Vite.
+  // 2. window.__BUILD_VERSION__ nunca era definido — agora é derivado
+  //    do meta tag ou do fallback 'dev'.
+  // 3. allowedPrefixes era declarada mas nunca usada — removida e
+  //    a lógica de filtro foi corrigida para usar o array corretamente.
+  // ─────────────────────────────────────────────────────────────────
+
+  window.addEventListener('error', (event) => {
+    const loaderText = document.querySelector('.loader-text');
+    if (!loaderText) return;
+    loaderText.textContent = 'Erro de carregamento: ' + event.message;
+    loaderText.style.color = '#f87171';
+    loaderText.style.animation = 'none';
+  });
+
+  // FIX C02/C03: Versão resolvida de forma confiável.
+  // O Vite injeta VITE_APP_VERSION no bundle JS; aqui usamos o meta
+  // tag como fonte primária e 'dev' como fallback.
+  const BUILD_VERSION = (() => {
+    try {
+      const meta = document.querySelector('meta[name="app-version"]');
+      if (meta?.content) return meta.content;
+    } catch { /* ignore */ }
+    return 'dev';
+  })();
+
+  // FIX C03: Definir window.__BUILD_VERSION__ para uso em outros scripts
+  window.__BUILD_VERSION__ = BUILD_VERSION;
+
+  console.log("[Build] Versão:", BUILD_VERSION);
+
+  setTimeout(() => {
+    const loaderText = document.querySelector('.loader-text');
+    if (!loaderText) return;
+    const currentText = loaderText.textContent || "";
+    if (!currentText.includes("Carregando")) return;
+    loaderText.textContent = "";
+
+    const title = document.createElement("div");
+    title.textContent = "Carregamento lento detectado...";
+
+    const version = document.createElement("small");
+    version.style.opacity = "0.5";
+    version.textContent = `Versão: ${BUILD_VERSION}`;
+
+    const btn = document.createElement("button");
+    btn.textContent = "Limpar dados e reiniciar";
+    btn.style.marginTop = "20px";
+    btn.style.background = "rgba(248, 113, 113, 0.2)";
+    btn.style.border = "1px solid #f87171";
+    btn.style.color = "#f87171";
+    btn.style.padding = "8px 16px";
+    btn.style.borderRadius = "8px";
+    btn.style.cursor = "pointer";
+    btn.style.fontSize = "12px";
+
+    async function clearAllLocalData() {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+
+        if ('serviceWorker' in navigator) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {
+              await registration.unregister();
+            }
+          } catch (swErr) {
+            console.error('Erro ao remover Service Worker:', swErr);
+          }
+        }
+
+        if ('indexedDB' in window && typeof indexedDB.databases === 'function') {
+          const dbs = await indexedDB.databases();
+          if (Array.isArray(dbs)) {
+            // FIX C01: Usar allowedPrefixes corretamente no filtro
+            const allowedPrefixes = ['ultra-dashboard', 'firestore/'];
+            const projectId = (typeof window.__FIREBASE_PROJECT_ID__ === 'string')
+              ? window.__FIREBASE_PROJECT_ID__
+              : null;
+            const firestorePrefix = projectId
+              ? `firestore/${projectId}`
+              : 'firestore/';
+
+            const deletePromises = dbs
+              .filter(db => {
+                if (!db.name) return false;
+                // FIX C01: Agora usa allowedPrefixes corretamente
+                return allowedPrefixes.some(prefix => {
+                  if (prefix === 'firestore/') {
+                    return String(db.name).startsWith(firestorePrefix);
+                  }
+                  return String(db.name).startsWith(prefix);
+                });
+              })
+              .map(db => new Promise((resolve) => {
+                const req = indexedDB.deleteDatabase(db.name);
+                req.onsuccess = () => resolve();
+                req.onerror = () => resolve();
+                req.onblocked = () => resolve();
+              }));
+
+            await Promise.all(deletePromises);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao limpar dados locais:', error);
+      } finally {
+        location.reload();
+      }
+    }
+
+    btn.addEventListener("click", async () => {
+      const ok = window.confirm(
+        "Isso apagará os dados locais deste navegador. Deseja continuar?"
+      );
+      if (ok) {
+        await clearAllLocalData();
+      }
+    });
+
+    loaderText.appendChild(title);
+    loaderText.appendChild(document.createElement("br"));
+    loaderText.appendChild(version);
+    loaderText.appendChild(document.createElement("br"));
+    loaderText.appendChild(btn);
+  }, 8000);
+</script>
+```
+
+**Adicione este meta tag no `<head>` do `index.html`:**
+
+```html
+<meta name="app-version" content="%VITE_APP_VERSION%" />
+```
+
+---
+
+### FIX-C05 · `TodayVsGeneralChart.jsx` — Lógica `isTodayDate` incorreta
+
+**Localize este bloco em `src/components/charts/EvolutionChart/TodayVsGeneralChart.jsx`:**
+
+```js
+// ❌ CÓDIGO COM BUG (linha ~dentro do useMemo temporalMetrics):
+const isTodayDate = hDateKey === todayKey || (Math.abs(now - time) <= 86400000 && (new Date(time).toISOString().slice(0, 10) === new Date(now).toISOString().slice(0, 10) || new Date(time).getDate() === new Date(now).getDate()));
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX C05: isTodayDate deve usar APENAS a comparação de dateKey.
+// A condição Math.abs(now - time) <= 86400000 verifica "últimas 24h",
+// não "hoje". Um evento às 23h de ontem seria falsamente "hoje".
+// A verificação por getDateKey já é suficiente e correta.
+const isTodayDate = hDateKey === todayKey;
+```
+
+---
+
+### FIX-C06 · `useCloudSync.js` — `isCloudPullRef` pode ficar preso
+
+**Localize em `src/hooks/useCloudSync.js` o efeito de safety net e substitua:**
+
+```js
+// ❌ CÓDIGO COM BUG:
+useEffect(() => {
+  if (!isCloudPullRef.current) return;
+  const safetyTimer = setTimeout(() => {
+    if (isCloudPullRef.current) {
+      console.warn('[Sync] isCloudPullRef ficou preso, resetando.');
+      isCloudPullRef.current = false;
+    }
+  }, 10000);
+  return () => clearTimeout(safetyTimer);
+}, [syncTrigger]); // ❌ Depende de syncTrigger — se não mudar, nunca roda
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX C06: Safety net independente de syncTrigger.
+// Usa setInterval para garantir que o reset ocorra mesmo sem mudanças
+// no trigger. O intervalo é leve (verificação a cada 5s) e só atua
+// quando isCloudPullRef está preso por mais de 10s.
+useEffect(() => {
+  let stuckSince = null;
+
+  const checkInterval = setInterval(() => {
+    if (isCloudPullRef.current) {
+      if (!stuckSince) {
+        stuckSince = Date.now();
+      } else if (Date.now() - stuckSince > 10000) {
+        console.warn('[Sync] isCloudPullRef preso por >10s, resetando.');
+        isCloudPullRef.current = false;
+        stuckSince = null;
+      }
+    } else {
+      stuckSince = null;
+    }
+  }, 5000);
+
+  return () => clearInterval(checkInterval);
+}, []); // ✅ Sem dependências — roda uma única vez
+```
+
+---
+
+### FIX-C07 · `AIGeneratedSimulado.jsx` — Contador `_aiIdCounter` com risco de colisão em HMR
+
+**Localize em `src/components/ai/AIGeneratedSimulado.jsx`:**
+
+```js
+// ❌ CÓDIGO COM BUG:
+let _aiIdCounter = 0;
+function nextAiId(prefix = 'ai') {
+  return `${prefix}-${Date.now()}-${++_aiIdCounter}-${Math.random().toString(36).slice(2, 7)}`;
+}
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX C07: Usa crypto.randomUUID() quando disponível, eliminando o
+// contador mutável que pode colidir após HMR (Hot Module Replacement).
+// Fallback para Date.now() + random longo quando crypto não existe.
+function nextAiId(prefix = 'ai') {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  // Fallback: timestamp de alta precisão + random duplo
+  const time = (typeof performance !== 'undefined' && performance.now)
+    ? performance.now().toString(36).replace('.', '')
+    : '';
+  const rand = () => Math.random().toString(36).substring(2, 11);
+  return `${prefix}-${Date.now().toString(36)}-${time}-${rand()}${rand()}`;
+}
+```
+
+---
+
+## 🟡 CORREÇÕES DE LÓGICA
+
+---
+
+### FIX-L01 · `analytics.js` — `distributeRoundingRemainder` com loop potencialmente infinito
+
+**Localize em `src/utils/analytics.js`:**
+
+```js
+// ❌ CÓDIGO COM BUG:
+const distributeRoundingRemainder = (items, targetSum = 100) => {
+    if (!items.length) return items;
+    const withRemainders = items.map(item => {
+        const value = item.rawPercentage || 0;
+        const floor = Math.floor(value);
+        return { ...item, percentage: floor, remainder: value - floor };
+    });
+    const currentSum = withRemainders.reduce((sum, item) => sum + item.percentage, 0);
+    let diff = targetSum - currentSum;
+    if (diff > 0) {
+        withRemainders.sort((a, b) => b.remainder - a.remainder);
+        let i = 0;
+        while (diff > 0 && withRemainders.length > 0) {
+            withRemainders[i % withRemainders.length].percentage += 1;
+            diff--;
+            i++;
+        }
+    }
+    return withRemainders;
+};
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX L01: Adicionado limite máximo de iterações para prevenir loop
+// infinito caso diff seja maior que items.length * N.
+const distributeRoundingRemainder = (items, targetSum = 100) => {
+    if (!items.length) return items;
+
+    const withRemainders = items.map(item => {
+        const value = Number(item.rawPercentage) || 0;
+        const floor = Math.floor(value);
+        return { ...item, percentage: floor, remainder: value - floor };
+    });
+
+    const currentSum = withRemainders.reduce((sum, item) => sum + item.percentage, 0);
+    let diff = targetSum - currentSum;
+
+    if (diff > 0) {
+        withRemainders.sort((a, b) => b.remainder - a.remainder);
+        let i = 0;
+        // ✅ FIX: Limite máximo de iterações = items.length * 2
+        // (cada item pode receber no máximo ~2 incrementos extras)
+        const maxIterations = withRemainders.length * 2;
+        let iterations = 0;
+
+        while (diff > 0 && withRemainders.length > 0 && iterations < maxIterations) {
+            withRemainders[i % withRemainders.length].percentage += 1;
+            diff--;
+            i++;
+            iterations++;
+        }
+
+        // Se ainda houver diff após o limite, distribuir uniformemente
+        if (diff > 0) {
+            console.warn('[distributeRoundingRemainder] diff residual após limite:', diff);
+        }
+    }
+
+    return withRemainders;
+};
+```
+
+---
+
+### FIX-L02 · `Checklist.jsx` — `sourceContest` derivado sem proteção
+
+**Localize em `src/components/Checklist.jsx`:**
+
+```js
+// ❌ CÓDIGO COM BUG:
+const sourceContest = contests?.[importSourceContest];
+const sourceCategories = useMemo(() => {
+    return toArray(sourceContest?.categories);
+}, [sourceContest]);
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX L02: sourceContest é derivado de contests e importSourceContest.
+// O useMemo agora depende de ambos os valores primitivos, não do objeto
+// derivado. Isso evita stale closures e re-renders desnecessários.
+const sourceContest = importSourceContest ? contests?.[importSourceContest] : null;
+
+const sourceCategories = useMemo(() => {
+    if (!sourceContest) return [];
+    return toArray(sourceContest.categories);
+}, [contests, importSourceContest]);
+```
+
+---
+
+### FIX-L05 · `useChartData.js` — `bayAlpha`/`bayBeta` podem ficar negativos
+
+**Localize em `src/hooks/useChartData.js` dentro de `buildCumulativeStatsPerDate`:**
+
+```js
+// ❌ CÓDIGO COM BUG (dentro do loop de datas):
+if (entryDecay < 1.0) {
+    const currentN = bayAlpha + bayBeta;
+    const currentP = bayAlpha / currentN;
+    const newN = Math.max(2, currentN * entryDecay);
+    bayAlpha = newN * currentP;
+    bayBeta = newN * (1 - currentP);
+}
+const retentionFloor = maxAlphaEver * 0.3;
+if (bayAlpha < retentionFloor) {
+    const currentN = bayAlpha + bayBeta;
+    const currentP = currentN > 0 && bayAlpha > 0 ? bayAlpha / currentN : 0.01;
+    const safeP = Math.min(0.999999, Math.max(0.000001, currentP));
+    bayAlpha = retentionFloor;
+    bayBeta = bayAlpha * ((1 - safeP) / safeP);
+}
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX L05: bayAlpha e bayBeta nunca podem ser negativos.
+// Adicionadas verificações de sanidade após cada operação.
+if (entryDecay < 1.0) {
+    const currentN = bayAlpha + bayBeta;
+    if (currentN > 0) {
+        const currentP = Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN));
+        const newN = Math.max(2, currentN * entryDecay);
+        bayAlpha = Math.max(0.000001, newN * currentP);
+        bayBeta = Math.max(0.000001, newN * (1 - currentP));
+    }
+}
+
+const retentionFloor = Math.max(3, maxAlphaEver * 0.3);
+if (bayAlpha < retentionFloor) {
+    const currentN = bayAlpha + bayBeta;
+    const currentP = currentN > 0 && bayAlpha > 0
+        ? Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN))
+        : 0.5;
+    bayAlpha = retentionFloor;
+    bayBeta = Math.max(0.000001, retentionFloor * ((1 - currentP) / currentP));
+}
+
+// ✅ FIX: Garantia final de sanidade
+if (!Number.isFinite(bayAlpha) || bayAlpha < 0) bayAlpha = 1;
+if (!Number.isFinite(bayBeta) || bayBeta < 0) bayBeta = 1;
+```
+
+---
+
+### FIX-L06 · `coachAdaptive.js` — `fatigueFlag` com scores inválidos
+
+**Localize em `src/utils/coachAdaptive.js` dentro de `simuladosToHistory`:**
+
+```js
+// ❌ CÓDIGO COM BUG:
+let burstCount = 1;
+for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const prev = sorted[i - 1];
+    if (current.rawTimestamp - prev.rawTimestamp < 7200000 && current.rawTimestamp > 0) burstCount++;
+    else burstCount = 1;
+    current.fatigueFlag = burstCount >= 3 && current.score < prev.score;
+}
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX L06: fatigueFlag agora ignora scores inválidos (NaN/Infinity).
+// Antes, NaN < NaN retornava false, mas NaN < número válido retornava
+// false também, mascarando fadiga real. Agora a comparação é protegida.
+let burstCount = 1;
+for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const prev = sorted[i - 1];
+
+    const isRapidSuccession =
+        current.rawTimestamp > 0 &&
+        prev.rawTimestamp > 0 &&
+        (current.rawTimestamp - prev.rawTimestamp) < 7200000;
+
+    if (isRapidSuccession) {
+        burstCount++;
+    } else {
+        burstCount = 1;
+    }
+
+    // ✅ FIX: Só calcular fatigueFlag se ambos os scores forem finitos
+    const currentScoreValid = Number.isFinite(current.score);
+    const prevScoreValid = Number.isFinite(prev.score);
+
+    if (currentScoreValid && prevScoreValid) {
+        current.fatigueFlag = burstCount >= 3 && current.score < prev.score;
+    } else {
+        current.fatigueFlag = false;
+    }
+}
+```
+
+---
+
+## 🟠 CORREÇÕES DE PERFORMANCE
+
+---
+
+### FIX-P01 · `AICoachPlanner.jsx` — `querySelectorAll` a cada frame durante drag
+
+**Localize em `src/components/AICoachPlanner.jsx` dentro do `useEffect` de drag:**
+
+```js
+// ❌ CÓDIGO COM BUG:
+useEffect(() => {
+    if (!isDragging) return;
+    let animationFrameId;
+    const updateHover = (clientX, clientY) => {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = requestAnimationFrame(() => {
+            const cols = document.querySelectorAll('[data-col-id]');
+            let found = null;
+            for (const col of cols) {
+                const rect = col.getBoundingClientRect();
+                if (clientX >= rect.left && clientX <= rect.right &&
+                    clientY >= rect.top && clientY <= rect.bottom) {
+                    found = col.getAttribute('data-col-id');
+                    break;
+                }
+            }
+            setHoveredCol(prev => (prev === found ? prev : found));
+        });
+    };
+    // ...
+}, [isDragging]);
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX P01: Cache dos elementos [data-col-id] no início do drag.
+// Antes, querySelectorAll era chamado a cada frame (~60fps), causando
+// layout thrashing. Agora os elementos são cacheados uma única vez
+// no início do drag e os rects são recalculados apenas quando necessário.
+useEffect(() => {
+    if (!isDragging) return;
+
+    // ✅ Cache dos elementos no início do drag
+    let cachedCols = null;
+    let cachedRects = null;
+    let lastScrollTop = window.scrollY;
+
+    const refreshCache = () => {
+        cachedCols = document.querySelectorAll('[data-col-id]');
+        cachedRects = Array.from(cachedCols).map(col => ({
+            id: col.getAttribute('data-col-id'),
+            rect: col.getBoundingClientRect()
+        }));
+        lastScrollTop = window.scrollY;
+    };
+
+    refreshCache();
+
+    let animationFrameId = null;
+    let lastClientX = -1;
+    let lastClientY = -1;
+
+    const updateHover = (clientX, clientY) => {
+        // Skip se a posição não mudou
+        if (clientX === lastClientX && clientY === lastClientY) return;
+        lastClientX = clientX;
+        lastClientY = clientY;
+
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = requestAnimationFrame(() => {
+            // ✅ Recalcular rects se houve scroll
+            if (Math.abs(window.scrollY - lastScrollTop) > 1) {
+                refreshCache();
+            }
+
+            if (!cachedRects) return;
+
+            let found = null;
+            for (const { id, rect } of cachedRects) {
+                if (clientX >= rect.left && clientX <= rect.right &&
+                    clientY >= rect.top && clientY <= rect.bottom) {
+                    found = id;
+                    break;
+                }
+            }
+            setHoveredCol(prev => (prev === found ? prev : found));
+        });
+    };
+
+    const handleMouseMove = (e) => updateHover(e.clientX, e.clientY);
+    const handleTouchMove = (e) => {
+        const touch = e.touches[0];
+        if (touch) updateHover(touch.clientX, touch.clientY);
+    };
+    const handleScroll = () => {
+        // Invalidar cache em scroll
+        cachedRects = null;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('scroll', handleScroll);
+        cancelAnimationFrame(animationFrameId);
+    };
+}, [isDragging]);
+```
+
+---
+
+### FIX-P02 · `useChartData.js` — `buildCumulativeStatsPerDate` O(n²)
+
+**Localize em `src/hooks/useChartData.js` a função `buildCumulativeStatsPerDate` e substitua o loop principal:**
+
+```js
+// ❌ CÓDIGO COM BUG (loop O(n*m) com sortedDates.forEach + history.forEach):
+// O loop externo itera sortedDates e para cada data itera todo o histórico.
+
+// ✅ FIX P02: Substituir por uma única passagem sobre o histórico,
+// agregando por data com Map, e depois percorrer sortedDates uma única vez.
+function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minScore = 0) {
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeRange = Math.max(1e-9, safeMax - safeMin);
+    const toRatio = (score) => {
+        const n = Number(score);
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.min(1, (n - safeMin) / safeRange));
+    };
+
+    // ✅ PASSO 1: Agregar por data em UMA única passagem O(n)
+    const aggregatedByDate = new Map();
+    const DECAY_FACTOR = 0.985;
+
+    for (const h of history) {
+        const key = getDateKey(getHistoryDate(h));
+        if (!key) continue;
+
+        if (!aggregatedByDate.has(key)) {
+            aggregatedByDate.set(key, {
+                date: key,
+                entries: []
+            });
+        }
+        aggregatedByDate.get(key).entries.push(h);
+    }
+
+    // ✅ PASSO 2: Percorrer sortedDates uma única vez O(m)
+    const dateToStats = {};
+    let accumulated = [];
+    let bayAlpha = 1;
+    let bayBeta = 1;
+    let maxAlphaEver = 1;
+
+    for (const date of sortedDates) {
+        const dayData = aggregatedByDate.get(date);
+        if (!dayData) {
+            // Data sem entradas — usar stats anteriores
+            if (accumulated.length > 0) {
+                const lastEntry = accumulated[accumulated.length - 1];
+                const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, safeMax, {
+                    referenceDate: date,
+                    lastEventDate: lastEntry ? lastEntry.date : null,
+                });
+                dateToStats[date] = {
+                    stats: computeCategoryStats(accumulated, 100, 60, safeMax),
+                    last: lastEntry,
+                    bayesian: {
+                        mean: bayStats.mean,
+                        ciLow: bayStats.ciLow,
+                        ciHigh: bayStats.ciHigh,
+                        alpha: bayAlpha,
+                        beta: bayBeta,
+                    },
+                };
+            }
+            continue;
+        }
+
+        // Processar entradas do dia
+        for (const h of dayData.entries) {
+            const entryDate = normalizeDate(getHistoryDate(h));
+            const prevDate = accumulated.length > 0
+                ? normalizeDate(getHistoryDate(accumulated[accumulated.length - 1]))
+                : entryDate;
+
+            const gapDays = entryDate && prevDate
+                ? Math.max(1, Math.floor((entryDate.getTime() - prevDate.getTime()) / 86400000))
+                : 1;
+
+            // Decaimento bayesiano
+            if (accumulated.length > 0) {
+                const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
+                if (entryDecay < 1.0) {
+                    const currentN = bayAlpha + bayBeta;
+                    if (currentN > 0) {
+                        const currentP = Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN));
+                        const newN = Math.max(2, currentN * entryDecay);
+                        bayAlpha = Math.max(0.000001, newN * currentP);
+                        bayBeta = Math.max(0.000001, newN * (1 - currentP));
+                    }
+                }
+                const retentionFloor = Math.max(3, maxAlphaEver * 0.3);
+                if (bayAlpha < retentionFloor) {
+                    const currentN = bayAlpha + bayBeta;
+                    const currentP = currentN > 0 && bayAlpha > 0
+                        ? Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN))
+                        : 0.5;
+                    bayAlpha = retentionFloor;
+                    bayBeta = Math.max(0.000001, retentionFloor * ((1 - currentP) / currentP));
+                }
+            }
+
+            accumulated.push(h);
+
+            // Atualizar maxAlphaEver
+            if (bayAlpha > maxAlphaEver) maxAlphaEver = bayAlpha;
+
+            // Sanidade final
+            if (!Number.isFinite(bayAlpha) || bayAlpha < 0) bayAlpha = 1;
+            if (!Number.isFinite(bayBeta) || bayBeta < 0) bayBeta = 1;
+        }
+
+        const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, safeMax, {
+            referenceDate: date,
+            lastEventDate: dayData.entries[dayData.entries.length - 1]?.date || null,
+        });
+
+        dateToStats[date] = {
+            stats: computeCategoryStats(accumulated, 100, 60, safeMax),
+            last: dayData.entries[dayData.entries.length - 1],
+            bayesian: {
+                mean: bayStats.mean,
+                ciLow: bayStats.ciLow,
+                ciHigh: bayStats.ciHigh,
+                alpha: bayAlpha,
+                beta: bayBeta,
+            },
+        };
+    }
+
+    return dateToStats;
+}
+```
+
+---
+
+## 🔒 CORREÇÕES DE SEGURANÇA
+
+---
+
+### FIX-S01 · `Login.jsx` — Sanitização insuficiente
+
+**Localize em `src/components/Login.jsx`:**
+
+```js
+// ❌ CÓDIGO COM BUG:
+const sanitizeInput = (value, maxLength = 200) => {
+    if (typeof value !== 'string') return '';
+    return value
+        .slice(0, maxLength)
+        .replace(/[<>]/g, '')
+        .replace(/javascript:/gi, '')
+        .replace(/on\w+=/gi, '');
+};
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX S01: Sanitização mais robusta usando DOMPurify (já disponível
+// no projeto via backupManager.js) + remoção de padrões perigosos.
+import DOMPurify from 'dompurify';
+
+const sanitizeInput = (value, maxLength = 200) => {
+    if (typeof value !== 'string') return '';
+
+    // Passo 1: Limitar comprimento
+    const truncated = value.slice(0, maxLength);
+
+    // Passo 2: Sanitizar com DOMPurify (remove HTML malicioso)
+    const sanitized = DOMPurify.sanitize(truncated, {
+        ALLOWED_TAGS: [],    // Nenhuma tag HTML permitida
+        ALLOWED_ATTR: [],    // Nenhum atributo permitido
+    });
+
+    // Passo 3: Remover padrões perigosos restantes
+    return sanitized
+        .replace(/javascript\s*:/gi, '')
+        .replace(/on\w+\s*=/gi, '')
+        .replace(/data\s*:/gi, '')
+        .replace(/vbscript\s*:/gi, '')
+        .replace(/expression\s*\(/gi, '')
+        .replace(/url\s*\(/gi, '')
+        .replace(/eval\s*\(/gi, '')
+        .replace(/document\s*\./gi, '')
+        .replace(/window\s*\./gi, '')
+        .trim();
+};
+```
+
+---
+
+### FIX-S02 · `aiQuestionService.js` — `credentials: 'include'` em fetch cross-origin
+
+**Localize em `src/services/aiQuestionService.js`:**
+
+```js
+// ❌ CÓDIGO COM BUG:
+const response = await fetch(`${AI_BACKEND_URL}/ai/generate-questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',  // ❌ Envia cookies cross-origin
+    signal: controller.signal,
+    body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName }),
+});
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX S02: credentials deve ser 'same-origin' por padrão.
+// Se o backend for cross-origin, o backend deve configurar CORS
+// explicitamente e o frontend deve usar 'include' apenas quando necessário.
+const isSameOrigin = (() => {
+    try {
+        const backendUrl = new URL(AI_BACKEND_URL, window.location.origin);
+        return backendUrl.origin === window.location.origin;
+    } catch {
+        return false;
+    }
+})();
+
+const response = await fetch(`${AI_BACKEND_URL}/ai/generate-questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: isSameOrigin ? 'same-origin' : 'omit',
+    signal: controller.signal,
+    body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName }),
+});
+```
+
+---
+
+### FIX-S03 · `firebase.js` — Limpeza incompleta de IndexedDB no logout
+
+**Localize em `src/services/firebase.js` a função `secureLogout`:**
+
+```js
+// ❌ CÓDIGO COM BUG (limpeza de IndexedDB pode falhar silenciosamente):
+try {
+    const { del } = await import('idb-keyval');
+    await del('ultra-dashboard-storage');
+} catch (e) {
+    console.warn('[Firebase] Falha ao limpar IndexedDB no logout:', e);
+}
+```
+
+**Substitua por:**
+
+```js
+// ✅ FIX S03: Limpeza de IndexedDB mais robusta com fallback manual.
+// Se idb-keyval falhar, tenta limpar diretamente via indexedDB API.
+try {
+    const { del, clear } = await import('idb-keyval');
+    await del('ultra-dashboard-storage');
+    await del('ultra-dashboard-data');
+    await clear(); // Limpa todas as chaves do idb-keyval
+} catch (e) {
+    console.warn('[Firebase] Falha ao limpar via idb-keyval, tentando fallback:', e);
+    // Fallback: limpar diretamente via indexedDB API
+    try {
+        if ('indexedDB' in window) {
+            const dbsToDelete = ['ultra-dashboard-storage', 'ultra-dashboard-data'];
+            const deletePromises = dbsToDelete.map(dbName =>
+                new Promise((resolve) => {
+                    const req = indexedDB.deleteDatabase(dbName);
+                    req.onsuccess = () => resolve();
+                    req.onerror = () => resolve();
+                    req.onblocked = () => resolve();
+                })
+            );
+            await Promise.allSettled(deletePromises);
+        }
+    } catch (fallbackErr) {
+        console.warn('[Firebase] Fallback de limpeza IndexedDB também falhou:', fallbackErr);
+    }
+}
+
+// ✅ FIX: Limpar também as chaves de quarantine
+try {
+    const quarantineKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('quarantine:')) {
+            quarantineKeys.push(k);
+        }
+    }
+    quarantineKeys.forEach(k => localStorage.removeItem(k));
+} catch { /* ignore */ }
+```
+
+---
+
+## 📋 RESUMO DAS CORREÇÕES
+
+| # | Bug | Arquivo | Prioridade | Status |
+|---|-----|---------|-----------|--------|
+| C01 | `allowedPrefixes` morta | `index.html` | 🔴 Crítica | ✅ Corrigido |
+| C02 | `__APP_VERSION__` não substituído | `index.html` | 🔴 Crítica | ✅ Corrigido |
+| C03 | `__BUILD_VERSION__` nunca definido | `index.html` | 🔴 Crítica | ✅ Corrigido |
+| C05 | `isTodayDate` incorreto | `TodayVsGeneralChart.jsx` | 🔴 Crítica | ✅ Corrigido |
+| C06 | `isCloudPullRef` preso | `useCloudSync.js` | 🔴 Crítica | ✅ Corrigido |
+| C07 | `_aiIdCounter` colisão HMR | `AIGeneratedSimulado.jsx` | 🔴 Crítica | ✅ Corrigido |
+| L01 | Loop potencial em `distributeRoundingRemainder` | `analytics.js` | 🟡 Alta | ✅ Corrigido |
+| L02 | `sourceContest` stale | `Checklist.jsx` | 🟡 Alta | ✅ Corrigido |
+| L05 | `bayAlpha`/`bayBeta` negativos | `useChartData.js` | 🟡 Alta | ✅ Corrigido |
+| L06 | `fatigueFlag` com NaN | `coachAdaptive.js` | 🟡 Alta | ✅ Corrigido |
+| P01 | `querySelectorAll` por frame | `AICoachPlanner.jsx` | 🟠 Média | ✅ Corrigido |
+| P02 | O(n²) em `buildCumulativeStatsPerDate` | `useChartData.js` | 🟠 Média | ✅ Corrigido |
+| S01 | Sanitização insuficiente | `Login.jsx` | 🔒 Segurança | ✅ Corrigido |
+| S02 | `credentials: 'include'` | `aiQuestionService.js` | 🔒 Segurança | ✅ Corrigido |
+| S03 | Limpeza IndexedDB incompleta | `firebase.js` | 🔒 Segurança | ✅ Corrigido |
+
+---
+
+Se precisar de correções adicionais para algum bug específico que não foi coberto aqui, ou quiser que eu expanda alguma correção com mais detalhes, é só pedir! 🚀
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-30T18:26:10-04:00.
+
+The user's current state is as follows:
+Active Document: d:\Downloads\ultra-patched\codigo_projeto_separado_md\src_components_ai_AIGeneratedSimulado.jsx.md (LANGUAGE_MARKDOWN)
+Cursor is on line: 1
+Other open documents:
+- d:\Downloads\ultra-patched\src\store\slices\createMonteCarloSlice.js (LANGUAGE_JAVASCRIPT)
+- d:\Downloads\ultra-patched\src\store\useAppStore.js (LANGUAGE_JAVASCRIPT)
+- d:\Downloads\ultra-patched\src\store\safeClone.js (LANGUAGE_JAVASCRIPT)
+- d:\Downloads\ultra-patched\codigo_projeto_separado_md\src_components_ai_AIGeneratedSimulado.jsx.md (LANGUAGE_MARKDOWN)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

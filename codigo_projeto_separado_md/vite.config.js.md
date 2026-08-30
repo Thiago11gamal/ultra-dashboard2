@@ -1,0 +1,83 @@
+# vite.config.js
+
+```js
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+import { VitePWA } from 'vite-plugin-pwa'
+
+export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || 'dev'),
+  },
+  plugins: [
+    react(), 
+    tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      devOptions: { enabled: false },
+      manifest: {
+        name: 'Ultra Dashboard 2',
+        short_name: 'Ultra',
+        description: 'Plataforma inteligente de estudos e simulados',
+        theme_color: '#0f172a',
+        background_color: '#020617',
+        display: 'standalone',
+        icons: [
+          {
+            src: '/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          }
+        ]
+      }
+    })
+  ],
+  envPrefix: ['VITE_'],
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
+  build: {
+    target: 'es2022',
+    minify: 'esbuild',
+    chunkSizeWarningLimit: 1000,
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
+          charts: ['recharts'],
+          pdf: ['html-to-image', 'jspdf'],
+          motion: ['framer-motion'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
+        },
+      },
+    },
+  },
+
+  // ─── VITEST ───────────────────────────────────────────────────────────────
+  test: {
+    // FIX 6: Transição para jsdom, libertando o acesso a APIs de browser (window, document)
+    // requeridas imperativamente por ficheiros 'src/**/*.test.jsx' que testam componentes React.
+    environment: 'jsdom',        
+    globals: true,              
+    include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'src/**/*.spec.js', 'tests/**/*.test.js'],
+    globalTeardown: './tests/teardown.js',
+    testTimeout: 20000,
+    coverage: {
+      provider: 'v8',
+      include: ['src/engine/**', 'src/utils/coachLogic.js'],
+    },
+  },
+  // ──────────────────────────────────────────────────────────────────────────
+})
+
+
+```

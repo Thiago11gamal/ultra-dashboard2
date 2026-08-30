@@ -4,15 +4,34 @@ import { isLocalMode } from '../services/firebase';
 import { User, Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import logo from '../assets/logo.png';
 import './Login.css';
+// ✅ FIX S01: Sanitização mais robusta usando DOMPurify
+import DOMPurify from 'dompurify';
 
 // FIX 5.1a: Sanitização de entrada contra XSS
 const sanitizeInput = (value, maxLength = 200) => {
     if (typeof value !== 'string') return '';
-    return value
-        .slice(0, maxLength)
-        .replace(/[<>]/g, '')        // Remove tags HTML
-        .replace(/javascript:/gi, '') // Remove protocolos perigosos
-        .replace(/on\w+=/gi, '');     // Remove event handlers inline
+
+    // Passo 1: Limitar comprimento
+    const truncated = value.slice(0, maxLength);
+
+    // Passo 2: Sanitizar com DOMPurify (remove HTML malicioso)
+    const sanitized = DOMPurify.sanitize(truncated, {
+        ALLOWED_TAGS: [],    // Nenhuma tag HTML permitida
+        ALLOWED_ATTR: [],    // Nenhum atributo permitido
+    });
+
+    // Passo 3: Remover padrões perigosos restantes
+    return sanitized
+        .replace(/javascript\s*:/gi, '')
+        .replace(/on\w+\s*=/gi, '')
+        .replace(/data\s*:/gi, '')
+        .replace(/vbscript\s*:/gi, '')
+        .replace(/expression\s*\(/gi, '')
+        .replace(/url\s*\(/gi, '')
+        .replace(/eval\s*\(/gi, '')
+        .replace(/document\s*\./gi, '')
+        .replace(/window\s*\./gi, '')
+        .trim();
 };
 
 // FIX 5.1b: Validação de email no frontend

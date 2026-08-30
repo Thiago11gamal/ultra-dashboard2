@@ -42,9 +42,19 @@ const LOADING_MESSAGES = [
   "Finalizando Pacote de Questões..."
 ];
 
-let _aiIdCounter = 0;
+// ✅ FIX C07: Usa crypto.randomUUID() quando disponível, eliminando o
+// contador mutável que pode colidir após HMR (Hot Module Replacement).
+// Fallback para Date.now() + random longo quando crypto não existe.
 function nextAiId(prefix = 'ai') {
-  return `${prefix}-${Date.now()}-${++_aiIdCounter}-${Math.random().toString(36).slice(2, 7)}`;
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  // Fallback: timestamp de alta precisão + random duplo
+  const time = (typeof performance !== 'undefined' && performance.now)
+    ? performance.now().toString(36).replace('.', '')
+    : '';
+  const rand = () => Math.random().toString(36).substring(2, 11);
+  return `${prefix}-${Date.now().toString(36)}-${time}-${rand()}${rand()}`;
 }
 
 export default function AIGeneratedSimulado() {

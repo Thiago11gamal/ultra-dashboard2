@@ -105,17 +105,29 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const isCloudPullRef = useRef(false);
   const pendingWritesCountRef = useRef(0);
 
-  // Safety net: resetar isCloudPullRef se ficar preso por mais de 10s
+  // ✅ FIX C06: Safety net independente de syncTrigger.
+  // Usa setInterval para garantir que o reset ocorra mesmo sem mudanças
+  // no trigger. O intervalo é leve (verificação a cada 5s) e só atua
+  // quando isCloudPullRef está preso por mais de 10s.
   useEffect(() => {
-    if (!isCloudPullRef.current) return;
-    const safetyTimer = setTimeout(() => {
+    let stuckSince = null;
+
+    const checkInterval = setInterval(() => {
       if (isCloudPullRef.current) {
-        console.warn('[Sync] isCloudPullRef ficou preso, resetando.');
-        isCloudPullRef.current = false;
+        if (!stuckSince) {
+          stuckSince = Date.now();
+        } else if (Date.now() - stuckSince > 10000) {
+          console.warn('[Sync] isCloudPullRef preso por >10s, resetando.');
+          isCloudPullRef.current = false;
+          stuckSince = null;
+        }
+      } else {
+        stuckSince = null;
       }
-    }, 10000);
-    return () => clearTimeout(safetyTimer);
-  }, [syncTrigger]);
+    }, 5000);
+
+    return () => clearInterval(checkInterval);
+  }, []); // ✅ Sem dependências — roda uma única vez
 
   const debounceRef = useRef(null);
   const latestCloudDataRef = useRef(null);

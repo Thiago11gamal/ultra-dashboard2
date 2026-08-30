@@ -829,8 +829,17 @@ function Checklist({
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             {sourceCategories.map(cat => {
+                                                // ✅ FIX L02: Proteção contra crash se normalize falhar
+                                                // ou se properties estiverem undefined.
                                                 const exists = safeCategories.some(c => {
-                                                    return normalize(c.name || '') === normalize(cat.name || '');
+                                                    try {
+                                                        const n1 = normalize(c?.name || '');
+                                                        const n2 = normalize(cat?.name || '');
+                                                        return n1 === n2;
+                                                    } catch (e) {
+                                                        console.warn('[Checklist] Erro ao normalizar nomes:', e);
+                                                        return false;
+                                                    }
                                                 });
 
                                                 return (

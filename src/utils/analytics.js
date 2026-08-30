@@ -35,32 +35,38 @@ const getManausDayRange = (dateInput) => {
  * Distributes a rounding remainder across items based on their decimal parts.
  * Uses the "Largest Remainder Method" to ensure percentages sum to exactly 100%.
  */
+// ✅ FIX L01: Adicionado limite máximo de iterações para prevenir loop
+// infinito caso diff seja maior que items.length * N.
 const distributeRoundingRemainder = (items, targetSum = 100) => {
     if (!items.length) return items;
 
-    // 1. Calculate floor percentages and track remainders
     const withRemainders = items.map(item => {
-        const value = item.rawPercentage || 0;
+        const value = Number(item.rawPercentage) || 0;
         const floor = Math.floor(value);
-        return {
-            ...item,
-            percentage: floor,
-            remainder: value - floor
-        };
+        return { ...item, percentage: floor, remainder: value - floor };
     });
 
     const currentSum = withRemainders.reduce((sum, item) => sum + item.percentage, 0);
     let diff = targetSum - currentSum;
 
     if (diff > 0) {
-        // 2. Sort by remainder descending and distribute the rounding remainder
-        // BUGFIX M1: Loop while diff > 0 to ensure sum reaches targetSum even if diff > items.length
         withRemainders.sort((a, b) => b.remainder - a.remainder);
         let i = 0;
-        while (diff > 0 && withRemainders.length > 0) {
+        // ✅ FIX: Limite máximo de iterações = items.length * 2
+        // (cada item pode receber no máximo ~2 incrementos extras)
+        const maxIterations = withRemainders.length * 2;
+        let iterations = 0;
+
+        while (diff > 0 && withRemainders.length > 0 && iterations < maxIterations) {
             withRemainders[i % withRemainders.length].percentage += 1;
             diff--;
             i++;
+            iterations++;
+        }
+
+        // Se ainda houver diff após o limite, distribuir uniformemente
+        if (diff > 0) {
+            console.warn('[distributeRoundingRemainder] diff residual após limite:', diff);
         }
     }
 

@@ -1,0 +1,278 @@
+# src\utils\chartDataMappers.js
+
+```js
+/**
+ * Mapper functions to transform application state into chart-ready data
+ */
+import { normalizeDate, getDateKey } from './dateHelper.js';
+import { toArray } from './normalize.js';
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const toFiniteNumber = (value, fallback = 0) => {
+    if (value === null || value === undefined || value === '') return fallback;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+};
+
+const sanitizeMinutes = (value) => Math.min(720, Math.max(0, toFiniteNumber(value, 0)));
+
+// T-010 FIX: Fórmula correta de meia-vida.
+// Antes: Math.exp(-days / halfLife)
+// Isso fazia a retenção cair para ~36.8% quando days === halfLife.
+// O correto para meia-vida é usar ln(2).
+const retentionFromHalfLife = (days, halfLife) => {
+    const safeDays = Math.max(0, Number(days) || 0);
+    const safeHalfLife = Math.max(1e-6, Number(halfLife) || 1);
+
+    return Math.round(100 * Math.exp(-Math.LN2 * safeDays / safeHalfLife));
+};
+
+const toSafeDate = (value) => {
+    if (!value) return null;
+    
+    // Suporte a Firebase Timestamp
+    if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
+        const secs = value.seconds != null ? value.seconds : value._seconds;
+        return new Date(secs * 1000);
+    }
+    
+    const parsed = normalizeDate(value);
+    const date = parsed || new Date(value);
+    return Number.isFinite(date?.getTime()) ? date : null;
+};
+
+/**
+ * Maps categories and their tasks to retention analysis data
+ * @param {Array} categories 
+ * @returns {Array} [{ nomeTopico, diasSemRevisao, nivelCritico }]
+ */
+export const mapRetentionData = (categories = []) => {
+    const data = [];
+    const now = Date.now();
+    // T-023 FIX: aceitar categories como array ou objeto Firebase
+    const safeCategories = toArray(categories);
+    
+    // Process top 10 most critical categories or items
+    safeCategories.forEach(cat => {
+        // Add categories with study history
+        if (cat.lastStudiedAt) {
+            // FIX BUG N: normalizeDate evita que YYYY-MM-DD seja interpretado como UTC midnight
+            const lastDate = toSafeDate(cat.lastStudiedAt);
+            if (!lastDate) return;
+
+            // CORREÇÃO: Math.max(0, ...) impede que relógios adiantados
+            // gerem um tempo negativo, o que invertia a curva de decaimento Exponencial.
+            const days = Math.max(0, (now - lastDate.getTime()) / MS_PER_DAY);
+            if (!Number.isFinite(days)) return;
+
+            // CÁLCULO DE MEIA-VIDA DINÂMICA (Anti-Punição de Maestria)
+            // Assuntos consolidados (muitas questões ou alta precisão) esquecem mais devagar.
+            const history = Array.isArray(cat.simuladoStats?.history)
+              ? cat.simuladoStats.history
+              : Object.values(cat.simuladoStats?.history || {});
+            const totalQ = history.reduce((sum, h) => {
+              const t = Number(h?.total);
+              return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+            }, 0);
+            const maxScore = Math.max(1, toFiniteNumber(cat.maxScore, 100));
+            const accuracyData = cat.bayesianStats?.mean ?? cat.simuladoStats?.average;
+            // ✅ PATCH: accuracy clampada e segura
+            const accuracy = accuracyData != null
+                ? Math.max(0, Math.min(1, toFiniteNumber(accuracyData, 0) / maxScore))
+                : 0;
+            const qNorm = Math.max(0, Math.min(1, totalQ / 120));
+            const accNorm = Math.max(0, Math.min(1, (accuracy - 0.5) / 0.4));
+            const masterySignal = (0.6 * qNorm) + (0.4 * accNorm);
+            const halfLife = 7 + (23 * masterySignal);
+            const retention = retentionFromHalfLife(days, halfLife);
+            
+            data.push({
+                nomeTopico: cat.name,
+                diasSemRevisao: Math.floor(days),
+                nivelCritico: 100 - retention,
+                isTask: false
+            });
+        }
+        
+        // Add specific tasks if they have high impact
+        // T-023 FIX: normalizar tasks como array, mesmo quando armazenadas como objeto.
+        const taskArray = toArray(cat?.tasks);
+
+        if (taskArray.length > 0) {
+            taskArray.forEach(task => {
+                if (!task || typeof task !== 'object') return;
+                if (task.lastStudiedAt || task.completedAt) {
+                    const lastTaskDate = toSafeDate(task.lastStudiedAt || task.completedAt);
+                    if (!lastTaskDate) return;
+                    const days = Math.max(0, (now - lastTaskDate.getTime()) / MS_PER_DAY);
+                    if (!Number.isFinite(days)) return;
+                    
+                    // Tasks individuais usam half-life padrão 7 a menos que a categoria seja mestre
+                    const history2 = Array.isArray(cat.simuladoStats?.history)
+                      ? cat.simuladoStats.history
+                      : Object.values(cat.simuladoStats?.history || {});
+                    const totalQ = history2.reduce((sum, h) => {
+                      const t = Number(h?.total);
+                      return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+                    }, 0);
+                    const qNorm = Math.max(0, Math.min(1, totalQ / 120));
+                    const halfLife = 7 + (7 * qNorm);
+                    const retention = retentionFromHalfLife(days, halfLife);
+                    
+                    if (days >= 1) { // Only show items that have at least 1 day without revision
+                        data.push({
+                            nomeTopico: task.text || task.title || 'Tarefa sem nome',
+                            diasSemRevisao: Math.floor(days),
+                            nivelCritico: 100 - retention,
+                            isTask: true
+                        });
+                    }
+                }
+            });
+        }
+    });
+
+    // Sort by critical level (descending = most critical first) and take top 8
+    return data
+        .sort((a, b) => b.nivelCritico - a.nivelCritico)
+        .slice(0, 8);
+};
+
+const getStudyLogMinutes = (log) => {
+    if (!log || typeof log !== 'object') return 0;
+    const minutes = Number(log.minutes);
+    const duration = Number(log.duration);
+    if (Number.isFinite(minutes) && minutes > 0) return sanitizeMinutes(minutes);
+    if (Number.isFinite(duration) && duration > 0) return sanitizeMinutes(duration);
+    return 0;
+};
+
+/**
+ * Maps study logs to daily focus evolution data
+ * @param {Array} studyLogs 
+ * @returns {Array} [{ data, horasEstudadas }]
+ */
+export const mapFocusEvolutionData = (studyLogs = []) => {
+    // 🎯 STABILITY FIX: Deterministic date keys instead of toLocaleDateString.
+    // toLocaleDateString depende da localidade do browser e pode falhar o matching.
+    // 🎯 STABILITY FIX: Inclui o Ano na chave para evitar colisão entre anos diferentes (Bug do Fantasma do Ano Passado)
+    const getFullKey = (dateObj) => {
+      const key = getDateKey(dateObj);
+      if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        // Fallback: usar componentes UTC para evitar shift de timezone
+        const y = dateObj.getUTCFullYear();
+        const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      return key;
+    };
+
+    const getDisplayKey = (dateObj) => {
+        try {
+            return new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'America/Manaus',
+                day: '2-digit', month: '2-digit'
+            }).format(dateObj);
+        } catch {
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            return `${day}/${month}`;
+        }
+    };
+
+    const last14Days = [];
+    // ✅ FIX: Ancorar ao meio-dia de Manaus para o dia corrente para evitar shift de 1 dia em outros fusos
+    const todayMidday = normalizeDate(getDateKey(new Date())) || new Date();
+
+    for (let i = 13; i >= 0; i--) {
+        // T-024 FIX: usar setDate em vez de subtrair ms,
+        // reduzindo problemas de DST/edge cases.
+        const d = new Date(todayMidday);
+        d.setDate(d.getDate() - i);
+
+        last14Days.push({
+            fullKey: getFullKey(d),
+            data: getDisplayKey(d),
+            horasEstudadas: 0
+        });
+    }
+
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    
+    logsArray.forEach(log => {
+        if (!log || typeof log !== 'object') return;
+        const logDate = normalizeDate(log.date);
+        if (!logDate || Number.isNaN(logDate.getTime())) return;
+        
+        const logFullKey = getFullKey(logDate);
+        if (!logFullKey) return;
+        
+        const dayMatch = last14Days.find(d => d.fullKey === logFullKey);
+        if (dayMatch) {
+            const minutes = getStudyLogMinutes(log);
+            // ✅ FIX: Validar minutes antes de dividir
+            if (Number.isFinite(minutes) && minutes > 0) {
+                dayMatch.horasEstudadas += minutes / 60;
+            }
+        }
+    });
+
+    // Retorna arredondando no final para preservar precisão em somas fracionadas
+    return last14Days.map(d => ({ 
+        data: d.data, 
+        horasEstudadas: parseFloat(d.horasEstudadas.toFixed(2)) 
+    }));
+};
+
+/**
+ * Maps study logs and categories to subject distribution data
+ * @param {Array} studyLogs 
+ * @param {Array} categories 
+ * @returns {Array} [{ disciplina, horas }]
+ */
+export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
+    const hoursMap = {};
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    const safeCategories = Array.isArray(categories) ? categories : [];
+    
+    // ✅ FIX: Pré-indexar categorias por ID para lookup O(1)
+    const categoriesById = new Map();
+    safeCategories.forEach(c => {
+        if (c && c.id != null) {
+            categoriesById.set(String(c.id), c);
+        }
+    });
+
+    logsArray.forEach(log => {
+        if (!log || typeof log !== 'object') return;
+        
+        let cat = null;
+        if (log.categoryId != null) {
+            cat = categoriesById.get(String(log.categoryId));
+        }
+        if (!cat) {
+            cat = safeCategories.find(c =>
+                (log.subject && c.name === log.subject) ||
+                (log.categoryName && c.name === log.categoryName)
+            );
+        }
+        
+        const name = cat ? cat.name : (log.categoryName || log.subject || 'Outros');
+        const actualMinutes = getStudyLogMinutes(log);
+        
+        // ✅ FIX: Validar minutes antes de acumular
+        if (Number.isFinite(actualMinutes) && actualMinutes > 0) {
+            hoursMap[name] = (hoursMap[name] || 0) + actualMinutes;
+        }
+    });
+
+    return Object.entries(hoursMap).map(([name, minutes]) => ({
+        disciplina: name,
+        horas: parseFloat((minutes / 60).toFixed(2))
+    })).sort((a, b) => Number(b.horas) - Number(a.horas));
+};
+
+
+```

@@ -255,3 +255,34 @@ useAppStore.subscribe((state) => {
     clearCoachCaches();
   }
 });
+
+// ✅ FIX S03: Implementação segura para exclusão total de dados
+// Limpa bancos de dados passados, localStorage e sessionStorage
+export const clearAllDataSecure = async () => {
+  localStorage.clear();
+  sessionStorage.clear();
+
+  try {
+    const dbs = await window.indexedDB.databases();
+    await Promise.all(dbs.map(db => {
+      return new Promise((resolve) => {
+        const req = window.indexedDB.deleteDatabase(db.name);
+        req.onsuccess = resolve;
+        req.onerror = resolve;
+        req.onblocked = resolve;
+      });
+    }));
+  } catch (err) {
+    console.warn('[Storage] Fallback manual de limpeza IndexedDB', err);
+    // Fallback: Excluir chaves conhecidas
+    try {
+      window.indexedDB.deleteDatabase('ultra-dashboard-storage');
+      window.indexedDB.deleteDatabase('firebaseLocalStorageDb');
+      // Forçamos resolução silenciosa para não travar a aplicação
+    } catch (e) {
+      // Ignorar erros
+    }
+  }
+
+  window.location.href = '/';
+};

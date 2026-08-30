@@ -237,39 +237,74 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
   // Tracking global do ponteiro (acende colunas imediatamente, inclusive no header)
   useEffect(() => {
-    if (!isDragging) {
-      return;
-    }
-    let animationFrameId;
-    const updateHover = (clientX, clientY) => {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = requestAnimationFrame(() => {
-        // FIX (BUG-05): rects recalculados por frame (8 colunas é barato) —
-        // não congela no início do drag, sobrevive a scroll.
-        const cols = document.querySelectorAll('[data-col-id]');
-        let found = null;
-        for (const col of cols) {
-          const rect = col.getBoundingClientRect();
-          if (clientX >= rect.left && clientX <= rect.right &&
-            clientY >= rect.top && clientY <= rect.bottom) {
-            found = col.getAttribute('data-col-id');
-            break;
-          }
-        }
-        setHoveredCol(prev => (prev === found ? prev : found));
-      });
+    if (!isDragging) return;
+
+    // ✅ FIX P01: Cache dos elementos no início do drag
+    let cachedCols = null;
+    let cachedRects = null;
+    let lastScrollTop = window.scrollY;
+
+    const refreshCache = () => {
+        cachedCols = document.querySelectorAll('[data-col-id]');
+        cachedRects = Array.from(cachedCols).map(col => ({
+            id: col.getAttribute('data-col-id'),
+            rect: col.getBoundingClientRect()
+        }));
+        lastScrollTop = window.scrollY;
     };
+
+    refreshCache();
+
+    let animationFrameId = null;
+    let lastClientX = -1;
+    let lastClientY = -1;
+
+    const updateHover = (clientX, clientY) => {
+        // Skip se a posição não mudou
+        if (clientX === lastClientX && clientY === lastClientY) return;
+        lastClientX = clientX;
+        lastClientY = clientY;
+
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = requestAnimationFrame(() => {
+            // ✅ Recalcular rects se houve scroll
+            if (Math.abs(window.scrollY - lastScrollTop) > 1) {
+                refreshCache();
+            }
+
+            if (!cachedRects) return;
+
+            let found = null;
+            for (const { id, rect } of cachedRects) {
+                if (clientX >= rect.left && clientX <= rect.right &&
+                    clientY >= rect.top && clientY <= rect.bottom) {
+                    found = id;
+                    break;
+                }
+            }
+            setHoveredCol(prev => (prev === found ? prev : found));
+        });
+    };
+
     const handleMouseMove = (e) => updateHover(e.clientX, e.clientY);
     const handleTouchMove = (e) => {
-      const touch = e.touches[0];
-      if (touch) updateHover(touch.clientX, touch.clientY);
+        const touch = e.touches[0];
+        if (touch) updateHover(touch.clientX, touch.clientY);
     };
+    const handleScroll = () => {
+        // Invalidar cache em scroll
+        cachedRects = null;
+    };
+
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchmove', handleTouchMove);
-      cancelAnimationFrame(animationFrameId);
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('scroll', handleScroll);
+        cancelAnimationFrame(animationFrameId);
     };
   }, [isDragging]);
 

@@ -1,0 +1,225 @@
+# src\components\PriorityProgress.jsx
+
+```jsx
+import React, { useMemo } from 'react';
+import { Info } from 'lucide-react';
+import { toArray } from '../utils/normalize';
+
+const priorityColors = {
+    high: {
+        label: 'Alta',
+        bar: 'bg-red-500',
+        bg: 'bg-red-500/10',
+        text: 'text-red-400',
+        border: 'border-red-500/20'
+    },
+    medium: {
+        label: 'Média',
+        bar: 'bg-yellow-500',
+        bg: 'bg-yellow-500/10',
+        text: 'text-yellow-400',
+        border: 'border-yellow-500/20'
+    },
+    low: {
+        label: 'Baixa',
+        bar: 'bg-green-500',
+        bg: 'bg-green-500/10',
+        text: 'text-green-400',
+        border: 'border-green-500/20'
+    },
+};
+
+export default function PriorityProgress({ categories = [] }) {
+    const stats = useMemo(() => {
+        const counts = {
+            high: { total: 0, completed: 0 },
+            medium: { total: 0, completed: 0 },
+            low: { total: 0, completed: 0 }
+        };
+
+        toArray(categories).forEach(cat => {
+            toArray(cat?.tasks).forEach(task => {
+                const rawPriority = String(task?.priority || 'medium').toLowerCase();
+                const priorityKey = counts[rawPriority] ? rawPriority : 'medium';
+
+                counts[priorityKey].total += 1;
+
+                if (task?.completed) {
+                    counts[priorityKey].completed += 1;
+                }
+            });
+        });
+
+        return counts;
+    }, [categories]);
+
+    const priorities = ['high', 'medium', 'low'];
+
+    const totalTasksGlobally = priorities.reduce((acc, p) => acc + stats[p].total, 0);
+    const totalCompletedGlobally = priorities.reduce((acc, p) => acc + stats[p].completed, 0);
+
+    if (totalTasksGlobally === 0) return null;
+
+    const globalPct = totalTasksGlobally > 0
+        ? Math.round((totalCompletedGlobally / totalTasksGlobally) * 100)
+        : 0;
+
+    return (
+        <div className="space-y-4">
+            {/* Barra de Progresso Global */}
+            <div className="p-6 sm:p-7 rounded-2xl border border-purple-500/20 bg-purple-500/5 backdrop-blur-xl transition-all duration-500 group shadow-lg relative overflow-visible">
+                <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                    <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-500/20 rounded-full blur-[60px] opacity-30 transition-all duration-700 group-hover:bg-purple-400/30" />
+                </div>
+
+                <div className="relative z-10 flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 sm:gap-4 px-1">
+                        <div className="min-w-0">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 leading-none flex items-center mb-1">
+                                Progresso Global
+
+                                <span
+                                    className="relative group/tooltip cursor-help ml-2 inline-flex focus-visible:outline-none rounded"
+                                    tabIndex={0}
+                                >
+                                    <Info
+                                        size={12}
+                                        className="text-purple-400/50 hover:text-purple-400 transition-colors"
+                                    />
+
+                                    <span className="absolute top-full left-0 mt-2 w-48 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
+                                        <strong>Progresso Global:</strong> Representa o percentual total de tarefas concluídas em relação a todas as tarefas cadastradas, independente da prioridade.
+                                    </span>
+                                </span>
+                            </span>
+
+                            <h3 className="text-xl font-bold text-white leading-tight">
+                                Conclusão de Assuntos
+                            </h3>
+                        </div>
+
+                        <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
+                            <span className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
+                                {globalPct}%
+                            </span>
+
+                            <p className="text-[10px] sm:text-xs text-slate-400 font-bold sm:mt-1">
+                                {totalCompletedGlobally} de {totalTasksGlobally} {totalCompletedGlobally === 1 ? 'concluído' : 'concluídos'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        role="progressbar"
+                        aria-label="Progresso global de conclusão de assuntos"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={globalPct}
+                        className="w-full h-5 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner p-[2px]"
+                    >
+                        {globalPct > 0 ? (
+                            <div
+                                className="h-full rounded-full bg-gradient-to-r from-purple-600 to-blue-500 transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(168,85,247,0.5)] relative overflow-hidden"
+                                style={{ width: `${globalPct}%` }}
+                            >
+                                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                            </div>
+                        ) : (
+                            <div className="h-full w-2 rounded-full bg-white/10" />
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Cards por prioridade */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {priorities.map(p => {
+                    const { total, completed } = stats[p];
+                    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    const conf = priorityColors[p];
+
+                    return (
+                        <div
+                            key={p}
+                            className={`p-6 rounded-2xl border transition-all duration-500 group shadow-lg relative ${conf.border} ${conf.bg} backdrop-blur-xl hover:bg-white/[0.07] hover:shadow-2xl hover:-translate-y-1`}
+                        >
+                            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                                <div className={`absolute -top-12 -left-12 w-32 h-32 rounded-full blur-[50px] opacity-20 transition-all duration-700 group-hover:opacity-40 ${p === 'high'
+                                    ? 'bg-rose-500'
+                                    : p === 'medium'
+                                        ? 'bg-amber-500'
+                                        : 'bg-emerald-500'
+                                    }`} />
+                            </div>
+
+                            <div className="relative z-10 flex flex-col gap-5">
+                                <div className="flex justify-between items-center px-1">
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text} leading-none pt-1 flex items-center`}>
+                                        Prioridade {conf.label}
+
+                                        <span
+                                            className="relative group/tooltip cursor-help ml-1 inline-flex focus-visible:outline-none rounded"
+                                            tabIndex={0}
+                                        >
+                                            <Info
+                                                size={12}
+                                                className={`${conf.text} opacity-50 hover:opacity-100 transition-opacity`}
+                                            />
+
+                                            <span className="absolute top-full left-0 mt-2 w-48 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
+                                                <strong>{conf.label}:</strong>{' '}
+                                                {p === 'high'
+                                                    ? 'Tarefas mais urgentes e importantes.'
+                                                    : p === 'medium'
+                                                        ? 'Tarefas de importância moderada.'
+                                                        : 'Tarefas de menor impacto ou flexíveis.'}
+                                            </span>
+                                        </span>
+                                    </span>
+
+                                    <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors tracking-wide">
+                                        {completed}/{total}
+                                    </span>
+                                </div>
+
+                                <div
+                                    role="progressbar"
+                                    aria-label={`Progresso de tarefas de prioridade ${conf.label.toLowerCase()}`}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-valuenow={pct}
+                                    className="w-full h-4 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner relative mt-1"
+                                >
+                                    {pct > 0 ? (
+                                        <div
+                                            className={`h-full rounded-full ${conf.bar} transition-all duration-1000 ease-out`}
+                                            style={{
+                                                width: `${pct}%`,
+                                                boxShadow: p === 'high'
+                                                    ? '0 0 15px rgba(239, 68, 68, 0.4)'
+                                                    : p === 'medium'
+                                                        ? '0 0 15px rgba(234, 179, 8, 0.4)'
+                                                        : '0 0 15px rgba(34, 197, 94, 0.4)'
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="absolute left-0 top-0 h-full w-1 rounded-full bg-white/10" />
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end pr-1 mt-1">
+                                    <span className={`text-xs font-black ${conf.text} drop-shadow-md leading-none pt-1`}>
+                                        {pct}% completado
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+
+```

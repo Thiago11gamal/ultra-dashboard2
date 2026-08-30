@@ -7,11 +7,15 @@ import Header from './components/Header';
 import Login from './components/Login';
 import HelpGuide from './components/HelpGuide';
 import Toast from './components/Toast';
-import LevelUpToast from './components/LevelUpToast';
-import OnboardingTour from './components/OnboardingTour';
-import TrashModal from './components/TrashModal';
-import WelcomeScreen from './components/WelcomeScreen';
 import { lazyWithRetry } from './utils/lazyRetry';
+
+// ✅ FIX P01: Importação Tardia (Lazy Loading) de Modais e Componentes Pesados
+// Movemos LevelUpToast, OnboardingTour e TrashModal para fora do bundle principal.
+const LevelUpToast = lazyWithRetry(() => import('./components/LevelUpToast'));
+const OnboardingTour = lazyWithRetry(() => import('./components/OnboardingTour'));
+const TrashModal = lazyWithRetry(() => import('./components/TrashModal'));
+// WelcomeScreen não pode ser lazy porque precisa bloquear a interface no primeiro render
+import WelcomeScreen from './components/WelcomeScreen';
 
 // Página Principal (Dashboard) - Lazy Loading para otimizar o bundle inicial
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));

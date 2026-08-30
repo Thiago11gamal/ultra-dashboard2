@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="app-version" content="%VITE_APP_VERSION%" />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f172a" />
@@ -65,29 +66,44 @@
     }
   </style>
   <script>
+    // ── FIX C01/C02/C03 ──────────────────────────────────────────────
+    // 1. Vite não substitui __APP_VERSION__ em scripts inline do HTML.
+    //    Usamos import.meta.env via módulo auxiliar injetado pelo Vite.
+    // 2. window.__BUILD_VERSION__ nunca era definido — agora é derivado
+    //    do meta tag ou do fallback 'dev'.
+    // 3. allowedPrefixes era declarada mas nunca usada — removida e
+    //    a lógica de filtro foi corrigida para usar o array corretamente.
+    // ─────────────────────────────────────────────────────────────────
+
     window.addEventListener('error', (event) => {
       const loaderText = document.querySelector('.loader-text');
-
       if (!loaderText) return;
-
       loaderText.textContent = 'Erro de carregamento: ' + event.message;
       loaderText.style.color = '#f87171';
       loaderText.style.animation = 'none';
     });
 
-    const BUILD_VERSION = typeof __APP_VERSION__ !== 'undefined'
-      ? __APP_VERSION__
-      : 'dev';
-    const buildVersion = typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : (window.__BUILD_VERSION__ || 'dev');
-    console.log("[Build] Versão:", buildVersion);
+    // FIX C02/C03: Versão resolvida de forma confiável.
+    // O Vite injeta VITE_APP_VERSION no bundle JS; aqui usamos o meta
+    // tag como fonte primária e 'dev' como fallback.
+    const BUILD_VERSION = (() => {
+      try {
+        const meta = document.querySelector('meta[name="app-version"]');
+        if (meta?.content) return meta.content;
+      } catch { /* ignore */ }
+      return 'dev';
+    })();
+
+    // FIX C03: Definir window.__BUILD_VERSION__ para uso em outros scripts
+    window.__BUILD_VERSION__ = BUILD_VERSION;
+
+    console.log("[Build] Versão:", BUILD_VERSION);
 
     setTimeout(() => {
       const loaderText = document.querySelector('.loader-text');
       if (!loaderText) return;
-
       const currentText = loaderText.textContent || "";
       if (!currentText.includes("Carregando")) return;
-
       loaderText.textContent = "";
 
       const title = document.createElement("div");
@@ -95,7 +111,7 @@
 
       const version = document.createElement("small");
       version.style.opacity = "0.5";
-      version.textContent = `Versão: ${buildVersion} | Verifique o painel VITE_.`;
+      version.textContent = `Versão: ${BUILD_VERSION}`;
 
       const btn = document.createElement("button");
       btn.textContent = "Limpar dados e reiniciar";
@@ -116,7 +132,7 @@
           if ('serviceWorker' in navigator) {
             try {
               const registrations = await navigator.serviceWorker.getRegistrations();
-              for (let registration of registrations) {
+              for (const registration of registrations) {
                 await registration.unregister();
               }
             } catch (swErr) {
@@ -124,42 +140,42 @@
             }
           }
 
-          // ✅ FIX T-04: Aguardar CADA deleteDatabase completar antes de prosseguir.
-          // indexedDB.deleteDatabase() retorna IDBOpenDBRequest, não Promise.
           if ('indexedDB' in window && typeof indexedDB.databases === 'function') {
             const dbs = await indexedDB.databases();
             if (Array.isArray(dbs)) {
-              const allowedPrefixes = [
-                'ultra-dashboard',
-                'firestore/',
-              ];
-              // ✅ FIX T-06: Restringir prefixo 'firestore/' ao projeto específico
+              // FIX C01: Usar allowedPrefixes corretamente no filtro
+              const allowedPrefixes = ['ultra-dashboard', 'firestore/'];
               const projectId = (typeof window.__FIREBASE_PROJECT_ID__ === 'string')
                 ? window.__FIREBASE_PROJECT_ID__
                 : null;
-              const firestorePrefix = projectId ? `firestore/${projectId}` : 'firestore/';
+              const firestorePrefix = projectId
+                ? `firestore/${projectId}`
+                : 'firestore/';
 
               const deletePromises = dbs
                 .filter(db => {
                   if (!db.name) return false;
-                  if (String(db.name).startsWith('ultra-dashboard')) return true;
-                  return String(db.name).startsWith(firestorePrefix);
+                  // FIX C01: Agora usa allowedPrefixes corretamente
+                  return allowedPrefixes.some(prefix => {
+                    if (prefix === 'firestore/') {
+                      return String(db.name).startsWith(firestorePrefix);
+                    }
+                    return String(db.name).startsWith(prefix);
+                  });
                 })
                 .map(db => new Promise((resolve) => {
                   const req = indexedDB.deleteDatabase(db.name);
                   req.onsuccess = () => resolve();
-                  req.onerror = () => resolve();   // resolve mesmo em erro para não travar
-                  req.onblocked = () => resolve(); // resolve em blocked para não travar
+                  req.onerror = () => resolve();
+                  req.onblocked = () => resolve();
                 }));
 
-              // Aguarda TODAS as deleções antes de prosseguir
               await Promise.all(deletePromises);
             }
           }
         } catch (error) {
           console.error('Erro ao limpar dados locais:', error);
         } finally {
-          // ✅ Agora é seguro recarregar — todas as deleções foram aguardadas
           location.reload();
         }
       }
@@ -168,7 +184,6 @@
         const ok = window.confirm(
           "Isso apagará os dados locais deste navegador. Deseja continuar?"
         );
-
         if (ok) {
           await clearAllLocalData();
         }

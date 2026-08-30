@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
+// ✅ FIX S01: Adicionado DOMPurify para evitar injeção de scripts (XSS)
+import DOMPurify from 'dompurify';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { Sparkles, X, Layout } from 'lucide-react';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
@@ -46,7 +48,15 @@ export default function PromptModal({
 
         if (!value) return;
 
-        onConfirm(value);
+        // ✅ FIX S01: Sanitização do input
+        const cleanValue = DOMPurify.sanitize(value);
+
+        if (!cleanValue) {
+            console.warn('[PromptModal] Entrada rejeitada por conter HTML malicioso.');
+            return;
+        }
+
+        onConfirm(cleanValue);
         onClose();
     };
 

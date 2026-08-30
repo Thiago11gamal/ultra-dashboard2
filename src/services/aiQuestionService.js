@@ -5,6 +5,18 @@
 const AI_BACKEND_URL = import.meta.env.VITE_AI_BACKEND_URL || '/api';
 const AI_TIMEOUT_MS = Number(import.meta.env.VITE_AI_TIMEOUT_MS) || 60_000;
 
+// ✅ FIX S02: credentials deve ser 'same-origin' por padrão.
+// Se o backend for cross-origin, o backend deve configurar CORS
+// explicitamente e o frontend deve usar 'include' apenas quando necessário.
+const isSameOrigin = (() => {
+    try {
+        const backendUrl = new URL(AI_BACKEND_URL, window.location.origin);
+        return backendUrl.origin === window.location.origin;
+    } catch {
+        return false;
+    }
+})();
+
 // ✅ FIX #1: Validação de URL para evitar requisições a endpoints inválidos
 function isValidUrl(url) {
   if (!url || typeof url !== 'string') return false;
@@ -101,7 +113,7 @@ export async function generateViaGeminiDirect({
     const response = await fetch(`${AI_BACKEND_URL}/ai/generate-questions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      credentials: isSameOrigin ? 'same-origin' : 'omit',
       signal: controller.signal,
       body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName }),
     });
@@ -144,7 +156,7 @@ export async function generateViaBackend({
     const response = await fetch(`${AI_BACKEND_URL}/ai/generate-questions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      credentials: isSameOrigin ? 'same-origin' : 'omit',
       signal: controller.signal,
       body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName }),
     });

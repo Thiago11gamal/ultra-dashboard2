@@ -1,0 +1,958 @@
+# src\index.css
+
+```css
+@import "tailwindcss";
+
+/* Custom CSS Variables */
+:root {
+  --gradient-1: #0f172a;
+  --gradient-2: #1e1b4b;
+  --gradient-3: #0f172a;
+  --neon-blue: #38bdf8;
+  --neon-purple: #818cf8;
+  --neon-pink: #f472b6;
+  --neon-green: #34d399;
+  --glass-bg: rgba(15, 23, 42, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-glow: rgba(139, 92, 246, 0.15);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --bg-main: radial-gradient(circle at top center, #1e1b4b 0%, #0f172a 100%);
+  --scrollbar-thumb: rgba(129, 140, 248, 0.3);
+}
+
+/* Light mode variables removed to lock app in dark mode */
+/* .light-mode { ... } */
+
+
+
+
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #0f172a;
+  /* Fallback crucial para evitar tela branca */
+  background-image: var(--bg-main);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: var(--text-primary);
+  overflow-x: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Animated background mesh */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 35%),
+    radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 35%),
+    radial-gradient(circle at 50% 80%, rgba(59, 130, 246, 0.06), transparent 40%);
+  z-index: -1;
+  animation: meshMove 30s ease-in-out infinite alternate;
+  opacity: var(--mesh-opacity, 1);
+  /* PERFORM-01: GPU acceleration for fixed mesh */
+  /* will-change removido — só ativar durante animação se necessário */
+  transform: translateZ(0); /* GPU acceleration sem will-change permanente */
+}
+
+
+
+@keyframes meshMove {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate3d(-20px, -20px, 0) scale(1.05);
+  }
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  /* PERFORM-02: GPU pre-warm */
+  will-change: transform, opacity;
+}
+
+.glass-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-hover:hover {
+  border-color: rgba(129, 140, 248, 0.4);
+  background: rgba(30, 41, 59, 0.8);
+  box-shadow: 0 0 30px var(--glass-glow);
+  transform: translateY(-2px);
+}
+
+.glass-panel {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 27, 75, 0.9) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  /* PERFORM-02: GPU pre-warm */
+  will-change: transform, opacity;
+}
+
+/* Elastic Hover Effect - PREMIUM */
+.elastic-hover {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.elastic-hover:hover {
+  transform: scale(1.05) translateY(-2px);
+}
+
+.elastic-hover:active {
+  transform: scale(0.95);
+}
+
+/* Page transitions */
+@keyframes pageEntrance {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-page-entrance {
+  animation: pageEntrance 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: opacity;
+}
+
+/* Neon text effect */
+.neon-text {
+  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple), var(--neon-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Custom scrollbar utility */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.25);
+  border-radius: 99px;
+  transition: all 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.55);
+}
+
+/* Kanban horizontal thin scrollbar */
+.kanban-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.25) transparent;
+}
+
+.kanban-scrollbar::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.kanban-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 99px;
+}
+
+.kanban-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.25);
+  border-radius: 99px;
+  transition: background 0.2s ease;
+}
+
+.kanban-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.55);
+}
+
+/* Hide scrollbar buttons (arrows) */
+.kanban-scrollbar::-webkit-scrollbar-button,
+.custom-scrollbar::-webkit-scrollbar-button,
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Premium Global Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.25);
+  border-radius: 99px;
+  transition: all 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.55);
+}
+
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animations */
+
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-down {
+  animation: fadeInDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: opacity;
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Hide scrollbar while keeping scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .coach-mobile-tabs {
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(15, 23, 42, 0.9);
+    border-radius: 1rem;
+    padding: 0.25rem;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+  }
+
+  .mobile-menu-tab-idle {
+    border-color: rgba(148, 163, 184, 0.12) !important;
+    background: rgba(15, 23, 42, 0.6);
+  }
+
+  .mobile-menu-tab-active {
+    box-shadow: 0 12px 32px rgba(79, 70, 229, 0.38), inset 0 0 0 1px rgba(224, 231, 255, 0.35) !important;
+    transform: scale(1.01);
+  }
+}
+
+/* Premium Select / Dropdown Styling - CORRIGIDO PARA LIGHT/DARK MODE */
+select {
+  background-color: var(--gradient-1);
+  color: var(--text-primary);
+  font-weight: 500;
+  border: 1px solid var(--glass-border);
+}
+
+select option {
+  background-color: var(--gradient-1);
+  color: var(--text-primary);
+  padding: 12px 16px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
+  color: #fff;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+/* Dropdown menu arrow */
+select::-ms-expand {
+  display: none;
+}
+
+@keyframes pulse-subtle {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.01);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes glow-red {
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+    border-color: rgba(239, 68, 68, 0.8);
+  }
+
+  50% {
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.7);
+    border-color: rgba(239, 68, 68, 1);
+  }
+}
+
+.animate-glow-red {
+  animation: glow-red 1.5s ease-in-out infinite;
+}
+
+
+
+/* Remove default focus outline from Recharts globally */
+.recharts-wrapper,
+.recharts-wrapper *,
+.recharts-surface,
+.recharts-surface *,
+.recharts-responsive-container,
+svg,
+svg *,
+[tabindex] {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Sparkline sweep animation (used in VerifiedStats prediction card) */
+@keyframes moveRight {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.move-right-anim {
+  animation: moveRight 3s linear infinite;
+}
+
+@keyframes scanFast {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(200%);
+  }
+}
+
+.animate-scan-fast {
+  animation: scanFast 1s linear infinite;
+}
+
+/* 
+  Otimização extrema para html2canvas: 
+  Desliga filtros pesados e bordas transparentes apenas durante o instante da captura do PDF 
+*/
+/* Apenas Otimizações Estruturais para a nova engine html-to-image */
+.pdf-render-mode .overflow-x-auto,
+.pdf-render-mode .overflow-y-auto,
+.pdf-render-mode .overflow-hidden {
+  overflow: visible !important;
+}
+
+/* Forçamos os painéis com blur pesado a ter um fundo opaco suave para garantir consistência no PDF exportado */
+.pdf-render-mode .glass,
+.pdf-render-mode .glass-panel {
+  background: var(--gradient-1) !important;
+  /* Dinâmico para respeitar Light/Dark mode no PDF */
+}
+
+@media print {
+  body {
+    background: #0f172a !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* UI-POLISH: Header protection for narrow mobile */
+@media (max-width: 480px) {
+  .md\:hidden.mb-3 {
+    padding-top: 0.5rem;
+  }
+}
+
+/* Fade Edges - CORRIGIDO PARA NÃO FICAR PRETO NO LIGHT MODE */
+.fade-edge {
+  position: absolute;
+  width: 40px;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.fade-left {
+  left: 0;
+  background: linear-gradient(to right, var(--gradient-1), transparent);
+}
+
+.fade-right {
+  right: 0;
+  background: linear-gradient(to left, var(--gradient-1), transparent);
+}
+
+/* Proteção para o MobilePocketMode no iOS (Home Indicator) */
+.safe-area-pb {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+/* DEPOIS — restringe a regra apenas a onde o clipping de fonte realmente ocorre:
+   títulos e textos de gradiente. Botões e inputs ficam livres para o Tailwind controlar. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.neon-text {
+  padding-bottom: max(0.1em, 1px);
+}
+
+/* line-height separado: usa valor mais seguro para não cortar descenders (g, y, p)
+   sem forçar valor fixo em elementos que o Tailwind já gerencia */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.42;
+}
+
+/* Extra safety for text inside our glass/premium cards */
+.premium-card h1,
+.premium-card h2,
+.premium-card h3,
+.premium-card .font-bold,
+.premium-card .font-extrabold {
+  padding-bottom: 1px;
+}
+
+/* Custom scrollbar definition moved to line 152 for consolidation */
+
+/* CSS View Transitions - Global Defaults */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 0.25s;
+  animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* Liquid Fill Animation for Pomodoro Break Balls */
+@keyframes wave {
+  0% {
+    transform: translateX(-50%) rotate(0deg);
+  }
+
+  100% {
+    transform: translateX(-50%) rotate(360deg);
+  }
+}
+
+.liquid-container {
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  border-radius: 9999px;
+}
+
+.work-segment-bar {
+  position: relative;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.work-segment-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+  transition: width 0.3s ease-out;
+}
+
+.liquid-wave {
+  position: absolute;
+  top: -150%;
+  left: 50%;
+  width: 300%;
+  height: 300%;
+  background: rgba(16, 185, 129, 0.4);
+  border-radius: 40%;
+  animation: wave 5s infinite linear;
+  pointer-events: none;
+}
+
+.liquid-wave:nth-child(2) {
+  border-radius: 35%;
+  background: rgba(16, 185, 129, 0.2);
+  animation: wave 7s infinite linear;
+  top: -155%;
+}
+
+/* Safety for tiny labels that often get clipped (text-[9px], text-[8px], text-xs) */
+.text-\[8px\],
+.text-\[9px\],
+.text-\[10px\],
+.text-xs {
+  line-height: 1.38;
+  padding-bottom: 0.5px;
+}
+
+/* Premium Custom Range Slider */
+input[type=range].custom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Remove default focus */
+input[type=range].custom-slider:focus {
+  outline: none;
+}
+
+/* WebKit (Chrome, Safari, Edge) Thumb */
+input[type=range].custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  /* Tailwind blue-500 */
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+input[type=range].custom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #60a5fa;
+  /* Tailwind blue-400 */
+}
+
+input[type=range].custom-slider::-webkit-slider-thumb:active {
+  transform: scale(0.95);
+}
+
+/* Firefox Thumb */
+input[type=range].custom-slider::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+}
+
+input[type=range].custom-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  background: #60a5fa;
+}
+
+input[type=range].custom-slider::-moz-range-thumb:active {
+  transform: scale(0.95);
+}
+
+/* =========================================
+   VISUAL POLISH & NEW TOOLS - 2026
+   ========================================= */
+
+/* Premium Card Base - consistent across app */
+.premium-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 27, 75, 0.85) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 18px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s ease;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
+}
+
+.premium-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(129, 140, 248, 0.25);
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(129, 140, 248, 0.08);
+}
+
+/* Tool header title polish */
+.tool-header {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  background: linear-gradient(90deg, #f8fafc, #cbd5e1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding-bottom: max(0.12em, 2px); /* Prevent descender clipping on gradient text */
+  line-height: 1.35;
+}
+
+/* Consistent micro labels (fix audit noise) */
+.micro-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  line-height: 1.3;
+  padding-bottom: 1px;
+}
+
+/* Flashcard flip styles - premium */
+.flashcard-container {
+  perspective: 1200px;
+  min-height: 260px;
+}
+
+.flashcard {
+  position: relative;
+  width: 100%;
+  min-height: 260px;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+  border-radius: 20px;
+}
+
+.flashcard.flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-front,
+.flashcard-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.6rem 2.1rem; /* Good breathing room top + bottom for letters */
+  text-align: center;
+  background: linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6);
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+  background: linear-gradient(145deg, #1e1b4b 0%, #312e81 100%);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.flashcard-content {
+  font-size: 1.32rem;
+  font-weight: 600;
+  line-height: 1.48; /* Much safer for descenders (g,y,p,j,ç) */
+  color: #f1f5f9;
+  max-width: 92%;
+  padding-bottom: 0.15em; /* Safety padding for clipped letters */
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Agenda / Calendar polish */
+.agenda-day {
+  transition: all 0.15s ease;
+  border-radius: 10px;
+  padding: 4px; /* Extra internal framing */
+  min-height: 44px;
+}
+
+.agenda-day:hover {
+  background-color: rgba(129, 140, 248, 0.08);
+  transform: translateY(-1px);
+}
+
+.agenda-day.today {
+  border-color: #6366f1 !important;
+  background: rgba(99, 102, 241, 0.08);
+}
+
+/* Ensure day number + dots never clip */
+.agenda-day span {
+  line-height: 1.1;
+  padding-top: 1px;
+}
+
+.agenda-event {
+  font-size: 0.75rem;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.12);
+  border-left: 3px solid #38bdf8;
+  margin-bottom: 4px;
+  line-height: 1.35;
+  transition: all 0.1s ease;
+}
+
+.agenda-event:hover {
+  background: rgba(56, 189, 248, 0.22);
+}
+
+/* Acessibilidade: foco visível para elementos com tabindex */
+[tabindex="0"]:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.7);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Reduz animações para usuários com preferência de menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-fade-in-down,
+  .animate-scan-fast,
+  .animate-shimmer {
+    animation: none !important;
+  }
+}
+
+/* Nice primary action buttons for tools */
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.tool-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.45);
+}
+
+.tool-btn:active {
+  transform: scale(0.985);
+}
+
+.tool-btn.secondary {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+  box-shadow: none;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.tool-btn.secondary:hover {
+  background: rgba(148, 163, 184, 0.22);
+  box-shadow: none;
+}
+
+/* Deck card for flashcards */
+.deck-card {
+  border-radius: 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.deck-card:hover {
+  transform: translateY(-3px) scale(1.005);
+  box-shadow: 0 15px 35px -12px rgba(0,0,0,0.5);
+}
+
+/* Better empty states */
+.empty-state {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px dashed rgba(148, 163, 184, 0.25);
+  border-radius: 18px;
+  padding: 3rem 2rem;
+}
+
+/* LOTE 5 - Custom focus outline for keyboard navigation */
+:focus-visible {
+    outline: 2px solid theme('colors.indigo.400');
+    outline-offset: 2px;
+}
+
+/* Sleek custom scrollbars */
+.custom-scrollbar::-webkit-scrollbar,
+.kanban-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track,
+.kanban-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.kanban-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition: background 0.2s;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.kanban-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+
+
+```

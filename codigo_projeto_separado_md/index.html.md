@@ -1,0 +1,202 @@
+# index.html
+
+```html
+<!doctype html>
+<html lang="pt-BR" translate="no">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1157/1157077.png" />
+  <title>MÉTODO ARRAIA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    /* Loading Screen Styles - Shown while React loads */
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+
+    .initial-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: white;
+    }
+
+    .loader-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(139, 92, 246, 0.3);
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loader-text {
+      margin-top: 1rem;
+      font-size: 1.1rem;
+      color: #94a3b8;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.6;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+  </style>
+  <script>
+    window.addEventListener('error', (event) => {
+      const loaderText = document.querySelector('.loader-text');
+
+      if (!loaderText) return;
+
+      loaderText.textContent = 'Erro de carregamento: ' + event.message;
+      loaderText.style.color = '#f87171';
+      loaderText.style.animation = 'none';
+    });
+
+    const BUILD_VERSION = typeof __APP_VERSION__ !== 'undefined'
+      ? __APP_VERSION__
+      : 'dev';
+    const buildVersion = typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : (window.__BUILD_VERSION__ || 'dev');
+    console.log("[Build] Versão:", buildVersion);
+
+    setTimeout(() => {
+      const loaderText = document.querySelector('.loader-text');
+      if (!loaderText) return;
+
+      const currentText = loaderText.textContent || "";
+      if (!currentText.includes("Carregando")) return;
+
+      loaderText.textContent = "";
+
+      const title = document.createElement("div");
+      title.textContent = "Carregamento lento detectado...";
+
+      const version = document.createElement("small");
+      version.style.opacity = "0.5";
+      version.textContent = `Versão: ${buildVersion} | Verifique o painel VITE_.`;
+
+      const btn = document.createElement("button");
+      btn.textContent = "Limpar dados e reiniciar";
+      btn.style.marginTop = "20px";
+      btn.style.background = "rgba(248, 113, 113, 0.2)";
+      btn.style.border = "1px solid #f87171";
+      btn.style.color = "#f87171";
+      btn.style.padding = "8px 16px";
+      btn.style.borderRadius = "8px";
+      btn.style.cursor = "pointer";
+      btn.style.fontSize = "12px";
+
+      async function clearAllLocalData() {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+
+          if ('serviceWorker' in navigator) {
+            try {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (let registration of registrations) {
+                await registration.unregister();
+              }
+            } catch (swErr) {
+              console.error('Erro ao remover Service Worker:', swErr);
+            }
+          }
+
+          // ✅ FIX T-04: Aguardar CADA deleteDatabase completar antes de prosseguir.
+          // indexedDB.deleteDatabase() retorna IDBOpenDBRequest, não Promise.
+          if ('indexedDB' in window && typeof indexedDB.databases === 'function') {
+            const dbs = await indexedDB.databases();
+            if (Array.isArray(dbs)) {
+              const allowedPrefixes = [
+                'ultra-dashboard',
+                'firestore/',
+              ];
+              // ✅ FIX T-06: Restringir prefixo 'firestore/' ao projeto específico
+              const projectId = (typeof window.__FIREBASE_PROJECT_ID__ === 'string')
+                ? window.__FIREBASE_PROJECT_ID__
+                : null;
+              const firestorePrefix = projectId ? `firestore/${projectId}` : 'firestore/';
+
+              const deletePromises = dbs
+                .filter(db => {
+                  if (!db.name) return false;
+                  if (String(db.name).startsWith('ultra-dashboard')) return true;
+                  return String(db.name).startsWith(firestorePrefix);
+                })
+                .map(db => new Promise((resolve) => {
+                  const req = indexedDB.deleteDatabase(db.name);
+                  req.onsuccess = () => resolve();
+                  req.onerror = () => resolve();   // resolve mesmo em erro para não travar
+                  req.onblocked = () => resolve(); // resolve em blocked para não travar
+                }));
+
+              // Aguarda TODAS as deleções antes de prosseguir
+              await Promise.all(deletePromises);
+            }
+          }
+        } catch (error) {
+          console.error('Erro ao limpar dados locais:', error);
+        } finally {
+          // ✅ Agora é seguro recarregar — todas as deleções foram aguardadas
+          location.reload();
+        }
+      }
+
+      btn.addEventListener("click", async () => {
+        const ok = window.confirm(
+          "Isso apagará os dados locais deste navegador. Deseja continuar?"
+        );
+
+        if (ok) {
+          await clearAllLocalData();
+        }
+      });
+
+      loaderText.appendChild(title);
+      loaderText.appendChild(document.createElement("br"));
+      loaderText.appendChild(version);
+      loaderText.appendChild(document.createElement("br"));
+      loaderText.appendChild(btn);
+    }, 8000);
+  </script>
+</head>
+
+<body>
+  <div id="root">
+    <!-- Initial loader - replaced by React when app loads -->
+    <div class="initial-loader">
+      <div class="loader-spinner"></div>
+      <p class="loader-text">Carregando...</p>
+    </div>
+  </div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>
+
+```

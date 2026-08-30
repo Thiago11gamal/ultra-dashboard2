@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
+// ✅ FIX S02: DOMPurify adicionado para sanitizar entradas no CategoryEditor
+import DOMPurify from 'dompurify';
 import { Settings, X } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
@@ -43,6 +45,13 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             return;
         }
 
+        // ✅ FIX S02: Sanitização do nome da disciplina
+        const cleanName = DOMPurify.sanitize(name.trim());
+        if (!cleanName) {
+            console.warn('[CategoryEditor] Nome rejeitado por conter HTML malicioso.');
+            return;
+        }
+
         const parsedMax = Math.max(0.1, Number(maxScore) || 100);
         const parsedMin = Math.max(0, Number(minCutoff) || 0);
 
@@ -52,7 +61,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             : '#3b82f6';
 
         updateCategoryFields(category.id, {
-            name: name.trim(),
+            name: cleanName,
             color: safeColor,
             minCutoff: Number(safeMin.toFixed(2)),
             maxScore: Number(parsedMax.toFixed(2))

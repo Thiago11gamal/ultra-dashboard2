@@ -1,0 +1,507 @@
+# src\components\charts\MonteCarloConfig.jsx
+
+```jsx
+import React, { useRef, useState, useEffect, useMemo, startTransition } from 'react';
+import {
+    Check,
+    Minus,
+    Activity,
+    Clock,
+    Hash,
+    ChevronUp,
+    ChevronDown
+} from 'lucide-react';
+import { useAppStore } from '../../store/useAppStore';
+import { formatDuration } from '../../utils/dateHelper';
+
+const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
+    const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
+    return (
+        <div className={`bg-slate-800/40 backdrop-blur-md p-3 rounded-2xl border border-white/[0.03] flex flex-col sm:flex-row items-center gap-4 hover:border-indigo-500/20 transition-all ${weight === 0 ? 'opacity-50 grayscale' : ''}`}>
+            <div className="flex items-center gap-4 w-full sm:w-auto">
+                <div className="min-w-[40px] h-10 px-2 rounded-xl flex items-center justify-center text-sm shadow-inner shrink-0 whitespace-nowrap overflow-hidden" style={{ backgroundColor: `${cat.color || '#3b82f6'}15`, border: `1px solid ${cat.color || '#3b82f6'}20` }}>{cat.icon || '📚'}</div>
+                <div className="flex-1 sm:hidden">
+                    <p className="text-[11px] font-black text-slate-200 uppercase tracking-tight mb-0.5 truncate">{cat.name || 'Matéria'}</p>
+                    <p className="text-[9px] font-black text-slate-500">{normalizedShare}% da Classificação</p>
+                </div>
+            </div>
+            <div className="hidden sm:block flex-1 min-w-0">
+                <p className="text-[11px] font-black text-slate-200 uppercase tracking-tight mb-1.5 truncate">{cat.name || 'Matéria'}</p>
+                <div className="h-1.5 bg-slate-950/50 rounded-full overflow-hidden shadow-inner border border-black/20">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${normalizedShare}%`, backgroundColor: cat.color || '#3b82f6' }} />
+                </div>
+                <div className="flex items-center justify-between mt-1.5">
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Share</p>
+                    <p className="text-[9px] font-black text-slate-400">{normalizedShare}%</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-950/40 rounded-xl p-1 border border-white/5 w-full sm:w-auto justify-between sm:justify-start">
+                {[0, 1, 2, 3].map(p => (
+                    <button
+                        type="button"
+                        key={p}
+                        onClick={() => updateWeight(cat.id || cat.name, p)}
+                        className={`flex-1 sm:flex-none w-10 sm:w-8 h-10 sm:h-8 rounded-lg text-[10px] font-black transition-all ${weight === p ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                    >
+                        P{p}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+});
+
+WeightRow.displayName = 'WeightRow';
+
+export const MonteCarloConfig = ({
+    show, onClose, targetScore, setTargetScore,
+    equalWeightsMode, setEqualWeightsMode, getEqualWeights,
+    setWeights, weights, updateWeight, categories,
+    historicalCutoffs = [], setHistoricalCutoffs,
+    minScore = 0, maxScore = 100
+}) => {
+    const savedCustomWeights = useRef(null);
+    const [newCutoff, setNewCutoff] = useState('');
+
+    // Seletores Reativos da Store
+    const examDurationMinutes = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.examDurationMinutes || 240);
+    const examTotalQuestions = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.examTotalQuestions || 100);
+    const setExamConfig = useAppStore(state => state.setExamConfig);
+
+    const examDurationLabel = useMemo(() => {
+        return formatDuration(examDurationMinutes / 60);
+    }, [examDurationMinutes]);
+
+    const updateExamDurationMinutes = (delta) => {
+        const newMins = Math.max(30, Math.min(720, examDurationMinutes + delta));
+        if (newMins !== examDurationMinutes && setExamConfig) setExamConfig(newMins, examTotalQuestions);
+    };
+
+    const updateExamTotalQuestions = (e) => {
+        const q = parseInt(e.target.value, 10);
+
+        if (!isNaN(q) && setExamConfig) {
+            // T-027 FIX: clamp defensivo, independente do input HTML
+            const safeQ = Math.max(10, Math.min(500, q));
+            setExamConfig(examDurationMinutes, safeQ);
+        }
+    };
+
+    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore ? Number(maxScore) : Math.max(safeMinScore + 1, 100);
+
+    // T-026 FIX: unidade dinâmica para escalas diferentes de 100
+    const unitLabel = safeMaxScore === 100 ? '%' : ' pts';
+
+    // ✅ LOTE-02 FIX (M6): o piso antigo (10% do TETO) impedia metas baixas e
+    // ignorava minScore (10% de 1000 = 100, mesmo com piso 200 -> conflito).
+    // Agora: 5% do RANGE a partir do piso da escala.
+    const safeRange = Math.max(1, safeMaxScore - safeMinScore);
+    const sliderMin = Math.max(safeMinScore, Math.round(safeMinScore + safeRange * 0.05));
+    const sliderRange = Math.max(1, safeMaxScore - sliderMin);
+    const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number(targetScore) || sliderMin));
+    
+    const [localTarget, setLocalTarget] = useState(clampedTarget);
+    const isDragging = useRef(false);
+    const debounceTimeout = useRef(null);
+    const dragTimeout = useRef(null);
+    const sliderRef = useRef(null);
+
+    // T-042/T-043 FIX: refs para acessibilidade e focus trap
+    const modalRef = useRef(null);
+    const closeButtonRef = useRef(null);
+
+    // Otimização O(N) via useMemo para evitar loop no render do slider
+    const manualTotal = useMemo(() => {
+        if (!Array.isArray(categories)) return 0;
+        return categories.reduce((acc, cat) => {
+            const val = weights?.[cat.id || cat.name];
+            return acc + Math.max(0, parseInt(val !== undefined ? val : 1, 10) || 0);
+        }, 0);
+    }, [categories, weights]);
+
+    useEffect(() => {
+        if (!isDragging.current) {
+            setLocalTarget(clampedTarget);
+            if (sliderRef.current && sliderRef.current.value !== String(clampedTarget)) {
+                sliderRef.current.value = String(clampedTarget);
+            }
+        }
+    }, [clampedTarget]);
+
+    // T-043 FIX: foco inicial no modal ao abrir
+    useEffect(() => {
+        if (!show) return;
+
+        if (closeButtonRef.current) {
+            closeButtonRef.current.focus();
+        }
+    }, [show]);
+
+    useEffect(() => {
+        document.body.style.overflow = show ? 'hidden' : '';
+        return () => {
+            if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+            if (dragTimeout.current) clearTimeout(dragTimeout.current);
+            document.body.style.overflow = '';
+        };
+    }, [show]);
+
+    const sliderPercent = ((localTarget - sliderMin) / sliderRange) * 100;
+
+    const handleSliderChange = (e) => {
+        const val = parseInt(e.target.value, 10);
+        setLocalTarget(val);
+        
+        isDragging.current = true;
+        if (dragTimeout.current) clearTimeout(dragTimeout.current);
+        dragTimeout.current = setTimeout(() => { isDragging.current = false; }, 500);
+
+        if (setTargetScore) {
+            if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+            debounceTimeout.current = setTimeout(() => {
+                if (startTransition) {
+                    startTransition(() => {
+                        setTargetScore(val);
+                    });
+                } else {
+                    setTargetScore(val);
+                }
+            }, 40);
+        }
+    };
+
+    // T-028 FIX: helper para adicionar cortes sem duplicatas e com normalização defensiva
+    const safeCutoffs = Array.isArray(historicalCutoffs)
+        ? historicalCutoffs
+        : Object.values(historicalCutoffs || {});
+
+    const addHistoricalCutoff = () => {
+        const val = parseFloat(newCutoff);
+
+        if (!isNaN(val) && val >= safeMinScore && val <= safeMaxScore) {
+            if (typeof setHistoricalCutoffs === 'function') {
+                const next = Array.from(new Set([...safeCutoffs, val]));
+                setHistoricalCutoffs(next);
+            }
+
+            setNewCutoff('');
+        }
+    };
+
+    // T-043 FIX: Escape fecha e Tab mantém foco dentro do modal
+    const handleModalKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            e.stopPropagation();
+            onClose(false);
+            return;
+        }
+
+        if (e.key === 'Tab' && modalRef.current) {
+            const focusables = Array.from(
+                modalRef.current.querySelectorAll(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                )
+            ).filter(el => !el.disabled && el.getClientRects().length > 0);
+
+            if (focusables.length === 0) return;
+
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+    };
+
+    if (!show) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
+            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => onClose(false)} />
+
+            <div
+                ref={modalRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Configuração do Monte Carlo"
+                onKeyDown={handleModalKeyDown}
+                className="relative w-full max-w-2xl h-full max-h-[90vh] bg-slate-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            >
+                <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-white/5">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 shadow-inner flex items-center justify-center">
+                            <Activity className="w-5 h-5 text-indigo-400" />
+                        </div>
+                        <div className="min-w-0">
+                            <h3 className="text-sm font-bold text-slate-200 truncate">Engine configuration</h3>
+                            <p className="text-[10px] text-slate-400 truncate">Monte Carlo & Classificações das Matérias</p>
+                        </div>
+                    </div>
+                    <button
+                        ref={closeButtonRef}
+                        type="button"
+                        onClick={() => onClose(false)}
+                        className="shrink-0 flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 group/close focus:outline-none focus:ring-2 focus:ring-emerald-300/70"
+                        title="Salvar e Fechar"
+                        aria-label="Salvar e fechar configuração"
+                    >
+                        <Check size={18} className="text-white group-hover/close:scale-110 transition-transform" />
+                        <span className="hidden sm:inline text-[10px] font-black text-white uppercase tracking-wider">Salvar</span>
+                    </button>
+                </div>
+
+                {/* REMOVIDO DUPLO SCROLL - Mantido apenas o container de conteúdo flex-1 */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pt-2">
+                    <div className="bg-slate-950/40 backdrop-blur-xl p-6 rounded-3xl mb-8 border border-white/[0.03] shadow-2xl relative overflow-hidden group/target">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover/target:opacity-20 transition-opacity">
+                            <Activity size={48} className="text-blue-500" />
+                        </div>
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-1">Target Achievement</span>
+                                <span className="text-3xl font-black text-white tracking-tighter italic">
+                                    <span>{localTarget}</span>
+                                    <span className="text-blue-500">{unitLabel}</span>
+                                </span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[10px] font-black text-blue-500/60 uppercase tracking-widest block">Min. Viability</span>
+                                <span className="text-xs font-bold text-slate-400">Competitive Goal</span>
+                            </div>
+                        </div>
+                        <div className="relative h-6 flex items-center mb-4">
+                            <input
+                                ref={sliderRef}
+                                type="range"
+                                min={sliderMin}
+                                max={safeMaxScore}
+                                step="1"
+                                defaultValue={clampedTarget}
+                                onChange={handleSliderChange}
+                                aria-label="Meta de classificação"
+                                onPointerDown={() => { isDragging.current = true; }}
+                                onPointerUp={() => { isDragging.current = false; }}
+                                touchAction="none"
+                                onTouchStart={() => { isDragging.current = true; }}
+                                onTouchEnd={() => { isDragging.current = false; }}
+                                className="custom-slider w-full h-1.5 rounded-full outline-none"
+                                style={{
+                                    background: `linear-gradient(to right, #3b82f6 ${sliderPercent}%, rgba(255,255,255,0.1) ${sliderPercent}%)`,
+                                    touchAction: 'none'
+                                }}
+                            />
+                        </div>
+                        <div className="relative h-6 mt-2 w-full px-1">
+                            {[
+                                { ratio: 0.6, label: 'Baseline', color: 'text-slate-600' },
+                                { ratio: 0.75, label: 'Optimized', color: 'text-blue-500/60' },
+                                { ratio: 0.9, label: 'Elite', color: 'text-slate-600' }
+                            ].map(({ ratio, label, color }, i) => {
+                                // ✅ LOTE-02 FIX (C3): razão sobre o RANGE real, não sobre o teto
+                                const val = Math.round(safeMinScore + (safeMaxScore - safeMinScore) * ratio);
+                                const percent = Math.max(0, Math.min(100, ((val - sliderMin) / sliderRange) * 100));
+                                return (
+                                    <div key={i} className="absolute flex flex-col items-center" style={{ left: `calc(${percent}% + ${8 - percent * 0.16}px)`, transform: 'translateX(-50%)' }}>
+                                        <div className="w-0.5 h-1.5 bg-slate-600/50 mb-1 rounded-full"></div>
+                                        <span className={`text-[8px] font-black uppercase tracking-widest ${color}`}>{label} ({val})</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-950/40 p-5 rounded-md mb-8 border border-white/[0.03] shadow-inner relative overflow-hidden">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Activity size={18} className="text-purple-400" />
+                            <div>
+                                <h4 className="text-sm font-black text-white uppercase tracking-tight">Cortes Históricos</h4>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Sorteio Inteligente no Monte Carlo</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mb-4">
+                            <input
+                                type="number"
+                                placeholder="Nota de Corte (Ex: 82)"
+                                value={newCutoff}
+                                onChange={(e) => setNewCutoff(e.target.value)}
+                                aria-label="Nova nota de corte histórica"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        addHistoricalCutoff();
+                                    }
+                                }}
+                                className="bg-slate-900 border border-white/10 rounded-md px-4 py-2.5 text-sm text-white font-bold w-full outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all placeholder:text-slate-600"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    addHistoricalCutoff();
+                                }}
+                                className="bg-purple-600 hover:bg-purple-500 text-white font-black text-xs px-5 py-2.5 rounded-md shadow-lg shadow-purple-500/20 transition-all active:scale-95"
+                            >
+                                Inserir
+                            </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {safeCutoffs.map((c, i) => (
+                                <div key={i} className="flex items-center gap-1.5 bg-slate-900 border border-purple-500/30 px-3 py-1.5 rounded-full group">
+                                    <span className="text-xs font-black text-purple-300">{c}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (typeof setHistoricalCutoffs === 'function') {
+                                                setHistoricalCutoffs(safeCutoffs.filter((_, idx) => idx !== i));
+                                            }
+                                        }}
+                                        className="text-slate-500 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all p-0.5"
+                                        title="Remover nota de corte"
+                                    >
+                                        <Minus size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                            {safeCutoffs.length === 0 && (
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Nenhum corte cadastrado</span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-950/40 p-5 rounded-md mb-8 border border-white/[0.03] shadow-inner relative overflow-hidden">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Clock size={18} className="text-emerald-400" />
+                            <div>
+                                <h4 className="text-sm font-black text-white uppercase tracking-tight">Time Penalty (Agilidade)</h4>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Penalidade por Estouro de Tempo</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Tempo de Prova (Horas)</label>
+                                <div className="flex items-center bg-slate-900 border border-white/10 rounded-md focus-within:border-emerald-500/50 transition-colors">
+                                    <div className="pl-3 pr-2 py-2.5 text-slate-500">
+                                        <Clock size={16} />
+                                    </div>
+                                    <div className="flex items-center justify-between w-full pr-1 py-1">
+                                        <span className="bg-transparent text-white font-bold text-sm select-none">{examDurationLabel}</span>
+                                        <div className="flex flex-col gap-0.5">
+                                            <button type="button" onClick={() => updateExamDurationMinutes(30)} className="text-slate-500 hover:text-white hover:bg-white/10 rounded px-1 transition-colors" title="Aumentar 30min">
+                                                <ChevronUp size={12} strokeWidth={4} />
+                                            </button>
+                                            <button type="button" onClick={() => updateExamDurationMinutes(-30)} className="text-slate-500 hover:text-white hover:bg-white/10 rounded px-1 transition-colors" title="Diminuir 30min">
+                                                <ChevronDown size={12} strokeWidth={4} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Total de Questões</label>
+                                <div className="flex items-center bg-slate-900 border border-white/10 rounded-md focus-within:border-emerald-500/50 transition-colors">
+                                    <div className="pl-3 pr-2 py-2.5 text-slate-500">
+                                        <Hash size={16} />
+                                    </div>
+                                    <input
+                                        type="number"
+                                        min="10"
+                                        max="500"
+                                        value={examTotalQuestions}
+                                        onChange={updateExamTotalQuestions}
+                                        aria-label="Total de questões da prova"
+                                        className="bg-transparent text-white font-bold text-sm w-full outline-none py-2.5 pr-3 placeholder:text-slate-600"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium bg-black/20 p-3 rounded-md border border-white/[0.02]">
+                        Se você inserir notas aqui, o motor Monte Carlo irá <b>sortear a nota de corte alvo</b> a cada simulação a partir de uma Distribuição Normal baseada nestes valores, ignorando o Target fixo do slider. Isso gera previsões hiper-realistas para bancas voláteis.
+                    </p>
+
+                    <div className="bg-slate-800/50 p-1 rounded-xl flex flex-col sm:flex-row my-6 border border-white/5 gap-1 sm:gap-0">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!equalWeightsMode) {
+                                    savedCustomWeights.current = weights;
+                                    const ew = getEqualWeights();
+                                    setWeights(ew);
+                                }
+                                setEqualWeightsMode(true);
+                            }}
+                            className={`flex-1 py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-300/60 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <div className={`w-2 h-2 rounded-full ${equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
+                            Pesos Iguais
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (equalWeightsMode && savedCustomWeights.current) {
+                                    // ✅ LOTE-02 FIX (M10): restaurar apenas chaves que ainda
+                                    // existem nas categorias (pesos salvos podem estar obsoletos
+                                    // se matérias foram removidas/renomeadas durante o modo igual)
+                                    const validIds = new Set(
+                                        (Array.isArray(categories) ? categories : []).map(c => c.id || c.name)
+                                    );
+                                    const restored = {};
+                                    Object.entries(savedCustomWeights.current).forEach(([k, v]) => {
+                                        if (validIds.has(k)) restored[k] = v;
+                                    });
+                                    if (Object.keys(restored).length > 0) setWeights(restored);
+                                }
+                                setEqualWeightsMode(false);
+                            }}
+                            className={`flex-1 py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-purple-300/60 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <div className={`w-2 h-2 rounded-full ${!equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
+                            Manual (1, 2, 3...)
+                        </button>
+                    </div>
+
+                    {/* CONTEXTO SECUNDÁRIO DE LISTAGEM DE MATÉRIAS */}
+                    <div className="space-y-3">
+                        {equalWeightsMode ? (
+                            <div className="py-10 flex flex-col items-center justify-center text-center opacity-50">
+                                <Minus size={40} className="text-slate-600 mb-2" />
+                                <p className="text-sm text-slate-500 px-10">No modo automático, todas as matérias possuem o mesmo peso de relevância.</p>
+                            </div>
+                        ) : (
+                            Array.isArray(categories) && categories.length > 0 ? (
+                                categories.map(cat => (
+                                    <WeightRow
+                                        key={cat.id || cat.name}
+                                        cat={cat}
+                                        weight={weights ? (weights[cat.id || cat.name] !== undefined ? (parseInt(weights[cat.id || cat.name], 10) || 0) : 1) : 1}
+                                        manualTotal={manualTotal}
+                                        updateWeight={updateWeight}
+                                    />
+                                ))
+                            ) : (
+                                <div className="py-10 flex flex-col items-center justify-center text-center opacity-50 space-y-2">
+                                    <Activity size={40} className="text-slate-600 mb-2" />
+                                    <p className="text-sm text-slate-500 px-10">Nenhuma matéria encontrada no concurso atual.</p>
+                                    <p className="text-[10px] text-slate-600">Adicione matérias na Planilha ou menu Categorias para configurar os pesos.</p>
+                                </div>
+                            )
+                        )}
+                    </div>
+
+                    {!equalWeightsMode && (
+                        <p className="text-[10px] text-slate-400 mt-3">No modo manual, você define pesos relativos (1, 2, 3...). O sistema converte automaticamente para percentual.</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+```

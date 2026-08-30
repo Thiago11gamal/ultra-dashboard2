@@ -195,13 +195,34 @@ export function simuladosToHistory(simulados, maxScore = 100) {
       return a._idx - b._idx;
     });
 
+  // ✅ FIX L06: fatigueFlag agora ignora scores inválidos (NaN/Infinity).
+  // Antes, NaN < NaN retornava false, mas NaN < número válido retornava
+  // false também, mascarando fadiga real. Agora a comparação é protegida.
   let burstCount = 1;
   for (let i = 1; i < sorted.length; i++) {
-    const current = sorted[i];
-    const prev = sorted[i - 1];
-    if (current.rawTimestamp - prev.rawTimestamp < 7200000 && current.rawTimestamp > 0) burstCount++;
-    else burstCount = 1;
-    current.fatigueFlag = burstCount >= 3 && current.score < prev.score;
+      const current = sorted[i];
+      const prev = sorted[i - 1];
+
+      const isRapidSuccession =
+          current.rawTimestamp > 0 &&
+          prev.rawTimestamp > 0 &&
+          (current.rawTimestamp - prev.rawTimestamp) < 7200000;
+
+      if (isRapidSuccession) {
+          burstCount++;
+      } else {
+          burstCount = 1;
+      }
+
+      // ✅ FIX: Só calcular fatigueFlag se ambos os scores forem finitos
+      const currentScoreValid = Number.isFinite(current.score);
+      const prevScoreValid = Number.isFinite(prev.score);
+
+      if (currentScoreValid && prevScoreValid) {
+          current.fatigueFlag = burstCount >= 3 && current.score < prev.score;
+      } else {
+          current.fatigueFlag = false;
+      }
   }
 
   return sorted.filter(item => typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(item.date.trim()));

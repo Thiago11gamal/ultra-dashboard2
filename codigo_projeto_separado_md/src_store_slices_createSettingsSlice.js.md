@@ -1,0 +1,79 @@
+# src\store\slices\createSettingsSlice.js
+
+```js
+import { validateAppState } from '../schemas';
+
+const applyDarkModeToggle = (state) => {
+  const activeData = state.appState.contests[state.appState.activeId];
+  if (!activeData) return;
+  if (!activeData.settings) activeData.settings = {};
+  activeData.settings.darkMode = !(activeData.settings.darkMode ?? true);
+  state.appState.version = (state.appState.version || 0) + 1;
+  state.appState.lastUpdated = new Date().toISOString();
+  localStorage.setItem('ultra-sync-dirty', 'true');
+};
+
+export const createSettingsSlice = (set) => ({
+  setHasSeenTour: (value) => set((state) => {
+    state.appState.hasSeenTour = value;
+    if (value) {
+      state.appState.lastSeenTourDate = new Date().toDateString();
+    }
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    localStorage.setItem('ultra-sync-dirty', 'true');
+  }),
+  
+  setDashboardFilter: (filterOrEvent) => set((state) => {
+    const rawFilter = (filterOrEvent && typeof filterOrEvent === 'object' && 'target' in filterOrEvent)
+      ? filterOrEvent.target?.value
+      : filterOrEvent;
+    const nextFilter = typeof rawFilter === 'string' ? rawFilter : 'all';
+    state.appState.dashboardFilter = nextFilter || 'all';
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    localStorage.setItem('ultra-sync-dirty', 'true');
+  }),
+  
+  updateCoachPlanner: (newPlannerData) => set((state) => {
+    const activeData = state.appState.contests[state.appState.activeId];
+    if (!activeData) return;
+    if (JSON.stringify(activeData.coachPlanner) === JSON.stringify(newPlannerData)) return;
+    activeData.coachPlanner = newPlannerData;
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    localStorage.setItem('ultra-sync-dirty', 'true');
+  }),
+  
+  setThemeMode: () => set(applyDarkModeToggle),
+  toggleDarkMode: () => set(applyDarkModeToggle),
+  
+  setAppState: (newStateObj) => set((state) => {
+    let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
+    if (!nextState) return;
+    if (nextState === state.appState) return;
+    
+    nextState = validateAppState(nextState);
+    
+    const nextContests = (nextState.contests && typeof nextState.contests === 'object')
+      ? nextState.contests : state.appState.contests;
+    const contestIds = Object.keys(nextContests || {});
+    const fallbackActiveId = contestIds[0] || state.appState.activeId;
+    const nextActiveId = (nextState.activeId && nextContests?.[nextState.activeId])
+      ? nextState.activeId : fallbackActiveId;
+    
+    const { history: _history, ...otherState } = nextState;
+    
+    Object.assign(state.appState, {
+      ...otherState,
+      contests: nextContests,
+      activeId: nextActiveId
+    });
+    
+    state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
+  }),
+  
+});
+
+
+```

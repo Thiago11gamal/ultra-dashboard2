@@ -98,21 +98,31 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
             // Decaimento bayesiano entre eventos
             if (histIdx > 1) {
                 const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
+                // ✅ FIX L05: bayAlpha e bayBeta nunca podem ser negativos.
+                // Adicionadas verificações de sanidade após cada operação.
                 if (entryDecay < 1.0) {
                     const currentN = bayAlpha + bayBeta;
-                    const currentP = bayAlpha / currentN;
-                    const newN = Math.max(2, currentN * entryDecay);
-                    bayAlpha = newN * currentP;
-                    bayBeta = newN * (1 - currentP);
+                    if (currentN > 0) {
+                        const currentP = Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN));
+                        const newN = Math.max(2, currentN * entryDecay);
+                        bayAlpha = Math.max(0.000001, newN * currentP);
+                        bayBeta = Math.max(0.000001, newN * (1 - currentP));
+                    }
                 }
-                const retentionFloor = maxAlphaEver * 0.3;
+                
+                const retentionFloor = Math.max(3, maxAlphaEver * 0.3);
                 if (bayAlpha < retentionFloor) {
                     const currentN = bayAlpha + bayBeta;
-                    const currentP = currentN > 0 && bayAlpha > 0 ? bayAlpha / currentN : 0.01;
-                    const safeP = Math.min(0.999999, Math.max(0.000001, currentP));
+                    const currentP = currentN > 0 && bayAlpha > 0
+                        ? Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN))
+                        : 0.5;
                     bayAlpha = retentionFloor;
-                    bayBeta = bayAlpha * ((1 - safeP) / safeP);
+                    bayBeta = Math.max(0.000001, retentionFloor * ((1 - currentP) / currentP));
                 }
+                
+                // ✅ FIX: Garantia final de sanidade
+                if (!Number.isFinite(bayAlpha) || bayAlpha < 0) bayAlpha = 1;
+                if (!Number.isFinite(bayBeta) || bayBeta < 0) bayBeta = 1;
             }
 
             const total = entry.compTotal > 0 ? entry.compTotal : 0;

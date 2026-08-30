@@ -1,0 +1,616 @@
+# src\components\charts\EvolutionChart\WeeklyEvolutionView.jsx
+
+```jsx
+import React, { useMemo, useState, useCallback } from 'react';
+import {
+    LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+    Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush
+} from 'recharts';
+import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
+import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
+import WeeklyPerformanceChart from './WeeklyPerformanceChart';
+import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
+import { APP_TIMEZONE, parseNoonLocal } from '../../../utils/dateHelper';
+import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
+
+const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit, stableThreshold = 2 }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[320px] break-words whitespace-normal">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
+                    Semana de {label}
+                </p>
+                <div className="space-y-3">
+                    {payload.map((entry, idx) => {
+                        const dataKey = String(entry.dataKey || '');
+                        const isDelta = dataKey.startsWith('delta_');
+                        const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
+
+                        if (hiddenKeys[baseKey]) return null;
+
+                        const val = entry.value;
+                        if (val == null) return null;
+
+                        const meta = entry.payload[`meta_${baseKey}`];
+
+                        if (isDelta) {
+                            const isStable = Math.abs(val) <= stableThreshold;
+                            const color = entry.payload[`deltaColor_${baseKey}`] || (isStable ? '#eab308' : val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
+                            const prefix = val > 0 ? '+' : '';
+                            const currentPct = (meta?.currPct === null || meta?.currPct === undefined || meta?.currPct === '') ? entry.payload?.[baseKey] : (Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey]);
+
+                            return (
+                                <div key={idx} className="flex flex-col gap-0.5">
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-sm" style={{ backgroundColor: entry.color }}></span>
+                                            {entry.name.replace(' (Var.)', '')}
+                                        </span>
+                                        <span style={{ color }} className="font-mono font-black text-xs">
+                                            {prefix}{formatValue(val)}{unit}
+                                        </span>
+                                    </div>
+                                    {meta && meta.prevPct != null && Number.isFinite(Number(currentPct)) && (
+                                        <div className="flex justify-between text-[8px] text-slate-500 pl-3">
+                                            <span>De {formatValue(meta.prevPct)}{unit}</span>
+                                            <span>
+                                                Para {formatValue(currentPct)}{unit} <strong style={{ color }}>(Δ {prefix}{formatValue(val)}{unit})</strong>
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        } else {
+                            return (
+                                <div key={idx} className="flex flex-col gap-0.5">
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
+                                            {entry.name}
+                                        </span>
+                                        <span className="font-mono font-bold text-white text-xs">
+                                            {formatValue(val)}{unit}
+                                        </span>
+                                    </div>
+                                    {meta && meta.currTot > 0 && (
+                                        <span className="text-[8px] text-slate-500 pl-3.5 italic">
+                                            Volume: {meta.currTot} questões
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        }
+                    })}
+                </div>
+            </div>
+        );
+    }
+    return null;
+});
+
+const getMondayStr = (dateStr) => {
+    const dt = parseNoonLocal(dateStr);
+    // ✅ BUG-3 FIX: parseNoonLocal pode retornar null → guard antes de getTime()
+    if (!dt || isNaN(dt.getTime())) return null;
+    const day = dt.getDay();
+    const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
+    dt.setDate(diff);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
+const formatWeek = (isoString) => {
+    if (!isoString || typeof isoString !== 'string') return '--/--';
+    const [year, month, day] = isoString.split('-');
+    if (!year || !month || !day) return '--/--';
+    return `${day}/${month}`;
+};
+
+const shortenLabel = (value, max = 18) => {
+    const text = String(value || '').trim();
+    if (!text) return '—';
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+};
+
+export const WeeklyEvolutionView = ({
+    categories,
+    studyLogs = [],
+    showOnlyFocus,
+    focusSubjectId,
+    maxScore = 100,
+    minScore = 0,
+    unit = '%'
+}) => {
+    const [viewMode, setViewMode] = useState('performance');
+
+    // A1 FIX: Padrão idiomático do React para resetar estado derivado de props sem useEffect.
+    // Em vez de setUserToggles({}) dentro de useEffect (que causa render duplo e dispara a
+    // regra react-hooks/set-state-in-effect), rastreamos a "chave de foco" anterior e chamamos
+    // setState DURANTE o render quando ela muda. O React descarta o render parcial e reinicia
+    // com o novo estado — isso é um render único, sem o ciclo extra do useEffect.
+    // Ref: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+    const focusKey = `${showOnlyFocus}-${focusSubjectId}`;
+    const [lastFocusKey, setLastFocusKey] = useState(focusKey);
+    const [userToggles, setUserToggles] = useState({});
+
+    if (lastFocusKey !== focusKey) {
+        setLastFocusKey(focusKey);
+        setUserToggles({});
+    }
+
+    const [hoveredLine, setHoveredLine] = useState(null);
+
+    const { chartData, activeKeys, rankedKeys } = useMemo(() => {
+        let itemsMap = {};
+        const toSafeKey = (name) => `top_${String(name || '').replace(/[^a-zA-Z0-9_]/g, '_')}`;
+
+        if (!showOnlyFocus || !focusSubjectId) {
+            categories.forEach(cat => {
+                if (!cat?.id) return;
+                const fullName = String(cat.name || 'Matéria').replace(/Direito /gi, 'D. ');
+                const safeName = shortenLabel(fullName, 18);
+                const safeColor = typeof cat.color === 'string' ? cat.color : '#3b82f6';
+                itemsMap[cat.id] = { name: safeName, fullName: fullName, color: safeColor };
+            });
+        } else {
+            const cat = categories.find(c => c.id === focusSubjectId);
+            if (cat) {
+                (cat.tasks || []).forEach(task => {
+                    const tName = String(task?.text || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                    if (!tName) return;
+                    const key = toSafeKey(tName);
+                    itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                });
+
+                const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+                hArray.forEach(h => {
+                    if (h.topics && Array.isArray(h.topics)) {
+                        h.topics.forEach(t => {
+                            const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                            if (!tName) return;
+                            const key = toSafeKey(tName);
+                            if (!itemsMap[key]) {
+                                itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                            }
+                        });
+                    } else if (h.taskId) {
+                        const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        const key = toSafeKey(tName);
+                        if (!itemsMap[key]) {
+                            itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                        }
+                    } else {
+                        if (!itemsMap['top_geral']) {
+                            itemsMap['top_geral'] = { name: 'Geral', color: cat.color || '#3b82f6', fullName: 'Geral' };
+                        }
+                    }
+                });
+            }
+        }
+
+        const validIds = Object.keys(itemsMap);
+        if (validIds.length === 0) return { chartData: [], activeKeys: {}, rankedKeys: [] };
+
+        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const safeMaxScore = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+        const lowerBound = Math.min(safeMinScore, safeMaxScore);
+        const upperBound = Math.max(safeMinScore, safeMaxScore);
+        const scoreRange = Math.max(1e-9, upperBound - lowerBound);
+        const stableThreshold = Math.max(0.5, scoreRange * 0.02);
+        const toRatio = (score) => pointsToRatio(score, upperBound, lowerBound);
+        const fromRatio = (ratio) => ratioToPoints(ratio, upperBound, lowerBound);
+        const weeksTemp = {};
+
+        const processHistory = (historyArray, itemId) => {
+            if (!Array.isArray(historyArray) || !itemId) return;
+            historyArray.forEach(h => {
+                const weekStr = getMondayStr(h.date);
+                if (!weekStr) return;
+
+                if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
+                if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
+
+                let totalQ = Math.max(0, Number(h.total) || 0);
+                const score = getSafeScore(h, upperBound, lowerBound);
+                if (!Number.isFinite(score)) return;
+
+                if (totalQ === 0 && h.score != null) {
+                    totalQ = getSyntheticTotal(upperBound);
+                }
+                if (totalQ === 0) return;
+
+                weeksTemp[weekStr][itemId].total += totalQ;
+                weeksTemp[weekStr][itemId].correct += toRatio(score) * totalQ;
+            });
+        };
+
+        if (!showOnlyFocus || !focusSubjectId) {
+            categories.forEach(cat => {
+                const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+                processHistory(hArray, cat.id);
+            });
+        } else {
+            const cat = categories.find(c => c.id === focusSubjectId);
+            if (cat) {
+                const hArray2 = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+                hArray2.forEach(h => {
+                    if (h.topics && Array.isArray(h.topics)) {
+                        h.topics.forEach(t => {
+                            const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                            if (!tName) return;
+                            const tId = toSafeKey(tName);
+                            const weekStr = getMondayStr(h.date);
+                            if (!weekStr) return;
+                            if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
+                            if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
+
+                            let totalQ = Math.max(0, Number(t.total) || 0);
+                            const topicScore = getSafeScore(t, upperBound, lowerBound);
+                            if (!Number.isFinite(topicScore)) return;
+                            if (totalQ === 0 && t.score != null) {
+                                totalQ = getSyntheticTotal(upperBound);
+                            }
+                            if (totalQ === 0) return;
+                            weeksTemp[weekStr][tId].total += totalQ;
+                            weeksTemp[weekStr][tId].correct += toRatio(topicScore) * totalQ;
+                        });
+                    } else if (h.taskId) {
+                        const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        const tId = toSafeKey(tName);
+                        processHistory([h], tId);
+                    } else {
+                        processHistory([h], 'top_geral');
+                    }
+                });
+            }
+        }
+
+        const sortedWeeks = Object.values(weeksTemp).sort((a, b) => a.week.localeCompare(b.week));
+        if (sortedWeeks.length === 0) return { chartData: [], activeKeys: {}, rankedKeys: [] };
+
+        const memoryByItem = {}; 
+
+        const finalData = sortedWeeks.map(weekObj => {
+            const dataPoint = {
+                week: weekObj.week,
+                displayDate: formatWeek(weekObj.week)
+            };
+
+            validIds.forEach(id => {
+                const currentData = weekObj[id];
+
+                if (currentData && currentData.total > 0) {
+                    const ratio = currentData.correct / currentData.total;
+                    const currentScore = fromRatio(ratio);
+                    const safeCurrentScore = Number.isFinite(currentScore) ? currentScore : 0;
+                    const currentPct = Number(Math.max(lowerBound, Math.min(upperBound, safeCurrentScore)).toFixed(2));
+                    dataPoint[id] = currentPct;
+
+                    if (memoryByItem[id] !== undefined) {
+                        const prevPct = memoryByItem[id].pct;
+                        const safeDelta = Number.isFinite(currentPct - prevPct) ? (currentPct - prevPct) : 0;
+                        const delta = Number(safeDelta.toFixed(2));
+
+                        const isStable = Math.abs(delta) <= stableThreshold;   // antes: <= 2
+                        dataPoint[`delta_${id}`] = delta;
+                        dataPoint[`deltaColor_${id}`] = isStable ? '#eab308' : (delta > 0 ? '#10b981' : '#ef4444');
+
+                        dataPoint[`meta_${id}`] = {
+                            currTot: currentData.total,
+                            currPct: currentPct,
+                            prevPct: prevPct,
+                            prevTot: memoryByItem[id].total
+                        };
+                    } else {
+                        dataPoint[`delta_${id}`] = null;
+                        dataPoint[`deltaColor_${id}`] = '#94a3b8';
+                        dataPoint[`meta_${id}`] = { currTot: currentData.total, currPct: currentPct, prevPct: null, prevTot: 0 };
+                    }
+
+                    memoryByItem[id] = { pct: currentPct, total: currentData.total };
+                } else {
+                    dataPoint[id] = null;
+                    dataPoint[`delta_${id}`] = null;
+                    dataPoint[`deltaColor_${id}`] = '#94a3b8';
+                }
+            });
+
+            return dataPoint;
+        });
+
+        const volumeTracker = {};
+        validIds.forEach(id => volumeTracker[id] = 0);
+        finalData.forEach(week => {
+            validIds.forEach(id => {
+                const meta = week[`meta_${id}`];
+                if (meta && Number.isFinite(Number(meta.currTot))) volumeTracker[id] += Number(meta.currTot);
+            });
+        });
+        const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
+
+        return { chartData: finalData, activeKeys: itemsMap, rankedKeys };
+    }, [categories, showOnlyFocus, focusSubjectId, maxScore, minScore]);
+
+    const keys = Object.keys(activeKeys);
+
+    const hiddenKeys = useMemo(() => {
+        const result = {};
+        rankedKeys?.forEach((key, idx) => {
+            const defaultHide = showOnlyFocus ? false : idx >= 6; 
+            if (userToggles[key] !== undefined) {
+                result[key] = userToggles[key]; 
+            } else {
+                result[key] = defaultHide;
+            }
+        });
+        return result;
+    }, [rankedKeys, userToggles, showOnlyFocus]);
+
+    const topRegressions = useMemo(() => computeTopRegressions({ viewMode, chartData, keys, activeKeys, hiddenKeys }), [viewMode, chartData, keys, activeKeys, hiddenKeys]);
+    const trendKpi = useMemo(() => computeTrendKpi({ chartData, keys, hiddenKeys }), [chartData, keys, hiddenKeys]);
+
+    const handleLegendClick = useCallback((e) => {
+        const dataKey = e?.dataKey;
+        if (!dataKey) return;
+        const keyID = String(dataKey).replace('delta_', '');
+        setUserToggles(prev => ({
+            ...prev,
+            [keyID]: !hiddenKeys[keyID] 
+        }));
+    }, [hiddenKeys]);
+
+    const handleLegendHover = useCallback((e) => {
+        if (e && e.dataKey) setHoveredLine(String(e.dataKey).replace('delta_', ''));
+    }, []);
+
+    const handleLegendLeave = useCallback(() => {
+        setHoveredLine(null);
+    }, []);
+
+    const renderLegendText = useCallback((value, entry) => {
+        const keyID = String(entry.dataKey || '').replace('delta_', '');
+        const isHidden = hiddenKeys[keyID];
+        const fullName = activeKeys[keyID]?.fullName || String(value || '');
+        return (
+            <span 
+                className={`text-[10px] font-black uppercase tracking-widest transition-opacity cursor-pointer ${isHidden ? 'opacity-20' : 'opacity-100'}`}
+                title={fullName}
+            >
+                {String(value || '').replace(' (Var.)', '')}
+            </span>
+        );
+    }, [hiddenKeys, activeKeys]);
+
+    const stableThreshold = useMemo(() => {
+        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const safeMaxScore = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+        const scoreRange = Math.max(1e-9, Math.abs(safeMaxScore - safeMinScore));
+        return Math.max(0.5, scoreRange * 0.02);
+    }, [minScore, maxScore]);
+
+    // M2 FIX: Tooltip extraído em useCallback para restaurar memoização do Recharts.
+    // Arrow functions inline quebram a memoização porque criam nova referência a cada render.
+    const renderWeeklyTooltip = useCallback(
+        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} stableThreshold={stableThreshold} />,
+        [hiddenKeys, unit, stableThreshold]
+    );
+
+
+    if (chartData.length < 1) {
+        return (
+            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
+                <HelpCircle size={40} className="text-slate-600 mb-3" />
+                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
+                <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
+                    Registre pelo menos 1 semana de simulados para visualizar a curva de evolução e a variação de deltas.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-full pt-4 animate-fade-in relative flex flex-col">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-2 gap-4 shrink-0">
+                <div>
+                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Raio-X Temporal Avançado</h4>
+                    <h3 className="text-lg font-black text-white uppercase tracking-tight">
+                        {showOnlyFocus ? 'Semanas por Assunto' : 'Semanas por Matéria'}
+                    </h3>
+                    {trendKpi && (
+                        <p className="text-[10px] mt-1 text-slate-400 font-mono">
+                            Tendência: <span className={trendKpi.delta >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{trendKpi.delta >= 0 ? '+' : ''}{formatValue(trendKpi.delta)}{unit}</span> 
+                            {' '}({trendKpi.previousN} sem. → {trendKpi.recentN} sem.)
+                        </p>
+                    )}
+                </div>
+
+                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-2xl p-1">
+                    <button
+                        onClick={() => setViewMode('performance')}
+                        aria-label="Alternar para visão de desempenho semanal"
+                        aria-pressed={viewMode === 'performance'}
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
+                    >
+                        <Zap size={14} className="shrink-0" /> <span className="hidden sm:inline">Desempenho (7 dias)</span>
+                    </button>
+                    <button
+                        onClick={() => setViewMode('evolution')}
+                        aria-label="Alternar para visão de evolução semanal"
+                        aria-pressed={viewMode === 'evolution'}
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
+                    >
+                        <TrendingUp size={14} className="shrink-0" /> <span className="hidden sm:inline">Evolução</span>
+                    </button>
+                    <button
+                        onClick={() => setViewMode('variation')}
+                        aria-label="Alternar para visão de variação semanal"
+                        aria-pressed={viewMode === 'variation'}
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
+                    >
+                        <BarChart3 size={14} className="shrink-0" /> <span className="hidden sm:inline">Delta</span>
+                    </button>
+                </div>
+            </div>
+
+            <div className="h-[380px] w-full mt-2 relative">
+                {viewMode === 'performance' ? (
+                    <WeeklyPerformanceChart
+                        categories={categories}
+                        studyLogs={studyLogs}
+                        showOnlyFocus={showOnlyFocus}
+                        focusSubjectId={focusSubjectId}
+                        maxScore={maxScore}
+                        minScore={minScore}
+                        unit={unit}
+                    />
+                ) : (
+                    <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
+                        {viewMode === 'evolution' ? (
+                            <LineChart data={chartData} margin={{ top: 10, right: 10, left: 8, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+
+                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
+                                <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
+                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
+
+                                {keys.map(key => {
+                                    const isHovered = hoveredLine === key;
+                                    const isOtherHovered = hoveredLine && hoveredLine !== key;
+                                    
+                                    return (
+                                        <Line connectNulls
+                                            key={key}
+                                            type="monotoneX"
+                                            dataKey={key}
+                                            name={activeKeys[key].name}
+                                            stroke={activeKeys[key].color}
+                                            strokeWidth={isHovered ? 3.5 : (isOtherHovered ? 1.5 : 2)}
+                                            strokeOpacity={isOtherHovered ? 0.4 : 1}
+                                            dot={{ r: 3, strokeWidth: 1.5, stroke: activeKeys[key].color, fill: '#0f172a', strokeOpacity: isOtherHovered ? 0.4 : 1, fillOpacity: isOtherHovered ? 0.4 : 1 }}
+                                            activeDot={{ r: 5, strokeWidth: 2, stroke: '#ffffff', fill: activeKeys[key].color, className: 'shadow-lg', opacity: isOtherHovered ? 0.4 : 1 }}
+                                            hide={hiddenKeys[key]}
+                                            isAnimationActive={true}
+                                            animationDuration={800}
+                                            animationEasing="ease-out"
+                                            style={{ transition: 'all 0.3s ease' }}
+                                        />
+                                    );
+                                })}
+
+                                {chartData.length > 8 && (
+                                    <Brush
+                                        dataKey="week"
+                                        height={18}
+                                        stroke="#ffffff11"
+                                        fill="#0f172a"
+                                        tickFormatter={formatWeek}
+                                        className="text-[8px]"
+                                        travellerWidth={8}
+                                    />
+                                )}
+                            </LineChart>
+                        ) : (
+                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 8, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+
+                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
+                                {/* 🎯 FIX: Uso do formatValue e correcção lógica para o sinal de mais (+) e o Zero perfeito */}
+                                <YAxis 
+                                    stroke="#64748b" 
+                                    fontSize={10} 
+                                    tickLine={false} 
+                                    axisLine={false} 
+                                    tickFormatter={(v) => {
+                                        const formatted = formatValue(v);
+                                        if (formatted === "0.00" || formatted === "0") return `${formatted}${unit}`;
+                                        return `${v > 0 ? '+' : ''}${formatted}${unit}`;
+                                    }} 
+                                />
+                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ fill: '#ffffff11' }} />
+                                <Legend 
+                                    verticalAlign="bottom" 
+                                    height={60} 
+                                    iconType="square" 
+                                    formatter={renderLegendText} 
+                                    onClick={handleLegendClick} 
+                                    onMouseEnter={handleLegendHover} 
+                                    onMouseLeave={handleLegendLeave} 
+                                    wrapperStyle={{ paddingTop: '20px' }} 
+                                />
+                                <ReferenceLine y={0} stroke="#ffffff22" />
+
+                                {chartData.length > 8 && (
+                                    <Brush
+                                        dataKey="week"
+                                        height={18}
+                                        stroke="#ffffff11"
+                                        fill="#0f172a"
+                                        tickFormatter={formatWeek}
+                                        className="text-[8px]"
+                                        travellerWidth={8}
+                                    />
+                                )}
+
+                                {keys.map(key => {
+                                    const isOtherHovered = hoveredLine && hoveredLine !== key;
+
+                                    return (
+                                        <Bar
+                                            key={`delta_${key}`}
+                                            dataKey={`delta_${key}`}
+                                            name={`${activeKeys[key].name} (Var.)`}
+                                            fill={activeKeys[key].color}
+                                            radius={[4, 4, 0, 0]}
+                                            hide={hiddenKeys[key]}
+                                            fillOpacity={isOtherHovered ? 0.4 : 1}
+                                            style={{ transition: 'all 0.3s ease' }}
+                                        >
+                                            {chartData.map((entry, index) => {
+                                                const barColor = entry[`deltaColor_${key}`] || '#94a3b8';
+                                                return <Cell key={`cell-${index}`} fill={barColor} fillOpacity={isOtherHovered ? 0.4 : 0.85} />;
+                                            })}
+                                        </Bar>
+                                    );
+                                })}
+                            </BarChart>
+                        )}
+                    </ResponsiveContainer>
+                )}
+            </div>
+
+            {viewMode === 'variation' && (
+                <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">
+                        Top Regressões {topRegressions[0]?.week ? `· Semana ${topRegressions[0].week}` : ''}
+                    </p>
+                    {topRegressions.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {topRegressions.map(item => (
+                                <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between min-w-0 gap-2">
+                                    <span className="truncate min-w-0" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
+                                    <span className="font-mono font-black text-rose-300">{formatValue(item.delta)}{unit}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-[10px] text-slate-400">Sem regressões visíveis no filtro atual. ✅</p>
+                    )}
+                </div>
+            )}
+
+            {viewMode !== 'performance' && (
+                <div className="flex justify-center mt-3 opacity-60">
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-md border border-slate-800 shrink-0 select-none">
+                        💡 Dica: Clique nos itens da Legenda para ocultar/isolar o gráfico.
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+```
