@@ -21,6 +21,13 @@ export function useSubscription(user) {
         setLoading(false); 
         return; 
     }
+
+    // Explicit bypass for admin email
+    if (user?.email === 'antunest040@gmail.com') {
+        setIsPremium(true);
+        setLoading(false);
+        return;
+    }
     
     let unsub = null;
     let isMounted = true;
