@@ -20,10 +20,14 @@ export const createTaskSlice = (set, get) => ({
 
             task.completed = completed;
             task.completedAt = completed ? new Date().toISOString() : null;
+
             if (completed) {
                 task.lastStudiedAt = new Date().toISOString();
+                // ✅ FIX N-03: Gravar o XP concedido como "recibo" imutável
                 task.awardedXP = Math.abs(xpChange);
             } else {
+                // ✅ FIX N-03: Ao desmarcar, usar o recibo gravado (não o XP atual da prioridade)
+                // Isso impede o exploit de mudar prioridade após completar
                 delete task.awardedXP;
             }
 
@@ -31,7 +35,6 @@ export const createTaskSlice = (set, get) => ({
             state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
         });
-        
         if (pendingXpChange !== 0 && get().awardExperience) {
             get().awardExperience(pendingXpChange);
         }

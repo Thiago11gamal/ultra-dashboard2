@@ -46,6 +46,11 @@ export const createStudySlice = (set, get) => ({
         taskTitle
       };
 
+      const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
+      const baseXP = Math.floor(minutes * xpPerMinute);
+      const bonusXP = taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
+      pendingXp = baseXP + bonusXP;
+
       const newSession = {
         id: sessionId,
         startTime: now,
@@ -53,7 +58,8 @@ export const createStudySlice = (set, get) => ({
         categoryId,
         taskId,
         taskTitle,
-        logReferenceId: logId
+        logReferenceId: logId,
+        awardedXP: pendingXp // ✅ FIX: Guarda o recibo exato de XP concedido
       };
 
       const safeLogs = Array.isArray(activeData.studyLogs)
@@ -76,19 +82,12 @@ export const createStudySlice = (set, get) => ({
           if (task) task.lastStudiedAt = now;
         }
       }
-
-      const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
-      const baseXP = Math.floor(minutes * xpPerMinute);
-      const bonusXP = taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
-
+      
       const startHour = new Date(now).getHours();
-
       if (activeData.user) {
         if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
         if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
       }
-
-      pendingXp = baseXP + bonusXP;
 
       state.appState.version = (state.appState.version || 0) + 1;
       state.appState.lastUpdated = new Date().toISOString();
@@ -117,11 +116,15 @@ export const createStudySlice = (set, get) => ({
 
       const session = safeSessions[sessionIndex];
 
-      const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
-      const baseXP = Math.floor((session.duration || 0) * xpPerMinute);
-      const bonusXP = session.taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
-
-      xpToDeduct = baseXP + bonusXP;
+      // ✅ FIX: Usar recibo de XP (awardedXP) se existir, senão recalcular (para dados legados)
+      if (Number.isFinite(session.awardedXP)) {
+        xpToDeduct = session.awardedXP;
+      } else {
+        const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
+        const baseXP = Math.floor((session.duration || 0) * xpPerMinute);
+        const bonusXP = session.taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
+        xpToDeduct = baseXP + bonusXP;
+      }
 
       const category = (activeData.categories || []).find(c => c.id === session.categoryId);
 

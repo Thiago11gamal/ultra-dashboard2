@@ -91,17 +91,14 @@ export async function secureLogout() {
         console.error('[Firebase] Erro durante logout:', err);
         signOutFailed = true;
     } finally {
+        // ✅ FIX N-01: Limpar TODAS as chaves relevantes, incluindo IndexedDB
         const keysToRemove = [
-            // Storage principal (IndexedDB via idb-keyval)
             'ultra-dashboard-storage',
-            // Flags de sync e estado local
             'ultra-sync-dirty',
             'pomodoroState',
             'focusPanelLocked',
             'pomodoroLayoutLocked',
-            // Sessão local
             'ultra_local_session',
-            // Telemetria do Coach
             'coach_calibration_events_v1',
             'coach_flag_optimizer_state_v1',
             'coach_causal_model_v1',
@@ -109,9 +106,9 @@ export async function secureLogout() {
             'coach_evaluation_results_v1',
             'coach_model_health_v1',
             'coach_control_center_state_v1',
-            // UI
             'hasSeenWelcomeScreen',
             'page-has-been-force-refreshed',
+            'ultra-last-activity',
         ];
         keysToRemove.forEach(key => {
             try {
@@ -119,8 +116,8 @@ export async function secureLogout() {
                 sessionStorage.removeItem(key);
             } catch { /* ignore */ }
         });
-        
-        // ✅ FIX: Limpar IndexedDB do app
+
+        // ✅ FIX N-01: Limpar IndexedDB do app (idb-keyval)
         try {
             const { del } = await import('idb-keyval');
             await del('ultra-dashboard-storage');
@@ -128,10 +125,14 @@ export async function secureLogout() {
             console.warn('[Firebase] Falha ao limpar IndexedDB no logout:', e);
         }
 
-        // ✅ FIX: Limpar sessionStorage de flags de sessão
+        // ✅ FIX N-01: Limpar chaves de quarantine
         try {
-            sessionStorage.removeItem('hasSeenWelcomeScreen');
-            sessionStorage.removeItem('page-has-been-force-refreshed');
+            const quarantineKeys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('quarantine:')) quarantineKeys.push(k);
+            }
+            quarantineKeys.forEach(k => localStorage.removeItem(k));
         } catch { /* ignore */ }
 
         if (signOutFailed) {

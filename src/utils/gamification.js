@@ -72,16 +72,13 @@ export const getTaskXP = (task, completed) => {
     if (completed) {
         return baseXP;
     }
-    // ✅ FIX BUG-11: Ao desmarcar, usar o XP que foi realmente concedido (se disponível),
-    // como um "recibo" imutável. Previne exploit de mudar prioridade após completar.
-    // Math.abs() e Number() protegem contra corrupção do estado (ex: negative awardedXP).
+    // ✅ FIX N-03: Ao desmarcar, usar o XP que foi realmente concedido (recibo).
+    // Isso impede o exploit de mudar prioridade após completar para ganhar XP extra.
     const rawAwarded = task.awardedXP !== undefined ? Number(task.awardedXP) : baseXP;
     const deduction = Number.isFinite(rawAwarded) ? rawAwarded : baseXP;
-    
-    // Limita a dedução a um teto razoável (ex: 2x o XP base) para evitar perdas ou ganhos bizarros em exploits
+    // Limita a dedução a um teto razoável (2x o XP base) para evitar perdas/ganhos bizarros
     const maxDeduction = baseXP * 2;
     const safeDeduction = Math.min(Math.abs(deduction), maxDeduction);
-    
     return -safeDeduction;
 };
 

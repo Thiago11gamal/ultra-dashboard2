@@ -67,64 +67,58 @@ const distributeRoundingRemainder = (items, targetSum = 100) => {
 };
 
 export const calculateStudyStreak = (studyLogs) => {
-  const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-  if (!logsArray || logsArray.length === 0) {
-    return { current: 0, best: 0, longest: 0, isActive: false };
-  }
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    if (!logsArray || logsArray.length === 0) {
+        return { current: 0, best: 0, longest: 0, isActive: false };
+    }
 
-  // ✅ Usa getDateKey (ancorado em America/Manaus) para TODAS as comparações
-  const daySet = new Set(
-    logsArray
-      // ✅ FIX: Filtrar apenas logs com minutos > 0 para evitar streaks falsos
-      .filter(log => log && log.date && getStudyMinutes(log) > 0)
-      .map(log => getDateKey(log.date))
-      .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
-  );
+    // ✅ FIX N-15: Usar getDateKey (ancorado em America/Manaus) para TODAS as comparações
+    const daySet = new Set(
+        logsArray
+            .filter(log => log && log.date && getStudyMinutes(log) > 0)
+            .map(log => getDateKey(log.date))
+            .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
+    );
 
-  const sortedDays = Array.from(daySet).sort((a, b) =>
-    parseNoonLocal(b) - parseNoonLocal(a)
-  );
+    const sortedDays = Array.from(daySet).sort((a, b) =>
+        parseNoonLocal(b) - parseNoonLocal(a)
+    );
 
-  // ✅ FIX: Se não há dias válidos após filter, retornar zeros
-  if (sortedDays.length === 0) {
-    return { current: 0, best: 0, longest: 0, isActive: false };
-  }
+    if (sortedDays.length === 0) {
+        return { current: 0, best: 0, longest: 0, isActive: false };
+    }
 
-  // ✅ todayStr também via getDateKey (Manaus)
-  const todayStr = getDateKey(new Date());
-  const lastDayStr = sortedDays[0];
+    const todayStr = getDateKey(new Date());
+    const lastDayStr = sortedDays[0];
 
-  // Comparação via strings YYYY-MM-DD (imune a timezone)
-  const t = parseNoonLocal(todayStr);
-  const l = parseNoonLocal(lastDayStr);
-  const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
+    // ✅ FIX N-15: Comparação via strings YYYY-MM-DD (imune a timezone)
+    const t = parseNoonLocal(todayStr);
+    const l = parseNoonLocal(lastDayStr);
+    const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
 
-  if (diffDays >= 2) {
+    if (diffDays >= 2) {
+        const longest = calculateLongest(sortedDays);
+        return { current: 0, best: longest, longest, isActive: false };
+    }
+
+    let streak = 0;
+    // ✅ FIX N-15: Iteração por chave de data ancorada (Manaus não tem DST — seguro)
+    let cursorKey = lastDayStr;
+    const maxIterations = Math.min(sortedDays.length + 2, 3660);
+    for (let i = 0; i < maxIterations; i++) {
+        if (!cursorKey || !daySet.has(cursorKey)) break;
+        streak++;
+        // ✅ FIX N-15: Usar construtor local em vez de offset hardcoded
+        const [y, m, d] = cursorKey.split('-').map(Number);
+        const anchored = new Date(y, m - 1, d, 12, 0, 0, 0);
+        anchored.setDate(anchored.getDate() - 1);
+        const nextKey = getDateKey(anchored);
+        if (nextKey === cursorKey) break;
+        cursorKey = nextKey;
+    }
+
     const longest = calculateLongest(sortedDays);
-    return { current: 0, best: longest, longest, isActive: false };
-  }
-
-  let streak = 0;
-  // ✅ LOTE-03 FIX (M1): cursor ancorado em America/Manaus (UTC-4) via chave de dia.
-  // ANTES: parseNoonLocal criava meio-dia no fuso LOCAL do browser e getDateKey
-  // reinterpretava em Manaus. Em fusos >= UTC+9 (ex.: Ásia), o meio-dia local
-  // caía no dia ANTERIOR de Manaus -> daySet.has() nunca casava -> streak sempre 0.
-  // Agora a iteração é feita por chave de data ancorada (Manaus não tem DST — seguro).
-  let cursorKey = lastDayStr;
-  const maxIterations = Math.min(sortedDays.length + 2, 3660); // 10 anos
-  for (let i = 0; i < maxIterations; i++) {
-    if (!cursorKey || !daySet.has(cursorKey)) break;
-    streak++;
-    // eslint-disable-next-line no-restricted-syntax
-    const anchored = new Date(`${cursorKey}T12:00:00-04:00`);
-    anchored.setDate(anchored.getDate() - 1);
-    const nextKey = getDateKey(anchored);
-    if (nextKey === cursorKey) break; // evita loop infinito
-    cursorKey = nextKey;
-  }
-
-  const longest = calculateLongest(sortedDays);
-  return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
+    return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
 };
 
 
@@ -150,12 +144,13 @@ const calculateLongest = (uniqueDays) => {
 // T-024 FIX: fallback seguro entre minutes e duration.
 // Se minutes === 0 mas duration > 0, ainda aproveitamos duration.
 export const getStudyMinutes = (entry) => {
+    // ✅ FIX N-02: Ignorar logs de flashcard
+    if (entry?.type === 'flashcard') return 0;
+
     const minutes = toFinite(entry?.minutes, 0);
     const duration = toFinite(entry?.duration, 0);
-
     if (Number.isFinite(minutes) && minutes > 0) return minutes;
     if (Number.isFinite(duration) && duration > 0) return duration;
-
     return 0;
 };
 
@@ -166,35 +161,23 @@ export const getStudyMinutes = (entry) => {
 export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompletedCycles = 0) => {
     const logsArray = toArray(studyLogs);
     const workDuration = Math.max(1, Number(pomodoroWork) || 25);
-
-    // T-024 FIX: usar chave de dia consistente, com fallback por timestamp.
-    const todayRange = getManausDayRange(new Date());
     const todayKey = getDateKey(new Date());
 
     const minutesToday = logsArray.reduce((sum, log) => {
-        const d = safeDate(log?.date);
-        if (!d) return sum;
+        // ✅ FIX N-02: Ignorar logs de flashcard
+        if (log?.type === 'flashcard') return sum;
 
-        // Fonte primária: chave do dia
-        if (getDateKey(d) === todayKey) {
+        const logKey = getDateKey(log?.date);
+        if (logKey === todayKey) {
             return sum + getStudyMinutes(log);
         }
-
-        // Fallback defensivo: timestamp dentro do range do dia
-        const t = d.getTime();
-        if (todayRange && t >= todayRange.start && t < todayRange.end) {
-            return sum + getStudyMinutes(log);
-        }
-
         return sum;
     }, 0);
 
     const pomodorosFromLogs = Number.isFinite(minutesToday)
         ? Math.floor(minutesToday / workDuration)
         : 0;
-
     const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
-
     return pomodorosFromLogs + safeExtra;
 };
 
