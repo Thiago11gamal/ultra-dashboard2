@@ -528,7 +528,7 @@ export default React.memo(function EvolutionChart({
                 <div className="relative" style={{ maskImage: 'linear-gradient(to right, transparent, black 3%, black 97%, transparent)', WebkitMaskImage: '-webkit-linear-gradient(left, transparent, black 3%, black 97%, transparent)' }}>
                     <div className="flex overflow-x-auto snap-x gap-4 px-2 py-4 no-scrollbar scroll-smooth">
                         {activeCategories.map(cat => (
-                            <div key={cat.id} className={`snap-center shrink-0 w-[240px] sm:w-[280px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-30 grayscale-[50%] scale-95' : 'opacity-100 scale-100'}`}>
+                            <div key={cat.id} className={`snap-center shrink-0 w-[240px] sm:w-[280px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-60 hover:opacity-80 grayscale-[20%] scale-[0.98]' : 'opacity-100 scale-100'}`}>
                                 <DisciplinaCard
                                     cat={cat}
                                     level={categoryLevels[cat.id] || 0}
