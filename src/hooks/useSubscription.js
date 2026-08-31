@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { db, isLocalMode } from '../services/firebase';
+import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
 export function useSubscription(user) {
@@ -11,22 +11,24 @@ export function useSubscription(user) {
 
   useEffect(() => {
     if (isDevBypass) {
-        setIsPremium(true);
-        setLoading(false);
         return;
     }
     
     if (!user?.uid) { 
-        setIsPremium(false); 
-        setLoading(false); 
-        return; 
+        const t = setTimeout(() => {
+            setIsPremium(false); 
+            setLoading(false); 
+        }, 0);
+        return () => clearTimeout(t);
     }
 
     // Explicit bypass for admin email
     if (user?.email === 'antunest040@gmail.com') {
-        setIsPremium(true);
-        setLoading(false);
-        return;
+        const t = setTimeout(() => {
+            setIsPremium(true);
+            setLoading(false);
+        }, 0);
+        return () => clearTimeout(t);
     }
     
     let unsub = null;
@@ -89,7 +91,7 @@ export function useSubscription(user) {
                     );
                     setIsPremium(premiumFromProfile);
                     setLoading(false);
-                }, (profileErr) => {
+                }, (_profileErr) => {
                     if (!isMounted) return;
                     setIsPremium(false);
                     setLoading(false);

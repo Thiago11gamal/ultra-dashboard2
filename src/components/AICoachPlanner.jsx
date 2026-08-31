@@ -428,7 +428,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   // FIX (BUG-09): removido o gate `enabled` (flash de primeiro frame).
   const [isDndReady, setIsDndReady] = useState(false);
   useEffect(() => {
-      setIsDndReady(true);
+      const timer = setTimeout(() => setIsDndReady(true), 0);
+      return () => clearTimeout(timer);
   }, []);
 
   if (!isDndReady) return <div className="min-h-[500px]" />;

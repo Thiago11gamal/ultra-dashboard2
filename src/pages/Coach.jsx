@@ -643,7 +643,7 @@ export default function Coach() {
     }, 1500);
   }, [
     categories, coachLoading, setData, scheduleCalibrationPersist,
-    history, studyLogs, targetScorePoints, targetScoreLabel,
+    history, targetScorePoints, targetScoreLabel,
     currentMaxScore, userData, settingsData,
     runLearningCycle, commitLearningCycle
   ]);

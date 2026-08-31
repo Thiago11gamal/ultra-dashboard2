@@ -279,7 +279,7 @@ export const clearAllDataSecure = async () => {
       window.indexedDB.deleteDatabase('ultra-dashboard-storage');
       window.indexedDB.deleteDatabase('firebaseLocalStorageDb');
       // Forçamos resolução silenciosa para não travar a aplicação
-    } catch (e) {
+    } catch (_e) {
       // Ignorar erros
     }
   }

@@ -190,7 +190,7 @@ function FactoryResetButton() {
                     sessionStorage.clear();
                     try {
                         await idbDel('ultra-dashboard-storage');
-                    } catch(e) {}
+                    } catch(_e) { console.warn('Clean error', _e); }
                     window.location.reload();
                 }}
                 title="Resetar App de Fábrica"

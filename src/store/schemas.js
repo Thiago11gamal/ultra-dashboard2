@@ -318,7 +318,7 @@ export const validateAppState = (data) => {
     Object.keys(rawContests).forEach((id) => {
         // ✅ Filtrar chaves inválidas ANTES de sanitizar
         if (id === 'length' || typeof rawContests[id] !== 'object') return;
-        const cleanId = String(id).replace(/[.#$\/\[\]]/g, '').trim() || 'default';
+        const cleanId = String(id).replace(new RegExp('[.#$/\\\\[\\\\]]', 'g'), '').trim() || 'default';
         const sanitized = sanitizeContest(rawContests[id]);
         if (sanitized) {
             validatedContests[cleanId] = sanitized;

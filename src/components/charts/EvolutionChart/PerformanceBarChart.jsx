@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { ChartFrame } from "../ChartFrame";
 
-export const PerformanceBarChart = React.memo(function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit = '%', minScore = 0 }) {
+export const PerformanceBarChart = React.memo(function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit: _unit = '%', minScore: _minScore = 0 }) {
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;
