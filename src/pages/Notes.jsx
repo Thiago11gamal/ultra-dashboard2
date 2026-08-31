@@ -7,6 +7,13 @@ import { useAppStore } from '../store/useAppStore';
 import { normalize, aliases } from '../utils/normalization';
 import { getDateKey, toDateMs } from '../utils/dateHelper';
 
+// FIX N-01: getDateKey pode retornar null/undefined para datas inválidas.
+// Wrapper seguro que descarta chaves vazias antes de usar como chave de mapa.
+const safeDateKey = (raw) => {
+  const key = getDateKey(raw);
+  return key && typeof key === 'string' && key.trim() !== '' ? key : null;
+};
+
 export default function Notes() {
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
     
@@ -22,8 +29,15 @@ export default function Notes() {
         
         if (!categories.length) return [];
 
-        // FIX 5: Clone estrutural nativo (API de C++ do navegador)
-        const newCats = safeClone(categories);
+        // FIX N-02: safeClone pode retornar null para valores com funções/DOM.
+        // Fallback para map raso se o clone profundo falhar.
+        let newCats;
+        try {
+            newCats = safeClone(categories, null);
+            if (!Array.isArray(newCats)) newCats = categories.map(c => ({ ...c }));
+        } catch {
+            newCats = categories.map(c => ({ ...c }));
+        }
 
         newCats.forEach(cat => {
             const catNorm = normalize(cat.name);
@@ -32,45 +46,49 @@ export default function Notes() {
             // BUG-FIX: Correspondência usava apenas normalização de nome (frágil).
             // Adicionado categoryId como defesa primária, espelhando schemas.js repairContestHistory.
             const myRows = simuladoRows.filter(r => {
-                if (r.categoryId && r.categoryId === cat.id) return true;
-                const subNorm = normalize(r.subject);
+                if (r?.categoryId && r.categoryId === cat.id) return true;
+                const subNorm = normalize(r?.subject);
+                if (!subNorm) return false;
                 return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
             });
 
             const rowsByDate = {};
             myRows.forEach(r => {
-                const dateKey = getDateKey(r.date || r.createdAt);
+                const dateKey = safeDateKey(r.date || r.createdAt);
                 if (!dateKey) return;
                 if (!rowsByDate[dateKey]) rowsByDate[dateKey] = [];
+                
+                const rowTotal = Math.max(0, Number(r.total) || 0);
+                const rowCorrect = Math.min(rowTotal, Math.max(0, Number(r.correct) || 0));
+
                 rowsByDate[dateKey].push({
                     name: r.topic || 'Geral',
-                    correct: parseInt(r.correct, 10) || 0,
-                    total: parseInt(r.total, 10) || 0,
+                    correct: rowCorrect,
+                    total: rowTotal,
                     score: r.score,
                     isPercentage: r.isPercentage
                 });
             });
 
-            // 2. Ensure cat.simuladoStats.history exists
-            if (!cat.simuladoStats) {
-                cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
-            }
+            const existingStats = cat.simuladoStats || {};
+            const existingHistoryRaw = existingStats.history;
 
-            const existingHistory = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history || {});
+            const existingHistory = Array.isArray(existingHistoryRaw)
+                ? existingHistoryRaw
+                : Object.values(existingHistoryRaw || {});
             
             const mergedHistoryMap = {};
 
             // Add from existing history first
             existingHistory.forEach(h => {
-                // FIX: Passar h.date diretamente (já é YYYY-MM-DD do store)
-                const dateKey = getDateKey(h.date);
+                const dateKey = safeDateKey(h?.date);
                 if (!dateKey) return;
                 mergedHistoryMap[dateKey] = {
                     date: dateKey,
                     correct: h.correct,
                     total: h.total,
                     score: h.score,
-                    topics: h.topics || [] 
+                    topics: Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {})
                 };
             });
 
@@ -106,17 +124,24 @@ export default function Notes() {
             });
 
             const rebuiltHistory = Object.values(mergedHistoryMap)
-                .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
+                .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
+                .slice(-50);
 
-            cat.simuladoStats.history = rebuiltHistory.slice(-50);
+            cat.simuladoStats = {
+                ...existingStats,
+                history: rebuiltHistory
+            };
         });
 
         return newCats;
     }, [categoriesRaw, simuladoRowsRaw]);
 
     const maxScore = useMemo(() => {
-        const scores = enhancedCategories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
-        return scores.length > 0 ? scores.reduce((a, b) => Math.max(a, b), -Infinity) : 100;
+        const scores = enhancedCategories
+            .map(c => Number(c?.maxScore))
+            .filter(s => Number.isFinite(s) && s > 0);
+        if (scores.length === 0) return 100;
+        return Math.max(...scores);
     }, [enhancedCategories]);
 
     return (<PageErrorBoundary pageName="Notas">

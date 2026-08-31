@@ -1,47 +1,67 @@
 import React, { useMemo } from 'react';
 import { Target, CheckCircle2, Zap } from 'lucide-react';
-import { getSafeScore } from '../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 
 // Pareto Analysis Component - Patched Version (Logic + UI)
-export default function ParetoAnalysis({ categories = [] }) {
+export default function ParetoAnalysis({ categories = [], maxScore: globalMaxScore = 100 }) {
+    // FIX P-02: Normalizar categories de objeto Firebase para array.
+    const safeCategories = useMemo(() => {
+        const raw = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return raw.filter(Boolean);
+    }, [categories]);
 
     // Calculate Pareto Data
     const { topEnemies, totalLostPoints } = useMemo(() => {
         let allTopics = [];
 
-        if (!Array.isArray(categories) || categories.length === 0) return { topEnemies: [], totalLostPoints: 0, hiddenOpportunities: 0 };
+        if (safeCategories.length === 0) return { topEnemies: [], totalLostPoints: 0, hiddenOpportunities: 0 };
 
-        categories.forEach(cat => {
+        safeCategories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Determine weight for this category
                 const catWeight = Number(cat.weight || cat.rawWeight || 1.0);
-                const catMaxScore = cat.maxScore ?? 100;
+                // FIX P-03: Usar maxScore da categoria com fallback para o global.
+                const catMaxScore = Number(cat.maxScore) || globalMaxScore;
+                const catMinScore = Number(cat.minScore) || 0;
 
                 // Flatten history
+                // FIX P-04: Normalizar history de objeto Firebase para array.
                 const hArray = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
                 hArray.forEach((h, hIdx, hArr) => {
+                    if (!h) return;
                     // RECENCY BIAS: Recent errors matter more than old ones
                     const recencyFactor = Math.pow(1.05, hIdx - (hArr.length - 1));
                     
-                    const topics = h.topics || [];
+                    // FIX P-05: h.topics pode ser objeto Firebase, não array.
+                    const topics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
                     topics.forEach(t => {
-                        const total = parseInt(t.total, 10) || 0;
-                        const correctCount = (total > 0)
-                            ? Math.round((getSafeScore(t, catMaxScore) / catMaxScore) * total)
-                            : (parseInt(t.correct, 10) || 0);
+                        if (!t) return;
+                        
+                        // FIX P-06: Usar getSafeScore com minScore da categoria.
+                        const score = getSafeScore(t, catMaxScore, catMinScore);
+                        if (!Number.isFinite(score)) return;
+
+                        // FIX P-07: Proteger contra total=0 → getSyntheticTotal.
+                        let total = Math.max(0, parseInt(t.total, 10) || 0);
+                        if (total === 0 && t.score != null) {
+                            total = getSyntheticTotal(catMaxScore);
+                        }
+                        if (total === 0) return;
+
+                        // FIX P-08: Clamp de correct para nunca exceder total.
+                        const ratio = (score - catMinScore) / Math.max(1e-9, catMaxScore - catMinScore);
+                        const correctCount = Math.max(0, Math.min(total, Math.round(ratio * total)));
                         const missed = Math.max(0, total - correctCount);
 
-                        if (total > 0) {
-                            allTopics.push({
-                                category: cat.name,
-                                topic: (typeof t.name === 'string' ? t.name : 'Sem Nome').trim(),
-                                total,
-                                correct: correctCount,
-                                missed,
-                                weight: catWeight * recencyFactor,
-                                percentage: total > 0 ? Math.round((correctCount / total) * 100) : 0
-                            });
-                        }
+                        allTopics.push({
+                            category: cat.name,
+                            topic: (typeof t.name === 'string' && t.name.trim() !== '') ? t.name.trim() : 'Sem Nome',
+                            total,
+                            correct: correctCount,
+                            missed,
+                            weight: catWeight * recencyFactor,
+                            percentage: Math.round((correctCount / total) * 100)
+                        });
                     });
                 });
             }
@@ -57,7 +77,10 @@ export default function ParetoAnalysis({ categories = [] }) {
                 topicMap[key].missed += t.missed;
                 topicMap[key].weightSum += t.weight;
                 topicMap[key].count += 1;
-                topicMap[key].percentage = topicMap[key].total > 0 ? Math.round((topicMap[key].correct / topicMap[key].total) * 100) : 0;
+                
+                // FIX P-09: Proteger contra divisão por zero.
+                const safeTotal = Math.max(1, topicMap[key].total);
+                topicMap[key].percentage = Math.round((topicMap[key].correct / safeTotal) * 100);
             }
         });
 
@@ -65,7 +88,9 @@ export default function ParetoAnalysis({ categories = [] }) {
         
         // Calculate Weighted Missed Points (Impact)
         groupedTopics.forEach(t => {
-            const errorRate = t.total > 0 ? (t.total - t.correct) / t.total : 0;
+            // FIX P-10: criticidade com proteção contra safeTotal=0.
+            const safeTotal = Math.max(1, t.total);
+            const errorRate = (t.total - t.correct) / safeTotal;
             // Impact = frequency * significance * scale
             t.weightedMissed = errorRate * t.weightSum * 10;
         });
@@ -95,7 +120,7 @@ export default function ParetoAnalysis({ categories = [] }) {
             hiddenOpportunities: others.length 
         };
 
-    }, [categories]);
+    }, [safeCategories, globalMaxScore]);
 
     return (
         <div className="glass p-6 h-full flex flex-col border-l border-white/5 bg-gradient-to-br from-slate-900/50 to-red-900/10">

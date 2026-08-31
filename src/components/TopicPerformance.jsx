@@ -1,9 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { getSafeScore, formatValue, formatPercent } from '../utils/scoreHelper';
+import { getSafeScore, formatValue, formatPercent, getSyntheticTotal } from '../utils/scoreHelper';
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
 
-export default function TopicPerformance({ categories = [] }) {
-    const safeCategories = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
+export default function TopicPerformance({ categories = [], maxScore: globalMaxScore = 100 }) {
+    // FIX T-01: Normalizar categories e tasks de objeto Firebase para array.
+    const safeCategories = useMemo(() => {
+        const raw = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return raw.filter(Boolean).map(c => ({
+            ...c,
+            tasks: Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {}),
+        }));
+    }, [categories]);
     const [selectedCategoryId, setSelectedCategoryId] = useState(() => safeCategories[0]?.id || '');
 
     const effectiveCategoryId = (safeCategories.length > 0 && !safeCategories.find(c => c.id === selectedCategoryId))
@@ -16,43 +23,71 @@ export default function TopicPerformance({ categories = [] }) {
 
         const category = safeCategories.find(c => c.id === effectiveCategoryId);
         if (!category) return [];
-        const maxScore = category.maxScore ?? 100;
-        const scoreUnit = maxScore === 100 ? '%' : 'pts';
+        
+        // FIX T-02: Usar maxScore E minScore da categoria para getSafeScore.
+        const catMaxScore = Number(category.maxScore) || globalMaxScore;
+        const catMinScore = Number(category.minScore) || 0;
+        const scoreUnit = catMaxScore === 100 ? '%' : 'pts';
 
         const stats = category.simuladoStats || { history: [] };
         const historyRaw = stats.history || [];
+        // FIX T-03: Normalizar history de objeto Firebase para array.
         const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
         const topicMap = {};
 
         // Loop through all history entries
         history.forEach(entry => {
-            const topics = entry.topics || [];
+            if (!entry) return;
+            // FIX T-04: h.topics pode ser objeto Firebase, não array.
+            const topics = Array.isArray(entry.topics) ? entry.topics : Object.values(entry.topics || {});
             topics.forEach(t => {
+                if (!t) return;
                 const rawName = t.name;
                 const name = (typeof rawName === 'string' ? rawName : "Sem Nome").trim();
+                if (!name) return;
+
                 if (!topicMap[name]) {
                     topicMap[name] = { total: 0, correct: 0 };
                 }
-                const total = parseInt(t.total, 10) || 0;
+                
+                // FIX T-05: Usar getSafeScore com minScore da categoria.
+                const score = getSafeScore(t, catMaxScore, catMinScore);
+                if (!Number.isFinite(score)) return;
+
+                // FIX T-06: Proteger contra total=0 → getSyntheticTotal.
+                let total = Math.max(0, parseInt(t.total, 10) || 0);
+                if (total === 0 && t.score != null) {
+                    total = getSyntheticTotal(catMaxScore);
+                }
+                if (total === 0) return;
+
+                // FIX T-07: Clamp de correct para nunca exceder total.
+                const ratio = (score - catMinScore) / Math.max(1e-9, catMaxScore - catMinScore);
+                const correctCount = Math.max(0, Math.min(total, Math.round(ratio * total)));
+
                 topicMap[name].total += total;
-                const correctCount = total > 0
-                    ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
-                    : (parseInt(t.correct, 10) || 0);
                 topicMap[name].correct += correctCount;
             });
         });
 
         // Convert to array and calculate stats
         const topicList = Object.entries(topicMap).map(([name, data]) => {
-            const normalizedPct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
-            const scoreValue = data.total > 0 ? (data.correct / data.total) * maxScore : 0;
+            // FIX T-08: Proteger contra divisão por zero.
+            const safeTotal = Math.max(1, data.total);
+            const normalizedPct = Math.round((data.correct / safeTotal) * 100);
+            
+            // FIX T-09: scoreValue com proteção contra maxScore=0.
+            const safeCatMax = Math.max(1, catMaxScore);
+            const scoreValue = (data.correct / safeTotal) * safeCatMax;
+            
             const missed = data.total - data.correct;
             const balance = data.correct - missed;
+            
             return {
                 name,
                 total: data.total,
                 correct: data.correct,
-                percentage: normalizedPct,
+                percentage: Math.max(0, Math.min(100, normalizedPct)),
                 scoreValue: Number(scoreValue.toFixed(2)),
                 scoreUnit,
                 balance
