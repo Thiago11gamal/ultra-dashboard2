@@ -602,11 +602,16 @@ export default function Coach() {
           setData((prev) => {
             const nextPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
             const prevPlanner = prev?.coachPlanner || {};
-            const availableNewIds = new Set(newTasks.map(t => getSafeId(t)).filter(Boolean));
+            const availableNewTasks = new Map();
+            newTasks.forEach(t => {
+                const sid = getSafeId(t);
+                if (sid) availableNewTasks.set(sid, t);
+            });
             
             Object.keys(nextPlanner).forEach(day => {
               nextPlanner[day] = (Array.isArray(prevPlanner[day]) ? prevPlanner[day] : Object.values(prevPlanner[day] || {}))
-                .filter(t => availableNewIds.has(getSafeId(t)));
+                .filter(t => availableNewTasks.has(getSafeId(t)))
+                .map(t => availableNewTasks.get(getSafeId(t)));
             });
 
             return {

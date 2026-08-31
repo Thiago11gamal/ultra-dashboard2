@@ -2295,15 +2295,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         };
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
-        const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
-        const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
         // ✅ FIX: sufixo determinístico — sem Date.now() (IDs estáveis p/ Planner/dedupe)
         const mcIdSuffix = hashString64(`${cat.id}|mc`);
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
-                id: `${cat.id}-mc-danger-${mcProbKey}-${mcIdSuffix}`,
+                // FIX (LOGIC): Removido mcProbKey do ID para manter estabilidade no Planner
+                id: `${cat.id}-mc-danger-${mcIdSuffix}`,
                 text: `${cat.name}: [ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
                 completed: false,
                 status: 'pending',
@@ -2324,7 +2323,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < adaptiveSafe) {
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
-                id: `${cat.id}-mc-chaos-${mcVolKey}-${mcProbKey}-${mcIdSuffix}`,
+                // FIX (LOGIC): Removido mcVolKey e mcProbKey do ID para manter estabilidade
+                id: `${cat.id}-mc-chaos-${mcIdSuffix}`,
                 text: `${cat.name}: [ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
                 completed: false,
                 status: 'pending',
@@ -2367,7 +2367,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         } else if (mc && mc.probabilityRaw >= adaptiveSafe) {
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
-                id: `${cat.id}-mc-safe-${mcProbKey}-${mcIdSuffix}`,
+                // FIX (LOGIC): Removido mcProbKey do ID para manter estabilidade
+                id: `${cat.id}-mc-safe-${mcIdSuffix}`,
                 text: `${cat.name}: [Manutenção - ${cat.name}]`,
                 completed: false,
                 status: 'pending',
@@ -2418,7 +2419,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const isAgilityProblem = (avgSeconds > targetSeconds + 30) && (cat.urgency?.normalizedScore >= 75);
         if (isAgilityProblem) {
             allGeneratedTasks.push({
-                id: `${cat.id}-agility-${avgSeconds}`,
+                // FIX (LOGIC): Removido avgSeconds do ID para manter estabilidade no Planner
+                id: `${cat.id}-agility`,
                 text: `${cat.name}: [Treino de Agilidade - Cronômetro]`,
                 completed: false,
                 status: 'pending',
@@ -2443,8 +2445,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const topicLabel = weakTopic
                 ? `${getPriorityLabel()}[${weakTopic.name}]`
                 : `${getPriorityLabel()}[Revisão Geral Complementar]`;
+            // FIX (LOGIC): Removido weakTopic.total do ID para evitar que a tarefa suma do planner ao fazer exercícios
             const uniqueIdSuffix = weakTopic
-                ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${weakTopic.total || 0}-${i}`)
+                ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${i}`)
                 : `geral-${i}`;
             if (weakTopic) {
                 let reasonStr = "";
