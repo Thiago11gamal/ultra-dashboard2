@@ -32,12 +32,24 @@ export function useEvolutionMC({
   const [mcResult, setMcResult] = useState(null);
   const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
 
-  const historyArray = useMemo(() => {
-    const historyRaw = focusCategory?.simuladoStats?.history;
-    if (!historyRaw) return EMPTY_ARRAY;
-    return Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
+  // FIX 3A: usar fingerprint estável para evitar re-cálculo por mudança de referência
+  const historyFingerprint = useMemo(() => {
+      const historyRaw = focusCategory?.simuladoStats?.history;
+      if (!historyRaw) return 'empty';
+      const arr = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
+      if (arr.length === 0) return 'empty';
+      const first = arr[0];
+      const last = arr[arr.length - 1];
+      return `${arr.length}-${first?.date || ''}-${last?.date || ''}`;
   }, [focusCategory?.simuladoStats?.history]);
-
+  
+  const historyArray = useMemo(() => {
+      const historyRaw = focusCategory?.simuladoStats?.history;
+      if (!historyRaw) return EMPTY_ARRAY;
+      return Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyFingerprint]);
+  
   const currentFocusLevel = focusCategory ? categoryLevels?.[focusCategory.id] : undefined;
 
   useEffect(() => {
@@ -58,6 +70,7 @@ export function useEvolutionMC({
       .map((h) => {
         const dateKey = getDateKey(h.date || h.createdAt);
         const score = getSafeScore(h, safeMax);
+        // FIX 3B: validação mais robusta
         if (!dateKey || !Number.isFinite(score)) return null;
         return {
           date: dateKey,
@@ -71,7 +84,11 @@ export function useEvolutionMC({
       .filter(Boolean)
       .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
 
-    if (hist.length < 1) { queueMicrotask(() => setMcLoading(false)); return; }
+    // FIX 3B: verificar antes de prosseguir
+    if (hist.length < 1) {
+        queueMicrotask(() => setMcLoading(false));
+        return;
+    }
 
     let cancelled = false;
     const workerDebounceTimeout = setTimeout(async () => {

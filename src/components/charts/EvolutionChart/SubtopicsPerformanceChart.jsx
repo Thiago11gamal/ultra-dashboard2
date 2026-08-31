@@ -104,10 +104,9 @@ export const SubtopicsPerformanceChart = React.memo(({
     const [viewMode, setViewMode] = useState('bars');
     const accuracyUnit = '%';
     
-    const range = maxScore - minScore;
-    const targetScorePct = range > 0
-        ? Math.max(0, Math.min(100, ((targetScore - minScore) / range) * 100))   // ✅ LOTE-02
-        : 0;
+    // FIX 5A: garantir range mínimo e fallback sensato
+    const range = Math.max(1e-9, maxScore - minScore);
+    const targetScorePct = Math.max(0, Math.min(100, ((targetScore - minScore) / range) * 100));
 
     const renderLineTooltip = useCallback(
         (props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />,

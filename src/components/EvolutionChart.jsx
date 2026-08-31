@@ -278,16 +278,14 @@ export default React.memo(function EvolutionChart({
             "#ec4899", "#14b8a6", "#f43f5e", "#84cc16", "#a855f7",
             "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
         ];
-        let defaultColorCount = 0;
         const sourceList = (Array.isArray(propCategories) && propCategories.length > 0) ? propCategories : rawCategories;
         const safeCategories = Array.isArray(sourceList) ? sourceList : Object.values(sourceList || {});
-        return safeCategories.map((cat) => {
-            let color = cat.color;
-            if (!color) {
-                color = DEFAULT_PALETTE[defaultColorCount % DEFAULT_PALETTE.length];
-                defaultColorCount++;
-            }
-            return { ...cat, color };
+        return safeCategories.map((cat, idx) => {
+            // FIX 1A-1: cor por índice (puro, sem mutação de variável externa)
+            const color = cat.color || DEFAULT_PALETTE[idx % DEFAULT_PALETTE.length];
+            // FIX 1A-2: normalizar tasks para array
+            const tasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+            return { ...cat, color, tasks };
         });
     }, [propCategories, rawCategories]);
 
@@ -470,9 +468,16 @@ export default React.memo(function EvolutionChart({
     if (categories.length === 0) {
         return (
             <div className="glass p-12 text-center rounded-2xl animate-fade-in-down border border-slate-800">
-                <div className="text-6xl mb-4">📊</div>
+                <div className="text-6xl mb-4 opacity-80">📊</div>
                 <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">Gráficos de Evolução</h2>
-                <p className="text-slate-400">Realize simulados para desbloquear a sua Máquina do Tempo Estatística.</p>
+                <p className="text-slate-400 mb-6">Realize simulados para desbloquear a sua Máquina do Tempo Estatística.</p>
+                <button
+                    onClick={() => window.location.hash = '#/simulados'}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    Ir para Simulados
+                </button>
             </div>
         );
     }
@@ -561,8 +566,18 @@ export default React.memo(function EvolutionChart({
                              <button
                                  type="button"
                                  onClick={() => setShowEngineTooltip(!showEngineTooltip)}
+                                 onKeyDown={(e) => {
+                                     if (e.key === 'Enter' || e.key === ' ') {
+                                         e.preventDefault();
+                                         setShowEngineTooltip(prev => !prev);
+                                     } else if (e.key === 'Escape') {
+                                         setShowEngineTooltip(false);
+                                     }
+                                 }}
+                                 onBlur={() => setShowEngineTooltip(false)}
                                  className="relative flex items-center justify-center w-5 h-5 rounded-full border border-slate-600 text-slate-400 text-[10px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors"
                                  aria-label="Informações sobre este modo de visualização"
+                                 aria-expanded={showEngineTooltip}
                              >
                                  ?
                              </button>
@@ -626,7 +641,9 @@ export default React.memo(function EvolutionChart({
                                 <button
                                     type="button"
                                     role="tab"
+                                    id={`engine-tab-${eng.id}`}
                                     aria-selected={active}
+                                    aria-controls={`engine-panel-${eng.id}`}
                                     key={eng.id}
                                     onClick={() => setActiveEngine(eng.id)}
                                     onKeyDown={(e) => {
@@ -636,8 +653,15 @@ export default React.memo(function EvolutionChart({
                                         } else if (e.key === 'ArrowLeft') {
                                             e.preventDefault();
                                             setActiveEngine(ENGINES[(idx - 1 + ENGINES.length) % ENGINES.length].id);
+                                        } else if (e.key === 'Home') {
+                                            e.preventDefault();
+                                            setActiveEngine(ENGINES[0].id);
+                                        } else if (e.key === 'End') {
+                                            e.preventDefault();
+                                            setActiveEngine(ENGINES[ENGINES.length - 1].id);
                                         }
                                     }}
+                                    tabIndex={active ? 0 : -1}
                                     aria-pressed={active}
                                     className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[100px] sm:w-[118px] h-[70px] sm:h-[78px] rounded-2xl transition-all duration-150 border will-change-transform ${active ? 'shadow-md scale-[1.03] z-10' : 'bg-white/[0.015] border-white/[0.04] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300 hover:border-white/15 hover:scale-[1.015]'}`}
                                     style={active ? { backgroundColor: `${eng.color}12`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}20, 0 4px 12px -2px rgba(0,0,0,0.3)` } : {}}
@@ -650,6 +674,12 @@ export default React.memo(function EvolutionChart({
                     </div>
                 </div>
 
+                <div
+                    id={`engine-panel-${activeEngine}`}
+                    role="tabpanel"
+                    aria-labelledby={`engine-tab-${activeEngine}`}
+                    tabIndex={0}
+                >
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap 
                         heatmapData={heatmapData} 
@@ -766,6 +796,7 @@ export default React.memo(function EvolutionChart({
                         </div>
                     </div>
                 )}
+                </div>
             </motion.div>
 
             {isMcEngine && focusCategory && (

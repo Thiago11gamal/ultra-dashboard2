@@ -18,6 +18,8 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
         if (!Number.isFinite(n)) return 0;
         return Math.max(0, Math.min(1, (n - safeMin) / safeRange));
     };
+    // FIX 2A: validar sortedDates
+    if (!Array.isArray(sortedDates) || sortedDates.length === 0) return {};
 
     // ── PASSO 1: agregar por data em UMA passagem ──────────────────
     const aggregatedByDate = new Map();
@@ -364,6 +366,8 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                     const raw = Math.max(0, Number(h.correct) || 0);
                     corrNorm = tot > 0 ? Math.round(toRatio(score) * tot) : raw;
                 }
+                // FIX 2B: blindagem extra contra NaN em corrNorm
+                if (!Number.isFinite(corrNorm)) return;
                 totalQuestions += tot;
                 totalCorrect += corrNorm;
             });

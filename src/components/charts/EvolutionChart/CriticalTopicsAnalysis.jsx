@@ -80,8 +80,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     }
                     
                     const score = getSafeScore(t, maxScore, minScore);
-                    // ✅ FIX: Se score é NaN (t.score null E total 0), pular esta entrada
+                    // FIX 6A: blindagem reforçada — pular entradas com score inválido
                     if (!Number.isFinite(score)) return;
+                    // FIX 6A: validar total antes de prosseguir
+                    if (total <= 0) return;
                     const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
                     
                     const correctCount = t.isPercentage

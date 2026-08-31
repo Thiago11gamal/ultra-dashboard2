@@ -39,14 +39,22 @@ export function CompareChart({
     React.useEffect(() => {
         if (!containerRef.current) return;
         const el = containerRef.current;
+        let debounceTimer = null;
         const obs = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                const h = entry.contentRect.height;
-                if (h > 50) setContainerHeight(h);
-            }
+            // FIX 4B: debounce de 100ms para evitar re-renders excessivos
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                for (const entry of entries) {
+                    const h = entry.contentRect.height;
+                    if (h > 50) setContainerHeight(h);
+                }
+            }, 100);
         });
         obs.observe(el);
-        return () => obs.disconnect();
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            obs.disconnect();
+        };
     }, []);
 
     const CC = React.useMemo(() => ({
@@ -93,13 +101,12 @@ export function CompareChart({
             ...p,
             yPos: Number.isFinite(Number(p.value)) ? Number(p.value) : safeMinScore
         }));
-        
-        const range = safeMaxScore - safeMinScore;
+        // FIX 4A: garantir range mínimo de 1 para evitar divisão por zero
+        const range = Math.max(1e-6, safeMaxScore - safeMinScore);
         const topLimit = safeMaxScore - (range * 0.02);
         const bottomLimit = safeMinScore + (range * 0.05);
         const safeSpace = Math.max(0.1, topLimit - bottomLimit);
-
-        const MIN_PCT_DISTANCE = range * 0.085; // 8.5% do escopo visual
+        const MIN_PCT_DISTANCE = Math.max(0.001, range * 0.085);
         const requiredSpace = (yPos.length - 1) * MIN_PCT_DISTANCE;
 
         const effectiveDistance = requiredSpace > safeSpace 
