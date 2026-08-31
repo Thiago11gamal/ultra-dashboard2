@@ -489,7 +489,12 @@ export default function Simulados() {
           }
 
           const historyWithCurrent = historyWithoutToday.slice(-50);
-          const statsResult = computeCategoryStats(historyWithCurrent, Number(cat.weight) || 100, 60, maxScore);
+          const statsResult = computeCategoryStats(
+              historyWithCurrent, 
+              Number(cat.weight) > 0 ? Number(cat.weight) : 10, 
+              60, 
+              maxScore
+          );
           cat.simuladoStats = {
             ...cat.simuladoStats, history: historyWithCurrent,
             average: Number((statsResult?.mean || 0).toFixed(2)),

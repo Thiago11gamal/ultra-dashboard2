@@ -22,9 +22,12 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
     }, [decks, safeHorizon]);
 
     const todayCount = forecast[0]?.count || 0;
-    // Safe peakDay (never crash)
+    // FIX CORRIGIDO: peakDay podia ser undefined quando forecast não-vazio
+    // mas maxDaily=0 (find retornava undefined, fallback || forecast[0] ok).
+    // Mas se forecast.length > 0 E maxDaily > 0 E nenhum item tem count === maxDaily
+    // (impossível matematicamente, mas blindamos por segurança).
     const peakDay = forecast.length > 0
-        ? (forecast.find(d => d.count === maxDaily) || forecast[0])
+        ? (forecast.find(d => d.count === maxDaily) ?? forecast[0] ?? { label: '-', dateLabel: '-' })
         : { label: '-', dateLabel: '-' };
 
     if (!totalCards) {

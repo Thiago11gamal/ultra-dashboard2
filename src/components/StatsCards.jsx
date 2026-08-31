@@ -72,9 +72,16 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     const dateInputRef = useRef(null);
     const minGoalDate = getTodayDateKey();
 
+    // FIX CORRIGIDO: data.studyLogs pode vir como OBJETO do Firebase,
+    // não apenas array. calculateStudyStreak espera array.
+    const normalizedStudyLogs = useMemo(() => {
+        const logs = data.studyLogs;
+        return Array.isArray(logs) ? logs : Object.values(logs || {});
+    }, [data.studyLogs]);
+
     const streak = useMemo(
-        () => calculateStudyStreak(data.studyLogs || []),
-        [data.studyLogs]
+        () => calculateStudyStreak(normalizedStudyLogs),
+        [normalizedStudyLogs]
     );
 
     const balance = useMemo(
@@ -83,8 +90,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     );
 
     const efficiency = useMemo(
-        () => analyzeEfficiency(data.categories || [], data.studyLogs || []),
-        [data.categories, data.studyLogs]
+        () => analyzeEfficiency(data.categories || [], normalizedStudyLogs),
+        [data.categories, normalizedStudyLogs]
     );
 
     const fcStats = useMemo(

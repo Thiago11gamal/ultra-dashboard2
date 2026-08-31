@@ -5,23 +5,28 @@ import WeeklyAnalysis from '../components/WeeklyAnalysis';
 import { EvolucaoFocoChart } from '../components/charts/Analytics/EvolucaoFocoChart';
 import { HorasDisciplinaChart } from '../components/charts/Analytics/HorasDisciplinaChart';
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../utils/chartDataMappers';
+import { getDateKey } from '../utils/dateHelper';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
 // FIX E-04: tick de 60s para reagir à virada de dia (meia-noite) sem recarregar.
-const useMinuteTick = () => {
-    const [tick, setTick] = useState(0);
+// Bug #1 FIX: Força re-render apenas na virada do dia, e não a cada minuto.
+const useDayTick = () => {
+    const [today, setToday] = useState(() => getDateKey(new Date()));
     useEffect(() => {
         const id = setInterval(() => {
-            if (!document.hidden) setTick(t => t + 1);
+            if (!document.hidden) {
+                const current = getDateKey(new Date());
+                setToday(prev => prev !== current ? current : prev);
+            }
         }, 60 * 1000);
         return () => clearInterval(id);
     }, []);
-    return tick;
+    return today;
 };
 
 export default function Stats() {
-    const minuteTick = useMinuteTick();
+    const dayTick = useDayTick();
 
     const { rawCategories, rawStudyLogs, rawFlashcards, rawSimuladoRows, user } = useAppStore(useShallow(state => {
         const contests = state?.appState?.contests || {};
@@ -59,7 +64,10 @@ export default function Stats() {
             ? rawSimuladoRows
             : Object.values(rawSimuladoRows || {});
         const hasValidRows = rowsArray.some(r =>
-            r && r.validated !== false && (Number(r.total) > 0 || Number(r.correct) > 0 || r.score != null)
+            r && r.validated !== false && (
+                (Number(r.total) > 0 && Number(r.correct) >= 0) ||
+                (Number(r.score) > 0 && Number(r.total) > 0)
+            )
         );
         if (hasValidRows) return true;
         return categories.some(category => {
@@ -83,9 +91,9 @@ export default function Stats() {
     const hasStudyLogs = studyLogs.length > 0;
     const hasData = hasStudyLogs || hasSimuladoHistory || hasFlashcards;
 
-    // minuteTick força re-cálculo ao atravessar meia-noite.
-    const focusData = useMemo(() => mapFocusEvolutionData(studyLogs), [studyLogs, minuteTick]);
-    const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories, minuteTick]);
+    // dayTick força re-cálculo ao atravessar meia-noite.
+    const focusData = useMemo(() => mapFocusEvolutionData(studyLogs), [studyLogs, dayTick]);
+    const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories, dayTick]);
 
     return (
         <PageErrorBoundary pageName="Estatísticas">

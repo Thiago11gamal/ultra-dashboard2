@@ -6,6 +6,7 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
+import { getDateKey } from '../utils/dateHelper';
 import { calculateAdaptiveSlope } from '../engine/projection.js';
 import PageHeader from '../components/header/PageHeader';
 import AICoachView from '../components/AICoachView';
@@ -145,8 +146,15 @@ export default function Coach() {
   const idleCallbackIdsRef = useRef([]);
   const rafIdsRef = useRef([]);
   const lastPersistByCategoryRef = useRef(new Map());
-  const calibrationEventsRef = useRef(data?.calibrationEvents || []);
-  useEffect(() => { calibrationEventsRef.current = data?.calibrationEvents || []; }, [data?.calibrationEvents]);
+  // FIX CORRIGIDO: useRef com lazy initializer para capturar o valor
+  // correto no PRIMEIRO render, não apenas após o primeiro useEffect.
+  const calibrationEventsRef = useRef(null);
+  if (calibrationEventsRef.current === null) {
+      calibrationEventsRef.current = data?.calibrationEvents || [];
+  }
+  useEffect(() => {
+      calibrationEventsRef.current = data?.calibrationEvents || [];
+  }, [data?.calibrationEvents]);
 
   const cancelPendingCalibrationWork = useCallback(() => {
     if (timeoutRef.current) {
@@ -385,6 +393,12 @@ export default function Coach() {
   }, []);
 
   const commitLearningCycle = useCallback((rawEvents, backfilled, newEvents = []) => {
+    // FIX CORRIGIDO: Guard contra loop de re-render.
+    // Se backfilled === rawEvents (mesma referência) E newEvents vazio,
+    // não há nada para persistir → early return evita setData desnecessário.
+    if (backfilled === rawEvents && (!newEvents || newEvents.length === 0)) {
+        return;
+    }
     const pool = [...backfilled];
     const fresh = [];
     (newEvents || []).forEach(ev => {
@@ -413,7 +427,8 @@ export default function Coach() {
   const targetScorePoints = useMemo(() => resolveTargetScorePoints({
     user: userProfile,
     minScore: data?.minScore,
-    maxScore: currentMaxScore
+    maxScore: currentMaxScore,
+    targetScoreType: userProfile?.targetScoreType // ← novo campo
   }), [userProfile, data?.minScore, currentMaxScore]);
   const targetScoreLabel = useMemo(() => {
     const safeMax = sanitizeMaxScore(currentMaxScore);
@@ -425,8 +440,20 @@ export default function Coach() {
     goalDate: userProfile?.goalDate,
     targetScore: targetScorePoints,
     timeIndex: -1,
-    // FIX: array estável congelado
-    timelineDates: EMPTY_ARRAY,
+    // FIX CORRIGIDO: EMPTY_ARRAY era sempre [] → o hook nunca tinha
+    // datas para calcular projectDays. Agora derivamos das categorias.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    timelineDates: useMemo(() => {
+        const dates = new Set();
+        categories.forEach(cat => {
+            const h = cat.simuladoStats?.history;
+            (Array.isArray(h) ? h : Object.values(h || {})).forEach(entry => {
+                const dk = getDateKey(entry?.date || entry?.createdAt || entry?.timestamp);
+                if (dk) dates.add(dk);
+            });
+        });
+        return Array.from(dates).sort();
+    }, [categories]),
     minScore: data?.minScore ?? 0,
     maxScore: currentMaxScore,
     simuladoRows: history

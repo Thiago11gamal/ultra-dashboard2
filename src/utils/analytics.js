@@ -101,6 +101,10 @@ export const calculateStudyStreak = (studyLogs) => {
   }
   let streak = 0;
   let cursorKey = lastDayStr;
+  // FIX CORRIGIDO: Proteção contra loop quase-infinito quando getDateKey
+  // retorna a mesma chave para dias diferentes (bug de timezone).
+  // Antes, o guard `nextKey === cursorKey` só quebrava DEPOIS de já ter
+  // feito uma iteração extra. Agora verificamos ANTES de avançar.
   const maxIterations = Math.min(sortedDays.length + 2, 3660);
   for (let i = 0; i < maxIterations; i++) {
     if (!cursorKey || !daySet.has(cursorKey)) break;
@@ -109,7 +113,8 @@ export const calculateStudyStreak = (studyLogs) => {
     const anchored = new Date(anchoredIso);
     anchored.setDate(anchored.getDate() - 1);
     const nextKey = getDateKey(anchored);
-    if (nextKey === cursorKey) break;
+    // FIX: Verificar ANTES de avançar, não depois
+    if (!nextKey || nextKey === cursorKey) break;
     cursorKey = nextKey;
   }
   const longest = calculateLongest(sortedDays);

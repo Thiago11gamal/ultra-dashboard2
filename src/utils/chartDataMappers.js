@@ -89,8 +89,13 @@ const getStudyLogMinutes = (log) => {
     // FIX E-02: revisões de flashcard não devem contar como horas de estudo
     // (alinhado com getStudyMinutes em analytics.js).
     if (log.type === 'flashcard') return 0;
-    const minutes = Number(log.minutes);
-    const duration = Number(log.duration);
+    // FIX: Number() em undefined/null → NaN. Usar validação explícita.
+    const rawMinutes = log.minutes;
+    const rawDuration = log.duration;
+    const minutes = (rawMinutes === null || rawMinutes === undefined || rawMinutes === '')
+        ? NaN : Number(rawMinutes);
+    const duration = (rawDuration === null || rawDuration === undefined || rawDuration === '')
+        ? NaN : Number(rawDuration);
     if (Number.isFinite(minutes) && minutes > 0) return sanitizeMinutes(minutes);
     if (Number.isFinite(duration) && duration > 0) return sanitizeMinutes(duration);
     return 0;
@@ -170,7 +175,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     // Retorna arredondando no final para preservar precisão em somas fracionadas
     return last14Days.map(d => ({
         data: d.data,
-        horasEstudadas: Math.max(0, parseFloat(d.horasEstudadas.toFixed(2)))
+        horasEstudadas: Number.isFinite(d.horasEstudadas) ? Math.max(0, parseFloat(d.horasEstudadas.toFixed(2))) : 0
     }));
 };
 
@@ -187,9 +192,12 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     
     // ✅ FIX: Pré-indexar categorias por ID para lookup O(1)
     const categoriesById = new Map();
+    // ✅ Bug 12 FIX: Criar categoriesByName para lookup O(1) quando usa o nome
+    const categoriesByName = new Map();
     safeCategories.forEach(c => {
-        if (c && c.id != null) {
-            categoriesById.set(String(c.id), c);
+        if (c) {
+            if (c.id != null) categoriesById.set(String(c.id), c);
+            if (c.name != null) categoriesByName.set(c.name, c);
         }
     });
 
@@ -201,10 +209,10 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
             cat = categoriesById.get(String(log.categoryId));
         }
         if (!cat) {
-            cat = safeCategories.find(c =>
-                (log.subject && c.name === log.subject) ||
-                (log.categoryName && c.name === log.categoryName)
-            );
+            const catNameSearch = log.subject || log.categoryName;
+            if (catNameSearch) {
+                cat = categoriesByName.get(catNameSearch);
+            }
         }
         
         const name = cat ? cat.name : (log.categoryName || log.subject || 'Outros');
@@ -216,9 +224,14 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
         }
     });
 
-    return Object.entries(hoursMap).map(([name, minutes]) => ({
-        disciplina: name,
-        horas: parseFloat((minutes / 60).toFixed(2))
-    })).sort((a, b) => Number(b.horas) - Number(a.horas));
+    // FIX: Blindagem contra minutos NaN/Infinity no hoursMap
+    return Object.entries(hoursMap)
+        .filter(([, minutes]) => Number.isFinite(minutes) && minutes >= 0)
+        .map(([name, minutes]) => ({
+            disciplina: name,
+            horas: parseFloat((minutes / 60).toFixed(2))
+        }))
+        .filter(item => Number.isFinite(item.horas))
+        .sort((a, b) => Number(b.horas) - Number(a.horas));
 };
 

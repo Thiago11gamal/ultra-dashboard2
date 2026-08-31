@@ -5,7 +5,7 @@ import { formatDuration } from '../../../utils/dateHelper';
 const COLORS = ['#818cf8', '#6366f1', '#4f46e5', '#4338ca', '#3730a3'];
 
 export function HorasDisciplinaChart({ data }) {
-    if (!data || data.length === 0) {
+    if (!data || !Array.isArray(data) || data.length === 0) {
         return (
             <div className="flex items-center justify-center h-[300px] border border-white/5 rounded-2xl bg-black/20">
                 <p className="text-slate-500 text-sm font-medium italic">Dados insuficientes para análise por matéria.</p>

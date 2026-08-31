@@ -13,7 +13,16 @@ const getTasksArray = (category) => {
 
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
     const logsArray = useMemo(() => Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}), [studyLogs]);
-    const categoriesArray = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
+    const categoriesArray = useMemo(() => {
+        const list = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return list.filter(Boolean).map(c => {
+            const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
+            return {
+                ...c,
+                tasks: tasks.filter(Boolean)
+            };
+        });
+    }, [categories]);
 
     const { groups, stats } = useMemo(() => {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
