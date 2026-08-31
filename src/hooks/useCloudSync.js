@@ -630,8 +630,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           const contestsSnap = await getDocs(collection(db, 'backups', currentUser.uid, 'contests'));
           if (snapId !== currentSnapshotId) return; // A newer snapshot arrived during fetch
           cloudData.contests = {};
+          const activeIds = new Set(cloudData.contestIds || []);
           contestsSnap.forEach(cDoc => {
-            cloudData.contests[cDoc.id] = cDoc.data();
+            if (activeIds.has(cDoc.id)) {
+              cloudData.contests[cDoc.id] = cDoc.data();
+            }
           });
         } catch (err) {
           logger.error("[Sync] Erro ao buscar subcoleções no snapshot:", err);
