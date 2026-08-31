@@ -1,6 +1,25 @@
 import React, { useId } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
+function RetentionXTick({ x, y, payload }) {
+    const label = String(payload?.value ?? '');
+    const short = label.length > 20 ? `${label.slice(0, 19)}…` : label;
+
+    return (
+        <g transform={`translate(${x},${y})`}>
+            <text
+                dy={14}
+                textAnchor="end"
+                fill="#94a3b8"
+                fontSize={10}
+                transform="rotate(-35)"
+            >
+                {short}
+            </text>
+        </g>
+    );
+}
+
 export function AnaliseRetencaoChart({ data }) {
     const instanceId = useId().replace(/:/g, "");
     const barGradId = `ret_barGrad_${instanceId}`;
@@ -37,62 +56,10 @@ export function AnaliseRetencaoChart({ data }) {
                         fontSize={10}
                         tickLine={false}
                         axisLine={false}
-                        dy={10}
                         interval={0}
                         padding={{ left: 15, right: 15 }}
-                        tick={(props) => {
-                            const { x, y, payload } = props;
-                            const item = data[payload.index];
-                            let rawText = String(payload.value ?? '');
-                            if (item?.isTask) rawText = `• ${rawText}`;
-                            
-                            // Truncar textos muito longos (máximo 40 caracteres) para não quebrar o layout
-                            if (rawText.length > 40) {
-                                rawText = rawText.substring(0, 40).trim() + '...';
-                            }
-                            
-                            const words = String(rawText).split(' ');
-                            const lines = [];
-                            let currentLine = '';
-                            const maxCharsPerLine = 15; // Garante um bloco de texto com largura agradável
-                            
-                            for (const word of words) {
-                                if (!currentLine) {
-                                    currentLine = word;
-                                } else if (currentLine.length + 1 + word.length <= maxCharsPerLine) {
-                                    currentLine += ' ' + word;
-                                } else {
-                                    lines.push(currentLine);
-                                    currentLine = word;
-                                }
-                            }
-                            if (currentLine) {
-                                lines.push(currentLine);
-                            }
-
-                            const isRotated = data.length > 4;
-
-                            return (
-                                <g transform={`translate(${x},${y})`}>
-                                    <text
-                                        x={0}
-                                        y={0}
-                                        dy={16}
-                                        textAnchor={isRotated ? "end" : "middle"}
-                                        fill={item?.isTask ? "#94a3b8" : "#f1f5f9"}
-                                        fontSize={item?.isTask ? 9 : 10}
-                                        fontWeight={item?.isTask ? 400 : 700}
-                                        transform={isRotated ? "rotate(-45)" : undefined}
-                                    >
-                                        {lines.map((line, index) => (
-                                            <tspan x={0} dy={index === 0 ? 0 : 12} key={index}>
-                                                {line}
-                                            </tspan>
-                                        ))}
-                                    </text>
-                                </g>
-                            );
-                        }}
+                        height={90}
+                        tick={<RetentionXTick />}
                     />
 
                     {/* CORREÇÃO 2: Labels removidos para evitar poluição visual (a legenda já faz este papel) */}
@@ -120,20 +87,21 @@ export function AnaliseRetencaoChart({ data }) {
 
                     <Tooltip
                         contentStyle={{
-                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '16px',
-                            fontSize: '11px',
-                            backdropFilter: 'blur(8px)',
-                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 12,
+                            color: '#e2e8f0'
                         }}
-                        itemStyle={{ padding: '2px 0' }}
-                        cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                        labelStyle={{ color: '#e2e8f0' }}
                         formatter={(value, name) => {
-                            if (name === "Risco de Esquecimento") return [`${value}% (Risco)`, name];
-                            return [value, name];
+                            if (name === 'Dias sem Revisão') {
+                                return [`${value} dia(s)`, name];
+                            }
+
+                            return [`${value}%`, name];
                         }}
                     />
+
                     <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', paddingBottom: '20px' }} />
 
                     <Bar
@@ -142,7 +110,6 @@ export function AnaliseRetencaoChart({ data }) {
                         fill={`url(#${barGradId})`}
                         radius={[6, 6, 0, 0]}
                         name="Dias sem Revisão"
-                        // CORREÇÃO 4: maxBarSize permite que o gráfico seja responsivo em telas menores
                         maxBarSize={24}
                     />
 
@@ -159,6 +126,7 @@ export function AnaliseRetencaoChart({ data }) {
                         activeDot={false}
                         animationDuration={1500}
                         legendType="none"
+                        tooltipType="none"
                     />
                     {/* Top Layer: Main Line */}
                     <Line connectNulls

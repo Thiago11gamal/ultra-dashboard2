@@ -4,6 +4,7 @@
 import { bootstrapCI } from '../engine/math/bootstrap.js';
 import { kahanSum, kahanMean } from '../engine/math/kahan.js';
 import { safeDateParse } from './dateHelper.js';
+import { clamp, toFiniteNumber } from './retentionCore.js';
 
 // t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
 // Evita subestimar IC quando n é baixo.
@@ -454,23 +455,24 @@ export function computeAdaptiveCoachWeight(scores = []) {
  * @returns {number} Percentual de Retenção (0.20 a 1.0)
  */
 export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificuldade = 0.5) => {
-    const baseline = 0.2; // Limiar mínimo de retenção
-    const tempoDias = Math.max(0, horasDesdeEstudo / 24);
+    const baseline = 0.2;
     
-    // CORREÇÃO CIENTÍFICA (FSRS): A dificuldade afeta a construção da Estabilidade (S), 
-    // não deve aplicar um corte instantâneo de penalização na hora t=0.
-    const difficultyFactor = 1 - (Math.max(0.1, Math.min(1.0, dificuldade)) * 0.35); 
+    const safeHoras = toFiniteNumber(horasDesdeEstudo, 0);
+    const safeForca = toFiniteNumber(forcaMemoria, 1);
+    const safeDiff = toFiniteNumber(dificuldade, 0.5);
+
+    const tempoDias = Math.max(0, safeHoras / 24);
     
-    // S = exp(forcaMemoria * fator_escala) modulado pela dificuldade do item.
-    // Tópicos difíceis geram consolidações mais frágeis (menor Estabilidade).
-    const stability = Math.max(0.5, Math.exp(forcaMemoria * 0.45) * difficultyFactor);
+    const difficultyFactor = 1 - (clamp(safeDiff, 0.1, 1.0) * 0.35); 
     
-    // Retrievability FSRS: R = (1 + t/(9·S))^(-1)
-    // Power-law decay: decai mais lentamente que exponencial para intervalos longos,
-    // mais rápido para intervalos curtos — conforme dados empíricos do FSRS.
+    const baseStability = Math.exp(safeForca * 0.45) * difficultyFactor;
+    // T-010 FIX: Estabilidade não deve ser infinita e deve ter piso realista.
+    const stability = clamp(baseStability, 0.5, 365);
+    
     const retrievability = Math.pow(1 + tempoDias / (9 * stability), -1);
-    const finalRetention = retrievability; 
     
-    return Math.max(baseline, finalRetention);
+    const finalRetention = Number.isFinite(retrievability) ? retrievability : 0; 
+    
+    return clamp(finalRetention, baseline, 1.0);
 };
 

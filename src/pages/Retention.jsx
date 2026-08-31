@@ -11,6 +11,7 @@ import { BookOpen, Play } from 'lucide-react';
 import DueForecast from '../components/DueForecast';
 import ConfirmModal from '../components/ConfirmModal';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
+import { normalizeArray, toFiniteNumber } from '../utils/retentionCore';
 
 export default function Retention() {
     const [confirmModal, setConfirmModal] = useState({
@@ -25,13 +26,20 @@ export default function Retention() {
     const categories = useAppStore(useShallow(state => {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
         const rawCategories = activeContest?.categories || [];
-        return Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
+        return normalizeArray(rawCategories).filter(cat => cat && (cat.id || cat.name));
     }));
+
     const flashcardDecks = useAppStore(useShallow(state => {
         const activeContest = state.appState?.contests?.[state.appState?.activeId];
         const rawDecks = activeContest?.flashcardDecks || [];
-        return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
+        return normalizeArray(rawDecks).filter(Boolean);
     }));
+
+    const safeDecks = useMemo(() => normalizeArray(flashcardDecks).map(deck => ({
+        ...deck,
+        cards: normalizeArray(deck?.cards)
+    })), [flashcardDecks]);
+
     const navigate = useNavigate();
     const showToast = useToast();
     const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
@@ -39,53 +47,71 @@ export default function Retention() {
     const chartData = useMemo(() => mapRetentionData(categories), [categories]);
 
     const srsIndicators = useMemo(() => {
-        const decks = flashcardDecks || [];
-        const totalCards = getFlashcardTotalCards(decks);
-        const due = getFlashcardDueTodayCount(decks);
-        const mastery = getFlashcardMasteryPct(decks);   // standardized >=6
-        const reviews = decks.reduce((sum, d) => {
-            const safeCards = Array.isArray(d.cards) ? d.cards : Object.values(d.cards || {});
-            return sum + safeCards.reduce((r, c) => r + (c.reviews || 0), 0);
+        const totalCards = getFlashcardTotalCards(safeDecks);
+        const due = getFlashcardDueTodayCount(safeDecks);
+        const mastery = getFlashcardMasteryPct(safeDecks);
+
+        const reviews = safeDecks.reduce((sum, deck) => {
+            return sum + normalizeArray(deck?.cards).reduce((acc, card) => {
+                return acc + Math.max(0, toFiniteNumber(card?.reviews, 0));
+            }, 0);
         }, 0);
+
         return {
-            decks: getFlashcardDeckCount(decks),
+            decks: getFlashcardDeckCount(safeDecks),
             cards: totalCards,
             dueToday: due,
             mastery,
             totalReviews: reviews
         };
-    }, [flashcardDecks]);
+    }, [safeDecks]);
+
+    const closeConfirmModal = useCallback(() => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        pendingCategoryRef.current = null;
+    }, []);
 
     const handleConfirmSession = useCallback(() => {
         const cat = pendingCategoryRef.current;
-        if (!cat) return;
+
+        closeConfirmModal();
+
+        if (!cat?.id) {
+            showToast('Categoria inválida para retenção.', 'warning');
+            return;
+        }
 
         const taskName = cat.selectedTask
             ? (cat.selectedTask.title || cat.selectedTask.text || 'Estudo')
             : cat.name;
 
-        if (cat.selectedTask) {
-            startPomodoroSession({
-                categoryId: cat.id,
-                // FIX: Usar fallback seguro para taskId
-                taskId: cat.selectedTask.id || cat.selectedTask.text || `task-${cat.id}`,
-                category: cat.name,
-                task: taskName,
-                priority: cat.selectedTask.priority,
-                source: 'retention'
-            });
-        } else {
-            startPomodoroSession({
-                categoryId: cat.id,
-                taskId: cat.id || `cat-${cat.name}`,
-                category: cat.name,
-                task: `${cat.name}: Revisão Geral`,
-                priority: 'normal',
-                source: 'retention'
-            });
+        try {
+            if (cat.selectedTask) {
+                startPomodoroSession({
+                    categoryId: cat.id,
+                    taskId: cat.selectedTask.id || cat.selectedTask.text || `task-${cat.id}`,
+                    category: cat.name,
+                    task: taskName,
+                    priority: cat.selectedTask.priority || 'normal',
+                    source: 'retention'
+                });
+            } else {
+                startPomodoroSession({
+                    categoryId: cat.id,
+                    taskId: cat.id || `cat-${cat.name}`,
+                    category: cat.name,
+                    task: `${cat.name}: Revisão Geral`,
+                    priority: 'normal',
+                    source: 'retention'
+                });
+            }
+
+            navigate('/pomodoro');
+        } catch (err) {
+            console.error('Erro ao iniciar sessão de estudo:', err);
+            showToast('Não foi possível iniciar a sessão de estudo.', 'error');
         }
-        navigate('/pomodoro');
-    }, [startPomodoroSession, navigate]);
+    }, [closeConfirmModal, startPomodoroSession, navigate, showToast]);
 
     const handleSelectCategory = (cat) => {
         if (!cat?.id) {
@@ -158,16 +184,13 @@ export default function Retention() {
             )}
 
             {/* NOVA FEATURE: Previsão de Cartões a Vencer (Due Forecast) */}
-            <DueForecast decks={flashcardDecks} horizon={14} />
+            <DueForecast decks={safeDecks} horizon={14} />
         </div>
 
         {/* Custom Confirmation Modal */}
         <ConfirmModal
             isOpen={confirmModal.isOpen}
-            onClose={() => {
-                setConfirmModal(prev => ({ ...prev, isOpen: false }));
-                pendingCategoryRef.current = null;
-            }}
+            onClose={closeConfirmModal}
             onConfirm={handleConfirmSession}
             title={confirmModal.title}
             message={confirmModal.message}

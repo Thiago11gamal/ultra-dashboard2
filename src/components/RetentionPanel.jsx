@@ -1,27 +1,116 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play, Info } from 'lucide-react';
-import { formatTimeAgo, toDateMs } from '../utils/dateHelper';
+import { formatTimeAgo } from '../utils/dateHelper';
 import { formatValue } from '../utils/scoreHelper';
+import {
+    clamp,
+    normalizeArray,
+    toDateMs,
+    getMasterySignal,
+    halfLifeFromMastery,
+    getLatestStudyMs,
+    MS_PER_DAY
+} from '../utils/retentionCore';
 
 // Calculate retention based on Ebbinghaus Forgetting Curve
-const calculateRetention = (lastStudiedAt, halfLife = 7) => {
-    if (!lastStudiedAt) return { val: 0, status: 'never', label: 'Nunca estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
+const calculateRetention = (lastStudiedAt, halfLife = 7, now = Date.now()) => {
+    const safeHalfLife = Math.max(1e-6, Number(halfLife) || 7);
+
+    if (!lastStudiedAt) {
+        return {
+            val: 0,
+            status: 'never',
+            label: 'Nunca estudado',
+            color: 'text-slate-400',
+            bg: 'bg-slate-500',
+            border: 'border-slate-500/30'
+        };
+    }
 
     const last = toDateMs(lastStudiedAt);
 
-    // Fallback if date parsing results in NaN
-    if (Number.isNaN(last)) return { val: 0, status: 'never', label: 'Não Estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
+    if (last == null || Number.isNaN(last)) {
+        return {
+            val: 0,
+            status: 'never',
+            label: 'Não Estudado',
+            color: 'text-slate-400',
+            bg: 'bg-slate-500',
+            border: 'border-slate-500/30'
+        };
+    }
 
-    const diffHours = (Date.now() - last) / (1000 * 60 * 60);
-    const days = diffHours / 24;
-    // FIX: Use dynamic halfLife based on mastery, synchronized with chartDataMappers
-    const val = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-Math.LN2 * days / halfLife))));
+    const days = Math.max(0, (now - last) / MS_PER_DAY);
 
-    if (val >= 80) return { val, status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
-    if (val >= 60) return { val, status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
-    if (val >= 40) return { val, status: 'warning', label: 'Atenção', color: 'text-yellow-400', bg: 'bg-yellow-500', border: 'border-yellow-500/30' };
-    if (val >= 20) return { val, status: 'danger', label: 'Crítico', color: 'text-orange-400', bg: 'bg-orange-500', border: 'border-orange-500/30' };
-    return { val, status: 'critical', label: 'Urgente!', color: 'text-red-400', bg: 'bg-red-500', border: 'border-red-500/30' };
+    if (!Number.isFinite(days)) {
+        return {
+            val: 0,
+            status: 'never',
+            label: 'Não Estudado',
+            color: 'text-slate-400',
+            bg: 'bg-slate-500',
+            border: 'border-slate-500/30'
+        };
+    }
+
+    const val = clamp(
+        Math.round(100 * Math.exp(-Math.LN2 * days / safeHalfLife)),
+        0,
+        100
+    );
+
+    if (val >= 80) {
+        return {
+            val,
+            status: 'fresh',
+            label: 'Ótimo',
+            color: 'text-emerald-400',
+            bg: 'bg-emerald-500',
+            border: 'border-emerald-500/30'
+        };
+    }
+
+    if (val >= 60) {
+        return {
+            val,
+            status: 'good',
+            label: 'Bom',
+            color: 'text-green-400',
+            bg: 'bg-green-500',
+            border: 'border-green-500/30'
+        };
+    }
+
+    if (val >= 40) {
+        return {
+            val,
+            status: 'warning',
+            label: 'Atenção',
+            color: 'text-yellow-400',
+            bg: 'bg-yellow-500',
+            border: 'border-yellow-500/30'
+        };
+    }
+
+    if (val >= 20) {
+        return {
+            val,
+            status: 'danger',
+            label: 'Crítico',
+            color: 'text-orange-400',
+            bg: 'bg-orange-500',
+            border: 'border-orange-500/30'
+        };
+    }
+
+    return {
+        val,
+        status: 'critical',
+        label: 'Urgente!',
+        color: 'text-red-400',
+        bg: 'bg-red-500',
+        border: 'border-red-500/30'
+    };
 };
 
 // Format time ago removido porque já existe no dateHelper
@@ -68,7 +157,14 @@ const RetentionRing = ({ value, size = 48, strokeWidth = 3, color }) => {
 
 // Mini retention bar for topics
 const RetentionBar = ({ value, bg }) => (
-    <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow={value} aria-valuemin="0" aria-valuemax="100">
+    <div
+        className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden"
+        role="progressbar"
+        aria-valuenow={Math.max(0, Math.min(100, Number(value) || 0))}
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-label="Retenção do tópico"
+    >
         <div
             className={`h-full rounded-full transition-all duration-500 ${bg}`}
             style={{ width: `${Math.max(0, Math.min(100, Number(value) || 0))}%` }}
@@ -84,12 +180,19 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            if (!document.hidden) {
-                setTick(t => t + 1);
-            }
-        }, 60000); // Update every 60 seconds only if visible
+            if (!document.hidden) setTick(t => t + 1);
+        }, 60000);
 
-        return () => clearInterval(interval);
+        const handleVisibilityChange = () => {
+            if (!document.hidden) setTick(t => t + 1);
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     const toggleExpand = (catId) => {
@@ -110,53 +213,52 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     // Calculate retention for all categories and their tasks
     const retentionData = useMemo(() => {
-        const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const now = Date.now();
+        const safeCategories = normalizeArray(categories);
+
         return safeCategories
             .filter(cat => cat && (cat.id || cat.name))
             .map(cat => {
                 const safeCategoryName = String(cat.name || 'Sem nome');
-                
-                // CÁLCULO DE MEIA-VIDA DINÂMICA (Anti-Punição de Maestria)
-                // Sincronizado com chartDataMappers.js
-                const totalQ = Number(cat.simuladoStats?.totalQuestions) || 0;
-                const maxScore = Math.max(1, Number(cat.maxScore) || 100);
-                const accuracyData = cat.bayesianStats?.mean || cat.simuladoStats?.average;
-                const accuracy = accuracyData != null
-                    ? Math.max(0, Math.min(1, Number(accuracyData) / maxScore))
-                    : 0;
-                const qNorm = Math.max(0, Math.min(1, totalQ / 120));
-                const accNorm = Math.max(0, Math.min(1, (accuracy - 0.5) / 0.4));
-                const masterySignal = (0.6 * qNorm) + (0.4 * accNorm);
-                const catHalfLife = 7 + (23 * masterySignal);
-                const taskHalfLife = 7 + (7 * qNorm);
 
-                // Calculate retention for each task
-                const rawTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
-                const tasksWithRetention = rawTasks.filter(Boolean).map(task => ({
-                    ...task,
-                    retention: calculateRetention(task.lastStudiedAt || task.completedAt, taskHalfLife),
-                    timeAgo: formatTimeAgo(task.lastStudiedAt || task.completedAt)
-                }));
+                const catMastery = getMasterySignal(cat);
+                const catHalfLife = halfLifeFromMastery(catMastery.masterySignal);
 
-                // Sort tasks by retention (lowest first = needs review most)
-                tasksWithRetention.sort((a, b) => a.retention.val - b.retention.val);
+                const rawTasks = normalizeArray(cat.tasks);
 
-                // Category retention is the average of all task retentions, or category lastStudiedAt
-                // FIX: Filtrar apenas tarefas estudadas para não derrubar a média do que já foi aprendido
-                const studiedTasks = tasksWithRetention.filter(t => t.lastStudiedAt || t.completedAt);
+                const tasksWithRetention = rawTasks
+                    .map(task => {
+                        const taskMastery = getMasterySignal(task, cat);
+                        const taskHalfLife = 7 + (16 * taskMastery.masterySignal);
+                        const lastStudy = task.lastStudiedAt ?? task.completedAt;
+
+                        return {
+                            ...task,
+                            retention: calculateRetention(lastStudy, taskHalfLife, now),
+                            timeAgo: formatTimeAgo(lastStudy)
+                        };
+                    })
+                    .sort((a, b) => a.retention.val - b.retention.val);
+
+                const studiedTasks = tasksWithRetention.filter(task => task.retention.status !== 'never');
+
                 const avgTaskRetention = studiedTasks.length > 0
-                    ? Math.round(studiedTasks.reduce((acc, t) => acc + t.retention.val, 0) / studiedTasks.length)
+                    ? Math.round(studiedTasks.reduce((acc, task) => acc + task.retention.val, 0) / studiedTasks.length)
                     : null;
 
-                // Use category-level lastStudiedAt if no task data, otherwise use average
-                // Fallback to 0/never if both are missing
-                // B-17 FIX: Evite sobrescrever a retenção geral pela retenção diluída das tasks se o aluno estudou
-                // na disciplina root. Use max() para refletir sempre o ponto mais lúcido da curva.
-                const catDirectRet = calculateRetention(cat.lastStudiedAt || null, catHalfLife);
-                const finalVal = avgTaskRetention !== null ? Math.max(avgTaskRetention, catDirectRet.val) : catDirectRet.val;
+                const latestStudyMs = getLatestStudyMs(cat, rawTasks);
+                const catDirectRet = calculateRetention(latestStudyMs, catHalfLife, now);
+                const isNeverStudied = catDirectRet.status === 'never' && studiedTasks.length === 0;
 
-                // FIX: Verifique se não há estudo antes de construir o objeto para não sobrescrever o status 'never'
-                const isNeverStudied = avgTaskRetention === null && !cat.lastStudiedAt;
+                let finalVal = catDirectRet.val;
+
+                if (avgTaskRetention !== null) {
+                    const coverage = studiedTasks.length / Math.max(1, tasksWithRetention.length);
+                    const blended = Math.round((avgTaskRetention * 0.7) + (catDirectRet.val * 0.3));
+                    const coveragePenalty = Math.round((1 - coverage) * 20);
+                    finalVal = clamp(blended - coveragePenalty, 0, 100);
+                }
+
                 const categoryRetention = isNeverStudied
                     ? { val: 0, status: 'never', label: 'Não Estudado', color: 'text-slate-500', bg: 'bg-slate-800', border: 'border-slate-700', bgLight: 'bg-slate-800/10', bgHover: 'hover:bg-slate-800/40', ringHover: 'hover:ring-slate-400/50', shadow: 'shadow-slate-500/10' }
                     : { val: finalVal, ...getRetentionStyle(finalVal) };
@@ -165,10 +267,11 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                     ...cat,
                     name: safeCategoryName,
                     retention: categoryRetention,
-                    timeAgo: formatTimeAgo(cat.lastStudiedAt),
+                    timeAgo: formatTimeAgo(latestStudyMs),
                     tasksWithRetention,
-                    criticalTasks: tasksWithRetention.filter(t => t.retention.val < 40 && t.retention.status !== 'never').length,
-                    warningTasks: tasksWithRetention.filter(t => t.retention.val >= 40 && t.retention.val < 60 && t.retention.status !== 'never').length
+                    criticalTasks: tasksWithRetention.filter(task => task.retention.status !== 'never' && task.retention.val < 40).length,
+                    warningTasks: tasksWithRetention.filter(task => task.retention.status !== 'never' && task.retention.val >= 40 && task.retention.val < 60).length,
+                    neverTasks: tasksWithRetention.filter(task => task.retention.status === 'never').length
                 };
             })
             .sort((a, b) => a.retention.val - b.retention.val);

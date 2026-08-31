@@ -14,16 +14,15 @@ const toFiniteNumber = (value, fallback = 0) => {
 
 const sanitizeMinutes = (value) => Math.min(720, Math.max(0, toFiniteNumber(value, 0)));
 
-// T-010 FIX: Fórmula correta de meia-vida.
-// Antes: Math.exp(-days / halfLife)
-// Isso fazia a retenção cair para ~36.8% quando days === halfLife.
-// O correto para meia-vida é usar ln(2).
-const retentionFromHalfLife = (days, halfLife) => {
-    const safeDays = Math.max(0, Number(days) || 0);
-    const safeHalfLife = Math.max(1e-6, Number(halfLife) || 1);
-
-    return Math.round(100 * Math.exp(-Math.LN2 * safeDays / safeHalfLife));
-};
+import {
+    normalizeArray,
+    getMasterySignal,
+    halfLifeFromMastery,
+    retentionFromHalfLife,
+    getLatestStudyMs,
+    clamp,
+    MS_PER_DAY as CORE_MS_PER_DAY
+} from './retentionCore';
 
 const toSafeDate = (value) => {
     if (!value) return null;
@@ -44,96 +43,45 @@ const toSafeDate = (value) => {
  * @param {Array} categories 
  * @returns {Array} [{ nomeTopico, diasSemRevisao, nivelCritico }]
  */
-export const mapRetentionData = (categories = []) => {
+export const mapRetentionData = (categories = [], options = {}) => {
     const data = [];
-    const now = Date.now();
-    // T-023 FIX: aceitar categories como array ou objeto Firebase
-    const safeCategories = toArray(categories);
-    
-    // Process top 10 most critical categories or items
+    const now = options.now ?? Date.now();
+    const limit = options.limit ?? 8;
+    const safeCategories = normalizeArray(categories);
+
     safeCategories.forEach(cat => {
-        // Add categories with study history
-        if (cat.lastStudiedAt) {
-            // FIX BUG N: normalizeDate evita que YYYY-MM-DD seja interpretado como UTC midnight
-            const lastDate = toSafeDate(cat.lastStudiedAt);
-            if (!lastDate) return;
+        if (!cat || !(cat.id || cat.name)) return;
 
-            // CORREÇÃO: Math.max(0, ...) impede que relógios adiantados
-            // gerem um tempo negativo, o que invertia a curva de decaimento Exponencial.
-            const days = Math.max(0, (now - lastDate.getTime()) / MS_PER_DAY);
-            if (!Number.isFinite(days)) return;
+        const latestStudyMs = getLatestStudyMs(cat, cat.tasks);
+        if (latestStudyMs == null) return;
 
-            // CÁLCULO DE MEIA-VIDA DINÂMICA (Anti-Punição de Maestria)
-            // Assuntos consolidados (muitas questões ou alta precisão) esquecem mais devagar.
-            const history = Array.isArray(cat.simuladoStats?.history)
-              ? cat.simuladoStats.history
-              : Object.values(cat.simuladoStats?.history || {});
-            const totalQ = history.reduce((sum, h) => {
-              const t = Number(h?.total);
-              return sum + (Number.isFinite(t) && t > 0 ? t : 0);
-            }, 0);
-            const maxScore = Math.max(1, toFiniteNumber(cat.maxScore, 100));
-            const accuracyData = cat.bayesianStats?.mean ?? cat.simuladoStats?.average;
-            // ✅ PATCH: accuracy clampada e segura
-            const accuracy = accuracyData != null
-                ? Math.max(0, Math.min(1, toFiniteNumber(accuracyData, 0) / maxScore))
-                : 0;
-            const qNorm = Math.max(0, Math.min(1, totalQ / 120));
-            const accNorm = Math.max(0, Math.min(1, (accuracy - 0.5) / 0.4));
-            const masterySignal = (0.6 * qNorm) + (0.4 * accNorm);
-            const halfLife = 7 + (23 * masterySignal);
-            const retention = retentionFromHalfLife(days, halfLife);
-            
-            data.push({
-                nomeTopico: cat.name,
-                diasSemRevisao: Math.floor(days),
-                nivelCritico: 100 - retention,
-                isTask: false
-            });
-        }
-        
-        // Add specific tasks if they have high impact
-        // T-023 FIX: normalizar tasks como array, mesmo quando armazenadas como objeto.
-        const taskArray = toArray(cat?.tasks);
+        const days = Math.max(0, (now - latestStudyMs) / CORE_MS_PER_DAY);
+        if (!Number.isFinite(days)) return;
 
-        if (taskArray.length > 0) {
-            taskArray.forEach(task => {
-                if (!task || typeof task !== 'object') return;
-                if (task.lastStudiedAt || task.completedAt) {
-                    const lastTaskDate = toSafeDate(task.lastStudiedAt || task.completedAt);
-                    if (!lastTaskDate) return;
-                    const days = Math.max(0, (now - lastTaskDate.getTime()) / MS_PER_DAY);
-                    if (!Number.isFinite(days)) return;
-                    
-                    // Tasks individuais usam half-life padrão 7 a menos que a categoria seja mestre
-                    const history2 = Array.isArray(cat.simuladoStats?.history)
-                      ? cat.simuladoStats.history
-                      : Object.values(cat.simuladoStats?.history || {});
-                    const totalQ = history2.reduce((sum, h) => {
-                      const t = Number(h?.total);
-                      return sum + (Number.isFinite(t) && t > 0 ? t : 0);
-                    }, 0);
-                    const qNorm = Math.max(0, Math.min(1, totalQ / 120));
-                    const halfLife = 7 + (7 * qNorm);
-                    const retention = retentionFromHalfLife(days, halfLife);
-                    
-                    if (days >= 1) { // Only show items that have at least 1 day without revision
-                        data.push({
-                            nomeTopico: task.text || task.title || 'Tarefa sem nome',
-                            diasSemRevisao: Math.floor(days),
-                            nivelCritico: 100 - retention,
-                            isTask: true
-                        });
-                    }
-                }
-            });
-        }
+        const mastery = getMasterySignal(cat);
+        const halfLife = halfLifeFromMastery(mastery.masterySignal);
+        const retention = retentionFromHalfLife(days, halfLife);
+
+        data.push({
+            id: cat.id ?? cat.name,
+            nomeTopico: String(cat.name || 'Sem nome'),
+            diasSemRevisao: Math.floor(days),
+            nivelCritico: clamp(100 - retention, 0, 100),
+            retencao: retention,
+            totalQuestoes: mastery.totalQ,
+            acuraciaPct: Math.round(mastery.accuracy * 100),
+            isTask: false
+        });
     });
 
-    // Sort by critical level (descending = most critical first) and take top 8
     return data
-        .sort((a, b) => b.nivelCritico - a.nivelCritico)
-        .slice(0, 8);
+        .sort((a, b) => {
+            return (
+                b.nivelCritico - a.nivelCritico ||
+                b.diasSemRevisao - a.diasSemRevisao
+            );
+        })
+        .slice(0, limit);
 };
 
 const getStudyLogMinutes = (log) => {
