@@ -5,16 +5,24 @@
  */
 import { displaySubject, displayTopic } from './displaySubject';
 
+// FIX (C1): colchetes LITERAIS escapados. A versão anterior usava classes
+// de caracteres ([(...)]), que casavam qualquer letra do conjunto — quase
+// todo texto era classificado como alerta de sistema, e cleanCoachTags
+// deletava letras comuns dos títulos.
 export const RX_SYSTEM_ALERT_TEST = /\[(ALERTA MESTRE|STATUS)\]/i;
 export const RX_SYSTEM_ALERT_GLOBAL = /\[(ALERTA MESTRE|STATUS)\]/gi;
 export const RX_PROTOCOLO_GLOBAL = /\[PROTOCOLO PRIORITÁRIO\]\s*/gi;
+// FIX (C1b): faltava o * no segundo grupo ([\s\S] casava um único char).
 export const RX_BRACKET_TOPIC = /^\[(.+?)\]\s*([\s\S]*)$/i;
 export const RX_REC_MARKUP = /(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g;
 export const RX_BOLD = /(\*\*.*?\*\*)/g;
 
-// FIX: Restauradas as âncoras ^...$ ou limites de palavra para evitar substituição destrutiva de substrings
+// FIX (C2): limites de palavra reais. O comentário antigo prometia âncoras,
+// mas a regex não tinha nenhuma — destruía substrings ("Inovador" → "Iador"
+// por casar "Novo"). (?<!\w)/(?!\w) exigem fronteira de palavra.
+// (Requer Safari ≥ 16.4 por causa do lookbehind.)
 export const RX_NOISE_ACTION =
-  /(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)|\(Prioridade\)|% de acerto)/gi;
+  /(?<!\w)(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|Novo|Prioridade|\d+\s*%\s*de acerto)(?!\w)/gi;
 
 export function isSystemAlertTask(value) {
   const text =

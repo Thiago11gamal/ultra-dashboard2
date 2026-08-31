@@ -9,24 +9,14 @@ import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
 import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
 import { hashString } from '../utils/coachSafe';
-
-// FIX (BUG-07): ID determinístico via hash de conteúdo — sem contador mutável no render.
-const _taskIdWeakMap = new WeakMap();
-const ensureCoachTaskId = (task) => {
-  if (!task || typeof task !== 'object') return task;
-  if (task.id) return task; // FIX: não clona quem já tem id (estabilidade referencial)
-  const cached = _taskIdWeakMap.get(task);
-  if (cached) return { ...task, id: cached };
-  const stableId =
-    getSafeId(task) ||
-    `coach-task-${hashString(`${task.title || ''}|${task.text || ''}|${task.categoryId || ''}`)}`;
-  _taskIdWeakMap.set(task, stableId);
-  return { ...task, id: stableId };
-};
+// FIX (C4): helper compartilhado com o AICoachView (mesma lógica de ID)
+import { ensureCoachTaskId } from '../utils/coachTaskId';
 
 // ⚠️ SEM "scale/rotate" no over e SEM backdrop-blur em nenhum painel:
 // transform/backdrop-filter em ANCESTRAL quebra o position:fixed do dnd.
 const DAYS = [
+  // FIX (A7): strings Tailwind corrigidas (espaços internos invalidavam
+  // as classes: gradiente, sombra inset e texto do dia).
   { id: 'mon', label: 'SEG', full: 'Segunda', gradient: 'from-violet-600 to-indigo-600', text: 'text-violet-300', dot: 'bg-violet-500', headerBg: 'bg-violet-500/10', headerBorder: 'border-violet-500/25', over: 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)]', cardBg: 'bg-violet-500/[0.07]', cardBorder: 'border-violet-500/20' },
   { id: 'tue', label: 'TER', full: 'Terça', gradient: 'from-sky-500 to-cyan-500', text: 'text-sky-300', dot: 'bg-sky-500', headerBg: 'bg-sky-500/10', headerBorder: 'border-sky-500/25', over: 'border-sky-400/80 bg-sky-500/20 shadow-[inset_0_0_30px_rgba(14,165,233,0.15)]', cardBg: 'bg-sky-500/[0.07]', cardBorder: 'border-sky-500/20' },
   { id: 'wed', label: 'QUA', full: 'Quarta', gradient: 'from-pink-500 to-rose-500', text: 'text-pink-300', dot: 'bg-pink-500', headerBg: 'bg-pink-500/10', headerBorder: 'border-pink-500/25', over: 'border-pink-400/80 bg-pink-500/20 shadow-[inset_0_0_30px_rgba(236,72,153,0.15)]', cardBg: 'bg-pink-500/[0.07]', cardBorder: 'border-pink-500/20' },
@@ -59,7 +49,8 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
               ? {
                 ...provided.draggableProps.style,
                 ...(snapshot.draggingOver && snapshot.draggingOver !== 'backlog'
-                  ? { width: '180px' }
+                  // FIX (M6): width fixa de 180px encolhia cards em telas largas
+                  ? { width: '100%', maxWidth: '220px' }
                   : {})
               }
               : provided.draggableProps.style
@@ -148,6 +139,9 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   prev.task?.id === next.task?.id &&
   prev.task?.text === next.task?.text &&
   prev.task?.title === next.task?.title &&
+  // FIX (A1): sem comparar `categories`, renomear uma matéria não
+  // re-renderizava os cards já montados (displaySubject stale).
+  prev.categories === next.categories &&
   prev.onStartPomodoro === next.onStartPomodoro
 ));
 
@@ -300,6 +294,13 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     const handleScroll = () => {
         // Invalidar cache em scroll
         cachedRects = null;
+        // FIX (M12): reavalia imediatamente a coluna sob um ponteiro estático.
+        // Antes, após scroll sem mousemove, hoveredCol ficava stale.
+        if (lastClientX >= 0) {
+            const x = lastClientX, y = lastClientY;
+            lastClientX = -1; lastClientY = -1; // força reprocessamento
+            updateHover(x, y);
+        }
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
@@ -322,7 +323,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
   const onDragUpdate = useCallback((update) => {
     setDragInfo(prev => {
-      const source = update?.source?.droppableId ?? null;
+      // FIX (M18): source vem do snapshot de onDragStart (já está em prev) —
+      // não depender de update.source, que não é contrato garantido.
+      const source = prev?.source ?? update?.source?.droppableId ?? null;
       const destination = update?.destination?.droppableId ?? null;
       if (prev && prev.source === source && prev.destination === destination) return prev;
       return { source, destination };

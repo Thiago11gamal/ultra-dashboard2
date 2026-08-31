@@ -11,6 +11,10 @@ import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import { exportComponentAsPDF } from '../utils/pdfExport';
 import { getSafeId } from '../utils/idGenerator';
+// FIX (C4): mesma lógica de ID do Planner
+import { ensureCoachTaskId } from '../utils/coachTaskId';
+// FIX (M2): threshold de exibição de penalidade unificado
+import { MIN_PENALTY_DISPLAY } from '../utils/calibration';
 import { displaySubject } from '../utils/displaySubject';
 import { useToast } from '../hooks/useToast';
 import { isSystemAlertTask, parseCoachTask, RX_BOLD } from '../utils/coachText';
@@ -220,6 +224,9 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
         <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.04]">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
+            // FIX (M3): acessibilidade do colapsor
+            aria-expanded={isExpanded}
+            aria-controls={`coach-analysis-panel-${task?.id || idx}`}
             className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-150 outline-none focus:outline-none ${isExpanded ? 'bg-indigo-500/[0.04] border-indigo-500/10' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'}`}
           >
             <div className="flex items-center gap-3">
@@ -235,6 +242,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
           <AnimatePresence>
             {isExpanded && (
               <Motion.div
+                id={`coach-analysis-panel-${task?.id || idx}`}
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
@@ -256,7 +264,8 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
                       ))}
                     </div>
                   )}
-                  {task.analysis.monteCarlo?.calibrationPenalty >= 0.005 && (
+                  {/* FIX (M2): era >= 0.005 aqui e > 0.001 no Raio-X (BUG-CAL-9) */}
+                  {task.analysis.monteCarlo?.calibrationPenalty > MIN_PENALTY_DISPLAY && (
                     <div className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5">
                       <Zap size={12} className="text-amber-400 mt-0.5 shrink-0" />
                       <div className="flex flex-col gap-1">
@@ -327,11 +336,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const allAssignedIds = new Set();
     Object.values(coachPlanner).forEach(dayTasks => {
       (dayTasks || []).forEach(t => {
-        const sid = getSafeId(t);
+        // FIX (C4): tarefas sem id explícito agora recebem o MESMO id
+        // determinístico que o Planner gera — antes ficavam fora do set
+        // e apareciam duplicadas nas Pendências.
+        const sid = getSafeId(ensureCoachTaskId(t));
         if (sid) allAssignedIds.add(sid);
       });
     });
-    return coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
+    return coachPlan
+      .map(ensureCoachTaskId)
+      .filter(task => !allAssignedIds.has(getSafeId(task)));
   }, [coachPlan, coachPlanner]);
 
   // FIX (BUG-16): mapa de localização O(1) para handleStartNeural
@@ -589,6 +603,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                   if (/VETOR CRÍTICO/i.test(cleanText)) {
                     type = 'danger';
                     titlePart = "Vetor Crítico";
+                    // FIX (M14): \s* — a versão com "\s " exigia espaço literal e
+                    // falhava quando o texto vinha sem espaço após o marcador.
                     descPart = message.replace(/🚨 VETOR CRÍTICO!?\s*/i, '');
                     actionDesc = "Conclua os focos pendentes desta matéria hoje para frear a queda imediata de rendimento.";
                   } else if (/OSCILAÇÃO/i.test(cleanText)) {

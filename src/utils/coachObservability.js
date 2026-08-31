@@ -57,10 +57,13 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
   const windowSize = Math.max(3, Number(options.volatilityWindow) || 5);
 
   const sorted = safeArray(simulados)
-    .map((simulado) => ({
+    // FIX (A6): preserva o índice original — o tiebreak do sort lia
+    // `a._idx`, que nunca era criado (código morto).
+    .map((simulado, _idx) => ({
       simulado,
       time: toTime(simulado?.date ?? simulado?.createdAt),
       score: getSafeScore(simulado, maxScore),
+      _idx,
     }))
     .filter((entry) => Number.isFinite(entry.score))
     .sort((a, b) => {

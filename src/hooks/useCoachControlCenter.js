@@ -86,10 +86,19 @@ export function useCoachControlCenter({
   const orchestratorRunIdRef = useRef(0);
   const tunerRunIdRef = useRef(0);
   const tunerAbortControllerRef = useRef(null);
+  // FIX (A5): snapshot das flags no início da sessão — "Reset Overrides"
+  // restaura este estado. Antes relia o storage (que já contém os toggles
+  // persistidos por toggleFlag), tornando o reset um no-op.
+  const initialFlagsRef = useRef(null);
 
   useEffect(() => {
     isMounted.current = true;
     return () => { isMounted.current = false; };
+  }, []);
+
+  // FIX (M15): aborta AutoTuner pendente no unmount
+  useEffect(() => () => {
+    if (tunerAbortControllerRef.current) tunerAbortControllerRef.current.abort();
   }, []);
 
   // ==========================================================
@@ -103,6 +112,7 @@ export function useCoachControlCenter({
       if (persisted.flagOverrides) setFlagOverrides(persisted.flagOverrides);
     }
     const flags = loadPersistedCoachFlags();
+    initialFlagsRef.current = flags || {};
     setCurrentFlags(flags || {});
   }, []);
 
@@ -289,8 +299,10 @@ export function useCoachControlCenter({
   // ==========================================================
   const resetOverrides = useCallback(() => {
     setFlagOverrides({});
-    const flags = loadPersistedCoachFlags();
-    setCurrentFlags(flags || {});
+    const base = initialFlagsRef.current || getSafeBaselineFeatures();
+    replaceFlags(base);
+    persistCoachFlags(base);
+    setCurrentFlags(base);
   }, []);
 
   // ==========================================================

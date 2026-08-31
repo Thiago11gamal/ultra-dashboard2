@@ -1,3 +1,10 @@
+# Código do Menu Coach AI
+
+Este arquivo contém o código relacionado ao menu de navegação do Coach AI (`CoachMenuNav.jsx`).
+
+## `src/components/coach/CoachMenuNav.jsx`
+
+```jsx
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 
@@ -23,7 +30,6 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
             aria-controls={panelId}
             aria-disabled={disabled}
             id={tabId}
-            // FIX: expressão redundante simplificada (roving tabindex correto)
             tabIndex={active ? 0 : -1}
             className={`group relative min-w-0 rounded-2xl p-4 transition-all duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0c14] ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${active
                 ? 'bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30'
@@ -51,7 +57,6 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
                     </span>
                 </div>
             </div>
-            {/* FIX (BUG-18): bottom-0 em vez de -bottom-[1px] para não ser cortado por overflow do pai */}
             {active && (
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] bg-indigo-500 rounded-t-full shadow-[0_-2px_8px_rgba(99,102,241,0.5)]" />
             )}
@@ -82,10 +87,8 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     ], []);
 
     const handleKeyDown = useCallback((e) => {
-        // FIX: helper genérico de tab desabilitada
         const isDisabled = (tab) => tab.key === 'analytics' && !isPremiumBool;
 
-        // FIX (BUG-23): suporte a Home/End (navegação ARIA completa de tablist)
         if (e.key === 'Home' || e.key === 'End') {
             e.preventDefault();
             const enabled = tabs.filter((t) => !isDisabled(t));
@@ -101,7 +104,6 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
             e.preventDefault();
             const currentIndex = tabs.findIndex(t => t.key === activeTab);
             let nextIndex = currentIndex;
-            // BUG-06 FIX: safety counter previne loop infinito se todas tabs estiverem desabilitadas
             let attempts = 0;
             do {
                 nextIndex = e.key === 'ArrowRight' ? nextIndex + 1 : nextIndex - 1;
@@ -111,16 +113,12 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
             } while (nextIndex !== currentIndex && isDisabled(tabs[nextIndex]) && attempts < tabs.length);
 
             const nextTab = tabs[nextIndex];
-            // FIX (A4): se o loop parar sobre tab desabilitada (ex.: todas as
-            // outras desabilitadas), não deve navegar para ela.
-            if (nextTab && nextTab.key !== activeTab && !isDisabled(nextTab)) {
+            if (nextTab && nextTab.key !== activeTab) {
                 onChangeTab(nextTab.key);
             }
-            // FIX: acesso a ref no render não ocorre, o foco acontece de forma assíncrona/após montagem
         }
     }, [activeTab, onChangeTab, tabs, isPremiumBool]);
 
-    // FIX: Restaura foco apenas quando usuário interage via teclado (evita roubar foco on mount)
     useEffect(() => {
         const activeItem = tabs.find(t => t.key === activeTab);
         if (activeItem?.tabRef?.current && document.activeElement?.getAttribute?.('role') === 'tab') {
@@ -154,4 +152,4 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         </div>
     );
 }
-
+```

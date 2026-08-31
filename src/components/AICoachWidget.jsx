@@ -136,7 +136,8 @@ function UrgencyBar({ score, cfg }) {
 }
 
 function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
-  if (!mc || mc.probability == null) return null;
+  // FIX (A10): produtores podem enviar apenas probabilityPct/probabilityRaw
+  if (!mc || (mc.probability == null && mc.probabilityPct == null && mc.probabilityRaw == null)) return null;
   const domain = safeDomain(maxScore, minScore);
   const clampPct = (value) => clampFinite(value, 0, 100, 0);
   const prob = clampPct(toProbPct(mc.probabilityPct ?? mc.probabilityRaw ?? mc.probability));
@@ -145,12 +146,23 @@ function MonteCarloGauge({ mc, maxScore = 100, minScore = 0 }) {
     if (!Number.isFinite(n)) return null;
     return pointsToPct(n, domain);
   };
+  // FIX (C3): conformalLow/High são PERCENTUAIS DE PROBABILIDADE (0–100),
+  // não pontos do domínio. Passá-los por toScorePct os interpretava como
+  // nota — intervalo errado sempre que maxScore ≠ 100.
   let low = Number.isFinite(Number(mc.ci95LowPct))
     ? clampPct(mc.ci95LowPct)
-    : toScorePct(mc.ci95Low ?? mc.conformalLow);
+    : (mc.ci95Low != null ? toScorePct(mc.ci95Low) : null);
+  if (low == null) {
+    const conformalLow = Number(mc.conformalLowPct ?? mc.conformalLow);
+    if (Number.isFinite(conformalLow)) low = clampPct(conformalLow);
+  }
   let high = Number.isFinite(Number(mc.ci95HighPct))
     ? clampPct(mc.ci95HighPct)
-    : toScorePct(mc.ci95High ?? mc.conformalHigh);
+    : (mc.ci95High != null ? toScorePct(mc.ci95High) : null);
+  if (high == null) {
+    const conformalHigh = Number(mc.conformalHighPct ?? mc.conformalHigh);
+    if (Number.isFinite(conformalHigh)) high = clampPct(conformalHigh);
+  }
   const volatility = Number.isFinite(Number(mc.volatility)) ? Number(mc.volatility) : 0;
   // PATCH: fallback baseado em volatilidade real
   const domainSpread = domain.max - domain.min;
