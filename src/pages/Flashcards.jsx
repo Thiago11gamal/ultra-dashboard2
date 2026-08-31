@@ -42,6 +42,13 @@ export default function Flashcards() {
   const [studyStats, setStudyStats] = useState({ reviewed: 0, known: 0 });
   const [pendingClose, setPendingClose] = useState(false);
 
+  const closeStudy = React.useCallback(() => {
+    setIsStudying(false);
+    setStudyDeck(null);
+    setStudyIndex(0);
+    setIsFlipped(false);
+  }, []);
+
   React.useEffect(() => {
     if (!pendingClose) return;
     const timer = setTimeout(() => {
@@ -49,7 +56,7 @@ export default function Flashcards() {
       setPendingClose(false);
     }, 800);
     return () => clearTimeout(timer);
-  }, [pendingClose]);
+  }, [pendingClose, closeStudy]);
 
   const selectedDeck = useMemo(() => decks.find(d => d.id === selectedDeckId), [decks, selectedDeckId]);
 
@@ -168,12 +175,7 @@ export default function Flashcards() {
     setIsStudying(true);
   };
 
-  const closeStudy = () => {
-    setIsStudying(false);
-    setStudyDeck(null);
-    setStudyIndex(0);
-    setIsFlipped(false);
-  };
+
 
   const flipCard = () => setIsFlipped(f => !f);
 

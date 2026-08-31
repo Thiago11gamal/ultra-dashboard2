@@ -73,6 +73,12 @@ export function useMonteCarloStats({
   // enablePerSubject = false é intencional — apenas documente que o painel de matérias só calcula quando aberto.
   enablePerSubject = false
 }) {
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   const activeId = useAppStore(state => state.appState?.activeId);
 
   const weights = useAppStore(useShallow(state => state.appState?.contests?.[activeId]?.mcWeights || {}));

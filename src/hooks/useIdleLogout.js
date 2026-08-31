@@ -18,6 +18,8 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         logoutRef.current = logout;
     }, [logout]);
 
+    const resetTimerRef = useRef(null);
+
     const resetTimer = useCallback(() => {
         const now = Date.now();
         lastActivityRef.current = now;
@@ -36,7 +38,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
                 const pomodoroActive = useAppStore.getState()?.appState?.pomodoro?.activeSubject;
                 if (pomodoroActive) {
                     logger.log('[IdleLogout] Pomodoro ativo — adiando logout.');
-                    resetTimer();
+                    resetTimerRef.current?.();
                     return;
                 }
             } catch { /* se falhar, prossegue com logout */ }
@@ -44,6 +46,10 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             logoutRef.current?.();
         }, timeoutMs);
     }, [timeoutMs]);
+
+    useEffect(() => {
+        resetTimerRef.current = resetTimer;
+    }, [resetTimer]);
 
     useEffect(() => {
         // BUG-25 FIX: Removed unused effectiveTimeout variable
