@@ -61,7 +61,7 @@ const getHistoryDateLabel = (h) => {
 
 
 import { normalize } from '../utils/normalization';
-
+import { useToast } from '../hooks/useToast';
 const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
     if (!stats) return null;
 
@@ -545,6 +545,7 @@ function Checklist({
     activeId,
     onImportCategory
 }) {
+    const showToast = useToast();
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importSourceContest, setImportSourceContest] = useState('');
@@ -571,6 +572,24 @@ function Checklist({
     const importModalRef = useRef(null);
 
     useModalAccessibility(isImportModalOpen, () => setIsImportModalOpen(false), importModalRef);
+
+    const handleImportWithFeedback = useCallback((sourceContestId, categoryId) => {
+        const sourceContest = contests?.[sourceContestId];
+        const sourceCats = sourceContest?.categories || [];
+        const catToImport = (Array.isArray(sourceCats) ? sourceCats : Object.values(sourceCats))
+            .find(c => c.id === categoryId);
+        if (!catToImport) return;
+        const activeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const alreadyExists = activeCats.some(c =>
+            normalize(c.name) === normalize(catToImport.name)
+        );
+        if (alreadyExists) {
+            showToast(`"${catToImport.name}" já existe neste concurso.`, 'warning');
+            return;
+        }
+        onImportCategory(sourceContestId, categoryId);
+        showToast(`"${catToImport.name}" importado com sucesso!`, 'success');
+    }, [contests, categories, onImportCategory, showToast]);
 
     useEffect(() => {
         return () => {
@@ -600,6 +619,14 @@ function Checklist({
         }));
     }, [categories]);
 
+    // BUG-T08 FIX: Criar um fingerprint estável das categorias para evitar
+    // re-renderizações desnecessárias quando a referência muda mas o conteúdo não.
+    const categoriesFingerprint = useMemo(() => {
+        return safeCategories.map(c =>
+            `${c.id}:${(c.tasks || []).length}:${(c.tasks || []).filter(t => t.completed).length}`
+        ).join('|');
+    }, [safeCategories]);
+
     const filteredCategories = useMemo(() => {
         return safeCategories.map(cat => ({
             ...cat,
@@ -610,7 +637,9 @@ function Checklist({
                 return true;
             })
         }));
-    }, [safeCategories, filter]);
+    // BUG-T08 FIX: Usar fingerprint em vez da referência instável.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categoriesFingerprint, filter]);
 
     const handleAddTask = useCallback((catId, title) => {
         if (!onAddTask) return;
@@ -848,8 +877,8 @@ function Checklist({
                                                         type="button"
                                                         disabled={exists}
                                                         onClick={() => {
-                                                            if (onImportCategory) {
-                                                                onImportCategory(importSourceContest, cat.id);
+                                                            if (handleImportWithFeedback) {
+                                                                handleImportWithFeedback(importSourceContest, cat.id);
                                                                 setIsImportModalOpen(false);
                                                                 scrollToBottom();
                                                             }

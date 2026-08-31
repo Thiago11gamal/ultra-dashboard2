@@ -140,12 +140,18 @@ export function analyzeProgressState(scores, config = {}) {
     }
   }
 
+  // BUG-T13 FIX: Clamp do trend_slope para evitar valores absurdos
+  // quando há pouquíssimos pontos ou datas muito próximas.
+  // Limitar a ±5% do maxScore por 30 dias.
+  const maxSlopeLimit = 0.05 * maxScore;
+  const clampedSlope = Math.max(-maxSlopeLimit, Math.min(maxSlopeLimit, rawSlope * 30));
+
   return {
     state, label,
     mean_score: Number(mean.toFixed(2)),
     delta: Number(delta.toFixed(2)),
     variance: Number(variance.toFixed(2)),
-    trend_slope: Number(rawSlope.toFixed(4)),
+    trend_slope: Number(clampedSlope.toFixed(4)),
     severity
   };
 }

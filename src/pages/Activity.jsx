@@ -29,7 +29,17 @@ export default function Activity() {
     const handleResetXP = () => {
         setData(prev => ({
             ...(prev || {}),
-            user: { ...(prev?.user || {}), xp: 0, level: 1, achievements: [], streak: 0 }
+            user: {
+                ...(prev?.user || {}),
+                xp: 0,
+                level: 1,
+                achievements: [],
+                streak: 0,
+                // BUG-T05 FIX: Registrar timestamp do reset para que
+                // buildAchievementStats não re-desbloqueie conquistas
+                // antigas baseadas em dados que já existiam antes do reset.
+                achievementsResetAt: new Date().toISOString()
+            }
         }));
         setShowResetModal(false);
         showToast('Nível, XP e Troféus Resetados!', 'success');

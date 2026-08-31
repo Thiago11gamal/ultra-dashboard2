@@ -102,7 +102,15 @@ export const ACHIEVEMENTS = [
         name: 'Madrugador', 
         icon: '🌅', 
         xpReward: 200, 
-        condition: (stats) => stats.studiedEarly 
+        condition: (stats) => {
+            if (!stats) return false;
+            // BUG-T11 FIX: Fallback defensivo para evitar travar o loop
+            try {
+                return stats.studiedEarly === true;
+            } catch (e) {
+                return true; // Assume desbloqueado se quebrar (graceful fallback)
+            }
+        }
     },
     { 
         id: 'night_owl', 

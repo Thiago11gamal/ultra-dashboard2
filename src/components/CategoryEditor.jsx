@@ -5,11 +5,21 @@ import DOMPurify from 'dompurify';
 import { Settings, X } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
+import { normalize } from '../utils/normalization';
+import { useToast } from '../hooks/useToast';
 
 export default function CategoryEditor({ category, isOpen, onClose }) {
     const modalRef = useRef(null);
 
     const updateCategoryFields = useAppStore(state => state.updateCategoryFields);
+    const showToast = useToast();
+
+    // BUG-T16 FIX: Obter todas as categorias para verificar duplicatas.
+    const allCategories = useAppStore(state => {
+        const contest = state.appState?.contests?.[state.appState?.activeId];
+        const raw = contest?.categories || [];
+        return Array.isArray(raw) ? raw : Object.values(raw);
+    });
 
     const effectiveOpen = isOpen && Boolean(category);
 
@@ -52,10 +62,28 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             return;
         }
 
+        // BUG-T16 FIX: Verificar se já existe outra categoria com o mesmo nome.
+        const isDuplicate = allCategories.some(c =>
+            c.id !== category.id &&
+            normalize(c.name) === normalize(cleanName)
+        );
+        if (isDuplicate) {
+            showToast('Já existe uma disciplina com este nome.', 'error');
+            return;
+        }
+
         const parsedMax = Math.max(0.1, Number(maxScore) || 100);
         const parsedMin = Math.max(0, Number(minCutoff) || 0);
 
         const safeMin = Math.min(parsedMin, parsedMax);
+
+        // BUG-T15 FIX: Informar o usuário quando minCutoff foi clampado.
+        if (parsedMin > parsedMax) {
+            console.warn(
+                `[CategoryEditor] minCutoff (${parsedMin}) > maxScore (${parsedMax}). ` +
+                `Clampado para ${safeMin}.`
+            );
+        }
         const safeColor = /^#[0-9a-fA-F]{6}$/.test(color)
             ? color
             : '#3b82f6';

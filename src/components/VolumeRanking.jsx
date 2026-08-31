@@ -4,6 +4,16 @@ import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertC
 import { formatValue } from '../utils/scoreHelper';
 
 const VolumeRanking = ({ categories = [] }) => {
+    // BUG-T12 FIX: Estabilização de referências por fingerprint.
+    const categoriesFingerprint = useMemo(() => {
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return safeCats.map(c => {
+            const h = c.simuladoStats?.history;
+            const histLen = Array.isArray(h) ? h.length : Object.keys(h || {}).length;
+            return `${c.id}:${histLen}`;
+        }).join('|');
+    }, [categories]);
+
     const sorted = useMemo(() => {
         const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
         const stats = safeCategories.map(cat => {
@@ -26,7 +36,9 @@ const VolumeRanking = ({ categories = [] }) => {
             }
             return a.name.localeCompare(b.name);
         });
-    }, [categories]);
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categoriesFingerprint]);
 
     const totalVolumeOverall = useMemo(() => sorted.reduce((acc, curr) => acc + curr.totalVolume, 0), [sorted]);
     const leaderPercentage = totalVolumeOverall > 0 ? ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100 : 0;

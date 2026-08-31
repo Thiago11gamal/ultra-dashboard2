@@ -347,58 +347,66 @@ export const createCategorySlice = (set) => ({
   }
 }),
 
-    importCategory: (sourceContestId, categoryId) => set((state) => {
-        const sourceData = state.appState.contests[sourceContestId];
-        const activeData = state.appState.contests[state.appState.activeId];
+    importCategory: (sourceContestId, categoryId) => {
+        let result = false;
+        set((state) => {
+            const sourceData = state.appState.contests[sourceContestId];
+            const activeData = state.appState.contests[state.appState.activeId];
 
-        if (!sourceData || !activeData || !Array.isArray(sourceData.categories)) return;
+            if (!sourceData || !activeData || !Array.isArray(sourceData.categories)) return;
 
-        const categoryToImport = sourceData.categories.find(c => c.id === categoryId);
-        if (!categoryToImport) return;
+            const categoryToImport = sourceData.categories.find(c => c.id === categoryId);
+            if (!categoryToImport) return;
 
-        if (!activeData.categories) activeData.categories = [];
+            if (!activeData.categories) activeData.categories = [];
 
-        // Check duplicates
-        const normName = normalize(categoryToImport.name);
-        if (activeData.categories.some(c => normalize(c.name) === normName)) {
-            console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
-            return;
-        }
+            // Check duplicates
+            const normName = normalize(categoryToImport.name);
+            if (activeData.categories.some(c => normalize(c.name) === normName)) {
+                console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
+                // BUG-T03 FIX: Retornar um valor que o caller possa usar
+                // para exibir feedback. O caller (Checklist) já faz a
+                // verificação antes de chamar, mas este é o fallback.
+                return;
+            }
 
-        const newId = generateId('cat');
-        const importedCat = safeClone(categoryToImport);
-        importedCat.id = newId;
+            const newId = generateId('cat');
+            const importedCat = safeClone(categoryToImport);
+            importedCat.id = newId;
 
-        // Resetar histórico, tempo e estatísticas para o novo concurso
-        importedCat.totalMinutes = 0;
-        importedCat.lastStudiedAt = null;
-        importedCat.simuladoStats = {
-            history: [],
-            average: 0,
-            lastAttempt: 0,
-            trend: 'stable',
-            level: 'BAIXO'
-        };
-
-        // Regenerar IDs das tarefas e resetar progresso para o novo certame
-        const rawTasks = Array.isArray(importedCat.tasks) ? importedCat.tasks : Object.values(importedCat.tasks || {});
-        importedCat.tasks = rawTasks.map(t => {
-            const taskClone = safeClone(t);
-            return {
-                ...taskClone,
-                id: generateId('task'),
-                completed: false,
-                completedAt: null,
-                status: null,
-                awardedXP: undefined
+            // Resetar histórico, tempo e estatísticas para o novo concurso
+            importedCat.totalMinutes = 0;
+            importedCat.lastStudiedAt = null;
+            importedCat.simuladoStats = {
+                history: [],
+                average: 0,
+                lastAttempt: 0,
+                trend: 'stable',
+                level: 'BAIXO'
             };
+
+            // Regenerar IDs das tarefas e resetar progresso para o novo certame
+            const rawTasks = Array.isArray(importedCat.tasks) ? importedCat.tasks : Object.values(importedCat.tasks || {});
+            importedCat.tasks = rawTasks.map(t => {
+                const taskClone = safeClone(t);
+                return {
+                    ...taskClone,
+                    id: generateId('task'),
+                    completed: false,
+                    completedAt: null,
+                    status: null,
+                    awardedXP: undefined
+                };
+            });
+
+            activeData.categories.push(importedCat);
+
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+            localStorage.setItem('ultra-sync-dirty', 'true');
+            result = true;
         });
-
-        activeData.categories.push(importedCat);
-
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+        return result;
+    },
 });
 

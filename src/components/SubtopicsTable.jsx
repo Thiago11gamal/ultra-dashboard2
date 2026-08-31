@@ -25,6 +25,9 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
     const subtopics = useMemo(() => {
         const topicMap = {};
         stableCategories.forEach(cat => {
+            // BUG-T14 FIX: Usar minScore da categoria para escalas com piso != 0.
+            const catMinScore = Number.isFinite(Number(cat.minScore))
+                ? Number(cat.minScore) : 0;
             const tasks = cat.tasks || [];
             tasks.forEach(tsk => {
                 const name = String(tsk?.title || tsk?.text || '').trim();
@@ -74,14 +77,14 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                     const totalParsed = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 0;
                     const total = totalParsed > 0 ? totalParsed : Math.max(0, (Number(t.correct) || 0) + (Number(t.wrong) || 0));
                     const correctCount = total > 0
-                        ? Math.round((getSafeScore(t, catMaxScore) / catMaxScore) * total)
+                        ? Math.round((getSafeScore(t, catMaxScore, catMinScore) / catMaxScore) * total)
                         : (Number(t.correct) || 0);
                     const wrongCount = Math.max(0, total - correctCount);
                     topicMap[key].correct += correctCount;
                     topicMap[key].wrong += wrongCount;
                     topicMap[key].total += total;
-                    if (h.date && Number.isFinite(Number(getSafeScore(t, catMaxScore)))) {
-                        topicMap[key].trendHistory.push({ date: h.date, score: getSafeScore(t, catMaxScore) });
+                    if (h.date && Number.isFinite(Number(getSafeScore(t, catMaxScore, catMinScore)))) {
+                        topicMap[key].trendHistory.push({ date: h.date, score: getSafeScore(t, catMaxScore, catMinScore) });
                     }
                 });
             });

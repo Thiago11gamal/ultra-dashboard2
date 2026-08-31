@@ -270,9 +270,20 @@ export const buildAchievementStats = (contestData, options = {}) => {
     const pomodoroWork = Math.max(1, Number(options.pomodoroWork ?? contestData.settings?.pomodoroWork) || 25);
     const extraCompletedCycles = Math.max(0, Number(options.extraCompletedCycles) || 0);
 
-    // T-019 FIX: normalizar dados de forma consistente
-    const studyLogs = toArray(contestData?.studyLogs);
-    const studySessions = toArray(contestData?.studySessions);
+    // BUG-T05 FIX: Se houve reset manual, ignorar conquistas desbloqueadas antes.
+    const resetAt = contestData?.user?.achievementsResetAt
+        ? new Date(contestData.user.achievementsResetAt).getTime()
+        : 0;
+
+    // T-019 FIX: normalizar dados de forma consistente e filtrar por resetAt
+    const filterByReset = (item) => {
+        if (!resetAt) return true;
+        const time = new Date(item?.date || item?.createdAt || item?.startTime || 0).getTime();
+        return time >= resetAt;
+    };
+
+    const studyLogs = toArray(contestData?.studyLogs).filter(filterByReset);
+    const studySessions = toArray(contestData?.studySessions).filter(filterByReset);
 
     const { totalQuestions, totalCorrect, accuracy } = aggregateQuestionAccuracy(contestData);
 
@@ -292,14 +303,14 @@ export const buildAchievementStats = (contestData, options = {}) => {
 
     const hasPerfectScoreFromHistory = categoriesArray.some(cat => {
         const hist = cat.simuladoStats?.history;
-        const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
+        const histArr = (Array.isArray(hist) ? hist : Object.values(hist || {})).filter(filterByReset);
         const maxS = Number(cat.maxScore) || 100;
         return histArr?.some(h => getSafeScore(h, maxS) >= maxS || (h.correct === h.total && h.total > 0));
     }) || false;
 
     return {
         completedTasks: categoriesArray.reduce(
-            (sum, cat) => sum + ((Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t.completed)?.length || 0), 0
+            (sum, cat) => sum + ((Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t.completed && (!resetAt || new Date(t.completedAt || 0).getTime() >= resetAt))?.length || 0), 0
         ) || 0,
         currentStreak: calculateStudyStreak(studyLogs).current,
         totalQuestions,
@@ -309,6 +320,8 @@ export const buildAchievementStats = (contestData, options = {}) => {
         pomodorosToday: countPomodorosToday(studyLogs, pomodoroWork, extraCompletedCycles),
         studiedEarly,
         studiedLate,
+        // BUG-T10 FIX: Garantir que studiedWeekend está sempre presente
+        // no objeto retornado para consumo pelas conquistas.
         studiedWeekend,
         subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size,
         // Flashcard indicators as measures
