@@ -163,7 +163,9 @@ function DailySummaryCards({ simuladoRows }) {
       });
       const totalQ = rows.reduce((s, r) => s + (parseInt(r.total, 10) || 0), 0);
       const totalC = rows.reduce((s, r) => s + (parseInt(r.correct, 10) || 0), 0);
-      const pct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
+      // FIX C-03: clamp contra dado corrompido (correct > total) e divisão por zero.
+      const safeC = Math.min(totalC, totalQ);
+      const pct = totalQ > 0 ? Math.max(0, Math.min(100, Math.round((safeC / totalQ) * 100))) : 0;
       const subjects = new Set(rows.map((r) => r.subject).filter(Boolean)).size;
 
       // Breakdown por matéria

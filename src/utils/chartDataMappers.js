@@ -138,6 +138,9 @@ export const mapRetentionData = (categories = []) => {
 
 const getStudyLogMinutes = (log) => {
     if (!log || typeof log !== 'object') return 0;
+    // FIX E-02: revisões de flashcard não devem contar como horas de estudo
+    // (alinhado com getStudyMinutes em analytics.js).
+    if (log.type === 'flashcard') return 0;
     const minutes = Number(log.minutes);
     const duration = Number(log.duration);
     if (Number.isFinite(minutes) && minutes > 0) return sanitizeMinutes(minutes);
@@ -217,9 +220,9 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     });
 
     // Retorna arredondando no final para preservar precisão em somas fracionadas
-    return last14Days.map(d => ({ 
-        data: d.data, 
-        horasEstudadas: parseFloat(d.horasEstudadas.toFixed(2)) 
+    return last14Days.map(d => ({
+        data: d.data,
+        horasEstudadas: Math.max(0, parseFloat(d.horasEstudadas.toFixed(2)))
     }));
 };
 

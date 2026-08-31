@@ -400,7 +400,13 @@ export function useMonteCarloStats({
   const rawSimuladoRowsRef = useRef(rawSimuladoRows);
   useEffect(() => { rawSimuladoRowsRef.current = rawSimuladoRows; }, [rawSimuladoRows]);
 
-useEffect(() => {
+  // FIX C-06: hash de identidade do statsData para re-executar a simulação
+  // sempre que os dados calibrados mudarem (não só quando estimatedRho muda).
+  const statsDataFingerprint = statsData
+    ? `${statsData.pooledSD}|${statsData.dailySD}|${statsData.bayesianMean}|${statsData.globalHistory?.length || 0}`
+    : 'null';
+
+  useEffect(() => {
     const rawPureStatsData = pureStatsDataRef.current;
 
     // T-012 FIX: usa statsData calibrado quando disponível.
@@ -770,7 +776,7 @@ useEffect(() => {
         projectDays,
         effectiveSimulateToday,
         safeCategories,
-        statsData?.estimatedRho
+        statsDataFingerprint
     ]);
 
   const probabilityData = useMemo(() => {

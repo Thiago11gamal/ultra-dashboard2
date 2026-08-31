@@ -2238,15 +2238,20 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         // ✅ FIX: Verificar se category.id existe antes de filtrar
         const categoryId = category?.id;
+        const catName = category?.name;
         const recentLogs = categoryId
-            ? safeStudyLogs.filter(l =>
-                l?.categoryId === categoryId &&
-                (normalizeDate(l?.date) || new Date(0)).getTime() >= cutoffTime
-              )
+            ? safeStudyLogs.filter(l => {
+                const matchesId = l?.categoryId === categoryId;
+                // FIX C-02: logs antigos podem ter só categoryName/subject.
+                const matchesName = catName && l?.categoryName
+                    ? normalize(l.categoryName) === normalize(catName)
+                    : (l?.subject ? normalize(l.subject) === normalize(catName) : false);
+                return (matchesId || matchesName) &&
+                    (normalizeDate(l?.date) || new Date(0)).getTime() >= cutoffTime;
+              })
             : [];
 
         // ✅ FIX: Verificar se category.name existe antes de normalizar
-        const catName = category?.name;
         const catNormalized = catName ? normalize(catName) : '';
         const recentSims = catNormalized
             ? safeSimulados.filter(s =>
@@ -2293,7 +2298,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const mcProbKey = mc ? Math.round(mc.probabilityRaw) : '0';
         const mcVolKey = mc ? Math.round(mc.volatility * 100) : '0';
         // ✅ FIX: sufixo determinístico — sem Date.now() (IDs estáveis p/ Planner/dedupe)
-        const mcIdSuffix = hashString64(`${cat.id}|${mcProbKey}|${mcVolKey}|${cat.urgency?.normalizedScore ?? 0}`);
+        const mcIdSuffix = hashString64(`${cat.id}|mc`);
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);

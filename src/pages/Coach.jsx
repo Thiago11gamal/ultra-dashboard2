@@ -166,6 +166,17 @@ export default function Coach() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      // FIX C-08: evita travar coachLoading em true se desmontar durante o timeout.
+      setCoachLoading(false);
+    };
+  }, []);
+
+  useEffect(() => {
     clearMcCache();
     clearUrgencyCache();
     clearTopicsCache();
@@ -561,8 +572,19 @@ export default function Coach() {
         const targetScore = targetScorePoints;
         const collectedMetrics = [];
         const contestId = activeIdRef.current;
+        // FIX C-04: lê o estado mais recente no momento da execução,
+        // evitando closure stale do clique (1500ms antes).
+        const fresh = useAppStore.getState().appState;
+        const freshContest = fresh.contests?.[fresh.activeId] || {};
+        const freshCategories = Array.isArray(freshContest.categories)
+          ? freshContest.categories : Object.values(freshContest.categories || {});
+        const freshHistory = Array.isArray(freshContest.simuladoRows)
+          ? freshContest.simuladoRows : Object.values(freshContest.simuladoRows || {});
+        const freshLogs = Array.isArray(freshContest.studyLogs)
+          ? freshContest.studyLogs : Object.values(freshContest.studyLogs || {});
+
         const newTasks = generateDailyGoals(
-          categories, history, studyLogs,
+          freshCategories, freshHistory, freshLogs,
           {
             user: userData,
             targetScore,

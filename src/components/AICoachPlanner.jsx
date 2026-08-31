@@ -189,27 +189,33 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       if (sid) assigned.add(sid);
     }));
     const seen = new Set(); // FIX (BUG-08): dedupe de draggableId entre colunas
-    const take = (t) => {
+    const take = (t, fallbackIndex) => {
       if (!t) return null;
       const withId = ensureCoachTaskId(t);
-      const sid = getSafeId(withId);
-      if (!sid || seen.has(sid)) return null;
+      // FIX C-05: usa id explícito se existir; senão usa id estável por índice,
+      // evitando fundir duas tarefas distintas com o mesmo texto.
+      const sid = withId.id || `pos-${fallbackIndex}-${hashString((t.text || t.title || ''))}`;
+      if (seen.has(sid)) return null;
       seen.add(sid);
-      return withId;
+      return { ...withId, id: sid };
     };
     const backlog = [];
+    let i = 0;
     for (const t of (Array.isArray(plan) ? plan : [])) {
-      if (!t || isSystemAlertTask(t)) continue;
+      if (!t || isSystemAlertTask(t)) { i++; continue; }
       const sid = getSafeId(t);
-      if (sid && assigned.has(sid)) continue;
-      const item = take(t);
+      if (sid && assigned.has(sid)) { i++; continue; }
+      const item = take(t, `backlog-${i}`);
       if (item) backlog.push(item);
+      i++;
     }
     const cleanCol = (arr) => {
       const out = [];
+      let j = 0;
       for (const t of (Array.isArray(arr) ? arr : [])) {
-        const item = take(t);
+        const item = take(t, `col-${j}`);
         if (item) out.push(item);
+        j++;
       }
       return out;
     };
