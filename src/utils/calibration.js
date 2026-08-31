@@ -281,6 +281,7 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
 
 export const CRITICAL_BRIER_THRESHOLD = 0.28;
 export const HIGH_PENALTY_THRESHOLD = 0.20;
+export const MIN_PENALTY_DISPLAY = 0.05;
 export const ALERT_COOLDOWN_MS = 1000 * 60 * 60 * 12;
 
 // [LOTE 5] PAV com bloco mínimo anti-escada
