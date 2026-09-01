@@ -16,8 +16,10 @@ export default function Sessions() {
     }));
     const deleteSession = useAppStore(state => state.deleteSession);
     const deleteSimulado = useAppStore(state => state.deleteSimulado);
+    const hasSessions = Array.isArray(data?.studySessions) ? data.studySessions.length > 0 : Object.keys(data?.studySessions || {}).length > 0;
+    const hasSimulados = Array.isArray(data?.simuladoRows) ? data.simuladoRows.length > 0 : Object.keys(data?.simuladoRows || {}).length > 0;
  
-    if (!data?.studySessions?.length && !data?.simuladoRows?.length) {
+    if (!hasSessions && !hasSimulados) {
         return (
             <PageErrorBoundary pageName="Sessões">
                 <div className="min-h-[50vh] flex items-center justify-center text-center px-4">
