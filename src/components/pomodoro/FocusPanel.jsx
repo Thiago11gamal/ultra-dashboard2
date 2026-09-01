@@ -232,12 +232,12 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
         <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                    <Activity size={14} className="text-purple-400" />
+                    <Activity size={14} className="text-blue-400" />
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Ciclo Pomodoro
                     </span>
                 </div>
-                <span className="text-xs font-mono font-bold text-purple-300">
+                <span className="text-xs font-mono font-bold text-blue-300">
                     {safeCompleted}/{safeTarget}
                 </span>
             </div>
@@ -247,9 +247,9 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
                         key={i}
                         className={`h-2 flex-1 rounded-full transition-all duration-300 ${
                             i < safeCompleted
-                                ? 'bg-purple-500 shadow-sm'
+                                ? 'bg-blue-500 shadow-sm'
                                 : i === safeCompleted && mode === 'work'
-                                    ? 'bg-purple-500/40 animate-pulse'
+                                    ? 'bg-blue-500/40 animate-pulse'
                                     : 'bg-slate-700/50'
                         }`}
                     />

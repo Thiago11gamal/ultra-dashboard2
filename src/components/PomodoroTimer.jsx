@@ -1132,7 +1132,7 @@ function PomodoroTimer({
 
                 {/* Botão de Abortar Sessão */}
                 {!isProtocolInactive && (
-                    <div className="w-full max-w-xs mt-2 pt-2 border-t border-white/10">
+                    <div className="w-full max-w-xs mt-2 pt-2 mb-2 border-t border-white/10">
                         <button
                             type="button"
                             onClick={() => setShowAbandonConfirm(true)}

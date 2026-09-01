@@ -32,7 +32,7 @@ export function PomodoroClock({
 
                 <div className="flex items-center gap-2">
                     {/* Seletor de Velocidade */}
-                    <div className="flex bg-black/60 p-0.5 rounded-xl border border-[#3f2e26]/80 shadow-inner backdrop-blur-md">
+                    <div className="flex gap-1 bg-black/60 p-1 rounded-xl border border-[#3f2e26]/80 shadow-inner backdrop-blur-md">
                         {[1, 10, 100].map(s => (
                             <button
                                 key={s}
@@ -40,7 +40,7 @@ export function PomodoroClock({
                                 onClick={() => setSpeed(s)}
                                 disabled={isProtocolInactive}
                                 aria-label={`Velocidade ${s}x`}
-                                className={`px-3 h-7 sm:h-8 rounded-lg text-xs font-black transition-all disabled:opacity-30 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
+                                className={`px-2.5 sm:px-3 h-7 sm:h-8 rounded-lg text-xs font-black transition-all disabled:opacity-30 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
                             >
                                 {s}X
                             </button>
