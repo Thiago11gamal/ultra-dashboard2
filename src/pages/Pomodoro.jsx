@@ -3,12 +3,17 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import PomodoroTimer from '../components/PomodoroTimer';
 import SessionFocusPanel from '../components/pomodoro/FocusPanel';
 import { getLocalMidnight, getDateKey, parseNoonLocal, normalizeDate } from '../utils/dateHelper';
-import { motion as Motion } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useActiveContest, usePomodoroState } from '../store/useSelectors';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2, Target, AlertCircle, TrendingUp, Clock, Calendar, BarChart3, Medal, Trophy, Moon, Sun } from 'lucide-react';
+import {
+    CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle,
+    Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2, Target,
+    AlertCircle, TrendingUp, Clock, Calendar, BarChart3, Medal,
+    Trophy, Activity, BookOpen
+} from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
 import { cleanTaskTitle, parseTaskDisplay } from '../utils/taskTitleHelper';
@@ -18,7 +23,7 @@ const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 
 // =====================================================
-// LOTE 2 APLICADO — Telemetria em Grid (100% PT-BR)
+// TELEMETRIA EM GRID (CONQUISTAS E TELEMETRIA)
 // =====================================================
 function DataTriviaPanel({ studyLogs, simulados, categories }) {
     const stats = useMemo(() => {
@@ -114,7 +119,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
     if (tiles.length === 0) return null;
 
     return (
-        <div className="mb-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 relative overflow-hidden">
+        <div className="mb-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 relative overflow-hidden shadow-md">
             <div className="flex justify-between items-center mb-3 relative z-10">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2">
                     <Medal size={12} />
@@ -137,10 +142,8 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
     );
 }
 
-
-// CORREÇÃO CRÍTICA: Proteção contra undefined no Painel IA
 // =====================================================
-// LOTE 3 APLICADO — Selo "Núcleo Neural Ativo" (PT-BR)
+// PAINEL DO MENTOR IA
 // =====================================================
 function AICoachPanel({ activeSubject, stats }) {
     const defaultInsight = {
@@ -178,24 +181,24 @@ function AICoachPanel({ activeSubject, stats }) {
     };
     return (
         <Motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`relative rounded-xl border ${theme.border} ${theme.bg} ${theme.glow} backdrop-blur-md p-4 mb-3 overflow-hidden group shadow-lg`}
+            className={`relative rounded-2xl border ${theme.border} ${theme.bg} ${theme.glow} backdrop-blur-md p-4 mb-4 overflow-hidden group shadow-lg`}
         >
             <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-40 pointer-events-none`} />
             <Motion.div
                 animate={{ left: ['-100%', '200%'] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-                className={`absolute top-0 bottom-0 w-[50px] bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-50 pointer-events-none z-20 skew-x-[-20deg]`}
+                className="absolute top-0 bottom-0 w-[50px] bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-50 pointer-events-none z-20 skew-x-[-20deg]"
             />
-            <div className="flex items-center gap-6 relative z-10">
+            <div className="flex items-center gap-4 sm:gap-6 relative z-10">
                 <div className="relative shrink-0">
                     <Motion.div
                         animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0.5, 0.3] }}
                         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                         className={`absolute inset-0 rounded-full blur-xl ${theme.accent}`}
                     />
-                    <div className={`relative w-10 h-10 rounded-xl border ${theme.border} bg-slate-900/60 flex items-center justify-center ${theme.text} shadow-inner`}>
+                    <div className={`relative w-10 h-10 sm:w-11 sm:h-11 rounded-xl border ${theme.border} bg-slate-900/70 flex items-center justify-center ${theme.text} shadow-inner`}>
                         {icons[insight?.iconType] || <BrainCircuit size={24} />}
                     </div>
                 </div>
@@ -219,65 +222,24 @@ function AICoachPanel({ activeSubject, stats }) {
     );
 }
 
-
-// Focus Panel
 // =====================================================
-// LOTE 4 APLICADO — Cartão recomendado e ações (PT-BR)
+// OPÇÃO 1: CENTRAL DE MISSÕES, MENTOR E PRÓXIMAS AÇÕES
 // =====================================================
-function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode, neuralQueue, studyLogs, simulados }) {
+function ActionsAndMentorView({
+    categories,
+    activeSubject,
+    onStartTask,
+    stats,
+    neuralMode,
+    neuralQueue,
+    studyLogs,
+    simulados
+}) {
     const recommendedTask = useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         if (!safeCats || safeCats.length === 0) return null;
         return getBestTask(safeCats);
     }, [categories]);
-
-    const [isPanelLocked, setIsPanelLocked] = useState(() => {
-        try {
-            const saved = localStorage.getItem('focusPanelLocked');
-            return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : true;
-        } catch { return true; }
-    });
-    const [uiPosition, setUiPosition] = useState(() => {
-        try {
-            const saved = localStorage.getItem('focusPanelPosition');
-            return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : { x: 0, y: 0 };
-        } catch { return { x: 0, y: 0 }; }
-    });
-    const uiPosRef = useRef(uiPosition);
-    useEffect(() => { uiPosRef.current = uiPosition; }, [uiPosition]);
-    useEffect(() => {
-        const checkPos = () => {
-            const currentPos = uiPosRef.current;
-            if (currentPos.x !== 0 || currentPos.y !== 0) {
-                const limitX = window.innerWidth - 100;
-                const limitY = window.innerHeight - 100;
-                if (Math.abs(currentPos.x) > limitX || Math.abs(currentPos.y) > limitY) {
-                    setUiPosition({ x: 0, y: 0 });
-                    localStorage.removeItem('focusPanelPosition');
-                }
-            }
-        };
-        window.addEventListener('resize', checkPos);
-        return () => window.removeEventListener('resize', checkPos);
-    }, []);
-    const handleDragEnd = (_, info) => {
-        const newPos = { x: uiPosition.x + info.offset.x, y: uiPosition.y + info.offset.y };
-        setUiPosition(newPos);
-        try {
-            localStorage.setItem('focusPanelPosition', JSON.stringify(newPos));
-        } catch (err) {
-            console.warn("[FocusPanel] Falha ao salvar posição:", err);
-        }
-    };
-    const toggleLock = () => {
-        const newState = !isPanelLocked;
-        setIsPanelLocked(newState);
-        localStorage.setItem('focusPanelLocked', JSON.stringify(newState));
-    };
-    const resetPosition = () => {
-        setUiPosition({ x: 0, y: 0 });
-        localStorage.removeItem('focusPanelPosition');
-    };
 
     const highPriorityTasks = useMemo(() => {
         const tasks = [];
@@ -385,7 +347,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
     const cleanTaskText = (rawText, catName) => parseTaskDisplay(rawText, catName);
 
-    // Esconde IDs técnicos (ex.: E3FR4G356H56) e garante rótulo em português
     const safeCatName = (name) => {
         const n = String(name || '').trim();
         if (!n) return 'Categoria';
@@ -394,43 +355,12 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
     };
 
     return (
-        <Motion.div
-            drag={!isPanelLocked}
-            dragMomentum={false}
-            dragElastic={0.1}
-            animate={uiPosition}
-            onDragEnd={handleDragEnd}
-            whileDrag={{ scale: 1.02, zIndex: 100 }}
-            className={`flex flex-col w-full relative group p-4 sm:p-5 bg-[#08090f]/70 border border-white/5 rounded-3xl backdrop-blur-xl shadow-2xl ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
-        >
-            <div className="absolute -top-14 left-0 right-0 flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-1 group-hover:-translate-y-0">
-                {!isPanelLocked && (
-                    <button
-                        type="button"
-                        onClick={resetPosition}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900/70 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-800 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5"
-                    >
-                        <RotateCcw size={12} />
-                        <span>Restaurar</span>
-                    </button>
-                )}
-                <button
-                    type="button"
-                    onClick={toggleLock}
-                    className={`p-2 rounded-xl transition-all border flex items-center justify-center ${isPanelLocked
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20'
-                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
-                        }`}
-                >
-                    {isPanelLocked ? <Lock size={14} /> : <Unlock size={14} />}
-                </button>
-            </div>
-
+        <div className="w-full flex flex-col gap-4">
             <AICoachPanel activeSubject={activeSubject} stats={stats} />
             <DataTriviaPanel studyLogs={studyLogs} simulados={simulados} categories={categories} />
 
             {activeTaskStats && (
-                <div className="mb-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 relative overflow-hidden group/stats">
+                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 relative overflow-hidden group/stats shadow-md">
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover/stats:opacity-100 transition-opacity" />
                     <div className="flex justify-between items-center mb-3">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2 truncate pr-2">
@@ -480,9 +410,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
             {recommendedTask && !activeSubject && (
                 <Motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mb-6 p-6 rounded-2xl bg-[#11131f] border border-indigo-500/20 shadow-lg relative group/card overflow-hidden"
+                    className="p-5 sm:p-6 rounded-2xl bg-[#11131f] border border-indigo-500/20 shadow-lg relative group/card overflow-hidden"
                 >
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent opacity-60 pointer-events-none" />
                     <div className="absolute -right-4 -top-4 p-4 opacity-10 group-hover/card:scale-110 group-hover/card:opacity-20 transition-all">
@@ -505,9 +435,10 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                         })()}
                     </h3>
                     <p className="text-xs text-slate-400 mb-5 leading-relaxed relative z-10">
-                        Baseado na sua última performance, esta meta oferece a melhor janela de retenção agora.
+                        Baseado na sua performance e histórico, esta meta oferece a melhor janela de retenção agora.
                     </p>
                     <button
+                        type="button"
                         onClick={() => onStartTask(recommendedTask, null, 'neural_core')}
                         className="w-full relative overflow-hidden py-3 bg-indigo-600/90 hover:bg-indigo-500 text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(79,70,229,0.2)] hover:shadow-[0_0_30px_rgba(79,70,229,0.4)] active:scale-[0.985] group/btn z-10"
                     >
@@ -520,32 +451,32 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                             <div className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] bg-white/5 border border-white/10 shrink-0 text-slate-400">
                                 {recommendedTask.catIcon || '📚'}
                             </div>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[150px]">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[150px]">
                                 {safeCatName(recommendedTask.catName || recommendedTask.category)}
                             </span>
                         </div>
-                        <span className="text-[9px] font-black text-indigo-400/50 tracking-widest uppercase shrink-0">Eficácia Máxima</span>
+                        <span className="text-[9px] font-black text-indigo-400/60 tracking-widest uppercase shrink-0">Eficácia Máxima</span>
                     </div>
                 </Motion.div>
             )}
 
-            <div className="bg-white/[0.015] border border-white/[0.04] rounded-2xl p-4 backdrop-blur-md flex-1 relative overflow-hidden">
+            <div className="bg-white/[0.015] border border-white/[0.04] rounded-2xl p-4 backdrop-blur-md relative overflow-hidden shadow-inner">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-slate-500/50" />
                         <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Próximas Ações</p>
                     </div>
                     {pendingCount > 0 && (
-                        <span className="text-[10px] font-bold bg-slate-800 text-slate-400 border border-white/5 px-2.5 py-0.5 rounded-md">
+                        <span className="text-[10px] font-bold bg-slate-800 text-slate-300 border border-white/5 px-2.5 py-0.5 rounded-md">
                             {pendingCount} pendentes
                         </span>
                     )}
                 </div>
                 {visibleTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center bg-white/[0.015] rounded-2xl border border-white/5">
+                    <div className="flex flex-col items-center justify-center py-10 text-center bg-white/[0.015] rounded-2xl border border-white/5">
                         <CheckCircle2 size={28} className="text-emerald-500/40 mb-3" />
-                        <p className="text-xs font-bold text-slate-400 tracking-tight">Nenhuma ação pendente</p>
-                        <p className="text-[9px] text-slate-600 mt-1">Todas as missões neurais completas ou em foco.</p>
+                        <p className="text-xs font-bold text-slate-300 tracking-tight">Nenhuma ação pendente</p>
+                        <p className="text-[9px] text-slate-500 mt-1">Todas as missões neurais completas ou em foco.</p>
                     </div>
                 ) : (
                     <div className="space-y-2 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
@@ -559,7 +490,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                                     key={`task-${taskId}-${idx}`}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.05 }}
+                                    transition={{ delay: idx * 0.04 }}
                                     onClick={() => onStartTask(task, null, 'neural_core')}
                                     className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300 group text-left relative overflow-hidden ${isActive
                                         ? 'bg-amber-500/5 border-amber-500/20 shadow-sm'
@@ -600,11 +531,214 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
                 )}
             </div>
+        </div>
+    );
+}
+
+// =====================================================
+// PAINEL LATERAL UNIFICADO COM AS DUAS OPÇÕES DE VISUALIZAÇÃO
+// =====================================================
+function PomodoroSidePanel({
+    activeTab,
+    setActiveTab,
+    categories,
+    activeSubject,
+    onStartTask,
+    stats,
+    neuralMode,
+    neuralQueue,
+    studyLogs,
+    simulados,
+    user,
+    mode,
+    isRunning,
+    timeLeft,
+    totalTime,
+    targetCycles,
+    completedCycles,
+    isLayoutLocked,
+    onToggleLock
+}) {
+    const [uiPosition, setUiPosition] = useState(() => {
+        try {
+            const saved = localStorage.getItem('focusPanelPosition');
+            return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : { x: 0, y: 0 };
+        } catch { return { x: 0, y: 0 }; }
+    });
+    const uiPosRef = useRef(uiPosition);
+    useEffect(() => { uiPosRef.current = uiPosition; }, [uiPosition]);
+
+    useEffect(() => {
+        const checkPos = () => {
+            const currentPos = uiPosRef.current;
+            if (currentPos.x !== 0 || currentPos.y !== 0) {
+                const limitX = window.innerWidth - 100;
+                const limitY = window.innerHeight - 100;
+                if (Math.abs(currentPos.x) > limitX || Math.abs(currentPos.y) > limitY) {
+                    setUiPosition({ x: 0, y: 0 });
+                    localStorage.removeItem('focusPanelPosition');
+                }
+            }
+        };
+        window.addEventListener('resize', checkPos);
+        return () => window.removeEventListener('resize', checkPos);
+    }, []);
+
+    const handleDragEnd = (_, info) => {
+        const newPos = { x: uiPosition.x + info.offset.x, y: uiPosition.y + info.offset.y };
+        setUiPosition(newPos);
+        try {
+            localStorage.setItem('focusPanelPosition', JSON.stringify(newPos));
+        } catch (err) {
+            console.warn("[PomodoroSidePanel] Falha ao salvar posição:", err);
+        }
+    };
+
+    const resetPosition = () => {
+        setUiPosition({ x: 0, y: 0 });
+        localStorage.removeItem('focusPanelPosition');
+    };
+
+    // Contagem de pendências para o badge do tab de ações
+    const pendingCount = useMemo(() => {
+        let count = 0;
+        (categories || []).forEach(cat => {
+            const safeTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+            safeTasks.forEach(t => {
+                if (t && !t.completed && t.priority === 'high' && (t.id || t.text) !== activeSubject?.taskId) {
+                    count++;
+                }
+            });
+        });
+        return count;
+    }, [categories, activeSubject]);
+
+    return (
+        <Motion.div
+            drag={!isLayoutLocked}
+            dragMomentum={false}
+            dragElastic={0.1}
+            animate={uiPosition}
+            onDragEnd={handleDragEnd}
+            whileDrag={{ scale: 1.01, zIndex: 100 }}
+            className={`flex flex-col w-full relative group p-4 sm:p-6 bg-[#08090f]/75 border border-white/10 rounded-3xl backdrop-blur-xl shadow-2xl ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        >
+            {/* Controles de Arrasto e Bloqueio (no Hover superior) */}
+            <div className="absolute -top-12 left-0 right-0 flex items-center justify-end gap-2.5 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-1 group-hover:-translate-y-0 z-30">
+                {!isLayoutLocked && (
+                    <button
+                        type="button"
+                        onClick={resetPosition}
+                        className="px-3 py-1.5 rounded-xl bg-slate-900/80 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-800 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-lg backdrop-blur-md"
+                    >
+                        <RotateCcw size={12} />
+                        <span>Restaurar Posição</span>
+                    </button>
+                )}
+                <button
+                    type="button"
+                    onClick={onToggleLock}
+                    className={`p-2 rounded-xl transition-all border flex items-center justify-center shadow-lg backdrop-blur-md ${isLayoutLocked
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                        }`}
+                    title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel"}
+                >
+                    {isLayoutLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                </button>
+            </div>
+
+            {/* TAB SELECTOR: DUAS OPÇÕES DE VISUALIZAÇÃO */}
+            <div className="flex items-center gap-1.5 p-1.5 bg-slate-950/80 border border-white/10 rounded-2xl mb-5 shadow-inner">
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('actions')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'actions'
+                        ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-600/30 border border-indigo-400/30'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
+                        }`}
+                >
+                    <Zap size={14} className={activeTab === 'actions' ? 'text-amber-300' : 'text-indigo-400'} />
+                    <span>Missões & Mentor</span>
+                    {pendingCount > 0 && (
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black ${activeTab === 'actions'
+                            ? 'bg-white/20 text-white'
+                            : 'bg-slate-800 text-slate-400 border border-white/5'
+                            }`}>
+                            {pendingCount}
+                        </span>
+                    )}
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('telemetry')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'telemetry'
+                        ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-600/30 border border-cyan-400/30'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
+                        }`}
+                >
+                    <Activity size={14} className={activeTab === 'telemetry' ? 'text-white' : 'text-cyan-400'} />
+                    <span>Telemetria da Sessão</span>
+                    {isRunning && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    )}
+                </button>
+            </div>
+
+            {/* CONTEÚDO DA VISUALIZAÇÃO SELECIONADA */}
+            <AnimatePresence mode="wait">
+                {activeTab === 'actions' ? (
+                    <Motion.div
+                        key="view-actions"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.2 }}
+                        className="w-full"
+                    >
+                        <ActionsAndMentorView
+                            categories={categories}
+                            activeSubject={activeSubject}
+                            onStartTask={onStartTask}
+                            stats={stats}
+                            neuralMode={neuralMode}
+                            neuralQueue={neuralQueue}
+                            studyLogs={studyLogs}
+                            simulados={simulados}
+                        />
+                    </Motion.div>
+                ) : (
+                    <Motion.div
+                        key="view-telemetry"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.2 }}
+                        className="w-full"
+                    >
+                        <SessionFocusPanel
+                            activeSubject={activeSubject}
+                            categories={categories}
+                            studyLogs={studyLogs}
+                            user={user}
+                            mode={mode}
+                            isRunning={isRunning}
+                            timeLeft={timeLeft}
+                            totalTime={totalTime}
+                            targetCycles={targetCycles}
+                            completedCycles={completedCycles}
+                        />
+                    </Motion.div>
+                )}
+            </AnimatePresence>
         </Motion.div>
     );
 }
 
-
+// =====================================================
+// BARRA SUPERIOR DO CRONÔMETRO
+// =====================================================
 function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
     const cleanText = (text) => cleanTaskTitle(text, activeSubject?.category);
 
@@ -644,6 +778,9 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
     );
 }
 
+// =====================================================
+// COMPONENTE PRINCIPAL POMODORO
+// =====================================================
 export default function Pomodoro() {
     const activeId = useAppStore(state => state.appState?.activeId);
     const contest = useActiveContest() || EMPTY_OBJECT;
@@ -678,6 +815,25 @@ export default function Pomodoro() {
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
     const topRef = useRef(null);
 
+    // Estado do Tab do Painel Lateral (Missões & Mentor vs Telemetria)
+    const [activeSideTab, setActiveSideTab] = useState(() => {
+        try {
+            const saved = localStorage.getItem('pomodoroSideTab');
+            return saved === 'telemetry' ? 'telemetry' : 'actions';
+        } catch {
+            return 'actions';
+        }
+    });
+
+    const handleTabChange = (newTab) => {
+        setActiveSideTab(newTab);
+        try {
+            localStorage.setItem('pomodoroSideTab', newTab);
+        } catch (e) {
+            console.warn('[Pomodoro] Falha ao persistir tab lateral:', e);
+        }
+    };
+
     useEffect(() => {
         if (location.state?.from) {
             entrySourceRef.current = location.state.from;
@@ -696,7 +852,7 @@ export default function Pomodoro() {
         if (!normalized || normalized === 'pomodoro' || normalized === 'neural_core' || normalized === 'side_panel') {
             return '/pomodoro';
         }
-if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
+        if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
             return '/';
         }
         return `/${normalized}`;
@@ -736,6 +892,7 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         setIsLayoutLocked(newState);
         try {
             localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
+            localStorage.setItem('focusPanelLocked', JSON.stringify(newState));
         } catch (err) {
             console.warn('[Pomodoro] Falha ao salvar pomodoroLayoutLocked:', err);
             try {
@@ -768,10 +925,7 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
             const minutes = Number(log.minutes) || 0;
             if (!logDate || minutes <= 0) continue;
 
-            // FIX: respeitar endDate quando disponível para um cálculo mais preciso
-            // do intervalo entre sessões (log.date pode ser o início ou o fim do registro).
             const boundary = log.endDate ? new Date(log.endDate).getTime() : logDate;
-
             const gapInMinutes = Math.max(0, (lastTimeBoundary - boundary) / (1000 * 60));
             if (gapInMinutes > 90) {
                 break;
@@ -795,7 +949,6 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
             const cat = (categories || []).find(c => c && c.id === location.state.categoryId);
             const tsk = (cat?.tasks || []).find(t => t && t.id === location.state.taskId);
             if (cat && tsk) {
-                // Clear location.state to prevent restart loops
                 navigate(location.pathname, { replace: true, state: null });
                 useAppStore.getState().startPomodoroSession({
                     categoryId: cat.id,
@@ -832,8 +985,6 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         const currentSource = options.source || resolveSessionSource(subjectSnapshot?.source);
 
         if (subjectSnapshot) {
-            // FIX: blindagem contra categories em formato de objeto (evita crash
-            // se o estado vier como {} em vez de []).
             setData(prev => {
                 const rawCats = prev.categories;
                 const catsArray = Array.isArray(rawCats) ? rawCats : Object.values(rawCats || {});
@@ -896,11 +1047,6 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         const { neuralMode } = useAppStore.getState().appState?.pomodoro || {};
         const store = useAppStore.getState();
 
-        // FIX: Sessão PULADA (não natural) nunca deve:
-        //  - exibir "Série finalizada!"
-        //  - auto-concluir a tarefa
-        //  - avançar a fila neural (sequenciar a próxima meta sem concluir a atual)
-        // Ela apenas salva o progresso e encerra o foco atual.
         if (!wasNatural) {
             const pomodoroState = store.appState?.pomodoro || {};
             const accumulatedMinutes = pomodoroState.accumulatedMinutes || 0;
@@ -912,7 +1058,6 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
                     minutesToSave,
                     currentSubject.taskId
                 );
-                // ✅ FIX: Resetar accumulatedMinutes após salvar
                 store.setPomodoroAccumulatedMinutes(0);
                 showToast(`Sessão encerrada manualmente. ${minutesToSave} minutos salvos no histórico.`, 'info');
             } else {
@@ -928,9 +1073,6 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
 
         if (currentSubject) {
             showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
-
-            // ✅ FIX: Resetar accumulatedMinutes após salvar
-            // para evitar contagem dupla no próximo ciclo
             store.setPomodoroAccumulatedMinutes(0);
 
             const activeData = store.appState.contests[store.appState.activeId];
@@ -1007,9 +1149,9 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
     return (
         <PageErrorBoundary pageName="Pomodoro">
             <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-4 sm:pt-6 lg:pt-8 pb-12 px-3 sm:px-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8 items-start justify-center w-full max-w-[1680px] mx-auto">
-                    {/* Coluna 1: Console do Cronômetro Pomodoro */}
-                    <div className="w-full flex flex-col items-center gap-4 sm:gap-6 min-w-0">
+                <div className="flex flex-col xl:flex-row gap-6 lg:gap-8 xl:gap-10 items-start justify-center w-full max-w-[1240px] xl:max-w-[1380px] 2xl:max-w-[1440px] mx-auto">
+                    {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (TAMANHO ORIGINAL E ENQUADRADO) */}
+                    <div className="w-full xl:w-[500px] 2xl:w-[540px] flex-shrink-0 flex flex-col items-center gap-4 sm:gap-5 min-w-0">
                         <PomodoroTopBar
                             activeSubject={activeSubject}
                             neuralMode={neuralMode}
@@ -1031,25 +1173,11 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
                         />
                     </div>
 
-                    {/* Coluna 2: Telemetria & Gamificação da Sessão Ativa */}
-                    <div className="w-full min-w-0">
-                        <SessionFocusPanel
-                            activeSubject={activeSubject}
-                            categories={categories}
-                            studyLogs={studyLogs}
-                            user={user}
-                            mode={pomodoroState.mode || 'work'}
-                            isRunning={pomodoroState.isRunning || false}
-                            timeLeft={pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60}
-                            totalTime={(settings?.pomodoroWork || 25) * 60}
-                            targetCycles={pomodoroState.targetCycles || 1}
-                            completedCycles={pomodoroState.completedCycles || 0}
-                        />
-                    </div>
-
-                    {/* Coluna 3: Central Neural de Operações & Ações */}
-                    <div className="w-full min-w-0">
-                        <FocusPanel
+                    {/* COLUNA 2: PAINEL LATERAL COM AS DUAS OPÇÕES DE VISUALIZAÇÃO */}
+                    <div className="flex-1 w-full min-w-0 max-w-full xl:max-w-[700px] 2xl:max-w-[760px]">
+                        <PomodoroSidePanel
+                            activeTab={activeSideTab}
+                            setActiveTab={handleTabChange}
                             categories={categories || []}
                             activeSubject={activeSubject}
                             onStartTask={handleStartTask}
@@ -1058,6 +1186,15 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
                             neuralQueue={neuralQueue}
                             studyLogs={studyLogs}
                             simulados={simulados}
+                            user={user}
+                            mode={pomodoroState.mode || 'work'}
+                            isRunning={pomodoroState.isRunning || false}
+                            timeLeft={pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60}
+                            totalTime={(settings?.pomodoroWork || 25) * 60}
+                            targetCycles={pomodoroState.targetCycles || 1}
+                            completedCycles={pomodoroState.completedCycles || 0}
+                            isLayoutLocked={isLayoutLocked}
+                            onToggleLock={toggleLayoutLock}
                         />
                     </div>
                 </div>
@@ -1065,4 +1202,3 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         </PageErrorBoundary>
     );
 }
-
