@@ -630,10 +630,8 @@ export default React.memo(function EvolutionChart({
                      </div>
                  </div>
 
-                <div 
-                    className="relative w-full mb-8"
-                    style={{ maskImage: 'linear-gradient(to right, transparent, black 2%, black 98%, transparent)', WebkitMaskImage: '-webkit-linear-gradient(left, transparent, black 2%, black 98%, transparent)' }}
-                >
+                {/* Máscara CSS removida: ela estava causando um gradiente que apagava o início do primeiro botão e o fim do último. */}
+                <div className="relative w-full mb-8">
                     <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex overflow-x-auto pt-2 pb-4 px-4 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
                         {ENGINES.map((eng, idx) => {
                             const active = activeEngine === eng.id;
