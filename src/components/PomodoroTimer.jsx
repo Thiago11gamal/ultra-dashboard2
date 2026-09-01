@@ -1082,15 +1082,17 @@ function PomodoroTimer({
     const isProtocolInactive = !activeSubject;
 
     return (
-        <div className={`w-full relative flex flex-col items-center gap-4 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4 overflow-y-auto' : ''}`}>
-            {/* Header com status de recuperação/pausa ou alerta */}
-            <div className="w-full flex items-center justify-center">
-                <PomodoroHeader
-                    mode={mode}
-                    activeSubject={activeSubject}
-                    onManualExit={handleManualExit}
-                />
-            </div>
+        <div className={`w-full relative flex flex-col items-center gap-2.5 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4 overflow-y-auto' : ''}`}>
+            {/* Header com status de recuperação/pausa ou alerta (apenas se ativo) */}
+            {(mode === 'break' || mode === 'long_break' || isProtocolInactive) && (
+                <div className="w-full">
+                    <PomodoroHeader
+                        mode={mode}
+                        activeSubject={activeSubject}
+                        onManualExit={handleManualExit}
+                    />
+                </div>
+            )}
 
             {/* Container Principal do Relógio de Madeira */}
             <div
@@ -1100,37 +1102,9 @@ function PomodoroTimer({
                     backgroundPosition: 'center',
                     boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
                 }}
-                className="w-full border-4 sm:border-[6px] border-[#3f2e26] p-6 sm:p-8 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
+                className="w-full border-4 sm:border-[5px] border-[#3f2e26] p-4 sm:p-5 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
-                {/* Botões de Ação do Topo (Fullscreen / Mudo) */}
-                <div className="w-full flex justify-end items-center gap-2 mb-2 relative z-30">
-                    <button
-                        type="button"
-                        onClick={toggleFullscreen}
-                        className="p-2 sm:p-2.5 bg-black/40 border border-white/10 hover:border-white/20 rounded-xl text-slate-300 hover:text-white transition-all shadow-lg backdrop-blur-md"
-                        title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
-                    >
-                        {isFullscreen ? (
-                            <Minimize2 size={16} className="text-indigo-300" />
-                        ) : (
-                            <Maximize2 size={16} />
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={toggleMute}
-                        className="p-2 sm:p-2.5 bg-black/40 border border-white/10 hover:border-white/20 rounded-xl text-slate-300 hover:text-white transition-all shadow-lg backdrop-blur-md"
-                        title={isMuted ? "Ativar som" : "Silenciar alarme"}
-                    >
-                        {isMuted ? (
-                            <VolumeX size={16} className="text-red-400" />
-                        ) : (
-                            <Volume2 size={16} className="text-emerald-400" />
-                        )}
-                    </button>
-                </div>
-
-                {/* Mostrador SVG e Indicadores */}
+                {/* Mostrador SVG, Toolbar e Indicadores */}
                 <PomodoroClock
                     speed={speed}
                     setSpeed={setSpeed}
@@ -1141,6 +1115,10 @@ function PomodoroTimer({
                     safeSettings={safeSettings}
                     svgCircleRef={svgCircleRef}
                     clockRef={clockRef}
+                    isFullscreen={isFullscreen}
+                    toggleFullscreen={toggleFullscreen}
+                    isMuted={isMuted}
+                    toggleMute={toggleMute}
                 />
 
                 {/* Controles Principais (Voltar / Play-Pause / Pular) */}
@@ -1154,14 +1132,14 @@ function PomodoroTimer({
 
                 {/* Botão de Abortar Sessão */}
                 {!isProtocolInactive && (
-                    <div className="w-full max-w-xs mt-6 pt-4 border-t border-white/10">
+                    <div className="w-full max-w-xs mt-3 pt-2.5 border-t border-white/10">
                         <button
                             type="button"
                             onClick={() => setShowAbandonConfirm(true)}
-                            className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 rounded-xl transition-all text-xs font-bold text-red-300 group shadow-md"
+                            className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 rounded-xl transition-all text-[11px] font-bold text-red-300 group shadow-md"
                         >
                             <RotateCcw
-                                size={14}
+                                size={13}
                                 className="text-red-400 group-hover:rotate-[-90deg] transition-transform"
                             />
                             ABORTAR SESSÃO

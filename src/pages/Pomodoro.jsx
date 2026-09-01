@@ -621,39 +621,39 @@ function PomodoroSidePanel({
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.01, zIndex: 100 }}
-            className={`flex flex-col w-full relative group p-4 sm:p-6 bg-[#08090f]/75 border border-white/10 rounded-3xl backdrop-blur-xl shadow-2xl ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex flex-col w-full relative group p-4 sm:p-5 bg-[#08090f]/75 border border-white/10 rounded-3xl backdrop-blur-xl shadow-2xl ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             {/* Controles de Arrasto e Bloqueio (no Hover superior) */}
-            <div className="absolute -top-12 left-0 right-0 flex items-center justify-end gap-2.5 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-1 group-hover:-translate-y-0 z-30">
+            <div className="absolute -top-11 left-0 right-0 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-1 group-hover:-translate-y-0 z-30">
                 {!isLayoutLocked && (
                     <button
                         type="button"
                         onClick={resetPosition}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900/80 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-800 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-lg backdrop-blur-md"
+                        className="px-2.5 py-1 rounded-xl bg-slate-900/80 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-800 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-lg backdrop-blur-md"
                     >
-                        <RotateCcw size={12} />
+                        <RotateCcw size={11} />
                         <span>Restaurar Posição</span>
                     </button>
                 )}
                 <button
                     type="button"
                     onClick={onToggleLock}
-                    className={`p-2 rounded-xl transition-all border flex items-center justify-center shadow-lg backdrop-blur-md ${isLayoutLocked
+                    className={`p-1.5 rounded-xl transition-all border flex items-center justify-center shadow-lg backdrop-blur-md ${isLayoutLocked
                         ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
                         : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
                         }`}
                     title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel"}
                 >
-                    {isLayoutLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                    {isLayoutLocked ? <Lock size={13} /> : <Unlock size={13} />}
                 </button>
             </div>
 
             {/* TAB SELECTOR: DUAS OPÇÕES DE VISUALIZAÇÃO */}
-            <div className="flex items-center gap-1.5 p-1.5 bg-slate-950/80 border border-white/10 rounded-2xl mb-5 shadow-inner">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 border border-white/10 rounded-2xl mb-3.5 shadow-inner">
                 <button
                     type="button"
                     onClick={() => setActiveTab('actions')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'actions'
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'actions'
                         ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-600/30 border border-indigo-400/30'
                         : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
                         }`}
@@ -661,7 +661,7 @@ function PomodoroSidePanel({
                     <Zap size={14} className={activeTab === 'actions' ? 'text-amber-300' : 'text-indigo-400'} />
                     <span>Missões & Mentor</span>
                     {pendingCount > 0 && (
-                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black ${activeTab === 'actions'
+                        <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-black ${activeTab === 'actions'
                             ? 'bg-white/20 text-white'
                             : 'bg-slate-800 text-slate-400 border border-white/5'
                             }`}>
@@ -673,7 +673,7 @@ function PomodoroSidePanel({
                 <button
                     type="button"
                     onClick={() => setActiveTab('telemetry')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'telemetry'
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === 'telemetry'
                         ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-600/30 border border-cyan-400/30'
                         : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
                         }`}
@@ -691,10 +691,10 @@ function PomodoroSidePanel({
                 {activeTab === 'actions' ? (
                     <Motion.div
                         key="view-actions"
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.2 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.15 }}
                         className="w-full"
                     >
                         <ActionsAndMentorView
@@ -711,10 +711,10 @@ function PomodoroSidePanel({
                 ) : (
                     <Motion.div
                         key="view-telemetry"
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.2 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.15 }}
                         className="w-full"
                     >
                         <SessionFocusPanel
@@ -743,7 +743,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
     const cleanText = (text) => cleanTaskTitle(text, activeSubject?.category);
 
     return (
-        <div className="w-full rounded-2xl sm:rounded-3xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-6 py-4 sm:py-5 shadow-2xl relative overflow-hidden group">
+        <div className="w-full rounded-2xl sm:rounded-3xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-5 py-3 sm:py-3.5 shadow-xl relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
             <div className="flex items-center justify-between gap-4 relative z-10">
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
@@ -1148,10 +1148,10 @@ export default function Pomodoro() {
 
     return (
         <PageErrorBoundary pageName="Pomodoro">
-            <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-4 sm:pt-6 lg:pt-8 pb-12 px-3 sm:px-6">
-                <div className="flex flex-col xl:flex-row gap-6 lg:gap-8 xl:gap-10 items-start justify-center w-full max-w-[1240px] xl:max-w-[1380px] 2xl:max-w-[1440px] mx-auto">
+            <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-2 sm:pt-4 pb-8 px-2 sm:px-4">
+                <div className="flex flex-col xl:flex-row gap-4 sm:gap-5 lg:gap-6 items-start justify-center w-full max-w-[1240px] xl:max-w-[1380px] 2xl:max-w-[1440px] mx-auto">
                     {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (TAMANHO ORIGINAL E ENQUADRADO) */}
-                    <div className="w-full xl:w-[500px] 2xl:w-[540px] flex-shrink-0 flex flex-col items-center gap-4 sm:gap-5 min-w-0">
+                    <div className="w-full xl:w-[480px] 2xl:w-[520px] flex-shrink-0 flex flex-col items-center gap-2.5 sm:gap-3 min-w-0">
                         <PomodoroTopBar
                             activeSubject={activeSubject}
                             neuralMode={neuralMode}

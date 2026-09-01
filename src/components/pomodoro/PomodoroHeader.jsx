@@ -3,30 +3,33 @@ import { motion as Motion } from 'framer-motion';
 import { Zap, AlertCircle } from 'lucide-react';
 
 export function PomodoroHeader({ mode, activeSubject }) {
-    return (
-        <div className="flex-1 flex justify-center bg-transparent">
-            {mode === 'break' || mode === 'long_break' ? (
-                <Motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    role="status"
-                    aria-live="polite"
-                    className={`relative flex items-center justify-center gap-4 w-full rounded-2xl py-5 border ${mode === 'long_break' ? 'bg-violet-900/30 border-violet-500/40' : 'bg-emerald-900/30 border-emerald-500/40'}`}
-                >
-                    <Zap size={20} className={`${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'}`} />
-                    <span className={`text-lg font-black ${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'} tracking-widest uppercase`}>
-                        {mode === 'long_break' ? 'Pausa Longa' : 'Recuperação Neural'}
-                    </span>
-                </Motion.div>
-            ) : !activeSubject ? (
-                <div className="w-full bg-red-950/20 border border-dashed border-red-500/30 rounded-2xl py-4 flex items-center justify-center gap-4 transition-all">
-                    <AlertCircle size={20} className="text-red-500" />
-                    <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-red-500/70 uppercase tracking-widest">Protocolo Inativo</span>
-                        <span className="text-xs font-bold text-red-500">Selecione uma missão no painel ao lado</span>
-                    </div>
-                </div>
-            ) : null}
-        </div>
-    );
+    if (mode === 'break' || mode === 'long_break') {
+        return (
+            <Motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                role="status"
+                aria-live="polite"
+                className={`flex items-center justify-center gap-2 w-full rounded-xl py-1.5 px-3 border shadow-sm ${mode === 'long_break' ? 'bg-violet-900/30 border-violet-500/40 text-violet-300' : 'bg-emerald-900/30 border-emerald-500/40 text-emerald-300'}`}
+            >
+                <Zap size={14} className={mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'} />
+                <span className="text-xs font-black tracking-widest uppercase">
+                    {mode === 'long_break' ? 'Pausa Longa Ativa' : 'Recuperação Neural'}
+                </span>
+            </Motion.div>
+        );
+    }
+
+    if (!activeSubject) {
+        return (
+            <div className="w-full bg-red-950/20 border border-dashed border-red-500/30 rounded-xl py-1.5 px-3 flex items-center justify-center gap-2 shadow-sm">
+                <AlertCircle size={14} className="text-red-400 shrink-0" />
+                <span className="text-xs font-bold text-red-400 truncate">Selecione uma missão no painel para focar</span>
+            </div>
+        );
+    }
+
+    return null;
 }
+
+export default PomodoroHeader;
