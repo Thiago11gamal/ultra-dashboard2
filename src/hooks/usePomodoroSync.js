@@ -47,6 +47,12 @@ export function usePomodoroSync({
             const data = event.data;
             // ✅ FIX: Validar estrutura da mensagem antes de processar
             if (!data || typeof data !== 'object' || !data.type) return;
+            const KNOWN_TYPES = [
+                'START_SESSION', 'PAUSE_SESSION', 'TIMER_RESET',
+                'PHASE_SKIP', 'PHASE_COMPLETE', 'PHASE_REWIND',
+                'TARGET_CYCLES_CHANGE', 'SPEED_CHANGE', 'TOGGLE_MUTE'
+            ];
+            if (!KNOWN_TYPES.includes(data.type)) return;
 
             const {
                 type,
@@ -232,8 +238,11 @@ export function usePomodoroSync({
         return () => {
             isMounted = false;
             syncChannel.removeEventListener('message', handleMessage);
-            // O fechamento do canal é responsabilidade do componente que o criou.
-            // Não fechar aqui para evitar double-close em StrictMode.
+            try {
+                syncChannel.close();
+            } catch (err) {
+                console.warn('[PomodoroSync] Falha ao fechar canal:', err);
+            }
         };
     }, [
         syncChannel,

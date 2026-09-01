@@ -44,7 +44,9 @@ const STABLE_TAB_ID = `pt-${Date.now()}-${Math.random().toString(36).slice(2, 8)
 const SPEED_OPTIONS = [1, 10, 100];
 
 const formatTime = (seconds) => {
-    const secsInt = Math.ceil(Math.max(0, seconds));
+    const safe = Number(seconds);
+    if (!Number.isFinite(safe) || safe < 0) return '00:00';
+    const secsInt = Math.ceil(safe);
     const mins = Math.floor(secsInt / 60);
     const secs = secsInt % 60;
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
@@ -118,8 +120,15 @@ function PomodoroTimer({
 
     const mode = useAppStore(state => state.appState?.pomodoro?.mode || 'work');
     const sessions = useAppStore(state => state.appState?.pomodoro?.sessions || 1);
-    const targetCycles = useAppStore(state => state.appState?.pomodoro?.targetCycles || 1);
-    const completedCycles = useAppStore(state => state.appState?.pomodoro?.completedCycles || 0);
+    const targetCycles = useAppStore(state => {
+        const raw = state.appState?.pomodoro?.targetCycles;
+        return Number.isFinite(raw) && raw > 0 ? raw : 1;
+    });
+    const completedCycles = useAppStore(state => {
+        const raw = state.appState?.pomodoro?.completedCycles;
+        const target = state.appState?.pomodoro?.targetCycles || 1;
+        return Number.isFinite(raw) ? Math.min(Math.max(0, raw), target) : 0;
+    });
     const accumulatedMinutes = useAppStore(state => state.appState?.pomodoro?.accumulatedMinutes || 0);
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
     const completePomodoroPhase = useAppStore(state => state.completePomodoroPhase);
@@ -302,6 +311,8 @@ function PomodoroTimer({
                 clearTimeout(completionTimeoutRef.current);
                 completionTimeoutRef.current = null;
             }
+            setIsTransitioning(false);
+            isTransitioningRef.current = false;
         };
     }, []);
 

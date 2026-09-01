@@ -567,6 +567,12 @@ function PomodoroSidePanel({
     });
     const uiPosRef = useRef(uiPosition);
     useEffect(() => { uiPosRef.current = uiPosition; }, [uiPosition]);
+    useEffect(() => {
+        return () => {
+            // Cleanup: garantir que o ref não aponta para um valor stale
+            uiPosRef.current = { x: 0, y: 0 };
+        };
+    }, []);
 
     useEffect(() => {
         const checkPos = () => {

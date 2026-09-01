@@ -24,7 +24,7 @@ export function toPositiveMinutes(value, fallback) {
 export function formatTime(seconds) {
   const safe = Number(seconds);
   if (!Number.isFinite(safe) || safe < 0) return '00:00';
-  const secsInt = Math.ceil(safe);
+  const secsInt = Math.floor(safe);
   const mins = Math.floor(secsInt / 60);
   const secs = secsInt % 60;
   return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;

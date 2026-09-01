@@ -29,6 +29,16 @@ export function PomodoroHeader({ mode, activeSubject }) {
         );
     }
 
+    // Garante que activeSubject é um objeto válido antes de prosseguir
+    if (typeof activeSubject !== 'object') {
+        return (
+            <div className="w-full bg-red-950/30 border border-dashed border-red-500/40 rounded-2xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
+                <AlertCircle size={16} className="text-red-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-bold text-red-300 truncate">Erro ao carregar missão. Selecione novamente.</span>
+            </div>
+        );
+    }
+
     return null;
 }
 
