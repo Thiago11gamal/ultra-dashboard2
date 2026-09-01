@@ -87,6 +87,8 @@
     "@firebase/util": true,
     "core-js": true,
     "esbuild": true,
-    "@playwright/test": true
+    "@playwright/test": true,
+    "protobufjs": true,
+    "fsevents": true
   }
 }
