@@ -1094,7 +1094,7 @@ function PomodoroTimer({
                 </div>
             )}
 
-            {/* Container Principal do Relógio de Madeira */}
+            {/* Container Principal do Relógio de Madeira (Maior e com mais presença) */}
             <div
                 style={{
                     backgroundImage: 'url(/wood-texture.png)',
@@ -1102,7 +1102,7 @@ function PomodoroTimer({
                     backgroundPosition: 'center',
                     boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
                 }}
-                className="w-full border-4 sm:border-[5px] border-[#3f2e26] p-4 sm:p-5 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
+                className="w-full border-4 sm:border-[6px] border-[#3f2e26] p-5 sm:p-7 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
                 {/* Mostrador SVG, Toolbar e Indicadores */}
                 <PomodoroClock

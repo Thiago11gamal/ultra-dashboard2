@@ -1149,9 +1149,9 @@ export default function Pomodoro() {
     return (
         <PageErrorBoundary pageName="Pomodoro">
             <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-2 sm:pt-4 pb-8 px-2 sm:px-4">
-                <div className="flex flex-col xl:flex-row gap-4 sm:gap-5 lg:gap-6 items-start justify-center w-full max-w-[1240px] xl:max-w-[1380px] 2xl:max-w-[1440px] mx-auto">
-                    {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (TAMANHO ORIGINAL E ENQUADRADO) */}
-                    <div className="w-full xl:w-[480px] 2xl:w-[520px] flex-shrink-0 flex flex-col items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="flex flex-col xl:flex-row gap-5 lg:gap-7 xl:gap-8 items-start justify-center w-full max-w-[1260px] xl:max-w-[1380px] 2xl:max-w-[1440px] mx-auto">
+                    {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (MAIOR E COM PRESENÇA DESTACADA) */}
+                    <div className="w-full xl:w-[600px] 2xl:w-[660px] flex-shrink-0 flex flex-col items-center gap-2.5 sm:gap-3 min-w-0">
                         <PomodoroTopBar
                             activeSubject={activeSubject}
                             neuralMode={neuralMode}
@@ -1173,8 +1173,8 @@ export default function Pomodoro() {
                         />
                     </div>
 
-                    {/* COLUNA 2: PAINEL LATERAL COM AS DUAS OPÇÕES DE VISUALIZAÇÃO */}
-                    <div className="flex-1 w-full min-w-0 max-w-full xl:max-w-[700px] 2xl:max-w-[760px]">
+                    {/* COLUNA 2: PAINEL LATERAL (LIGEIRAMENTE MENOR E COMPACTO) */}
+                    <div className="w-full xl:w-[440px] 2xl:w-[480px] flex-shrink-0 min-w-0">
                         <PomodoroSidePanel
                             activeTab={activeSideTab}
                             setActiveTab={handleTabChange}
