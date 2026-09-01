@@ -33,27 +33,33 @@ export default function PriorityProgress({ categories = [] }) {
             medium: { total: 0, completed: 0 },
             low: { total: 0, completed: 0 }
         };
+        let totalWeightedTasks = 0;
+        let totalWeightedCompleted = 0;
 
         toArray(categories).forEach(cat => {
+            const weight = Number(cat?.weight) || 5; // padrão 5 se ausente
             toArray(cat?.tasks).forEach(task => {
                 const rawPriority = String(task?.priority || 'medium').toLowerCase();
                 const priorityKey = counts[rawPriority] ? rawPriority : 'medium';
 
-                counts[priorityKey].total += 1;
+                counts[priorityKey].total += weight;
+                totalWeightedTasks += weight;
 
                 if (task?.completed) {
-                    counts[priorityKey].completed += 1;
+                    counts[priorityKey].completed += weight;
+                    totalWeightedCompleted += weight;
                 }
             });
         });
 
-        return counts;
+        return { counts, totalWeightedTasks, totalWeightedCompleted };
     }, [categories]);
 
+    const { counts, totalWeightedTasks, totalWeightedCompleted } = stats;
     const priorities = ['high', 'medium', 'low'];
 
-    const totalTasksGlobally = priorities.reduce((acc, p) => acc + stats[p].total, 0);
-    const totalCompletedGlobally = priorities.reduce((acc, p) => acc + stats[p].completed, 0);
+    const totalTasksGlobally = totalWeightedTasks;
+    const totalCompletedGlobally = totalWeightedCompleted;
 
     if (totalTasksGlobally === 0) return null;
 
@@ -131,7 +137,7 @@ export default function PriorityProgress({ categories = [] }) {
             {/* Cards por prioridade */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {priorities.map(p => {
-                    const { total, completed } = stats[p];
+                    const { total, completed } = counts[p];
                     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                     const conf = priorityColors[p];
 
@@ -166,10 +172,10 @@ export default function PriorityProgress({ categories = [] }) {
                                             <span className="absolute top-full left-0 mt-2 w-48 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
                                                 <strong>{conf.label}:</strong>{' '}
                                                 {p === 'high'
-                                                    ? 'Tarefas mais urgentes e importantes.'
+                                                    ? 'Tarefas mais urgentes e importantes. Priorize-as primeiro.'
                                                     : p === 'medium'
-                                                        ? 'Tarefas de importância moderada.'
-                                                        : 'Tarefas de menor impacto ou flexíveis.'}
+                                                        ? 'Tarefas de importância moderada. Faça-as após as de alta prioridade.'
+                                                        : 'Tarefas de menor impacto ou flexíveis. Faça-as quando tiver tempo disponível.'}
                                             </span>
                                         </span>
                                     </span>

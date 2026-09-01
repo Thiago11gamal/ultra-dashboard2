@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Target, Play, Clock, Info } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 import { toArray } from '../utils/normalize';
@@ -9,76 +9,96 @@ function NextGoalCard({
     studyLogs = [],
     onStartStudying
 }) {
-    const suggestion = useMemo(() => {
-        const normalizedCategories = toArray(categories).map(category => ({
-            ...category,
-            tasks: toArray(category?.tasks)
-        }));
+    const [isLoading, setIsLoading] = useState(true);
+    const [suggestion, setSuggestion] = useState(null);
 
-        const categoriesWithPending = normalizedCategories.filter(category =>
-            toArray(category?.tasks).some(t => t && !t.completed)
-        );
-
-        if (categoriesWithPending.length === 0) return null;
-
-        const suggestedCategory = getSuggestedFocus(
-            categoriesWithPending,
-            toArray(simulados),
-            toArray(studyLogs)
-        );
-
-        if (!suggestedCategory) return null;
-
-        const priorityOrder = {
-            high: 0,
-            medium: 1,
-            low: 2
-        };
-
-        const sortedTasks = toArray(suggestedCategory.tasks)
-            .filter(t => t && !t.completed)
-            .slice()
-            .sort((a, b) => {
-                const pA = String(a?.priority || 'medium').toLowerCase();
-                const pB = String(b?.priority || 'medium').toLowerCase();
-
-                return (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
-            });
-
-        const nextTask = sortedTasks[0];
-
-        if (!nextTask) return null;
-
-        const fullText = nextTask.title || nextTask.text || 'Estudo';
-        const parts = fullText.split(':');
-        const hasDetails = parts.length > 1;
-
-        let actionPart = hasDetails
-            ? parts.slice(1).join(':').trim()
-            : fullText.trim();
-
-        actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
-
-        if (!actionPart) {
-            actionPart = fullText.replace(/^\[(.*?)\]\s*/i, '').trim() || 'Estudo';
-        }
-
-        const meta = hasDetails
-            ? (parts[0]?.trim() || 'Revisão e exercícios')
-            : 'Revisão e exercícios';
-
-        return {
-            category: suggestedCategory,
-            task: nextTask,
-            urgency: suggestedCategory.urgency,
-            display: {
-                assunto: actionPart.length > 80
-                    ? `${actionPart.substring(0, 77)}...`
-                    : actionPart,
-                meta
+    useEffect(() => {
+        setIsLoading(true);
+        // Usa setTimeout para não bloquear o render inicial
+        const timer = setTimeout(() => {
+            try {
+                const normalizedCategories = toArray(categories).map(category => ({
+                    ...category,
+                    tasks: toArray(category?.tasks)
+                }));
+                const categoriesWithPending = normalizedCategories.filter(category =>
+                    toArray(category?.tasks).some(t => t && !t.completed)
+                );
+                if (categoriesWithPending.length === 0) {
+                    setSuggestion(null);
+                    return;
+                }
+                const suggestedCategory = getSuggestedFocus(
+                    categoriesWithPending,
+                    toArray(simulados),
+                    toArray(studyLogs)
+                );
+                if (!suggestedCategory) {
+                    setSuggestion(null);
+                    return;
+                }
+                const priorityOrder = { high: 0, medium: 1, low: 2 };
+                const sortedTasks = toArray(suggestedCategory.tasks)
+                    .filter(t => t && !t.completed)
+                    .slice()
+                    .sort((a, b) => {
+                        const pA = String(a?.priority || 'medium').toLowerCase();
+                        const pB = String(b?.priority || 'medium').toLowerCase();
+                        return (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
+                    });
+                const nextTask = sortedTasks[0];
+                if (!nextTask) {
+                    setSuggestion(null);
+                    return;
+                }
+                const fullText = nextTask.title || nextTask.text || 'Estudo';
+                const parts = fullText.split(':');
+                const hasDetails = parts.length > 1;
+                let actionPart = hasDetails
+                    ? parts.slice(1).join(':').trim()
+                    : fullText.trim();
+                actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
+                if (!actionPart) {
+                    actionPart = fullText.replace(/^\[(.*?)\]\s*/i, '').trim() || 'Estudo';
+                }
+                const meta = hasDetails
+                    ? (parts[0]?.trim() || 'Revisão e exercícios')
+                    : 'Revisão e exercícios';
+                setSuggestion({
+                    category: suggestedCategory,
+                    task: nextTask,
+                    urgency: suggestedCategory.urgency,
+                    display: {
+                        assunto: actionPart.length > 80
+                            ? `${actionPart.substring(0, 77)}...`
+                            : actionPart,
+                        meta
+                    }
+                });
+            } catch (err) {
+                console.error('[NextGoalCard] Erro ao calcular sugestão:', err);
+                setSuggestion(null);
+            } finally {
+                setIsLoading(false);
             }
-        };
+        }, 50);
+        return () => clearTimeout(timer);
     }, [categories, simulados, studyLogs]);
+
+    if (isLoading) {
+        return (
+            <div
+                role="status"
+                className="rounded-xl p-4 border border-white/10 bg-slate-900/50 backdrop-blur-sm flex items-center gap-4 animate-pulse"
+            >
+                <div className="w-12 h-12 bg-white/5 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-white/5 rounded w-1/3" />
+                    <div className="h-2 bg-white/5 rounded w-2/3" />
+                </div>
+            </div>
+        );
+    }
 
     if (!suggestion) {
         return (

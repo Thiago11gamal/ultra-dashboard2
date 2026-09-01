@@ -88,7 +88,7 @@ export default function Dashboard() {
         categories: safeCategories,
         simulados: safeSimulados,
         simuladoRows: safeSimuladoRows,
-        studyLogs,
+        studyLogs: Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}),
         user,
         pomodorosCompleted,
         flashcardDecks: safeFlashcardDecks,
@@ -119,30 +119,27 @@ export default function Dashboard() {
     }), [setData]);
 
     const handleStartStudying = React.useCallback((categoryId, taskId) => {
-        const cat = data.categories?.find(c => c.id === categoryId);
+        const currentCategories = useAppStore.getState().appState?.contests?.[
+            useAppStore.getState().appState?.activeId
+        ]?.categories || [];
+        const safeCategoriesList = Array.isArray(currentCategories)
+            ? currentCategories
+            : Object.values(currentCategories || {});
+        const cat = safeCategoriesList.find(c => c.id === categoryId);
         const tsk = cat?.tasks?.find(t => t.id === taskId || t.text === taskId);
 
         if (!cat || !tsk) return;
 
-        const currentActiveSubject = useAppStore.getState().appState.pomodoro?.activeSubject;
+        const currentActiveSubject = useAppStore.getState().appState?.pomodoro?.activeSubject;
         const isAlreadyActive = currentActiveSubject &&
             (currentActiveSubject.taskId === tsk.id || currentActiveSubject.taskId === taskId) &&
             tsk.status === 'studying';
-
         if (isAlreadyActive) {
             navigate('/pomodoro');
             return;
         }
 
-        startPomodoroSession({
-            categoryId: cat.id,
-            taskId: tsk.id,
-            category: cat.name,
-            task: tsk.title || tsk.text || 'Estudo',
-            priority: tsk.priority,
-            source: 'dashboard'
-        });
-
+        // BUG-FIX: setData ANTES de startPomodoroSession (ordem correta)
         setData(activeContest => {
             if (!activeContest || activeContest.categories == null) {
                 return activeContest;
@@ -167,6 +164,15 @@ export default function Dashboard() {
                     };
                 })
             };
+        });
+
+        startPomodoroSession({
+            categoryId: cat.id,
+            taskId: tsk.id,
+            category: cat.name,
+            task: tsk.title || tsk.text || 'Estudo',
+            priority: tsk.priority,
+            source: 'dashboard'
         });
 
         const taskLabel = tsk.title || tsk.text || 'Estudo';

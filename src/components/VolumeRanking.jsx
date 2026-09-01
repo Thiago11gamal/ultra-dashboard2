@@ -4,10 +4,13 @@ import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertC
 import { formatValue } from '../utils/scoreHelper';
 
 const VolumeRanking = ({ categories = [] }) => {
+    const safeCategories = useMemo(() => {
+        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+    }, [categories]);
+
     // BUG-T12 FIX: Estabilização de referências por fingerprint.
     const categoriesFingerprint = useMemo(() => {
-        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        return safeCats.map(c => {
+        return safeCategories.map(c => {
             const h = c.simuladoStats?.history;
             const histLen = Array.isArray(h) ? h.length : Object.keys(h || {}).length;
             return `${c.id}:${histLen}`;
@@ -15,7 +18,6 @@ const VolumeRanking = ({ categories = [] }) => {
     }, [categories]);
 
     const sorted = useMemo(() => {
-        const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
         const stats = safeCategories.map(cat => {
             const simStats = cat.simuladoStats || { history: [] };
             const historyRaw = simStats.history || [];
@@ -58,6 +60,14 @@ const VolumeRanking = ({ categories = [] }) => {
         hidden: { opacity: 0, x: 20 },
         show: { opacity: 1, x: 0 }
     };
+
+    if (safeCategories.length === 0) {
+        return (
+            <div className="flex items-center justify-center p-12 text-slate-500 h-full border border-white/5 rounded-2xl bg-slate-900/40">
+                Nenhuma disciplina cadastrada ainda.
+            </div>
+        );
+    }
 
     return (
         <div className="bg-slate-900/40 backdrop-blur-xl border border-white/5 rounded-2xl h-full flex flex-col overflow-hidden shadow-2xl">

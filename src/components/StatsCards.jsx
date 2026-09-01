@@ -90,19 +90,28 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     );
 
     const efficiency = useMemo(
-        () => analyzeEfficiency(data.categories || [], normalizedStudyLogs),
-        [data.categories, normalizedStudyLogs]
+        () => analyzeEfficiency(data.categories || [], normalizedStudyLogs, data.user),
+        [data.categories, normalizedStudyLogs, data.user]
     );
 
     const fcStats = useMemo(
-        () => buildAchievementStats(data) || {},
+        () => {
+            // BUG-FIX: garantir que studyLogs é array antes de passar
+            const safeData = {
+                ...data,
+                studyLogs: Array.isArray(data.studyLogs)
+                    ? data.studyLogs
+                    : Object.values(data.studyLogs || {})
+            };
+            return buildAchievementStats(safeData) || {};
+        },
         [data]
     );
 
     const user = data.user || { xp: 0, level: 1 };
 
     const progress = useMemo(
-        () => getXPProgress(user.xp),
+        () => getXPProgress(Number(user.xp) || 0),
         [user.xp]
     );
 
@@ -164,7 +173,19 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 el.click();
             }
         } catch (err) {
-            console.error('Picker falhou', err);
+            // BUG-FIX: Fallback para input nativo se showPicker falhar
+            console.warn('Picker nativo falhou, usando fallback:', err);
+            try {
+                const el = dateInputRef.current;
+                if (el) {
+                    el.focus();
+                    // Força o clique programático como último recurso
+                    const clickEvent = new MouseEvent('click', { bubbles: true });
+                    el.dispatchEvent(clickEvent);
+                }
+            } catch (fallbackErr) {
+                console.error('Fallback do picker também falhou:', fallbackErr);
+            }
         }
     }, []);
 
@@ -388,6 +409,21 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 Pendentes:{' '}
                                 <span className="font-bold text-amber-300">
                                     {fcStats.flashcardDueToday || 0}
+                                </span>
+                            </span>
+                        </div>
+                        {/* BUG-FIX: Exibir total de cartões e domínio que eram calculados mas não exibidos */}
+                        <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs text-slate-400 font-medium">
+                            <span>
+                                Cartões:{' '}
+                                <span className="font-bold text-white">
+                                    {fcStats.flashcardTotalCards || 0}
+                                </span>
+                            </span>
+                            <span>
+                                Domínio:{' '}
+                                <span className="font-bold text-amber-300">
+                                    {fcStats.flashcardMastery || 0}%
                                 </span>
                             </span>
                         </div>

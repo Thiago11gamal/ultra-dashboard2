@@ -5,14 +5,17 @@ import { calculateSlope, getSortedHistory } from '../engine';
 
 const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
 
+    const safeCategories = useMemo(() => {
+        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+    }, [categories]);
+
     // 1. Normalizar e estabilizar categories
     const stableCategories = useMemo(() => {
-        const raw = Array.isArray(categories) ? categories : Object.values(categories || {});
-        return raw.map(cat => ({
+        return safeCategories.map(cat => ({
             ...cat,
             tasks: Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {}),
         }));
-    }, [categories]);
+    }, [safeCategories]);
 
     // 2. Criar fingerprint estável para evitar re-execução por referência
     const categoriesFingerprint = useMemo(() => {
@@ -103,6 +106,14 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
             .sort((a, b) => b.balance - a.balance);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categoriesFingerprint, maxScore]);
+
+    if (safeCategories.length === 0) {
+        return (
+            <div className="flex items-center justify-center p-12 text-slate-500 w-full rounded-2xl border border-white/5 bg-slate-950/40">
+                Nenhuma disciplina cadastrada ainda.
+            </div>
+        );
+    }
 
     return (
         <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8">

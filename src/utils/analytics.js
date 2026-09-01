@@ -80,7 +80,8 @@ export const calculateStudyStreak = (studyLogs) => {
   }
   const daySet = new Set(
     logsArray
-      .filter(log => log && log.date && getStudyMinutes(log) > 0)
+      // BUG-FIX: contar flashcards como atividade (getStudyMinutes retorna 0 para flashcards)
+      .filter(log => log && log.date && (getStudyMinutes(log) > 0 || log.type === 'flashcard'))
       .map(log => getDateKey(log.date))
       .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
   );
@@ -94,6 +95,10 @@ export const calculateStudyStreak = (studyLogs) => {
   const lastDayStr = sortedDays[0];
   const t = parseNoonLocal(todayStr);
   const l = parseNoonLocal(lastDayStr);
+  // BUG-FIX: validar datas antes de calcular diff
+  if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
   const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
   if (diffDays >= 2) {
     const longest = calculateLongest(sortedDays);
@@ -101,20 +106,20 @@ export const calculateStudyStreak = (studyLogs) => {
   }
   let streak = 0;
   let cursorKey = lastDayStr;
-  // FIX CORRIGIDO: Proteção contra loop quase-infinito quando getDateKey
-  // retorna a mesma chave para dias diferentes (bug de timezone).
-  // Antes, o guard `nextKey === cursorKey` só quebrava DEPOIS de já ter
-  // feito uma iteração extra. Agora verificamos ANTES de avançar.
+  // BUG-FIX: proteger contra loop quase-infinito com datas inválidas
   const maxIterations = Math.min(sortedDays.length + 2, 3660);
+  let prevCursorKey = null;
   for (let i = 0; i < maxIterations; i++) {
     if (!cursorKey || !daySet.has(cursorKey)) break;
+    // BUG-FIX: detectar cursor travado (mesma chave = bug de timezone)
+    if (cursorKey === prevCursorKey) break;
+    prevCursorKey = cursorKey;
     streak++;
     const anchoredIso = `${cursorKey}T12:00:00-04:00`;
     const anchored = new Date(anchoredIso);
     anchored.setDate(anchored.getDate() - 1);
     const nextKey = getDateKey(anchored);
-    // FIX: Verificar ANTES de avançar, não depois
-    if (!nextKey || nextKey === cursorKey) break;
+    if (!nextKey) break;
     cursorKey = nextKey;
   }
   const longest = calculateLongest(sortedDays);

@@ -24,7 +24,9 @@ const PerformanceTable = ({ categories = [] }) => {
             for (let i = 0; i < history.length; i++) {
                 const h = history[i];
                 const t = parseInt(h.total, 10) || 0;
-                const c = (getSafeScore(h, ms) / ms * t);
+                // BUG-FIX: proteger contra NaN de getSafeScore
+                const score = getSafeScore(h, ms);
+                const c = Number.isFinite(score) ? (score / ms * t) : 0;
                 correct += c;
                 wrong += (t - c);
                 
@@ -36,7 +38,9 @@ const PerformanceTable = ({ categories = [] }) => {
                 }
             }
             
-            const balance = Math.max(0, Math.round(correct)) - Math.max(0, totalQuestions - Math.max(0, Math.round(correct)));
+            // BUG-FIX: proteger contra balance negativo
+            const safeCorrect = Math.max(0, Math.min(totalQuestions, Math.round(correct)));
+            const balance = safeCorrect - Math.max(0, totalQuestions - safeCorrect);
 
             return { ...cat, totalVolume: totalQuestions, balance, correct, wrong };
         });

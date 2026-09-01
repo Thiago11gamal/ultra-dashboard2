@@ -619,13 +619,13 @@ function Checklist({
         }));
     }, [categories]);
 
-    // BUG-T08 FIX: Criar um fingerprint estável das categorias para evitar
-    // re-renderizações desnecessárias quando a referência muda mas o conteúdo não.
+    // BUG-FIX: usar categories (prop original) em vez de safeCategories
+    // safeCategories é recriado a cada render → fingerprint muda a cada render
     const categoriesFingerprint = useMemo(() => {
-        return safeCategories.map(c =>
-            `${c.id}:${(c.tasks || []).length}:${(c.tasks || []).filter(t => t.completed).length}`
+        return toArray(categories).map(c =>
+            `${c.id}:${(c.tasks || []).length}:${(c.tasks || []).filter(t => t?.completed).length}`
         ).join('|');
-    }, [safeCategories]);
+    }, [categories]);
 
     const filteredCategories = useMemo(() => {
         return safeCategories.map(cat => ({
@@ -644,7 +644,17 @@ function Checklist({
     const handleAddTask = useCallback((catId, title) => {
         if (!onAddTask) return;
 
-        onAddTask(catId, title);
+        const trimmedTitle = typeof title === 'string' ? title.trim() : '';
+        if (!trimmedTitle) {
+            showToast('O título da tarefa não pode ser vazio.', 'error');
+            return;
+        }
+        if (trimmedTitle.length > 200) {
+            showToast('O título da tarefa é muito longo (máx. 200 caracteres).', 'error');
+            return;
+        }
+
+        onAddTask(catId, trimmedTitle);
 
         if (filter === 'completed') {
             setFilter?.('all');
@@ -699,6 +709,14 @@ function Checklist({
                                 desbloquear o dashboard
                             </span>.
                         </p>
+                        {/* BUG-FIX: CTA para criar primeira disciplina */}
+                        <button
+                            type="button"
+                            onClick={() => setIsCatModalOpen(true)}
+                            className="mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
+                        >
+                            + Criar Primeira Disciplina
+                        </button>
                     </div>
                 </div>
             )}
