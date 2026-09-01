@@ -939,7 +939,9 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
                 store.toggleNeuralTask(currentSubject.taskId);
                 showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
             } else {
-                const cat = (activeData?.categories || []).find(c => c && c.id === currentSubject.categoryId);
+                const rawCats = activeData?.categories || [];
+                const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
+                const cat = safeCats.find(c => c && c.id === currentSubject.categoryId);
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
                 const task = catTasks.find(t => t && (t.id || t.text) === currentSubject.taskId);
                 if (task && !task.completed) {

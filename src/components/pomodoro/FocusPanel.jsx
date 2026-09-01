@@ -414,7 +414,8 @@ export function FocusPanel({
         );
     }
 
-    const currentCategory = categories?.find(c => c.id === activeSubject.categoryId);
+    const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+    const currentCategory = safeCats.find(c => c && c.id === activeSubject.categoryId);
 
     return (
         <Motion.div
